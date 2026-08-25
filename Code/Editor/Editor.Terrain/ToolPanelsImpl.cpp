@@ -106,7 +106,9 @@ namespace editor
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.splat"; }
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                return ToolPanelPlacement::ViewportOverlay; // same HUD experiment as sculpt
+                // Deliberately DIFFERENT from sculpt so both presentations are live to compare:
+                // Sculpt = ViewportOverlay (corner HUD), Paint Splat = Float (draggable panel).
+                return ToolPanelPlacement::Float;
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,

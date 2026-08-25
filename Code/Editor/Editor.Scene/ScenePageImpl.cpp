@@ -61,6 +61,63 @@ namespace vg = foundation::vg;
 
 namespace editor
 {
+    namespace
+    {
+        // A draggable title strip for the Float tool-panel: moves its target view by adjusting the
+        // target's Transform.Translation (mouse coords are UI-logical/window, so deltas are clean and
+        // no relayout is needed - hit-testing follows the translation). Mirrors the Slider capture
+        // pattern. Editor font is Latin-1 only, so the label stays ASCII.
+        class DragStrip final : public ui::Label
+        {
+        public:
+            using ui::Label::Label;
+            ui::View* moveTarget = nullptr;
+
+            void OnMouseDown(ui::MouseEventArgs& e) override
+            {
+                if (e.Button == ui::MouseButton::Left && moveTarget != nullptr)
+                {
+                    m_dragging = true;
+                    m_lastX = e.X;
+                    m_lastY = e.Y;
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->SetCapture(this);
+                    }
+                    e.Handled = true;
+                }
+            }
+            void OnMouseMove(ui::MouseEventArgs& e) override
+            {
+                if (m_dragging && moveTarget != nullptr)
+                {
+                    moveTarget->Transform.Translation.x += (e.X - m_lastX);
+                    moveTarget->Transform.Translation.y += (e.Y - m_lastY);
+                    m_lastX = e.X;
+                    m_lastY = e.Y;
+                    e.Handled = true;
+                }
+            }
+            void OnMouseUp(ui::MouseEventArgs& e) override
+            {
+                if (e.Button == ui::MouseButton::Left && m_dragging)
+                {
+                    m_dragging = false;
+                    if (Context != nullptr)
+                    {
+                        Context->GetFocusManager()->ReleaseCapture();
+                    }
+                    e.Handled = true;
+                }
+            }
+
+        private:
+            bool m_dragging = false;
+            f32 m_lastX = 0.0f;
+            f32 m_lastY = 0.0f;
+        };
+    }
+
     const TypeInfo* PrefabEditorPageFactory::PrimaryType() const
     {
         return &scene::PrefabDocument::StaticType();
@@ -722,6 +779,27 @@ namespace editor
         return true;
     }
 
+    void SceneEditorPage::BuildToolFloat()
+    {
+        // A themed panel with a draggable header + a content slot; the header moves the whole panel.
+        m_toolFloat = MakeRef<ui::Panel>(DefaultAllocator());
+        m_toolFloat->Visibility = ui::Visibility::Gone;
+        m_toolFloat->Padding = ui::Thickness{6.0f, 6.0f, 6.0f, 6.0f};
+
+        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        column->Direction = ui::Orientation::Vertical;
+        {
+            auto header = MakeRef<DragStrip>(DefaultAllocator(), StringView(u8"Brush Tools  (drag)"));
+            header->moveTarget = m_toolFloat.Get();
+            header->FontSize.SetValue(Optional<f32>{11.0f});
+            column->AddView(header.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+        }
+        m_toolFloatSlot = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_toolFloatSlot->Direction = ui::Orientation::Vertical;
+        column->AddView(m_toolFloatSlot.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+        m_toolFloat->AddView(column.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+    }
+
     void SceneEditorPage::MountToolPanel(foundation::ui::View* view, ToolPanelPlacement placement)
     {
         // Route by the provider's placement hint. Dock is implemented (the "Brush" bottom-dock tab);
@@ -752,8 +830,30 @@ namespace editor
             }
             break;
         }
+        case ToolPanelPlacement::Float:
+        {
+            // A draggable panel floating over the viewport (moved by its header).
+            foundation::ui::FlexLayout* slot = m_toolFloatSlot.Get();
+            if (slot == nullptr || m_toolFloat.Get() == nullptr)
+            {
+                return;
+            }
+            while (slot->ChildCount() > 0)
+            {
+                slot->RemoveView(slot->GetChildAt(0), true);
+            }
+            if (view != nullptr)
+            {
+                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
+                m_toolFloat->Visibility = foundation::ui::Visibility::Visible;
+            }
+            else
+            {
+                m_toolFloat->Visibility = foundation::ui::Visibility::Gone;
+            }
+            break;
+        }
         case ToolPanelPlacement::Dock:
-        case ToolPanelPlacement::Float: // TODO(terrain-ux): floating-palette presentation; docks for now
         default:
         {
             foundation::ui::FlexLayout* slot = m_toolPanelSlot.Get();
