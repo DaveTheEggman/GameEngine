@@ -68,11 +68,11 @@ namespace editor
         {
         public:
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.sculpt"; }
-            // Experiment: present the brush settings as a viewport HUD (eyes stay on the terrain),
-            // not the bottom dock. Flip back to Dock (the default) to compare.
+            // Experiment: try the Float (draggable panel) presentation on the sculpt tool too.
+            // Flip to ViewportOverlay (corner HUD) or Dock (bottom tab) to compare.
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                return ToolPanelPlacement::ViewportOverlay;
+                return ToolPanelPlacement::Float;
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
