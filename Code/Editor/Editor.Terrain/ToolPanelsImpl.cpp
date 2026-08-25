@@ -68,11 +68,10 @@ namespace editor
         {
         public:
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.sculpt"; }
-            // Experiment: try the Float (draggable panel) presentation on the sculpt tool too.
-            // Flip to ViewportOverlay (corner HUD) or Dock (bottom tab) to compare.
+            // Experiment: corner HUD over the viewport. Flip to Float / Dock to compare.
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                return ToolPanelPlacement::Float;
+                return ToolPanelPlacement::ViewportOverlay;
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
@@ -112,9 +111,7 @@ namespace editor
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.splat"; }
             [[nodiscard]] ToolPanelPlacement Placement() const override
             {
-                // Deliberately DIFFERENT from sculpt so both presentations are live to compare:
-                // Sculpt = ViewportOverlay (corner HUD), Paint Splat = Float (draggable panel).
-                return ToolPanelPlacement::Float;
+                return ToolPanelPlacement::ViewportOverlay; // corner HUD (flip to Float/Dock to compare)
             }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
