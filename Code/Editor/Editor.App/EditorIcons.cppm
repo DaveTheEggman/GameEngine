@@ -63,6 +63,12 @@ export namespace editor::app
         RefPtr<ui::BakedSVGDrawable> copy;     // duplicate (two documents)
         RefPtr<ui::BakedSVGDrawable> edit;     // pen (open-for-editing affordance)
 
+        // === Terrain brush modes (sculpt tool panel) ===
+        RefPtr<ui::BakedSVGDrawable> brushRaise;   // up arrow off a baseline
+        RefPtr<ui::BakedSVGDrawable> brushLower;   // down arrow toward a baseline
+        RefPtr<ui::BakedSVGDrawable> brushSmooth;  // smooth wave
+        RefPtr<ui::BakedSVGDrawable> brushFlatten; // flat bar, arrows pressing down
+
         void Initialize();
 
         void Shutdown();
@@ -254,6 +260,30 @@ export namespace editor::app
         static constexpr StringView kUnknown = u8R"svg(<svg viewBox="0 0 24 24">
   <path d="M6 3h8l5 5v12a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="#E0E0E0" stroke-width="1.4" stroke-linejoin="round"/>
   <path d="M14 3v5h5" fill="none" stroke="#E0E0E0" stroke-width="1.2"/>
+</svg>)svg";
+
+        // Brush Raise - an up arrow rising off a ground baseline.
+        static constexpr StringView kBrushRaise = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M4 20h16" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M12 16V5M7.5 9.5L12 5l4.5 4.5" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>)svg";
+
+        // Brush Lower - a down arrow pushing toward a ground baseline.
+        static constexpr StringView kBrushLower = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M4 20h16" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M12 4v11M7.5 10.5L12 15l4.5-4.5" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>)svg";
+
+        // Brush Smooth - a smooth wave (neighbourhood averaging).
+        static constexpr StringView kBrushSmooth = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M3 14C6 7 9 7 12 13S18 20 21 13" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round"/>
+</svg>)svg";
+
+        // Brush Flatten - a flat bar with two arrows pressing down onto it.
+        static constexpr StringView kBrushFlatten = u8R"svg(<svg viewBox="0 0 24 24">
+  <path d="M4 17h16" fill="none" stroke="#E0E0E0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M8 5v6M5.8 8.2L8 11l2.2-2.8" fill="none" stroke="#E0E0E0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 5v6M13.8 8.2L16 11l2.2-2.8" fill="none" stroke="#E0E0E0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>)svg";
     };
 }

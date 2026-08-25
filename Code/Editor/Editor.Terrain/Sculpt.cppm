@@ -56,13 +56,24 @@ export namespace editor
         void OnDeactivate() override;
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
-        // ---- brush parameters (the future tool panel drives these; hotkeys mirror them) ----
+        // ---- brush parameters (the tool panel drives these; hotkeys + the wheel mirror them) ----
         void SetMode(Mode mode) noexcept { m_mode = mode; }
         [[nodiscard]] Mode GetMode() const noexcept { return m_mode; }
-        void SetRadius(f32 r) noexcept { m_radius = Clamp(r, kMinRadius, kMaxRadius); }
+        void SetRadius(f32 r)
+        {
+            m_radius = Clamp(r, kMinRadius, kMaxRadius);
+            if (OnRadiusChanged)
+            {
+                OnRadiusChanged(m_radius);
+            }
+        }
         [[nodiscard]] f32 Radius() const noexcept { return m_radius; }
         void SetStrength(f32 s) noexcept { m_strength = Clamp(s, 0.0f, kMaxStrength); }
         [[nodiscard]] f32 Strength() const noexcept { return m_strength; }
+
+        // Fired whenever the radius changes (wheel resize / SetRadius), so a bound panel field can
+        // track it live. The FloatEditor's SetValue is edit-guarded, so this won't loop back.
+        Function<void(f32)> OnRadiusChanged;
 
     private:
         static constexpr f32 kMinRadius = 0.5f;

@@ -987,40 +987,6 @@ namespace editor
                 }
             });
 
-        // Viewport tool palette: a toggle per non-default registered tool (index 0 is the default
-        // Select/gizmo tool, driven by the gizmo toggles above). Checking one activates that tool -
-        // which is what docks its panel (Property Animation, future terrain/nav-mesh); unchecking (or
-        // checking another) returns to the default. This is the entry point to the in-scene modes.
-        if (m_viewportTools.Count() > 1)
-        {
-            m_toolbar->AddSeparator();
-            for (usize i = 1; i < m_viewportTools.Count(); ++i)
-            {
-                IViewportTool* tool = m_viewportTools.ToolAt(i);
-                if (tool == nullptr)
-                {
-                    continue;
-                }
-                String id(tool->Id());
-                ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(tool->DisplayName());
-                toggle->OnCheckedChanged.Add(
-                    [this, id](ui::toolkit::ToolbarToggle*, bool value)
-                    {
-                        if (value)
-                        {
-                            m_viewportTools.ActivateById(id.AsView());
-                        }
-                        else if (m_viewportTools.ActiveTool() != nullptr &&
-                                 m_viewportTools.ActiveTool()->Id() == id.AsView())
-                        {
-                            m_viewportTools.ActivateDefault();
-                        }
-                        SyncToolbar();
-                    });
-                m_toolToggles.PushBack(ToolToggle{toggle, Move(id)});
-            }
-        }
-
         m_toolbar->AddSeparator();
 
         // One toggle whose icon + label read the LIVE space (checked = world).
@@ -1054,6 +1020,41 @@ namespace editor
             ui::toolkit::ToolbarButton* postButton = m_toolbar->AddButton(u8"Post");
             postButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
                                     { self->ShowPostFlagsMenu(btn); });
+        }
+
+        // Viewport tool palette (APPENDED after the built-ins so the fixed toolbar shape never
+        // shifts as tool plugins come and go): a toggle per non-default registered tool (index 0 is
+        // the default Select/gizmo tool, driven by the gizmo toggles). Checking one activates that
+        // tool - which docks its panel (terrain brushes, future nav-mesh); unchecking (or checking
+        // another) returns to the default. This is the entry point to the in-scene modes.
+        if (m_viewportTools.Count() > 1)
+        {
+            m_toolbar->AddSeparator();
+            for (usize i = 1; i < m_viewportTools.Count(); ++i)
+            {
+                IViewportTool* tool = m_viewportTools.ToolAt(i);
+                if (tool == nullptr)
+                {
+                    continue;
+                }
+                String id(tool->Id());
+                ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(tool->DisplayName());
+                toggle->OnCheckedChanged.Add(
+                    [this, id](ui::toolkit::ToolbarToggle*, bool value)
+                    {
+                        if (value)
+                        {
+                            m_viewportTools.ActivateById(id.AsView());
+                        }
+                        else if (m_viewportTools.ActiveTool() != nullptr &&
+                                 m_viewportTools.ActiveTool()->Id() == id.AsView())
+                        {
+                            m_viewportTools.ActivateDefault();
+                        }
+                        SyncToolbar();
+                    });
+                m_toolToggles.PushBack(ToolToggle{toggle, Move(id)});
+            }
         }
 
         // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
