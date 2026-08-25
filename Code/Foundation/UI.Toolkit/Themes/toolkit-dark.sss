@@ -91,14 +91,17 @@ SplitView {
     text-dim-color: alpha($text-dim, 0.7);
 }
 
-/* === FloatingPanel === (body fill + code-drawn border/grip; header is a part) */
+/* === FloatingPanel === (colors resolved in code so the panel rounds to the theme CornerRadius) */
 FloatingPanel {
     text-color: $text;
-    background: color($surface);
+    background-color: $surface;
     border-color: $border;
     font-size: 12;
 }
-FloatingPanel::header { background: rounded-rect(darken($surface, 10%), radius=0); }
+FloatingPanel::header { background-color: darken($surface, 10%); }
+FloatingPanel::chevron { text-color: $text-dim; }
+FloatingPanel::close-button { text-color: $text-dim; }
+FloatingPanel::close-button:hover { text-color: $error; }
 
 /* === BreadcrumbBar === (rounded-rect so it can round to the theme CornerRadius) */
 BreadcrumbBar {

@@ -1,12 +1,13 @@
 // UI.Toolkit - :floating_panel partition.
 //
 // A floating panel that hosts arbitrary content OVER another view (NOT an OS window and NOT
-// docking-managed - that is the DockableWindow / IDockableWindowHost world). It is a self-contained
-// tool window: a themed title bar (title + collapse + close icon buttons), a content region, and a
-// bottom-right resize grip. Chrome quality follows DockablePanel; the resize follows SplitView's
-// pattern (an ABSOLUTE pointer->size mapping stored in one authoritative field, never accumulated
-// deltas, so there is no size-fighting/jitter). Content fills the body, so resizing the panel
-// resizes its contents.
+// docking-managed - that is the DockableWindow / IDockableWindowHost world). A self-contained tool
+// window: a themed title bar (an Expander-style collapse chevron + title + a DockablePanel-style
+// close X, all hand-drawn for consistency with those controls - no IconButtons), a content region,
+// and a bottom-right resize grip. Corners follow the theme's CornerRadius (rounded in the editor's
+// rounded theme, square in flat themes). Resize follows SplitView's pattern: the size is one
+// authoritative field mapped ABSOLUTELY from the pointer (no delta accumulation / no measured-size
+// read-back), so there is no jitter. Content fills the body, so resizing resizes the content.
 //
 // Positioning: the panel reports its own size via MeasuredSize and is placed by its parent (a
 // FrameLayout) with a corner gravity; a header drag offsets it via Transform.Translation, clamped so
@@ -31,24 +32,7 @@ export namespace foundation::ui::toolkit
     {
         RTTI_OBJECT(FloatingPanel, ViewGroup)
     public:
-        explicit FloatingPanel(StringView title) : m_title(title)
-        {
-            // Own the icon drawables (live-rendered SVG; IconButton tints per-draw). Kept as members
-            // so the borrowed pointers handed to the buttons outlive them.
-            m_closeIcon = SVGDrawable::FromString(ThemeIcons::Close());
-            m_chevronDown = SVGDrawable::FromString(ThemeIcons::ChevronDown());
-            m_chevronRight = SVGDrawable::FromString(ThemeIcons::ChevronRight());
-
-            m_collapseBtn = MakeRef<IconButton>(DefaultAllocator(), m_chevronDown.Get(), kIconSize);
-            m_collapseBtn->AddClass(u8"floatingpanel-header-button");
-            m_collapseBtn->OnClick.Add([this](ButtonBase*) { SetCollapsed(!m_collapsed); });
-            AddView(m_collapseBtn.Get());
-
-            m_closeBtn = MakeRef<IconButton>(DefaultAllocator(), m_closeIcon.Get(), kIconSize);
-            m_closeBtn->AddClass(u8"floatingpanel-close-button");
-            m_closeBtn->OnClick.Add([this](ButtonBase*) { OnClose.Invoke(); });
-            AddView(m_closeBtn.Get());
-        }
+        explicit FloatingPanel(StringView title) : m_title(title) {}
 
         /// Replace the body content (below the title bar). Null clears it.
         void SetContent(RefPtr<View> content)
@@ -88,7 +72,6 @@ export namespace foundation::ui::toolkit
                 return;
             }
             m_collapsed = collapsed;
-            m_collapseBtn->SetIcon(collapsed ? m_chevronRight.Get() : m_chevronDown.Get());
             if (m_content)
             {
                 m_content->Visibility = collapsed ? Visibility::Gone : Visibility::Visible;
@@ -101,22 +84,18 @@ export namespace foundation::ui::toolkit
         Event<void()> OnClose;
 
     protected:
-        // The panel is authoritatively sized by m_userW/m_userH (clamped to the panel min and the
-        // parent's available room). Content is a consequence of that size, never an input to it - the
-        // one-way flow that keeps resize stable.
+        // Authoritative size = m_userW/m_userH (clamped to the panel min and the parent's available
+        // room). Content is a consequence of that size, never an input to it - the one-way flow that
+        // keeps resize stable.
         void OnMeasure(BoxConstraints constraints) override
         {
             const f32 w = constraints.ConstrainWidth(Max(kMinWidth, m_userW));
             const f32 h = m_collapsed ? constraints.ConstrainHeight(kHeaderHeight)
                                       : constraints.ConstrainHeight(Max(kMinHeight, m_userH));
-            // Measure children against the box they'll occupy (buttons tight; content fills the body).
-            m_collapseBtn->Measure(BoxConstraints::Tight(kIconSize, kIconSize));
-            m_closeBtn->Measure(BoxConstraints::Tight(kIconSize, kIconSize));
             if (m_content && !m_collapsed)
             {
-                const f32 bodyW = Max(0.0f, w - 2.0f * kContentInset);
-                const f32 bodyH = Max(0.0f, h - kHeaderHeight - kContentInset);
-                m_content->Measure(BoxConstraints::Tight(bodyW, bodyH));
+                m_content->Measure(BoxConstraints::Tight(Max(0.0f, w - 2.0f * kContentInset),
+                                                         Max(0.0f, h - kHeaderHeight - kContentInset)));
             }
             MeasuredSize = Float2{w, h};
         }
@@ -125,18 +104,10 @@ export namespace foundation::ui::toolkit
         {
             (void)left;
             (void)top;
-            // Title-bar buttons: close at the right edge, collapse to its left, vertically centred.
-            const f32 btnY = (kHeaderHeight - kIconSize) * 0.5f;
-            const f32 closeX = width - kContentInset - kIconSize;
-            const f32 collapseX = closeX - kIconSize - 2.0f;
-            m_closeBtn->Layout(closeX, btnY, kIconSize, kIconSize);
-            m_collapseBtn->Layout(collapseX, btnY, kIconSize, kIconSize);
-
             if (m_content && !m_collapsed)
             {
-                const f32 bodyW = Max(0.0f, width - 2.0f * kContentInset);
-                const f32 bodyH = Max(0.0f, height - kHeaderHeight - kContentInset);
-                m_content->Layout(kContentInset, kHeaderHeight, bodyW, bodyH);
+                m_content->Layout(kContentInset, kHeaderHeight, Max(0.0f, width - 2.0f * kContentInset),
+                                  Max(0.0f, height - kHeaderHeight - kContentInset));
             }
         }
 
@@ -144,31 +115,28 @@ export namespace foundation::ui::toolkit
         {
             const f32 w = Width();
             const f32 h = Height();
+            const f32 radius = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
 
-            // Panel body background + border.
-            if (Drawable* bg = ResolveStyleDrawable(StyleProperty::Background))
-            {
-                bg->Draw(ctx, Rectangle{0, 0, w, h});
-            }
-            else
-            {
-                ctx.VG().FillRect(Rectangle{0, 0, w, h}, Color{0.149f, 0.157f, 0.196f, 0.961f});
-            }
-            const Color border = ResolveStyleColor(StyleProperty::BorderColor, Color{0.255f, 0.275f, 0.333f, 1.0f});
-            ctx.VG().StrokeRect(Rectangle{0, 0, w, h}, border, 1.0f);
+            // Body: themed rounded fill + border (theme CornerRadius; square in flat themes).
+            const Color fill =
+                ResolveStyleColor(StyleProperty::Background, Color{0.149f, 0.157f, 0.196f, 1.0f});
+            const Color border =
+                ResolveStyleColor(StyleProperty::BorderColor, Color{0.255f, 0.275f, 0.333f, 1.0f});
+            ctx.VG().FillRoundedRect(Rectangle{0, 0, w, h}, radius, fill);
 
-            // Title bar background.
-            if (Drawable* headerBg =
-                    ResolvePartDrawable(u8"header", StyleProperty::Background, ControlState::Normal))
-            {
-                headerBg->Draw(ctx, Rectangle{0, 0, w, kHeaderHeight});
-            }
-            else
-            {
-                ctx.VG().FillRect(Rectangle{0, 0, w, kHeaderHeight}, Color{0.188f, 0.204f, 0.251f, 1.0f});
-            }
+            // Title bar: rounded only at the top so it meets the body's top corners cleanly.
+            const f32 headerH = m_collapsed ? h : kHeaderHeight;
+            const Color headerFill = ResolvePartColor(u8"header", StyleProperty::Background,
+                                                      ControlState::Normal, DarkenedFill(fill));
+            ctx.VG().FillRoundedRect(Rectangle{0, 0, w, headerH},
+                                     vg::CornerRadii(radius, radius, 0.0f, 0.0f), headerFill);
 
-            // Title text (left-aligned, clipped to leave room for the two buttons).
+            // Collapse chevron (Expander idiom: down = expanded, right = collapsed).
+            const Color chevronColor = ResolvePartColor(u8"chevron", StyleProperty::TextColor,
+                                                        ControlState::Normal, border);
+            DrawChevron(ctx, chevronColor);
+
+            // Title text between the chevron and the close box.
             if (ctx.FontService() != nullptr)
             {
                 const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 12.0f);
@@ -176,24 +144,34 @@ export namespace foundation::ui::toolkit
                 {
                     const Color textColor =
                         ResolveStyleColor(StyleProperty::TextColor, Color{0.863f, 0.882f, 0.922f, 1.0f});
-                    const f32 textW = Max(0.0f, w - (2.0f * kIconSize) - 3.0f * kContentInset);
-                    ctx.VG().DrawText(m_title.AsView(), font,
-                                      Rectangle{kContentInset + 2.0f, 0, textW, kHeaderHeight},
+                    const f32 textX = kChevronBoxW;
+                    const f32 textW = Max(0.0f, w - textX - kCloseBoxW);
+                    ctx.VG().DrawText(m_title.AsView(), font, Rectangle{textX, 0, textW, kHeaderHeight},
                                       fonts::TextAlignment::Left, fonts::VerticalAlignment::Middle,
                                       textColor);
                 }
             }
 
+            // Close X (DockablePanel idiom): two strokes; hover -> error color.
+            const Color closeColor = ResolvePartColor(
+                u8"close-button", StyleProperty::TextColor,
+                m_closeHover ? ControlState::Hover : ControlState::Normal, chevronColor);
+            const f32 ccx = w - kCloseBoxW * 0.5f;
+            const f32 ccy = kHeaderHeight * 0.5f;
+            const f32 cs = 4.0f;
+            ctx.VG().DrawLine(Float2{ccx - cs, ccy - cs}, Float2{ccx + cs, ccy + cs}, closeColor, 1.5f);
+            ctx.VG().DrawLine(Float2{ccx + cs, ccy - cs}, Float2{ccx - cs, ccy + cs}, closeColor, 1.5f);
+
             DrawChildren(ctx);
 
-            // Bottom-right resize grip affordance (three short diagonals), hidden when collapsed.
+            // Body border on top of content edges, and the bottom-right resize grip.
+            ctx.VG().DrawBorderRoundedRect(Rectangle{0, 0, w, h}, radius, border, 1.0f);
             if (!m_collapsed)
             {
-                const Color grip = ResolveStyleColor(StyleProperty::BorderColor, Color{0.471f, 0.494f, 0.549f, 0.784f});
                 for (i32 i = 1; i <= 3; ++i)
                 {
                     const f32 o = static_cast<f32>(i) * 4.0f;
-                    ctx.VG().DrawLine(Float2{w - o, h - 2.0f}, Float2{w - 2.0f, h - o}, grip, 1.0f);
+                    ctx.VG().DrawLine(Float2{w - o, h - 2.0f}, Float2{w - 2.0f, h - o}, border, 1.0f);
                 }
             }
         }
@@ -225,10 +203,10 @@ export namespace foundation::ui::toolkit
                     return CursorType::SizeNS;
                 }
             }
-            // Header drag zone (left of the buttons).
-            if (p.y < kHeaderHeight && p.x < Width() - 2.0f * kIconSize - 3.0f * kContentInset)
+            if (p.y < kHeaderHeight)
             {
-                return CursorType::Move;
+                if (InChevronBox(p) || InCloseBox(p)) return CursorType::Hand;
+                return CursorType::Move; // draggable title strip
             }
             return CursorType::Default;
         }
@@ -239,19 +217,35 @@ export namespace foundation::ui::toolkit
             {
                 return;
             }
+            const Float2 p{e.X, e.Y};
+            if (p.y < kHeaderHeight)
+            {
+                if (InCloseBox(p))
+                {
+                    OnClose.Invoke();
+                    e.Handled = true;
+                    return;
+                }
+                if (InChevronBox(p))
+                {
+                    SetCollapsed(!m_collapsed);
+                    e.Handled = true;
+                    return;
+                }
+            }
             bool right = false, bottom = false;
-            if (!m_collapsed && InResizeBand(Float2{e.X, e.Y}, right, bottom))
+            if (!m_collapsed && InResizeBand(p, right, bottom))
             {
                 m_resizing = true;
                 m_resizeRight = right;
                 m_resizeBottom = bottom;
-                m_grabOffX = Width() - e.X;   // keep the grabbed point under the corner during drag
+                m_grabOffX = Width() - e.X; // keep the grabbed point under the corner during drag
                 m_grabOffY = Height() - e.Y;
                 Capture();
                 e.Handled = true;
                 return;
             }
-            if (e.Y < kHeaderHeight) // header band (buttons already consumed their own hits)
+            if (p.y < kHeaderHeight)
             {
                 m_dragging = true;
                 m_lastX = e.X;
@@ -263,27 +257,46 @@ export namespace foundation::ui::toolkit
 
         void OnMouseMove(MouseEventArgs& e) override
         {
-            if (m_resizing)
+            if (m_resizing || m_dragging)
             {
-                if (m_resizeRight)
+                // The engine's capture is app-internal (a mouse-up lost off the OS window can't
+                // release it). If we no longer own capture, the gesture is over - stop, so we don't
+                // keep resizing/dragging on plain moves.
+                if (Context == nullptr || Context->GetFocusManager()->CapturedView() != this)
                 {
-                    m_userW = Clamp(e.X + m_grabOffX, kMinWidth, MaxWidthInParent());
+                    m_resizing = false;
+                    m_dragging = false;
+                    return;
                 }
-                if (m_resizeBottom)
+                if (m_resizing)
                 {
-                    m_userH = Clamp(e.Y + m_grabOffY, kMinHeight, MaxHeightInParent());
+                    if (m_resizeRight)
+                    {
+                        m_userW = Clamp(e.X + m_grabOffX, kMinWidth, MaxWidthInParent());
+                    }
+                    if (m_resizeBottom)
+                    {
+                        m_userH = Clamp(e.Y + m_grabOffY, kMinHeight, MaxHeightInParent());
+                    }
+                    Invalidate();
                 }
-                Invalidate();
+                else
+                {
+                    Transform.Translation.x += (e.X - m_lastX);
+                    Transform.Translation.y += (e.Y - m_lastY);
+                    m_lastX = e.X;
+                    m_lastY = e.Y;
+                    ClampToParent();
+                }
                 e.Handled = true;
+                return;
             }
-            else if (m_dragging)
+            // Hover feedback for the close X.
+            const bool hover = e.Y < kHeaderHeight && InCloseBox(Float2{e.X, e.Y});
+            if (hover != m_closeHover)
             {
-                Transform.Translation.x += (e.X - m_lastX);
-                Transform.Translation.y += (e.Y - m_lastY);
-                m_lastX = e.X;
-                m_lastY = e.Y;
-                ClampToParent();
-                e.Handled = true;
+                m_closeHover = hover;
+                Invalidate();
             }
         }
 
@@ -301,11 +314,23 @@ export namespace foundation::ui::toolkit
             }
         }
 
+        void OnMouseLeave() override
+        {
+            if (m_closeHover)
+            {
+                m_closeHover = false;
+                Invalidate();
+            }
+        }
+
     private:
-        static constexpr f32 kHeaderHeight = 26.0f;
+        static constexpr f32 kHeaderHeight = 24.0f;
         static constexpr f32 kContentInset = 6.0f;
         static constexpr f32 kResizeBand = 9.0f;
-        static constexpr f32 kIconSize = 18.0f;
+        static constexpr f32 kChevronBoxW = 22.0f;
+        static constexpr f32 kChevronX = 8.0f;
+        static constexpr f32 kChevronSize = 8.0f;
+        static constexpr f32 kCloseBoxW = 24.0f;
         static constexpr f32 kMinWidth = 160.0f;
         static constexpr f32 kMinHeight = kHeaderHeight + 60.0f;
 
@@ -317,6 +342,40 @@ export namespace foundation::ui::toolkit
             }
         }
 
+        void DrawChevron(UIDrawContext& ctx, Color color)
+        {
+            const f32 cy = kHeaderHeight * 0.5f;
+            ctx.VG().BeginPath();
+            if (!m_collapsed)
+            {
+                // Down chevron (expanded).
+                ctx.VG().MoveTo(kChevronX, cy - kChevronSize * 0.25f);
+                ctx.VG().LineTo(kChevronX + kChevronSize * 0.5f, cy + kChevronSize * 0.25f);
+                ctx.VG().LineTo(kChevronX + kChevronSize, cy - kChevronSize * 0.25f);
+            }
+            else
+            {
+                // Right chevron (collapsed).
+                ctx.VG().MoveTo(kChevronX + kChevronSize * 0.25f, cy - kChevronSize * 0.5f);
+                ctx.VG().LineTo(kChevronX + kChevronSize * 0.75f, cy);
+                ctx.VG().LineTo(kChevronX + kChevronSize * 0.25f, cy + kChevronSize * 0.5f);
+            }
+            ctx.VG().Stroke(color, 2.0f);
+        }
+
+        [[nodiscard]] static Color DarkenedFill(Color c)
+        {
+            return Color{c.r * 0.85f, c.g * 0.85f, c.b * 0.85f, c.a};
+        }
+
+        [[nodiscard]] bool InChevronBox(Float2 p) const
+        {
+            return p.x >= 0 && p.x < kChevronBoxW && p.y >= 0 && p.y < kHeaderHeight;
+        }
+        [[nodiscard]] bool InCloseBox(Float2 p) const
+        {
+            return p.x >= Width() - kCloseBoxW && p.x < Width() && p.y >= 0 && p.y < kHeaderHeight;
+        }
         [[nodiscard]] bool InResizeBand(Float2 p, bool& right, bool& bottom) const
         {
             right = p.x >= Width() - kResizeBand;
@@ -341,8 +400,6 @@ export namespace foundation::ui::toolkit
             return Max(kMinHeight, Parent->Bounds.height - (Bounds.y + Transform.Translation.y));
         }
 
-        // Keep the panel fully inside its parent: effective rect = Bounds + Translation clamped into
-        // [0, parentSize].
         void ClampToParent()
         {
             if (Parent == nullptr)
@@ -362,15 +419,11 @@ export namespace foundation::ui::toolkit
         }
 
         String m_title;
-        RefPtr<SVGDrawable> m_closeIcon;
-        RefPtr<SVGDrawable> m_chevronDown;
-        RefPtr<SVGDrawable> m_chevronRight;
-        RefPtr<IconButton> m_collapseBtn;
-        RefPtr<IconButton> m_closeBtn;
         RefPtr<View> m_content;
 
         bool m_collapsed = false;
-        f32 m_userW = 240.0f;                 // authoritative panel size (content-driven default)
+        bool m_closeHover = false;
+        f32 m_userW = 240.0f;
         f32 m_userH = kHeaderHeight + 170.0f;
 
         bool m_dragging = false;
