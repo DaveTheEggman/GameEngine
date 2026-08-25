@@ -94,7 +94,13 @@ namespace editor
                          [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
                 AddFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 50.0, 0.5, 1,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
-                root->AddView(grid.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+                {
+                    // Bound the grid to its two rows: its internal ScrollView otherwise fills all
+                    // available space (both axes), which stretched the panel over the whole viewport.
+                    auto glp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                    glp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f)); // radius + strength rows
+                    root->AddView(grid.Get(), glp);
+                }
                 return root;
             }
         };
@@ -130,7 +136,13 @@ namespace editor
                          [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
                 AddFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0, 0.05, 2,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
-                root->AddView(grid.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+                {
+                    // Bound the grid to its two rows: its internal ScrollView otherwise fills all
+                    // available space (both axes), which stretched the panel over the whole viewport.
+                    auto glp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                    glp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f)); // radius + strength rows
+                    root->AddView(grid.Get(), glp);
+                }
                 return root;
             }
         };
