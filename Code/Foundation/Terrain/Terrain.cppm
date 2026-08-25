@@ -247,20 +247,10 @@ export namespace foundation::terrain
             }
         }
 
-        [[nodiscard]] bool IsEmpty() const noexcept { return m_nodes.IsEmpty(); }
-        [[nodiscard]] usize NodeCount() const noexcept { return m_nodes.Size(); }
-
-        /// Gather the indices of chunks whose bounds are not disjoint from the frustum.
-        void Cull(const BoundingFrustum& frustum, Array<i32>& outVisible) const
-        {
-            outVisible.Clear();
-            if (!m_nodes.IsEmpty())
-            {
-                CullNode(0, frustum, outVisible);
-            }
-        }
-
-    private:
+        /// Quadtree node (public + trivially-destructible: the render extraction snapshots the
+        /// node ARRAY into its frame arena - see Nodes()/CullNodes - because a pointer to this
+        /// quadtree object is only as stable as its owner, and the PIE-start UAF proved owners
+        /// mutate mid-frame; the snapshot must be self-contained).
         struct Node
         {
             AABB bounds = AABB::Empty();
@@ -268,6 +258,35 @@ export namespace foundation::terrain
             i32 childCount = 0;
             i32 children[4] = {-1, -1, -1, -1};
         };
+
+        [[nodiscard]] bool IsEmpty() const noexcept { return m_nodes.IsEmpty(); }
+        [[nodiscard]] usize NodeCount() const noexcept { return m_nodes.Size(); }
+        /// The flat node storage (root = index 0). Snapshot-friendly: a copied node span culls
+        /// identically via CullNodes with NO reference back to this object or its chunk span.
+        [[nodiscard]] Span<const Node> Nodes() const noexcept
+        {
+            return Span<const Node>{m_nodes.Data(), m_nodes.Size()};
+        }
+
+        /// Gather the indices of chunks whose bounds are not disjoint from the frustum.
+        void Cull(const BoundingFrustum& frustum, Array<i32>& outVisible) const
+        {
+            CullNodes(Nodes(), frustum, outVisible);
+        }
+
+        /// Cull over a bare node span (root = index 0) - the form the renderer uses against its
+        /// frame-arena COPY of the nodes, so no live quadtree object is dereferenced at draw time.
+        static void CullNodes(Span<const Node> nodes, const BoundingFrustum& frustum,
+                              Array<i32>& outVisible)
+        {
+            outVisible.Clear();
+            if (!nodes.IsEmpty())
+            {
+                CullNodeIn(nodes, 0, frustum, outVisible);
+            }
+        }
+
+    private:
 
         // Build over the chunk-index rectangle [x0, x1) x [z0, z1); returns the node index.
         i32 BuildNode(i32 x0, i32 x1, i32 z0, i32 z1)
@@ -304,9 +323,10 @@ export namespace foundation::terrain
             return nodeIdx;
         }
 
-        void CullNode(i32 nodeIdx, const BoundingFrustum& frustum, Array<i32>& out) const
+        static void CullNodeIn(Span<const Node> nodes, i32 nodeIdx, const BoundingFrustum& frustum,
+                               Array<i32>& out)
         {
-            const Node& node = m_nodes[static_cast<usize>(nodeIdx)];
+            const Node& node = nodes[static_cast<usize>(nodeIdx)];
             if (Contains(frustum, node.bounds) == ContainmentType::Disjoint)
             {
                 return;
@@ -318,7 +338,7 @@ export namespace foundation::terrain
             }
             for (i32 i = 0; i < node.childCount; ++i)
             {
-                CullNode(node.children[i], frustum, out);
+                CullNodeIn(nodes, node.children[i], frustum, out);
             }
         }
 
@@ -337,7 +357,8 @@ export namespace foundation::terrain
     /// The renderer's per-frame CPU extract: frustum-cull the chunk quadtree, then LOD each visible
     /// chunk by the shared coverage metric - the {chunk, lod} draw list the GPU renderer consumes.
     /// Pure (no RHI): view/projection are plain matrices, chunkToWorld places the terrain entity.
-    inline void ExtractVisibleChunkDraws(const TerrainQuadtree& tree, Span<const TerrainChunk> chunks,
+    inline void ExtractVisibleChunkDraws(Span<const TerrainQuadtree::Node> nodes,
+                                         Span<const TerrainChunk> chunks,
                                          const Float4x4& chunkToWorld, const Float4x4& view,
                                          const Float4x4& projection, const BoundingFrustum& frustum,
                                          Span<const f32> coverageThresholds, f32 bias,
@@ -345,7 +366,7 @@ export namespace foundation::terrain
     {
         out.Clear();
         Array<i32> visible;
-        tree.Cull(frustum, visible);
+        TerrainQuadtree::CullNodes(nodes, frustum, visible);
         out.Reserve(visible.Size());
         for (usize i = 0; i < visible.Size(); ++i)
         {
@@ -354,5 +375,16 @@ export namespace foundation::terrain
                                            projection, coverageThresholds, bias);
             out.PushBack(ChunkDraw{ci, lod});
         }
+    }
+
+    /// Convenience over a live quadtree (tests / CPU callers that OWN the tree).
+    inline void ExtractVisibleChunkDraws(const TerrainQuadtree& tree, Span<const TerrainChunk> chunks,
+                                         const Float4x4& chunkToWorld, const Float4x4& view,
+                                         const Float4x4& projection, const BoundingFrustum& frustum,
+                                         Span<const f32> coverageThresholds, f32 bias,
+                                         Array<ChunkDraw>& out)
+    {
+        ExtractVisibleChunkDraws(tree.Nodes(), chunks, chunkToWorld, view, projection, frustum,
+                                 coverageThresholds, bias, out);
     }
 }

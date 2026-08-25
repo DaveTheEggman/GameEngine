@@ -126,8 +126,8 @@ namespace
         rd.category = RenderCategories::Opaque;
         rd.rendererId = rendererId;
         rd.chunks = chunks.Data();
-        rd.quadtree = &tree;
-        rd.chunkCount = static_cast<u32>(chunks.Size());
+        rd.nodes = tree.Nodes().Data();
+        rd.nodeCount = static_cast<u32>(tree.Nodes().Size());rd.chunkCount = static_cast<u32>(chunks.Size());
         rd.heightView = heightView;
         rd.chunkToWorld = Float4x4::Identity();
         rd.gridSize = h.Size();

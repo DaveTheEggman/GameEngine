@@ -633,6 +633,29 @@ export namespace foundation::render
             return p;
         }
 
+        // Copy a POD array into the snapshot's arena and return the frame-owned view. For render
+        // data that must be SELF-CONTAINED: the snapshot is read at record time (RenderFrame::End),
+        // after arbitrary scene/manager mutations - borrowed pointers into producer-owned storage
+        // are a use-after-free waiting for a mid-frame rebuild (the terrain PIE-start crash).
+        // Empty/failed allocations return an empty span; producers treat that as "skip this item".
+        template <typename T>
+        [[nodiscard]] Span<const T> AddArray(Span<const T> source)
+        {
+            static_assert(std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>,
+                          "arena arrays must be POD (Reset never runs destructors)");
+            if (source.IsEmpty())
+            {
+                return Span<const T>{};
+            }
+            void* p = m_arena.Allocate(source.Size() * sizeof(T), alignof(T));
+            if (p == nullptr)
+            {
+                return Span<const T>{};
+            }
+            MemCopy(p, source.Data(), source.Size() * sizeof(T));
+            return Span<const T>{static_cast<const T*>(p), source.Size()};
+        }
+
         // Adopt an externally-allocated RenderData into the snapshot (the data must outlive this
         // snapshot's use - e.g. it lives in a RenderContext per-worker arena owned by the producer).
         // Used by parallel extraction: workers fill their own arenas, then the merge adopts the

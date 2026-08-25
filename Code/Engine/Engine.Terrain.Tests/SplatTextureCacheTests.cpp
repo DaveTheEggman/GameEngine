@@ -49,6 +49,9 @@ TEST_CASE("splat cache: GetOrCreate caches by uid+version; a version bump retire
     CHECK(v2 != v1);
     CHECK(cache.Size() == 1u);          // still one entry (rebuilt in place)
     CHECK(retire.PendingCount() == 2u); // old texture + old view queued, not freed
+
+    cache.Clear(device); // teardown: free the live entry + drain the retired pair (ASAN)
+    retire.Flush();
 }
 
 TEST_CASE("splat cache: keyed by uid, so two distinct rasters never alias")

@@ -341,7 +341,7 @@ export namespace engine::terrain
             for (usize it = 0; it < items.Size(); ++it)
             {
                 const auto* data = static_cast<const TerrainRenderData*>(items[it].data);
-                if (data == nullptr || data->chunks == nullptr || data->quadtree == nullptr ||
+                if (data == nullptr || data->chunks == nullptr || data->nodes == nullptr ||
                     data->heightView == nullptr || data->chunkCount == 0)
                 {
                     continue;
@@ -396,9 +396,10 @@ export namespace engine::terrain
                 const Span<const tmodel::TerrainChunk> chunks{data->chunks, data->chunkCount};
                 const Span<const f32> thresholds{data->thresholds, data->thresholdCount};
                 m_draws.Clear();
-                tmodel::ExtractVisibleChunkDraws(*data->quadtree, chunks, data->chunkToWorld,
-                                                 ctx.viewMatrix, proj, frustum, thresholds,
-                                                 data->lodBias, m_draws);
+                tmodel::ExtractVisibleChunkDraws(
+                    Span<const tmodel::TerrainQuadtree::Node>{data->nodes, data->nodeCount}, chunks,
+                    data->chunkToWorld, ctx.viewMatrix, proj, frustum, thresholds, data->lodBias,
+                    m_draws);
                 if (m_draws.IsEmpty())
                 {
                     continue;
@@ -490,7 +491,7 @@ export namespace engine::terrain
             for (usize it = 0; it < items.Size(); ++it)
             {
                 const auto* data = static_cast<const TerrainRenderData*>(items[it].data);
-                if (data == nullptr || data->chunks == nullptr || data->quadtree == nullptr ||
+                if (data == nullptr || data->chunks == nullptr || data->nodes == nullptr ||
                     data->heightView == nullptr || data->chunkCount == 0)
                 {
                     continue;
@@ -510,9 +511,10 @@ export namespace engine::terrain
                 const Span<const tmodel::TerrainChunk> chunks{data->chunks, data->chunkCount};
                 const Span<const f32> thresholds{data->thresholds, data->thresholdCount};
                 m_draws.Clear();
-                tmodel::ExtractVisibleChunkDraws(*data->quadtree, chunks, data->chunkToWorld,
-                                                 ctx.viewMatrix, proj, frustum, thresholds,
-                                                 data->lodBias, m_draws);
+                tmodel::ExtractVisibleChunkDraws(
+                    Span<const tmodel::TerrainQuadtree::Node>{data->nodes, data->nodeCount}, chunks,
+                    data->chunkToWorld, ctx.viewMatrix, proj, frustum, thresholds, data->lodBias,
+                    m_draws);
                 if (m_draws.IsEmpty())
                 {
                     continue;

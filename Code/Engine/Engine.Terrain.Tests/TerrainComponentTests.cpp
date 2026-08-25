@@ -7,6 +7,7 @@ import foundation.core;
 import foundation.scene;
 import foundation.scene.resource; // SerializeScene
 import foundation.resource;
+import foundation.terrain;
 import foundation.terrain.resource;
 import foundation.heightfield;
 import foundation.rhi;
@@ -17,6 +18,9 @@ import engine.terrain;
 using namespace foundation::core;
 using namespace engine::terrain;
 namespace scene = foundation::scene;
+namespace terrain = foundation::terrain;
+namespace tmodel = foundation::terrain;
+namespace rhi = foundation::rhi;
 namespace hf = foundation::heightfield;
 
 TEST_CASE("engine.terrain: TerrainComponent reflects its authored fields")
@@ -201,4 +205,53 @@ TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device i
     mgr->ClearGpu();
     mgr->ExtractRenderData(snapshot);
     CHECK(mgr->HeightTextureCount() == 0u);
+}
+
+// The PIE-start crash regression: the extracted snapshot must be SELF-CONTAINED - readable at
+// record time even after the scene, its manager, and every cache the extract read from are GONE
+// (a mid-frame scene mutation freed the previously-borrowed quadtree pointer; under ASAN a
+// borrow here is a hard use-after-free).
+TEST_CASE("engine.terrain: the extracted snapshot outlives the scene it came from")
+{
+    foundation::render::ExtractedScene snapshot;
+    {
+        rhi::null::NullDevice device{DefaultAllocator()};
+        scene::Scene sceneObj;
+        engine::terrain::AddTerrainSceneManagers(sceneObj);
+        auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
+        REQUIRE(mgr != nullptr);
+        mgr->SetRenderContext(&device, 7, nullptr);
+
+        RefPtr<foundation::heightfield::Heightfield> grid =
+            MakeRef<foundation::heightfield::Heightfield>(DefaultAllocator(), 65,
+                                                          Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+        auto res = MakeRef<terrain::TerrainResource>(DefaultAllocator());
+        res->heightfield = grid.Get();
+        const scene::EntityHandle e = sceneObj.CreateEntity(u8"terrain");
+        mgr->Add(e).terrain = res.Get();
+        sceneObj.Start();
+
+        mgr->ExtractRenderData(snapshot);
+        mgr->ClearGpu();
+    } // scene + manager + chunk caches + heightfield refs all destroyed here
+
+    REQUIRE(snapshot.Size() == 1u);
+    const auto* rd =
+        static_cast<const engine::terrain::TerrainRenderData*>(snapshot.Items()[0]);
+    REQUIRE(rd->chunks != nullptr);
+    REQUIRE(rd->nodes != nullptr);
+    REQUIRE(rd->nodeCount > 0u);
+
+    // Cull + LOD straight off the snapshot: the whole grid is visible from above.
+    const Float4x4 view =
+        Float4x4::LookAtRH(Float3{32.0f, 100.0f, 32.0f}, Float3{32.0f, 0.0f, 32.1f},
+                           Float3{0.0f, 0.0f, 1.0f});
+    const Float4x4 proj = Float4x4::PerspectiveFovRH(1.2f, 1.0f, 0.1f, 1000.0f);
+    const foundation::core::BoundingFrustum frustum(rd->chunkToWorld * (view * proj));
+    Array<tmodel::ChunkDraw> draws;
+    tmodel::ExtractVisibleChunkDraws(
+        Span<const tmodel::TerrainQuadtree::Node>{rd->nodes, rd->nodeCount},
+        Span<const tmodel::TerrainChunk>{rd->chunks, rd->chunkCount}, rd->chunkToWorld, view, proj,
+        frustum, Span<const f32>{rd->thresholds, rd->thresholdCount}, 0.0f, draws);
+    CHECK(!draws.IsEmpty()); // the snapshot culls correctly with no living producer
 }

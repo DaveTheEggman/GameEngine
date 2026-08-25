@@ -30,10 +30,14 @@ export namespace engine::terrain
 
     struct TerrainRenderData : render::RenderData
     {
-        // Borrowed CPU model (manager-owned, stable for the frame): the chunk grid + its quadtree.
+        // SNAPSHOT CPU model: the chunk grid + flattened quadtree nodes, COPIED into the
+        // ExtractedScene's frame arena at extraction (AddArray). Never pointers into manager
+        // storage - the snapshot is read at record time, after arbitrary scene mutations
+        // (the PIE-start UAF: a mid-frame cache rebuild freed the borrowed quadtree).
         const foundation::terrain::TerrainChunk* chunks = nullptr;
-        const foundation::terrain::TerrainQuadtree* quadtree = nullptr;
+        const foundation::terrain::TerrainQuadtree::Node* nodes = nullptr;
         u32 chunkCount = 0;
+        u32 nodeCount = 0;
 
         // The R16Uint height texture (from TerrainHeightTextureCache); the VS/PS fetch it via Load.
         rhi::TextureView* heightView = nullptr;

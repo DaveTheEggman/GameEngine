@@ -150,6 +150,18 @@ export namespace engine::terrain
                         return;
                     }
 
+                    // COPY the chunk grid + quadtree nodes into the frame arena: the snapshot is
+                    // read at record time, after arbitrary mid-frame scene/manager mutations - a
+                    // borrowed &cache pointer was the PIE-start use-after-free.
+                    const Span<const tmodel::TerrainChunk> chunkCopy = snapshot.AddArray(
+                        Span<const tmodel::TerrainChunk>{cache.chunks.Data(), cache.chunks.Size()});
+                    const Span<const tmodel::TerrainQuadtree::Node> nodeCopy =
+                        snapshot.AddArray(cache.quadtree.Nodes());
+                    if (chunkCopy.IsEmpty() || nodeCopy.IsEmpty())
+                    {
+                        return; // arena exhausted: skip rather than snapshot dangling state
+                    }
+
                     TerrainRenderData* rd = snapshot.Add<TerrainRenderData>();
                     if (rd == nullptr)
                     {
@@ -157,9 +169,10 @@ export namespace engine::terrain
                     }
                     rd->category = render::RenderCategories::Opaque;
                     rd->rendererId = m_rendererId;
-                    rd->chunks = cache.chunks.Data();
-                    rd->quadtree = &cache.quadtree;
-                    rd->chunkCount = static_cast<u32>(cache.chunks.Size());
+                    rd->chunks = chunkCopy.Data();
+                    rd->nodes = nodeCopy.Data();
+                    rd->chunkCount = static_cast<u32>(chunkCopy.Size());
+                    rd->nodeCount = static_cast<u32>(nodeCopy.Size());
                     rd->heightView = heightView;
                     rd->chunkToWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner)
                                                             : Float4x4::Identity();
