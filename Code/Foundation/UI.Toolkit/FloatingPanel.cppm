@@ -9,10 +9,10 @@
 // authoritative field mapped ABSOLUTELY from the pointer (no delta accumulation / no measured-size
 // read-back), so there is no jitter. Content fills the body, so resizing resizes the content.
 //
-// Positioning: the panel reports its own size via MeasuredSize and is placed by its parent (a
-// FrameLayout) with a corner gravity; a header drag moves it by adjusting its layout margin (NOT a
-// render transform - ScreenToLocal ignores transforms, which would offset every later hit-test),
-// clamped so it can't leave the parent (a sibling pane would draw over it and steal input).
+// Positioning: the panel must be hosted in an AbsoluteLayout; a header drag moves it by setting its
+// AbsoluteLayoutParams X/Y (NOT a render transform - ScreenToLocal ignores transforms, which would
+// offset every later hit-test; and NOT a margin - a margin box inflates the parent's measure).
+// Clamped to the parent so it can't leave it (a sibling pane would draw over it and steal input).
 
 module;
 #include "Core/Prelude.h"
@@ -108,11 +108,12 @@ export namespace foundation::ui::toolkit
             // Re-clamp against the CURRENT parent size (available here). If the viewport shrank - the
             // bottom dock expanded upward - pull the panel back inside; a changed margin needs another
             // pass to reposition it.
-            if (LayoutParams)
+            if (AbsoluteLayoutParams* pp = PosParams())
             {
-                const Thickness before = LayoutParams->Margin;
+                const f32 beforeX = pp->X;
+                const f32 beforeY = pp->Y;
                 ClampToParent();
-                if (LayoutParams->Margin.Left != before.Left || LayoutParams->Margin.Top != before.Top)
+                if (pp->X != beforeX || pp->Y != beforeY)
                 {
                     Invalidate();
                 }
@@ -288,15 +289,13 @@ export namespace foundation::ui::toolkit
             }
             if (m_dragging)
             {
-                // Position via the layout MARGIN, not Transform.Translation: ScreenToLocal ignores the
-                // transform, so a transform-positioned panel hands wrong coordinates to every later
-                // hit-test (its own buttons + resize band). Margin keeps Bounds - and thus the input
-                // coordinates - correct. Absolute mapping keeps the grabbed point under the cursor:
-                // new left = (mouse-in-parent) - grab = (e.X + Bounds.x) - grabLocal.
-                if (LayoutParams)
+                // Absolute mapping keeps the grabbed point under the cursor: new X = (mouse-in-parent)
+                // - grab = (e.X + Bounds.x) - grabLocal. Using X/Y (not a margin or a render transform)
+                // keeps Bounds - and thus every later hit-test coordinate - exact.
+                if (AbsoluteLayoutParams* pp = PosParams())
                 {
-                    LayoutParams->Margin.Left = e.X + Bounds.x - m_grabLocalX;
-                    LayoutParams->Margin.Top = e.Y + Bounds.y - m_grabLocalY;
+                    pp->X = e.X + Bounds.x - m_grabLocalX;
+                    pp->Y = e.Y + Bounds.y - m_grabLocalY;
                     ClampToParent();
                     Invalidate();
                 }
@@ -352,6 +351,14 @@ export namespace foundation::ui::toolkit
             {
                 Context->GetFocusManager()->SetCapture(this);
             }
+        }
+
+        // The panel positions itself via AbsoluteLayout X/Y (it must be hosted in an AbsoluteLayout).
+        // AbsoluteLayout places the child at exactly (X, Y) with its measured size, so Bounds.x/y == X/Y
+        // and there is no margin box to inflate the parent's measure or shift the hit-test coordinates.
+        [[nodiscard]] AbsoluteLayoutParams* PosParams() const
+        {
+            return Cast<AbsoluteLayoutParams>(LayoutParams.Get());
         }
 
         void DrawChevron(UIDrawContext& ctx, Color color)
@@ -423,16 +430,15 @@ export namespace foundation::ui::toolkit
         // that stopped the panel hugging the right/bottom edges.
         void ClampToParent()
         {
-            if (Parent == nullptr || !LayoutParams)
+            AbsoluteLayoutParams* pp = PosParams();
+            if (Parent == nullptr || pp == nullptr)
             {
                 return;
             }
             const f32 intendedW = Max(kMinWidth, m_userW);
             const f32 intendedH = m_collapsed ? kHeaderHeight : Max(kMinHeight, m_userH);
-            const f32 maxL = Max(0.0f, Parent->Bounds.width - intendedW);
-            const f32 maxT = Max(0.0f, Parent->Bounds.height - intendedH);
-            LayoutParams->Margin.Left = Clamp(LayoutParams->Margin.Left, 0.0f, maxL);
-            LayoutParams->Margin.Top = Clamp(LayoutParams->Margin.Top, 0.0f, maxT);
+            pp->X = Clamp(pp->X, 0.0f, Max(0.0f, Parent->Bounds.width - intendedW));
+            pp->Y = Clamp(pp->Y, 0.0f, Max(0.0f, Parent->Bounds.height - intendedH));
         }
 
         String m_title;

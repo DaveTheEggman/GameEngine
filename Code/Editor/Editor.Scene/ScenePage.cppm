@@ -245,15 +245,22 @@ export namespace editor
                 }
                 {
                     // The Float tool-panel target: a FloatingPanel (draggable / resizable / collapsible /
-                    // closable) starting top-left. Idle (Gone) until a Float-placed panel mounts into it.
-                    // No fixed width - it sizes to its content (and to an explicit size once resized).
+                    // closable) hosted in an AbsoluteLayout layer that fills the viewport. The layer is
+                    // NOT hit-test-visible, so empty areas fall through to the 3D viewport; the panel
+                    // positions itself by AbsoluteLayoutParams X/Y so its Bounds stay exact for input.
                     BuildToolFloat();
-                    auto ffp = MakeRef<foundation::ui::FrameLayoutParams>(DefaultAllocator());
-                    ffp->Gravity = static_cast<foundation::ui::Gravity>(
-                        static_cast<u32>(foundation::ui::Gravity::Top) |
-                        static_cast<u32>(foundation::ui::Gravity::Left));
-                    ffp->Margin = foundation::ui::Thickness{16.0f, 16.0f, 16.0f, 16.0f};
-                    viewportFrame->AddView(m_toolFloat.Get(), ffp);
+                    m_toolFloatLayer = MakeRef<foundation::ui::AbsoluteLayout>(DefaultAllocator());
+                    m_toolFloatLayer->IsHitTestVisible = false;
+                    auto layerLp = MakeRef<foundation::ui::FrameLayoutParams>(DefaultAllocator());
+                    layerLp->Gravity = foundation::ui::Gravity::Fill;
+                    layerLp->Width = foundation::ui::SizeSpec::Match();
+                    layerLp->Height = foundation::ui::SizeSpec::Match();
+                    viewportFrame->AddView(m_toolFloatLayer.Get(), layerLp);
+
+                    auto alp = MakeRef<foundation::ui::AbsoluteLayoutParams>(DefaultAllocator());
+                    alp->X = 16.0f;
+                    alp->Y = 16.0f;
+                    m_toolFloatLayer->AddView(m_toolFloat.Get(), alp);
                 }
                 auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
@@ -590,6 +597,7 @@ export namespace editor
         // Float placement: a FloatingPanel (drag / resize / collapse / close) floating over the
         // viewport, holding the active tool's settings. Built in BuildToolFloat; close deactivates
         // the tool. Visibility::Gone unless a Float-placed panel is mounted.
+        RefPtr<foundation::ui::AbsoluteLayout> m_toolFloatLayer; // fills the viewport; hosts m_toolFloat
         RefPtr<foundation::ui::toolkit::FloatingPanel> m_toolFloat;
         UniquePtr<ViewportToolPanelHost> m_toolPanelHost;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
