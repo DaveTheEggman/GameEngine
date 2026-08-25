@@ -383,33 +383,42 @@ export namespace foundation::ui::toolkit
             return (right || bottom) && p.y > kHeaderHeight;
         }
 
+        // Resize can't push the panel past the parent's right/bottom edge (Bounds.x/y = Margin.Left/Top
+        // under Top|Left gravity; the opposite margin also eats into the available room).
         [[nodiscard]] f32 MaxWidthInParent() const
         {
-            if (Parent == nullptr)
+            if (Parent == nullptr || !LayoutParams)
             {
                 return Max(kMinWidth, m_userW);
             }
-            return Max(kMinWidth, Parent->Bounds.width - Bounds.x);
+            return Max(kMinWidth, Parent->Bounds.width - Bounds.x - LayoutParams->Margin.Right);
         }
         [[nodiscard]] f32 MaxHeightInParent() const
         {
-            if (Parent == nullptr)
+            if (Parent == nullptr || !LayoutParams)
             {
                 return Max(kMinHeight, m_userH);
             }
-            return Max(kMinHeight, Parent->Bounds.height - Bounds.y);
+            return Max(kMinHeight, Parent->Bounds.height - Bounds.y - LayoutParams->Margin.Bottom);
         }
 
-        // Keep the panel inside its parent by clamping its layout margin (Top|Left gravity: Bounds.x/y
-        // track Margin.Left/Top). Margin-based so Bounds stay accurate for hit-testing.
+        // Keep the WHOLE panel inside its parent by clamping its layout margin (Top|Left gravity:
+        // Bounds.x/y track Margin.Left/Top). Clamp against the INTENDED size (not the laid-out
+        // Height()/Width(), which lags a frame and let the panel walk off the bottom), and leave room
+        // for the opposite margins - otherwise a downward drag runs the panel off-frame behind the
+        // dock. GravityHelper does not clamp an overflowing child, so this is the only guard.
         void ClampToParent()
         {
             if (Parent == nullptr || !LayoutParams)
             {
                 return;
             }
-            const f32 maxL = Max(0.0f, Parent->Bounds.width - Width());
-            const f32 maxT = Max(0.0f, Parent->Bounds.height - Height());
+            const f32 intendedW = Max(kMinWidth, m_userW);
+            const f32 intendedH = m_collapsed ? kHeaderHeight : Max(kMinHeight, m_userH);
+            const f32 maxL =
+                Max(0.0f, Parent->Bounds.width - intendedW - LayoutParams->Margin.Right);
+            const f32 maxT =
+                Max(0.0f, Parent->Bounds.height - intendedH - LayoutParams->Margin.Bottom);
             LayoutParams->Margin.Left = Clamp(LayoutParams->Margin.Left, 0.0f, maxL);
             LayoutParams->Margin.Top = Clamp(LayoutParams->Margin.Top, 0.0f, maxT);
         }
