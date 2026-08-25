@@ -316,6 +316,11 @@ export namespace foundation::ui::toolkit
 
         void OnMouseLeave() override
         {
+            // Leave never fires WHILE we hold capture (captured moves bypass hover), so this can't
+            // cancel a legitimate in-progress drag - but it ends a gesture that lost its capture (e.g.
+            // the mouse-up was swallowed off the OS window), so the panel can't get stuck resizing.
+            m_resizing = false;
+            m_dragging = false;
             if (m_closeHover)
             {
                 m_closeHover = false;
