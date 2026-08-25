@@ -247,3 +247,93 @@ Provide the converter in the cook builder; no runtime migration path needed (ass
 - Tests across foundation.terrain + Editor.Terrain + a renderer check.
 
 Related: [terrain.md], [terrain-splat-d2.md], [terrain-splat-phase2.md].
+
+---
+
+## RULING (Fable, 2026-08-25) - APPROVED with required amendments
+
+The shape is right: explicit base + unbounded palette + fixed-K per-texel blend is the standard
+scalable model, the paint math is verified correct (step 2+3 give `sum' = lerp(sum, 1, t)` - the
+convex invariant holds and converges), the motivation is real (the uncapped `AddLayer()` promise
+and the layer-0 double duty are genuine defects), and the migration is the right direction. The
+phasing (headless P0 first, reviewed before rendering) matches the house pattern. Amendments:
+
+**R1 - THE index-map filtering flaw (must fix before P1; the sketch as written is wrong).**
+`indexMap.Sample(splatSampler, ...)` with the existing BILINEAR splat sampler interpolates
+PALETTE INDICES: halfway between index 3 and index 7 samples as index 5 - a garbage layer at
+every boundary between texels that reference different layers, which after P2 painting is
+everywhere. Required shape:
+- The index raster is **RGBA8Uint** (integer format, `Load` only - no sampler, no rounding
+  round-trip through unorm). Weights stay RGBA8Unorm.
+- The blend does **manual bilinear over the 2x2 texel neighborhood**: `Load` index+weight at the
+  four corners, evaluate the base+top-K blend PER CORNER (skip zero-weight slots - the typical
+  texel uses 1-2), and lerp the four results with the bilinear fractions. Worst case is 4x(K+1)
+  albedo taps but the zero-slot skip makes the typical cost a few taps; terrain has headroom.
+  If profiling ever bites, a point-sampled-index + bilinear-weight QUALITY fallback is the
+  escape hatch - but v1 ships the correct blend.
+- Consequence: the bilinear `SplatSampler` may disappear from set 3 entirely (both rasters are
+  Load-based); the albedo sampler is unchanged. Note WebGPU: RGBA8Uint is non-filterable, which
+  is exactly why Load-only is also the portable choice; validate the WGSL cook (naga) early.
+
+**R2 - Migration must renormalize by the old sum.** The OLD shader normalized the four weights
+in-shader (the zero-sum guard aside), so a texel whose stored sum drifted from 255 still
+rendered exact ratios. The new model derives base from the DEFICIT - migrating raw
+`(w1,w2,w3)` changes visuals wherever sum != 255. Convert as: if `sum > 0`, write
+`weight_i' = round(255 * wi / sum * (1 - w0/sum))`... plainly: new palette weights =
+`wi/sum` renormalized so the new baseW equals the old layer-0 SHARE `w0/sum`. Pin visual
+parity in the converter test (old-normalized blend == new blend per texel within quantum).
+
+**R3 - The editable-source convention now covers TWO sidecars.** Keep the `SplatmapAsset` TYPE
+(no new asset type, no envelope migration): it gains a second stream - `"indices"` alongside
+`"pixels"`(weights) - with an asset DataVersion bump. Restate the whole convention: fileName
+set = file is truth (PNG import maps to... an imported RGBA8 image becomes single-layer
+weights? Simplest: import = palette-0 weights from luminance, or drop import support for
+weights v1 - builder's choice, document it); fileName empty = BOTH sidecars are truth;
+ScanDependencies chains BOTH streams in embedded mode; the paint persist closure read-modify-
+writes the envelope (dims synced, fileName cleared) + writes BOTH sidecars; re-import resets.
+The pass-16 end-to-end persist tests extend to the two-raster shape.
+
+**R4 - Cache + retire rules restated for the new GPU set.** The weights cache becomes THREE
+GPU objects per terrain (index tex, weight tex, palette Texture2DArray) + the tileScale
+buffer: ALL keyed by uid+version/generation (never pointers), ALL retire-queued on rebuild
+(paint bumps re-upload both rasters; palette add/remove rebuilds the ARRAY - retire the old
+one, in-flight frames still sample it), Clear at teardown, aliasing + retire + Clear unit
+tests mirroring the existing splat-cache suite. The set-3 bind cache keys on every view's
+uniqueId + the buffer generation, as specced - good.
+
+**R5 - Verification bar: the established pixel-probe standard, not "a golden or non-fallback
+assertion".** Required: a >4-layer terrain probe on Vulkan AND WebGPU, pixel-exact parity
+(extends TerrainPixelProbeTests; proves the cap is gone AND the WGSL path agrees - RGBA8Uint
+Loads and the array sampling are exactly the kind of thing the naga path diverges on); the
+existing paint->re-upload probe updated to the two-raster + palette-index model; plus the
+headless suite as specced. Also extend the type-confusion regression's FillTerrainRenderData
+to the new fields (it must keep compiling as the layout changes).
+
+**R6 - Palette remove = ONE undo entry covering everything it touches.** Removal remaps the
+index raster (decrement indices above the removed layer, zero slots referencing it - the freed
+weight falls to base by construction) and edits the asset. Rare operation: a FULL-raster
+snapshot command bundled with the asset edit in one undo entry is fine; do not build a
+region-delta for it. Arbitrary reorder stays forbidden (as the spec leans).
+
+**R7 - tileScale storage: either works; mind std140.** A 256-entry UBO is the simplest
+portable choice but std140 pads scalar arrays to 16B stride (4KB - still fine); a read-only
+storage buffer in the fragment stage is also WebGPU-valid. Builder's choice; whichever is
+picked, the WebGPU probe covers it. The buffer's GENERATION (bumped on any tileScale/palette
+edit) is part of the bind cache key.
+
+**R8 - Eviction stated plainly (the spec's step 1 parenthetical contradicts itself):** when
+all four slots hold OTHER layers, unconditionally evict the minimum-weight slot (set index=L,
+weight=0, then proceed with the normal raise). The evicted weight falls to base; the error is
+bounded by the smallest weight, which is the least visible by definition. No thrash guard in
+v1 - painting is falloff-shaped, so the center converges to L immediately and the rim churn is
+sub-quantum. Headless test pins min-slot eviction.
+
+**Notes, no change required:** K=4 + 8-bit indices matches WebGPU's minimum
+maxTextureArrayLayers (256) exactly - do not raise the index width without checking that
+limit. The cook's palette-array product makes the terrain recipe depend on every palette
+albedo's PIXELS - chain them (reads, not references) so an albedo edit re-cooks the array.
+Number-key hotkeys are per-tool (tools are modal) - no conflict with sculpt's 1-4 modes.
+Palette-albedo common size as an authoring setting: yes, default 1024, on the terrain asset.
+
+Build order approved as phased (P0 -> P4), with R1 folded into P1's design before any shader
+work and R2/R3 folded into P0.
