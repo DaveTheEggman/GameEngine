@@ -729,9 +729,31 @@ namespace editor
         // back to the dock, so a provider can opt into them without the panel silently vanishing.
         switch (placement)
         {
+        case ToolPanelPlacement::ViewportOverlay:
+        {
+            // A themed HUD floating over the viewport - eyes stay on the terrain while brushing.
+            foundation::ui::Panel* overlay = m_toolOverlay.Get();
+            if (overlay == nullptr)
+            {
+                return;
+            }
+            while (overlay->ChildCount() > 0)
+            {
+                overlay->RemoveView(overlay->GetChildAt(0), true);
+            }
+            if (view != nullptr)
+            {
+                overlay->AddView(view, MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
+                overlay->Visibility = foundation::ui::Visibility::Visible;
+            }
+            else
+            {
+                overlay->Visibility = foundation::ui::Visibility::Gone;
+            }
+            break;
+        }
         case ToolPanelPlacement::Dock:
-        case ToolPanelPlacement::Float:            // TODO(terrain-ux): floating palette presentation
-        case ToolPanelPlacement::ViewportOverlay:  // TODO(terrain-ux): in-viewport HUD presentation
+        case ToolPanelPlacement::Float: // TODO(terrain-ux): floating-palette presentation; docks for now
         default:
         {
             foundation::ui::FlexLayout* slot = m_toolPanelSlot.Get();

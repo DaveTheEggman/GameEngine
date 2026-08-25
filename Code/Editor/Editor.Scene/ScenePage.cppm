@@ -226,6 +226,19 @@ export namespace editor
                     pfp->Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
                     viewportFrame->AddView(m_previewContainer.Get(), pfp);
                 }
+                {
+                    // The ViewportOverlay tool-panel target: a themed HUD panel floating top-right over
+                    // the viewport. Idle (Gone) until a ViewportOverlay-placed tool panel mounts into it.
+                    m_toolOverlay = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+                    m_toolOverlay->Visibility = foundation::ui::Visibility::Gone;
+                    m_toolOverlay->Padding = foundation::ui::Thickness{8.0f, 8.0f, 8.0f, 8.0f};
+                    auto ofp = MakeRef<foundation::ui::FrameLayoutParams>(DefaultAllocator());
+                    ofp->Gravity = static_cast<foundation::ui::Gravity>(
+                        static_cast<u32>(foundation::ui::Gravity::Top) |
+                        static_cast<u32>(foundation::ui::Gravity::Right));
+                    ofp->Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
+                    viewportFrame->AddView(m_toolOverlay.Get(), ofp);
+                }
                 auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
@@ -554,6 +567,10 @@ export namespace editor
         // whose content the host swaps to the active tool's settings panel; empty when the active
         // tool has no panel (Select). Synced from OnUpdate.
         RefPtr<foundation::ui::FlexLayout> m_toolPanelSlot;
+        // ViewportOverlay placement (experiment): a themed panel floating over the viewport (top-right),
+        // holding the active tool's settings as a HUD. Visibility::Gone unless a ViewportOverlay panel
+        // is mounted. The dock slot above is the Dock placement; MountToolPanel routes between them.
+        RefPtr<foundation::ui::Panel> m_toolOverlay;
         UniquePtr<ViewportToolPanelHost> m_toolPanelHost;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
         RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit

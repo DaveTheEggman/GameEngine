@@ -68,6 +68,12 @@ namespace editor
         {
         public:
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.sculpt"; }
+            // Experiment: present the brush settings as a viewport HUD (eyes stay on the terrain),
+            // not the bottom dock. Flip back to Dock (the default) to compare.
+            [[nodiscard]] ToolPanelPlacement Placement() const override
+            {
+                return ToolPanelPlacement::ViewportOverlay;
+            }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
                                                        const ViewportToolHostContext&) override
@@ -98,6 +104,10 @@ namespace editor
         {
         public:
             [[nodiscard]] StringView ToolId() const override { return u8"terrain.splat"; }
+            [[nodiscard]] ToolPanelPlacement Placement() const override
+            {
+                return ToolPanelPlacement::ViewportOverlay; // same HUD experiment as sculpt
+            }
 
             [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
                                                        const ViewportToolHostContext&) override
