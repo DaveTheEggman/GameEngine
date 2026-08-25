@@ -108,7 +108,7 @@ export namespace foundation::ui::toolkit
             // Re-clamp against the CURRENT parent size (available here). If the viewport shrank - the
             // bottom dock expanded upward - pull the panel back inside; a changed margin needs another
             // pass to reposition it.
-            if (LayoutParams != nullptr)
+            if (LayoutParams)
             {
                 const Thickness before = LayoutParams->Margin;
                 ClampToParent();
