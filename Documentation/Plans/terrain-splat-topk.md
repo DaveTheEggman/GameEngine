@@ -1,7 +1,8 @@
 # Terrain Splat: Unlimited Layers via Top-K Blending (+ explicit Base layer)
 
-Status: SPEC / proposed (awaiting review). Supersedes the P1 "one RGBA8 splatmap, 4 layers"
-model documented in terrain-splat-d2.md / terrain-splat-phase2.md.
+Status: APPROVED (Fable, 2026-08-25) with required amendments R1-R8 (see RULING at the bottom);
+amendments folded into the body below. Building P0. Supersedes the P1 "one RGBA8 splatmap, 4
+layers" model documented in terrain-splat-d2.md / terrain-splat-phase2.md.
 
 ## Motivation
 
@@ -67,13 +68,16 @@ Final shaded albedo per pixel:
 
 Replace the single RGBA8 `Splatmap` with a top-K weight map. Two options; this spec picks (A):
 
-- (A, chosen) `SplatWeights`: two RGBA8 rasters of equal WxH:
-  - `index`  (RGBA8): the 4 palette indices at this texel (0..255). Slot is "unused" iff its weight
-    is 0 (index value is then don't-care; writers set it to 0).
-  - `weight` (RGBA8): the 4 quantized weights (0..255 -> 0..1). `baseW` is derived in-shader as
+- (A, chosen) `SplatWeights`: two rasters of equal WxH:
+  - `index`  (**RGBA8Uint** - integer, NON-filterable): the 4 palette indices at this texel
+    (0..255). Slot is "unused" iff its weight is 0 (index value is then don't-care; writers set it
+    to 0). MUST be `Load`-only in the shader - see R1: a filtered sample would interpolate indices
+    into garbage layers at every boundary. RGBA8Uint is non-filterable on WebGPU anyway, so Load-only
+    is also the portable choice.
+  - `weight` (RGBA8Unorm): the 4 quantized weights (0..255 -> 0..1). `baseW` is derived in-shader as
     `1 - dot(weight, 1)`.
-  - Rationale: two fixed RGBA8 textures are trivially GPU-samplable, headless-testable, and paint
-    edits are a small per-texel array update. Memory is 2x the old splatmap (still tiny).
+  - Rationale: two fixed rasters are trivially GPU-samplable, headless-testable, and paint edits are
+    a small per-texel array update. Memory is 2x the old splatmap (still tiny).
 - (B, rejected for now) A packed R32/RG32 texture (index+weight interleaved). Denser but needs
   manual bit unpacking in the shader and the paint code; not worth it at K=4.
 
@@ -120,23 +124,36 @@ versioning rule); write a v(old)->v(new) upgrade (see Migration).
 
 ### Terrain PS (splat blend)
 
-Replace the current 4-fixed-slot blend with the top-K blend (HLSL sketch; stays inline per the
-leave-shader-source-inline rule):
+Replace the current 4-fixed-slot blend with the top-K blend. Per R1 the index raster is integer and
+Load-only, and the splat bilinear is done MANUALLY over the 2x2 texel neighborhood (never let a
+sampler interpolate indices). HLSL sketch (stays inline per the leave-shader-source-inline rule):
 
-    float4 idxN = indexMap.Sample(splatSampler, uv);      // 0..1 per channel
-    float4 w    = weightMap.Sample(splatSampler, uv);     // 0..1 per channel
-    float  baseW = saturate(1.0 - dot(w, float4(1,1,1,1)));
-
-    float3 albedo = baseAlbedo.Sample(albedoSampler, uv * baseTile).rgb * baseW;
-    [unroll] for (int k = 0; k < 4; ++k) {
-        if (w[k] <= 0) continue;                          // unused slot
-        uint layer = (uint)round(idxN[k] * 255.0);
-        float tile = tileScales[layer];
-        albedo += paletteArray.Sample(albedoSampler, float3(uv * tile, layer)).rgb * w[k];
+    // Blend the base + top-K palette layers for ONE texel's stored slots.
+    float3 BlendTexel(uint2 texel, float2 uv) {
+        uint4 idx = indexMap.Load(int3(texel, 0));        // integer indices, no filtering
+        float4 w  = weightMap.Load(int3(texel, 0)) / 255.0;
+        float baseW = saturate(1.0 - dot(w, float4(1,1,1,1)));
+        float3 c = baseAlbedo.Sample(albedoSampler, uv * baseTile).rgb * baseW;
+        [unroll] for (int k = 0; k < 4; ++k) {
+            if (w[k] <= 0) continue;                       // unused slot (typical texel: 1-2 used)
+            c += paletteArray.Sample(albedoSampler,
+                     float3(uv * tileScales[idx[k]], idx[k])).rgb * w[k];
+        }
+        return c;
     }
+    // Manual bilinear over the 4 covering texels (weights/indices are per-texel, albedo is tiled).
+    float2 t = uv * splatSize - 0.5;
+    uint2  b = (uint2)floor(t);
+    float2 f = frac(t);
+    float3 albedo = lerp(lerp(BlendTexel(b + uint2(0,0), uv), BlendTexel(b + uint2(1,0), uv), f.x),
+                         lerp(BlendTexel(b + uint2(0,1), uv), BlendTexel(b + uint2(1,1), uv), f.x), f.y);
 
-`layerCount == 0` (no palette) -> baseW clamps to 1 -> pure base, which also covers the "no weights
-authored yet" case. Keep the existing height-ramp fallback only when there is no base albedo either.
+Worst case is 4 * (K + 1) albedo taps, but the zero-slot skip makes the typical texel a few taps;
+terrain has the headroom. If profiling ever bites, a point-index + bilinear-weight quality fallback
+is the escape hatch, but v1 ships the correct blend. `paletteCount == 0` -> baseW clamps to 1 ->
+pure base (covers "no weights authored yet"); keep the height-ramp fallback only when there is no
+base albedo either. WebGPU: RGBA8Uint Loads + the array sampling are exactly where the naga/WGSL
+path can diverge - validate the cook early (R1, R5).
 
 ## Paint tool (Editor.Terrain, TerrainSplatTool)
 
@@ -146,10 +163,11 @@ texel, apply the top-K update with the falloff-scaled strength `t`:
 Paint(paletteIndex L, strength t):
   1. If L is already one of the 4 slots at this texel: `slotOf(L)`.
      Else if a slot is free (weight 0): use it, set its index = L.
-     Else (all 4 slots used by other layers): find the slot with the SMALLEST weight `m`. Only evict
-        it if L would end up stronger than `m` after this dab (avoid thrashing); i.e. proceed if
-        `t*(1 - 0) > m` is not required - simpler: evict the min slot, set its index = L, weight 0.
-        (Eviction error is bounded by the smallest weight, which is by definition the least visible.)
+     Else (all 4 slots used by OTHER layers): unconditionally evict the MINIMUM-weight slot - set its
+        index = L, weight = 0 - then proceed with the raise below (R8, no thrash guard in v1). The
+        evicted weight falls to base; the error is bounded by the smallest weight, the least visible
+        by definition. Painting is falloff-shaped, so the brush center converges to L immediately and
+        rim churn is sub-quantum.
   2. Fade the OTHER three slots: `w[j] *= (1 - t)` for j != slotOf(L). (This also fades baseW, since
      baseW = 1 - sum; painting toward L reduces base.)
   3. Raise L: `w[slotOf(L)] = w[slotOf(L)] + t * (1 - w[slotOf(L)])`.
@@ -170,11 +188,11 @@ The brush-ring tint uses the selected palette layer's average albedo or a per-in
 
 - Split the layer list into TWO sections:
   - "Base layer": one albedo picker + tile-scale field. Cannot be removed or reordered.
-  - "Paint layers": the unbounded palette list (albedo + tileScale per row) with Add / Remove /
-    reorder. `AddLayer()` no longer needs a cap. Reordering a palette layer must remap the weight
-    map's stored indices (or forbid reorder and only allow add/remove-at-end to keep indices stable;
-    simplest: remove-swaps-with-last is disallowed - removal renumbers, so the tool remaps the
-    index raster on remove; spec this precisely in the build).
+  - "Paint layers": the unbounded palette list (albedo + tileScale per row) with Add / Remove.
+    `AddLayer()` no longer needs a cap. Arbitrary reorder stays FORBIDDEN in v1 (R6). REMOVE remaps
+    the index raster (decrement indices above the removed one; zero any slot referencing it - its
+    freed weight falls to base by construction) and edits the asset as ONE undo entry: a full-raster
+    snapshot bundled with the asset edit (remove is rare, so no region-delta - R6).
 - Editing rewrites the source, pushes the existing merge-keyed undo, rebinds + rebuilds.
 
 ## Splat picker (Editor.Terrain, ToolPanelsImpl - the FloatingPanel content)
@@ -189,24 +207,34 @@ The brush-ring tint uses the selected palette layer's average albedo or a per-in
 
 ## Migration (existing 4-layer terrains)
 
-Old on-disk terrain: RGBA8 splatmap `(w0,w1,w2,w3)` per texel, `layers[0..3]`, `sum == 1` by the old
-seed/paint invariant. Convert at cook (guarded by the DataVersion bump):
-- `base` = old `layers[0]`.
-- `palette` = old `layers[1..3]` (in order) -> palette indices 0,1,2.
-- weight map per texel: `weight = (w1, w2, w3, 0)`, `index = (0, 1, 2, 0)`; base weight is then
-  `1 - (w1+w2+w3) = w0`. Lossless (all old data has <= 3 non-base layers, fits K=4).
-- A terrain with no splatmap -> empty `SplatWeights` (all base). A terrain with an old `SeedLayer0`
-  raster -> all-base after conversion (w1=w2=w3=0), correct.
+Old on-disk terrain: RGBA8 splatmap `(w0,w1,w2,w3)` per texel, `layers[0..3]`. The OLD shader
+NORMALIZED the four channels in-shader, so a texel whose stored sum drifted from 255 still rendered
+exact ratios. The new model derives base from the deficit, so migrating raw `(w1,w2,w3)` would shift
+visuals wherever `sum != 255`. Convert at cook (guarded by the DataVersion bump), renormalizing by
+the old sum (R2):
+- `base` = old `layers[0]`; `palette` = old `layers[1..3]` (in order) -> palette indices 0,1,2.
+- Per texel, `s = w0+w1+w2+w3`. If `s > 0`: new palette weights `wi' = wi / s` for i in 1..3 (so the
+  derived `baseW = 1 - (w1'+w2'+w3') = w0/s` equals the old layer-0 SHARE); quantize to 0..255.
+  `index = (0, 1, 2, 0)`, unused 4th slot weight 0. If `s == 0`: all-base (empty slots). Lossless
+  and visually exact vs the old normalized blend (all old data has <= 3 non-base layers, fits K=4).
+- A terrain with no splatmap -> empty `SplatWeights` (all base). An old `SeedLayer0` raster
+  (`(255,0,0,0)`) -> all-base after conversion, correct.
 
-Provide the converter in the cook builder; no runtime migration path needed (assets re-cook).
+Provide the converter in the cook builder; no runtime migration path needed (assets re-cook). Pin
+VISUAL PARITY in the converter test: old-normalized blend == new blend per texel within quantum.
 
 ## Phasing
 
 - P0 - Data + headless paint math: `SplatWeights` (index+weight rasters) + `PaintTopK`/`EraseTopK`
   + region-delta, all headless-tested. TerrainResource/Source base+palette fields + DataVersion +
-  migration converter. No rendering yet (tests only). Green + reviewed before P1.
-- P1 - Renderer: Texture2DArray palette (cook resize/pack), the new set-3 bind group + tileScale
-  buffer, the top-K PS blend, base+palette bind. Verify a hand-authored multi-layer terrain renders.
+  the renormalizing migration converter (R2). The editable-source TWO-sidecar convention (R3:
+  "indices" alongside "pixels", asset DataVersion bump, ScanDependencies chains both, paint persist
+  writes both) + the pass-16 persist tests extended to two rasters. No rendering yet. Green +
+  reviewed before P1.
+- P1 - Renderer: Texture2DArray palette (cook resize/pack to a common size), the new set-3 bind
+  group + tileScale buffer, the top-K PS blend with R1's integer-index Load + manual 2x2 bilinear
+  (fold R1 into the design BEFORE any shader work), base+palette bind + the R4 cache/retire for the
+  three GPU objects. Verify a hand-authored multi-layer terrain renders.
 - P2 - Paint tool: palette-index selection + eraser, two-raster stroke undo, GPU dirty-rect
   re-upload of both textures, hotkeys, ring tint.
 - P3 - Editor UX: asset page base/paint split (uncapped palette + index remap on remove), splat
@@ -222,24 +250,35 @@ Provide the converter in the cook builder; no runtime migration path needed (ass
 - Editor.Terrain.Tests: the splat tool paints the SELECTED palette index into the correct slot;
   eraser reveals base; one command per stroke undoes/redoes both rasters. PanelProvider builds the
   base+palette picker; the asset page adds/removes palette layers past 4 and remaps indices.
-- Renderer: a small golden or a "renders non-fallback" assertion for a 6-layer terrain (the whole
-  point - proves the cap is gone).
+- Renderer (R5, the established pixel-probe bar - not a golden/non-fallback assertion): a >4-layer
+  terrain probe on Vulkan AND WebGPU with pixel-exact parity (extends TerrainPixelProbeTests -
+  proves the cap is gone AND the WGSL path agrees on RGBA8Uint Loads + array sampling); the existing
+  paint->re-upload probe updated to the two-raster + palette-index model; the type-confusion
+  regression's FillTerrainRenderData extended to the new fields (must keep compiling); plus the
+  splat-cache aliasing/retire/Clear suite for the three GPU objects (R4).
 
-## Open questions / to settle in the build
+## Settled by the ruling (were open questions)
 
-- Palette reorder vs index stability: recommend forbidding arbitrary reorder in P3 (add/remove only),
-  and on REMOVE, remap the weight raster indices (decrement indices above the removed one, zero any
-  slot that referenced it). Reorder can come later if artists ask.
-- Common palette-albedo size for the array (default 1024; expose as a terrain authoring setting?).
-- Eraser as a palette entry vs a separate mode toggle in the picker (spec leans: separate eraser
-  button + the existing mode-selection idiom).
+- Palette reorder: FORBIDDEN in v1 (add/remove only); remove remaps indices as one full-snapshot
+  undo entry (R6). Reorder can come later if artists ask.
+- Common palette-albedo size: a terrain-asset authoring setting, default 1024 (ruling notes). The
+  cook resamples every palette albedo to it and chains their PIXELS (reads) so an albedo edit
+  re-cooks the array.
+- Eraser: a separate eraser button in the picker + mode toggle on the tool (not a palette entry).
+- tileScale storage (R7): a 256-entry std140 UBO (16B stride -> 4KB, fine) or a read-only fragment
+  storage buffer - builder's choice; its GENERATION is part of the set-3 bind cache key either way.
+- K=4 + 8-bit index == WebGPU minimum `maxTextureArrayLayers` (256) EXACTLY; do not widen the index
+  without checking that limit (ruling notes).
 
 ## Touch list (for the build)
 
 - foundation.terrain: `SplatWeights` (was Splatmap) + `PaintTopK`/`EraseTopK`; TerrainResource
   base/palette; TerrainSource fields + DataVersion + migration.
-- Terrain.Pipeline: SplatmapAsset -> weights product (two rasters); palette-array pack/resize;
-  builder ProductType unchanged conventions (builder = source type, factory = runtime).
+- Terrain.Pipeline: SplatmapAsset KEEPS its type but gains a second sidecar stream "indices"
+  alongside "pixels"(weights) + an asset DataVersion bump (R3); the renormalizing migration
+  converter (R2); palette-array pack/resize to the common size, chaining every palette albedo's
+  PIXELS (reads, so an albedo edit re-cooks the array); builder ProductType unchanged conventions
+  (builder = source type, factory = runtime).
 - Engine.Terrain: TerrainRenderData fields; TerrainRenderer set-3 bind group + tileScale buffer +
   Texture2DArray; the PS top-K blend; drop kMaxLayers.
 - Editor.Terrain: TerrainSplatTool palette index + eraser + two-raster stroke; TerrainEditorPage
