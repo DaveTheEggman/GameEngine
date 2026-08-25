@@ -105,6 +105,18 @@ export namespace foundation::ui::toolkit
         {
             (void)left;
             (void)top;
+            // Re-clamp against the CURRENT parent size (available here). If the viewport shrank - the
+            // bottom dock expanded upward - pull the panel back inside; a changed margin needs another
+            // pass to reposition it.
+            if (LayoutParams != nullptr)
+            {
+                const Thickness before = LayoutParams->Margin;
+                ClampToParent();
+                if (LayoutParams->Margin.Left != before.Left || LayoutParams->Margin.Top != before.Top)
+                {
+                    Invalidate();
+                }
+            }
             if (m_content && !m_collapsed)
             {
                 m_content->Layout(kContentInset, kHeaderHeight, Max(0.0f, width - 2.0f * kContentInset),
@@ -384,29 +396,31 @@ export namespace foundation::ui::toolkit
         }
 
         // Resize can't push the panel past the parent's right/bottom edge (Bounds.x/y = Margin.Left/Top
-        // under Top|Left gravity; the opposite margin also eats into the available room).
+        // under Top|Left gravity).
         [[nodiscard]] f32 MaxWidthInParent() const
         {
-            if (Parent == nullptr || !LayoutParams)
+            if (Parent == nullptr)
             {
                 return Max(kMinWidth, m_userW);
             }
-            return Max(kMinWidth, Parent->Bounds.width - Bounds.x - LayoutParams->Margin.Right);
+            return Max(kMinWidth, Parent->Bounds.width - Bounds.x);
         }
         [[nodiscard]] f32 MaxHeightInParent() const
         {
-            if (Parent == nullptr || !LayoutParams)
+            if (Parent == nullptr)
             {
                 return Max(kMinHeight, m_userH);
             }
-            return Max(kMinHeight, Parent->Bounds.height - Bounds.y - LayoutParams->Margin.Bottom);
+            return Max(kMinHeight, Parent->Bounds.height - Bounds.y);
         }
 
         // Keep the WHOLE panel inside its parent by clamping its layout margin (Top|Left gravity:
         // Bounds.x/y track Margin.Left/Top). Clamp against the INTENDED size (not the laid-out
-        // Height()/Width(), which lags a frame and let the panel walk off the bottom), and leave room
-        // for the opposite margins - otherwise a downward drag runs the panel off-frame behind the
-        // dock. GravityHelper does not clamp an overflowing child, so this is the only guard.
+        // Height()/Width(), which lags a frame). GravityHelper does not clamp an overflowing child, so
+        // this is the only guard; run it on every layout so the panel follows a shrinking viewport
+        // (e.g. the bottom dock expanding upward) instead of sliding behind it. The opposite margins
+        // are NOT reserved - under Top|Left they don't move the panel, and reserving them left a gap
+        // that stopped the panel hugging the right/bottom edges.
         void ClampToParent()
         {
             if (Parent == nullptr || !LayoutParams)
@@ -415,10 +429,8 @@ export namespace foundation::ui::toolkit
             }
             const f32 intendedW = Max(kMinWidth, m_userW);
             const f32 intendedH = m_collapsed ? kHeaderHeight : Max(kMinHeight, m_userH);
-            const f32 maxL =
-                Max(0.0f, Parent->Bounds.width - intendedW - LayoutParams->Margin.Right);
-            const f32 maxT =
-                Max(0.0f, Parent->Bounds.height - intendedH - LayoutParams->Margin.Bottom);
+            const f32 maxL = Max(0.0f, Parent->Bounds.width - intendedW);
+            const f32 maxT = Max(0.0f, Parent->Bounds.height - intendedH);
             LayoutParams->Margin.Left = Clamp(LayoutParams->Margin.Left, 0.0f, maxL);
             LayoutParams->Margin.Top = Clamp(LayoutParams->Margin.Top, 0.0f, maxT);
         }
