@@ -98,6 +98,7 @@ namespace editor
                     // Bound the grid to its two rows: its internal ScrollView otherwise fills all
                     // available space (both axes), which stretched the panel over the whole viewport.
                     auto glp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                    glp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(200.0f));  // don't let the grid demand full width
                     glp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f)); // radius + strength rows
                     root->AddView(grid.Get(), glp);
                 }
@@ -138,6 +139,7 @@ namespace editor
                     // Bound the grid to its two rows: its internal ScrollView otherwise fills all
                     // available space (both axes), which stretched the panel over the whole viewport.
                     auto glp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                    glp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(200.0f));  // don't let the grid demand full width
                     glp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f)); // radius + strength rows
                     root->AddView(grid.Get(), glp);
                 }

@@ -244,15 +244,15 @@ export namespace editor
                     viewportFrame->AddView(m_toolOverlay.Get(), ofp);
                 }
                 {
-                    // The Float tool-panel target: a draggable panel (BuildToolFloat) starting top-left,
-                    // moved by its header. Idle (Gone) until a Float-placed panel mounts into it.
+                    // The Float tool-panel target: a FloatingPanel (draggable / resizable / collapsible /
+                    // closable) starting top-left. Idle (Gone) until a Float-placed panel mounts into it.
+                    // No fixed width - it sizes to its content (and to an explicit size once resized).
                     BuildToolFloat();
                     auto ffp = MakeRef<foundation::ui::FrameLayoutParams>(DefaultAllocator());
                     ffp->Gravity = static_cast<foundation::ui::Gravity>(
                         static_cast<u32>(foundation::ui::Gravity::Top) |
                         static_cast<u32>(foundation::ui::Gravity::Left));
                     ffp->Margin = foundation::ui::Thickness{16.0f, 16.0f, 16.0f, 16.0f};
-                    ffp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(260.0f));
                     viewportFrame->AddView(m_toolFloat.Get(), ffp);
                 }
                 auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
@@ -587,10 +587,10 @@ export namespace editor
         // holding the active tool's settings as a HUD. Visibility::Gone unless a ViewportOverlay panel
         // is mounted. The dock slot above is the Dock placement; MountToolPanel routes between them.
         RefPtr<foundation::ui::Panel> m_toolOverlay;
-        // Float placement (experiment): a themed panel DRAGGABLE by its header (moves via
-        // Transform.Translation - no relayout), floating over the viewport. Built in BuildToolFloat.
-        RefPtr<foundation::ui::Panel> m_toolFloat;
-        RefPtr<foundation::ui::FlexLayout> m_toolFloatSlot; // the content slot inside the float
+        // Float placement: a FloatingPanel (drag / resize / collapse / close) floating over the
+        // viewport, holding the active tool's settings. Built in BuildToolFloat; close deactivates
+        // the tool. Visibility::Gone unless a Float-placed panel is mounted.
+        RefPtr<FloatingPanel> m_toolFloat;
         UniquePtr<ViewportToolPanelHost> m_toolPanelHost;
         RefPtr<foundation::ui::toolkit::BottomDock> m_bottomDock;   // the collapsible bottom strip
         RefPtr<foundation::ui::toolkit::SplitView> m_viewportColumn; // [viewport / bottom dock] vsplit
@@ -606,7 +606,7 @@ export namespace editor
         scene::EntityHandle m_previewTarget; // the camera previewed this frame (unassigned = none)
         u32 m_previewHeight = 180;           // panel + render-target height (from the target aspect)
         void BuildCameraPreview();
-        void BuildToolFloat(); // the Float placement: a draggable panel over the viewport
+        void BuildToolFloat(); // the Float placement: builds m_toolFloat (FloatingPanel)
         void UpdateCameraPreview();
         void RenderCameraPreview();
         void ToggleCameraPin();

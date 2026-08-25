@@ -61,89 +61,6 @@ namespace vg = foundation::vg;
 
 namespace editor
 {
-    namespace
-    {
-        // A draggable title strip for the Float tool-panel: moves its target view by adjusting the
-        // target's Transform.Translation (mouse coords are UI-logical/window, so deltas are clean and
-        // no relayout is needed - hit-testing follows the translation). Mirrors the Slider capture
-        // pattern. Editor font is Latin-1 only, so the label stays ASCII.
-        class DragStrip final : public ui::Label
-        {
-        public:
-            using ui::Label::Label;
-            ui::View* moveTarget = nullptr;
-
-            void OnMouseDown(ui::MouseEventArgs& e) override
-            {
-                if (e.Button == ui::MouseButton::Left && moveTarget != nullptr)
-                {
-                    m_dragging = true;
-                    m_lastX = e.X;
-                    m_lastY = e.Y;
-                    if (Context != nullptr)
-                    {
-                        Context->GetFocusManager()->SetCapture(this);
-                    }
-                    e.Handled = true;
-                }
-            }
-            void OnMouseMove(ui::MouseEventArgs& e) override
-            {
-                if (m_dragging && moveTarget != nullptr)
-                {
-                    moveTarget->Transform.Translation.x += (e.X - m_lastX);
-                    moveTarget->Transform.Translation.y += (e.Y - m_lastY);
-                    m_lastX = e.X;
-                    m_lastY = e.Y;
-                    ClampToParent();
-                    e.Handled = true;
-                }
-            }
-
-            // Keep the panel fully inside its parent (the viewport frame): a Float child can't render
-            // over sibling SplitView panes (the hierarchy/inspector draw on top) and loses input there,
-            // so confine it to its own pane. Effective rect = Bounds + Translation; clamp Translation so
-            // that rect stays within [0, parentSize].
-            void ClampToParent()
-            {
-                if (moveTarget == nullptr || moveTarget->Parent == nullptr)
-                {
-                    return;
-                }
-                const Rectangle b = moveTarget->Bounds;
-                const f32 pw = moveTarget->Parent->Bounds.width;
-                const f32 ph = moveTarget->Parent->Bounds.height;
-                f32 minTx = -b.x;
-                f32 maxTx = pw - b.width - b.x;
-                f32 minTy = -b.y;
-                f32 maxTy = ph - b.height - b.y;
-                if (maxTx < minTx) { maxTx = minTx; } // panel wider than the viewport: pin to the left
-                if (maxTy < minTy) { maxTy = minTy; }
-                moveTarget->Transform.Translation.x =
-                    Clamp(moveTarget->Transform.Translation.x, minTx, maxTx);
-                moveTarget->Transform.Translation.y =
-                    Clamp(moveTarget->Transform.Translation.y, minTy, maxTy);
-            }
-            void OnMouseUp(ui::MouseEventArgs& e) override
-            {
-                if (e.Button == ui::MouseButton::Left && m_dragging)
-                {
-                    m_dragging = false;
-                    if (Context != nullptr)
-                    {
-                        Context->GetFocusManager()->ReleaseCapture();
-                    }
-                    e.Handled = true;
-                }
-            }
-
-        private:
-            bool m_dragging = false;
-            f32 m_lastX = 0.0f;
-            f32 m_lastY = 0.0f;
-        };
-    }
-
     const TypeInfo* PrefabEditorPageFactory::PrimaryType() const
     {
         return &scene::PrefabDocument::StaticType();
@@ -807,24 +724,13 @@ namespace editor
 
     void SceneEditorPage::BuildToolFloat()
     {
-        // A themed panel with a draggable header + a content slot; the header moves the whole panel.
-        m_toolFloat = MakeRef<ui::Panel>(DefaultAllocator());
-        m_toolFloat->AddClass(u8"panel"); // resolve the theme's panel background
+        // The reusable FloatingPanel control owns drag / resize / collapse / close (and clamps itself
+        // to the viewport frame). Closing it deactivates the active tool, which unmounts the panel via
+        // the tool-panel host's clear callback - so close reads as "put the brush away".
+        m_toolFloat = MakeRef<FloatingPanel>(DefaultAllocator(), StringView(u8"Brush"));
         m_toolFloat->Visibility = ui::Visibility::Gone;
-        m_toolFloat->Padding = ui::Thickness{6.0f, 6.0f, 6.0f, 6.0f};
-
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
-        column->Direction = ui::Orientation::Vertical;
-        {
-            auto header = MakeRef<DragStrip>(DefaultAllocator(), StringView(u8"Brush Tools  (drag)"));
-            header->moveTarget = m_toolFloat.Get();
-            header->FontSize.SetValue(Optional<f32>{11.0f});
-            column->AddView(header.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
-        }
-        m_toolFloatSlot = MakeRef<ui::FlexLayout>(DefaultAllocator());
-        m_toolFloatSlot->Direction = ui::Orientation::Vertical;
-        column->AddView(m_toolFloatSlot.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
-        m_toolFloat->AddView(column.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+        SceneEditorPage* page = this;
+        m_toolFloat->OnClose.Add([page]() { page->m_viewportTools.ActivateDefault(); });
     }
 
     void SceneEditorPage::MountToolPanel(foundation::ui::View* view, ToolPanelPlacement placement)
@@ -859,25 +765,14 @@ namespace editor
         }
         case ToolPanelPlacement::Float:
         {
-            // A draggable panel floating over the viewport (moved by its header).
-            foundation::ui::FlexLayout* slot = m_toolFloatSlot.Get();
-            if (slot == nullptr || m_toolFloat.Get() == nullptr)
+            // A FloatingPanel over the viewport: drag / resize / collapse / close (see FloatingPanel).
+            if (m_toolFloat.Get() == nullptr)
             {
                 return;
             }
-            while (slot->ChildCount() > 0)
-            {
-                slot->RemoveView(slot->GetChildAt(0), true);
-            }
-            if (view != nullptr)
-            {
-                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(DefaultAllocator()));
-                m_toolFloat->Visibility = foundation::ui::Visibility::Visible;
-            }
-            else
-            {
-                m_toolFloat->Visibility = foundation::ui::Visibility::Gone;
-            }
+            m_toolFloat->SetContent(RefPtr<foundation::ui::View>(view));
+            m_toolFloat->Visibility =
+                (view != nullptr) ? foundation::ui::Visibility::Visible : foundation::ui::Visibility::Gone;
             break;
         }
         case ToolPanelPlacement::Dock:
