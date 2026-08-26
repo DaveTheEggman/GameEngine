@@ -389,7 +389,9 @@ export namespace engine::terrain
             }
             rhi::BufferDesc bd{};
             bd.size = scales.Size() * sizeof(f32);
-            bd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+            // StorageRead, not Storage: the shader only reads it, and CpuToGpu (upload-heap)
+            // memory cannot carry UAV/Storage usage (DX12 UPLOAD heap rule; RHI validation).
+            bd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
             bd.memory = rhi::MemoryLocation::CpuToGpu;
             bd.label = u8"terrain.tileScales";
             if (!device.CreateBuffer(bd, out.tileScaleBuffer).IsOk() ||

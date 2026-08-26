@@ -314,7 +314,7 @@ export namespace engine::terrain
             }
             rhi::BufferDesc tbd{};
             tbd.size = sizeof(f32);
-            tbd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+            tbd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
             tbd.memory = rhi::MemoryLocation::CpuToGpu;
             tbd.label = u8"terrain.dummyTileScales";
             if (!m_device->CreateBuffer(tbd, m_dummyTileBuffer).IsOk())
