@@ -165,6 +165,71 @@ TEST_CASE("terrain splat: stamps are distance-spaced - holding still adds nothin
     (void)tool.Update(release);
 }
 
+TEST_CASE("terrain splat: airbrush mode builds up while holding still (time-cadence stamps)")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::TerrainSplatTool tool(fx.scene, commands, nullptr);
+    tool.SetPaletteIndex(4);
+    tool.SetStrength(0.5f);
+    tool.SetAirbrush(true);
+    CHECK(tool.IsAirbrush());
+
+    editor::ViewportToolInput press = CenterRay(0.0f);
+    press.leftPressed = true;
+    press.leftDown = true;
+    (void)tool.Update(press);
+    const u8 afterPress = fx.weights->WeightOfLayer(16, 16, 4);
+    REQUIRE(afterPress >= 126); // the press stamp (~half coverage)
+
+    // Holding STILL now accrues time-cadence stamps (20/s): 12 frames at 1/60 = 0.2s = 4 stamps
+    // at half strength each -> coverage climbs well past the single press stamp.
+    for (i32 i = 0; i < 12; ++i)
+    {
+        editor::ViewportToolInput hold = CenterRay(0.0f); // deltaSeconds = 1/60
+        hold.leftDown = true;
+        (void)tool.Update(hold);
+    }
+    CHECK(fx.weights->WeightOfLayer(16, 16, 4) > afterPress + 60);
+
+    editor::ViewportToolInput release = CenterRay(0.0f);
+    release.leftReleased = true;
+    (void)tool.Update(release);
+}
+
+TEST_CASE("terrain splat: spacing controls stamp density along the stroke")
+{
+    // The same drag at low strength: WIDE spacing lays few stamps along the path; TIGHT spacing
+    // lays many overlapping ones and builds far more coverage at the midpoint.
+    const auto strokeAndMeasure = [](f32 spacing) -> u8
+    {
+        Fixture fx;
+        editor::EditorCommandStack commands;
+        editor::TerrainSplatTool tool(fx.scene, commands, nullptr);
+        tool.SetPaletteIndex(6);
+        tool.SetStrength(0.3f);
+        tool.SetSpacing(spacing);
+        CHECK(tool.Spacing() == doctest::Approx(spacing));
+
+        editor::ViewportToolInput press = CenterRay(0.0f);
+        press.leftPressed = true;
+        press.leftDown = true;
+        (void)tool.Update(press);
+        editor::ViewportToolInput drag = RayAt(8.0f, 0.0f);
+        drag.leftDown = true;
+        (void)tool.Update(drag);
+        editor::ViewportToolInput release = RayAt(8.0f, 0.0f);
+        release.leftReleased = true;
+        (void)tool.Update(release);
+        return fx.weights->WeightOfLayer(18, 16, 6); // mid-path texel (world x = +4)
+    };
+
+    const u8 tight = strokeAndMeasure(0.05f);
+    const u8 wide = strokeAndMeasure(1.0f);
+    CHECK(tight > wide + 30); // denser stamps = visibly more build-up on the same path
+    CHECK(wide > 0);          // but the wide stroke still covers the path (walker leaves no gap)
+}
+
 TEST_CASE("terrain splat: one command per stroke undoes/redoes BOTH rasters")
 {
     Fixture fx;

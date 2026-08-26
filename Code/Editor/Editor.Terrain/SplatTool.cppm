@@ -70,6 +70,14 @@ export namespace editor
         [[nodiscard]] f32 Radius() const noexcept { return m_radius; }
         void SetStrength(f32 s) noexcept { m_strength = Clamp(s, 0.0f, 1.0f); }
         [[nodiscard]] f32 Strength() const noexcept { return m_strength; }
+        /// Stamp spacing as a fraction of the brush radius. Low spacing + low strength = dense,
+        /// smooth blending along the stroke; high spacing = discrete dabs.
+        void SetSpacing(f32 s) noexcept { m_spacing = Clamp(s, kMinSpacing, 1.0f); }
+        [[nodiscard]] f32 Spacing() const noexcept { return m_spacing; }
+        /// Airbrush mode: while the button is held, ALSO deposit stamps on a time cadence at the
+        /// cursor (build-up by hovering - the soft-blend workflow); off = movement-only stamps.
+        void SetAirbrush(bool on) noexcept { m_airbrush = on; }
+        [[nodiscard]] bool IsAirbrush() const noexcept { return m_airbrush; }
 
         // Fired whenever the radius changes (wheel resize / SetRadius), so a bound panel field can
         // track it live. The FloatEditor's SetValue is edit-guarded, so this won't loop back.
@@ -78,6 +86,7 @@ export namespace editor
     private:
         static constexpr f32 kMinRadius = 0.5f;
         static constexpr f32 kMaxRadius = 128.0f;
+        static constexpr f32 kMinSpacing = 0.05f; // of the radius (spacing 0 would stamp forever)
 
         struct Pick
         {
@@ -94,7 +103,8 @@ export namespace editor
         [[nodiscard]] Pick ResolvePick(const ViewportToolInput& input) const;
 
         void BeginStroke(const Pick& pick);
-        void AdvanceStroke(const Pick& pick);          // distance-spaced stamps along the drag
+        // Distance-spaced stamps along the drag (+ time-cadence stamps when airbrush is on).
+        void AdvanceStroke(const Pick& pick, f32 deltaSeconds);
         void ApplyStamp(f32 uvX, f32 uvY, const Pick& pick);
         void EndStroke();
         void UpdateStatus();
@@ -107,10 +117,14 @@ export namespace editor
         bool m_erase = false;   // eraser mode (reveals the base)
         f32 m_radius = 6.0f;   // world units
         // Per-STAMP coverage fraction at the brush centre (0..1; 1 = one-hot in one stamp, and a
-        // hard eraser). Stamps are spaced along the stroke's world-space travel (kStampSpacing of
-        // the radius) - Unity/Unreal-style: frame-rate AND drag-speed independent; holding still
-        // deposits nothing beyond the press stamp; sub-1 strengths build up by scrubbing.
+        // hard eraser). Stamps are spaced along the stroke's world-space travel (m_spacing of the
+        // radius) - Unity/Unreal-style: frame-rate AND drag-speed independent; holding still
+        // deposits nothing beyond the press stamp unless AIRBRUSH is on (time-cadence stamps at
+        // the cursor); sub-1 strengths otherwise build up by scrubbing.
         f32 m_strength = 1.0f;
+        f32 m_spacing = 0.25f;  // stamp spacing, fraction of the radius
+        bool m_airbrush = false;
+        f32 m_airbrushClock = 0.0f; // accrued hold time toward the next time-cadence stamp
 
         // Hover (cursor overlay).
         bool m_hasHover = false;

@@ -178,6 +178,11 @@ exactly 1 at a texel centre. The raised slot quantizes LAST, capped by the other
 so convexity holds EXACTLY in the stored bytes (per-slot round-to-nearest could drift the u8 sum
 one over 255).
 
+Panel controls: Radius (wheel-tracked), Strength (per-stamp fraction), SPACING (stamp distance as
+a fraction of the radius, 0.05..1 - low spacing + low strength = smooth soft blending, high =
+discrete dabs), and AIRBRUSH (while held, ALSO stamps at the cursor on a 20/s time cadence -
+build-up by hovering, the soft-blend workflow the pure stamp model dropped).
+
 Per stamp, for each covered texel, apply the top-K update with the falloff-scaled strength `t`:
 
 Paint(paletteIndex L, strength t):

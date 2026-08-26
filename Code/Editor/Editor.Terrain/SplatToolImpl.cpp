@@ -264,7 +264,7 @@ namespace editor
             }
             else if (m_stroking && input.leftDown && pick.valid && pick.weights == m_strokeWeights.Get())
             {
-                AdvanceStroke(pick);
+                AdvanceStroke(pick, input.deltaSeconds);
                 consumed = true;
             }
 
@@ -298,26 +298,28 @@ namespace editor
             MemCopy(m_beforeIndices.Data(), ip.Data(), ip.Size());
         }
         m_region = terrain::SplatRegion{};
+        m_airbrushClock = 0.0f;
         // The press deposits ONE full stamp and anchors the spacing walker there.
         ApplyStamp(pick.uvX, pick.uvY, pick);
         m_lastStampU = pick.uvX;
         m_lastStampV = pick.uvY;
     }
 
-    // Distance-spaced stamping (the standard paint-brush model): a stamp lands every fraction of
+    // Distance-spaced stamping (the standard paint-brush model): a stamp lands every m_spacing of
     // the brush radius of world-space pointer travel, WALKING the segment from the last stamp so a
     // fast drag leaves no gaps. Frame-rate and drag-speed independent; holding still deposits
-    // nothing beyond the press stamp (scrub to build up at sub-1 strengths).
-    constexpr f32 kStampSpacing = 0.25f;         // of the brush radius
-    constexpr i32 kMaxStampsPerFrame = 1024;     // teleport guard (alt-tab warps, huge drags)
+    // nothing beyond the press stamp (scrub to build up at sub-1 strengths) - unless AIRBRUSH is
+    // on, which ALSO stamps at the cursor on a fixed time cadence (build-up by hovering).
+    constexpr i32 kMaxStampsPerFrame = 1024;  // teleport guard (alt-tab warps, huge drags)
+    constexpr f32 kAirbrushPeriod = 0.05f;    // seconds per time-cadence stamp (20/s)
 
-    void TerrainSplatTool::AdvanceStroke(const Pick& pick)
+    void TerrainSplatTool::AdvanceStroke(const Pick& pick, f32 deltaSeconds)
     {
         if (m_strokeWeights.Get() == nullptr)
         {
             return;
         }
-        const f32 spacing = Max(m_radius * kStampSpacing, 1e-4f);
+        const f32 spacing = Max(m_radius * m_spacing, 1e-4f);
         for (i32 i = 0; i < kMaxStampsPerFrame; ++i)
         {
             const f32 dxWorld = (pick.uvX - m_lastStampU) * pick.worldSizeX;
@@ -325,12 +327,21 @@ namespace editor
             const f32 dist = Sqrt(dxWorld * dxWorld + dyWorld * dyWorld);
             if (dist < spacing)
             {
-                return; // remainder carries to the next frame (no partial stamps)
+                break; // remainder carries to the next frame (no partial stamps)
             }
             const f32 f = spacing / dist;
             m_lastStampU += (pick.uvX - m_lastStampU) * f;
             m_lastStampV += (pick.uvY - m_lastStampV) * f;
             ApplyStamp(m_lastStampU, m_lastStampV, pick);
+        }
+        if (m_airbrush)
+        {
+            m_airbrushClock += Max(deltaSeconds, 0.0f);
+            for (i32 i = 0; m_airbrushClock >= kAirbrushPeriod && i < kMaxStampsPerFrame; ++i)
+            {
+                m_airbrushClock -= kAirbrushPeriod;
+                ApplyStamp(pick.uvX, pick.uvY, pick);
+            }
         }
     }
 

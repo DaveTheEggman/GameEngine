@@ -415,6 +415,17 @@ namespace editor
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
                 AddFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0, 0.05, 2,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
+                // Spacing = stamp density along the stroke (fraction of the radius): low + low
+                // strength = smooth soft blending; high = discrete dabs.
+                AddFloat(*grid, u8"Spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0, 0.05, 2,
+                         [t](f64 v) { t->SetSpacing(static_cast<f32>(v)); });
+                // Airbrush = time-cadence stamps while HOLDING (build-up by hovering).
+                {
+                    auto ab = MakeRef<ui::toolkit::BoolEditor>(
+                        DefaultAllocator(), StringView(u8"Airbrush"), t->IsAirbrush(),
+                        Function<void(bool)>{[t](bool v) { t->SetAirbrush(v); }});
+                    grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ab.Get()));
+                }
                 t->OnRadiusChanged = [radiusFe](f32 r) { radiusFe->SetValue(static_cast<f64>(r)); };
 
                 AddGrid(*root, grid);
