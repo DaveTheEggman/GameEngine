@@ -1,10 +1,14 @@
 // Pipeline::Terrain - the `terrain.pipeline` module.
 //
-// Tooling: the source TerrainAsset (references a heightfield asset + a splatmap + per-layer albedo
-// textures + tiling + cast-shadows) and the builder that cooks it into the Terrain resource. It does
-// NOT import a heightmap - that is Heightfield.Pipeline; a terrain REFERENCES an existing heightfield
-// asset. The cook is a reference pass-through (asset ids == cooked product ids). Never linked by the
-// runtime.
+// Tooling: the source TerrainAsset (references a heightfield asset + the splat weights + an
+// explicit BASE layer + an unbounded paint PALETTE of albedo textures + tiling + cast-shadows)
+// and the builder that cooks it into the Terrain resource. It does NOT import a heightmap - that
+// is Heightfield.Pipeline; a terrain REFERENCES an existing heightfield asset. The cook is a
+// reference pass-through (asset ids == cooked product ids). Never linked by the runtime.
+//
+// Splat model = top-K (terrain-splat-topk.md): SplatmapAsset carries TWO sidecars - "pixels"
+// (the 4 x u8 slot weights) + "indices" (the 4 x u8 palette indices). A legacy asset with only a
+// "pixels" sidecar (the fixed-4-layer model) migrates through MigrateLegacySplatmap at cook.
 
 module;
 #include "Core/Prelude.h"
@@ -20,6 +24,7 @@ import foundation.image;
 import foundation.image.io; // LoadImageFromMemory (RGBA8 decode - reuses the image decoder)
 import foundation.terrain.resource;
 import foundation.content;
+import texture.pipeline; // TextureAsset (decoding palette albedos for the array cook)
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -29,31 +34,130 @@ export namespace pipeline
     using foundation::terrain::TerrainResource;
     using foundation::terrain::TerrainSource;
 
-    // Source asset: references a heightfield + splatmap + per-layer albedo textures (by asset guid,
-    // which equal their cooked product guids) + per-layer tiling + a cast-shadows flag.
+    // Source asset: references a heightfield + the splat weights + the BASE layer + the paint
+    // palette (by asset guid, which equal their cooked product guids) + tiling + cast-shadows.
+    // DataVersion 2 = the top-K model; v1 (splatmapId + layerAlbedoIds, layer 0 = de-facto base)
+    // maps on read exactly as TerrainSource does: base = layer 0, palette = layers 1..,
+    // weightsId = splatmapId.
     class TerrainAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(TerrainAsset, pipeline::Asset)
     public:
-        Guid heightfieldId;         // the referenced heightfield asset (shared with physics/nav)
-        Guid splatmapId;            // one RGBA splatmap (up to 4 layers in P1); nil = none
-        Array<Guid> layerAlbedoIds; // per-layer albedo texture (parallel to layerTileScales)
-        Array<f32> layerTileScales; // per-layer UV tiling
+        Guid heightfieldId;           // the referenced heightfield asset (shared with physics/nav)
+        Guid weightsId;               // the SplatmapAsset (top-K weights); nil = none (pure base)
+        Guid baseAlbedoId;            // the BASE layer albedo (nil = white dummy)
+        f32 baseTileScale = 1.0f;
+        Array<Guid> paletteAlbedoIds; // paint layers, unbounded (parallel to paletteTileScales)
+        Array<f32> paletteTileScales;
+        i32 paletteTextureSize = 1024; // common Texture2DArray slice size (authoring setting)
         bool castShadows = true;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName (unused; terrain references sub-assets)
             foundation::core::Serialize(ar, "heightfieldId", heightfieldId);
-            foundation::core::Serialize(ar, "splatmapId", splatmapId);
-            foundation::core::Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
-            foundation::core::Serialize(ar, "layerTileScales", layerTileScales);
+            if (ar.Version() >= 2)
+            {
+                foundation::core::Serialize(ar, "weightsId", weightsId);
+                foundation::core::Serialize(ar, "baseAlbedoId", baseAlbedoId);
+                foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
+                foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
+                foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
+                foundation::core::Serialize(ar, "paletteTextureSize", paletteTextureSize);
+            }
+            else
+            {
+                Array<Guid> layerAlbedoIds;
+                Array<f32> layerTileScales;
+                foundation::core::Serialize(ar, "splatmapId", weightsId);
+                foundation::core::Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
+                foundation::core::Serialize(ar, "layerTileScales", layerTileScales);
+                baseAlbedoId = layerAlbedoIds.Size() > 0 ? layerAlbedoIds[0] : Guid{};
+                baseTileScale = layerTileScales.Size() > 0 ? layerTileScales[0] : 1.0f;
+                paletteAlbedoIds.Clear();
+                paletteTileScales.Clear();
+                for (usize i = 1; i < layerAlbedoIds.Size(); ++i)
+                {
+                    paletteAlbedoIds.PushBack(layerAlbedoIds[i]);
+                    paletteTileScales.PushBack(i < layerTileScales.Size() ? layerTileScales[i]
+                                                                          : 1.0f);
+                }
+            }
             foundation::core::Serialize(ar, "castShadows", castShadows);
         }
     };
 
-    // Cooks a TerrainAsset -> Terrain resource (a reference pass-through; the referenced products are
-    // resolved at load by TerrainFactory).
+    // --- palette-array cook helpers (RGBA8, CPU; exported for tests) ---------------------------
+
+    /// Bilinear-resize an RGBA8 image onto dstW x dstH (the heightfield-resample precedent).
+    inline void ResizeRgba8Bilinear(Span<const u8> src, u32 srcW, u32 srcH, Span<u8> dst, u32 dstW,
+                                    u32 dstH)
+    {
+        if (src.IsEmpty() || srcW == 0 || srcH == 0 || dstW == 0 || dstH == 0)
+        {
+            return;
+        }
+        for (u32 y = 0; y < dstH; ++y)
+        {
+            const f32 v = (dstH > 1) ? static_cast<f32>(y) / static_cast<f32>(dstH - 1) *
+                                           static_cast<f32>(srcH - 1)
+                                     : 0.0f;
+            const u32 y0 = static_cast<u32>(v);
+            const u32 y1 = Min(y0 + 1, srcH - 1);
+            const f32 fy = v - static_cast<f32>(y0);
+            for (u32 x = 0; x < dstW; ++x)
+            {
+                const f32 u = (dstW > 1) ? static_cast<f32>(x) / static_cast<f32>(dstW - 1) *
+                                               static_cast<f32>(srcW - 1)
+                                         : 0.0f;
+                const u32 x0 = static_cast<u32>(u);
+                const u32 x1 = Min(x0 + 1, srcW - 1);
+                const f32 fx = u - static_cast<f32>(x0);
+                for (u32 c = 0; c < 4; ++c)
+                {
+                    const f32 p00 = src[(static_cast<usize>(y0) * srcW + x0) * 4 + c];
+                    const f32 p10 = src[(static_cast<usize>(y0) * srcW + x1) * 4 + c];
+                    const f32 p01 = src[(static_cast<usize>(y1) * srcW + x0) * 4 + c];
+                    const f32 p11 = src[(static_cast<usize>(y1) * srcW + x1) * 4 + c];
+                    const f32 top = p00 + (p10 - p00) * fx;
+                    const f32 bottom = p01 + (p11 - p01) * fx;
+                    dst[(static_cast<usize>(y) * dstW + x) * 4 + c] =
+                        static_cast<u8>(Clamp(top + (bottom - top) * fy + 0.5f, 0.0f, 255.0f));
+                }
+            }
+        }
+    }
+
+    /// Append `level`'s 2x2 box-filtered half-size mip after it; returns the new dimension.
+    inline u32 BoxHalveRgba8(Span<const u8> src, u32 dim, Span<u8> dst)
+    {
+        const u32 half = dim > 1 ? dim / 2 : 1;
+        for (u32 y = 0; y < half; ++y)
+        {
+            const u32 sy0 = Min(y * 2, dim - 1);
+            const u32 sy1 = Min(y * 2 + 1, dim - 1);
+            for (u32 x = 0; x < half; ++x)
+            {
+                const u32 sx0 = Min(x * 2, dim - 1);
+                const u32 sx1 = Min(x * 2 + 1, dim - 1);
+                for (u32 c = 0; c < 4; ++c)
+                {
+                    const u32 sum = src[(static_cast<usize>(sy0) * dim + sx0) * 4 + c] +
+                                    src[(static_cast<usize>(sy0) * dim + sx1) * 4 + c] +
+                                    src[(static_cast<usize>(sy1) * dim + sx0) * 4 + c] +
+                                    src[(static_cast<usize>(sy1) * dim + sx1) * 4 + c];
+                    dst[(static_cast<usize>(y) * half + x) * 4 + c] =
+                        static_cast<u8>((sum + 2) / 4);
+                }
+            }
+        }
+        return half;
+    }
+
+    // Cooks a TerrainAsset -> Terrain resource (a reference pass-through for the guids, PLUS the
+    // paint-palette Texture2DArray texels: every palette albedo's source pixels decoded, resized
+    // to the common slice size, mip-chained, and packed into the terrain's own cooked instance as
+    // the `kPaletteStream` sidecar - hash-chained via `reads`, so editing an albedo re-cooks).
     class TerrainAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
@@ -68,9 +172,23 @@ export namespace pipeline
         {
             return &TerrainSource::StaticType();
         }
-        // 2: the cooked instance type changed (TerrainResource -> TerrainSource); force a re-cook so
-        // stale products (wrong header type -> factory Cast fails) rebuild.
-        [[nodiscard]] u32 Version() const override { return 2; }
+        // 3: the cooked payload moved to the top-K model (TerrainSource v2) - force a re-cook.
+        [[nodiscard]] u32 Version() const override { return 3; }
+
+        // The palette pack READS every palette albedo's content (hash-chained: editing an albedo
+        // re-cooks the terrain's array); base/heightfield/weights are runtime references only.
+        void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
+                              pipeline::AssetDependencies& out) override
+        {
+            const TerrainAsset& ta = static_cast<const TerrainAsset&>(asset);
+            for (usize i = 0; i < ta.paletteAlbedoIds.Size(); ++i)
+            {
+                if (!ta.paletteAlbedoIds[i].IsNil())
+                {
+                    out.reads.PushBack(ta.paletteAlbedoIds[i]);
+                }
+            }
+        }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override
@@ -82,17 +200,156 @@ export namespace pipeline
             }
             TerrainSource src;
             src.heightfieldId = ta.heightfieldId;
-            src.splatmapId = ta.splatmapId;
-            for (usize i = 0; i < ta.layerAlbedoIds.Size(); ++i)
+            src.weightsId = ta.weightsId;
+            src.baseAlbedoId = ta.baseAlbedoId;
+            src.baseTileScale = ta.baseTileScale;
+            for (usize i = 0; i < ta.paletteAlbedoIds.Size(); ++i)
             {
-                src.layerAlbedoIds.PushBack(ta.layerAlbedoIds[i]);
+                src.paletteAlbedoIds.PushBack(ta.paletteAlbedoIds[i]);
             }
-            for (usize i = 0; i < ta.layerTileScales.Size(); ++i)
+            for (usize i = 0; i < ta.paletteTileScales.Size(); ++i)
             {
-                src.layerTileScales.PushBack(ta.layerTileScales[i]);
+                src.paletteTileScales.PushBack(ta.paletteTileScales[i]);
             }
             src.castShadows = ta.castShadows;
-            return ctx.output->WriteObject(src);
+            const Status wrote = ctx.output->WriteObject(src);
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
+            return CookPaletteArray(ta, ctx);
+        }
+
+    private:
+        // Decode one palette albedo's SOURCE pixels as RGBA8: a TextureAsset's file (image
+        // decoder) or its embedded "pixels" sidecar. Missing/undecodable -> a 1x1 white slice
+        // (matches the renderer's absent-slot dummy) so palette INDICES stay stable.
+        static void DecodeAlbedoRgba8(pipeline::AssetBuildContext& ctx, const Guid& id,
+                                      Array<u8>& outPixels, u32& outW, u32& outH)
+        {
+            outPixels.Clear();
+            outW = 1;
+            outH = 1;
+            content::Instance* inst =
+                (ctx.db != nullptr && !id.IsNil()) ? ctx.db->GetInstance(id) : nullptr;
+            if (inst != nullptr)
+            {
+                RefPtr<ISerializable> object = inst->ReadObject();
+                if (auto* tex = Cast<TextureAsset>(object.Get()))
+                {
+                    if (!tex->fileName.View().IsEmpty())
+                    {
+                        if (Result<Array<byte>> bytes = ReadSourceBytes(ctx, tex->fileName.View());
+                            bytes.HasValue())
+                        {
+                            foundation::image::Image img;
+                            if (foundation::image::io::LoadImageFromMemory(
+                                    Span<const u8>(
+                                        reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                        bytes.Value().Size()),
+                                    img)
+                                    .IsOk() &&
+                                img.Format() == foundation::image::PixelFormat::RGBA8)
+                            {
+                                outW = img.Width();
+                                outH = img.Height();
+                                outPixels.Resize(img.PixelData().Size());
+                                MemCopy(outPixels.Data(), img.PixelData().Data(),
+                                        img.PixelData().Size());
+                            }
+                        }
+                    }
+                    else if (tex->embeddedWidth > 0 && tex->embeddedHeight > 0)
+                    {
+                        if (UniquePtr<IStream> stream = inst->ReadData(u8"pixels"))
+                        {
+                            const usize expected = static_cast<usize>(tex->embeddedWidth) *
+                                                   tex->embeddedHeight * 4u;
+                            if (static_cast<usize>(stream->Size()) == expected)
+                            {
+                                outPixels.Resize(expected);
+                                if (stream->Read(outPixels.Data(), expected) == expected)
+                                {
+                                    outW = tex->embeddedWidth;
+                                    outH = tex->embeddedHeight;
+                                }
+                                else
+                                {
+                                    outPixels.Clear();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (outPixels.IsEmpty())
+            {
+                outW = 1;
+                outH = 1;
+                outPixels.Resize(4, u8{255}); // white
+            }
+        }
+
+        [[nodiscard]] static Status CookPaletteArray(const TerrainAsset& ta,
+                                                     pipeline::AssetBuildContext& ctx)
+        {
+            if (ta.paletteAlbedoIds.IsEmpty())
+            {
+                return Status{}; // no palette: no sidecar (pure-base terrain)
+            }
+            // Snap the authored slice size to a sane power of two (mips need clean halving).
+            u32 sliceSize = 64;
+            while (sliceSize < static_cast<u32>(Max(ta.paletteTextureSize, 64)) &&
+                   sliceSize < 4096u)
+            {
+                sliceSize *= 2;
+            }
+            u32 mipCount = 1;
+            for (u32 d = sliceSize; d > 1; d /= 2)
+            {
+                ++mipCount;
+            }
+            const usize sliceBytes =
+                foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+
+            Array<u8> blob;
+            const u32 header[3] = {sliceSize, mipCount,
+                                   static_cast<u32>(ta.paletteAlbedoIds.Size())};
+            blob.Resize(sizeof(header) + sliceBytes * ta.paletteAlbedoIds.Size());
+            MemCopy(blob.Data(), header, sizeof(header));
+
+            Array<u8> decoded;
+            Array<u8> level;
+            Array<u8> next;
+            for (usize slice = 0; slice < ta.paletteAlbedoIds.Size(); ++slice)
+            {
+                u32 w = 0, h = 0;
+                DecodeAlbedoRgba8(ctx, ta.paletteAlbedoIds[slice], decoded, w, h);
+                level.Resize(static_cast<usize>(sliceSize) * sliceSize * 4u);
+                ResizeRgba8Bilinear(Span<const u8>{decoded.Data(), decoded.Size()}, w, h,
+                                    Span<u8>{level.Data(), level.Size()}, sliceSize, sliceSize);
+                u8* dst = blob.Data() + sizeof(header) + sliceBytes * slice;
+                u32 dim = sliceSize;
+                usize written = 0;
+                for (u32 m = 0; m < mipCount; ++m)
+                {
+                    const usize bytes = static_cast<usize>(dim) * dim * 4u;
+                    MemCopy(dst + written, level.Data(), bytes);
+                    written += bytes;
+                    if (m + 1 < mipCount)
+                    {
+                        const u32 half = dim > 1 ? dim / 2 : 1;
+                        next.Resize(static_cast<usize>(half) * half * 4u);
+                        (void)BoxHalveRgba8(Span<const u8>{level.Data(), bytes}, dim,
+                                            Span<u8>{next.Data(), next.Size()});
+                        level = next;
+                        dim = half;
+                    }
+                }
+            }
+            return ctx.output->WriteData(
+                foundation::terrain::kPaletteStream,
+                Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
         }
     };
 
@@ -104,31 +361,32 @@ export namespace pipeline
         RegisterSerializable<TerrainAsset>();
     }
 
-    using foundation::terrain::Splatmap;
-    using foundation::terrain::SplatmapSource;
+    using foundation::terrain::SplatWeights;
+    using foundation::terrain::SplatWeightsSource;
 
-    // Source asset: an editable RGBA8 splatmap of a given size. v1 authoring is CREATE + PAINT (the
-    // TerrainPage seeds one, the Splat Paint tool writes it), so there is no file/import - the pixels
-    // live in the source instance's "pixels" data stream (the embedded-TextureAsset precedent).
-    // Import-from-PNG is deferred.
+    // Source asset: the editable top-K splat weights of a given size. Authoring is CREATE + PAINT
+    // (the TerrainPage seeds one, the Splat Paint tool writes it): the two rasters live in the
+    // source instance's "pixels" (weights) + "indices" sidecars - the editable-source convention
+    // (fileName empty = the sidecars are truth). A legacy asset carrying only a "pixels" sidecar
+    // (the fixed-4-layer raster) migrates at cook. fileName set = an IMPORTED image, decoded with
+    // the LEGACY channel semantics (R/G/B/A = old layers 0..3, layer 0 = base) and migrated the
+    // same way - re-import explicitly resets any painted sidecars.
     class SplatmapAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(SplatmapAsset, pipeline::Asset)
     public:
-        i32 width = 1024;  // weight-raster resolution (authoring choice, independent of the heightfield)
+        i32 width = 1024;  // raster resolution (authoring choice, independent of the heightfield)
         i32 height = 1024;
 
         void Serialize(ISerializer& ar) override
         {
-            pipeline::Asset::Serialize(ar); // fileName (unused in v1)
+            pipeline::Asset::Serialize(ar); // fileName (import mode; empty = embedded/painted)
             foundation::core::Serialize(ar, "width", width);
             foundation::core::Serialize(ar, "height", height);
         }
     };
 
-    // Cooks a SplatmapAsset -> Splatmap resource (metadata object + the "pixels" RGBA8 stream). The
-    // pixels pass through from the source instance's "pixels" sidecar; a source with none cooks a
-    // layer-0-seeded raster (a freshly created, never-painted splatmap still renders the base layer).
+    // Cooks a SplatmapAsset -> SplatWeights resource (metadata object + the two streams).
     class SplatmapAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
@@ -136,17 +394,18 @@ export namespace pipeline
         {
             return &SplatmapAsset::StaticType();
         }
-        // Cooked instance type = the SERIALIZED SplatmapSource the cook stamps + ReadObject rebuilds,
-        // NOT the runtime Splatmap (SplatmapFactory.ProductType() is the runtime Splatmap for Bind).
+        // Cooked instance type = the SERIALIZED SplatWeightsSource the cook stamps + ReadObject
+        // rebuilds (SplatWeightsFactory.ProductType() is the runtime SplatWeights for Bind).
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
-            return &SplatmapSource::StaticType();
+            return &SplatWeightsSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 2; } // re-cook: Splatmap -> SplatmapSource
+        [[nodiscard]] u32 Version() const override { return 3; } // re-cook: top-K two-raster model
 
-        // An EMBEDDED (create + paint) splatmap reads the "pixels" source stream - declare it so the
-        // recipe hash chains its bytes (the envelope hash does not cover sidecars). An IMPORTED one
-        // (fileName set) chains the file itself, which the base builder already tracks.
+        // An EMBEDDED (create + paint) asset reads BOTH source streams - declare them so the
+        // recipe hash chains their bytes (the envelope hash does not cover sidecars; a paint save
+        // must re-cook). An IMPORTED one (fileName set) chains the file, which the base builder
+        // already tracks.
         void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
         {
@@ -154,6 +413,7 @@ export namespace pipeline
             if (sa.fileName.IsEmpty())
             {
                 out.sourceStreams.PushBack(String(foundation::terrain::kSplatStream));
+                out.sourceStreams.PushBack(String(foundation::terrain::kSplatIndexStream));
             }
         }
 
@@ -166,12 +426,12 @@ export namespace pipeline
                 return Status{ErrorCode::InvalidArgument};
             }
 
-            RefPtr<Splatmap> sm;
+            RefPtr<SplatWeights> sw;
             if (!sa.fileName.View().IsEmpty())
             {
-                // IMPORTED: decode the source image (PNG etc.) as RGBA8 at its native size - the same
-                // image decoder HeightfieldAsset uses for heightmaps. A splatmap is arbitrary WxH
-                // (no 64k+1 rule), so no resampling; the runtime product stays a versioned Splatmap.
+                // IMPORTED: decode the image as RGBA8 at native size and migrate it through the
+                // LEGACY channel semantics (R/G/B/A = old fixed layers, R = the de-facto base) -
+                // the only meaningful interpretation of a flat image in the top-K model.
                 Result<Array<byte>> bytes = ReadSourceBytes(ctx, sa.fileName.View());
                 if (!bytes.HasValue())
                 {
@@ -188,61 +448,90 @@ export namespace pipeline
                 }
                 if (img.Format() != foundation::image::PixelFormat::RGBA8)
                 {
-                    return Status{ErrorCode::NotSupported}; // HDR/other - splatmaps are RGBA8 weights
+                    return Status{ErrorCode::NotSupported}; // HDR/other - weights are RGBA8
                 }
-                sm = MakeRef<Splatmap>(DefaultAllocator(), static_cast<i32>(img.Width()),
-                                       static_cast<i32>(img.Height()));
-                const Span<const u8> px = img.PixelData();
-                const usize n = Min(px.Size(), sm->Pixels().Size());
-                if (n > 0)
-                {
-                    MemCopy(sm->Pixels().Data(), px.Data(), n);
-                }
+                sw = foundation::terrain::MigrateLegacySplatmap(
+                    img.PixelData(), static_cast<i32>(img.Width()),
+                    static_cast<i32>(img.Height()));
             }
             else
             {
-                // EMBEDDED (create + paint): the pixels ride the source instance's "pixels" sidecar.
+                // EMBEDDED (create + paint): the rasters ride the source sidecars. Both present =
+                // the top-K pair; only a matching legacy "pixels" = a pre-top-K raster (migrate);
+                // neither = never painted (all-zero = pure base by construction, no seeding).
                 const i32 w = sa.width > 0 ? sa.width : 1;
                 const i32 h = sa.height > 0 ? sa.height : 1;
-                sm = MakeRef<Splatmap>(DefaultAllocator(), w, h);
-                bool havePixels = false;
+                const usize expected = static_cast<usize>(w) * static_cast<usize>(h) *
+                                       foundation::terrain::kSplatSlotCount;
+                Array<u8> weights;
+                Array<u8> indices;
                 if (ctx.source != nullptr)
                 {
-                    if (UniquePtr<IStream> stream =
-                            ctx.source->ReadData(foundation::terrain::kSplatStream))
-                    {
-                        const i64 size = stream->Size();
-                        const i64 expected = static_cast<i64>(w) * static_cast<i64>(h) * 4;
-                        if (size == expected &&
-                            stream->Read(sm->Pixels().Data(), static_cast<u64>(size)) ==
-                                static_cast<u64>(size))
-                        {
-                            havePixels = true;
-                        }
-                    }
+                    weights = ReadStream(*ctx.source, foundation::terrain::kSplatStream);
+                    indices = ReadStream(*ctx.source, foundation::terrain::kSplatIndexStream);
                 }
-                if (!havePixels)
+                if (weights.Size() == expected && indices.Size() == expected)
                 {
-                    sm->SeedLayer0(); // never painted yet: cook a valid base-layer raster
+                    sw = MakeRef<SplatWeights>(DefaultAllocator(), w, h);
+                    MemCopy(sw->Weights().Data(), weights.Data(), expected);
+                    MemCopy(sw->Indices().Data(), indices.Data(), expected);
+                }
+                else if (weights.Size() == expected && indices.IsEmpty())
+                {
+                    sw = foundation::terrain::MigrateLegacySplatmap(
+                        Span<const u8>{weights.Data(), weights.Size()}, w, h);
+                }
+                else
+                {
+                    sw = MakeRef<SplatWeights>(DefaultAllocator(), w, h); // all base
                 }
             }
+            if (sw.Get() == nullptr || sw->IsEmpty())
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
 
-            SplatmapSource src;
-            SplatmapSource::FromSplatmap(*sm, src);
+            SplatWeightsSource src;
+            SplatWeightsSource::FromWeights(*sw, src);
             const Status wrote = ctx.output->WriteObject(src);
             if (!wrote.IsOk())
             {
                 return wrote;
             }
-            return ctx.output->WriteData(foundation::terrain::kSplatStream,
-                                         SplatmapSource::PixelBlob(*sm));
+            const Status wroteWeights = ctx.output->WriteData(
+                foundation::terrain::kSplatStream, SplatWeightsSource::WeightBlob(*sw));
+            if (!wroteWeights.IsOk())
+            {
+                return wroteWeights;
+            }
+            return ctx.output->WriteData(foundation::terrain::kSplatIndexStream,
+                                         SplatWeightsSource::IndexBlob(*sw));
+        }
+
+    private:
+        [[nodiscard]] static Array<u8> ReadStream(content::Instance& instance, StringView name)
+        {
+            Array<u8> blob;
+            if (UniquePtr<IStream> stream = instance.ReadData(name))
+            {
+                const i64 size = stream->Size();
+                if (size > 0)
+                {
+                    blob.Resize(static_cast<usize>(size));
+                    if (stream->Read(blob.Data(), static_cast<u64>(size)) !=
+                        static_cast<u64>(size))
+                    {
+                        blob.Clear();
+                    }
+                }
+            }
+            return blob;
         }
     };
 
     // OS-file importer (editor drag-drop): imports a PNG (or any stb-decodable image) as a
-    // SplatmapAsset with fileName set - the builder decodes it to the RGBA8 weight raster. Reuses
-    // the image decoder, NOT a TextureAsset/ImageAsset reference (the terrain needs a Splatmap
-    // product). The layer semantics (R/G/B/A = layers 0..3) are the author's responsibility.
+    // SplatmapAsset with fileName set - the builder decodes it with the LEGACY channel semantics
+    // (R/G/B/A = old fixed layers 0..3, R = base) and migrates to the top-K model.
     class SplatmapFileImporter final : public pipeline::IFileImporter
     {
     public:

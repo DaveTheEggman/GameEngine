@@ -105,8 +105,9 @@ namespace editor
         // primary terrain (the common one-terrain case). count is the terrain's real LayerCount.
         struct LayerSet
         {
-            u32 count = 0;
-            Guid ids[4];
+            u32 count = 0;   // palette layer count (unbounded)
+            Guid baseId;     // the BASE layer's albedo asset (separate, never painted)
+            Array<Guid> ids; // palette albedo asset guids
         };
         LayerSet ResolveLayers(scene::Scene& sc)
         {
@@ -130,10 +131,11 @@ namespace editor
                     {
                         return;
                     }
-                    const u32 n = Min(res->LayerCount(), 4u);
+                    out.baseId = res->base.albedo.id;
+                    const u32 n = res->PaletteCount();
                     for (u32 i = 0; i < n; ++i)
                     {
-                        out.ids[i] = res->layers[i].albedo.id;
+                        out.ids.PushBack(res->palette[i].albedo.id);
                     }
                     out.count = n;
                 });
@@ -306,36 +308,67 @@ namespace editor
                 ThumbnailService* thumbs =
                     (ctx.editorContext != nullptr) ? ctx.editorContext->Thumbnails() : nullptr;
                 const LayerSet ls = (ctx.scene != nullptr) ? ResolveLayers(*ctx.scene) : LayerSet{};
-                // Show a thumbnail per real layer when we can resolve the terrain + thumbnail service;
-                // else fall back to numbered 0-3 (no terrain, headless host, or tests).
+                // The BASE swatch shows separately (labeled, NOT selectable - the base is never
+                // painted; erase reveals it). The palette row is the paint choices + the ERASER as
+                // the last slot (top-K model). Thumbnails when resolvable; numbered fallback.
                 const bool useThumbs = ls.count > 0 && thumbs != nullptr;
                 ui::Drawable* fallbackIcon = app::EditorIcons::Get().texture.Get();
 
                 auto root = MakePanelRoot();
+                if (thumbs != nullptr && ls.count > 0)
+                {
+                    root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get(),
+                                  MakeRef<ui::LayoutParams>(DefaultAllocator()));
+                    root->AddView(MakeRef<LayerSwatch>(DefaultAllocator(), thumbs, ls.baseId,
+                                                       fallbackIcon, 24.0f)
+                                      .Get(),
+                                  MakeRef<ui::LayoutParams>(DefaultAllocator()));
+                }
                 root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
                               MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
+                // Slots 0..N-1 = palette layers; slot N = the eraser.
+                const i32 paletteCount = useThumbs ? static_cast<i32>(ls.count) : 4;
                 auto layers = MakeRef<SegmentedToggle>(DefaultAllocator());
                 layers->Build(
-                    useThumbs ? static_cast<i32>(ls.count) : 4,
-                    [useThumbs, thumbs, ls, fallbackIcon](i32 i) -> RefPtr<ui::View> {
+                    paletteCount + 1,
+                    [useThumbs, thumbs, ls, fallbackIcon, paletteCount](i32 i) -> RefPtr<ui::View> {
+                        if (i == paletteCount)
+                        {
+                            auto lbl = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"E"));
+                            lbl->FontSize.SetValue(Optional<f32>{12.0f});
+                            return RefPtr<ui::View>(lbl.Get());
+                        }
                         if (useThumbs)
                         {
                             return RefPtr<ui::View>(MakeRef<LayerSwatch>(DefaultAllocator(), thumbs,
                                                                         ls.ids[i], fallbackIcon, 24.0f)
                                                         .Get());
                         }
-                        static constexpr StringView kLayerLabels[4] = {u8"0", u8"1", u8"2", u8"3"};
-                        auto lbl = MakeRef<ui::Label>(DefaultAllocator(), kLayerLabels[i]);
+                        const String num = Format(u8"{}", i);
+                        auto lbl = MakeRef<ui::Label>(DefaultAllocator(), num.AsView());
                         lbl->FontSize.SetValue(Optional<f32>{12.0f});
                         return RefPtr<ui::View>(lbl.Get());
                     },
-                    [t](i32 i) { t->SetLayer(static_cast<u32>(i)); },
-                    [t]() { return static_cast<i32>(t->Layer()); },
-                    [](i32 i) -> StringView {
-                        static constexpr StringView kNames[4] = {u8"Layer 0", u8"Layer 1", u8"Layer 2",
-                                                                 u8"Layer 3"};
-                        return kNames[i];
+                    [t, paletteCount](i32 i)
+                    {
+                        if (i == paletteCount)
+                        {
+                            t->SetEraser(true);
+                        }
+                        else
+                        {
+                            t->SetPaletteIndex(static_cast<u32>(i));
+                        }
+                    },
+                    [t, paletteCount]()
+                    {
+                        return t->IsEraser() ? paletteCount
+                                             : static_cast<i32>(t->PaletteIndex());
+                    },
+                    [paletteCount](i32 i) -> StringView {
+                        return i == paletteCount ? StringView(u8"Eraser (reveals base)")
+                                                 : StringView(u8"Paint layer");
                     });
                 root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
 

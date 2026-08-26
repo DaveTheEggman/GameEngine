@@ -86,7 +86,7 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     // Terrain pins: a cooked Terrain binds its whole CPU ref chain (bundle + grid + splat raster).
     CHECK(resources.HasFactory(foundation::terrain::TerrainResource::StaticType().id));
     CHECK(resources.HasFactory(foundation::heightfield::Heightfield::StaticType().id));
-    CHECK(resources.HasFactory(foundation::terrain::Splatmap::StaticType().id));
+    CHECK(resources.HasFactory(foundation::terrain::SplatWeights::StaticType().id));
 
     // Device gating documented: no GraphicsDevice on the host means no texture factory.
     CHECK(!resources.HasFactory(foundation::texture::Texture::StaticType().id));

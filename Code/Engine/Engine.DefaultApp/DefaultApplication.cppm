@@ -255,7 +255,7 @@ export namespace engine::runtime
         // (resolves heightfield/splatmap/albedo sub-refs), and the RGBA8 splatmap raster.
         foundation::heightfield::HeightfieldFactory m_heightfieldFactory;
         foundation::terrain::TerrainFactory m_terrainFactory;
-        foundation::terrain::SplatmapFactory m_splatmapFactory;
+        foundation::terrain::SplatWeightsFactory m_splatmapFactory;
         core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;

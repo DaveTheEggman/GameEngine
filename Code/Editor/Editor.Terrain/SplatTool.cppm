@@ -17,7 +17,7 @@ export module editor.terrain:splat;
 import foundation.core;
 import foundation.scene;            // EntityHandle
 import foundation.render;           // debug::DebugDraw (the Draw override signature)
-import foundation.terrain.resource; // Splatmap (RefPtr kept alive across a stroke), SplatRegion
+import foundation.terrain.resource; // SplatWeights (RefPtr kept alive across a stroke), SplatRegion
 import editor.core;                 // EditorCommandStack, IAssetEditSink
 import editor.viewporttools;        // IViewportTool, ViewportToolInput
 
@@ -48,9 +48,17 @@ export namespace editor
         void OnDeactivate() override;
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
-        // ---- brush parameters (the tool panel + the page's layer list drive these) ----
-        void SetLayer(u32 layer) noexcept { m_layer = layer & 3u; }
-        [[nodiscard]] u32 Layer() const noexcept { return m_layer; }
+        // ---- brush parameters (the tool panel + the page's palette list drive these) ----
+        /// Select a PALETTE layer to paint (0..255; the palette is unbounded, terrain-splat-topk.md).
+        void SetPaletteIndex(u32 index) noexcept
+        {
+            m_paletteIndex = Min(index, 255u);
+            m_erase = false;
+        }
+        [[nodiscard]] u32 PaletteIndex() const noexcept { return m_paletteIndex; }
+        /// Eraser mode: fades all painted weights toward 0, revealing the BASE layer.
+        void SetEraser(bool erase) noexcept { m_erase = erase; }
+        [[nodiscard]] bool IsEraser() const noexcept { return m_erase; }
         void SetRadius(f32 r)
         {
             m_radius = Clamp(r, kMinRadius, kMaxRadius);
@@ -73,8 +81,8 @@ export namespace editor
 
         struct Pick
         {
-            foundation::terrain::Splatmap* splat = nullptr;
-            Guid splatmapId;      // TerrainResource.splatmap.id (the SOURCE asset guid; may be nil)
+            foundation::terrain::SplatWeights* weights = nullptr;
+            Guid weightsId;       // TerrainResource.weights.id (the SOURCE asset guid; may be nil)
             f32 uvX = 0.0f;       // hit in the splatmap's 0..1 footprint UV
             f32 uvY = 0.0f;
             f32 worldSizeX = 1.0f; // footprint X (world radius -> per-axis uv radius)
@@ -94,7 +102,8 @@ export namespace editor
         EditorCommandStack* m_commands;         // borrowed
         IAssetEditSink* m_assetEdits = nullptr; // borrowed; null = no persistence (tests)
 
-        u32 m_layer = 0;       // which channel (0..3) the brush paints
+        u32 m_paletteIndex = 0; // which PALETTE layer the brush paints (0..255)
+        bool m_erase = false;   // eraser mode (reveals the base)
         f32 m_radius = 6.0f;   // world units
         f32 m_strength = 1.0f; // 0..1 weight added per second at the brush centre
 
@@ -103,13 +112,14 @@ export namespace editor
         Float3 m_hoverWorld{};
         Float3 m_hoverNormal{0.0f, 1.0f, 0.0f};
 
-        // Stroke state (one command per press..release). m_strokeSplat keeps the raster alive for
-        // the whole stroke; m_before is a full pixel snapshot (the union region is unknown until
-        // release, so the command slices before/after out of it then).
+        // Stroke state (one command per press..release). m_strokeWeights keeps the rasters alive
+        // for the whole stroke; the full-raster snapshots cover BOTH rasters (the union region is
+        // unknown until release, when the command slices before/after out of them).
         bool m_stroking = false;
-        RefPtr<foundation::terrain::Splatmap> m_strokeSplat;
-        Guid m_strokeSplatmapId;
-        Array<u8> m_before;
+        RefPtr<foundation::terrain::SplatWeights> m_strokeWeights;
+        Guid m_strokeWeightsId;
+        Array<u8> m_beforeWeights;
+        Array<u8> m_beforeIndices;
         foundation::terrain::SplatRegion m_region;
 
         String m_status;

@@ -21,8 +21,8 @@ import foundation.shaders.system;
 import foundation.render;
 import foundation.heightfield;
 import foundation.terrain;
-import foundation.texture.resource; // texture::Texture (Adopt) for in-memory splat/albedo fixtures
-import foundation.terrain.resource;  // Splatmap + PaintWeight (the paint -> re-upload path)
+import foundation.texture.resource; // texture::Texture (Adopt) for in-memory albedo fixtures
+import foundation.terrain.resource; // SplatWeights + PaintTopK + TerrainPaletteData (top-K model)
 import engine.terrain;
 
 using namespace foundation::core;
@@ -71,19 +71,30 @@ namespace
         const Float3* toLight = nullptr;    // dir TO the light; null = renderer fallback sun
         const f32* thresholds = nullptr;    // LOD coverage thresholds override (null = default set)
         u32 thresholdCount = 0;
-        // D2 splat material (null / 0 = layerless -> height-lit fallback).
-        rhi::TextureView* splatmapView = nullptr;
-        rhi::TextureView* albedoViews[4] = {nullptr, nullptr, nullptr, nullptr};
-        f32 tileScales[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        u32 layerCount = 0;
+        // Top-K splat material (all null / 0 = no material -> height-lit fallback).
+        rhi::TextureView* weightView = nullptr;     // RGBA8Unorm slot weights
+        rhi::TextureView* indexView = nullptr;      // RGBA8Uint palette indices
+        rhi::TextureView* baseAlbedoView = nullptr; // the BASE layer (erase reveals)
+        f32 baseTileScale = 1.0f;
+        rhi::TextureView* paletteArrayView = nullptr; // Texture2DArray, one slice per layer
+        rhi::Buffer* tileScaleBuffer = nullptr;       // f32[paletteCount]
+        u64 tileScaleGeneration = 0;
+        u32 paletteCount = 0;
     };
+
+    constexpr u32 kBands = 6; // vertical screen bands for the stripe-fixture colour readout
 
     struct Probe
     {
         bool valid = false;
         u32 filled = 0; // pixels brighter than the black background
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
-        f64 leftR = 0, leftB = 0, rightR = 0, rightB = 0; // per-channel bands (splat colour check)
+        f64 leftR = 0, leftB = 0, rightR = 0, rightB = 0; // per-channel halves (colour checks)
+        // Band-centre channel means (x split into kBands, centre half of each band, centre half
+        // in y - clear of band boundaries and the terrain rim) for the >4-layer stripe fixture.
+        f64 bandR[kBands] = {};
+        f64 bandG[kBands] = {};
+        f64 bandB[kBands] = {};
     };
 
     Probe RenderTerrainProbe(rhi::Device& device, const ProbeCfg& cfg)
@@ -146,13 +157,14 @@ namespace
                 rd->thresholds[i] = thresholds[i];
             }
             rd->thresholdCount = thresholdCount;
-            rd->splatmapView = cfg.splatmapView;
-            for (u32 li = 0; li < 4; ++li)
-            {
-                rd->albedoViews[li] = cfg.albedoViews[li];
-                rd->tileScales[li] = cfg.tileScales[li];
-            }
-            rd->layerCount = cfg.layerCount;
+            rd->weightView = cfg.weightView;
+            rd->indexView = cfg.indexView;
+            rd->baseAlbedoView = cfg.baseAlbedoView;
+            rd->baseTileScale = cfg.baseTileScale;
+            rd->paletteArrayView = cfg.paletteArrayView;
+            rd->tileScaleBuffer = cfg.tileScaleBuffer;
+            rd->tileScaleGeneration = cfg.tileScaleGeneration;
+            rd->paletteCount = cfg.paletteCount;
             rd->worldCenter = Float3{0.0f, 0.5f * (terrain.MaxY() + terrain.MinY()), 0.0f};
             rd->worldRadius = Length(terrain.WorldSize()) + (terrain.MaxY() - terrain.MinY());
 
@@ -222,6 +234,20 @@ namespace
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
                     if (x < kSize / 2) { probe.leftR += p[0]; probe.leftB += p[2]; }
                     else { probe.rightR += p[0]; probe.rightB += p[2]; }
+                    // Band-centre sums (the stripe fixture): centre half in y, centre half of
+                    // each band in x - clear of stripe-boundary bilinear blends + the rim.
+                    if (y >= kSize / 4 && y < kSize * 3 / 4)
+                    {
+                        constexpr u32 bandWidth = kSize / kBands;
+                        const u32 band = Min(x / bandWidth, kBands - 1);
+                        const u32 xin = x - band * bandWidth;
+                        if (xin >= bandWidth / 4 && xin < bandWidth * 3 / 4)
+                        {
+                            probe.bandR[band] += p[0];
+                            probe.bandG[band] += p[1];
+                            probe.bandB[band] += p[2];
+                        }
+                    }
                 }
             }
             probe.valid = true;
@@ -351,24 +377,51 @@ namespace
         return MakeRGBA(device, 1, 1, px);
     }
 
-    // A splatmap split left/right: left half = weight on layer 0 (R), right half = layer 1 (G).
-    RefPtr<texture::Texture> MakeSplitSplatmap(rhi::Device& device)
+    // A CPU weights raster of `bands` full-strength vertical stripes: stripe i is one-hot on
+    // PALETTE layer i. With bands > 4 this is a raster the retired fixed-4-layer model could not
+    // represent at all - the R5 fixture.
+    RefPtr<tmodel::SplatWeights> MakeStripeWeights(u32 bands)
     {
-        constexpr u32 n = 16;
-        u8 px[n * n * 4];
-        for (u32 y = 0; y < n; ++y)
+        constexpr i32 n = 32;
+        RefPtr<tmodel::SplatWeights> sw =
+            MakeRef<tmodel::SplatWeights>(DefaultAllocator(), n, n);
+        Span<u8> idx = sw->Indices();
+        Span<u8> wts = sw->Weights();
+        for (i32 y = 0; y < n; ++y)
         {
-            for (u32 x = 0; x < n; ++x)
+            for (i32 x = 0; x < n; ++x)
             {
-                u8* p = px + (static_cast<usize>(y) * n + x) * 4;
-                const bool left = x < n / 2;
-                p[0] = left ? 255 : 0; // layer 0 weight
-                p[1] = left ? 0 : 255; // layer 1 weight
-                p[2] = 0;
-                p[3] = 0;
+                const usize at = sw->TexelOffset(x, y);
+                const u32 layer = Min(static_cast<u32>(x) * bands / n, bands - 1);
+                idx[at + 0] = static_cast<u8>(layer);
+                wts[at + 0] = 255; // one-hot: pure layer, no base
             }
         }
-        return MakeRGBA(device, n, n, px);
+        sw->BumpVersion();
+        return sw;
+    }
+
+    // A cook-shaped palette texel blob of solid-colour 4x4 single-mip slices.
+    RefPtr<tmodel::TerrainPaletteData> MakePaletteData(Span<const Float3> colors)
+    {
+        auto data = MakeRef<tmodel::TerrainPaletteData>(DefaultAllocator());
+        data->sliceSize = 4;
+        data->mipCount = 1;
+        data->sliceCount = static_cast<u32>(colors.Size());
+        const usize sliceBytes = tmodel::TerrainPaletteData::SliceBytes(4, 1);
+        data->texels.Resize(sliceBytes * colors.Size());
+        for (usize s = 0; s < colors.Size(); ++s)
+        {
+            for (usize t = 0; t < sliceBytes / 4; ++t)
+            {
+                u8* p = data->texels.Data() + s * sliceBytes + t * 4;
+                p[0] = static_cast<u8>(colors[s].x * 255.0f);
+                p[1] = static_cast<u8>(colors[s].y * 255.0f);
+                p[2] = static_cast<u8>(colors[s].z * 255.0f);
+                p[3] = 255;
+            }
+        }
+        return data;
     }
 
     struct ShadowProbe
@@ -688,11 +741,22 @@ TEST_CASE("terrain probe: the ridge casts a CSM shadow onto the flat ground (cas
     vulkan->Destroy();
 }
 
-TEST_CASE("terrain probe: splat blends layer albedos (D2), matching across backends")
+TEST_CASE("terrain probe: SIX palette layers render distinct stripes (R5 - the 4-layer cap is gone)")
 {
-    // Flat terrain, a split splatmap (left = layer 0, right = layer 1), layer 0 = red, layer 1 = blue.
-    // The two halves must show the two albedos (proving splat selection + blend), pixel-exact on both
-    // backends. Textures are created per-device and freed before the device (Adopt owns them).
+    // Flat terrain, a 6-stripe one-hot weights raster (stripe i = palette layer i) and a 6-colour
+    // palette array. Six DISTINCT layers on one terrain is exactly what the retired fixed-4 model
+    // could not draw; every stripe must show its own palette colour, matching across Vulkan and
+    // WebGPU (the ruling-R5 pixel-parity requirement). GPU objects come through the PRODUCTION
+    // caches (splat pair + palette array + tileScale buffer).
+    static const Float3 kColors[kBands] = {
+        Float3{0.86f, 0.12f, 0.12f}, // red
+        Float3{0.12f, 0.86f, 0.12f}, // green
+        Float3{0.12f, 0.12f, 0.86f}, // blue
+        Float3{0.86f, 0.86f, 0.12f}, // yellow
+        Float3{0.12f, 0.86f, 0.86f}, // cyan
+        Float3{0.86f, 0.12f, 0.86f}, // magenta
+    };
+
     auto run = [](rhi::Backend* backend) -> Probe
     {
         rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
@@ -702,17 +766,35 @@ TEST_CASE("terrain probe: splat blends layer albedos (D2), matching across backe
         }
         Probe p;
         {
-            RefPtr<texture::Texture> red = MakeSolid(*dev, 220, 30, 30);
-            RefPtr<texture::Texture> blue = MakeSolid(*dev, 30, 30, 220);
-            RefPtr<texture::Texture> splat = MakeSplitSplatmap(*dev);
+            engine::terrain::TerrainSplatTextureCache splatCache;
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw = MakeStripeWeights(kBands);
+            RefPtr<tmodel::TerrainPaletteData> palette =
+                MakePaletteData(Span<const Float3>{kColors, kBands});
+            f32 scales[kBands];
+            for (u32 i = 0; i < kBands; ++i)
+            {
+                scales[i] = 1000.0f; // ~1 tile -> solid colour per stripe
+            }
+
             ProbeCfg cfg;
             cfg.terrain = MakeFlat();
-            cfg.splatmapView = splat->View();
-            cfg.albedoViews[0] = red->View();
-            cfg.albedoViews[1] = blue->View();
-            cfg.tileScales[0] = cfg.tileScales[1] = 1000.0f; // ~1 tile -> solid colour across the terrain
-            cfg.layerCount = 2;
+            const engine::terrain::SplatTextureViews views =
+                splatCache.GetOrCreate(*dev, *sw, sw->Version());
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{scales, kBands});
+            REQUIRE(views.weightView != nullptr);
+            REQUIRE(gpu.arrayView != nullptr);
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = kBands;
             p = RenderTerrainProbe(*dev, cfg);
+
+            splatCache.Clear(*dev);
+            paletteCache.Clear(*dev);
         }
         dev->Destroy();
         return p;
@@ -726,46 +808,64 @@ TEST_CASE("terrain probe: splat blends layer albedos (D2), matching across backe
     const Probe v = run(vulkan);
     if (!v.valid)
     {
-        MESSAGE("Vulkan unavailable - terrain splat probe skipped");
+        MESSAGE("Vulkan unavailable - terrain top-K stripe probe skipped");
         if (vulkan != nullptr) { vulkan->Destroy(); }
         if (webgpu != nullptr) { webgpu->Destroy(); }
         return;
     }
-    std::printf("[terrain-splat] vk left(R=%.0f B=%.0f) right(R=%.0f B=%.0f)\n", v.leftR, v.leftB,
-                v.rightR, v.rightB);
+    for (u32 b = 0; b < kBands; ++b)
+    {
+        std::printf("[terrain-topk] vk band %u: R=%.0f G=%.0f B=%.0f\n", b, v.bandR[b],
+                    v.bandG[b], v.bandB[b]);
+    }
 
-    // The two layers landed on opposite screen halves (flip-agnostic: one half red-dominant, the
-    // other blue-dominant). Proves the splatmap selected different albedos per region.
-    const bool redLeft = v.leftR > v.leftB * 1.5 && v.rightB > v.rightR * 1.5;
-    const bool blueLeft = v.leftB > v.leftR * 1.5 && v.rightR > v.rightB * 1.5;
-    CHECK((redLeft || blueLeft));
+    // Classify each screen band by which channels are "on" (> 60% of the band max) and demand the
+    // palette order - forward or mirrored (flip-agnostic like the old half test).
+    const auto bandClass = [](const Probe& p, u32 b) -> u32
+    {
+        const f64 mx = Max(p.bandR[b], Max(p.bandG[b], p.bandB[b]));
+        u32 bits = 0;
+        bits |= (p.bandR[b] > 0.6 * mx) ? 1u : 0u;
+        bits |= (p.bandG[b] > 0.6 * mx) ? 2u : 0u;
+        bits |= (p.bandB[b] > 0.6 * mx) ? 4u : 0u;
+        return bits;
+    };
+    const u32 expected[kBands] = {1u, 2u, 4u, 3u, 6u, 5u}; // R,G,B,R+G,G+B,R+B
+    bool forward = true;
+    bool mirrored = true;
+    for (u32 b = 0; b < kBands; ++b)
+    {
+        forward = forward && (bandClass(v, b) == expected[b]);
+        mirrored = mirrored && (bandClass(v, b) == expected[kBands - 1 - b]);
+    }
+    CHECK((forward || mirrored)); // all six DISTINCT layers landed, in palette order
 
     const Probe w = run(webgpu);
     if (w.valid)
     {
-        std::printf("[terrain-splat] wg left(R=%.0f B=%.0f) right(R=%.0f B=%.0f)\n", w.leftR,
-                    w.leftB, w.rightR, w.rightB);
-        CHECK(w.leftR == doctest::Approx(v.leftR).epsilon(0.05));
-        CHECK(w.leftB == doctest::Approx(v.leftB).epsilon(0.05));
-        CHECK(w.rightR == doctest::Approx(v.rightR).epsilon(0.05));
-        CHECK(w.rightB == doctest::Approx(v.rightB).epsilon(0.05));
+        for (u32 b = 0; b < kBands; ++b)
+        {
+            CHECK(w.bandR[b] == doctest::Approx(v.bandR[b]).epsilon(0.05));
+            CHECK(w.bandG[b] == doctest::Approx(v.bandG[b]).epsilon(0.05));
+            CHECK(w.bandB[b] == doctest::Approx(v.bandB[b]).epsilon(0.05));
+        }
     }
     else
     {
-        MESSAGE("WebGPU unavailable - splat cross-check skipped");
+        MESSAGE("WebGPU unavailable - top-K stripe cross-check skipped");
     }
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
     if (webgpu != nullptr) { webgpu->Destroy(); }
 }
 
-TEST_CASE("terrain probe: painting the CPU splatmap re-uploads and changes the blended pixel")
+TEST_CASE("terrain probe: painting the CPU weights re-uploads and changes the blended pixel")
 {
-    // The editor Splat Paint loop end-to-end: a CPU Splatmap -> the version-keyed GPU splat cache ->
-    // the shader blend. Seeded to layer 0 (red) it renders red; PaintWeight fills layer 1 (blue) and
-    // bumps the version, the cache re-uploads a NEW texture, and the SAME terrain now renders blue -
-    // proving the paint reached the GPU. Vulkan AND WebGPU (validate-on-WebGPU rule).
-    namespace terrain = foundation::terrain;
+    // The editor Splat Paint loop end-to-end: CPU SplatWeights -> the version-keyed GPU splat pair
+    // -> the top-K blend. All-zero weights over a red BASE renders red; PaintTopK raises palette 0
+    // (blue) and bumps the version, the cache re-uploads a NEW pair, and the SAME terrain now
+    // renders blue - proving the paint (and the erase-reveals-base direction in reverse) reached
+    // the GPU. Vulkan AND WebGPU (validate-on-WebGPU rule).
     auto run = [](rhi::Backend* backend, Probe& before, Probe& after)
     {
         rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
@@ -775,32 +875,48 @@ TEST_CASE("terrain probe: painting the CPU splatmap re-uploads and changes the b
         }
         {
             engine::terrain::TerrainSplatTextureCache cache;
-            RefPtr<terrain::Splatmap> sm = MakeRef<terrain::Splatmap>(DefaultAllocator(), 8, 8);
-            sm->SeedLayer0(); // all weight on layer 0
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw =
+                MakeRef<tmodel::SplatWeights>(DefaultAllocator(), 8, 8); // all-zero = pure base
 
-            RefPtr<texture::Texture> red = MakeSolid(*dev, 220, 30, 30);  // layer 0
-            RefPtr<texture::Texture> blue = MakeSolid(*dev, 30, 30, 220); // layer 1
+            RefPtr<texture::Texture> red = MakeSolid(*dev, 220, 30, 30); // the BASE albedo
+            const Float3 blue{0.12f, 0.12f, 0.86f};                      // palette 0
+            RefPtr<tmodel::TerrainPaletteData> palette =
+                MakePaletteData(Span<const Float3>{&blue, 1});
+            const f32 scale = 1000.0f;
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{&scale, 1});
+            REQUIRE(gpu.arrayView != nullptr);
+
             ProbeCfg cfg;
             cfg.terrain = MakeFlat();
-            cfg.albedoViews[0] = red->View();
-            cfg.albedoViews[1] = blue->View();
-            cfg.tileScales[0] = cfg.tileScales[1] = 1000.0f; // ~1 tile -> solid colour
-            cfg.layerCount = 2;
+            cfg.baseAlbedoView = red->View();
+            cfg.baseTileScale = 1000.0f; // ~1 tile -> solid colour
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = 1;
 
-            // BEFORE: the cache uploads the seeded raster (layer 0) -> red across the terrain.
-            cfg.splatmapView = cache.GetOrCreate(*dev, *sm, sm->Version());
+            // BEFORE: all-zero weights -> the BASE (red) across the terrain.
+            engine::terrain::SplatTextureViews views =
+                cache.GetOrCreate(*dev, *sw, sw->Version());
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
             before = RenderTerrainProbe(*dev, cfg);
 
-            // PAINT layer 1 over the whole footprint (a few dabs to converge one-hot), then re-fetch:
-            // the version bump makes the cache rebuild + re-upload a new view.
-            for (i32 i = 0; i < 4; ++i)
+            // PAINT palette 0 over the whole footprint (a few dabs to converge one-hot), then
+            // re-fetch: the version bump makes the cache rebuild + re-upload a new pair.
+            for (i32 i = 0; i < 24; ++i)
             {
-                (void)terrain::PaintWeight(*sm, 0.5f, 0.5f, 2.0f, 2.0f, 1u, 1.0f);
+                (void)tmodel::PaintTopK(*sw, 0.5f, 0.5f, 2.0f, 2.0f, 0u, 1.0f);
             }
-            cfg.splatmapView = cache.GetOrCreate(*dev, *sm, sm->Version());
+            views = cache.GetOrCreate(*dev, *sw, sw->Version());
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
             after = RenderTerrainProbe(*dev, cfg);
 
             cache.Clear(*dev);
+            paletteCache.Clear(*dev);
         }
         dev->Destroy();
     };

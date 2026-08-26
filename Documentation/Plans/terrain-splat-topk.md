@@ -1,8 +1,14 @@
 # Terrain Splat: Unlimited Layers via Top-K Blending (+ explicit Base layer)
 
-Status: APPROVED (Fable, 2026-08-25) with required amendments R1-R8 (see RULING at the bottom);
-amendments folded into the body below. Building P0. Supersedes the P1 "one RGBA8 splatmap, 4
-layers" model documented in terrain-splat-d2.md / terrain-splat-phase2.md.
+Status: IMPLEMENTED (Fable, 2026-08-25) - full stack shipped with amendments R1-R8 folded in:
+data (SplatWeights dual raster + PaintTopK/EraseTopK/RemapOnPaletteRemove/MigrateLegacySplatmap),
+pipeline (TerrainAsset v2 + palette-array cook + two-stream SplatmapAssetBuilder with legacy/PNG
+migration), engine (splat texture PAIR cache + palette Texture2DArray/tileScale-buffer cache),
+renderer (set-3 rebuild + manual-bilinear top-K blend in terrain.ps.hlsl; base tile rides the view
+UBO, TileScales buffer is palette-only), editor (palette/eraser tool, both-raster strokes, base +
+unbounded palette page UI, remove-with-remap), tests incl. the R5 six-layer Vulkan/WebGPU
+pixel-parity probe. RE-COOK required for terrain scenes (product format v2/v3). Supersedes the P1
+"one RGBA8 splatmap, 4 layers" model documented in terrain-splat-d2.md / terrain-splat-phase2.md.
 
 ## Motivation
 

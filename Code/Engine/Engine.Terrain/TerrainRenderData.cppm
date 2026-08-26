@@ -1,12 +1,14 @@
-// engine.terrain:renderdata - the per-terrain render-data payload.
+// Engine::Terrain - the `:renderdata` partition.
 //
-// ONE TerrainRenderData rides the draw list per visible terrain component (NOT one per chunk): it
-// carries borrowed pointers to the chunk model + quadtree (owned by the manager, valid this frame),
-// the GPU height texture, and the terrain's world placement + height mapping. The per-view frustum
-// cull + LOD selection happen in TerrainRenderer::Resolve (which has the camera) by replaying
-// foundation.terrain's ExtractVisibleChunkDraws over these fields - so the whole terrain draws as one
-// item on the sort, and worldCenter/worldRadius (the WHOLE-terrain sphere) keep it from being culled
-// while any chunk is visible. Trivially destructible (RenderData contract): only pointers + PODs.
+// The whole-terrain render item: ONE TerrainRenderData per terrain component per frame (the
+// manager's extract emits it); the renderer culls + LODs its chunks PER VIEW at resolve time via
+// foundation.terrain's ExtractVisibleChunkDraws over these fields - so the whole terrain draws as
+// one snapshot item with per-view chunk selection.
+//
+// Splat = the top-K model (terrain-splat-topk.md): the index/weight texture pair (from the CPU
+// SplatWeights), an explicit BASE albedo, the palette Texture2DArray, and the per-palette-layer
+// tileScale buffer. paletteCount == 0 or a missing weight pair -> the PS renders pure base;
+// no base either -> the height-ramp fallback.
 
 module;
 #include "Core/Prelude.h"
@@ -14,9 +16,9 @@ module;
 export module engine.terrain:renderdata;
 
 import foundation.core;
+import foundation.render;
 import foundation.rhi;
-import foundation.render; // RenderData base + RenderCategories
-import foundation.terrain; // TerrainChunk, TerrainQuadtree (borrowed, CPU model)
+import foundation.terrain;
 
 using namespace foundation::core;
 
@@ -52,14 +54,21 @@ export namespace engine::terrain
         // Descending coverage thresholds (thresholds[0] = 1.0 by convention; level 0 = fallback).
         f32 thresholds[kMaxLodThresholds] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         u32 thresholdCount = 1;
-        f32 lodBias = 0.0f;
+        f32 lodBias = 0.0f; // per-component LOD bias (negative = finer, positive = coarser)
 
-        // D2 splat material (borrowed GPU views; null = absent -> the renderer binds a white dummy and
-        // layerCount 0 => the PS falls back to the height ramp). Albedos tile in LOCAL XZ by tileScale.
-        static constexpr u32 kMaxLayers = 4;
-        rhi::TextureView* splatmapView = nullptr;
-        rhi::TextureView* albedoViews[kMaxLayers] = {nullptr, nullptr, nullptr, nullptr};
-        f32 tileScales[kMaxLayers] = {1.0f, 1.0f, 1.0f, 1.0f};
-        u32 layerCount = 0;
+        // --- Top-K splat material (set 3) ------------------------------------------------------
+        // The SplatWeights texture pair (weights RGBA8Unorm + indices RGBA8Uint, Load-only - a
+        // filtered index sample interpolates layer ids into garbage, ruling R1).
+        rhi::TextureView* weightView = nullptr;
+        rhi::TextureView* indexView = nullptr;
+        // The BASE layer: shows wherever painted weights don't sum to 1. Null = white dummy.
+        rhi::TextureView* baseAlbedoView = nullptr;
+        f32 baseTileScale = 1.0f;
+        // The paint palette: a Texture2DArray (one slice per palette layer, cook-resized to a
+        // common size) + the per-layer tileScale buffer (slot 0 = base, slot 1+i = palette i).
+        rhi::TextureView* paletteArrayView = nullptr;
+        rhi::Buffer* tileScaleBuffer = nullptr;
+        u64 tileScaleGeneration = 0; // part of the set-3 cache key (never raw pointers)
+        u32 paletteCount = 0;
     };
 }

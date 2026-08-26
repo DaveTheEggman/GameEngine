@@ -73,6 +73,7 @@ export namespace editor
                            Function<void(const Guid&)> apply);
         void AddLayer();
         void RemoveLayer(u32 index);
+        void RemapWeightsOnRemove(u32 removedIndex); // frees removed-layer slots; decrements above
         void CreateSplatmap(i32 size); // author + assign a new blank splatmap asset (composition)
 
         // Undo/save (heightfield-page pattern): snapshot the asset to bytes, push a merge-keyed command.

@@ -19,8 +19,7 @@ cbuffer TerrainView : register(b0, space0) {
     float4   CascadeTexelSize;
     float4   ShadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
     float4   ShadowParams; // x = far-fade width, y = uv.y sign, zw spare
-    float4   LayerTileScales; // per-layer albedo tiling (world units per tile), xyzw = layers 0..3
-    float4   SplatParams;     // x = layer count (0 = no splat, use the height ramp), yzw spare
+    float4   SplatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
 };
 
 struct PSIn {
@@ -34,15 +33,17 @@ struct PSIn {
     float2 splatUV  : TEXCOORD6; // 0..1 across the terrain footprint (splatmap lookup)
 };
 
-// Splat material (set 3): the RGBA weight map + up to 4 layer albedos. Absent slots bind a white
-// dummy; SplatParams.x (layer count) gates whether splat is used at all.
-Texture2D    Splatmap      : register(t0, space3);
-Texture2D    Albedo0       : register(t1, space3);
-Texture2D    Albedo1       : register(t2, space3);
-Texture2D    Albedo2       : register(t3, space3);
-Texture2D    Albedo3       : register(t4, space3);
-SamplerState SplatSampler  : register(s0, space3); // clamp, bilinear (soft layer boundaries)
-SamplerState AlbedoSampler : register(s1, space3); // repeat, trilinear (tiled albedos carry mips)
+// Top-K splat material (set 3, terrain-splat-topk.md): per texel, up to 4 (palette index,
+// weight) pairs; the BASE layer owns the remainder (1 - sum). The index map is INTEGER and
+// Load-ONLY - filtering palette indices interpolates layer ids into garbage (ruling R1) - so the
+// splat bilinear is done MANUALLY over the 2x2 texel neighborhood: evaluate the full blend per
+// corner, lerp the results. Albedos (base + palette array slices) sample normally (trilinear).
+Texture2D<uint4>        IndexMap     : register(t0, space3); // 4 palette indices per texel
+Texture2D               WeightMap    : register(t1, space3); // 4 weights per texel (0..1)
+Texture2D               BaseAlbedo   : register(t2, space3);
+Texture2DArray          PaletteArray : register(t3, space3); // one slice per palette layer
+StructuredBuffer<float> TileScales   : register(t4, space3); // [i] = palette layer i's tiling
+SamplerState            AlbedoSampler : register(s0, space3); // repeat, trilinear
 
 struct PSOutput {
     float4 color    : SV_Target0;
@@ -121,17 +122,49 @@ PSOutput main(PSIn i) {
     float  ndl = saturate(dot(n, sun));
 
     float3 base;
-    if (SplatParams.x >= 0.5) {
-        // Splat: normalize the RGBA weights (authoring need not sum to 1), with a zero-sum guard ->
-        // layer 0 (unpainted regions render the base layer, never black / divide-by-zero). Each layer
-        // samples its albedo at a terrain-LOCAL tiled UV (glued to the surface under move/rotate).
-        float4 w = Splatmap.Sample(SplatSampler, i.splatUV);
-        float sum = w.r + w.g + w.b + w.a;
-        w = (sum < 1e-4) ? float4(1, 0, 0, 0) : (w / sum);
-        base = w.r * Albedo0.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.x, 1e-3)).rgb +
-               w.g * Albedo1.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.y, 1e-3)).rgb +
-               w.b * Albedo2.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.z, 1e-3)).rgb +
-               w.a * Albedo3.Sample(AlbedoSampler, i.localXZ / max(LayerTileScales.w, 1e-3)).rgb;
+    bool hasBase = SplatParams.w >= 0.5;
+    bool hasWeights = SplatParams.y >= 0.5 && SplatParams.x >= 0.5;
+    if (hasWeights || hasBase) {
+        // Base albedo tiles in terrain-LOCAL XZ (glued to the surface under move/rotate).
+        float3 baseCol = BaseAlbedo.Sample(AlbedoSampler, i.localXZ / max(SplatParams.z, 1e-3)).rgb;
+        if (hasWeights) {
+            // Manual bilinear over the splat texels: Load index+weight at the 4 corners, blend
+            // per corner (skip zero-weight slots - the typical texel uses 1-2), lerp the results.
+            // Palette taps use SampleGrad with gradients hoisted OUT of the data-dependent
+            // branches: WGSL forbids implicit-derivative sampling in non-uniform control flow
+            // (grad of localXZ/tile == grad(localXZ)/tile, so the mip selection is identical).
+            float2 dxLocal = ddx(i.localXZ);
+            float2 dyLocal = ddy(i.localXZ);
+            float2 dims;
+            WeightMap.GetDimensions(dims.x, dims.y);
+            float2 tex = i.splatUV * dims - 0.5;
+            float2 f = frac(tex);
+            int2 t00 = int2(floor(tex));
+            int2 maxT = int2(dims) - int2(1, 1);
+            float3 corner[4];
+            [unroll] for (int cIdx = 0; cIdx < 4; ++cIdx) {
+                int2 offs = int2(cIdx & 1, cIdx >> 1);
+                int2 texel = clamp(t00 + offs, int2(0, 0), maxT);
+                uint4 idx = IndexMap.Load(int3(texel, 0));
+                float4 w = WeightMap.Load(int3(texel, 0));
+                float baseW = saturate(1.0 - (w.x + w.y + w.z + w.w));
+                float3 c = baseCol * baseW;
+                [unroll] for (int k = 0; k < 4; ++k) {
+                    float wk = w[k];
+                    if (wk > 0.0) {
+                        uint layer = idx[k];
+                        float tile = max(TileScales[layer], 1e-3);
+                        c += PaletteArray.SampleGrad(AlbedoSampler,
+                                                     float3(i.localXZ / tile, (float)layer),
+                                                     dxLocal / tile, dyLocal / tile).rgb * wk;
+                    }
+                }
+                corner[cIdx] = c;
+            }
+            base = lerp(lerp(corner[0], corner[1], f.x), lerp(corner[2], corner[3], f.x), f.y);
+        } else {
+            base = baseCol; // no weights authored: pure base everywhere
+        }
     } else {
         // No layers bound -> the height/slope colour ramp (headless tools, layerless terrains).
         const float3 kLow  = float3(0.24, 0.40, 0.16); // grass

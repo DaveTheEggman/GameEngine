@@ -92,19 +92,29 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
 
-            // set 3: the D2 splat material - RGBA weight map (t0) + up to 4 layer albedos (t1..t4) +
-            // a clamp/bilinear splat sampler (s0) + a repeat/trilinear albedo sampler (s1).
+            // set 3: the top-K splat material (terrain-splat-topk.md) - integer index map (t0,
+            // Load-only: filtering palette indices is garbage, ruling R1) + weight map (t1) +
+            // base albedo (t2) + the palette Texture2DArray (t3) + the per-layer tileScale
+            // storage buffer (t4) + the repeat/trilinear albedo sampler (s0).
+            rhi::BindGroupLayoutEntry idxEntry =
+                rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
+            idxEntry.textureSampleType = rhi::TextureSampleType::Uint; // integer data texture
+            rhi::BindGroupLayoutEntry wgtEntry =
+                rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
+            wgtEntry.textureSampleType =
+                rhi::TextureSampleType::UnfilterableFloat; // Load-only (manual bilinear)
             rhi::BindGroupLayoutEntry matEntries[] = {
-                rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment),
-                rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment),
+                idxEntry,
+                wgtEntry,
                 rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment),
-                rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment),
-                rhi::BindGroupLayoutEntry::SampledTexture(4, rhi::ShaderStage::Fragment),
+                rhi::BindGroupLayoutEntry::SampledTexture(
+                    3, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray),
+                rhi::BindGroupLayoutEntry::StorageBuffer(4, rhi::ShaderStage::Fragment,
+                                                         /*readOnly*/ true, sizeof(f32)),
                 rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
-                rhi::BindGroupLayoutEntry::Sampler(1, rhi::ShaderStage::Fragment),
             };
             rhi::BindGroupLayoutDesc mld{};
-            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 7};
+            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 6};
             if (!m_device->CreateBindGroupLayout(mld, m_materialLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
@@ -214,20 +224,9 @@ export namespace engine::terrain
             }
             m_activeShadowView = m_dummyShadowView;
 
-            // Splat material samplers: splatmap = clamp + bilinear (soft weights), albedo = repeat +
-            // trilinear (tiled, mip-sampled). A 1x1 white dummy fills absent splatmap/albedo slots.
-            rhi::SamplerDesc spd{};
-            spd.minFilter = rhi::FilterMode::Linear;
-            spd.magFilter = rhi::FilterMode::Linear;
-            spd.mipmapFilter = rhi::MipmapFilterMode::Nearest;
-            spd.addressU = rhi::AddressMode::ClampToEdge;
-            spd.addressV = rhi::AddressMode::ClampToEdge;
-            spd.addressW = rhi::AddressMode::ClampToEdge;
-            spd.label = u8"terrain.splatSampler";
-            if (!m_device->CreateSampler(spd, m_splatSampler).IsOk())
-            {
-                return core::Status{core::ErrorCode::Unknown};
-            }
+            // The albedo sampler (repeat + trilinear; base + palette slices carry mips). The
+            // splat rasters are Load-only - no splat sampler exists in the top-K model. 1x1
+            // dummies fill absent material slots (zero weights/indices = pure base; white base).
             rhi::SamplerDesc apd{};
             apd.minFilter = rhi::FilterMode::Linear;
             apd.magFilter = rhi::FilterMode::Linear;
@@ -257,6 +256,78 @@ export namespace engine::terrain
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
+            // Absent-slot dummies for the top-K material: ZERO weights (= pure base) + zero
+            // indices (RGBA8Uint) + a 1-slice white palette array + a single-entry tileScale
+            // buffer - so an un-splatted terrain still satisfies the set-3 layout on WebGPU.
+            rhi::TextureDesc ztd{};
+            ztd.format = rhi::TextureFormat::RGBA8Unorm;
+            ztd.width = 1;
+            ztd.height = 1;
+            ztd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            ztd.label = u8"terrain.zeroWeights";
+            if (!m_device->CreateTexture(ztd, m_zeroWeightTex).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureViewDesc zvd{};
+            zvd.format = rhi::TextureFormat::RGBA8Unorm;
+            zvd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!m_device->CreateTextureView(m_zeroWeightTex, zvd, m_zeroWeightView).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureDesc utd{};
+            utd.format = rhi::TextureFormat::RGBA8Uint;
+            utd.width = 1;
+            utd.height = 1;
+            utd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            utd.label = u8"terrain.zeroIndices";
+            if (!m_device->CreateTexture(utd, m_zeroIndexTex).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureViewDesc uvd{};
+            uvd.format = rhi::TextureFormat::RGBA8Uint;
+            uvd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!m_device->CreateTextureView(m_zeroIndexTex, uvd, m_zeroIndexView).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureDesc atd{};
+            atd.format = rhi::TextureFormat::RGBA8Unorm;
+            atd.width = 1;
+            atd.height = 1;
+            atd.arrayLayerCount = 1;
+            atd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            atd.label = u8"terrain.whiteArray";
+            if (!m_device->CreateTexture(atd, m_whiteArrayTex).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::TextureViewDesc avd{};
+            avd.format = rhi::TextureFormat::RGBA8Unorm;
+            avd.dimension = rhi::TextureViewDimension::Texture2DArray;
+            avd.arrayLayerCount = 1;
+            if (!m_device->CreateTextureView(m_whiteArrayTex, avd, m_whiteArrayView).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::BufferDesc tbd{};
+            tbd.size = sizeof(f32);
+            tbd.usage = rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
+            tbd.memory = rhi::MemoryLocation::CpuToGpu;
+            tbd.label = u8"terrain.dummyTileScales";
+            if (!m_device->CreateBuffer(tbd, m_dummyTileBuffer).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            if (void* mapped = m_dummyTileBuffer->Map())
+            {
+                const f32 one = 1.0f;
+                MemCopy(mapped, &one, sizeof(one));
+                m_dummyTileBuffer->Unmap();
+            }
+
             if (rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics))
             {
                 rhi::TransferBatch* tb = nullptr;
@@ -267,6 +338,13 @@ export namespace engine::terrain
                     layout.bytesPerRow = 4;
                     layout.rowsPerImage = 1;
                     tb->WriteTexture(m_whiteTex, Span<const u8>{white, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    const u8 zero[4] = {0, 0, 0, 0};
+                    tb->WriteTexture(m_zeroWeightTex, Span<const u8>{zero, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    tb->WriteTexture(m_zeroIndexTex, Span<const u8>{zero, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    tb->WriteTexture(m_whiteArrayTex, Span<const u8>{white, 4}, layout,
                                      rhi::Extent3D{1, 1, 1});
                     (void)tb->Submit();
                     q->DestroyTransferBatch(tb);
@@ -391,9 +469,11 @@ export namespace engine::terrain
                                             kShadowNormalBias, kShadowDepthBias};
                     ubo.shadowParams.x = ctx.shadowFarFade;
                 }
-                ubo.layerTileScales = Float4{data->tileScales[0], data->tileScales[1],
-                                             data->tileScales[2], data->tileScales[3]};
-                ubo.splatParams = Float4{static_cast<f32>(data->layerCount), 0.0f, 0.0f, 0.0f};
+                const bool hasWeights = data->weightView != nullptr && data->indexView != nullptr &&
+                                        data->paletteArrayView != nullptr && data->paletteCount > 0;
+                ubo.splatParams =
+                    Float4{static_cast<f32>(data->paletteCount), hasWeights ? 1.0f : 0.0f,
+                           data->baseTileScale, data->baseAlbedoView != nullptr ? 1.0f : 0.0f};
                 MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
                 // Local-space frustum (chunkToWorld folded in) matches the chunks' local bounds.
@@ -423,8 +503,7 @@ export namespace engine::terrain
                 }
 
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
-                rhi::BindGroup* materialBg =
-                    EnsureMaterialBindGroup(data->splatmapView, data->albedoViews);
+                rhi::BindGroup* materialBg = EnsureMaterialBindGroup(*data);
                 if (heightBg == nullptr || materialBg == nullptr)
                 {
                     continue;
@@ -658,8 +737,7 @@ export namespace engine::terrain
             Float4 cascadeTexelSize;
             Float4 shadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
             Float4 shadowParams; // x = far-fade width, y = uv.y sign, zw spare
-            Float4 layerTileScales; // per-layer albedo tiling (local units per tile)
-            Float4 splatParams;     // x = layer count (0 = height ramp), yzw spare
+            Float4 splatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
         };
 
         struct LodMesh
@@ -826,22 +904,29 @@ export namespace engine::terrain
         // Set 3 (splat material): splatmap + 4 albedos (white dummy for absent slots) + the two
         // samplers. Cached per splatmap view, validated by the uniqueId of ALL five views (never raw
         // pointers - address reuse); a hot-swap retires the stale group through the frame-retire queue.
-        rhi::BindGroup* EnsureMaterialBindGroup(rhi::TextureView* splatmap,
-                                                rhi::TextureView* const* albedos)
+        rhi::BindGroup* EnsureMaterialBindGroup(const TerrainRenderData& data)
         {
-            rhi::TextureView* sm = (splatmap != nullptr) ? splatmap : m_whiteView;
-            rhi::TextureView* a[TerrainRenderData::kMaxLayers];
-            for (u32 i = 0; i < TerrainRenderData::kMaxLayers; ++i)
+            // Absent slots bind the dummies: zero weights/indices = pure base; white base/array.
+            rhi::TextureView* idx =
+                (data.indexView != nullptr) ? data.indexView : m_zeroIndexView;
+            rhi::TextureView* wgt =
+                (data.weightView != nullptr) ? data.weightView : m_zeroWeightView;
+            rhi::TextureView* base =
+                (data.baseAlbedoView != nullptr) ? data.baseAlbedoView : m_whiteView;
+            rhi::TextureView* pal =
+                (data.paletteArrayView != nullptr) ? data.paletteArrayView : m_whiteArrayView;
+            rhi::Buffer* tiles =
+                (data.tileScaleBuffer != nullptr) ? data.tileScaleBuffer : m_dummyTileBuffer;
+            const u64 tileGen = (data.tileScaleBuffer != nullptr) ? data.tileScaleGeneration : 0;
+
+            // Keyed by the WEIGHT view pointer, VALIDATED by every view's uniqueId + the buffer
+            // generation (bind-group-cache-versioning: pointers alias across reloads; ids don't).
+            if (MaterialBindGroup* found = m_materialBindGroups.Find(wgt))
             {
-                a[i] = (albedos[i] != nullptr) ? albedos[i] : m_whiteView;
-            }
-            if (MaterialBindGroup* found = m_materialBindGroups.Find(sm))
-            {
-                bool match = found->splatId == sm->uniqueId;
-                for (u32 i = 0; i < TerrainRenderData::kMaxLayers && match; ++i)
-                {
-                    match = found->albedoIds[i] == a[i]->uniqueId;
-                }
+                const bool match = found->ids[0] == idx->uniqueId &&
+                                   found->ids[1] == wgt->uniqueId &&
+                                   found->ids[2] == base->uniqueId &&
+                                   found->ids[3] == pal->uniqueId && found->tileGen == tileGen;
                 if (match)
                 {
                     return found->bindGroup;
@@ -857,25 +942,31 @@ export namespace engine::terrain
                         m_device->DestroyBindGroup(found->bindGroup);
                     }
                 }
-                m_materialBindGroups.Remove(sm);
+                m_materialBindGroups.Remove(wgt);
             }
+            const u64 tilesSize =
+                (data.tileScaleBuffer != nullptr)
+                    ? static_cast<u64>(data.paletteCount) * sizeof(f32)
+                    : sizeof(f32);
             rhi::BindGroupEntry entries[] = {
-                rhi::BindGroupEntry::TextureEntry(sm),    rhi::BindGroupEntry::TextureEntry(a[0]),
-                rhi::BindGroupEntry::TextureEntry(a[1]),  rhi::BindGroupEntry::TextureEntry(a[2]),
-                rhi::BindGroupEntry::TextureEntry(a[3]),  rhi::BindGroupEntry::SamplerEntry(m_splatSampler),
+                rhi::BindGroupEntry::TextureEntry(idx),
+                rhi::BindGroupEntry::TextureEntry(wgt),
+                rhi::BindGroupEntry::TextureEntry(base),
+                rhi::BindGroupEntry::TextureEntry(pal),
+                rhi::BindGroupEntry::BufferEntry(tiles, 0, tilesSize),
                 rhi::BindGroupEntry::SamplerEntry(m_albedoSampler),
             };
             rhi::BindGroupDesc bgd{};
             bgd.layout = m_materialLayout;
-            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 7};
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 6};
             rhi::BindGroup* bg = nullptr;
             if (!m_device->CreateBindGroup(bgd, bg).IsOk())
             {
                 return nullptr;
             }
-            MaterialBindGroup entry{bg, sm->uniqueId, {a[0]->uniqueId, a[1]->uniqueId,
-                                                       a[2]->uniqueId, a[3]->uniqueId}};
-            m_materialBindGroups.InsertOrAssign(sm, entry);
+            MaterialBindGroup entry{
+                bg, {idx->uniqueId, wgt->uniqueId, base->uniqueId, pal->uniqueId}, tileGen};
+            m_materialBindGroups.InsertOrAssign(wgt, entry);
             return bg;
         }
 
@@ -1085,10 +1176,40 @@ export namespace engine::terrain
                 m_device->DestroyTexture(m_whiteTex);
                 m_whiteTex = nullptr;
             }
-            if (m_splatSampler != nullptr)
+            if (m_zeroWeightView != nullptr)
             {
-                m_device->DestroySampler(m_splatSampler);
-                m_splatSampler = nullptr;
+                m_device->DestroyTextureView(m_zeroWeightView);
+                m_zeroWeightView = nullptr;
+            }
+            if (m_zeroWeightTex != nullptr)
+            {
+                m_device->DestroyTexture(m_zeroWeightTex);
+                m_zeroWeightTex = nullptr;
+            }
+            if (m_zeroIndexView != nullptr)
+            {
+                m_device->DestroyTextureView(m_zeroIndexView);
+                m_zeroIndexView = nullptr;
+            }
+            if (m_zeroIndexTex != nullptr)
+            {
+                m_device->DestroyTexture(m_zeroIndexTex);
+                m_zeroIndexTex = nullptr;
+            }
+            if (m_whiteArrayView != nullptr)
+            {
+                m_device->DestroyTextureView(m_whiteArrayView);
+                m_whiteArrayView = nullptr;
+            }
+            if (m_whiteArrayTex != nullptr)
+            {
+                m_device->DestroyTexture(m_whiteArrayTex);
+                m_whiteArrayTex = nullptr;
+            }
+            if (m_dummyTileBuffer != nullptr)
+            {
+                m_device->DestroyBuffer(m_dummyTileBuffer);
+                m_dummyTileBuffer = nullptr;
             }
             if (m_albedoSampler != nullptr)
             {
@@ -1136,8 +1257,8 @@ export namespace engine::terrain
         struct MaterialBindGroup
         {
             rhi::BindGroup* bindGroup = nullptr;
-            u64 splatId = 0;
-            u64 albedoIds[TerrainRenderData::kMaxLayers] = {0, 0, 0, 0};
+            u64 ids[4] = {0, 0, 0, 0}; // index/weight/base/palette view uniqueIds
+            u64 tileGen = 0;
         };
 
         rhi::Device* m_device;
@@ -1158,11 +1279,17 @@ export namespace engine::terrain
         rhi::BindGroup* m_chunkBg = nullptr;
         u32 m_chunkBgGen = 0;
         HashMap<rhi::TextureView*, HeightBindGroup> m_heightBindGroups;
-        // Splat material (set 3): white dummy + samplers + a per-splatmap cache.
-        rhi::Sampler* m_splatSampler = nullptr;
+        // Top-K splat material (set 3): absent-slot dummies + the per-weights bind cache.
         rhi::Sampler* m_albedoSampler = nullptr;
-        rhi::Texture* m_whiteTex = nullptr;      // 1x1 white (absent splatmap/albedo slots)
+        rhi::Texture* m_whiteTex = nullptr; // 1x1 white (absent base albedo)
         rhi::TextureView* m_whiteView = nullptr;
+        rhi::Texture* m_zeroWeightTex = nullptr; // 1x1 zero weights (= pure base)
+        rhi::TextureView* m_zeroWeightView = nullptr;
+        rhi::Texture* m_zeroIndexTex = nullptr; // 1x1 zero indices (RGBA8Uint)
+        rhi::TextureView* m_zeroIndexView = nullptr;
+        rhi::Texture* m_whiteArrayTex = nullptr; // 1x1x1 white palette array
+        rhi::TextureView* m_whiteArrayView = nullptr;
+        rhi::Buffer* m_dummyTileBuffer = nullptr; // one f32 = 1.0
         HashMap<rhi::TextureView*, MaterialBindGroup> m_materialBindGroups;
         render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)
         // Shadow receive (set 0: t1 CSM array + s0 comparison sampler).

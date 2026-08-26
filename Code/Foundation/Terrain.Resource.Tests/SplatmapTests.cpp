@@ -1,131 +1,221 @@
-// The editable terrain Splatmap: the pure weight-brush core (PaintWeight - lerp-to-one-hot with a
-// cosine falloff, region + version tracking) and the SplatmapSource metadata + pixel-blob round-trip
-// the cook rides. RHI-free, no content DB - the runtime factory round-trip lives in the Pipeline test.
+// SplatWeights (top-K splat model, terrain-splat-topk.md): the pure brush cores + migration.
+// Headless (no RHI): PaintTopK convexity (sum + base == 1 within quantum), slot selection
+// (existing -> free -> evict-min), full-paint one-hot convergence, EraseTopK reveals base,
+// dirty-rect bounds, version bumps, and the legacy-splatmap converter (renormalized - R2).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
-
 import foundation.core;
 import foundation.terrain.resource;
 
 using namespace foundation::core;
 using namespace foundation::terrain;
 
-TEST_CASE("splatmap: a fresh raster is all-zero; SeedLayer0 sets the base channel")
+namespace
 {
-    Splatmap sm(8, 8);
-    CHECK_FALSE(sm.IsEmpty());
-    CHECK(sm.Width() == 8);
-    CHECK(sm.Height() == 8);
-    CHECK(sm.Version() == 1u);
-    CHECK(sm.GetWeight(4, 4, 0) == 0);
-
-    sm.SeedLayer0();
-    CHECK(sm.GetWeight(0, 0, 0) == 255);
-    CHECK(sm.GetWeight(7, 7, 0) == 255);
-    CHECK(sm.GetWeight(4, 4, 1) == 0);
-}
-
-TEST_CASE("splatmap: PaintWeight raises the selected layer at the centre, bumps version, reports region")
-{
-    Splatmap sm(64, 64);
-    sm.SeedLayer0(); // start all layer 0
-    const u64 v0 = sm.Version();
-
-    // Paint layer 1 at the centre (uv 0.5), radius 0.2, full strength.
-    const SplatRegion r = PaintWeight(sm, 0.5f, 0.5f, 0.2f, 0.2f, 1u, 1.0f);
-
-    REQUIRE_FALSE(r.IsEmpty());
-    CHECK(sm.Version() > v0); // an edit bumped the version (GPU re-upload)
-
-    // Centre texel is now dominated by layer 1, and layer 0 was eroded (lerp-to-one-hot).
-    const u8 c1 = sm.GetWeight(32, 32, 1);
-    const u8 c0 = sm.GetWeight(32, 32, 0);
-    CHECK(c1 > 200);
-    CHECK(c0 < 55);
-
-    // A rim texel inside the disc is touched but less (cosine falloff): more layer 0 than the centre.
-    CHECK(sm.GetWeight(32, 32, 1) >= sm.GetWeight(r.minX, 32, 1));
-
-    // The region is a rect around the centre, well within the raster.
-    CHECK(r.minX >= 0);
-    CHECK(r.maxX <= 63);
-    CHECK(r.minX < 32);
-    CHECK(r.maxX > 32);
-}
-
-TEST_CASE("splatmap: painting another layer erases the previous one (lerp-to-one-hot)")
-{
-    Splatmap sm(32, 32);
-    sm.SeedLayer0();
-    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 0.4f, 2u, 1.0f); // paint layer 2 over the centre
-    CHECK(sm.GetWeight(16, 16, 2) > 200);
-    (void)PaintWeight(sm, 0.5f, 0.5f, 0.4f, 0.4f, 3u, 1.0f); // now paint layer 3 - erases layer 2
-    CHECK(sm.GetWeight(16, 16, 3) > 200);
-    CHECK(sm.GetWeight(16, 16, 2) < 55);
-}
-
-TEST_CASE("splatmap: an off-raster / zero-radius brush touches nothing and does not bump")
-{
-    Splatmap sm(16, 16);
-    const u64 v0 = sm.Version();
-    const SplatRegion a = PaintWeight(sm, 5.0f, 5.0f, 0.1f, 0.1f, 0u, 1.0f); // uv way outside 0..1
-    CHECK(a.IsEmpty());
-    const SplatRegion b = PaintWeight(sm, 0.5f, 0.5f, 0.0f, 0.0f, 0u, 1.0f); // zero radius
-    CHECK(b.IsEmpty());
-    CHECK(sm.Version() == v0); // nothing changed
-}
-
-TEST_CASE("splatmap: SplatmapSource metadata + pixel blob round-trips an identical raster")
-{
-    Splatmap sm(24, 16);
-    sm.SeedLayer0();
-    (void)PaintWeight(sm, 0.3f, 0.7f, 0.25f, 0.25f, 1u, 0.8f);
-    (void)PaintWeight(sm, 0.8f, 0.2f, 0.15f, 0.15f, 2u, 1.0f);
-
-    SplatmapSource src;
-    SplatmapSource::FromSplatmap(sm, src);
-    CHECK(src.width == 24);
-    CHECK(src.height == 16);
-
-    const Span<const byte> blob = SplatmapSource::PixelBlob(sm);
-    RefPtr<Splatmap> rebuilt = src.Build(blob);
-    REQUIRE(rebuilt);
-    CHECK(rebuilt->Width() == 24);
-    CHECK(rebuilt->Height() == 16);
-    // Every texel identical.
-    bool identical = true;
-    const Span<const u8> a = sm.Pixels();
-    const Span<const u8> b = rebuilt->Pixels();
-    REQUIRE(a.Size() == b.Size());
-    for (usize i = 0; i < a.Size(); ++i)
+    // Sum of the four slot weights at a texel (0..255 domain).
+    [[nodiscard]] i32 SlotSum(const SplatWeights& sw, i32 x, i32 y)
     {
-        if (a[i] != b[i])
+        i32 sum = 0;
+        for (u32 k = 0; k < kSplatSlotCount; ++k)
         {
-            identical = false;
-            break;
+            sum += sw.SlotWeight(x, y, k);
+        }
+        return sum;
+    }
+}
+
+TEST_CASE("splat weights: an all-zero raster is pure base by construction")
+{
+    SplatWeights sw(8, 8);
+    CHECK(!sw.IsEmpty());
+    CHECK(sw.Version() == 1u);
+    CHECK(sw.BaseWeight(4, 4) == 255);
+    CHECK(SlotSum(sw, 4, 4) == 0);
+}
+
+TEST_CASE("splat weights: painting raises the selected PALETTE layer and stays convex")
+{
+    SplatWeights sw(32, 32);
+    const u64 v0 = sw.Version();
+    const SplatRegion r = PaintTopK(sw, 0.5f, 0.5f, 0.25f, 0.25f, /*palette*/ 7, 0.6f);
+    REQUIRE(!r.IsEmpty());
+    CHECK(sw.Version() > v0);
+
+    // The centre gained layer 7; base fell by exactly the gained amount (convex: sum <= 255).
+    CHECK(sw.WeightOfLayer(16, 16, 7) > 100);
+    CHECK(sw.BaseWeight(16, 16) == 255 - SlotSum(sw, 16, 16));
+    for (i32 y = r.minY; y <= r.maxY; ++y)
+    {
+        for (i32 x = r.minX; x <= r.maxX; ++x)
+        {
+            CHECK(SlotSum(sw, x, y) <= 255);
         }
     }
-    CHECK(identical);
-
-    // A blob whose size does not match the metadata yields an empty (safe) raster.
-    RefPtr<Splatmap> bad = src.Build(Span<const byte>{blob.Data(), blob.Size() - 4});
-    REQUIRE(bad);
-    CHECK(bad->IsEmpty());
+    // Outside the dirty rect nothing changed.
+    CHECK(SlotSum(sw, 0, 0) == 0);
 }
 
-TEST_CASE("splatmap: per-axis radii paint an ellipse in UV (a world circle on a non-square footprint)")
+TEST_CASE("splat weights: repeated full-strength painting converges to one-hot")
 {
-    // A non-square terrain footprint maps a world disc to a UV ellipse: uvRadiusX != uvRadiusY. On a
-    // SQUARE raster the touched region is then wider than tall in proportion to the radii, and a texel
-    // reached along the wide axis is painted while the same UV distance along the narrow axis is not.
-    Splatmap sm(64, 64);
-    sm.SeedLayer0();
-    const SplatRegion r = PaintWeight(sm, 0.5f, 0.5f, 0.3f, 0.1f, 1u, 1.0f); // wide in U, narrow in V
-    REQUIRE_FALSE(r.IsEmpty());
-    CHECK(r.Width() > r.Height() * 2); // ~3:1 radii -> a clearly wider-than-tall footprint
+    SplatWeights sw(8, 8);
+    for (i32 i = 0; i < 24; ++i)
+    {
+        (void)PaintTopK(sw, 0.5f, 0.5f, 0.9f, 0.9f, 3, 1.0f);
+    }
+    CHECK(sw.WeightOfLayer(4, 4, 3) == 255); // pure layer 3
+    CHECK(sw.BaseWeight(4, 4) == 0);
+}
 
-    // Texel 15 to the right (du ~0.24 UV, within uvRadiusX 0.3) is painted; 15 down (dv ~0.24 UV,
-    // beyond uvRadiusY 0.1) is not.
-    CHECK(sm.GetWeight(32 + 15, 32, 1) > 0);
-    CHECK(sm.GetWeight(32, 32 + 15, 1) == 0);
+TEST_CASE("splat weights: painting a second layer fades the first (lerp-to-one-hot)")
+{
+    SplatWeights sw(8, 8);
+    for (i32 i = 0; i < 24; ++i)
+    {
+        (void)PaintTopK(sw, 0.5f, 0.5f, 0.9f, 0.9f, 1, 1.0f);
+    }
+    const u8 before = sw.WeightOfLayer(4, 4, 1);
+    REQUIRE(before == 255);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 0.9f, 0.9f, 2, 0.5f);
+    CHECK(sw.WeightOfLayer(4, 4, 1) < before); // layer 1 faded
+    CHECK(sw.WeightOfLayer(4, 4, 2) > 0);      // layer 2 rose
+    CHECK(SlotSum(sw, 4, 4) <= 255);
+}
+
+TEST_CASE("splat weights: a fifth layer evicts the minimum-weight slot (R8)")
+{
+    SplatWeights sw(4, 4);
+    // Fill all four slots with distinct layers at descending strengths.
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 10, 0.50f);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 11, 0.40f);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 12, 0.30f);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 13, 0.20f);
+    REQUIRE(sw.WeightOfLayer(2, 2, 13) > 0);
+    // Find the minimum-weight layer before the eviction paint.
+    u32 minLayer = 10;
+    u8 minW = 255;
+    for (u32 layer = 10; layer <= 13; ++layer)
+    {
+        const u8 w = sw.WeightOfLayer(2, 2, layer);
+        if (w < minW)
+        {
+            minW = w;
+            minLayer = layer;
+        }
+    }
+    // Painting a FIFTH layer evicts exactly the min slot.
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 42, 0.6f);
+    CHECK(sw.WeightOfLayer(2, 2, 42) > 0);       // the new layer took a slot
+    CHECK(sw.WeightOfLayer(2, 2, minLayer) == 0); // the weakest layer was evicted
+    CHECK(SlotSum(sw, 2, 2) <= 255);
+}
+
+TEST_CASE("splat weights: the eraser fades all layers toward base")
+{
+    SplatWeights sw(8, 8);
+    for (i32 i = 0; i < 10; ++i)
+    {
+        (void)PaintTopK(sw, 0.5f, 0.5f, 0.9f, 0.9f, 5, 1.0f);
+    }
+    REQUIRE(sw.BaseWeight(4, 4) < 40);
+    for (i32 i = 0; i < 24; ++i)
+    {
+        (void)EraseTopK(sw, 0.5f, 0.5f, 0.9f, 0.9f, 1.0f);
+    }
+    CHECK(sw.BaseWeight(4, 4) == 255); // fully erased: pure base again
+    CHECK(SlotSum(sw, 4, 4) == 0);
+    // Freed slots cleared their index (top-K stays meaningful).
+    for (u32 k = 0; k < kSplatSlotCount; ++k)
+    {
+        CHECK(sw.SlotIndex(4, 4, k) == 0);
+    }
+}
+
+TEST_CASE("splat weights: palette-remove remap frees the removed layer and shifts the rest (R6)")
+{
+    SplatWeights sw(8, 8);
+    // Three distinct layers in the slots.
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 3, 0.5f);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 5, 0.3f);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 2.0f, 2.0f, 9, 0.2f);
+    const u8 w3 = sw.WeightOfLayer(4, 4, 3);
+    const u8 w9 = sw.WeightOfLayer(4, 4, 9);
+    REQUIRE(sw.WeightOfLayer(4, 4, 5) > 0);
+    const u64 v0 = sw.Version();
+
+    // Remove palette layer 5: its weight falls to base; layers above it shift down by one.
+    CHECK(RemapOnPaletteRemove(sw, 5));
+    CHECK(sw.Version() > v0);
+    CHECK(sw.WeightOfLayer(4, 4, 3) == w3); // below the removed index: untouched
+    CHECK(sw.WeightOfLayer(4, 4, 5) == 0);  // the removed layer is gone
+    CHECK(sw.WeightOfLayer(4, 4, 8) == w9); // 9 became 8
+    CHECK(sw.WeightOfLayer(4, 4, 9) == 0);
+
+    // A raster that never referenced the removed layer reports no change.
+    SplatWeights clean(4, 4);
+    CHECK(!RemapOnPaletteRemove(clean, 5));
+}
+
+TEST_CASE("splat weights: legacy migration renormalizes by the old sum (R2)")
+{
+    // A legacy texel whose stored sum drifted from 255: (w0,w1,w2,w3) = (100, 60, 40, 0),
+    // sum 200. The OLD shader normalized: layer0 share = 0.5, layer1 = 0.3, layer2 = 0.2.
+    Array<u8> legacy;
+    legacy.Resize(4 * 4 * 4, u8{0});
+    for (usize t = 0; t < 16; ++t)
+    {
+        legacy[t * 4 + 0] = 100;
+        legacy[t * 4 + 1] = 60;
+        legacy[t * 4 + 2] = 40;
+        legacy[t * 4 + 3] = 0;
+    }
+    RefPtr<SplatWeights> sw =
+        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4);
+    REQUIRE(sw.Get() != nullptr);
+    REQUIRE(!sw->IsEmpty());
+    // Old layer 1 -> palette 0 at 0.3 of 255 = 77; old layer 2 -> palette 1 at 0.2 = 51.
+    CHECK(sw->WeightOfLayer(1, 1, 0) == 77);
+    CHECK(sw->WeightOfLayer(1, 1, 1) == 51);
+    CHECK(sw->WeightOfLayer(1, 1, 2) == 0);
+    // Base = the old layer-0 NORMALIZED share: 0.5 -> 127/128 within quantum.
+    const u8 base = sw->BaseWeight(1, 1);
+    CHECK(base >= 126);
+    CHECK(base <= 128);
+}
+
+TEST_CASE("splat weights: legacy migration maps the SeedLayer0 raster to pure base")
+{
+    // The old authoring seed (255,0,0,0) = full layer 0 = the de-facto base everywhere.
+    Array<u8> legacy;
+    legacy.Resize(4 * 4 * 4, u8{0});
+    for (usize t = 0; t < 16; ++t)
+    {
+        legacy[t * 4 + 0] = 255;
+    }
+    RefPtr<SplatWeights> sw =
+        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4);
+    REQUIRE(sw.Get() != nullptr);
+    CHECK(sw->BaseWeight(2, 2) == 255);
+    CHECK(SlotSum(*sw, 2, 2) == 0);
+}
+
+TEST_CASE("splat weights: cooked source round-trips both rasters")
+{
+    SplatWeights sw(8, 8);
+    (void)PaintTopK(sw, 0.5f, 0.5f, 0.5f, 0.5f, 9, 1.0f);
+
+    SplatWeightsSource src;
+    SplatWeightsSource::FromWeights(sw, src);
+    CHECK(src.width == 8);
+    CHECK(src.height == 8);
+
+    RefPtr<SplatWeights> restored =
+        src.Build(SplatWeightsSource::IndexBlob(sw), SplatWeightsSource::WeightBlob(sw));
+    REQUIRE(restored.Get() != nullptr);
+    CHECK(restored->WeightOfLayer(4, 4, 9) == sw.WeightOfLayer(4, 4, 9));
+    CHECK(restored->SlotIndex(4, 4, 0) == sw.SlotIndex(4, 4, 0));
+
+    // A blob-size mismatch yields an EMPTY raster, never a malformed one.
+    RefPtr<SplatWeights> bad = src.Build(Span<const byte>{}, SplatWeightsSource::WeightBlob(sw));
+    REQUIRE(bad.Get() != nullptr);
+    CHECK(bad->IsEmpty());
 }

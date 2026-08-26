@@ -1,13 +1,19 @@
 /// Foundation::Terrain.Resource - :splatmap partition.
 ///
-/// The editable terrain SPLATMAP: an RGBA8 weight raster (one channel per layer 0..3) that is the
-/// CPU SOURCE OF TRUTH for splat blending, exactly as foundation.heightfield::Heightfield is for
-/// geometry. The GPU splat texture is DERIVED from it (engine.terrain's version-keyed cache re-
-/// uploads on a bump) - so cooked and editor-painted terrains share ONE path. The pure brush core
-/// (PaintWeight) lives here with the type (the SculptRaise precedent); no RHI, headless-testable.
+/// The editable terrain SPLAT WEIGHTS: the top-K (K = 4) blend model (terrain-splat-topk.md).
+/// Per texel, TWO equal-size rasters hold up to four (paletteIndex, weight) pairs:
+///   - indices: 4 x u8 palette indices (0..255); a slot is "unused" iff its weight is 0.
+///   - weights: 4 x u8 quantized weights (0..255 -> 0..1), sum <= 255.
+/// The BASE layer implicitly owns the remainder (baseW = 1 - sum/255): an all-zero raster is a
+/// valid "pure base" surface by construction - nothing needs seeding. This is the CPU SOURCE OF
+/// TRUTH (the Heightfield precedent); engine.terrain derives the GPU textures from it, keyed by
+/// uid + Version(). The pure brush cores (PaintTopK/EraseTopK) live here: no RHI, headless.
 ///
-/// SplatmapSource is the cooked metadata (width/height); the u8 pixel bulk rides a separate "pixels"
-/// data stream (bulk-data sidecar rule). SplatmapFactory builds the runtime Splatmap.
+/// SplatWeightsSource is the cooked metadata (width/height); the two pixel blobs ride the
+/// `kSplatStream` ("pixels" = weights) and `kSplatIndexStream` ("indices") sidecars (bulk-data
+/// rule). SplatWeightsFactory builds the runtime SplatWeights. Legacy single-raster splatmaps
+/// (the 4-fixed-layer model) migrate through MigrateLegacySplatmap - renormalized by the old
+/// in-shader-normalized sum so visuals match exactly (ruling R2).
 
 module;
 #include "Core/Prelude.h"
@@ -24,15 +30,17 @@ using namespace foundation::resource;
 
 export namespace foundation::terrain
 {
-    /// Number of blendable layers (RGBA channels). D2 caps at 4; a second splatmap is deferred.
-    inline constexpr u32 kSplatLayerCount = 4;
+    /// Layers blended per TEXEL (the K in top-K). The palette itself is unbounded (8-bit index,
+    /// up to 256 layers - exactly WebGPU's minimum maxTextureArrayLayers; do not widen the index
+    /// without checking that limit).
+    inline constexpr u32 kSplatSlotCount = 4;
 
-    /// An RGBA8 layer-weight raster over the terrain's 0..1 footprint UV. IS-A Object so it is a
-    /// referenceable product (Ref<Splatmap>) the terrain holds and physics/gameplay can query. The
+    /// The per-texel top-K (index, weight) rasters over the terrain's 0..1 footprint UV. IS-A
+    /// Object so it is a referenceable product (Ref<SplatWeights>) the terrain holds. The
     /// per-object uid + Version() drive the GPU cache invalidation (the Heightfield precedent).
-    class Splatmap final : public Object
+    class SplatWeights final : public Object
     {
-        RTTI_OBJECT(Splatmap, Object)
+        RTTI_OBJECT(SplatWeights, Object)
     public:
         // Unique per-OBJECT id: GPU caches key by THIS + Version(), never by pointer - a freed
         // raster's address can be reused by a fresh one at an equal version (the height-texture
@@ -45,76 +53,95 @@ export namespace foundation::terrain
             return counter.fetch_add(1) + 1;
         }
 
-        Splatmap() = default;
+        SplatWeights() = default;
 
-        /// Allocate an all-zero raster (every weight 0 -> the shader's zero-sum guard renders layer
-        /// 0, so an unseeded splatmap is a valid "all base layer" surface). SeedLayer0 makes that
-        /// explicit for authoring.
-        Splatmap(i32 width, i32 height) : m_width(width), m_height(height)
+        /// Allocate an all-zero pair of rasters: every weight 0 -> pure BASE everywhere (the base
+        /// is a separate layer, so a fresh weights raster needs no seeding).
+        SplatWeights(i32 width, i32 height) : m_width(width), m_height(height)
         {
-            m_pixels.Resize(static_cast<usize>(width) * static_cast<usize>(height) * 4u, u8{0});
+            const usize bytes =
+                static_cast<usize>(width) * static_cast<usize>(height) * kSplatSlotCount;
+            m_indices.Resize(bytes, u8{0});
+            m_weights.Resize(bytes, u8{0});
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept { return m_width <= 0 || m_height <= 0; }
         [[nodiscard]] i32 Width() const noexcept { return m_width; }
         [[nodiscard]] i32 Height() const noexcept { return m_height; }
 
-        /// Monotonic edit generation (starts at 1). Bump after a paint so the GPU splat texture
-        /// re-uploads (the sculpt/regen path).
+        /// Monotonic edit generation (starts at 1). Bump after a paint so the GPU splat textures
+        /// re-upload (the sculpt/regen path).
         [[nodiscard]] u64 Version() const noexcept { return m_version; }
         void BumpVersion() noexcept { ++m_version; }
 
-        [[nodiscard]] Span<const u8> Pixels() const noexcept
+        [[nodiscard]] Span<const u8> Indices() const noexcept
         {
-            return Span<const u8>{m_pixels.Data(), m_pixels.Size()};
+            return Span<const u8>{m_indices.Data(), m_indices.Size()};
         }
-        [[nodiscard]] Span<u8> Pixels() noexcept
+        [[nodiscard]] Span<u8> Indices() noexcept
         {
-            return Span<u8>{m_pixels.Data(), m_pixels.Size()};
+            return Span<u8>{m_indices.Data(), m_indices.Size()};
+        }
+        [[nodiscard]] Span<const u8> Weights() const noexcept
+        {
+            return Span<const u8>{m_weights.Data(), m_weights.Size()};
+        }
+        [[nodiscard]] Span<u8> Weights() noexcept
+        {
+            return Span<u8>{m_weights.Data(), m_weights.Size()};
         }
 
-        /// One channel weight (0..255) at a texel (indices clamped).
-        [[nodiscard]] u8 GetWeight(i32 x, i32 y, u32 layer) const noexcept
+        /// Slot accessors (texel clamped, slot masked). A slot is meaningful iff its weight > 0.
+        [[nodiscard]] u8 SlotIndex(i32 x, i32 y, u32 slot) const noexcept
         {
-            return m_pixels[Index(x, y) + (layer & 3u)];
+            return m_indices[TexelOffset(x, y) + (slot & 3u)];
+        }
+        [[nodiscard]] u8 SlotWeight(i32 x, i32 y, u32 slot) const noexcept
+        {
+            return m_weights[TexelOffset(x, y) + (slot & 3u)];
         }
 
-        /// Fill the whole raster with layer 0 at full weight (255,0,0,0) - the authoring seed for a
-        /// freshly created splatmap so the base layer shows before any painting.
-        void SeedLayer0() noexcept
+        /// The weight (0..255) this texel gives PALETTE layer `paletteIndex` (0 if not in a slot).
+        [[nodiscard]] u8 WeightOfLayer(i32 x, i32 y, u32 paletteIndex) const noexcept
         {
-            for (usize i = 0; i + 3 < m_pixels.Size(); i += 4)
+            const usize at = TexelOffset(x, y);
+            for (u32 k = 0; k < kSplatSlotCount; ++k)
             {
-                m_pixels[i] = 255;
-                m_pixels[i + 1] = 0;
-                m_pixels[i + 2] = 0;
-                m_pixels[i + 3] = 0;
+                if (m_weights[at + k] > 0 && m_indices[at + k] == paletteIndex)
+                {
+                    return m_weights[at + k];
+                }
             }
+            return 0;
         }
 
-    private:
-        [[nodiscard]] usize Index(i32 x, i32 y) const noexcept
+        /// The implicit BASE weight (0..255) at a texel: 255 - sum(slot weights), clamped.
+        [[nodiscard]] u8 BaseWeight(i32 x, i32 y) const noexcept
+        {
+            const usize at = TexelOffset(x, y);
+            i32 sum = 0;
+            for (u32 k = 0; k < kSplatSlotCount; ++k)
+            {
+                sum += m_weights[at + k];
+            }
+            return static_cast<u8>(sum >= 255 ? 0 : 255 - sum);
+        }
+
+        [[nodiscard]] usize TexelOffset(i32 x, i32 y) const noexcept
         {
             const i32 cx = x < 0 ? 0 : (x >= m_width ? m_width - 1 : x);
             const i32 cy = y < 0 ? 0 : (y >= m_height ? m_height - 1 : y);
             return (static_cast<usize>(cy) * static_cast<usize>(m_width) + static_cast<usize>(cx)) *
-                   4u;
+                   kSplatSlotCount;
         }
 
+    private:
         i32 m_width = 0;
         i32 m_height = 0;
-        u64 m_version = 1; // edit generation (BumpVersion) for GPU-cache invalidation
-        Array<u8> m_pixels; // RGBA8, row-major, index = (x + y*w)*4
+        u64 m_version = 1;  // edit generation (BumpVersion) for GPU-cache invalidation
+        Array<u8> m_indices; // 4 x u8 palette indices per texel, row-major
+        Array<u8> m_weights; // 4 x u8 weights per texel, row-major, sum <= 255
     };
-
-    // ---- splat weight brush (pure texel math; the editor splat tool wraps this) -----------------
-    //
-    // Paints a WORLD/UV-space disc (centre uvX,uvY in the 0..1 footprint; uvRadius in the same
-    // units) into ONE layer channel with a cosine falloff, LERP-TO-ONE-HOT so the painted layer
-    // takes over and the weight vector stays bounded (Fable ruling Q5): t = amount*falloff,
-    // w_sel += t*(1 - w_sel), w_other *= (1 - t) - painting another layer therefore erases this one.
-    // BumpVersion()s if any texel changed, returns the touched pixel RECT for region-delta undo +
-    // the bounded GPU re-upload. All headless-testable.
 
     /// The pixel rectangle a paint touched (inclusive). Empty when nothing was in range.
     struct SplatRegion
@@ -136,78 +163,140 @@ export namespace foundation::terrain
         }
     };
 
-    /// Paint `layer` (0..3) into the splatmap over a WORLD-space disc, expressed as its per-axis UV
-    /// radii `uvRadiusX = worldRadius/footprintX`, `uvRadiusY = worldRadius/footprintY` (both in 0..1
-    /// footprint units), centred at UV (uvX,uvY), strength `amount` in [0,1]. The two radii keep the
-    /// brush a CIRCLE in world space on a non-square footprint (a UV ellipse) and are independent of
-    /// the raster aspect - the same per-axis handling the heightfield sculpt brush (VisitBrush) uses.
-    /// Lerp-to-one-hot per texel. A square footprint passes uvRadiusX == uvRadiusY (a UV circle).
-    inline SplatRegion PaintWeight(Splatmap& sm, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
-                                   u32 layer, f32 amount)
+    namespace detail
+    {
+        // Shared elliptical-brush visitor: calls fn(x, y, t) for every texel inside the WORLD
+        // circle (per-axis UV radii - the same non-square-footprint handling the sculpt brush
+        // uses) with the cosine-falloff-scaled strength t in (0, 1].
+        template <typename TFn>
+        inline void VisitSplatBrush(const SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX,
+                                    f32 uvRadiusY, f32 amount, TFn&& fn)
+        {
+            const i32 w = sw.Width();
+            const i32 h = sw.Height();
+            const f32 cx = uvX * static_cast<f32>(w);
+            const f32 cy = uvY * static_cast<f32>(h);
+            const f32 rx = uvRadiusX * static_cast<f32>(w);
+            const f32 ry = uvRadiusY * static_cast<f32>(h);
+            const i32 x0 = Max(0, static_cast<i32>(Floor(cx - rx)));
+            const i32 x1 = Min(w - 1, static_cast<i32>(Ceil(cx + rx)));
+            const i32 y0 = Max(0, static_cast<i32>(Floor(cy - ry)));
+            const i32 y1 = Min(h - 1, static_cast<i32>(Ceil(cy + ry)));
+            const f32 invRx = 1.0f / uvRadiusX;
+            const f32 invRy = 1.0f / uvRadiusY;
+            for (i32 y = y0; y <= y1; ++y)
+            {
+                for (i32 x = x0; x <= x1; ++x)
+                {
+                    const f32 du =
+                        ((static_cast<f32>(x) + 0.5f) / static_cast<f32>(w) - uvX) * invRx;
+                    const f32 dv =
+                        ((static_cast<f32>(y) + 0.5f) / static_cast<f32>(h) - uvY) * invRy;
+                    const f32 dist = Sqrt(du * du + dv * dv); // 0 centre .. 1 rim (world circle)
+                    if (dist >= 1.0f)
+                    {
+                        continue;
+                    }
+                    const f32 fall = 0.5f + 0.5f * Cos(3.14159265f * dist);
+                    const f32 t = Clamp(amount * fall, 0.0f, 1.0f);
+                    if (t > 0.0f)
+                    {
+                        fn(x, y, t);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Paint PALETTE layer `paletteIndex` over a world-space brush disc (per-axis UV radii,
+    /// centre uvX/uvY, strength `amount` in [0,1]). Per touched texel, the top-K update:
+    ///   1. slot = the slot already holding L, else a free (weight-0) slot, else EVICT the
+    ///      minimum-weight slot unconditionally (index = L, weight = 0; the evicted weight falls
+    ///      to base - the error is bounded by the smallest weight, the least visible; ruling R8).
+    ///   2. every OTHER slot fades: w *= (1 - t) (base fades too, since base = 1 - sum).
+    ///   3. L raises: w = w + t * (1 - w).
+    /// The result stays convex (sum' = lerp(sum, 1, t) <= 1); repeated full-strength painting
+    /// drives the texel to pure L. Weights that quantize to 0 free their slot (index cleared) so
+    /// the top-K stays meaningful. Bumps the version if anything changed; returns the touched
+    /// rect for region-delta undo + the bounded GPU re-upload.
+    inline SplatRegion PaintTopK(SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
+                                 u32 paletteIndex, f32 amount)
     {
         SplatRegion region;
-        if (sm.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f)
+        if (sw.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f ||
+            paletteIndex > 255u)
         {
             return region;
         }
-        const i32 w = sm.Width();
-        const i32 h = sm.Height();
-        // Texel centres sit at (i+0.5)/dim; work in continuous pixel space.
-        const f32 cx = uvX * static_cast<f32>(w);
-        const f32 cy = uvY * static_cast<f32>(h);
-        const f32 rx = uvRadiusX * static_cast<f32>(w);
-        const f32 ry = uvRadiusY * static_cast<f32>(h);
-        const i32 x0 = Max(0, static_cast<i32>(Floor(cx - rx)));
-        const i32 x1 = Min(w - 1, static_cast<i32>(Ceil(cx + rx)));
-        const i32 y0 = Max(0, static_cast<i32>(Floor(cy - ry)));
-        const i32 y1 = Min(h - 1, static_cast<i32>(Ceil(cy + ry)));
-        const f32 invRx = 1.0f / uvRadiusX;
-        const f32 invRy = 1.0f / uvRadiusY;
-        const u32 sel = layer & 3u;
-        Span<u8> px = sm.Pixels();
+        Span<u8> idx = sw.Indices();
+        Span<u8> wts = sw.Weights();
+        const u8 layer = static_cast<u8>(paletteIndex);
         bool changed = false;
-        for (i32 y = y0; y <= y1; ++y)
-        {
-            for (i32 x = x0; x <= x1; ++x)
+        detail::VisitSplatBrush(
+            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount,
+            [&](i32 x, i32 y, f32 t)
             {
-                // Normalized elliptical distance (each axis by its own UV radius) = the world-space
-                // distance / worldRadius, so the falloff disc is a true circle in world units.
-                const f32 du = ((static_cast<f32>(x) + 0.5f) / static_cast<f32>(w) - uvX) * invRx;
-                const f32 dv = ((static_cast<f32>(y) + 0.5f) / static_cast<f32>(h) - uvY) * invRy;
-                const f32 dist = Sqrt(du * du + dv * dv); // 0 at centre, 1 at the rim
-                if (dist >= 1.0f)
+                const usize at = sw.TexelOffset(x, y);
+
+                // 1. Choose L's slot: existing -> free -> evict-min.
+                u32 slot = kSplatSlotCount;
+                for (u32 k = 0; k < kSplatSlotCount; ++k)
                 {
-                    continue;
-                }
-                const f32 fall = 0.5f + 0.5f * Cos(3.14159265f * dist); // 1 centre..0 rim
-                const f32 t = Clamp(amount * fall, 0.0f, 1.0f);
-                if (t <= 0.0f)
-                {
-                    continue;
-                }
-                const usize base = (static_cast<usize>(y) * static_cast<usize>(w) +
-                                    static_cast<usize>(x)) *
-                                   4u;
-                f32 c[4];
-                for (u32 k = 0; k < 4; ++k)
-                {
-                    c[k] = static_cast<f32>(px[base + k]) * (1.0f / 255.0f);
-                }
-                c[sel] = c[sel] + t * (1.0f - c[sel]);
-                for (u32 k = 0; k < 4; ++k)
-                {
-                    if (k != sel)
+                    if (wts[at + k] > 0 && idx[at + k] == layer)
                     {
-                        c[k] *= (1.0f - t);
+                        slot = k;
+                        break;
                     }
                 }
-                bool texelChanged = false;
-                for (u32 k = 0; k < 4; ++k)
+                if (slot == kSplatSlotCount)
                 {
-                    const u8 q = static_cast<u8>(Clamp(c[k] * 255.0f + 0.5f, 0.0f, 255.0f));
-                    if (q != px[base + k])
+                    for (u32 k = 0; k < kSplatSlotCount; ++k)
                     {
-                        px[base + k] = q;
+                        if (wts[at + k] == 0)
+                        {
+                            slot = k;
+                            break;
+                        }
+                    }
+                }
+                if (slot == kSplatSlotCount)
+                {
+                    u32 minSlot = 0;
+                    for (u32 k = 1; k < kSplatSlotCount; ++k)
+                    {
+                        if (wts[at + k] < wts[at + minSlot])
+                        {
+                            minSlot = k;
+                        }
+                    }
+                    slot = minSlot;
+                    wts[at + slot] = 0; // evicted weight falls to base (sum drops)
+                }
+
+                // 2 + 3. Fade others, raise L; compute in float, quantize once.
+                bool texelChanged = false;
+                for (u32 k = 0; k < kSplatSlotCount; ++k)
+                {
+                    const f32 wv = static_cast<f32>(wts[at + k]) * (1.0f / 255.0f);
+                    const f32 nv = (k == slot) ? (wv + t * (1.0f - wv)) : (wv * (1.0f - t));
+                    const u8 q = static_cast<u8>(Clamp(nv * 255.0f + 0.5f, 0.0f, 255.0f));
+                    if (q != wts[at + k])
+                    {
+                        wts[at + k] = q;
+                        texelChanged = true;
+                    }
+                }
+                if (idx[at + slot] != layer)
+                {
+                    idx[at + slot] = layer;
+                    texelChanged = true;
+                }
+                // Freed slots (quantized to 0) clear their index so the top-K stays meaningful.
+                for (u32 k = 0; k < kSplatSlotCount; ++k)
+                {
+                    if (wts[at + k] == 0 && idx[at + k] != 0)
+                    {
+                        idx[at + k] = 0;
                         texelChanged = true;
                     }
                 }
@@ -216,20 +305,156 @@ export namespace foundation::terrain
                     region.Add(x, y);
                     changed = true;
                 }
-            }
-        }
+            });
         if (changed)
         {
-            sm.BumpVersion();
+            sw.BumpVersion();
         }
         return region;
     }
 
-    /// Cooked splatmap METADATA: just the raster dimensions. The RGBA8 pixel bulk is NOT here - it
-    /// rides the `kSplatStream` data stream (the ImageResource "pixels" precedent).
-    class SplatmapSource final : public ISerializable
+    /// Erase over the brush disc: every slot fades w *= (1 - t) - the base (= the remainder)
+    /// rises toward 1. Slots that quantize to 0 are freed (index cleared).
+    inline SplatRegion EraseTopK(SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
+                                 f32 amount)
     {
-        RTTI_OBJECT(SplatmapSource, ISerializable)
+        SplatRegion region;
+        if (sw.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f)
+        {
+            return region;
+        }
+        Span<u8> idx = sw.Indices();
+        Span<u8> wts = sw.Weights();
+        bool changed = false;
+        detail::VisitSplatBrush(
+            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount,
+            [&](i32 x, i32 y, f32 t)
+            {
+                const usize at = sw.TexelOffset(x, y);
+                bool texelChanged = false;
+                for (u32 k = 0; k < kSplatSlotCount; ++k)
+                {
+                    const f32 wv = static_cast<f32>(wts[at + k]) * (1.0f / 255.0f);
+                    const u8 q =
+                        static_cast<u8>(Clamp(wv * (1.0f - t) * 255.0f + 0.5f, 0.0f, 255.0f));
+                    if (q != wts[at + k])
+                    {
+                        wts[at + k] = q;
+                        texelChanged = true;
+                    }
+                    if (wts[at + k] == 0 && idx[at + k] != 0)
+                    {
+                        idx[at + k] = 0;
+                        texelChanged = true;
+                    }
+                }
+                if (texelChanged)
+                {
+                    region.Add(x, y);
+                    changed = true;
+                }
+            });
+        if (changed)
+        {
+            sw.BumpVersion();
+        }
+        return region;
+    }
+
+    /// Palette-remove remap (ruling R6): slots referencing `removedIndex` are FREED (their weight
+    /// falls to the base) and indices above it decrement so every surviving slot still names its
+    /// layer. Whole-raster; bumps the version when anything changed. Returns whether it did.
+    inline bool RemapOnPaletteRemove(SplatWeights& sw, u32 removedIndex)
+    {
+        if (sw.IsEmpty())
+        {
+            return false;
+        }
+        Span<u8> idx = sw.Indices();
+        Span<u8> wts = sw.Weights();
+        bool changed = false;
+        for (usize i = 0; i < idx.Size(); ++i)
+        {
+            if (wts[i] == 0)
+            {
+                continue;
+            }
+            if (idx[i] == removedIndex)
+            {
+                wts[i] = 0; // freed weight falls to base
+                idx[i] = 0;
+                changed = true;
+            }
+            else if (idx[i] > removedIndex)
+            {
+                idx[i] = static_cast<u8>(idx[i] - 1);
+                changed = true;
+            }
+        }
+        if (changed)
+        {
+            sw.BumpVersion();
+        }
+        return changed;
+    }
+
+    /// Migrate a LEGACY single-raster splatmap (RGBA8, channels = fixed layers 0..3, layer 0 =
+    /// the de-facto base, blended by an IN-SHADER-NORMALIZING blend) to the top-K model:
+    /// base = old layer 0's normalized share; palette 0,1,2 = old layers 1,2,3. Ruling R2: the
+    /// weights are RENORMALIZED by the old sum so the new deficit-derived base equals the old
+    /// normalized layer-0 share exactly - visual parity wherever the old sum drifted from 255.
+    /// A zero-sum texel (the old zero-sum guard rendered layer 0) becomes pure base - same look.
+    [[nodiscard]] inline RefPtr<SplatWeights> MigrateLegacySplatmap(Span<const u8> legacyRgba,
+                                                                    i32 width, i32 height)
+    {
+        if (width <= 0 || height <= 0 ||
+            legacyRgba.Size() != static_cast<usize>(width) * static_cast<usize>(height) * 4u)
+        {
+            return MakeRef<SplatWeights>(DefaultAllocator());
+        }
+        RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(DefaultAllocator(), width, height);
+        Span<u8> idx = sw->Indices();
+        Span<u8> wts = sw->Weights();
+        const usize texels = static_cast<usize>(width) * static_cast<usize>(height);
+        for (usize i = 0; i < texels; ++i)
+        {
+            const usize at = i * 4u;
+            const f32 w0 = static_cast<f32>(legacyRgba[at + 0]);
+            const f32 w1 = static_cast<f32>(legacyRgba[at + 1]);
+            const f32 w2 = static_cast<f32>(legacyRgba[at + 2]);
+            const f32 w3 = static_cast<f32>(legacyRgba[at + 3]);
+            const f32 sum = w0 + w1 + w2 + w3;
+            if (sum <= 0.0f)
+            {
+                continue; // zero-sum guard rendered layer 0 = base -> all-zero slots = pure base
+            }
+            // Old palette layers 1..3 -> palette indices 0..2, renormalized by the old sum.
+            const f32 scale = 255.0f / sum;
+            idx[at + 0] = 0;
+            idx[at + 1] = 1;
+            idx[at + 2] = 2;
+            idx[at + 3] = 0;
+            wts[at + 0] = static_cast<u8>(Clamp(w1 * scale + 0.5f, 0.0f, 255.0f));
+            wts[at + 1] = static_cast<u8>(Clamp(w2 * scale + 0.5f, 0.0f, 255.0f));
+            wts[at + 2] = static_cast<u8>(Clamp(w3 * scale + 0.5f, 0.0f, 255.0f));
+            wts[at + 3] = 0;
+            // Zero slots clear their index (weight 0 = unused); base = 255 - sum = w0's share.
+            for (u32 k = 0; k < kSplatSlotCount; ++k)
+            {
+                if (wts[at + k] == 0)
+                {
+                    idx[at + k] = 0;
+                }
+            }
+        }
+        return sw;
+    }
+
+    /// Cooked splat-weights METADATA: just the raster dimensions. The two pixel blobs are NOT
+    /// here - they ride the `kSplatStream` (weights) + `kSplatIndexStream` (indices) sidecars.
+    class SplatWeightsSource final : public ISerializable
+    {
+        RTTI_OBJECT(SplatWeightsSource, ISerializable)
     public:
         i32 width = 0;
         i32 height = 0;
@@ -240,51 +465,61 @@ export namespace foundation::terrain
             foundation::core::Serialize(ar, "height", height);
         }
 
-        /// Capture a runtime Splatmap's METADATA (for cooking). Pixels are written separately via
-        /// PixelBlob + WriteData(kSplatStream, ...).
-        static void FromSplatmap(const Splatmap& sm, SplatmapSource& out)
+        static void FromWeights(const SplatWeights& sw, SplatWeightsSource& out)
         {
-            out.width = sm.Width();
-            out.height = sm.Height();
+            out.width = sw.Width();
+            out.height = sw.Height();
         }
 
-        /// The raw RGBA8 bytes of a splatmap, to feed WriteData(kSplatStream, ...).
-        [[nodiscard]] static Span<const byte> PixelBlob(const Splatmap& sm) noexcept
+        [[nodiscard]] static Span<const byte> WeightBlob(const SplatWeights& sw) noexcept
         {
-            const Span<const u8> px = sm.Pixels();
+            const Span<const u8> px = sw.Weights();
+            return Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size());
+        }
+        [[nodiscard]] static Span<const byte> IndexBlob(const SplatWeights& sw) noexcept
+        {
+            const Span<const u8> px = sw.Indices();
             return Span<const byte>(reinterpret_cast<const byte*>(px.Data()), px.Size());
         }
 
-        /// Build the runtime product from this metadata + the sidecar pixel bytes. Returns an empty
-        /// raster if the cooked data is inconsistent (non-positive dims, or a blob that does not
-        /// match width*height*4) rather than a malformed raster.
-        [[nodiscard]] RefPtr<Splatmap> Build(Span<const byte> blob) const
+        /// Build the runtime product from this metadata + the two sidecar blobs. Inconsistent
+        /// data (bad dims, blob size mismatch) yields an empty raster rather than a malformed one.
+        [[nodiscard]] RefPtr<SplatWeights> Build(Span<const byte> indexBlob,
+                                                 Span<const byte> weightBlob) const
         {
             if (width <= 0 || height <= 0)
             {
-                return MakeRef<Splatmap>(DefaultAllocator());
+                return MakeRef<SplatWeights>(DefaultAllocator());
             }
             const usize expected =
-                static_cast<usize>(width) * static_cast<usize>(height) * 4u;
-            if (blob.Size() != expected)
+                static_cast<usize>(width) * static_cast<usize>(height) * kSplatSlotCount;
+            if (indexBlob.Size() != expected || weightBlob.Size() != expected)
             {
-                return MakeRef<Splatmap>(DefaultAllocator());
+                return MakeRef<SplatWeights>(DefaultAllocator());
             }
-            RefPtr<Splatmap> sm = MakeRef<Splatmap>(DefaultAllocator(), width, height);
-            MemCopy(sm->Pixels().Data(), blob.Data(), expected);
-            return sm;
+            RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(DefaultAllocator(), width, height);
+            MemCopy(sw->Indices().Data(), indexBlob.Data(), expected);
+            MemCopy(sw->Weights().Data(), weightBlob.Data(), expected);
+            return sw;
         }
     };
 
-    /// The name of the sidecar stream carrying the raw RGBA8 pixels.
+    /// Sidecar stream names: `kSplatStream` carries the WEIGHT raster (the name predates the
+    /// top-K split - keeping it lets a legacy single-raster "pixels" sidecar be detected and
+    /// migrated in place); `kSplatIndexStream` carries the palette-index raster.
     inline constexpr StringView kSplatStream = u8"pixels";
+    inline constexpr StringView kSplatIndexStream = u8"indices";
 
-    /// Builds a cooked splatmap (metadata object + "pixels" stream) into a runtime Splatmap. Pure-CPU
-    /// (engine.terrain owns the GPU texture, cached per resource), so the whole build runs on a worker.
-    class SplatmapFactory final : public IResourceFactory
+    /// Builds cooked splat weights (metadata + two streams) into a runtime SplatWeights. A cooked
+    /// instance with NO index stream but a matching legacy weight blob is a pre-top-K splatmap:
+    /// it migrates through MigrateLegacySplatmap (renormalized - ruling R2). Pure-CPU, async-safe.
+    class SplatWeightsFactory final : public IResourceFactory
     {
     public:
-        [[nodiscard]] const TypeInfo* ProductType() const override { return &Splatmap::StaticType(); }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &SplatWeights::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {
@@ -301,40 +536,57 @@ export namespace foundation::terrain
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildFrom(foundation::content::Instance& instance)
+        [[nodiscard]] static Array<u8> ReadBlob(foundation::content::Instance& instance,
+                                                StringView stream)
         {
-            RefPtr<ISerializable> object = instance.ReadObject();
-            SplatmapSource* src = Cast<SplatmapSource>(object.Get());
-            if (src == nullptr)
-            {
-                return RefPtr<Object>{};
-            }
             Array<u8> blob;
-            if (UniquePtr<IStream> stream = instance.ReadData(kSplatStream))
+            if (UniquePtr<IStream> s = instance.ReadData(stream))
             {
-                const i64 size = stream->Size();
+                const i64 size = s->Size();
                 if (size > 0)
                 {
                     blob.Resize(static_cast<usize>(size));
-                    if (stream->Read(blob.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+                    if (s->Read(blob.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
                     {
                         blob.Clear();
                     }
                 }
             }
+            return blob;
+        }
+
+        [[nodiscard]] static RefPtr<Object> BuildFrom(foundation::content::Instance& instance)
+        {
+            RefPtr<ISerializable> object = instance.ReadObject();
+            SplatWeightsSource* src = Cast<SplatWeightsSource>(object.Get());
+            if (src == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
+            const Array<u8> weights = ReadBlob(instance, kSplatStream);
+            const Array<u8> indices = ReadBlob(instance, kSplatIndexStream);
+            const usize expected = static_cast<usize>(src->width) *
+                                   static_cast<usize>(src->height) * kSplatSlotCount;
+            if (indices.IsEmpty() && weights.Size() == expected)
+            {
+                // Legacy cooked splatmap (single raster, fixed-layer semantics): migrate.
+                return MigrateLegacySplatmap(Span<const u8>{weights.Data(), weights.Size()},
+                                             src->width, src->height);
+            }
             return src->Build(
-                Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
+                Span<const byte>{reinterpret_cast<const byte*>(indices.Data()), indices.Size()},
+                Span<const byte>{reinterpret_cast<const byte*>(weights.Data()), weights.Size()});
         }
     };
 
-    /// Register the splatmap resource types (product + cooked source) for load.
+    /// Register the splat-weights resource types (product + cooked source) for load.
     inline void RegisterSplatmapResourceTypes()
     {
-        GlobalTypeRegistry().Register(Splatmap::StaticType());
-        GlobalTypeRegistry().Register(SplatmapSource::StaticType());
-        RegisterSerializable<SplatmapSource>();
+        GlobalTypeRegistry().Register(SplatWeights::StaticType());
+        GlobalTypeRegistry().Register(SplatWeightsSource::StaticType());
+        RegisterSerializable<SplatWeightsSource>();
     }
 
-    RTTI_DEFINE_OBJECT(Splatmap, "rtti::terrain")
-    RTTI_DEFINE_OBJECT_VERSIONED(SplatmapSource, "rtti::terrain", 1)
+    RTTI_DEFINE_OBJECT(SplatWeights, "rtti::terrain")
+    RTTI_DEFINE_OBJECT_VERSIONED(SplatWeightsSource, "rtti::terrain", 1)
 }

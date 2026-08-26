@@ -1,7 +1,8 @@
-// SplatmapAsset cook round-trip: author an RGBA8 splatmap (embedded "pixels" sidecar), cook it with
-// SplatmapAssetBuilder into a Splatmap product, load it back through SplatmapFactory and confirm the
-// raster is byte-identical and the PRODUCT guid == the SOURCE guid (the ref-id parity the whole
-// splat-in-terrain resolution rests on - the same invariant the heightfield/model tests pin).
+// SplatmapAsset cook (top-K model): the two-stream ("pixels" weights + "indices") round-trip
+// through SplatmapAssetBuilder -> SplatWeightsFactory with PRODUCT guid == SOURCE guid (the
+// ref-id parity the terrain resolution rests on), the LEGACY single-raster migration
+// (renormalized - ruling R2), the no-sidecar cook (all-zero = pure base, no seeding), the PNG
+// import (legacy channel semantics -> migrated), and the cook-stamp ProductType contract.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -29,32 +30,35 @@ namespace
     {
         FileDelete(u8"scratch_splatpipe_db/splat.rasset");
         FileDelete(u8"scratch_splatpipe_db/splat.pixels.bin");
+        FileDelete(u8"scratch_splatpipe_db/splat.indices.bin");
         RemoveDirectory(u8"scratch_splatpipe_db");
     }
 }
 
-TEST_CASE("terrain.pipeline: SplatmapAsset cooks to a Splatmap that restores an identical raster")
+TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them identically")
 {
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     RemoveTree();
     NativeFileSystem outMount(u8"scratch_splatpipe_db");
 
-    // Author a painted raster the cook will carry.
-    RefPtr<Splatmap> authored = MakeRef<Splatmap>(DefaultAllocator(), 16, 16);
-    authored->SeedLayer0();
-    (void)PaintWeight(*authored, 0.5f, 0.5f, 0.3f, 0.3f, 1u, 1.0f); // a blob of layer 1 in the centre
+    // Author a painted top-K raster the cook will carry.
+    RefPtr<SplatWeights> authored = MakeRef<SplatWeights>(DefaultAllocator(), 16, 16);
+    (void)PaintTopK(*authored, 0.5f, 0.5f, 0.3f, 0.3f, /*palette*/ 5u, 1.0f);
+    REQUIRE(authored->WeightOfLayer(8, 8, 5) > 0);
 
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                              u8".rasset");
-        // Cook in place into ONE instance (product guid == source guid): the source pixels sidecar
-        // feeds the builder, which writes the cooked SplatmapSource object + pixels back. The
-        // instance carries the cooked (product) type the factory reads - the TerrainSource pattern.
-        auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatmapSource::StaticType());
+        foundation::content::ContentDatabase db(outMount,
+                                                foundation::core::BinarySerializerFactory(),
+                                                u8".rasset");
+        // Cook in place into ONE instance (product guid == source guid): the source sidecars feed
+        // the builder, which writes the cooked SplatWeightsSource + BOTH streams back.
+        auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
         splatId = inst->Id();
-        REQUIRE(inst->WriteData(kSplatStream, SplatmapSource::PixelBlob(*authored)).IsOk());
+        REQUIRE(inst->WriteData(kSplatStream, SplatWeightsSource::WeightBlob(*authored)).IsOk());
+        REQUIRE(
+            inst->WriteData(kSplatIndexStream, SplatWeightsSource::IndexBlob(*authored)).IsOk());
 
         SplatmapAsset sa;
         sa.width = 16;
@@ -68,36 +72,25 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks to a Splatmap that restores an 
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                          u8".rasset");
-    SplatmapFactory factory;
+    foundation::content::ContentDatabase db(outMount,
+                                            foundation::core::BinarySerializerFactory(),
+                                            u8".rasset");
+    SplatWeightsFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
-    Proxy<Splatmap> loaded = manager.Bind<Splatmap>(splatId); // bind by the SOURCE guid
+    Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId); // bind by the SOURCE guid
     REQUIRE(loaded);
     CHECK(loaded->Width() == 16);
     CHECK(loaded->Height() == 16);
-
-    const Span<const u8> a = authored->Pixels();
-    const Span<const u8> b = loaded->Pixels();
-    REQUIRE(a.Size() == b.Size());
-    bool identical = true;
-    for (usize i = 0; i < a.Size(); ++i)
-    {
-        if (a[i] != b[i])
-        {
-            identical = false;
-            break;
-        }
-    }
-    CHECK(identical);
-    CHECK(loaded->GetWeight(8, 8, 1) > 200); // the painted centre survived the cook
+    CHECK(loaded->WeightOfLayer(8, 8, 5) == authored->WeightOfLayer(8, 8, 5));
+    CHECK(loaded->SlotIndex(8, 8, 0) == authored->SlotIndex(8, 8, 0));
+    CHECK(loaded->BaseWeight(0, 0) == 255); // untouched corner: pure base
 
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: a SplatmapAsset with no pixels sidecar cooks a seeded base-layer raster")
+TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no seeding)")
 {
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
@@ -106,10 +99,11 @@ TEST_CASE("terrain.pipeline: a SplatmapAsset with no pixels sidecar cooks a seed
 
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                              u8".rasset");
-        auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatmapSource::StaticType());
-        splatId = inst->Id(); // NO pixels sidecar written
+        foundation::content::ContentDatabase db(outMount,
+                                                foundation::core::BinarySerializerFactory(),
+                                                u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
+        splatId = inst->Id(); // NO sidecars written
         SplatmapAsset sa;
         sa.width = 8;
         sa.height = 8;
@@ -123,38 +117,105 @@ TEST_CASE("terrain.pipeline: a SplatmapAsset with no pixels sidecar cooks a seed
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                          u8".rasset");
-    SplatmapFactory factory;
+    foundation::content::ContentDatabase db(outMount,
+                                            foundation::core::BinarySerializerFactory(),
+                                            u8".rasset");
+    SplatWeightsFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
-    Proxy<Splatmap> loaded = manager.Bind<Splatmap>(splatId);
+    Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
     REQUIRE(loaded);
-    CHECK(loaded->GetWeight(4, 4, 0) == 255); // seeded layer 0 at full weight
-    CHECK(loaded->GetWeight(4, 4, 1) == 0);
+    CHECK(loaded->Width() == 8);
+    CHECK(loaded->BaseWeight(4, 4) == 255); // pure base everywhere, no layer-0 seeding
+    CHECK(loaded->SlotWeight(4, 4, 0) == 0);
 
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: SplatmapAsset imports an RGBA8 PNG to a Splatmap (decoder reuse)")
+TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (renormalized, R2)")
 {
-    // The user's point: PNG import reuses the image DECODER, not a TextureAsset/ImageAsset reference.
-    // Author a known RGBA8 image -> PNG, cook a SplatmapAsset(fileName), and confirm the Splatmap
-    // product is byte-identical (PNG is lossless for RGBA8) at the image's native size.
+    RegisterSplatmapAsset();
+    RegisterSplatmapResourceTypes();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_splatpipe_db");
+
+    // A legacy 4-fixed-layer texel whose sum drifted: (100, 60, 40, 0), sum 200. The old shader
+    // normalized, so the true shares are 0.5 / 0.3 / 0.2.
+    Array<u8> legacy;
+    legacy.Resize(8 * 8 * 4, u8{0});
+    for (usize t = 0; t < 64; ++t)
+    {
+        legacy[t * 4 + 0] = 100;
+        legacy[t * 4 + 1] = 60;
+        legacy[t * 4 + 2] = 40;
+    }
+
+    Guid splatId;
+    {
+        foundation::content::ContentDatabase db(outMount,
+                                                foundation::core::BinarySerializerFactory(),
+                                                u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
+        splatId = inst->Id();
+        // ONLY the legacy "pixels" stream - no "indices": the migration channel.
+        REQUIRE(inst->WriteData(kSplatStream,
+                                Span<const byte>{reinterpret_cast<const byte*>(legacy.Data()),
+                                                 legacy.Size()})
+                    .IsOk());
+
+        SplatmapAsset sa;
+        sa.width = 8;
+        sa.height = 8;
+        SplatmapAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.source = inst;
+        ctx.output = inst;
+        REQUIRE(builder.Build(sa, ctx).IsOk());
+    }
+
+    foundation::content::ContentDatabase db(outMount,
+                                            foundation::core::BinarySerializerFactory(),
+                                            u8".rasset");
+    SplatWeightsFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+    Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
+    REQUIRE(loaded);
+    // Old layer 1 (0.3) -> palette 0 = 77; old layer 2 (0.2) -> palette 1 = 51; base = the old
+    // layer-0 normalized share (0.5) within quantum.
+    CHECK(loaded->WeightOfLayer(4, 4, 0) == 77);
+    CHECK(loaded->WeightOfLayer(4, 4, 1) == 51);
+    const u8 base = loaded->BaseWeight(4, 4);
+    CHECK(base >= 126);
+    CHECK(base <= 128);
+
+    RemoveTree();
+}
+
+TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics and migrates")
+{
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     FileDelete(u8"scratch_splatimg/splat.png");
     RemoveDirectory(u8"scratch_splatimg");
     FileDelete(u8"scratch_splatimg_db/s.rasset");
     FileDelete(u8"scratch_splatimg_db/s.pixels.bin");
+    FileDelete(u8"scratch_splatimg_db/s.indices.bin");
     RemoveDirectory(u8"scratch_splatimg_db");
     REQUIRE(CreateDirectory(u8"scratch_splatimg"));
 
+    // Imported PNGs keep the OLD channel meaning (R = old layer 0 = base share, G/B/A = old
+    // layers 1..3): a solid (128, 127, 0, 0) image = half base + half palette-0 after migration.
     image::Image authored(4, 2, image::PixelFormat::RGBA8);
     Span<u8> ap = authored.PixelDataMut();
-    for (usize i = 0; i < ap.Size(); ++i)
+    for (usize t = 0; t < 8; ++t)
     {
-        ap[i] = static_cast<u8>((i * 37 + 11) & 0xff); // deterministic RGBA pattern
+        ap[t * 4 + 0] = 128;
+        ap[t * 4 + 1] = 127;
+        ap[t * 4 + 2] = 0;
+        ap[t * 4 + 3] = 0;
     }
     REQUIRE(image::io::SaveImage(authored, u8"scratch_splatimg/splat.png",
                                  image::io::ImageFileFormat::PNG)
@@ -163,9 +224,10 @@ TEST_CASE("terrain.pipeline: SplatmapAsset imports an RGBA8 PNG to a Splatmap (d
     NativeFileSystem outMount(u8"scratch_splatimg_db");
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                              u8".rasset");
-        auto* inst = db.RootGroup()->CreateInstance(u8"s", SplatmapSource::StaticType());
+        foundation::content::ContentDatabase db(outMount,
+                                                foundation::core::BinarySerializerFactory(),
+                                                u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"s", SplatWeightsSource::StaticType());
         splatId = inst->Id();
         SplatmapAsset sa;
         sa.fileName = foundation::vfs::SourcePath(u8"splat.png");
@@ -177,40 +239,70 @@ TEST_CASE("terrain.pipeline: SplatmapAsset imports an RGBA8 PNG to a Splatmap (d
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
-                                          u8".rasset");
-    SplatmapFactory factory;
+    foundation::content::ContentDatabase db(outMount,
+                                            foundation::core::BinarySerializerFactory(),
+                                            u8".rasset");
+    SplatWeightsFactory factory;
     ResourceManager manager(db);
     manager.AddFactory(&factory);
-    Proxy<Splatmap> loaded = manager.Bind<Splatmap>(splatId);
+    Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
     REQUIRE(loaded);
-    CHECK(loaded->Width() == 4);  // the PNG's NATIVE size (no resampling - splatmaps are arbitrary WxH)
+    CHECK(loaded->Width() == 4); // the PNG's NATIVE size (no resampling)
     CHECK(loaded->Height() == 2);
-
-    const Span<const u8> a = authored.PixelData();
-    const Span<const u8> b = loaded->Pixels();
-    REQUIRE(a.Size() == b.Size());
-    bool identical = true;
-    for (usize i = 0; i < a.Size(); ++i)
-    {
-        if (a[i] != b[i]) { identical = false; break; }
-    }
-    CHECK(identical);
+    // 128/255 base + 127/255 palette-0 within quantum.
+    CHECK(loaded->WeightOfLayer(1, 1, 0) >= 126);
+    CHECK(loaded->WeightOfLayer(1, 1, 0) <= 128);
+    CHECK(loaded->BaseWeight(1, 1) >= 126);
+    CHECK(loaded->BaseWeight(1, 1) <= 129);
 
     FileDelete(u8"scratch_splatimg/splat.png");
     RemoveDirectory(u8"scratch_splatimg");
     FileDelete(u8"scratch_splatimg_db/s.rasset");
     FileDelete(u8"scratch_splatimg_db/s.pixels.bin");
+    FileDelete(u8"scratch_splatimg_db/s.indices.bin");
     RemoveDirectory(u8"scratch_splatimg_db");
 }
 
 TEST_CASE("terrain.pipeline: builder ProductType is the SERIALIZED cooked form (the cook-stamp contract)")
 {
     // The cook driver stamps the cooked instance with builder->ProductType() and the runtime
-    // ReadObject reconstructs it, so ProductType MUST be the serialized form (…Source), not the
-    // runtime product. Returning the product (TerrainResource/Splatmap) makes ReadObject build the
-    // wrong type -> the factory's Cast<…Source> fails -> the resource never binds (the 2026-08-24
-    // "TerrainResource failed 1" incident). This pins the contract the round-trips above rely on.
+    // ReadObject reconstructs it, so ProductType MUST be the serialized form (...Source), not the
+    // runtime product. Returning the product makes ReadObject build the wrong type -> the
+    // factory's Cast<...Source> fails -> the resource never binds. Pins the contract the
+    // round-trips above rely on.
     CHECK(TerrainAssetBuilder{}.ProductType() == &TerrainSource::StaticType());
-    CHECK(SplatmapAssetBuilder{}.ProductType() == &SplatmapSource::StaticType());
+    CHECK(SplatmapAssetBuilder{}.ProductType() == &SplatWeightsSource::StaticType());
+}
+
+TEST_CASE("terrain.pipeline: the palette-array cook helpers resize and mip a slice")
+{
+    // The palette cook wraps these per slice: an 8x8 solid resizes to 4x4 and box-halves to 2x2
+    // preserving the color, and SliceBytes covers the whole mip chain.
+    Array<u8> red;
+    red.Resize(8 * 8 * 4);
+    for (usize i = 0; i < 64; ++i)
+    {
+        red[i * 4 + 0] = 200;
+        red[i * 4 + 1] = 10;
+        red[i * 4 + 2] = 10;
+        red[i * 4 + 3] = 255;
+    }
+    Array<u8> resized;
+    resized.Resize(4 * 4 * 4);
+    ResizeRgba8Bilinear(Span<const u8>{red.Data(), red.Size()}, 8, 8,
+                        Span<u8>{resized.Data(), resized.Size()}, 4, 4);
+    CHECK(resized[0] == 200); // a solid color survives resizing exactly
+    CHECK(resized[1] == 10);
+    CHECK(resized[63] == 255);
+
+    Array<u8> mip;
+    mip.Resize(2 * 2 * 4);
+    const u32 halfDim = BoxHalveRgba8(Span<const u8>{resized.Data(), resized.Size()}, 4,
+                                      Span<u8>{mip.Data(), mip.Size()});
+    CHECK(halfDim == 2u);
+    CHECK(mip[0] == 200); // the box filter of a solid = the solid
+    CHECK(mip[3] == 255);
+
+    // The chain 4x4 + 2x2 + 1x1 at 4 bytes per texel.
+    CHECK(TerrainPaletteData::SliceBytes(4, 3) == (16u + 4u + 1u) * 4u);
 }

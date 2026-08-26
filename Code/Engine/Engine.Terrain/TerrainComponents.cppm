@@ -90,6 +90,7 @@ export namespace engine::terrain
             m_rendererId = rendererId;
             m_heightTextures.SetRetireQueue(retire);
             m_splatTextures.SetRetireQueue(retire);
+            m_paletteTextures.SetRetireQueue(retire);
         }
 
         /// Tear down this manager's GPU-side state THROUGH the wired device - called by the
@@ -103,12 +104,17 @@ export namespace engine::terrain
             {
                 m_heightTextures.Clear(*m_device);
                 m_splatTextures.Clear(*m_device);
+                m_paletteTextures.Clear(*m_device);
             }
             m_device = nullptr;
         }
 
         [[nodiscard]] usize HeightTextureCount() const noexcept { return m_heightTextures.Size(); }
         [[nodiscard]] usize SplatTextureCount() const noexcept { return m_splatTextures.Size(); }
+        [[nodiscard]] usize PaletteTextureCount() const noexcept
+        {
+            return m_paletteTextures.Size();
+        }
 
         /// render::IRenderDataProvider: one TerrainRenderData per visible terrain (the WHOLE terrain is
         /// one draw-list item; the renderer culls + LODs its chunks per view). Builds the chunk model
@@ -189,29 +195,44 @@ export namespace engine::terrain
                     rd->thresholdCount = n;
                     rd->lodBias = c.lodBias;
 
-                    // D2 splat material: the splatmap + per-layer albedo GPU views + tiling. The
-                    // splatmap is a CPU RGBA8 raster (the painted source of truth); its GPU texture
-                    // is derived + cached by uid+version, so a paint's version bump re-uploads and
-                    // the renderer's set-3 bind group rebuilds on the new view id. layerCount 0 (no
-                    // splatmap or no layers) leaves the renderer on the height-lit fallback.
-                    if (foundation::terrain::Splatmap* sm = res->splatmap.Get())
+                    // Top-K splat material (terrain-splat-topk.md): the CPU SplatWeights (the
+                    // painted source of truth) derives the weight+index texture pair, cached by
+                    // uid+version - a paint's version bump re-uploads and the set-3 bind cache
+                    // rebuilds on the new view ids (the live-repaint path).
+                    if (foundation::terrain::SplatWeights* sw = res->weights.Get())
                     {
-                        rd->splatmapView = m_splatTextures.GetOrCreate(*m_device, *sm, sm->Version());
+                        const SplatTextureViews views =
+                            m_splatTextures.GetOrCreate(*m_device, *sw, sw->Version());
+                        rd->weightView = views.weightView;
+                        rd->indexView = views.indexView;
                     }
-                    const u32 layers = Min(res->LayerCount(), TerrainRenderData::kMaxLayers);
-                    u32 bound = 0;
-                    for (u32 li = 0; li < layers; ++li)
+                    if (texture::Texture* baseAlb = res->base.albedo.Get())
                     {
-                        const TerrainResource::Layer& layer = res->layers[li];
-                        if (texture::Texture* alb = layer.albedo.Get())
+                        rd->baseAlbedoView = baseAlb->View();
+                    }
+                    rd->baseTileScale = res->base.tileScale;
+                    // The palette Texture2DArray + tileScale buffer (cook-built texels, cached by
+                    // TerrainPaletteData::uid + the tile-scale hash; a palette edit re-cooks ->
+                    // new uid -> rebuild with the old array RETIRED).
+                    if (res->paletteData.Get() != nullptr && res->paletteData->IsValid())
+                    {
+                        Array<f32> scales;
+                        for (usize li = 0; li < res->palette.Size(); ++li)
                         {
-                            rd->albedoViews[li] = alb->View();
-                            rd->tileScales[li] = layer.tileScale;
-                            ++bound;
+                            scales.PushBack(res->palette[li].tileScale);
                         }
+                        const PaletteGpu palette = m_paletteTextures.GetOrCreate(
+                            *m_device, *res->paletteData,
+                            Span<const f32>{scales.Data(), scales.Size()});
+                        rd->paletteArrayView = palette.arrayView;
+                        rd->tileScaleBuffer = palette.tileScaleBuffer;
+                        rd->tileScaleGeneration = palette.generation;
+                        rd->paletteCount = res->paletteData->sliceCount;
                     }
-                    // Splat needs the weight map AND at least one layer; else fall back to the ramp.
-                    rd->layerCount = (rd->splatmapView != nullptr && bound > 0) ? layers : 0;
+                    else
+                    {
+                        rd->paletteCount = 0; // no cooked palette: pure base (or the height ramp)
+                    }
 
                     // Whole-terrain bounding sphere (world) - keeps the framework from culling the
                     // terrain while any chunk is visible.
@@ -268,6 +289,7 @@ export namespace engine::terrain
         u16 m_rendererId = 0;
         TerrainHeightTextureCache m_heightTextures;
         TerrainSplatTextureCache m_splatTextures;
+        TerrainPaletteTextureCache m_paletteTextures;
         HashMap<u64, ChunkCache> m_chunkCache; // key = Heightfield::uid (never a pointer)
     };
 

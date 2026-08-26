@@ -61,11 +61,13 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
         terrainId = tInst->Id();
         TerrainAsset asset;
         asset.heightfieldId = heightfieldId;
-        asset.splatmapId = Guid{123, 456};             // D2: the splat weight map (id pass-through)
-        asset.layerAlbedoIds.PushBack(Guid{321, 654}); // non-nil so the albedo ref binds
-        asset.layerAlbedoIds.PushBack(Guid{});
-        asset.layerTileScales.PushBack(4.0f);
-        asset.layerTileScales.PushBack(8.0f);
+        asset.weightsId = Guid{123, 456};                // the top-K weights (id pass-through)
+        asset.baseAlbedoId = Guid{111, 222};             // the BASE layer albedo
+        asset.baseTileScale = 16.0f;
+        asset.paletteAlbedoIds.PushBack(Guid{321, 654}); // non-nil so the albedo ref binds
+        asset.paletteAlbedoIds.PushBack(Guid{});
+        asset.paletteTileScales.PushBack(4.0f);
+        asset.paletteTileScales.PushBack(8.0f);
         asset.castShadows = false;
 
         TerrainAssetBuilder builder;
@@ -87,21 +89,24 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
     REQUIRE(terrain);
     CHECK(terrain->castShadows == false);
-    CHECK(terrain->LayerCount() == 2u);
-    CHECK(terrain->layers[0].tileScale == doctest::Approx(4.0f));
-    CHECK(terrain->layers[1].tileScale == doctest::Approx(8.0f));
+    CHECK(terrain->PaletteCount() == 2u);
+    CHECK(terrain->base.tileScale == doctest::Approx(16.0f));
+    CHECK(terrain->palette[0].tileScale == doctest::Approx(4.0f));
+    CHECK(terrain->palette[1].tileScale == doctest::Approx(8.0f));
     REQUIRE(terrain->heightfield);
     CHECK(terrain->heightfield->Size() == 65);
-    // D2 splat ids round-trip through cook -> source -> factory -> a BOUND ref (a non-nil id binds a
+    // Splat ids round-trip through cook -> source -> factory -> a BOUND ref (a non-nil id binds a
     // proxy even with no texture factory; GPU resolution + blending is the backend probe's job).
-    CHECK(terrain->splatmap.IsBound());       // splatmapId carried
-    CHECK(terrain->layers[0].albedo.IsBound()); // non-nil layer albedo carried
-    CHECK_FALSE(terrain->layers[1].albedo.IsBound()); // nil id stays unbound
+    CHECK(terrain->weights.IsBound());            // weightsId carried
+    CHECK(terrain->base.albedo.IsBound());        // base albedo carried
+    CHECK(terrain->palette[0].albedo.IsBound());  // non-nil palette albedo carried
+    CHECK_FALSE(terrain->palette[1].albedo.IsBound()); // nil id stays unbound
     // The factory stamps each ref's source id (product guid == source guid) - the editor resolves
     // the heightfield asset from this ref chain (no reverse lookup).
     CHECK(terrain->heightfield.id == heightfieldId);
-    CHECK(terrain->splatmap.id == Guid{123, 456});
-    CHECK(terrain->layers[0].albedo.id == Guid{321, 654});
+    CHECK(terrain->weights.id == Guid{123, 456});
+    CHECK(terrain->base.albedo.id == Guid{111, 222});
+    CHECK(terrain->palette[0].albedo.id == Guid{321, 654});
 
     RemoveTree();
 }

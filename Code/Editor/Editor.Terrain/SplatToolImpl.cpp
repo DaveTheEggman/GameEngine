@@ -17,7 +17,7 @@ import foundation.shell;            // IKeyboard (layer hotkeys)
 import foundation.content;          // ContentDatabase, Instance (the persist closure)
 import foundation.resource;         // Ref<>
 import foundation.heightfield;      // Heightfield (ray-pick for the UV mapping)
-import foundation.terrain.resource; // Splatmap, PaintWeight, SplatmapSource
+import foundation.terrain.resource; // SplatWeights, PaintTopK/EraseTopK, SplatWeightsSource
 import terrain.pipeline;            // SplatmapAsset (the SOURCE envelope the persist rewrites)
 import engine.terrain;              // TerrainComponent + TerrainComponentManager
 import editor.core;
@@ -42,36 +42,39 @@ namespace editor
             return static_cast<engine::terrain::TerrainComponentManager*>(base);
         }
 
-        // The region-delta stroke command over RGBA8 pixels: replays the touched pixel RECTANGLE
-        // between its before / after blocks. One per stroke; never merges. Keeps the raster alive.
+        // The region-delta stroke command over BOTH top-K rasters (indices + weights): replays
+        // the touched pixel RECTANGLE between its before / after blocks. One per stroke; never
+        // merges. Keeps the rasters alive.
         class SplatStrokeCommand final : public IEditorCommand
         {
         public:
-            SplatStrokeCommand(RefPtr<terrain::Splatmap> splat, terrain::SplatRegion region,
-                               Array<u8> before, Array<u8> after)
-                : m_splat(Move(splat)), m_region(region), m_before(Move(before)),
-                  m_after(Move(after))
+            SplatStrokeCommand(RefPtr<terrain::SplatWeights> weights, terrain::SplatRegion region,
+                               Array<u8> beforeW, Array<u8> afterW, Array<u8> beforeI,
+                               Array<u8> afterI)
+                : m_weights(Move(weights)), m_region(region), m_beforeW(Move(beforeW)),
+                  m_afterW(Move(afterW)), m_beforeI(Move(beforeI)), m_afterI(Move(afterI))
             {
             }
 
             [[nodiscard]] bool Execute() override
             {
-                Write(m_after); // live raster is already AFTER on push (no-op), replays on redo
+                Write(m_afterW, m_afterI); // live rasters are already AFTER on push; replays on redo
                 return !m_region.IsEmpty();
             }
-            void Undo() override { Write(m_before); }
+            void Undo() override { Write(m_beforeW, m_beforeI); }
             [[nodiscard]] StringView TypeId() const override { return u8"terrain.splat.stroke"; }
 
         private:
-            void Write(const Array<u8>& block)
+            void Write(const Array<u8>& weightBlock, const Array<u8>& indexBlock)
             {
-                if (m_splat.Get() == nullptr || m_region.IsEmpty())
+                if (m_weights.Get() == nullptr || m_region.IsEmpty())
                 {
                     return;
                 }
                 const i32 w = m_region.Width();
-                Span<u8> px = m_splat->Pixels();
-                const i32 rasterW = m_splat->Width();
+                Span<u8> wp = m_weights->Weights();
+                Span<u8> ip = m_weights->Indices();
+                const i32 rasterW = m_weights->Width();
                 for (i32 y = 0; y < m_region.Height(); ++y)
                 {
                     for (i32 x = 0; x < w; ++x)
@@ -85,17 +88,20 @@ namespace editor
                             4u;
                         for (u32 k = 0; k < 4; ++k)
                         {
-                            px[dst + k] = block[src + k];
+                            wp[dst + k] = weightBlock[src + k];
+                            ip[dst + k] = indexBlock[src + k];
                         }
                     }
                 }
-                m_splat->BumpVersion();
+                m_weights->BumpVersion();
             }
 
-            RefPtr<terrain::Splatmap> m_splat;
+            RefPtr<terrain::SplatWeights> m_weights;
             terrain::SplatRegion m_region;
-            Array<u8> m_before;
-            Array<u8> m_after;
+            Array<u8> m_beforeW;
+            Array<u8> m_afterW;
+            Array<u8> m_beforeI;
+            Array<u8> m_afterI;
         };
 
         // Slice the inclusive pixel region (RGBA8) out of a full-raster pixel array.
@@ -145,8 +151,8 @@ namespace editor
                     return;
                 }
                 terrain::TerrainResource* res = c.terrain.Get();
-                if (res != nullptr && res->splatmap.Get() != nullptr &&
-                    !res->splatmap.Get()->IsEmpty() && res->heightfield.Get() != nullptr &&
+                if (res != nullptr && res->weights.Get() != nullptr &&
+                    !res->weights.Get()->IsEmpty() && res->heightfield.Get() != nullptr &&
                     !res->heightfield.Get()->IsEmpty())
                 {
                     any = true;
@@ -172,9 +178,9 @@ namespace editor
                 {
                     return;
                 }
-                terrain::Splatmap* splat = res->splatmap.Get();
+                terrain::SplatWeights* weights = res->weights.Get();
                 hf::Heightfield* grid = res->heightfield.Get();
-                if (splat == nullptr || splat->IsEmpty() || grid == nullptr || grid->IsEmpty())
+                if (weights == nullptr || weights->IsEmpty() || grid == nullptr || grid->IsEmpty())
                 {
                     return;
                 }
@@ -200,8 +206,8 @@ namespace editor
                 const f32 uvX = localHit.x / (ws.x != 0.0f ? ws.x : 1.0f) + 0.5f;
                 const f32 uvY = localHit.z / (ws.y != 0.0f ? ws.y : 1.0f) + 0.5f;
                 bestDist = dist;
-                best.splat = splat;
-                best.splatmapId = res->splatmap.id;
+                best.weights = weights;
+                best.weightsId = res->weights.id;
                 best.uvX = uvX;
                 best.uvY = uvY;
                 best.worldSizeX = ws.x != 0.0f ? ws.x : 1.0f;
@@ -217,14 +223,21 @@ namespace editor
     {
         m_hasHover = false;
 
-        // Layer hotkeys 1..4 -> layers 0..3 (a pressed key sets the layer; the panel mirrors it).
+        // Palette hotkeys 1..9 -> palette layers 0..8; 0 = the ERASER (reveals the base). The
+        // panel mirrors the selection and offers the full (unbounded) palette.
         if (foundation::shell::IKeyboard* kb = input.keyboard; kb != nullptr && input.pointerValid)
         {
             using foundation::shell::KeyCode;
-            if (kb->IsKeyPressed(KeyCode::Num1)) m_layer = 0;
-            if (kb->IsKeyPressed(KeyCode::Num2)) m_layer = 1;
-            if (kb->IsKeyPressed(KeyCode::Num3)) m_layer = 2;
-            if (kb->IsKeyPressed(KeyCode::Num4)) m_layer = 3;
+            if (kb->IsKeyPressed(KeyCode::Num1)) SetPaletteIndex(0);
+            if (kb->IsKeyPressed(KeyCode::Num2)) SetPaletteIndex(1);
+            if (kb->IsKeyPressed(KeyCode::Num3)) SetPaletteIndex(2);
+            if (kb->IsKeyPressed(KeyCode::Num4)) SetPaletteIndex(3);
+            if (kb->IsKeyPressed(KeyCode::Num5)) SetPaletteIndex(4);
+            if (kb->IsKeyPressed(KeyCode::Num6)) SetPaletteIndex(5);
+            if (kb->IsKeyPressed(KeyCode::Num7)) SetPaletteIndex(6);
+            if (kb->IsKeyPressed(KeyCode::Num8)) SetPaletteIndex(7);
+            if (kb->IsKeyPressed(KeyCode::Num9)) SetPaletteIndex(8);
+            if (kb->IsKeyPressed(KeyCode::Num0)) SetEraser(true);
         }
 
         if (input.pointerOver && input.wheelDelta != 0.0f)
@@ -249,7 +262,7 @@ namespace editor
                 BeginStroke(pick);
                 consumed = true;
             }
-            else if (m_stroking && input.leftDown && pick.valid && pick.splat == m_strokeSplat.Get())
+            else if (m_stroking && input.leftDown && pick.valid && pick.weights == m_strokeWeights.Get())
             {
                 ApplyDab(pick, input.deltaSeconds);
                 consumed = true;
@@ -272,13 +285,17 @@ namespace editor
     void TerrainSplatTool::BeginStroke(const Pick& pick)
     {
         m_stroking = true;
-        m_strokeSplat = RefPtr<terrain::Splatmap>(pick.splat); // keep the raster alive for the stroke
-        m_strokeSplatmapId = pick.splatmapId;
-        const Span<const u8> px = pick.splat->Pixels();
-        m_before.Resize(px.Size());
-        if (!px.IsEmpty())
+        m_strokeWeights =
+            RefPtr<terrain::SplatWeights>(pick.weights); // keep the rasters alive for the stroke
+        m_strokeWeightsId = pick.weightsId;
+        const Span<const u8> wp = pick.weights->Weights();
+        const Span<const u8> ip = pick.weights->Indices();
+        m_beforeWeights.Resize(wp.Size());
+        m_beforeIndices.Resize(ip.Size());
+        if (!wp.IsEmpty())
         {
-            MemCopy(m_before.Data(), px.Data(), px.Size());
+            MemCopy(m_beforeWeights.Data(), wp.Data(), wp.Size());
+            MemCopy(m_beforeIndices.Data(), ip.Data(), ip.Size());
         }
         m_region = terrain::SplatRegion{};
         ApplyDab(pick, 0.0f); // an instant click still deposits one dab (dt=0 -> a minimum step)
@@ -286,7 +303,7 @@ namespace editor
 
     void TerrainSplatTool::ApplyDab(const Pick& pick, f32 deltaSeconds)
     {
-        if (m_strokeSplat.Get() == nullptr)
+        if (m_strokeWeights.Get() == nullptr)
         {
             return;
         }
@@ -294,9 +311,12 @@ namespace editor
         // Per-axis UV radii keep the brush a CIRCLE in world space on a non-square footprint.
         const f32 uvRadiusX = m_radius / pick.worldSizeX;
         const f32 uvRadiusY = m_radius / pick.worldSizeY;
+        const f32 t = Clamp(step, 0.0f, 1.0f);
         const terrain::SplatRegion r =
-            terrain::PaintWeight(*m_strokeSplat, pick.uvX, pick.uvY, uvRadiusX, uvRadiusY, m_layer,
-                                 Clamp(step, 0.0f, 1.0f));
+            m_erase ? terrain::EraseTopK(*m_strokeWeights, pick.uvX, pick.uvY, uvRadiusX,
+                                         uvRadiusY, t)
+                    : terrain::PaintTopK(*m_strokeWeights, pick.uvX, pick.uvY, uvRadiusX,
+                                         uvRadiusY, m_paletteIndex, t);
         if (!r.IsEmpty())
         {
             m_region.Add(r.minX, r.minY);
@@ -306,38 +326,36 @@ namespace editor
 
     void TerrainSplatTool::EndStroke()
     {
-        const bool hadRegion = m_stroking && m_strokeSplat.Get() != nullptr && !m_region.IsEmpty();
+        const bool hadRegion =
+            m_stroking && m_strokeWeights.Get() != nullptr && !m_region.IsEmpty();
         if (hadRegion)
         {
-            const i32 rasterW = m_strokeSplat->Width();
-            Array<u8> before =
-                SliceRegion(Span<const u8>{m_before.Data(), m_before.Size()}, rasterW, m_region);
-            Array<u8> after = SliceRegion(m_strokeSplat->Pixels(), rasterW, m_region);
+            const i32 rasterW = m_strokeWeights->Width();
+            Array<u8> beforeW = SliceRegion(
+                Span<const u8>{m_beforeWeights.Data(), m_beforeWeights.Size()}, rasterW, m_region);
+            Array<u8> afterW = SliceRegion(m_strokeWeights->Weights(), rasterW, m_region);
+            Array<u8> beforeI = SliceRegion(
+                Span<const u8>{m_beforeIndices.Data(), m_beforeIndices.Size()}, rasterW, m_region);
+            Array<u8> afterI = SliceRegion(m_strokeWeights->Indices(), rasterW, m_region);
             m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SplatStrokeCommand>(m_strokeSplat, m_region, Move(before),
-                                                           Move(after)),
+                DefaultAllocator().New<SplatStrokeCommand>(m_strokeWeights, m_region,
+                                                           Move(beforeW), Move(afterW),
+                                                           Move(beforeI), Move(afterI)),
                 DefaultAllocator()));
 
-            // Register the write-back-to-source persist closure (drained on Save). It writes ONLY
-            // the source SplatmapAsset's "pixels" sidecar - the builder re-cooks from those pixels,
-            // and the asset's width/height envelope is left intact.
-            if (m_assetEdits != nullptr && !m_strokeSplatmapId.IsNil())
+            // Register the write-back-to-source persist closure (drained on Save). It rewrites the
+            // SOURCE SplatmapAsset envelope (dims synced, fileName cleared - an imported asset
+            // converts to embedded, the editable-source convention) then writes BOTH sidecars.
+            if (m_assetEdits != nullptr && !m_strokeWeightsId.IsNil())
             {
-                RefPtr<terrain::Splatmap> splat = m_strokeSplat;
-                const Guid id = m_strokeSplatmapId;
+                RefPtr<terrain::SplatWeights> weights = m_strokeWeights;
+                const Guid id = m_strokeWeightsId;
                 m_assetEdits->RegisterAssetEdit(
                     id,
-                    [splat, id](content::ContentDatabase& db) -> Status
+                    [weights, id](content::ContentDatabase& db) -> Status
                     {
-                        // Read-modify-write the SOURCE SplatmapAsset envelope: sync the raster
-                        // dims and CLEAR fileName, so an IMPORTED (PNG-backed) splatmap converts
-                        // to embedded on the first paint-save - otherwise the builder keeps
-                        // cooking from the file and the paint silently reverts on re-cook (the
-                        // editable-source convention; re-import explicitly resets by setting
-                        // fileName again). Then write the painted pixels sidecar the embedded
-                        // cook reads.
                         content::Instance* inst = db.GetInstance(id);
-                        if (inst == nullptr || splat.Get() == nullptr)
+                        if (inst == nullptr || weights.Get() == nullptr)
                         {
                             return Status{ErrorCode::NotFound};
                         }
@@ -348,22 +366,30 @@ namespace editor
                             return Status{ErrorCode::InvalidArgument}; // not a splatmap asset
                         }
                         asset->fileName = {};
-                        asset->width = splat->Width();
-                        asset->height = splat->Height();
+                        asset->width = weights->Width();
+                        asset->height = weights->Height();
                         const Status wrote = inst->WriteObject(*asset);
                         if (!wrote.IsOk())
                         {
                             return wrote;
                         }
-                        return inst->WriteData(terrain::kSplatStream,
-                                               terrain::SplatmapSource::PixelBlob(*splat));
+                        const Status wroteWeights =
+                            inst->WriteData(terrain::kSplatStream,
+                                            terrain::SplatWeightsSource::WeightBlob(*weights));
+                        if (!wroteWeights.IsOk())
+                        {
+                            return wroteWeights;
+                        }
+                        return inst->WriteData(terrain::kSplatIndexStream,
+                                               terrain::SplatWeightsSource::IndexBlob(*weights));
                     });
             }
         }
 
         m_stroking = false;
-        m_strokeSplat = nullptr;
-        m_before.Clear();
+        m_strokeWeights = nullptr;
+        m_beforeWeights.Clear();
+        m_beforeIndices.Clear();
         m_region = terrain::SplatRegion{};
     }
 
@@ -382,10 +408,19 @@ namespace editor
         {
             return;
         }
-        // Per-layer cursor tint (RGBA -> a rough R/G/B/white so the active layer reads at a glance).
-        const Color tints[4] = {Color{1.0f, 0.35f, 0.35f, 1.0f}, Color{0.4f, 1.0f, 0.4f, 1.0f},
-                                Color{0.4f, 0.6f, 1.0f, 1.0f}, Color{0.95f, 0.95f, 0.95f, 1.0f}};
-        const Color ring = tints[m_layer & 3u];
+        // Cursor tint: a stable per-palette-index hue so the active layer reads at a glance;
+        // the eraser rings in white.
+        Color ring{0.95f, 0.95f, 0.95f, 1.0f};
+        if (!m_erase)
+        {
+            const f32 hue = static_cast<f32>((m_paletteIndex * 47u) % 360u) / 360.0f;
+            const f32 h6 = hue * 6.0f;
+            const f32 x = 1.0f - Abs(h6 - static_cast<f32>(2 * (static_cast<i32>(h6) / 2)) - 1.0f);
+            const f32 comp[3][3] = {{1, x, 0}, {x, 1, 0}, {0, 1, x}};
+            const i32 seg = Min(static_cast<i32>(h6) / 2, 2);
+            ring = Color{0.3f + 0.7f * comp[seg][0], 0.3f + 0.7f * comp[seg][1],
+                         0.3f + 0.7f * comp[seg][2], 1.0f};
+        }
         drawList.DrawCircleNormal(m_hoverWorld, m_radius, m_hoverNormal, ring, 40, true);
         drawList.DrawCircleNormal(m_hoverWorld, m_radius * 0.5f, m_hoverNormal,
                                   Color{ring.r, ring.g, ring.b, 0.5f}, 32, true);
@@ -393,8 +428,11 @@ namespace editor
 
     void TerrainSplatTool::UpdateStatus()
     {
-        m_status =
-            Format(u8"Paint Splat [layer {}]  radius {}  (1-4 layer, wheel size)",
-                   static_cast<i32>(m_layer), static_cast<i32>(m_radius + 0.5f));
+        m_status = m_erase
+                       ? Format(u8"Paint Splat [ERASER]  radius {}  (1-9 layer, 0 eraser, wheel size)",
+                                static_cast<i32>(m_radius + 0.5f))
+                       : Format(u8"Paint Splat [layer {}]  radius {}  (1-9 layer, 0 eraser, wheel size)",
+                                static_cast<i32>(m_paletteIndex),
+                                static_cast<i32>(m_radius + 0.5f));
     }
 }

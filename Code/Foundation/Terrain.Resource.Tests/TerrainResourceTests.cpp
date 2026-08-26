@@ -1,6 +1,7 @@
-// The cooked terrain resource: a TerrainSource serialize round-trip, and a full content-DB build
-// through the manager that RESOLVES the referenced heightfield (proving the shared Ref) while the
-// texture refs stay unbound (no GPU factory headless).
+// The cooked terrain resource: TerrainSource v2 (top-K: base + palette + weightsId) serialize
+// round-trip, the v1 (fixed-4-layer) UPGRADE gate, and a full content-DB build through the
+// manager that RESOLVES the referenced heightfield (proving the shared Ref) while the texture
+// refs stay unbound (no GPU factory headless).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -30,20 +31,23 @@ namespace
     }
 }
 
-TEST_CASE("terrain resource: TerrainSource serialize round-trips its references + params")
+TEST_CASE("terrain resource: TerrainSource v2 round-trips base + palette + weights")
 {
     TerrainSource a;
     a.heightfieldId = Guid(1, 2);
-    a.splatmapId = Guid(3, 4);
-    a.layerAlbedoIds.PushBack(Guid(5, 6));
-    a.layerAlbedoIds.PushBack(Guid(7, 8));
-    a.layerTileScales.PushBack(4.0f);
-    a.layerTileScales.PushBack(8.0f);
+    a.weightsId = Guid(3, 4);
+    a.baseAlbedoId = Guid(5, 6);
+    a.baseTileScale = 16.0f;
+    a.paletteAlbedoIds.PushBack(Guid(7, 8));
+    a.paletteAlbedoIds.PushBack(Guid(9, 10));
+    a.paletteTileScales.PushBack(4.0f);
+    a.paletteTileScales.PushBack(8.0f);
     a.castShadows = false;
 
     MemoryStream stream;
     {
         BinarySerializer ar(stream, SerializeMode::Write);
+        BeginVersionedPayload(ar, TerrainSource::StaticType()); // write at the CURRENT version
         a.Serialize(ar);
         REQUIRE(ar.IsOk());
     }
@@ -51,15 +55,61 @@ TEST_CASE("terrain resource: TerrainSource serialize round-trips its references 
     TerrainSource b;
     {
         BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, TerrainSource::StaticType());
         b.Serialize(ar);
         REQUIRE(ar.IsOk());
     }
     CHECK(b.heightfieldId == Guid(1, 2));
-    CHECK(b.splatmapId == Guid(3, 4));
-    CHECK(b.layerAlbedoIds.Size() == 2u);
-    CHECK(b.layerAlbedoIds[1] == Guid(7, 8));
-    CHECK(b.layerTileScales.Size() == 2u);
-    CHECK(b.layerTileScales[0] == doctest::Approx(4.0f));
+    CHECK(b.weightsId == Guid(3, 4));
+    CHECK(b.baseAlbedoId == Guid(5, 6));
+    CHECK(b.baseTileScale == doctest::Approx(16.0f));
+    CHECK(b.paletteAlbedoIds.Size() == 2u);
+    CHECK(b.paletteAlbedoIds[1] == Guid(9, 10));
+    CHECK(b.paletteTileScales[0] == doctest::Approx(4.0f));
+    CHECK(b.castShadows == false);
+}
+
+TEST_CASE("terrain resource: a v1 payload upgrades (layer 0 -> base, layers 1.. -> palette)")
+{
+    // Write the LEGACY shape by hand (splatmapId + layerAlbedoIds/layerTileScales) at an
+    // UNVERSIONED scope (v1 payloads predate the version gate: ar.Version() == 0 there).
+    MemoryStream stream;
+    {
+        BinarySerializer ar(stream, SerializeMode::Write);
+        Guid heightfieldId(1, 2);
+        Guid splatmapId(3, 4);
+        Array<Guid> layerAlbedoIds;
+        layerAlbedoIds.PushBack(Guid(5, 6));  // old layer 0: the de-facto base
+        layerAlbedoIds.PushBack(Guid(7, 8));  // old layer 1 -> palette 0
+        layerAlbedoIds.PushBack(Guid(9, 10)); // old layer 2 -> palette 1
+        Array<f32> layerTileScales;
+        layerTileScales.PushBack(16.0f);
+        layerTileScales.PushBack(4.0f);
+        layerTileScales.PushBack(8.0f);
+        bool castShadows = false;
+        Serialize(ar, "heightfieldId", heightfieldId);
+        Serialize(ar, "splatmapId", splatmapId);
+        Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
+        Serialize(ar, "layerTileScales", layerTileScales);
+        Serialize(ar, "castShadows", castShadows);
+        REQUIRE(ar.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    TerrainSource b;
+    {
+        BinarySerializer ar(stream, SerializeMode::Read); // no version scope = v0/v1 legacy read
+        b.Serialize(ar);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(b.heightfieldId == Guid(1, 2));
+    CHECK(b.weightsId == Guid(3, 4));           // splatmapId -> weightsId
+    CHECK(b.baseAlbedoId == Guid(5, 6));        // layer 0 -> base
+    CHECK(b.baseTileScale == doctest::Approx(16.0f));
+    REQUIRE(b.paletteAlbedoIds.Size() == 2u);   // layers 1..2 -> palette 0..1
+    CHECK(b.paletteAlbedoIds[0] == Guid(7, 8));
+    CHECK(b.paletteAlbedoIds[1] == Guid(9, 10));
+    CHECK(b.paletteTileScales[0] == doctest::Approx(4.0f));
+    CHECK(b.paletteTileScales[1] == doctest::Approx(8.0f));
     CHECK(b.castShadows == false);
 }
 
@@ -86,15 +136,16 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
 
-        // A terrain referencing that heightfield + two (texture-less) layers.
+        // A terrain referencing that heightfield + a base + two (texture-less) palette layers.
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();
         TerrainSource tSrc;
         tSrc.heightfieldId = heightfieldId;
-        tSrc.layerAlbedoIds.PushBack(Guid{}); // nil albedo (no GPU factory here)
-        tSrc.layerAlbedoIds.PushBack(Guid{});
-        tSrc.layerTileScales.PushBack(4.0f);
-        tSrc.layerTileScales.PushBack(8.0f);
+        tSrc.baseTileScale = 16.0f;
+        tSrc.paletteAlbedoIds.PushBack(Guid{}); // nil albedo (no GPU factory here)
+        tSrc.paletteAlbedoIds.PushBack(Guid{});
+        tSrc.paletteTileScales.PushBack(4.0f);
+        tSrc.paletteTileScales.PushBack(8.0f);
         tSrc.castShadows = false;
         REQUIRE(tInst->WriteObject(tSrc).IsOk());
     }
@@ -110,9 +161,10 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
     Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
     REQUIRE(terrain);
     CHECK(terrain->castShadows == false);
-    CHECK(terrain->LayerCount() == 2u);
-    CHECK(terrain->layers[0].tileScale == doctest::Approx(4.0f));
-    CHECK(terrain->layers[1].tileScale == doctest::Approx(8.0f));
+    CHECK(terrain->PaletteCount() == 2u);
+    CHECK(terrain->base.tileScale == doctest::Approx(16.0f));
+    CHECK(terrain->palette[0].tileScale == doctest::Approx(4.0f));
+    CHECK(terrain->palette[1].tileScale == doctest::Approx(8.0f));
     // The shared heightfield resolved through the same manager.
     REQUIRE(terrain->heightfield);
     CHECK(terrain->heightfield->Size() == 65);

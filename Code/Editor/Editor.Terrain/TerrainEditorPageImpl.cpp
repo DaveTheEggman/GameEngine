@@ -76,7 +76,7 @@ namespace editor
         {
             lines.PushBack(String(u8"Heightfield: unresolved"));
         }
-        lines.PushBack(Format(u8"Layers: {}", product.LayerCount()));
+        lines.PushBack(Format(u8"Palette layers: {}", product.PaletteCount()));
         lines.PushBack(
             Format(u8"Cast shadows: {}", product.castShadows ? StringView(u8"yes")
                                                              : StringView(u8"no")));
@@ -257,49 +257,65 @@ namespace editor
                       });
         }
         {
-            const String t = Format(u8"Splatmap: {}", AssetName(m_context, m_asset->splatmapId));
+            const String t = Format(u8"Weights: {}", AssetName(m_context, m_asset->weightsId));
             addButton(t.AsView(),
                       [self]()
                       {
-                          self->PickReference(u8"SplatmapAsset", u8"splatmap",
+                          self->PickReference(u8"SplatmapAsset", u8"weights",
                                               core::Function<void(const Guid&)>{
                                                   [self](const Guid& g)
-                                                  { self->m_asset->splatmapId = g; }});
+                                                  { self->m_asset->weightsId = g; }});
                       });
-            // No splatmap yet: offer to author one (the Splat Paint tool needs an existing raster).
+            // No weights yet: offer to author them (the Splat Paint tool needs an existing raster).
             // Resolution is an authoring choice independent of the heightfield (Fable Q3) - presets.
-            if (m_asset->splatmapId.IsNil())
+            if (m_asset->weightsId.IsNil())
             {
-                addLabel(u8"Create splatmap:", 11.0f);
+                addLabel(u8"Create weights:", 11.0f);
                 addButton(u8"512", [self]() { self->CreateSplatmap(512); });
                 addButton(u8"1024", [self]() { self->CreateSplatmap(1024); });
                 addButton(u8"2048", [self]() { self->CreateSplatmap(2048); });
             }
         }
 
-        // Layers
-        addLabel(Format(u8"Layers ({})", m_asset->layerAlbedoIds.Size()).AsView(), 13.0f);
-        for (u32 i = 0; i < m_asset->layerAlbedoIds.Size(); ++i)
+        // BASE layer: what shows wherever paint doesn't cover; never painted (top-K model).
+        addLabel(u8"Base layer", 13.0f);
         {
             const String t =
-                Format(u8"Layer {} albedo: {}", i, AssetName(m_context, m_asset->layerAlbedoIds[i]));
+                Format(u8"Base albedo: {}", AssetName(m_context, m_asset->baseAlbedoId));
+            addButton(t.AsView(),
+                      [self]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"baseAlbedo",
+                                              core::Function<void(const Guid&)>{
+                                                  [self](const Guid& g)
+                                                  { self->m_asset->baseAlbedoId = g; }});
+                      });
+        }
+
+        // PAINT palette: the unbounded layer list (add/remove; removal remaps the weight raster).
+        addLabel(Format(u8"Paint layers ({})", m_asset->paletteAlbedoIds.Size()).AsView(), 13.0f);
+        for (u32 i = 0; i < m_asset->paletteAlbedoIds.Size(); ++i)
+        {
+            const String t = Format(u8"Layer {} albedo: {}", i,
+                                    AssetName(m_context, m_asset->paletteAlbedoIds[i]));
             const u32 idx = i;
             addButton(t.AsView(),
                       [self, idx]()
                       {
-                          self->PickReference(u8"TextureAsset", u8"layer",
+                          self->PickReference(u8"TextureAsset", u8"palette",
                                               core::Function<void(const Guid&)>{
                                                   [self, idx](const Guid& g)
                                                   {
-                                                      if (idx < self->m_asset->layerAlbedoIds.Size())
+                                                      if (idx <
+                                                          self->m_asset->paletteAlbedoIds.Size())
                                                       {
-                                                          self->m_asset->layerAlbedoIds[idx] = g;
+                                                          self->m_asset->paletteAlbedoIds[idx] = g;
                                                       }
                                                   }});
                       });
             addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
         }
-        addButton(u8"+ Add layer", [self]() { self->AddLayer(); });
+        addButton(u8"+ Add paint layer", [self]() { self->AddLayer(); });
 
         // Scalars (cast shadows + per-layer tile scale) in a property grid.
         auto grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
@@ -314,24 +330,36 @@ namespace editor
                 StringView(u8"Terrain"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(cs.Get()));
         }
-        for (u32 i = 0; i < m_asset->layerTileScales.Size(); ++i)
+        {
+            auto fe = MakeRef<ui::toolkit::FloatEditor>(
+                DefaultAllocator(), StringView(u8"Base tile"),
+                static_cast<f64>(m_asset->baseTileScale), 0.1, 8192.0, 1.0, 2,
+                core::Function<void(f64)>{[self](f64 v)
+                                          {
+                                              self->m_asset->baseTileScale = static_cast<f32>(v);
+                                              self->CommitEdit(u8"baseTile");
+                                          }},
+                StringView(u8"Base"));
+            grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
+        }
+        for (u32 i = 0; i < m_asset->paletteTileScales.Size(); ++i)
         {
             const String label = Format(u8"Layer {} tile", i);
             const String mergeKey = Format(u8"tile{}", i);
             const u32 idx = i;
             auto fe = MakeRef<ui::toolkit::FloatEditor>(
                 DefaultAllocator(), label.AsView(),
-                static_cast<f64>(m_asset->layerTileScales[i]), 0.1, 8192.0, 1.0, 2,
+                static_cast<f64>(m_asset->paletteTileScales[i]), 0.1, 8192.0, 1.0, 2,
                 core::Function<void(f64)>{[self, idx, mergeKey](f64 v)
                                           {
-                                              if (idx < self->m_asset->layerTileScales.Size())
+                                              if (idx < self->m_asset->paletteTileScales.Size())
                                               {
-                                                  self->m_asset->layerTileScales[idx] =
+                                                  self->m_asset->paletteTileScales[idx] =
                                                       static_cast<f32>(v);
                                                   self->CommitEdit(mergeKey.AsView());
                                               }
                                           }},
-                StringView(u8"Layers"));
+                StringView(u8"Paint layers"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
         }
         m_fields->AddView(grid.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
@@ -382,25 +410,84 @@ namespace editor
         {
             return;
         }
-        m_asset->layerAlbedoIds.PushBack(Guid{});
-        m_asset->layerTileScales.PushBack(32.0f);
+        m_asset->paletteAlbedoIds.PushBack(Guid{});
+        m_asset->paletteTileScales.PushBack(32.0f);
         CommitEdit(u8"addLayer");
         RebuildFieldsDeferred();
     }
 
     void TerrainEditorPage::RemoveLayer(u32 index)
     {
-        if (m_asset.Get() == nullptr || index >= m_asset->layerAlbedoIds.Size())
+        if (m_asset.Get() == nullptr || index >= m_asset->paletteAlbedoIds.Size())
         {
             return;
         }
-        m_asset->layerAlbedoIds.RemoveAt(index);
-        if (index < m_asset->layerTileScales.Size())
+        m_asset->paletteAlbedoIds.RemoveAt(index);
+        if (index < m_asset->paletteTileScales.Size())
         {
-            m_asset->layerTileScales.RemoveAt(index);
+            m_asset->paletteTileScales.RemoveAt(index);
         }
+        // Remap the weight raster (ruling R6): slots referencing the removed layer are freed
+        // (their weight falls to base); indices above it decrement. Applied to the LIVE runtime
+        // raster + persisted to the source sidecars; a full-raster snapshot rides the SAME undo
+        // entry as the asset edit (rare op - no region-delta machinery).
+        RemapWeightsOnRemove(index);
         CommitEdit(u8"removeLayer");
+        m_context->RequestCook(false);
         RebuildFieldsDeferred();
+    }
+
+    void TerrainEditorPage::RemapWeightsOnRemove(u32 removedIndex)
+    {
+        terrain::TerrainResource* product = m_terrainProxy ? m_terrainProxy.Get() : nullptr;
+        terrain::SplatWeights* sw = product != nullptr ? product->weights.Get() : nullptr;
+        if (sw == nullptr || sw->IsEmpty())
+        {
+            return; // no live raster (not cooked yet): nothing references the palette indices
+        }
+        if (!terrain::RemapOnPaletteRemove(*sw, removedIndex))
+        {
+            return;
+        }
+        // Persist both sidecars through the standard asset-edit drain (Save flow).
+        if (m_context != nullptr && !product->weights.id.IsNil())
+        {
+            RefPtr<terrain::SplatWeights> weights(sw);
+            const Guid id = product->weights.id;
+            m_context->RegisterAssetEdit(
+                id,
+                [weights, id](foundation::content::ContentDatabase& db) -> Status
+                {
+                    foundation::content::Instance* inst = db.GetInstance(id);
+                    if (inst == nullptr || weights.Get() == nullptr)
+                    {
+                        return Status{ErrorCode::NotFound};
+                    }
+                    RefPtr<ISerializable> object = inst->ReadObject();
+                    auto* asset = Cast<pipeline::SplatmapAsset>(object.Get());
+                    if (asset == nullptr)
+                    {
+                        return Status{ErrorCode::InvalidArgument};
+                    }
+                    asset->fileName = {};
+                    asset->width = weights->Width();
+                    asset->height = weights->Height();
+                    const Status wrote = inst->WriteObject(*asset);
+                    if (!wrote.IsOk())
+                    {
+                        return wrote;
+                    }
+                    const Status wroteWeights =
+                        inst->WriteData(terrain::kSplatStream,
+                                        terrain::SplatWeightsSource::WeightBlob(*weights));
+                    if (!wroteWeights.IsOk())
+                    {
+                        return wroteWeights;
+                    }
+                    return inst->WriteData(terrain::kSplatIndexStream,
+                                           terrain::SplatWeightsSource::IndexBlob(*weights));
+                });
+        }
     }
 
     void TerrainEditorPage::CreateSplatmap(i32 size)
@@ -431,11 +518,10 @@ namespace editor
         sa.width = dim;
         sa.height = dim;
         (void)inst->WriteObject(sa);
-        RefPtr<terrain::Splatmap> sm = MakeRef<terrain::Splatmap>(DefaultAllocator(), dim, dim);
-        sm->SeedLayer0(); // a fresh splatmap renders the base layer until painted
-        (void)inst->WriteData(terrain::kSplatStream, terrain::SplatmapSource::PixelBlob(*sm));
+        // No seeding: an all-zero top-K raster is a valid "pure base" surface by construction
+        // (the builder cooks empty sidecars to exactly that).
 
-        m_asset->splatmapId = inst->Id();
+        m_asset->weightsId = inst->Id();
         CommitEdit(u8"createSplatmap");
         m_context->RequestCook(false); // cook the new SplatmapAsset -> Splatmap product
         PointComponentAtTerrain(m_terrainProxy ? m_terrainProxy.Get() : nullptr);
@@ -454,6 +540,8 @@ namespace editor
         }
         MemoryStream stream;
         BinarySerializer ar(stream, SerializeMode::Write);
+        BeginVersionedPayload(ar, m_asset->GetType() != nullptr ? *m_asset->GetType()
+                                                                : pipeline::TerrainAsset::StaticType());
         m_asset->Serialize(ar);
         const Span<const byte> bytes = stream.Bytes();
         blob.Reserve(bytes.Size());
@@ -474,6 +562,8 @@ namespace editor
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
         BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, m_asset->GetType() != nullptr ? *m_asset->GetType()
+                                                                : pipeline::TerrainAsset::StaticType());
         m_asset->Serialize(ar);
         m_undoBaseline = blob;
         PointComponentAtTerrain(m_terrainProxy ? m_terrainProxy.Get() : nullptr);
