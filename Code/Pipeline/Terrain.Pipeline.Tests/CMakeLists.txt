@@ -1,6 +1,6 @@
 add_executable(Terrain.Pipeline.Tests TestsMain.cpp TerrainPipelineTests.cpp SplatmapPipelineTests.cpp)
 target_link_libraries(Terrain.Pipeline.Tests PRIVATE
-    Pipeline::Terrain Foundation::Terrain.Resource
+    Pipeline::Terrain Pipeline::Texture Foundation::Terrain.Resource
     Foundation::Heightfield Foundation::Heightfield.Resource
     Pipeline::Core Foundation::Content Foundation::Resource Foundation::VFS
     Foundation::Image Foundation::Image.IO doctest::doctest)

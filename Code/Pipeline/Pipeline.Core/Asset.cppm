@@ -100,6 +100,11 @@ export namespace pipeline
             nullptr; // the SOURCE instance being cooked (embedded data streams)
         foundation::content::Instance* output = nullptr;     // cooked resource is written here
         foundation::content::IContentDatabase* db = nullptr; // for resolving referenced assets
+        // The SOURCE database (asset envelopes + raw sidecars). At cook time `db` is the
+        // COOKED-products view, so a builder that needs another asset's SOURCE form (its
+        // envelope's fileName, embedded pixels, ...) must read through THIS - Cast'ing a cooked
+        // product to its Asset envelope fails (the terrain palette-cook lesson).
+        foundation::content::IContentDatabase* sourceDb = nullptr;
         // The export target being produced (asset-variants P2). Null = the host target (a variant
         // builder falls back to the desktop/BC profile - today's behavior).
         const CookTarget* target = nullptr;

@@ -223,15 +223,19 @@ export namespace pipeline
     private:
         // Decode one palette albedo's SOURCE pixels as RGBA8: a TextureAsset's file (image
         // decoder) or its embedded "pixels" sidecar. Missing/undecodable -> a 1x1 white slice
-        // (matches the renderer's absent-slot dummy) so palette INDICES stay stable.
+        // (matches the renderer's absent-slot dummy) so palette INDICES stay stable. Reads the
+        // SOURCE db: at cook time ctx.db holds cooked texture PRODUCTS (possibly compressed),
+        // whose ReadObject is not a TextureAsset - resolving there whites out every slice.
         static void DecodeAlbedoRgba8(pipeline::AssetBuildContext& ctx, const Guid& id,
                                       Array<u8>& outPixels, u32& outW, u32& outH)
         {
             outPixels.Clear();
             outW = 1;
             outH = 1;
+            foundation::content::IContentDatabase* db =
+                ctx.sourceDb != nullptr ? ctx.sourceDb : ctx.db; // single-DB tools set only db
             content::Instance* inst =
-                (ctx.db != nullptr && !id.IsNil()) ? ctx.db->GetInstance(id) : nullptr;
+                (db != nullptr && !id.IsNil()) ? db->GetInstance(id) : nullptr;
             if (inst != nullptr)
             {
                 RefPtr<ISerializable> object = inst->ReadObject();

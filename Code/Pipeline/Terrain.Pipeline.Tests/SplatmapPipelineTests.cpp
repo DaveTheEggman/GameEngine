@@ -15,6 +15,7 @@ import pipeline.core;
 import foundation.image;
 import foundation.image.io;
 import foundation.terrain.resource;
+import texture.pipeline;
 import terrain.pipeline;
 
 using namespace foundation::core;
@@ -272,6 +273,107 @@ TEST_CASE("terrain.pipeline: builder ProductType is the SERIALIZED cooked form (
     // round-trips above rely on.
     CHECK(TerrainAssetBuilder{}.ProductType() == &TerrainSource::StaticType());
     CHECK(SplatmapAssetBuilder{}.ProductType() == &SplatWeightsSource::StaticType());
+}
+
+TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE db (two-DB shape)")
+{
+    // The PRODUCTION cook shape: ctx.db = the COOKED db (whose texture instances hold cooked
+    // PRODUCTS, not TextureAsset envelopes) and ctx.sourceDb = the SOURCE db. The palette cook
+    // must decode through the SOURCE db - resolving the albedo against the cooked db casts to
+    // the wrong type and silently whites out every slice (the ImportTest white-paint bug).
+    pipeline::RegisterTerrainAsset();
+    pipeline::RegisterTextureAsset();
+    RegisterTerrainResourceTypes();
+    FileDelete(u8"scratch_palette_src/albedo.png");
+    RemoveDirectory(u8"scratch_palette_src");
+    FileDelete(u8"scratch_palette_srcdb/albedo.rasset");
+    FileDelete(u8"scratch_palette_srcdb/terrain.rasset");
+    RemoveDirectory(u8"scratch_palette_srcdb");
+    FileDelete(u8"scratch_palette_cookdb/terrain.rasset");
+    FileDelete(u8"scratch_palette_cookdb/terrain.palette.bin");
+    RemoveDirectory(u8"scratch_palette_cookdb");
+    REQUIRE(CreateDirectory(u8"scratch_palette_src"));
+
+    // A solid ORANGE source image the slice must carry (white = the failure fallback).
+    image::Image authored(8, 8, image::PixelFormat::RGBA8);
+    Span<u8> ap = authored.PixelDataMut();
+    for (usize t = 0; t < 64; ++t)
+    {
+        ap[t * 4 + 0] = 200;
+        ap[t * 4 + 1] = 120;
+        ap[t * 4 + 2] = 30;
+        ap[t * 4 + 3] = 255;
+    }
+    REQUIRE(image::io::SaveImage(authored, u8"scratch_palette_src/albedo.png",
+                                 image::io::ImageFileFormat::PNG)
+                .IsOk());
+
+    NativeFileSystem srcDbMount(u8"scratch_palette_srcdb");
+    NativeFileSystem cookDbMount(u8"scratch_palette_cookdb");
+    Guid terrainId;
+    {
+        foundation::content::ContentDatabase sourceDb(
+            srcDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        // The albedo SOURCE envelope (fileName -> the png above).
+        auto* albedoInst =
+            sourceDb.RootGroup()->CreateInstance(u8"albedo", pipeline::TextureAsset::StaticType());
+        pipeline::TextureAsset texSrc;
+        texSrc.fileName = foundation::vfs::SourcePath(u8"albedo.png");
+        REQUIRE(albedoInst->WriteObject(texSrc).IsOk());
+
+        // The COOKED db carries no TextureAsset for that guid (production truth).
+        foundation::content::ContentDatabase cookedDb(
+            cookDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* product =
+            cookedDb.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
+        terrainId = product->Id();
+
+        pipeline::TerrainAsset ta;
+        ta.paletteAlbedoIds.PushBack(albedoInst->Id());
+        ta.paletteTileScales.PushBack(4.0f);
+        ta.paletteTextureSize = 64;
+
+        pipeline::TerrainAssetBuilder builder;
+        NativeFileSystem srcMount(u8"scratch_palette_src");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = product;
+        ctx.db = &cookedDb;      // cooked-products view: has NO TextureAsset
+        ctx.sourceDb = &sourceDb; // where the albedo envelope + png actually live
+        REQUIRE(builder.Build(ta, ctx).IsOk());
+    }
+
+    // The cooked palette sidecar's slice must carry the ORANGE, at every sampled mip.
+    {
+        foundation::content::ContentDatabase cookedDb(
+            cookDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
+        foundation::content::Instance* inst = cookedDb.GetInstance(terrainId);
+        REQUIRE(inst != nullptr);
+        UniquePtr<IStream> stream = inst->ReadData(kPaletteStream);
+        REQUIRE(static_cast<bool>(stream));
+        u32 header[3] = {};
+        REQUIRE(stream->Read(header, sizeof(header)) == sizeof(header));
+        CHECK(header[2] == 1u); // one slice
+        Array<u8> texels;
+        const usize bytes = TerrainPaletteData::SliceBytes(header[0], header[1]);
+        texels.Resize(bytes);
+        REQUIRE(stream->Read(texels.Data(), bytes) == bytes);
+        CHECK(texels[0] == 200); // mip 0 texel 0 = the authored orange, NOT the white fallback
+        CHECK(texels[1] == 120);
+        CHECK(texels[2] == 30);
+        const usize lastTexel = bytes - 4; // the 1x1 tail mip
+        CHECK(texels[lastTexel + 0] == 200);
+        CHECK(texels[lastTexel + 1] == 120);
+    }
+
+    FileDelete(u8"scratch_palette_src/albedo.png");
+    RemoveDirectory(u8"scratch_palette_src");
+    FileDelete(u8"scratch_palette_srcdb/albedo.rasset");
+    FileDelete(u8"scratch_palette_srcdb/terrain.rasset");
+    RemoveDirectory(u8"scratch_palette_srcdb");
+    FileDelete(u8"scratch_palette_cookdb/terrain.rasset");
+    FileDelete(u8"scratch_palette_cookdb/terrain.palette.bin");
+    RemoveDirectory(u8"scratch_palette_cookdb");
 }
 
 TEST_CASE("terrain.pipeline: the palette-array cook helpers resize and mip a slice")

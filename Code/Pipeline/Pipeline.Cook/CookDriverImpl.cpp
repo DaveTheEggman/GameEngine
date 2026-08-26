@@ -728,8 +728,9 @@ namespace pipeline
         ctx.sources = m_sources;
         ctx.source = source;
         ctx.output = product;
-        ctx.db = m_cookedDb; // cross-refs resolve against already-cooked products
-        ctx.target = &m_target; // the export target being produced (P2)
+        ctx.db = m_cookedDb;      // cross-refs resolve against already-cooked products
+        ctx.sourceDb = m_sourceDb; // cross-asset SOURCE reads (envelopes + raw sidecars)
+        ctx.target = &m_target;   // the export target being produced (P2)
         const Status built = item.builder->Build(*asset, ctx);
 
         // Record: recipe + memoized file hashes + deps; failures keep the last good
