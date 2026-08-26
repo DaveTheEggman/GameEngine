@@ -306,3 +306,67 @@ TEST_CASE("TerrainAsset snapshot with no height maps keeps the arrays empty + th
     CHECK(b.paletteHeightIds.IsEmpty());
     CHECK(b.heightBlendContrast == doctest::Approx(0.25f)); // default preserved
 }
+
+TEST_CASE("TerrainAsset v5 snapshot round-trips the per-layer coverage mask ids (the P2 undo path)")
+{
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteAlbedoIds.PushBack(Guid{99, 111});
+    a.paletteTileScales.PushBack(16.0f);
+    a.paletteTileScales.PushBack(48.0f);
+    // A ragged mask palette: layer 0 has a mask, layer 1 does not (the page grows the array lazily).
+    a.paletteMaskIds.PushBack(Guid{221, 222});
+    a.paletteMaskIds.PushBack(Guid{});
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+
+    REQUIRE(b.paletteMaskIds.Size() == 2u);
+    CHECK(b.paletteMaskIds[0] == Guid{221, 222});
+    CHECK(b.paletteMaskIds[1] == Guid{});
+}
+
+TEST_CASE("TerrainAsset snapshot with no coverage masks keeps the array empty (never populated)")
+{
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteTileScales.PushBack(16.0f);
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+    CHECK(b.paletteMaskIds.IsEmpty());
+}

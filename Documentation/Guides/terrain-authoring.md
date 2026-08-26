@@ -42,8 +42,8 @@ Create a Terrain asset and open its page:
   painted - and what the eraser reveals. The base is **never painted directly**; it is the canvas.
 - **Paint layers**: add as many as you want (the palette is unbounded; up to 256 layers can be
   referenced by the 8-bit paint index, and up to 4 blend at any single texel). Each layer has an
-  albedo picker, optional **normal**, **ORM**, and **height** pickers, and a **tile scale** (world
-  units per texture repeat, shared by all maps of the layer).
+  albedo picker, optional **normal**, **ORM**, **height**, and **mask** pickers, and a **tile scale**
+  (world units per texture repeat, shared by all maps of the layer).
 - **Height blend**: a per-terrain slider (0..1, default 0.25) that only bites once a layer has a
   height map assigned. Smaller = crisper, interlocked seams; larger = a wider soft skirt.
 - **Palette texture size**: the common resolution every palette texture is resampled to at cook
@@ -51,7 +51,7 @@ Create a Terrain asset and open its page:
 
 Then add a `TerrainComponent` to a scene entity and pick the terrain asset in the inspector.
 
-### Per-layer textures: albedo, normal, ORM, height
+### Per-layer textures: albedo, normal, ORM, height, mask
 
 - **Albedo** is the color map (sRGB - the importer's default is correct).
 - **Normal** is a tangent-space normal map. Optional; missing = flat.
@@ -65,15 +65,30 @@ Then add a `TerrainComponent` to a scene entity and pick the terrain asset in th
   **Height blend** slider to taste. NOTE: turning height-blend on trades soft dissolves for crisp,
   interlocked seams across the WHOLE terrain - existing soft gradients will visibly sharpen; raise
   the contrast slider to widen the skirt back out.
+- **Mask** is a grayscale coverage/opacity map (the `*_mask_` file that ships with SPARSE sets - sparse
+  grass, scattered gravel); only the red channel is read. It multiplies into the layer's paint weight
+  so the layer shows only where the mask is opaque, and the gaps reveal the BASE layer beneath (e.g.
+  dirt through sparse grass). Palette layers only (the base has nothing beneath it). Optional; missing
+  = fully opaque (the layer covers solidly, as before). At a distance the mask's mip average softens
+  sparse coverage toward a uniform mix - intended for a weight multiplier; coverage-preserving mips
+  are a later refinement.
+
+**Normal handedness**: our terrain uses the glTF / OpenGL green-up convention (verified by probe), so
+Poly Haven `_nor_gl_` maps and glTF-exported normals import AS-IS - do NOT flip green.
 
 **Color-space gotcha**: normal and ORM maps are *data*, not color. If you hand-import one as a
 texture asset, set its **colorSpace to Linear** (the import default is Srgb, which warps data
 maps). Textures brought in by the model importer as material maps are already Linear.
 
 **Pick the right file**: texture packs ship `*_diff_*` (color) next to `*_disp_*` (displacement/
-height), `*_nor_*` (normal), and `*_rough_*` / ORM maps with near-identical names. Assign each to
-its matching slot - a `*_disp_*` map belongs in the **height** picker, not albedo (as albedo it
-renders as flat gray). Hover a layer swatch in the paint panel to see the asset NAME and confirm.
+height), `*_nor_*` (normal), `*_rough_*` / ORM, and `*_mask_*` (coverage) maps with near-identical
+names. Assign each to its matching slot - a `*_disp_*` map belongs in the **height** picker and a
+`*_mask_*` in the **mask** picker, not albedo (as albedo they render as flat gray). Hover a layer
+swatch in the paint panel to see the asset NAME and confirm.
+
+**EXR sources**: our importer decodes PNG/JPG/TGA/HDR but NOT OpenEXR. Poly Haven often ships normal +
+roughness as EXR - grab the PNG variants (or convert offline). Terrain layer maps cook to RGBA8
+regardless, so 8-bit PNG loses nothing here.
 
 ## 3. Sculpt
 

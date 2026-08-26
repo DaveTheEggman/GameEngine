@@ -1,11 +1,10 @@
 # Terrain Layers: Per-Layer Coverage / Opacity Mask
 
-Status: APPROVED (Fable, 2026-08-26) with amendments R1-R5 (RULING at the bottom). Follow-up to
-terrain-height-blend.md - SEQUENCED AFTER it (height-blend HAS landed: source/asset DataVersion 4,
-builder Version SEVEN - see R1 - set-3 at 12 entries t0..t10, ShadowParams.zw carrying the height
-params). Extends terrain-layer-pbr.md (per-layer
-normal + ORM) and terrain-splat-topk.md (base + unbounded palette + top-K weights). Pure
-material/render extension - NO change to the paint tool, the weight rasters, or the paint data model.
+Status: IMPLEMENTED (2026-08-26). Approved by Fable with amendments R1-R5 (RULING at the bottom), all
+folded; P0-P3 shipped (commits in the phase list). Follow-up to terrain-height-blend.md. Extends
+terrain-layer-pbr.md (per-layer normal + ORM) and terrain-splat-topk.md (base + unbounded palette +
+top-K weights). Pure material/render extension - NO change to the paint tool, the weight rasters, or
+the paint data model.
 
 ## Motivation
 
@@ -79,7 +78,7 @@ be UNAFFECTED (contribute at full painted weight), so its default coverage is 1.
 Mirror height P0:
 
 - `TerrainAsset` gains `paletteMaskIds` under the `ar.Version() >= 5` gate; builder `Version()` bumped
-  (6 -> 7); `builder.DataVersion(5)` (was 4).
+  7 -> 8 (R1 - height-blend shipped 7); `builder.DataVersion(5)` (was 4).
 - `ScanDependencies`: the `chain` lambda extends over `paletteMaskIds`.
 - `CookPaletteArray`: build the mask array ON DEMAND via `AnyNonNil(paletteMaskIds)`, default
   `kOpaqueMask{255,255,255,255}`; `writeArray` writes the `palette.mask` stream. Mask mips = plain box
@@ -126,18 +125,27 @@ Mirror the height/normal/ORM pickers, palette rows ONLY:
 
 ## Phasing
 
-- P0 - Data + cook: `Layer.mask` + `TerrainSource` / `TerrainAsset` `paletteMaskIds` + both
-  DataVersion bumps (5) + v-gated reads; `TerrainPaletteData.maskTexels` + the sidecar stream; the cook
-  builds the mask array ON DEMAND with the `{255,255,255,255}` OPAQUE default; ScanDependencies chains
-  it. Tests: on-demand mask array + nil-layer OPAQUE-default fill + no-mask compat + source-id
-  round-trip (Terrain.Pipeline.Tests).
-- P1 - Renderer + shader: palette cache builds the mask array; render data + component fill + the
-  maskBound param into SplatParams2.x; set-3 t11 + the 1x1 opaque dummy + the cache key; the PS
-  multiplies coverage under the uniform `maskBound` branch and recomputes baseW. WGSL: all variants
-  translate (naga check BEFORE any probe). Verified on Vulkan AND WebGPU (below).
-- P2 - Editor: per-layer mask pickers on the terrain page; recook wiring. Tests: the v5 page snapshot
-  round-trips the mask ids through the versioned undo payload; a no-mask snapshot stays empty.
-- P3 - Polish + docs -> IMPLEMENTED.
+- P0 - DONE (data + cook, 30d92c3b): `Layer.mask` (palette-only) + `TerrainSource` / `TerrainAsset`
+  `paletteMaskIds` + both DataVersion bumps (5, RTTI 5) + builder Version 7 -> 8 (R1) + v-gated reads;
+  `TerrainPaletteData.maskTexels` / `HasMask()` + the `palette.mask` sidecar; the cook builds the mask
+  array ON DEMAND (`AnyNonNil`) with the `{255,255,255,255}` OPAQUE default; ScanDependencies chains
+  it; factory reads the stream. Tests: on-demand + nil OPAQUE-default slice + no-mask compat + id
+  round-trip (Terrain.Pipeline.Tests 13, clang + gcc).
+- P1 - DONE (renderer + shader, 82771b65): palette cache builds the mask array on demand + retire
+  wired; TerrainRenderData maskArrayView + component fill; the renderer grows the view UBO by a
+  `SplatParams2` float4 (x = maskBound, R2 - documented at both HLSL + C++ fill site) since the
+  ShadowParams spares were spent; set-3 t11 + the 1x1 OPAQUE dummy + the cache-key id; the PS
+  multiplies each slot's weight by its mask under the uniform `maskBound` branch BEFORE the baseW
+  recompute. WGSL: naga translates every variant (9 existing probes green, OFF byte-hold). Verified
+  Vulkan AND WebGPU: a coverage probe splits the footprint blue|red at tileScale=worldSize (R3),
+  flipping swaps the halves, an all-zero mask reveals base everywhere; PLUS the R5 green-sign probe
+  (a +green normal leans -Z -> GL green-up is correct, no author flip) (11 cases / 802 asserts).
+- P2 - DONE (editor): per-layer mask pickers on each palette row (SetPaletteMap extended to a 4-way
+  enum, lazy-grows) + AddLayer/RemoveLayer keep the array parallel; recook-wired. Tests: v5 page
+  snapshot round-trips ragged mask ids, no-mask snapshot stays empty (Editor.Terrain.Tests 23).
+- P3 - DONE (docs): this spec -> IMPLEMENTED; terrain-authoring.md gains the mask slot + the R5
+  green-up note (Poly Haven `_nor_gl_` import as-is) + the EXR-source note (PNG-in). R4 mip softening
+  recorded as intended (coverage-preserving mips deferred).
 
 ## Verification (mirroring height-blend / layer-pbr R5)
 
@@ -158,11 +166,13 @@ layer-pbr + top-K probes stay green (no regression to the linear path).
 ## Import notes (this asset class)
 
 Poly Haven sparse sets (the driving example) ship: `_diff_` (albedo), `_nor_gl_` (OpenGL/green-up
-normal - flip G at import if the terrain shader expects DX handedness), `_rough_` + optional AO (pack
-into ORM as G=roughness / R=AO, metallic 0 for organics), `_disp_` (the height-blend map), `_mask_`
-(THIS coverage mask). Normal + roughness are often EXR (linear float) - the texture importer may need
-EXR decode; mask + disp are 16-bit PNG (decode to R). None of that is this track's job (it consumes
-whatever TextureAsset the picker resolves), but it is the reason this asset class motivates the track.
+normal - imports AS-IS, NO flip: our terrain frame is glTF/GL green-up, pinned by the R5 green-sign
+probe), `_rough_` + optional AO (pack into ORM as G=roughness / R=AO, metallic 0 for organics),
+`_disp_` (the height-blend map), `_mask_` (THIS coverage mask). Normal + roughness are often EXR
+(linear float) which our stb importer does NOT decode - grab the PNG variants or convert offline
+(terrain layer maps cook to RGBA8 regardless, so 8-bit PNG loses nothing). Mask + disp are 16-bit PNG.
+None of the decode is this track's job (it consumes whatever TextureAsset the picker resolves), but it
+is the reason this asset class motivates the track.
 
 ## Touch list
 

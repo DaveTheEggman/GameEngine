@@ -379,6 +379,18 @@ namespace editor
                                                       self->SetPaletteMap(PaletteMap::Height, idx, g);
                                                   }});
                       });
+            const Guid mId =
+                idx < m_asset->paletteMaskIds.Size() ? m_asset->paletteMaskIds[idx] : Guid{};
+            const String tm = Format(u8"Layer {} mask: {}", i, AssetName(m_context, mId));
+            addButton(tm.AsView(),
+                      [self, idx]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"paletteMask",
+                                              core::Function<void(const Guid&)>{
+                                                  [self, idx](const Guid& g) {
+                                                      self->SetPaletteMap(PaletteMap::Mask, idx, g);
+                                                  }});
+                      });
             addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
         }
         addButton(u8"+ Add paint layer", [self]() { self->AddLayer(); });
@@ -493,25 +505,27 @@ namespace editor
         }
         m_asset->paletteAlbedoIds.PushBack(Guid{});
         m_asset->paletteTileScales.PushBack(32.0f);
-        // Keep the optional normal/ORM/height arrays parallel with the albedo list so rows line up.
+        // Keep the optional map arrays parallel with the albedo list so rows line up.
         m_asset->paletteNormalIds.PushBack(Guid{});
         m_asset->paletteOrmIds.PushBack(Guid{});
         m_asset->paletteHeightIds.PushBack(Guid{});
+        m_asset->paletteMaskIds.PushBack(Guid{});
         CommitEdit(u8"addLayer");
         RebuildFieldsDeferred();
     }
 
-    // Set a per-layer normal / ORM / height map id, growing the (optional) target array to match the
-    // albedo list first so an older terrain with no maps still edits cleanly.
+    // Set a per-layer normal / ORM / height / mask map id, growing the (optional) target array to match
+    // the albedo list first so an older terrain with no maps still edits cleanly.
     void TerrainEditorPage::SetPaletteMap(PaletteMap map, u32 index, const Guid& g)
     {
         if (m_asset.Get() == nullptr || index >= m_asset->paletteAlbedoIds.Size())
         {
             return;
         }
-        Array<Guid>& ids = (map == PaletteMap::Normal)  ? m_asset->paletteNormalIds
-                           : (map == PaletteMap::Orm)   ? m_asset->paletteOrmIds
-                                                        : m_asset->paletteHeightIds;
+        Array<Guid>& ids = (map == PaletteMap::Normal)   ? m_asset->paletteNormalIds
+                           : (map == PaletteMap::Orm)    ? m_asset->paletteOrmIds
+                           : (map == PaletteMap::Height) ? m_asset->paletteHeightIds
+                                                         : m_asset->paletteMaskIds;
         while (ids.Size() < m_asset->paletteAlbedoIds.Size())
         {
             ids.PushBack(Guid{});
@@ -541,6 +555,10 @@ namespace editor
         if (index < m_asset->paletteHeightIds.Size())
         {
             m_asset->paletteHeightIds.RemoveAt(index);
+        }
+        if (index < m_asset->paletteMaskIds.Size())
+        {
+            m_asset->paletteMaskIds.RemoveAt(index);
         }
         // Remap the weight raster (ruling R6): slots referencing the removed layer are freed
         // (their weight falls to base); indices above it decrement. Applied to the LIVE runtime
