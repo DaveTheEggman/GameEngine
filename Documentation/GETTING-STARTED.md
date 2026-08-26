@@ -211,7 +211,7 @@ Documentation/
                        stamped BUILT when they ship and carry review rulings.
   Process/             CONVENTIONS.md (binding rules), HANDOFF.md (review pass
                        records), code-standard.md.
-  Guides/              How-tos (adding a script facade, Emscripten setup).
+  Guides/              How-tos (terrain authoring, adding a script facade, Emscripten setup).
   Plans/               Roadmaps and design plans (roadmap.md, weekly plans).
   Backlog/             Audits and improvement backlogs.
   UAT/                 Manual smoke-test checklists.
