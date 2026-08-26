@@ -173,7 +173,8 @@ export namespace pipeline
             return &TerrainSource::StaticType();
         }
         // 3: the cooked payload moved to the top-K model (TerrainSource v2) - force a re-cook.
-        [[nodiscard]] u32 Version() const override { return 3; }
+        // 4: palette albedos decode through ctx.sourceDb (v3 cooked every slice WHITE) - re-cook.
+        [[nodiscard]] u32 Version() const override { return 4; }
 
         // The palette pack READS every palette albedo's content (hash-chained: editing an albedo
         // re-cooks the terrain's array); base/heightfield/weights are runtime references only.
