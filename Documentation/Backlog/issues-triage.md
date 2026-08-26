@@ -253,17 +253,24 @@ mips) was the dominant term and is FIXED (texture cook v2 generates full
 chains; model imports default mips ON + trilinear); MSAA is the remaining
 polish. Belongs to the renderer track alongside the post-stack work. SPEC WRITTEN (2026-08-12): Documentation/Specs/msaa.md - decisions settled (per-view, 4x web ceiling, MSAA prepass + first-sample depth resolve for the 1x post consumers, single end-of-forward resolve, MSAA/TAA independent); ready for Opus.
 
-## WebGpuDevice::Destroy misses device-internal objects (small leak)
+## WebGpuDevice::Destroy misses device-internal objects (small leak) - CLOSED 2026-08-25
 
 Found by the pass-16 ASAN sweep over Engine.Terrain.Backend.Tests
 (2026-08-24): after fixing the probe-side leaks (encoders, Readback's
-encoder, un-Cleared height caches), the Vulkan half is leak-free but each
-WEBGPU device lifetime leaks ~13.7 KB / 21 allocations of device-INTERNAL
-objects - CreateDevice-time textures (blit-helper suspects) and a
-WebGpuRenderBundleEncoder - that WebGpuDevice::Destroy does not free
-(it releases the queue + wgpu device and self-frees, but not these).
-Affects every WebGPU test/run at device teardown; harmless in-session
-(devices are process-lifetime in the apps) but noise for every future
-ASAN sweep. Fix shape: enumerate + free the init-time internals in
-Destroy, mirroring the Vulkan device's full teardown; verify with the
-Backend-tests ASAN run (its WebGPU half should then be zero-leak).
+encoder, un-Cleared height caches), each WEBGPU device lifetime leaked
+device-internal objects at teardown.
+
+RESOLUTION: by the 2026-08-25 sweep the blit-texture/render-bundle leaks
+originally suspected were already gone (fixed with the pass-16 cleanup);
+the one remaining engine-side leak was the deliberate per-device
+`LostRoute` heap record in WebGpuAdapter::CreateDevice (the device-lost
+callback's userdata, marked as an intentional leak because the callback
+could outlive every safe free point). Fixed by handing the record to the
+wrapper (WebGpuDevice::AdoptLostRoute): Destroy frees it AFTER releasing
+the wgpu device and flushing pending callbacks via
+wgpuInstanceProcessEvents - the orderly-teardown callback (reason
+Destroyed) never dereferences the route, and a real-loss callback queued
+earlier is delivered by the flush, so no callback can read the route
+after the free. Verified: the Backend-tests ASAN run now reports ZERO
+leak frames in engine code - everything remaining is libdbus inside the
+driver stack (not ours).

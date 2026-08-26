@@ -131,9 +131,9 @@ export namespace foundation::rhi::webgpu
             {
                 WebGpuDevice* device = nullptr;
             };
-            // TODO(webgpu): one pointer-sized intentional leak per device - the lost
-            // callback can outlive every safe free point we control. Fold into the
-            // wrapper once teardown ordering is settled.
+            // Heap record handed to the wrapper below (AdoptLostRoute): WebGpuDevice::Destroy
+            // frees it after releasing the wgpu device + flushing pending callbacks, the one
+            // point where the still-registered lost callback provably cannot fire again.
             auto* lostRoute = m_allocator.New<LostRoute>();
 
             Array<WGPUFeatureName> required;
@@ -324,6 +324,7 @@ export namespace foundation::rhi::webgpu
             wrapper->features.maxPushConstantSize = 128u;
             wrapper->SetImmediatesSupported(immediatesSupported);
             lostRoute->device = wrapper;
+            wrapper->AdoptLostRoute(lostRoute); // wrapper frees it at Destroy (post-flush)
             out = wrapper;
             return ErrorCode::Ok;
         }

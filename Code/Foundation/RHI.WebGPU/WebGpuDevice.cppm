@@ -72,6 +72,12 @@ export namespace foundation::rhi::webgpu
         /// The device-lost callback (registered at creation by the adapter) lands here.
         void MarkLost() { m_lost = true; }
 
+        /// Take ownership of the adapter's heap-allocated lost-callback route (the userdata the
+        /// wgpu device-lost callback dereferences on a REAL loss). Freed in Destroy AFTER the
+        /// wgpu device is released and pending callbacks are flushed - see the ordering note
+        /// there. Trivially-destructible blob: freed with the raw allocator, no destructor.
+        void AdoptLostRoute(void* route) noexcept { m_lostRoute = route; }
+
         /// Set by the adapter: whether the device carries the Immediates feature
         /// (push-constant support; pipeline layouts with ranges fail without it).
         void SetImmediatesSupported(bool supported) { m_immediatesSupported = supported; }
@@ -444,6 +450,17 @@ export namespace foundation::rhi::webgpu
             m_blitHelper.Release();
             m_api->wgpuQueueRelease(m_graphicsQueue.Handle());
             m_api->wgpuDeviceRelease(m_device);
+            // Free the lost-callback route ONLY after the device is released and its pending
+            // callbacks are delivered: an orderly release fires the lost callback with reason
+            // Destroyed (which never dereferences the route), and a REAL loss queued before this
+            // point is flushed by the pump below - after which no callback can target this
+            // device, so the route cannot be read again.
+            if (m_lostRoute != nullptr)
+            {
+                m_api->wgpuInstanceProcessEvents(m_instance);
+                m_allocator.Free(m_lostRoute);
+                m_lostRoute = nullptr;
+            }
             IAllocator& allocator = m_allocator;
             this->~WebGpuDevice();
             allocator.Free(this);
@@ -496,6 +513,7 @@ export namespace foundation::rhi::webgpu
         WebGpuQueue m_graphicsQueue;
         WebGpuQueue m_computeQueue;
         WebGpuQueue m_transferQueue;
+        void* m_lostRoute = nullptr; // adapter's lost-callback userdata; freed in Destroy
         bool m_lost = false;
         bool m_immediatesSupported = false;
         bool m_forceUniformPushConstants = false;
