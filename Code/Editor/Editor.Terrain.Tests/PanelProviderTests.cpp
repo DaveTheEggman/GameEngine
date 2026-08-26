@@ -67,6 +67,30 @@ TEST_CASE("terrain tool panels: providers register + build a panel for each brus
     CHECK(sculptPanel.Get() != nullptr);
     CHECK(splatPanel.Get() != nullptr); // built the base swatch + 6 palette slots + eraser
 
+    // Every layer slot carries a NAME tooltip (a displacement thumbnail is indistinguishable
+    // from its diffuse sibling at swatch size - the name is the disambiguator). Headless with no
+    // editor context the names resolve to placeholders, but they must be present and non-empty.
+    i32 tooltipped = 0;
+    const auto countTooltips = [&](foundation::ui::View& v, const auto& recurse) -> void
+    {
+        if (!v.TooltipText.IsEmpty())
+        {
+            ++tooltipped;
+        }
+        if (auto* group = Cast<foundation::ui::ViewGroup>(&v))
+        {
+            for (usize k = 0; k < group->ChildCount(); ++k)
+            {
+                if (foundation::ui::View* child = group->GetChildAt(k))
+                {
+                    recurse(*child, recurse);
+                }
+            }
+        }
+    };
+    countTooltips(*splatPanel, countTooltips);
+    CHECK(tooltipped >= 7); // 6 palette slots + the eraser (+ the base swatch when thumbs exist)
+
     // The eraser mode the panel's last slot drives round-trips on the tool.
     splat.SetEraser(true);
     CHECK(splat.IsEraser());

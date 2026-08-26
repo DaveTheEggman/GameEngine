@@ -19,6 +19,7 @@ import foundation.core;
 import foundation.ui;
 import foundation.ui.toolkit;
 import foundation.scene;    // Scene, ComponentManagerBase, EntityHandle
+import foundation.content;  // Instance::Name (swatch name tooltips)
 import engine.terrain;      // TerrainComponent(Manager)
 import foundation.terrain;  // TerrainResource + Layer (albedo Ref)
 import editor.core;          // EditorContext, ThumbnailService (splat layer thumbnails)
@@ -109,6 +110,25 @@ namespace editor
             Guid baseId;     // the BASE layer's albedo asset (separate, never painted)
             Array<Guid> ids; // palette albedo asset guids
         };
+        // The albedo asset's NAME for a swatch tooltip - grayscale maps (a displacement picked in
+        // place of its diffuse sibling) are indistinguishable at swatch size, so the name is the
+        // disambiguator (the ImportTest/TerrainProject white-paint hunt).
+        String SwatchAssetName(EditorContext* ctx, const Guid& id)
+        {
+            if (id.IsNil())
+            {
+                return String(u8"(no albedo)");
+            }
+            if (ctx != nullptr && ctx->Project() != nullptr)
+            {
+                if (auto* inst = ctx->Project()->SourceDb().GetInstance(id))
+                {
+                    return String(inst->Name());
+                }
+            }
+            return String(u8"(missing)");
+        }
+
         LayerSet ResolveLayers(scene::Scene& sc)
         {
             LayerSet out;
@@ -314,21 +334,33 @@ namespace editor
                 const bool useThumbs = ls.count > 0 && thumbs != nullptr;
                 ui::Drawable* fallbackIcon = app::EditorIcons::Get().texture.Get();
 
+                // Name tooltips per swatch (thumbnails alone cannot tell a displacement map from
+                // its diffuse sibling); owned Strings, copied into TooltipText at Build.
+                EditorContext* ectx = ctx.editorContext;
+                Array<String> layerNames;
+                for (u32 li = 0; li < ls.count; ++li)
+                {
+                    layerNames.PushBack(SwatchAssetName(ectx, ls.ids[li]));
+                }
+
                 auto root = MakePanelRoot();
                 if (thumbs != nullptr && ls.count > 0)
                 {
                     root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get(),
                                   MakeRef<ui::LayoutParams>(DefaultAllocator()));
-                    root->AddView(MakeRef<LayerSwatch>(DefaultAllocator(), thumbs, ls.baseId,
-                                                       fallbackIcon, 24.0f)
-                                      .Get(),
+                    auto baseSwatch = MakeRef<LayerSwatch>(DefaultAllocator(), thumbs, ls.baseId,
+                                                           fallbackIcon, 24.0f);
+                    baseSwatch->TooltipText = SwatchAssetName(ectx, ls.baseId);
+                    root->AddView(baseSwatch.Get(),
                                   MakeRef<ui::LayoutParams>(DefaultAllocator()));
                 }
                 root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
                               MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
-                // Slots 0..N-1 = palette layers; slot N = the eraser.
-                const i32 paletteCount = useThumbs ? static_cast<i32>(ls.count) : 4;
+                // Slots 0..N-1 = palette layers; slot N = the eraser. The palette is UNBOUNDED:
+                // the resolved terrain's real count always wins (numbered labels when thumbnails
+                // are unavailable); 4 numbered slots only when no terrain resolved at all.
+                const i32 paletteCount = ls.count > 0 ? static_cast<i32>(ls.count) : 4;
                 auto layers = MakeRef<SegmentedToggle>(DefaultAllocator());
                 layers->Build(
                     paletteCount + 1,
@@ -366,9 +398,14 @@ namespace editor
                         return t->IsEraser() ? paletteCount
                                              : static_cast<i32>(t->PaletteIndex());
                     },
-                    [paletteCount](i32 i) -> StringView {
-                        return i == paletteCount ? StringView(u8"Eraser (reveals base)")
-                                                 : StringView(u8"Paint layer");
+                    [paletteCount, names = Move(layerNames)](i32 i) -> StringView {
+                        if (i == paletteCount)
+                        {
+                            return u8"Eraser (reveals base)";
+                        }
+                        return (i >= 0 && static_cast<usize>(i) < names.Size())
+                                   ? names[static_cast<usize>(i)].AsView()
+                                   : StringView(u8"Paint layer");
                     });
                 root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
