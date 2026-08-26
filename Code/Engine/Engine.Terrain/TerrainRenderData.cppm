@@ -61,12 +61,18 @@ export namespace engine::terrain
         // filtered index sample interpolates layer ids into garbage, ruling R1).
         rhi::TextureView* weightView = nullptr;
         rhi::TextureView* indexView = nullptr;
-        // The BASE layer: shows wherever painted weights don't sum to 1. Null = white dummy.
+        // The BASE layer: shows wherever painted weights don't sum to 1. Null = dummy (white albedo /
+        // flat normal / default ORM), per terrain-layer-pbr.md.
         rhi::TextureView* baseAlbedoView = nullptr;
+        rhi::TextureView* baseNormalView = nullptr; // null = flat-normal dummy
+        rhi::TextureView* baseOrmView = nullptr;    // null = default-ORM dummy
         f32 baseTileScale = 1.0f;
         // The paint palette: a Texture2DArray (one slice per palette layer, cook-resized to a
-        // common size) + the per-layer tileScale buffer (slot 0 = base, slot 1+i = palette i).
+        // common size) + the per-layer tileScale buffer (slot 0 = base, slot 1+i = palette i). The
+        // normal / ORM arrays are null when no palette layer used that map (a 1x1 dummy binds).
         rhi::TextureView* paletteArrayView = nullptr;
+        rhi::TextureView* normalArrayView = nullptr;
+        rhi::TextureView* ormArrayView = nullptr;
         rhi::Buffer* tileScaleBuffer = nullptr;
         u64 tileScaleGeneration = 0; // part of the set-3 cache key (never raw pointers)
         u32 paletteCount = 0;

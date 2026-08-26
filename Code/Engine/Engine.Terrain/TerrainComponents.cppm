@@ -210,6 +210,14 @@ export namespace engine::terrain
                     {
                         rd->baseAlbedoView = baseAlb->View();
                     }
+                    if (texture::Texture* baseNrm = res->base.normal.Get())
+                    {
+                        rd->baseNormalView = baseNrm->View();
+                    }
+                    if (texture::Texture* baseOrm = res->base.orm.Get())
+                    {
+                        rd->baseOrmView = baseOrm->View();
+                    }
                     rd->baseTileScale = res->base.tileScale;
                     // The palette Texture2DArray + tileScale buffer (cook-built texels, cached by
                     // TerrainPaletteData::uid + the tile-scale hash; a palette edit re-cooks ->
@@ -225,6 +233,8 @@ export namespace engine::terrain
                             *m_device, *res->paletteData,
                             Span<const f32>{scales.Data(), scales.Size()});
                         rd->paletteArrayView = palette.arrayView;
+                        rd->normalArrayView = palette.normalArrayView;
+                        rd->ormArrayView = palette.ormArrayView;
                         rd->tileScaleBuffer = palette.tileScaleBuffer;
                         rd->tileScaleGeneration = palette.generation;
                         rd->paletteCount = res->paletteData->sliceCount;

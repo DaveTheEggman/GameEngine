@@ -92,10 +92,11 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
 
-            // set 3: the top-K splat material (terrain-splat-topk.md) - integer index map (t0,
-            // Load-only: filtering palette indices is garbage, ruling R1) + weight map (t1) +
-            // base albedo (t2) + the palette Texture2DArray (t3) + the per-layer tileScale
-            // storage buffer (t4) + the repeat/trilinear albedo sampler (s0).
+            // set 3: the top-K splat material (terrain-splat-topk.md + terrain-layer-pbr.md) - integer
+            // index map (t0, Load-only: filtering palette indices is garbage, ruling R1) + weight map
+            // (t1) + base albedo (t2) + palette albedo array (t3) + the per-layer tileScale storage
+            // buffer (t4) + base normal (t5) + normal array (t6) + base ORM (t7) + ORM array (t8) +
+            // the repeat/trilinear albedo sampler (s0, reused for all three arrays).
             rhi::BindGroupLayoutEntry idxEntry =
                 rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
             idxEntry.textureSampleType = rhi::TextureSampleType::Uint; // integer data texture
@@ -111,10 +112,16 @@ export namespace engine::terrain
                     3, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray),
                 rhi::BindGroupLayoutEntry::StorageBuffer(4, rhi::ShaderStage::Fragment,
                                                          /*readOnly*/ true, sizeof(f32)),
+                rhi::BindGroupLayoutEntry::SampledTexture(5, rhi::ShaderStage::Fragment), // base normal
+                rhi::BindGroupLayoutEntry::SampledTexture(
+                    6, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray),
+                rhi::BindGroupLayoutEntry::SampledTexture(7, rhi::ShaderStage::Fragment), // base ORM
+                rhi::BindGroupLayoutEntry::SampledTexture(
+                    8, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray),
                 rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
             };
             rhi::BindGroupLayoutDesc mld{};
-            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 6};
+            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 10};
             if (!m_device->CreateBindGroupLayout(mld, m_materialLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
@@ -312,6 +319,44 @@ export namespace engine::terrain
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
+            // PBR dummies (terrain-layer-pbr.md R4): flat-normal + default-ORM, as a 2D texture (base)
+            // and a 1-slice array (palette), bound when a terrain supplies no normal / ORM map.
+            struct DummyDesc
+            {
+                StringView label;
+                bool array;
+                rhi::Texture** tex;
+                rhi::TextureView** view;
+            };
+            const DummyDesc dummies[] = {
+                {u8"terrain.flatNormal", false, &m_flatNormalTex, &m_flatNormalView},
+                {u8"terrain.flatNormalArray", true, &m_flatNormalArrayTex, &m_flatNormalArrayView},
+                {u8"terrain.defaultOrm", false, &m_defaultOrmTex, &m_defaultOrmView},
+                {u8"terrain.defaultOrmArray", true, &m_defaultOrmArrayTex, &m_defaultOrmArrayView},
+            };
+            for (const DummyDesc& d : dummies)
+            {
+                rhi::TextureDesc dtd{};
+                dtd.format = rhi::TextureFormat::RGBA8Unorm;
+                dtd.width = 1;
+                dtd.height = 1;
+                dtd.arrayLayerCount = 1;
+                dtd.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+                dtd.label = d.label;
+                if (!m_device->CreateTexture(dtd, *d.tex).IsOk())
+                {
+                    return core::Status{core::ErrorCode::Unknown};
+                }
+                rhi::TextureViewDesc dvd{};
+                dvd.format = rhi::TextureFormat::RGBA8Unorm;
+                dvd.dimension = d.array ? rhi::TextureViewDimension::Texture2DArray
+                                        : rhi::TextureViewDimension::Texture2D;
+                dvd.arrayLayerCount = 1;
+                if (!m_device->CreateTextureView(*d.tex, dvd, *d.view).IsOk())
+                {
+                    return core::Status{core::ErrorCode::Unknown};
+                }
+            }
             rhi::BufferDesc tbd{};
             tbd.size = sizeof(f32);
             tbd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
@@ -345,6 +390,16 @@ export namespace engine::terrain
                     tb->WriteTexture(m_zeroIndexTex, Span<const u8>{zero, 4}, layout,
                                      rhi::Extent3D{1, 1, 1});
                     tb->WriteTexture(m_whiteArrayTex, Span<const u8>{white, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    const u8 flatNormal[4] = {128, 128, 255, 255}; // tangent-space +Z
+                    const u8 defaultOrm[4] = {255, 255, 0, 255};   // AO 1, roughness 1, metallic 0
+                    tb->WriteTexture(m_flatNormalTex, Span<const u8>{flatNormal, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    tb->WriteTexture(m_flatNormalArrayTex, Span<const u8>{flatNormal, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    tb->WriteTexture(m_defaultOrmTex, Span<const u8>{defaultOrm, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    tb->WriteTexture(m_defaultOrmArrayTex, Span<const u8>{defaultOrm, 4}, layout,
                                      rhi::Extent3D{1, 1, 1});
                     (void)tb->Submit();
                     q->DestroyTransferBatch(tb);
@@ -918,15 +973,26 @@ export namespace engine::terrain
             rhi::Buffer* tiles =
                 (data.tileScaleBuffer != nullptr) ? data.tileScaleBuffer : m_dummyTileBuffer;
             const u64 tileGen = (data.tileScaleBuffer != nullptr) ? data.tileScaleGeneration : 0;
+            // PBR maps (terrain-layer-pbr.md): absent = the flat-normal / default-ORM dummies.
+            rhi::TextureView* baseNrm =
+                (data.baseNormalView != nullptr) ? data.baseNormalView : m_flatNormalView;
+            rhi::TextureView* nrmArr =
+                (data.normalArrayView != nullptr) ? data.normalArrayView : m_flatNormalArrayView;
+            rhi::TextureView* baseOrm =
+                (data.baseOrmView != nullptr) ? data.baseOrmView : m_defaultOrmView;
+            rhi::TextureView* ormArr =
+                (data.ormArrayView != nullptr) ? data.ormArrayView : m_defaultOrmArrayView;
 
             // Keyed by the WEIGHT view pointer, VALIDATED by every view's uniqueId + the buffer
             // generation (bind-group-cache-versioning: pointers alias across reloads; ids don't).
             if (MaterialBindGroup* found = m_materialBindGroups.Find(wgt))
             {
-                const bool match = found->ids[0] == idx->uniqueId &&
-                                   found->ids[1] == wgt->uniqueId &&
-                                   found->ids[2] == base->uniqueId &&
-                                   found->ids[3] == pal->uniqueId && found->tileGen == tileGen;
+                const bool match =
+                    found->ids[0] == idx->uniqueId && found->ids[1] == wgt->uniqueId &&
+                    found->ids[2] == base->uniqueId && found->ids[3] == pal->uniqueId &&
+                    found->ids[4] == baseNrm->uniqueId && found->ids[5] == nrmArr->uniqueId &&
+                    found->ids[6] == baseOrm->uniqueId && found->ids[7] == ormArr->uniqueId &&
+                    found->tileGen == tileGen;
                 if (match)
                 {
                     return found->bindGroup;
@@ -954,18 +1020,25 @@ export namespace engine::terrain
                 rhi::BindGroupEntry::TextureEntry(base),
                 rhi::BindGroupEntry::TextureEntry(pal),
                 rhi::BindGroupEntry::BufferEntry(tiles, 0, tilesSize),
+                rhi::BindGroupEntry::TextureEntry(baseNrm),
+                rhi::BindGroupEntry::TextureEntry(nrmArr),
+                rhi::BindGroupEntry::TextureEntry(baseOrm),
+                rhi::BindGroupEntry::TextureEntry(ormArr),
                 rhi::BindGroupEntry::SamplerEntry(m_albedoSampler),
             };
             rhi::BindGroupDesc bgd{};
             bgd.layout = m_materialLayout;
-            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 6};
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 10};
             rhi::BindGroup* bg = nullptr;
             if (!m_device->CreateBindGroup(bgd, bg).IsOk())
             {
                 return nullptr;
             }
-            MaterialBindGroup entry{
-                bg, {idx->uniqueId, wgt->uniqueId, base->uniqueId, pal->uniqueId}, tileGen};
+            MaterialBindGroup entry{bg,
+                                    {idx->uniqueId, wgt->uniqueId, base->uniqueId, pal->uniqueId,
+                                     baseNrm->uniqueId, nrmArr->uniqueId, baseOrm->uniqueId,
+                                     ormArr->uniqueId},
+                                    tileGen};
             m_materialBindGroups.InsertOrAssign(wgt, entry);
             return bg;
         }
@@ -1206,6 +1279,27 @@ export namespace engine::terrain
                 m_device->DestroyTexture(m_whiteArrayTex);
                 m_whiteArrayTex = nullptr;
             }
+            rhi::TextureView* pbrViews[] = {m_flatNormalView, m_flatNormalArrayView, m_defaultOrmView,
+                                            m_defaultOrmArrayView};
+            for (rhi::TextureView*& v : pbrViews)
+            {
+                if (v != nullptr)
+                {
+                    m_device->DestroyTextureView(v);
+                }
+            }
+            m_flatNormalView = m_flatNormalArrayView = m_defaultOrmView = m_defaultOrmArrayView =
+                nullptr;
+            rhi::Texture* pbrTex[] = {m_flatNormalTex, m_flatNormalArrayTex, m_defaultOrmTex,
+                                      m_defaultOrmArrayTex};
+            for (rhi::Texture*& t : pbrTex)
+            {
+                if (t != nullptr)
+                {
+                    m_device->DestroyTexture(t);
+                }
+            }
+            m_flatNormalTex = m_flatNormalArrayTex = m_defaultOrmTex = m_defaultOrmArrayTex = nullptr;
             if (m_dummyTileBuffer != nullptr)
             {
                 m_device->DestroyBuffer(m_dummyTileBuffer);
@@ -1257,7 +1351,8 @@ export namespace engine::terrain
         struct MaterialBindGroup
         {
             rhi::BindGroup* bindGroup = nullptr;
-            u64 ids[4] = {0, 0, 0, 0}; // index/weight/base/palette view uniqueIds
+            // index/weight/base/palette + baseNormal/normalArray/baseOrm/ormArray view uniqueIds.
+            u64 ids[8] = {0, 0, 0, 0, 0, 0, 0, 0};
             u64 tileGen = 0;
         };
 
@@ -1289,6 +1384,14 @@ export namespace engine::terrain
         rhi::TextureView* m_zeroIndexView = nullptr;
         rhi::Texture* m_whiteArrayTex = nullptr; // 1x1x1 white palette array
         rhi::TextureView* m_whiteArrayView = nullptr;
+        rhi::Texture* m_flatNormalTex = nullptr; // 1x1 flat normal (base, absent normal map)
+        rhi::TextureView* m_flatNormalView = nullptr;
+        rhi::Texture* m_flatNormalArrayTex = nullptr; // 1x1x1 flat-normal palette array
+        rhi::TextureView* m_flatNormalArrayView = nullptr;
+        rhi::Texture* m_defaultOrmTex = nullptr; // 1x1 default ORM (base, absent ORM map)
+        rhi::TextureView* m_defaultOrmView = nullptr;
+        rhi::Texture* m_defaultOrmArrayTex = nullptr; // 1x1x1 default-ORM palette array
+        rhi::TextureView* m_defaultOrmArrayView = nullptr;
         rhi::Buffer* m_dummyTileBuffer = nullptr; // one f32 = 1.0
         HashMap<rhi::TextureView*, MaterialBindGroup> m_materialBindGroups;
         render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)

@@ -43,6 +43,12 @@ Texture2D               WeightMap    : register(t1, space3); // 4 weights per te
 Texture2D               BaseAlbedo   : register(t2, space3);
 Texture2DArray          PaletteArray : register(t3, space3); // one slice per palette layer
 StructuredBuffer<float> TileScales   : register(t4, space3); // [i] = palette layer i's tiling
+// Per-layer PBR maps (terrain-layer-pbr.md): tangent-space normal + ORM (R=AO G=rough B=metal),
+// blended by the SAME top-K weights as albedo. Absent -> a flat / default 1x1 dummy binds.
+Texture2D               BaseNormal   : register(t5, space3);
+Texture2DArray          NormalArray  : register(t6, space3);
+Texture2D               BaseOrm      : register(t7, space3);
+Texture2DArray          OrmArray     : register(t8, space3);
 SamplerState            AlbedoSampler : register(s0, space3); // repeat, trilinear
 
 struct PSOutput {
@@ -119,14 +125,19 @@ float2 OctEncode(float3 n) {
 PSOutput main(PSIn i) {
     float3 n = normalize(i.normal);
     float3 sun = normalize(LightDir.xyz);
-    float  ndl = saturate(dot(n, sun));
 
     float3 base;
+    float3 blendedN = float3(0.0, 0.0, 1.0); // tangent-space normal (flat default)
+    float3 blendedOrm = float3(1.0, 1.0, 0.0); // AO, roughness, metallic (default material)
     bool hasBase = SplatParams.w >= 0.5;
     bool hasWeights = SplatParams.y >= 0.5 && SplatParams.x >= 0.5;
     if (hasWeights || hasBase) {
-        // Base albedo tiles in terrain-LOCAL XZ (glued to the surface under move/rotate).
-        float3 baseCol = BaseAlbedo.Sample(AlbedoSampler, i.localXZ / max(SplatParams.z, 1e-3)).rgb;
+        // Base maps tile in terrain-LOCAL XZ (glued to the surface under move/rotate). These are in
+        // UNIFORM control flow, so plain Sample (implicit derivatives) is valid.
+        float2 baseUV = i.localXZ / max(SplatParams.z, 1e-3);
+        float3 baseCol = BaseAlbedo.Sample(AlbedoSampler, baseUV).rgb;
+        float3 baseNrm = BaseNormal.Sample(AlbedoSampler, baseUV).rgb * 2.0 - 1.0;
+        float3 baseOrm = BaseOrm.Sample(AlbedoSampler, baseUV).rgb;
         if (hasWeights) {
             // Manual bilinear over the splat texels: Load index+weight at the 4 corners, blend
             // per corner (skip zero-weight slots - the typical texel uses 1-2), lerp the results.
@@ -141,7 +152,9 @@ PSOutput main(PSIn i) {
             float2 f = frac(tex);
             int2 t00 = int2(floor(tex));
             int2 maxT = int2(dims) - int2(1, 1);
-            float3 corner[4];
+            float3 cornerC[4];
+            float3 cornerN[4];
+            float3 cornerO[4];
             [unroll] for (int cIdx = 0; cIdx < 4; ++cIdx) {
                 int2 offs = int2(cIdx & 1, cIdx >> 1);
                 int2 texel = clamp(t00 + offs, int2(0, 0), maxT);
@@ -149,21 +162,32 @@ PSOutput main(PSIn i) {
                 float4 w = WeightMap.Load(int3(texel, 0));
                 float baseW = saturate(1.0 - (w.x + w.y + w.z + w.w));
                 float3 c = baseCol * baseW;
+                float3 nTS = baseNrm * baseW;
+                float3 orm = baseOrm * baseW;
                 [unroll] for (int k = 0; k < 4; ++k) {
                     float wk = w[k];
                     if (wk > 0.0) {
                         uint layer = idx[k];
                         float tile = max(TileScales[layer], 1e-3);
-                        c += PaletteArray.SampleGrad(AlbedoSampler,
-                                                     float3(i.localXZ / tile, (float)layer),
-                                                     dxLocal / tile, dyLocal / tile).rgb * wk;
+                        float3 uvk = float3(i.localXZ / tile, (float)layer);
+                        float2 gx = dxLocal / tile;
+                        float2 gy = dyLocal / tile;
+                        c += PaletteArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
+                        nTS += (NormalArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * 2.0 - 1.0) * wk;
+                        orm += OrmArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
                     }
                 }
-                corner[cIdx] = c;
+                cornerC[cIdx] = c;
+                cornerN[cIdx] = nTS;
+                cornerO[cIdx] = orm;
             }
-            base = lerp(lerp(corner[0], corner[1], f.x), lerp(corner[2], corner[3], f.x), f.y);
+            base = lerp(lerp(cornerC[0], cornerC[1], f.x), lerp(cornerC[2], cornerC[3], f.x), f.y);
+            blendedN = lerp(lerp(cornerN[0], cornerN[1], f.x), lerp(cornerN[2], cornerN[3], f.x), f.y);
+            blendedOrm = lerp(lerp(cornerO[0], cornerO[1], f.x), lerp(cornerO[2], cornerO[3], f.x), f.y);
         } else {
             base = baseCol; // no weights authored: pure base everywhere
+            blendedN = baseNrm;
+            blendedOrm = baseOrm;
         }
     } else {
         // No layers bound -> the height/slope colour ramp (headless tools, layerless terrains).
@@ -174,12 +198,23 @@ PSOutput main(PSIn i) {
         base = lerp(kHigh * 0.8, base, slope);
     }
 
-    // CSM: attenuate only the DIRECT (sun) term; ambient is indirect and stays.
+    // Perturb the shading normal by the blended tangent-space normal. The frame is analytic in the
+    // CHUNK frame (terrain-layer-pbr.md R2): the tiling UV is terrain-LOCAL XZ, so the map's U axis is
+    // local +X rotated to world by ChunkToWorld (world +X would shear on a rotated terrain).
+    float3 axisU = normalize(mul(float4(1.0, 0.0, 0.0, 0.0), ChunkToWorld).xyz);
+    float3 T = normalize(axisU - n * dot(axisU, n));
+    float3 B = cross(n, T);
+    float3 N = normalize(blendedN.x * T + blendedN.y * B + blendedN.z * n);
+    float ndlN = saturate(dot(N, sun));
+    float ao = blendedOrm.r;
+
+    // CSM: attenuate only the DIRECT (sun) term; ambient is indirect (AO-modulated). The shadow bias
+    // uses the stable geometric normal n (perturbed N would add acne from high-frequency detail).
     float viewDepth = -mul(float4(i.worldPos, 1.0), View).z;
-    float shadow = SampleCSM(i.worldPos, n, ndl, viewDepth);
+    float shadow = SampleCSM(i.worldPos, n, ndlN, viewDepth);
 
     const float3 ambient = float3(0.28, 0.30, 0.34);
-    float3 lit = base * (ambient + ndl * shadow);
+    float3 lit = base * (ambient * ao + ndlN * shadow);
 
     // GBuffer motion vector: current vs previous NDC (unjittered), NDC.y flipped vs UV.y.
     float2 curNDC  = i.curClip.xy  / i.curClip.w  + Jitter.xy;
@@ -187,8 +222,8 @@ PSOutput main(PSIn i) {
 
     PSOutput o;
     o.color    = float4(lit, 1.0);
-    o.normal   = OctEncode(normalize(mul(float4(n, 0.0), View).xyz));
+    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));
     o.velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
-    o.material = float2(1.0, 0.0); // fully rough, non-metallic
+    o.material = float2(blendedOrm.g, blendedOrm.b); // roughness, metallic
     return o;
 }

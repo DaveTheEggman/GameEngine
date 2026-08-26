@@ -224,7 +224,9 @@ export namespace engine::terrain
     /// The palette-array GPU views + the per-layer tileScale buffer for one terrain.
     struct PaletteGpu
     {
-        rhi::TextureView* arrayView = nullptr; // Texture2DArray, one slice per palette layer
+        rhi::TextureView* arrayView = nullptr;  // ALBEDO Texture2DArray, one slice per palette layer
+        rhi::TextureView* normalArrayView = nullptr; // null = no layer used a normal map (dummy binds)
+        rhi::TextureView* ormArrayView = nullptr;    // null = no layer used an ORM map
         rhi::Buffer* tileScaleBuffer = nullptr; // f32[paletteCount]; base tile rides the view UBO
         u64 generation = 0;                     // part of the set-3 cache key
     };
@@ -257,8 +259,7 @@ export namespace engine::terrain
                 {
                     if (entry.scaleHash == scaleHash && entry.arrayView != nullptr)
                     {
-                        return PaletteGpu{entry.arrayView, entry.tileScaleBuffer,
-                                          entry.generation};
+                        return MakeGpu(entry);
                     }
                     RetireOrDestroy(device, entry);
                     if (!Build(device, data, paletteTileScales, entry))
@@ -267,7 +268,7 @@ export namespace engine::terrain
                     }
                     entry.scaleHash = scaleHash;
                     ++entry.generation;
-                    return PaletteGpu{entry.arrayView, entry.tileScaleBuffer, entry.generation};
+                    return MakeGpu(entry);
                 }
             }
             Entry fresh;
@@ -279,8 +280,7 @@ export namespace engine::terrain
                 return PaletteGpu{};
             }
             m_entries.PushBack(fresh);
-            const Entry& stored = m_entries[m_entries.Size() - 1];
-            return PaletteGpu{stored.arrayView, stored.tileScaleBuffer, stored.generation};
+            return MakeGpu(m_entries[m_entries.Size() - 1]);
         }
 
         void Clear(rhi::Device& device)
@@ -300,10 +300,20 @@ export namespace engine::terrain
             u64 key = 0; // TerrainPaletteData::uid - never a pointer
             u64 scaleHash = 0;
             u64 generation = 0;
-            rhi::Texture* arrayTexture = nullptr;
+            rhi::Texture* arrayTexture = nullptr;       // albedo (sRGB)
             rhi::TextureView* arrayView = nullptr;
+            rhi::Texture* normalTexture = nullptr;      // linear; null when no layer used a normal map
+            rhi::TextureView* normalArrayView = nullptr;
+            rhi::Texture* ormTexture = nullptr;         // linear; null when no layer used an ORM map
+            rhi::TextureView* ormArrayView = nullptr;
             rhi::Buffer* tileScaleBuffer = nullptr;
         };
+
+        [[nodiscard]] static PaletteGpu MakeGpu(const Entry& e) noexcept
+        {
+            return PaletteGpu{e.arrayView, e.normalArrayView, e.ormArrayView, e.tileScaleBuffer,
+                              e.generation};
+        }
 
         [[nodiscard]] static u64 HashScales(Span<const f32> scales) noexcept
         {
@@ -321,56 +331,55 @@ export namespace engine::terrain
             return h;
         }
 
-        [[nodiscard]] static bool Build(rhi::Device& device,
-                                        const foundation::terrain::TerrainPaletteData& data,
-                                        Span<const f32> paletteTileScales, Entry& out)
+        // Create + upload ONE RGBA8 Texture2DArray (slice-major mip chain) at `format`.
+        [[nodiscard]] static bool BuildArray(rhi::Device& device, rhi::TextureFormat format,
+                                             Span<const u8> texels, u32 sliceSize, u32 mipCount,
+                                             u32 sliceCount, StringView label, rhi::Texture*& outTex,
+                                             rhi::TextureView*& outView)
         {
             rhi::TextureDesc td{};
-            td.format = rhi::TextureFormat::RGBA8Unorm;
-            td.width = data.sliceSize;
-            td.height = data.sliceSize;
-            td.arrayLayerCount = data.sliceCount;
-            td.mipLevelCount = data.mipCount;
+            td.format = format;
+            td.width = sliceSize;
+            td.height = sliceSize;
+            td.arrayLayerCount = sliceCount;
+            td.mipLevelCount = mipCount;
             td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
-            td.label = u8"terrain.palette";
-            if (!device.CreateTexture(td, out.arrayTexture).IsOk() || out.arrayTexture == nullptr)
+            td.label = label;
+            if (!device.CreateTexture(td, outTex).IsOk() || outTex == nullptr)
             {
                 return false;
             }
             rhi::TextureViewDesc vd{};
-            vd.format = rhi::TextureFormat::RGBA8Unorm;
+            vd.format = format;
             vd.dimension = rhi::TextureViewDimension::Texture2DArray;
-            vd.arrayLayerCount = data.sliceCount;
-            vd.mipLevelCount = data.mipCount;
-            if (!device.CreateTextureView(out.arrayTexture, vd, out.arrayView).IsOk() ||
-                out.arrayView == nullptr)
+            vd.arrayLayerCount = sliceCount;
+            vd.mipLevelCount = mipCount;
+            if (!device.CreateTextureView(outTex, vd, outView).IsOk() || outView == nullptr)
             {
-                device.DestroyTexture(out.arrayTexture);
-                out.arrayTexture = nullptr;
+                device.DestroyTexture(outTex);
+                outTex = nullptr;
                 return false;
             }
-
             if (rhi::Queue* queue = device.GetQueue(rhi::QueueType::Graphics))
             {
                 rhi::TransferBatch* batch = nullptr;
                 if (queue->CreateTransferBatch(batch).IsOk() && batch != nullptr)
                 {
-                    const usize sliceBytes = foundation::terrain::TerrainPaletteData::SliceBytes(
-                        data.sliceSize, data.mipCount);
-                    for (u32 slice = 0; slice < data.sliceCount; ++slice)
+                    const usize sliceBytes =
+                        foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+                    for (u32 slice = 0; slice < sliceCount; ++slice)
                     {
-                        const u8* sliceBase = data.texels.Data() + sliceBytes * slice;
+                        const u8* sliceBase = texels.Data() + sliceBytes * slice;
                         usize offset = 0;
-                        u32 dim = data.sliceSize;
-                        for (u32 m = 0; m < data.mipCount; ++m)
+                        u32 dim = sliceSize;
+                        for (u32 m = 0; m < mipCount; ++m)
                         {
                             const usize bytes = static_cast<usize>(dim) * dim * 4u;
                             rhi::TextureDataLayout layout{};
                             layout.bytesPerRow = dim * 4u;
                             layout.rowsPerImage = dim;
-                            batch->WriteTexture(out.arrayTexture,
-                                                Span<const u8>{sliceBase + offset, bytes}, layout,
-                                                rhi::Extent3D{dim, dim, 1}, m, slice);
+                            batch->WriteTexture(outTex, Span<const u8>{sliceBase + offset, bytes},
+                                                layout, rhi::Extent3D{dim, dim, 1}, m, slice);
                             offset += bytes;
                             dim = dim > 1 ? dim / 2 : 1;
                         }
@@ -378,6 +387,41 @@ export namespace engine::terrain
                     (void)batch->Submit();
                     queue->DestroyTransferBatch(batch);
                 }
+            }
+            return true;
+        }
+
+        [[nodiscard]] static bool Build(rhi::Device& device,
+                                        const foundation::terrain::TerrainPaletteData& data,
+                                        Span<const f32> paletteTileScales, Entry& out)
+        {
+            // Albedo is sRGB (fixes the base-vs-palette brightness gap, terrain-layer-pbr.md R3);
+            // normal + ORM are linear and built ONLY when a layer supplied them (else the renderer
+            // binds a 1x1 dummy).
+            if (!BuildArray(device, rhi::TextureFormat::RGBA8UnormSrgb,
+                            Span<const u8>{data.texels.Data(), data.texels.Size()}, data.sliceSize,
+                            data.mipCount, data.sliceCount, u8"terrain.palette", out.arrayTexture,
+                            out.arrayView))
+            {
+                return false;
+            }
+            if (data.HasNormal() &&
+                !BuildArray(device, rhi::TextureFormat::RGBA8Unorm,
+                            Span<const u8>{data.normalTexels.Data(), data.normalTexels.Size()},
+                            data.sliceSize, data.mipCount, data.sliceCount, u8"terrain.palette.normal",
+                            out.normalTexture, out.normalArrayView))
+            {
+                Destroy(device, out);
+                return false;
+            }
+            if (data.HasOrm() &&
+                !BuildArray(device, rhi::TextureFormat::RGBA8Unorm,
+                            Span<const u8>{data.ormTexels.Data(), data.ormTexels.Size()},
+                            data.sliceSize, data.mipCount, data.sliceCount, u8"terrain.palette.orm",
+                            out.ormTexture, out.ormArrayView))
+            {
+                Destroy(device, out);
+                return false;
             }
 
             // The tileScale storage buffer: TileScales[i] = palette layer i (tight f32; the base
@@ -414,9 +458,17 @@ export namespace engine::terrain
             {
                 m_retire->Retire(entry.arrayView);
                 m_retire->Retire(entry.arrayTexture);
+                m_retire->Retire(entry.normalArrayView);
+                m_retire->Retire(entry.normalTexture);
+                m_retire->Retire(entry.ormArrayView);
+                m_retire->Retire(entry.ormTexture);
                 m_retire->Retire(entry.tileScaleBuffer);
                 entry.arrayView = nullptr;
                 entry.arrayTexture = nullptr;
+                entry.normalArrayView = nullptr;
+                entry.normalTexture = nullptr;
+                entry.ormArrayView = nullptr;
+                entry.ormTexture = nullptr;
                 entry.tileScaleBuffer = nullptr;
                 return;
             }
@@ -425,16 +477,28 @@ export namespace engine::terrain
 
         static void Destroy(rhi::Device& device, Entry& entry)
         {
-            if (entry.arrayView != nullptr)
+            const auto view = [&device](rhi::TextureView*& v)
             {
-                device.DestroyTextureView(entry.arrayView);
-                entry.arrayView = nullptr;
-            }
-            if (entry.arrayTexture != nullptr)
+                if (v != nullptr)
+                {
+                    device.DestroyTextureView(v);
+                    v = nullptr;
+                }
+            };
+            const auto tex = [&device](rhi::Texture*& t)
             {
-                device.DestroyTexture(entry.arrayTexture);
-                entry.arrayTexture = nullptr;
-            }
+                if (t != nullptr)
+                {
+                    device.DestroyTexture(t);
+                    t = nullptr;
+                }
+            };
+            view(entry.arrayView);
+            tex(entry.arrayTexture);
+            view(entry.normalArrayView);
+            tex(entry.normalTexture);
+            view(entry.ormArrayView);
+            tex(entry.ormTexture);
             if (entry.tileScaleBuffer != nullptr)
             {
                 device.DestroyBuffer(entry.tileScaleBuffer);
