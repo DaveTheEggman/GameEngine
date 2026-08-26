@@ -197,7 +197,16 @@ export namespace foundation::terrain
                     {
                         continue;
                     }
-                    const f32 fall = 0.5f + 0.5f * Cos(3.14159265f * dist);
+                    // Hard inner core + cosine skirt: full strength inside half the radius, then
+                    // the smooth falloff to the rim. The core makes a full-strength stamp
+                    // DECISIVE (one-hot paint / clean erase at the texel under the cursor - the
+                    // stamp-brush model needs an exact 1 somewhere, and a pure cosine never
+                    // delivers it at a texel centre); the skirt keeps the edge soft.
+                    constexpr f32 kCore = 0.5f;
+                    const f32 fall =
+                        dist <= kCore
+                            ? 1.0f
+                            : 0.5f + 0.5f * Cos(3.14159265f * (dist - kCore) / (1.0f - kCore));
                     const f32 t = Clamp(amount * fall, 0.0f, 1.0f);
                     if (t > 0.0f)
                     {
@@ -273,16 +282,36 @@ export namespace foundation::terrain
                     wts[at + slot] = 0; // evicted weight falls to base (sum drops)
                 }
 
-                // 2 + 3. Fade others, raise L; compute in float, quantize once.
+                // 2 + 3. Fade others, raise L; compute in float, quantize once. The raised slot
+                // quantizes LAST, capped by the others' quantized sum - per-slot round-to-nearest
+                // can otherwise push the u8 sum one over 255 (e.g. t = 0.5 rounds BOTH halves
+                // up), and convexity (sum + base == 1) must hold exactly in the stored bytes.
                 bool texelChanged = false;
+                i32 othersSum = 0;
                 for (u32 k = 0; k < kSplatSlotCount; ++k)
                 {
+                    if (k == slot)
+                    {
+                        continue;
+                    }
                     const f32 wv = static_cast<f32>(wts[at + k]) * (1.0f / 255.0f);
-                    const f32 nv = (k == slot) ? (wv + t * (1.0f - wv)) : (wv * (1.0f - t));
+                    const f32 nv = wv * (1.0f - t);
                     const u8 q = static_cast<u8>(Clamp(nv * 255.0f + 0.5f, 0.0f, 255.0f));
                     if (q != wts[at + k])
                     {
                         wts[at + k] = q;
+                        texelChanged = true;
+                    }
+                    othersSum += q;
+                }
+                {
+                    const f32 wv = static_cast<f32>(wts[at + slot]) * (1.0f / 255.0f);
+                    const f32 nv = wv + t * (1.0f - wv);
+                    const f32 cap = static_cast<f32>(255 - Min(othersSum, 255));
+                    const u8 q = static_cast<u8>(Clamp(nv * 255.0f + 0.5f, 0.0f, cap));
+                    if (q != wts[at + slot])
+                    {
+                        wts[at + slot] = q;
                         texelChanged = true;
                     }
                 }

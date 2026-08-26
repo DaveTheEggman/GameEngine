@@ -264,7 +264,7 @@ namespace editor
             }
             else if (m_stroking && input.leftDown && pick.valid && pick.weights == m_strokeWeights.Get())
             {
-                ApplyDab(pick, input.deltaSeconds);
+                AdvanceStroke(pick);
                 consumed = true;
             }
 
@@ -298,25 +298,58 @@ namespace editor
             MemCopy(m_beforeIndices.Data(), ip.Data(), ip.Size());
         }
         m_region = terrain::SplatRegion{};
-        ApplyDab(pick, 0.0f); // an instant click still deposits one dab (dt=0 -> a minimum step)
+        // The press deposits ONE full stamp and anchors the spacing walker there.
+        ApplyStamp(pick.uvX, pick.uvY, pick);
+        m_lastStampU = pick.uvX;
+        m_lastStampV = pick.uvY;
     }
 
-    void TerrainSplatTool::ApplyDab(const Pick& pick, f32 deltaSeconds)
+    // Distance-spaced stamping (the standard paint-brush model): a stamp lands every fraction of
+    // the brush radius of world-space pointer travel, WALKING the segment from the last stamp so a
+    // fast drag leaves no gaps. Frame-rate and drag-speed independent; holding still deposits
+    // nothing beyond the press stamp (scrub to build up at sub-1 strengths).
+    constexpr f32 kStampSpacing = 0.25f;         // of the brush radius
+    constexpr i32 kMaxStampsPerFrame = 1024;     // teleport guard (alt-tab warps, huge drags)
+
+    void TerrainSplatTool::AdvanceStroke(const Pick& pick)
     {
         if (m_strokeWeights.Get() == nullptr)
         {
             return;
         }
-        const f32 step = m_strength * (deltaSeconds > 0.0f ? deltaSeconds : (1.0f / 60.0f));
+        const f32 spacing = Max(m_radius * kStampSpacing, 1e-4f);
+        for (i32 i = 0; i < kMaxStampsPerFrame; ++i)
+        {
+            const f32 dxWorld = (pick.uvX - m_lastStampU) * pick.worldSizeX;
+            const f32 dyWorld = (pick.uvY - m_lastStampV) * pick.worldSizeY;
+            const f32 dist = Sqrt(dxWorld * dxWorld + dyWorld * dyWorld);
+            if (dist < spacing)
+            {
+                return; // remainder carries to the next frame (no partial stamps)
+            }
+            const f32 f = spacing / dist;
+            m_lastStampU += (pick.uvX - m_lastStampU) * f;
+            m_lastStampV += (pick.uvY - m_lastStampV) * f;
+            ApplyStamp(m_lastStampU, m_lastStampV, pick);
+        }
+    }
+
+    void TerrainSplatTool::ApplyStamp(f32 uvX, f32 uvY, const Pick& pick)
+    {
+        if (m_strokeWeights.Get() == nullptr)
+        {
+            return;
+        }
         // Per-axis UV radii keep the brush a CIRCLE in world space on a non-square footprint.
         const f32 uvRadiusX = m_radius / pick.worldSizeX;
         const f32 uvRadiusY = m_radius / pick.worldSizeY;
-        const f32 t = Clamp(step, 0.0f, 1.0f);
+        // Strength IS the per-stamp coverage fraction: 1 = one-hot under the falloff in a single
+        // stamp (and a hard eraser); the cosine falloff inside the cores softens the rim.
+        const f32 t = Clamp(m_strength, 0.0f, 1.0f);
         const terrain::SplatRegion r =
-            m_erase ? terrain::EraseTopK(*m_strokeWeights, pick.uvX, pick.uvY, uvRadiusX,
-                                         uvRadiusY, t)
-                    : terrain::PaintTopK(*m_strokeWeights, pick.uvX, pick.uvY, uvRadiusX,
-                                         uvRadiusY, m_paletteIndex, t);
+            m_erase ? terrain::EraseTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t)
+                    : terrain::PaintTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY,
+                                         m_paletteIndex, t);
         if (!r.IsEmpty())
         {
             m_region.Add(r.minX, r.minY);

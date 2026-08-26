@@ -46,16 +46,19 @@ namespace
         Function<Status(foundation::content::ContentDatabase&)> lastPersist;
     };
 
-    editor::ViewportToolInput CenterRay(f32 deltaSeconds)
+    // A straight-down ray at world (x, z) - stamps land where it hits (the 64x64 fixture spans
+    // -32..32, so x=0 is the raster centre texel 16 of 32).
+    editor::ViewportToolInput RayAt(f32 x, f32 z)
     {
         editor::ViewportToolInput in;
-        in.ray.origin = Float3{0.0f, 100.0f, 0.0f};
+        in.ray.origin = Float3{x, 100.0f, z != 0.0f ? z : 0.001f};
         in.ray.direction = Float3{0.0f, -1.0f, 0.0f};
         in.pointerValid = true;
         in.pointerOver = true;
-        in.deltaSeconds = deltaSeconds;
+        in.deltaSeconds = 1.0f / 60.0f;
         return in;
     }
+    editor::ViewportToolInput CenterRay(f32) { return RayAt(0.0f, 0.0f); }
 
     struct Fixture
     {
@@ -82,7 +85,7 @@ namespace
     };
 }
 
-TEST_CASE("terrain splat: a press-drag-release stroke raises the selected palette layer")
+TEST_CASE("terrain splat: a stroke stamps the selected palette layer along the drag")
 {
     Fixture fx;
     editor::EditorCommandStack commands;
@@ -95,22 +98,25 @@ TEST_CASE("terrain splat: a press-drag-release stroke raises the selected palett
     CHECK(fx.weights->WeightOfLayer(16, 16, 1) == 0);
     const u64 v0 = fx.weights->Version();
 
-    editor::ViewportToolInput press = CenterRay(0.5f);
+    // The press deposits one FULL stamp (default strength 1 = one-hot at the centre instantly -
+    // the distance-spaced stamp model; no time-based trickle).
+    editor::ViewportToolInput press = CenterRay(0.0f);
     press.leftPressed = true;
     press.leftDown = true;
     CHECK(tool.Update(press)); // consumed: the brush owns the click
+    CHECK(fx.weights->WeightOfLayer(16, 16, 1) == 255);
+    CHECK(fx.weights->BaseWeight(16, 16) == 0);
+    CHECK(fx.weights->Version() > v0); // paint bumped the version (GPU re-upload)
 
-    const u8 dab1 = fx.weights->WeightOfLayer(16, 16, 1);
-    CHECK(dab1 > 0);                              // palette 1 rose at the centre
-    CHECK(fx.weights->BaseWeight(16, 16) < 255);  // the base receded by the gained amount
-    CHECK(fx.weights->Version() > v0);            // paint bumped the version (GPU re-upload)
-
-    editor::ViewportToolInput drag = CenterRay(0.5f);
+    // Dragging walks stamps along the world-space travel - the swath has no gaps: texels between
+    // the press point and the drag target are all painted hard.
+    editor::ViewportToolInput drag = RayAt(8.0f, 0.0f); // 8 world units right = texel ~20
     drag.leftDown = true;
     CHECK(tool.Update(drag));
-    CHECK(fx.weights->WeightOfLayer(16, 16, 1) > dab1); // more after another dab
+    CHECK(fx.weights->WeightOfLayer(18, 16, 1) > 200); // mid-path
+    CHECK(fx.weights->WeightOfLayer(19, 16, 1) > 200);
 
-    editor::ViewportToolInput release = CenterRay(0.5f);
+    editor::ViewportToolInput release = RayAt(8.0f, 0.0f);
     release.leftReleased = true;
     (void)tool.Update(release);
 
@@ -118,6 +124,45 @@ TEST_CASE("terrain splat: a press-drag-release stroke raises the selected palett
     CHECK(sink.count == 1);
     CHECK(sink.lastId == Guid{5, 55});
     CHECK(sink.hasPersist);
+}
+
+TEST_CASE("terrain splat: stamps are distance-spaced - holding still adds nothing, scrubbing builds")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::TerrainSplatTool tool(fx.scene, commands, nullptr);
+    tool.SetPaletteIndex(2);
+    tool.SetStrength(0.5f); // sub-1: one stamp = half coverage; build-up needs MOVEMENT
+
+    editor::ViewportToolInput press = CenterRay(0.0f);
+    press.leftPressed = true;
+    press.leftDown = true;
+    (void)tool.Update(press);
+    const u8 afterPress = fx.weights->WeightOfLayer(16, 16, 2);
+    CHECK(afterPress >= 126); // ~half coverage from the press stamp
+    CHECK(afterPress <= 129);
+
+    // Holding the button still (many frames, no movement) deposits NOTHING more.
+    for (i32 i = 0; i < 10; ++i)
+    {
+        editor::ViewportToolInput hold = CenterRay(0.0f);
+        hold.leftDown = true;
+        (void)tool.Update(hold);
+    }
+    CHECK(fx.weights->WeightOfLayer(16, 16, 2) == afterPress);
+
+    // Scrubbing out and back re-stamps the centre: coverage builds toward one-hot.
+    editor::ViewportToolInput out = RayAt(2.0f, 0.0f);
+    out.leftDown = true;
+    (void)tool.Update(out);
+    editor::ViewportToolInput back = CenterRay(0.0f);
+    back.leftDown = true;
+    (void)tool.Update(back);
+    CHECK(fx.weights->WeightOfLayer(16, 16, 2) > afterPress + 40);
+
+    editor::ViewportToolInput release = CenterRay(0.0f);
+    release.leftReleased = true;
+    (void)tool.Update(release);
 }
 
 TEST_CASE("terrain splat: one command per stroke undoes/redoes BOTH rasters")
@@ -166,42 +211,54 @@ TEST_CASE("terrain splat: the eraser fades paint back to the base")
     tool.SetPaletteIndex(3);
     tool.SetStrength(1.0f);
 
-    // Lay down a real amount of paint (press + several drag dabs).
-    editor::ViewportToolInput press = CenterRay(1.0f);
+    // One full-strength press stamp = one-hot paint at the centre.
+    editor::ViewportToolInput press = CenterRay(0.0f);
     press.leftPressed = true;
     press.leftDown = true;
     (void)tool.Update(press);
-    for (i32 i = 0; i < 8; ++i)
-    {
-        editor::ViewportToolInput drag = CenterRay(1.0f);
-        drag.leftDown = true;
-        (void)tool.Update(drag);
-    }
-    editor::ViewportToolInput release = CenterRay(1.0f);
+    editor::ViewportToolInput release = CenterRay(0.0f);
     release.leftReleased = true;
     (void)tool.Update(release);
     const u8 painted = fx.weights->WeightOfLayer(16, 16, 3);
-    REQUIRE(painted > 20);
+    REQUIRE(painted == 255);
 
-    // Erase over the same spot: layer 3 fades, the base comes back.
+    // The eraser at strength 1 is a HARD eraser: one press stamp restores pure base.
     tool.SetEraser(true);
     CHECK(tool.IsEraser());
-    editor::ViewportToolInput epress = CenterRay(1.0f);
+    editor::ViewportToolInput epress = CenterRay(0.0f);
     epress.leftPressed = true;
     epress.leftDown = true;
     (void)tool.Update(epress);
-    for (i32 i = 0; i < 8; ++i)
-    {
-        editor::ViewportToolInput drag = CenterRay(1.0f);
-        drag.leftDown = true;
-        (void)tool.Update(drag);
-    }
-    editor::ViewportToolInput erelease = CenterRay(1.0f);
+    editor::ViewportToolInput erelease = CenterRay(0.0f);
     erelease.leftReleased = true;
     (void)tool.Update(erelease);
 
-    CHECK(fx.weights->WeightOfLayer(16, 16, 3) < painted);
-    CHECK(fx.weights->BaseWeight(16, 16) > 0);
+    CHECK(fx.weights->WeightOfLayer(16, 16, 3) == 0);
+    CHECK(fx.weights->BaseWeight(16, 16) == 255);
+
+    // A soft eraser (sub-1) only FADES per stamp.
+    tool.SetEraser(false);
+    editor::ViewportToolInput rp = CenterRay(0.0f);
+    rp.leftPressed = true;
+    rp.leftDown = true;
+    (void)tool.Update(rp);
+    editor::ViewportToolInput rr = CenterRay(0.0f);
+    rr.leftReleased = true;
+    (void)tool.Update(rr);
+    REQUIRE(fx.weights->WeightOfLayer(16, 16, 3) == 255);
+    tool.SetEraser(true);
+    tool.SetStrength(0.5f);
+    editor::ViewportToolInput sp = CenterRay(0.0f);
+    sp.leftPressed = true;
+    sp.leftDown = true;
+    (void)tool.Update(sp);
+    editor::ViewportToolInput sr = CenterRay(0.0f);
+    sr.leftReleased = true;
+    (void)tool.Update(sr);
+    const u8 faded = fx.weights->WeightOfLayer(16, 16, 3);
+    CHECK(faded > 100); // half remains
+    CHECK(faded < 160);
+    CHECK(fx.weights->BaseWeight(16, 16) > 90);
 }
 
 TEST_CASE("terrain splat: unavailable with no weights, and refuses edits while editingLocked")

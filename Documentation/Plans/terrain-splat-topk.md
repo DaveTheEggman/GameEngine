@@ -163,8 +163,22 @@ path can diverge - validate the cook early (R1, R5).
 
 ## Paint tool (Editor.Terrain, TerrainSplatTool)
 
-The tool selects a PALETTE index (0..PaletteCount-1), or the ERASER. Per dab, for each covered
-texel, apply the top-K update with the falloff-scaled strength `t`:
+The tool selects a PALETTE index (0..PaletteCount-1), or the ERASER.
+
+STROKE MODEL (revised post-ship, user feedback 2026-08-25): DISTANCE-SPACED STAMPS, not the
+original time-based airbrush (strength/sec x frame delta felt weak - at 1.0 a full second of
+hovering only reached 63% coverage). A stamp lands on press and then every quarter-radius of
+world-space pointer travel, WALKING the drag segment (fast drags leave no gaps; a teleport is
+capped). Strength = the PER-STAMP coverage fraction: 1.0 is one-hot paint / a hard erase in a
+single stamp; sub-1 strengths build up by scrubbing; holding still deposits nothing beyond the
+press stamp. Frame-rate AND drag-speed independent (the Unity/Unreal stamp model). The brush
+falloff gained a HARD CORE (full strength inside half the radius, cosine skirt to the rim) so a
+full-strength stamp is decisive at the texels under the cursor - a pure cosine never delivers
+exactly 1 at a texel centre. The raised slot quantizes LAST, capped by the others' quantized sum,
+so convexity holds EXACTLY in the stored bytes (per-slot round-to-nearest could drift the u8 sum
+one over 255).
+
+Per stamp, for each covered texel, apply the top-K update with the falloff-scaled strength `t`:
 
 Paint(paletteIndex L, strength t):
   1. If L is already one of the 4 slots at this texel: `slotOf(L)`.

@@ -94,7 +94,8 @@ export namespace editor
         [[nodiscard]] Pick ResolvePick(const ViewportToolInput& input) const;
 
         void BeginStroke(const Pick& pick);
-        void ApplyDab(const Pick& pick, f32 deltaSeconds);
+        void AdvanceStroke(const Pick& pick);          // distance-spaced stamps along the drag
+        void ApplyStamp(f32 uvX, f32 uvY, const Pick& pick);
         void EndStroke();
         void UpdateStatus();
 
@@ -105,7 +106,11 @@ export namespace editor
         u32 m_paletteIndex = 0; // which PALETTE layer the brush paints (0..255)
         bool m_erase = false;   // eraser mode (reveals the base)
         f32 m_radius = 6.0f;   // world units
-        f32 m_strength = 1.0f; // 0..1 weight added per second at the brush centre
+        // Per-STAMP coverage fraction at the brush centre (0..1; 1 = one-hot in one stamp, and a
+        // hard eraser). Stamps are spaced along the stroke's world-space travel (kStampSpacing of
+        // the radius) - Unity/Unreal-style: frame-rate AND drag-speed independent; holding still
+        // deposits nothing beyond the press stamp; sub-1 strengths build up by scrubbing.
+        f32 m_strength = 1.0f;
 
         // Hover (cursor overlay).
         bool m_hasHover = false;
@@ -116,6 +121,8 @@ export namespace editor
         // for the whole stroke; the full-raster snapshots cover BOTH rasters (the union region is
         // unknown until release, when the command slices before/after out of them).
         bool m_stroking = false;
+        f32 m_lastStampU = 0.0f; // UV of the last deposited stamp (the spacing walker's anchor)
+        f32 m_lastStampV = 0.0f;
         RefPtr<foundation::terrain::SplatWeights> m_strokeWeights;
         Guid m_strokeWeightsId;
         Array<u8> m_beforeWeights;
