@@ -1,0 +1,201 @@
+# Terrain Layers: Height-Blended Splatting (per-layer displacement as a blend mask)
+
+Status: DRAFT (awaiting Fable review). Extends terrain-layer-pbr.md (per-layer normal + ORM on the
+top-K blend) and terrain-splat-topk.md (base + unbounded palette + top-K weight rasters). Pure
+material/render extension - NO change to the paint tool, the weight rasters, or the paint data model.
+
+## Motivation
+
+The top-K splat blends layers by a LINEAR weight lerp: at a boundary between grass (weight 0.6) and
+gravel (weight 0.4) the shader mixes 60/40 uniformly across the seam, so the transition reads as a
+soft dissolve. Real ground does not dissolve - the gravel shows first in the low spots (mortar lines,
+divots) while grass holds the high tufts. That interlocking is what a boundary looks like in nature,
+and its absence is a large part of why splatting still reads as "painted-on" even after normal + ORM
+maps are in.
+
+Height-blended splatting fixes this WITHOUT touching geometry: each layer carries a small tiling
+HEIGHT (displacement) map, and at each texel the blend is biased toward the layer whose local height
+is greatest, with a controllable soft skirt. This is the classic "advanced terrain texture splatting"
+technique (Mishkinis) - a per-texel reweighting of the SAME top-K weights we already compute, so the
+blend stays a convex combination and albedo / normal / ORM all keep flowing through it unchanged.
+
+Scope note (answers the "what is a displacement map used for" question directly): this track uses the
+displacement map as a BLEND MASK only. It does NOT move vertices (that is the heightfield's job) and
+it does NOT do parallax occlusion mapping or tessellation - those are the "real micro-displacement"
+options, deferred below, and tessellation is off the table anyway (the terrain renderer is one path
+incl. WebGPU, no tessellation stage).
+
+## The blend math
+
+Today, per splat texel corner (the manual 2x2 bilinear from R1), the shader forms a LINEAR convex
+combination: base gets `baseW = 1 - sum(w)`, palette slot k gets `w[k]`, and albedo / normal / ORM are
+weighted-summed by those. Height-blend replaces the WEIGHTS (only) with height-biased ones:
+
+    // Per corner, per contributor i in {base} u {palette slots with w[k] > 0}:
+    //   score_i = weight_i + height_i          (weight and height both ~[0,1])
+    //   sMax    = max score over contributors
+    //   b_i     = max(score_i - (sMax - depth), 0)     // depth = contrast, the soft-skirt width
+    //   final weight_i = b_i / sum(b)                  // renormalize -> convex again
+
+- `height_base` = BaseHeight sampled at the base tiling UV; `height_k` = HeightArray slice `idx[k]` at
+  that layer's tiling UV. Value is the map's red channel in [0,1].
+- The base contributor is included ONLY when `baseW > 0` (else its mid-height would bleed phantom base
+  where the palette already sums to 1).
+- `depth` (contrast) is a per-terrain scalar > 0. Small depth = sharp, near-binary transition (the
+  tallest layer wins hard); large depth = wide soft skirt approaching the linear blend. Clamped to a
+  safe floor so `sum(b) >= depth > 0` (the max contributor always survives with `b = depth`) - no
+  divide-by-zero, no need for a zero-sum guard.
+- The reweighting is per CORNER; the existing 2x2 bilinear across the four corner RESULTS still does
+  the spatial smoothing, so seams stay anti-aliased.
+
+This preserves the sum-to-one property (renormalized), so the downstream albedo / normal / ORM
+weighted sums remain valid convex blends - the whole PBR stack rides height-blend for free.
+
+OFF path (no layer authored a height map): the shader keeps TODAY's exact linear weighting - the
+height samples and the height-blend math are skipped entirely, byte-identical output. Height-blend is
+strictly opt-in per terrain.
+
+## Data model (foundation.terrain.resource)
+
+Mirror the normal / ORM addition from terrain-layer-pbr.md EXACTLY (that is the established pattern):
+
+- `TerrainResource::Layer` gains `Ref<texture::Texture> height;` (one more optional map alongside
+  albedo / normal / orm).
+- `TerrainSource` gains `Guid baseHeightId;` + `Array<Guid> paletteHeightIds;`, plus a per-terrain
+  `f32 heightBlendContrast = 0.25f;`. Serialized under a NEW version gate (`ar.Version() >= 4`);
+  `RTTI_DEFINE_OBJECT_VERSIONED(..., 4)` (was 3).
+- `TerrainPaletteData` gains `Array<u8> heightTexels;` + `HasHeight()`.
+- New sidecar stream `kPaletteHeightStream = u8"palette.height"` (parallel to `palette.normal` /
+  `palette.orm`).
+- `TerrainFactory::Create`: the existing `bind` lambda binds base/palette height the same way it binds
+  normal/orm; `ReadArrayStream` reads the height stream on demand (absent -> no array; base height nil
+  -> runtime dummy, never a cook product, per layer-pbr R4). The factory also copies
+  `heightBlendContrast` from source -> resource.
+
+Storage decision: height is stored as an RGBA8 slice and read via `.r`. This reuses ALL existing cook
++ array machinery (DecodeTextureRgba8, CookArray, BuildArray, the RGBA8 palette format) with ZERO new
+single-channel format plumbing; the 3x memory for a scalar is negligible for small tiling maps. The
+nil-layer default slice is `{128,128,128,255}` (mid-height 0.5). [Fable: R8Unorm would halve the
+array memory at the cost of a new format path through cook + BuildArray + the dummy - I judge the
+reuse worth the memory; flag if you disagree.]
+
+## Cook (Terrain.Pipeline)
+
+Mirror layer-pbr P0 exactly:
+
+- `TerrainAsset` gains `baseHeightId` + `paletteHeightIds` + `heightBlendContrast` under the same
+  `ar.Version() >= 4` gate; builder `Version()` bumped (5 -> 6); `builder.DataVersion(4)` (was 3).
+- `ScanDependencies`: the `chain` lambda extends over `paletteHeightIds` too; `baseHeightId` chained.
+- `CookPaletteArray`: build the height array ON DEMAND via `AnyNonNil(paletteHeightIds)`, default
+  `kMidHeight{128,128,128,255}`; `writeArray` writes the `palette.height` stream.
+- Base height is NOT a cook product - it stays a runtime `Ref` bound by the factory to a dummy when
+  nil (layer-pbr R4 base-map rule).
+
+## Renderer (engine.terrain)
+
+- `SplatTexture.cppm` (palette cache): PaletteGpu + Entry gain height tex+view; `Build()` builds the
+  height array via the existing `BuildArray(RGBA8Unorm, ...)` when `HasHeight()`; Destroy /
+  RetireOrDestroy / MakeGpu handle it.
+- `TerrainRenderData.cppm`: add `baseHeightView`, `heightArrayView`.
+- `TerrainComponents.cppm`: fill `baseHeightView` from `res->base.height->View()`; `heightArrayView`
+  from PaletteGpu. Also plumb `heightBlendContrast` from the resource into the render data (a scalar
+  the renderer copies into the view UBO).
+- `TerrainRenderer.cppm`: set-3 matEntries 10 -> 12 (add `t9 BaseHeight`, `t10 HeightArray`
+  Texture2DArray); `MaterialBindGroup` ids[8] -> ids[10] (two new uniqueIds in the cache key). Add
+  1x1 dummies `m_midHeightTex/View` + `m_midHeightArrayTex/View` (upload `{128,128,128,255}`), bound
+  when the views are null. `EnsureMaterialBindGroup` wires baseHeight / heightArr (dummies when null).
+- View UBO params: reuse the two SPARE lanes of `ShadowParams` (its comment already reads
+  `zw spare`) - `ShadowParams.z = heightBlendContrast`, `ShadowParams.w = height maps bound` (>= 0.5).
+  This needs NO UBO size change and no VS touch. The `heightBound` flag is computed at bind time the
+  same way the cook uses `AnyNonNil` (any base-or-palette height view is real, not a dummy). [Fable:
+  alternative is a dedicated `SplatParams2` float4 - I recommend the spare lanes for zero UBO churn +
+  no re-version; flag if you would rather grow the struct.]
+
+## Shader (Data/Shaders/terrain.ps.hlsl)
+
+- Add `Texture2D BaseHeight : register(t9, space3);` +
+  `Texture2DArray HeightArray : register(t10, space3);`.
+- Read `heightBound = ShadowParams.w >= 0.5` and `contrast = max(ShadowParams.z, 1e-3)`.
+- In the manual-bilinear corner loop, when `heightBound`: sample base height (once, at baseUV) and
+  each participating slot's height via `HeightArray.SampleGrad(..., uvk, gx, gy).r` (grads already
+  hoisted for the albedo/normal/orm taps - reuse them), run the height-blend formula above to get the
+  renormalized per-contributor weights, and weight the albedo / normal / ORM sums by THOSE. When
+  `!heightBound`: the existing linear weighting, unchanged.
+- `heightBound` is UNIFORM (from the cbuffer), so branching on it is uniform control flow - safe under
+  the WGSL derivative rules, and terrains without height maps skip the extra ~17 SampleGrads/pixel.
+- The tangent frame (R2 chunk-frame analytic tangent), the CSM bias on the geometric normal n, and the
+  GBuffer writes are all UNCHANGED - height-blend only reweights the material blend.
+
+## Editor (Editor.Terrain, TerrainEditorPage)
+
+Mirror the layer-pbr P2 pickers I just shipped:
+
+- Base layer: add a "Base height" picker (AssetPickerDialog filtered to TextureAsset), editing
+  `baseHeightId`.
+- Each palette row: add a "Layer N height" picker, routed through the existing `SetPaletteMap` path
+  (generalize it to a third target array, or add a height-specific branch) so `paletteHeightIds` grows
+  lazily to the albedo count; `AddLayer` / `RemoveLayer` keep the fourth array parallel too.
+- Add a "Height blend" FloatEditor in the property grid (0..1, default 0.25) editing
+  `heightBlendContrast` - merge-keyed CommitEdit + recook, same as `baseTileScale`.
+- Recook wiring identical to the albedo / normal / ORM pickers (CommitEdit -> rebind -> RequestCook).
+
+## Phasing
+
+- P0 - Data + cook: `Layer.height` + `TerrainSource` / `TerrainAsset` height ids + `heightBlendContrast`
+  + both DataVersion bumps (4) + v-gated reads; `TerrainPaletteData.heightTexels` + the sidecar stream;
+  the cook builds the height array ON DEMAND with the `{128,128,128,255}` default; ScanDependencies
+  chains it. Tests: on-demand height array + nil-layer default fill + no-height compat + source-id +
+  contrast round-trip (Terrain.Pipeline.Tests).
+- P1 - Renderer + shader: palette cache builds the height array; render data + component fill + the
+  contrast/heightBound params into ShadowParams.zw; set-3 t9/t10 + 1x1 mid-height dummies + the cache
+  key; the PS runs the height-blend reweighting under the uniform `heightBound` branch. WGSL: all
+  variants translate (naga check BEFORE any probe). Verified on Vulkan AND WebGPU (see below).
+- P2 - Editor: base + per-layer height pickers + the height-blend contrast slider on the terrain page;
+  recook wiring. Tests: the v4 page snapshot round-trips the height ids + contrast through the
+  versioned undo payload; a no-height snapshot stays empty.
+- P3 - Polish + docs -> IMPLEMENTED; note POM / tessellated micro-displacement + per-layer height
+  amplitude as the next optional tracks.
+
+## Verification (the required bar, mirroring layer-pbr R5)
+
+Extend TerrainPixelProbeTests with a height-blend case on a 2-layer terrain whose two height maps
+interlock (one high where the other is low), at a texel where the two weights are ~equal (0.5/0.5):
+
+1. OFF (no height maps): the blended pixel is byte-identical to the pre-track linear blend, and
+   WebGPU == Vulkan pixel-exact (the existing no-maps invariant holds).
+2. ON (height maps + a low contrast): at that equal-weight texel the result shifts measurably toward
+   the layer whose local height is greater there (assert the dominant channel crosses > 50% vs the
+   linear ~50/50), and swapping which map is tall at that texel flips which layer wins - proving the
+   blend follows height, not a fixed order.
+3. Backend parity: the ON result matches across Vulkan and WebGPU within the established epsilon.
+
+Plus: the naga WGSL cook translates every terrain shader variant before the probe runs (R7 from
+layer-pbr), and the layer-pbr + top-K probes stay green (no regression to the linear path).
+
+## Deferred
+
+- REAL micro-displacement: parallax occlusion mapping (ray-march the height map in tangent space to
+  shift UVs - gives parallax + self-occlusion without geometry, WebGPU-friendly) and/or tessellated
+  displacement (off the table while the renderer stays tessellation-free). Height-blend authors the
+  SAME maps POM would use, so this is a natural follow-up.
+- Per-layer height AMPLITUDE (how tall each layer reads) - v1 folds amplitude into the map authoring
+  (a flatter map pokes through less) + a single global contrast. A per-layer amplitude buffer could
+  ride the TileScales StructuredBuffer pattern later.
+- Triplanar projection for steep slopes (orthogonal to this track; the tiling UV is still local XZ).
+
+## Touch list
+
+- foundation.terrain.resource: `Layer.height`; `TerrainSource` height ids + `heightBlendContrast` +
+  v4 gate; `TerrainPaletteData.heightTexels` / `HasHeight()`; `kPaletteHeightStream`; `TerrainFactory`
+  bind + ReadArrayStream + contrast copy.
+- Terrain.Pipeline: `TerrainAsset` height ids + contrast + v4 gate; builder Version + DataVersion
+  bumps; `ScanDependencies` chain; `CookPaletteArray` on-demand height array + `palette.height` write.
+- Terrain.Pipeline.Tests: on-demand + default-fill + compat + round-trip cases; RemoveTree adds
+  `terrain.palette.height.bin`.
+- engine.terrain: `SplatTexture` height array build/destroy/retire; `TerrainRenderData`
+  baseHeight/heightArray views + contrast; `TerrainComponents` fill; `TerrainRenderer` set-3 t9/t10 +
+  dummies + cache key + ShadowParams.zw fill.
+- Data/Shaders/terrain.ps.hlsl: BaseHeight/HeightArray bindings + the height-blend reweighting.
+- Engine.Terrain.Backend.Tests: the height-blend pixel probe (Vk + WebGPU).
+- Editor.Terrain: TerrainEditorPage base + per-layer height pickers + contrast slider + recook.
+- Editor.Terrain.Tests: v4 snapshot round-trip (height ids + contrast) + no-height-empty.
