@@ -210,9 +210,17 @@ compat is PINNED by probe #3 (pre/post in the same run).
   ScanDependencies chains their pixels. Tests: on-demand arrays + nil-layer default fill + no-maps
   compat + source-id round-trip (Terrain.Pipeline.Tests 10 pass). The R3 sRGB albedo fix rides P1
   (it needs the renderer format change too). No render change yet.
-- P1 - Renderer + shader: TerrainRenderData views, set-3 bind extension + cache, the PS normal+ORM
-  blend + analytic tangent frame + GBUFFER writes. Verify a normal-mapped layer shades bumpy and an
-  ORM roughness change alters the specular/SSR.
+- P1 - DONE (renderer + shader): the palette cache builds the normal/ORM Texture2DArrays on demand
+  (linear) + the albedo array flipped to RGBA8UnormSrgb (R3 sRGB fix); TerrainRenderData views +
+  component fill; the 1x1 flat-normal / default-ORM dummies (2D + array, R4); set-3 layout extended
+  to t5..t8 + the material bind cache key gains the four view uniqueIds; the PS blends the top-K
+  tangent-space normals + ORM (SampleGrad, hoisted grads), builds the CHUNK-frame analytic tangent
+  frame (R2), perturbs the normal, and writes the perturbed view-space normal + roughness/metallic +
+  AO-modulated ambient. WGSL: ShaderPack translates all 84 variants (naga). Verified on Vulkan AND
+  WebGPU: the 6 existing probes stay green (no-maps byte-identical, WebGPU==Vulkan) + a NEW
+  normal-map probe proves a tilted base normal brightens under an aligned sun / darkens under an
+  opposed one while the flat control stays symmetric (R2 direction correct), matching across
+  backends. commits 0abd5fa4 (impl) + cd7991e9 (probe).
 - P2 - Editor: per-layer normal + ORM pickers on the terrain page; recook wiring.
 - P3 - Polish + docs -> IMPLEMENTED; note height-blend/triplanar as the next optional track.
 
