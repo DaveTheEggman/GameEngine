@@ -18,7 +18,7 @@ cbuffer TerrainView : register(b0, space0) {
     float4   CascadeSplitFar;
     float4   CascadeTexelSize;
     float4   ShadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
-    float4   ShadowParams; // x = far-fade width, y = uv.y sign, zw spare
+    float4   ShadowParams; // x = far-fade width, y = uv.y sign, z = heightBlendContrast, w = height maps bound
     float4   SplatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
 };
 

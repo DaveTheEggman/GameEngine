@@ -1,8 +1,9 @@
 # Terrain Layers: Per-Layer Coverage / Opacity Mask
 
-Status: DRAFT (awaiting Fable review). Follow-up to terrain-height-blend.md - SEQUENCED AFTER it (this
-spec assumes height-blend has landed: source/asset DataVersion 4, builder Version 6, set-3 at 12
-entries t0..t10, ShadowParams.zw carrying the height params). Extends terrain-layer-pbr.md (per-layer
+Status: APPROVED (Fable, 2026-08-26) with amendments R1-R5 (RULING at the bottom). Follow-up to
+terrain-height-blend.md - SEQUENCED AFTER it (height-blend HAS landed: source/asset DataVersion 4,
+builder Version SEVEN - see R1 - set-3 at 12 entries t0..t10, ShadowParams.zw carrying the height
+params). Extends terrain-layer-pbr.md (per-layer
 normal + ORM) and terrain-splat-topk.md (base + unbounded palette + top-K weights). Pure
 material/render extension - NO change to the paint tool, the weight rasters, or the paint data model.
 
@@ -179,3 +180,62 @@ whatever TextureAsset the picker resolves), but it is the reason this asset clas
 - Engine.Terrain.Backend.Tests: the coverage-mask pixel probe (Vk + WebGPU).
 - Editor.Terrain: TerrainEditorPage per-layer mask pickers + recook.
 - Editor.Terrain.Tests: v5 snapshot round-trip (mask ids) + no-mask-empty.
+
+---
+
+## RULING (Fable, 2026-08-26) - APPROVED with amendments
+
+The shape is right and the reasoning is sound where it matters: mask multiplies PALETTE weights
+before the baseW recompute and before height-blend (so the two tracks compose in the right order),
+palette-only with no base mask (there is nothing beneath the base), the OPAQUE default slice
+(the critical inversion of height's mid default, correctly argued), the flat-blend no-ordering
+limitation stated honestly, and the established array/sidecar/dummy/cache pattern reused wholesale.
+The flagged decision is confirmed and there are four corrections/additions:
+
+### R1 - Stale version numbers (again - drafts race the review passes)
+
+Height-blend SHIPPED builder Version 7 (its own R1 absorbed the review-pass mip bump). This track
+ships 7 -> 8, not 6 -> 7. The DataVersion story is correct as written (both envelopes 4 -> 5,
+RTTI_DEFINE_OBJECT_VERSIONED 5). Rule of thumb for future drafts: read the CURRENT
+Version()/DataVersion out of the code at build time, not out of the previous spec.
+
+### R2 - UBO growth CONFIRMED (SplatParams2)
+
+The spare lanes are spent; grow the view UBO by one float4 APPENDED at the end. The VS and the
+depth-VS declarations stay untouched - a cbuffer declaration is a prefix view of the bound range,
+and the buffer only grows (the PS declares the full struct; Vulkan and WebGPU validate against the
+largest declared size, which the grown buffer satisfies). Document x = maskBound, yzw spare at
+both the HLSL declaration and the C++ fill site - the height-blend R5 discipline, learned twice
+now.
+
+### R3 - The probe fixture's tile scale must land the mask split on screen
+
+The mask samples at the LAYER's tiling UV. The existing probe fixtures use tileScale 1000 to get a
+solid colour - at that scale the whole footprint samples a single texel of a 4x4 mask and the
+"half opaque / half zero" fixture never produces a screen-space split. The coverage probe must set
+the layer's tileScale = the terrain's world size (exactly ONE mask repeat spans the footprint) so
+the opaque/zero halves land in the left/right probe bands, then assert the split + the flip as
+specced.
+
+### R4 - Mip behavior of stencil masks: accepted softening, deferred fix
+
+Box-filtered mips of a near-binary mask gray toward the average, so sparse coverage fades to a
+uniform partial blend at distance rather than keeping contrast. For a weight MULTIPLIER (not an
+alpha test) that is acceptable - distant sparse grass reading as a soft grass/dirt mix is
+visually plausible. State it as intended; coverage-preserving mip scaling (alpha-coverage-style)
+is DEFERRED with POM and per-layer amplitude.
+
+### R5 - Import-note correction + pin the green sign while you are in there
+
+The import note hedges "flip G if the terrain shader expects DX handedness" - it does not. The
+house convention is glTF (mesh path = glTF tangent handedness, GL green-up), and the terrain
+frame's B = cross(n, T) points toward -Z, which under the top-left UV origin (v grows with +Z)
+IS the GL green-up behavior: Poly Haven `_nor_gl_` maps import AS-IS, no flip. However layer-pbr's
+probe pinned the U axis only (its test normal had green = 0), so the green sign is argued, not
+measured. This track's probe work adds the cheap missing case: a +green-tilted normal map
+(e.g. encoded (128, 204, 229)) on the identity terrain must brighten under a -Z sun and darken
+under +Z. If the probe disagrees, fix B's sign in the SHADER - never ask authors to flip maps.
+(EXR decode for Poly Haven normal/rough sources is noted and stays out of scope.)
+
+Everything else stands as written: phasing, the verification bar (plus R3's fixture correction and
+R5's green case), the palette-only data model, and the touch list (with R1's 7 -> 8).

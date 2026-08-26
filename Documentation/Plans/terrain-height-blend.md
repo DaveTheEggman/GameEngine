@@ -286,3 +286,17 @@ including naga-before-probes and the OFF-path byte-hold via the existing suites.
 
 Build order stands (P0 -> P3, green + reviewed between phases). Deferred list (POM, per-layer
 amplitude, triplanar) confirmed out.
+
+---
+
+## POST-IMPLEMENTATION REVIEW (Fable, 2026-08-26) - PASS, one comment fixed in-pass
+
+The build honors the ruling end to end: R1 builder 6 -> 7; R2 prose corrected (equal-mix
+convergence); R3 authoring-guide note shipped with P3; R4 RGBA8 mid-height slices; R5 the OFF path
+is the verbatim pre-track linear loop under a uniform branch, pure-base skips the reweight, the
+contrast floor clamps, and the base competes only with remainder weight (the -1e30 sentinel keeps
+culled contributors out of sMax); R6 the probe pins tall-wins, swap-flips, the OFF ~50/50 control,
+equal-heights -> the WEIGHT wins, and WebGPU parity. WGSL cook re-verified clean. One finding,
+fixed in-pass: R5 required the spare-lane naming at BOTH sites - the C++ ViewData comment was
+updated but the terrain.ps.hlsl ShadowParams declaration still said "zw spare"; now names the
+lanes.
