@@ -183,6 +183,12 @@ layer-pbr), and the layer-pbr + top-K probes stay green (no regression to the li
   (a flatter map pokes through less) + a single global contrast. A per-layer amplitude buffer could
   ride the TileScales StructuredBuffer pattern later.
 - Triplanar projection for steep slopes (orthogonal to this track; the tiling UV is still local XZ).
+- Per-layer COVERAGE / OPACITY mask (SEPARATE follow-up track, user-decided 2026-08-26): a
+  single-channel stencil that multiplies into a layer's top-K weight before renormalize, so a sparse
+  layer (e.g. Poly Haven sparse_grass `_mask_`) shows the layer(s) beneath through its gaps. Reuses
+  this same on-demand-array + editor-picker plumbing (a 4th optional map), but is its own track. Note
+  for that track: Poly Haven ships `_nor_gl_` (OpenGL/green-up normals - flip G at import if the shader
+  wants DX) and EXR normal/roughness (importer may need EXR handling); mask + disp are 16-bit PNG.
 
 ## Touch list
 
