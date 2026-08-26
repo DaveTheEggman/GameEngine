@@ -1,8 +1,9 @@
 # Terrain Layers: Height-Blended Splatting (per-layer displacement as a blend mask)
 
-Status: DRAFT (awaiting Fable review). Extends terrain-layer-pbr.md (per-layer normal + ORM on the
-top-K blend) and terrain-splat-topk.md (base + unbounded palette + top-K weight rasters). Pure
-material/render extension - NO change to the paint tool, the weight rasters, or the paint data model.
+Status: APPROVED (Fable, 2026-08-26) with amendments R1-R6 (RULING at the bottom). Extends
+terrain-layer-pbr.md (per-layer normal + ORM on the top-K blend) and terrain-splat-topk.md (base +
+unbounded palette + top-K weight rasters). Pure material/render extension - NO change to the paint
+tool, the weight rasters, or the paint data model.
 
 ## Motivation
 
@@ -199,3 +200,64 @@ layer-pbr), and the layer-pbr + top-K probes stay green (no regression to the li
 - Engine.Terrain.Backend.Tests: the height-blend pixel probe (Vk + WebGPU).
 - Editor.Terrain: TerrainEditorPage base + per-layer height pickers + contrast slider + recook.
 - Editor.Terrain.Tests: v4 snapshot round-trip (height ids + contrast) + no-height-empty.
+
+---
+
+## RULING (Fable, 2026-08-26) - APPROVED with amendments
+
+The shape is exactly right: the Mishkinis reweight on the EXISTING top-K contributors, per corner,
+renormalized convex, with the whole PBR stack riding it unchanged, opt-in per terrain, and the
+established layer-pbr pattern mirrored at every level (on-demand array, headered sidecar, dummies,
+cache key, uniform branch). Both flagged decisions are confirmed; two corrections and one probe
+addition below.
+
+### R1 - Stale version numbers
+
+TerrainAssetBuilder::Version() is ALREADY 6 (the layer-pbr review pass bumped it for the
+linear-space albedo mips, cd5ad8dd, after this spec was drafted). This track ships 6 -> 7. The
+DataVersion story is correct as written (TerrainAsset + TerrainSource both 3 -> 4,
+RTTI_DEFINE_OBJECT_VERSIONED 4).
+
+### R2 - Correct the contrast description (math)
+
+"Large depth ... approaching the linear blend" is wrong. With b_i = score_i - sMax + depth, growing
+depth washes the SCORE DIFFERENCES out: the blend converges to an EQUAL mix of the participating
+contributors - the paint weights DILUTE, they are not recovered. The linear weight blend is
+exclusively the OFF path. Keep the 0..1 slider + 0.25 default (scores span [0,2], so 1.0 is already
+very soft); fix the prose in the blend-math section when building.
+
+### R3 - The technique sharpens ALL painted transitions - document it for authors
+
+Even where every height is equal (all-default mid slices), score = weight + 0.5 means any
+contributor more than `depth` below the max is CULLED: a soft-painted 90/10 texel renders
+near-binary at the default contrast. That is the intended interlock look (crossovers still land
+where the weights tie), but it visibly changes existing soft gradients the moment a terrain opts
+in. P3's docs step updates Guides/terrain-authoring.md (it exists now): "height-blend trades soft
+dissolves for crisp interlocked seams; raise Height blend (contrast) to widen the skirt."
+
+### R4 - RGBA8 storage CONFIRMED
+
+The author's call stands: the sidecar/array contract is single-format end to end (SliceBytes is
+4Bpp, ReadArrayStream cross-checks geometry against the albedo header, the palette cache shares one
+generation) - an R8 path would fork all of it for a scalar. Revisit R8 only if palette memory is
+MEASURED to matter.
+
+### R5 - ShadowParams spare lanes CONFIRMED, with naming discipline
+
+Verified genuinely spare in both terrain.ps.hlsl ("zw spare") and the renderer's ViewUBO struct.
+Required: BOTH comments change to name the lanes (z = heightBlendContrast, w = height maps bound)
+at the declaration AND the fill site. If a future shadow feature wants its lanes back, it grows the
+struct and relocates these - never squeezes in alongside. Contrast floor clamp in the PS as
+specced; when hasWeights is false (pure base) skip the reweight entirely - one contributor needs no
+blend.
+
+### R6 - One probe addition: pin that the WEIGHTS still steer
+
+Probe #2 proves the blend follows height; add its complement: with BOTH height maps present but
+EQUAL at the probed texel, the winner must be the layer with the greater WEIGHT (the crossover
+sits at the weight tie). This catches an implementation that drops the weight term from the score -
+which passes every height-varies test. Everything else in the verification section stands,
+including naga-before-probes and the OFF-path byte-hold via the existing suites.
+
+Build order stands (P0 -> P3, green + reviewed between phases). Deferred list (POM, per-layer
+amplitude, triplanar) confirmed out.
