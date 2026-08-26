@@ -1,8 +1,8 @@
 # Terrain Layers: Per-Layer Normal + ORM Maps (top-K blended)
 
-Status: SPEC / proposed (awaiting Fable review). Extends terrain-splat-topk.md (the base + unbounded
-palette + top-K weight model). Pure material/render extension - NO change to the paint tool, weight
-rasters, or paint data model.
+Status: APPROVED (Fable, 2026-08-26) with required amendments R1-R7 (see RULING at the bottom).
+Extends terrain-splat-topk.md (the base + unbounded palette + top-K weight model). Pure
+material/render extension - NO change to the paint tool, weight rasters, or paint data model.
 
 ## Motivation
 
@@ -220,3 +220,93 @@ covers the deserialize; a re-cook produces the (default-filled) arrays.
   splat-cache suite.
 
 Related: [terrain.md], [terrain-splat-topk.md].
+
+---
+
+## RULING (Fable, 2026-08-26) - APPROVED with required amendments
+
+The shape is right: three parallel arrays riding the existing top-K blend, defaults that reduce to
+today's output, no paint-model change. The open questions are all SETTLED below from the codebase
+(not preference), plus two corrections and one size trap.
+
+### R1 - Conventions PINNED from the mesh material (they were "open questions"; they are not open)
+
+- Normal decode: full RGB `* 2 - 1` (forward.ps.hlsl:332), flat default (128,128,255). NOT
+  RG-reconstruct. No handedness machinery: terrain UVs never mirror, so skip the tangentWS.w
+  equivalent entirely; no NormalScale in v1.
+- ORM: PACKED, `R = AO, G = roughness, B = metallic` - CONFIRMED. This is exactly the glTF
+  shared-image layout: the mesh material reads MetallicRoughnessMap`.gb` (G=rough, B=metal) and
+  OcclusionMap`.r`, and glTF authoring commonly packs all three into ONE image already. A packed
+  terrain ORM is channel-identical to what mesh authors export; nothing new to learn.
+- AO scope: AMBIENT-ONLY - CONFIRMED; that is what the mesh does (forward.ps.hlsl:433 applies `ao`
+  to the ambient/IBL sum only, never the direct term). A later GTAO combine is orthogonal.
+- SV_Target3 = (roughness, metallic) in RG - the sketch's `float2(orm.g, orm.b)` is correct
+  against terrain.ps.hlsl:52.
+
+### R2 - Tangent frame in the CHUNK frame, not world axes (sketch correction)
+
+The tiling UV is terrain-LOCAL XZ (pre-ChunkToWorld; terrain.vs.hlsl:46 outputs `localXZ`
+explicitly "for albedo tiling", and the normal is rotated to world by ChunkToWorld). The sketch
+builds T from world `+X` - on a rotated terrain the tangent no longer aligns with the map's U axis
+and every normal map SHEARS. Build the frame from the ChunkToWorld-ROTATED local axes:
+
+    float3 axisU = normalize(mul(float4(1,0,0,0), ChunkToWorld).xyz); // the map's U in world
+    float3 T = normalize(axisU - gN * dot(axisU, gN));
+    float3 B = cross(gN, T); // sign = the world image of local +Z; PIN with the probe
+
+The V/green sign is pinned by probe #1 (a known-direction normal map under a sun flip must move
+the brightness the predicted way), run on an identity-transform terrain AND a 90-degree-rotated
+one (the rotation is what R2 exists for).
+
+### R3 - Close the EXISTING sRGB gap while adding the arrays
+
+Today the cooked albedo palette array is RGBA8Unorm (raw sRGB bytes, no decode) while the BASE
+albedo binds the texture product's view, which the texture cook builds sRGB-aware
+(TextureAsset.colorSpace, Srgb default). The SAME texture assigned as base vs as a palette layer
+shades at different brightness today. This track fixes it: the albedo array becomes
+RGBA8UnormSrgb; the normal + ORM arrays are RGBA8Unorm (linear) as specced. Mips for the sRGB
+albedo array should average in LINEAR space (the texture cook already does exactly this -
+TextureAsset.cppm:513 - reuse the recipe); the linear arrays keep the plain box filter.
+Normal-map mips are NOT renormalized in v1 (accepted, standard).
+
+### R4 - No default-array bloat; base defaults are RENDERER dummies, not cook products
+
+The albedo array for a real terrain is ~11-22MB cooked. Do NOT triple that for terrains that never
+assign a normal/ORM map: when NO palette layer has a normal (resp. ORM) map, the cook writes NO
+normal (ORM) array at all, and the renderer binds a 1x1 dummy array (flat normal / default ORM -
+the existing dummy-texture pattern in TerrainRenderer). Only when at least one layer has a map is
+the full array built, with the exact default slices (128,128,255)/(255,255,0) filling the nil
+layers. Likewise BASE normal/ORM are plain runtime refs bound by the factory (like base albedo) -
+the cook produces NO standalone base products; nil base refs bind the renderer's 1x1 dummies. The
+spec's "cook-injected default" language applies ONLY to nil layers inside a present array.
+
+### R5 - Sidecar layout + BOTH envelopes version-gated
+
+Three SEPARATE sidecar streams on the terrain's cooked instance: the existing "palette" (albedo) +
+new "palette.normal" / "palette.orm", each with the same {sliceSize, mipCount, sliceCount} header;
+an ABSENT stream = no array (pairs with R4). TerrainPaletteData carries the three texel arrays +
+per-array presence, ONE uid - all three rebuild together and share the generation (as specced).
+ScanDependencies chains every normal/ORM source's PIXELS as reads. The spec names TerrainSource
+only - the PIPELINE envelope (TerrainAsset) equally gains baseNormalId/baseOrmId +
+paletteNormalIds/paletteOrmIds behind ITS version gate, and TerrainAssetBuilder::Version() bumps
+(RE-COOK note in the landing commit). Serializer-strict-versioning on both reads.
+
+### R6 - Bind-count headroom checked; depth pipeline untouched
+
+Set 3 grows to 9 sampled textures (idx, wgt, baseAlbedo, albedoArray, baseNormal, normalArray,
+baseOrm, ormArray + none spare) + set-0's CSM array = comfortably under WebGPU's default
+16-sampled-textures-per-stage limit; verified, no action. The DEPTH-ONLY pipeline layout stays
+3-set (no material) exactly as today. The set-3 cache key gains the four new view uniqueIds (the
+spec already says so; bind-group-cache-versioning stands).
+
+### R7 - Verification order + the compat pin
+
+Run `Tools.ShaderPack Data/Shaders <out> wgsl` the moment the PS changes, BEFORE any GPU probe -
+SampleGrad-in-branch on the two new arrays is precisely where naga rejected us last time (the
+webgpu-stricter-than-vulkan uniformity lesson). Probe #3 (no-maps terrain byte-identical) captures
+the pre-change baseline and the post-change frame in the SAME run/driver (render old-path fixture
+expectations, not stored goldens). Probes #1/#2/#4 as specced, Vulkan + WebGPU parity; extend
+FillTerrainRenderData and the palette-cache retire/Clear suite to the new views/arrays (specced).
+
+Build order stands as phased (P0 data/cook -> P1 renderer -> P2 editor -> P3 docs), green +
+reviewed between phases. Height-blend + triplanar stay out, as specced.
