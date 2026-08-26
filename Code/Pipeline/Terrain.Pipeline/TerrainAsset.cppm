@@ -54,6 +54,7 @@ export namespace pipeline
         Array<Guid> paletteNormalIds; // per-palette-layer normal map (nil allowed); DataVersion 3
         Array<Guid> paletteOrmIds;    // per-palette-layer ORM (nil allowed); DataVersion 3
         Array<Guid> paletteHeightIds; // per-palette-layer height map (nil allowed); DataVersion 4
+        Array<Guid> paletteMaskIds;   // per-palette-layer coverage/opacity map (nil allowed); DV 5
         Array<f32> paletteTileScales;
         i32 paletteTextureSize = 1024; // common Texture2DArray slice size (authoring setting)
         f32 heightBlendContrast = 0.25f; // height-blend soft-skirt width (terrain-height-blend.md); DV4
@@ -83,6 +84,10 @@ export namespace pipeline
                     foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
                     foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
                     foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
+                }
+                if (ar.Version() >= 5) // per-layer coverage/opacity maps (terrain-coverage-mask.md)
+                {
+                    foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
                 }
             }
             else
@@ -251,9 +256,10 @@ export namespace pipeline
         // 5: per-layer normal + ORM arrays (terrain-layer-pbr.md P0) - re-cook.
         // 6: albedo-array mips average in linear space (R3; v5 averaged sRGB bytes) - re-cook.
         // 7: per-layer height array + heightBlendContrast (terrain-height-blend.md P0) - re-cook.
-        [[nodiscard]] u32 Version() const override { return 7; }
+        // 8: per-layer coverage/opacity mask array (terrain-coverage-mask.md P0) - re-cook.
+        [[nodiscard]] u32 Version() const override { return 8; }
 
-        // The palette pack READS every palette albedo/normal/ORM/height's content (hash-chained:
+        // The palette pack READS every palette albedo/normal/ORM/height/mask content (hash-chained:
         // editing any re-cooks the terrain's arrays); base/heightfield/weights are runtime refs only.
         void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
@@ -273,6 +279,7 @@ export namespace pipeline
             chain(ta.paletteNormalIds);
             chain(ta.paletteOrmIds);
             chain(ta.paletteHeightIds);
+            chain(ta.paletteMaskIds);
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
@@ -295,6 +302,7 @@ export namespace pipeline
             src.paletteNormalIds = ta.paletteNormalIds;
             src.paletteOrmIds = ta.paletteOrmIds;
             src.paletteHeightIds = ta.paletteHeightIds;
+            src.paletteMaskIds = ta.paletteMaskIds;
             src.paletteTileScales = ta.paletteTileScales;
             src.heightBlendContrast = ta.heightBlendContrast;
             src.castShadows = ta.castShadows;
@@ -476,6 +484,7 @@ export namespace pipeline
             static const u8 kFlatNormal[4] = {128, 128, 255, 255};       // tangent-space +Z
             static const u8 kDefaultOrm[4] = {255, 255, 0, 255};         // AO 1, roughness 1, metallic 0
             static const u8 kMidHeight[4] = {128, 128, 128, 255};        // height 0.5 (.r used)
+            static const u8 kOpaqueMask[4] = {255, 255, 255, 255};       // coverage 1 = fully opaque
 
             auto writeArray = [&](StringView stream, const Array<Guid>& ids, const u8 def[4],
                                   bool srgb) -> Status
@@ -515,6 +524,15 @@ export namespace pipeline
             {
                 if (Status s = writeArray(foundation::terrain::kPaletteHeightStream,
                                           ta.paletteHeightIds, kMidHeight, /*srgb*/ false);
+                    !s.IsOk())
+                {
+                    return s;
+                }
+            }
+            if (AnyNonNil(ta.paletteMaskIds))
+            {
+                if (Status s = writeArray(foundation::terrain::kPaletteMaskStream, ta.paletteMaskIds,
+                                          kOpaqueMask, /*srgb*/ false);
                     !s.IsOk())
                 {
                     return s;

@@ -32,6 +32,7 @@ namespace
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.normal.bin");
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.orm.bin");
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.height.bin");
+        FileDelete(u8"scratch_terrainpipe_db/terrain.palette.mask.bin");
         RemoveDirectory(u8"scratch_terrainpipe_db");
     }
 }
@@ -266,6 +267,7 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat, P0)")
     CHECK_FALSE(terrain->paletteData->HasNormal());
     CHECK_FALSE(terrain->paletteData->HasOrm());
     CHECK_FALSE(terrain->paletteData->HasHeight());
+    CHECK_FALSE(terrain->paletteData->HasMask());
 
     RemoveTree();
 }
@@ -357,6 +359,90 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
     CHECK(terrain->paletteData->HasHeight());     // height array present (a layer used it)
     CHECK_FALSE(terrain->paletteData->HasNormal());
     CHECK_FALSE(terrain->paletteData->HasOrm());
+
+    RemoveTree();
+}
+
+TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on demand, OPAQUE default (P0)")
+{
+    hf::RegisterHeightfieldResourceTypes();
+    RegisterTerrainAsset();
+    RegisterTerrainResourceTypes();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+
+    Guid terrainId;
+    u32 sliceSize = 0, mipCount = 0;
+    Array<u8> cookedMask; // the raw cooked mask stream (header + texels)
+    {
+        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
+        RefPtr<hf::Heightfield> grid =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+        hf::HeightfieldSource hfSrc;
+        hf::HeightfieldSource::FromHeightfield(*grid, hfSrc);
+        REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
+        REQUIRE(
+            hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+
+        auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
+        terrainId = tInst->Id();
+        TerrainAsset asset;
+        asset.heightfieldId = hfInst->Id();
+        asset.baseAlbedoId = Guid{111, 222};
+        asset.paletteTextureSize = 64;
+        asset.paletteAlbedoIds.PushBack(Guid{321, 654});
+        asset.paletteAlbedoIds.PushBack(Guid{});
+        asset.paletteMaskIds.PushBack(Guid{91, 92}); // layer 0 HAS a mask -> array built
+        asset.paletteMaskIds.PushBack(Guid{});       // layer 1 nil -> default OPAQUE slice
+        asset.paletteTileScales.PushBack(4.0f);
+        asset.paletteTileScales.PushBack(8.0f);
+
+        TerrainAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = tInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+
+        UniquePtr<IStream> m = tInst->ReadData(kPaletteMaskStream);
+        REQUIRE(m);
+        cookedMask.Resize(static_cast<usize>(m->Size()));
+        REQUIRE(m->Read(cookedMask.Data(), static_cast<u64>(cookedMask.Size())) == cookedMask.Size());
+        // No normal/ORM/height authored -> those arrays stay absent.
+        CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteNormalStream)));
+        CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteHeightStream)));
+    }
+
+    // The nil palette layer's mask slice defaulted to OPAQUE (255,255,255,255) - the critical
+    // inversion of height's mid default (a maskless layer must contribute at full weight).
+    REQUIRE(cookedMask.Size() > sizeof(u32) * 3);
+    MemCopy(&sliceSize, cookedMask.Data(), sizeof(u32));
+    MemCopy(&mipCount, cookedMask.Data() + sizeof(u32), sizeof(u32));
+    const usize sliceBytes = TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+    const usize slice1 = sizeof(u32) * 3 + sliceBytes * 1; // layer 1 (nil), mip 0, first texel
+    CHECK(cookedMask[slice1 + 0] == 255);
+    CHECK(cookedMask[slice1 + 1] == 255);
+    CHECK(cookedMask[slice1 + 2] == 255);
+    CHECK(cookedMask[slice1 + 3] == 255);
+
+    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    hf::HeightfieldFactory heightfieldFactory;
+    TerrainFactory terrainFactory;
+    ResourceManager manager(db);
+    manager.AddFactory(&heightfieldFactory);
+    manager.AddFactory(&terrainFactory);
+
+    Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
+    REQUIRE(terrain);
+    CHECK(terrain->palette[0].mask.IsBound());
+    CHECK(terrain->palette[0].mask.id == Guid{91, 92});
+    CHECK_FALSE(terrain->palette[1].mask.IsBound()); // nil id stays unbound
+    REQUIRE(terrain->paletteData);
+    CHECK(terrain->paletteData->HasMask()); // mask array present (a layer used it)
+    CHECK_FALSE(terrain->paletteData->HasHeight());
 
     RemoveTree();
 }

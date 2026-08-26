@@ -19,11 +19,12 @@ namespace pipeline
 {
     REFLECT_MEMBERS(TerrainAsset, "rtti::pipeline::terrain")
     {
-        // DataVersion 4 = per-layer height ids + heightBlendContrast (terrain-height-blend.md; nil +
+        // DataVersion 5 = per-layer coverage/opacity mask ids (terrain-coverage-mask.md; nil ->
+        // opaque). v4 = per-layer height ids + heightBlendContrast (terrain-height-blend.md; nil +
         // 0.25 -> the OFF path). v3 = per-layer normal + ORM ids (terrain-layer-pbr.md; nil ->
         // flat/default). v2 = the top-K splat model (base + palette + weightsId); v<2 payloads carry
         // the fixed-4-layer fields and upgrade in Serialize (terrain-splat-topk.md).
-        builder.DataVersion(4)
+        builder.DataVersion(5)
             .Attribute("displayName", String(u8"Terrain"))
             .Attribute("category", String(u8"Terrain"))
             .Property<&TerrainAsset::castShadows>("castShadows")
