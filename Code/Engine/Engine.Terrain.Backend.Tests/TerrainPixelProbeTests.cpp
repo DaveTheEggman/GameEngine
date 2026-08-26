@@ -1518,3 +1518,51 @@ TEST_CASE("terrain probe: a +green base normal leans -Z (R5 - pins GL green-up, 
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
 }
+
+TEST_CASE("terrain probe: no base albedo -> the RAMP is the implicit base (never white)")
+{
+    // A terrain with paint layers bound but NO base albedo and NOTHING painted must keep its
+    // fresh-terrain look: the height/slope ramp (greenish), not the white dummy - adding a paint
+    // layer may not flip the unpainted terrain to white (the setup-confusion fix).
+    rhi::Backend* vulkan = nullptr;
+    rhi::Device* device = MakeVulkan(vulkan);
+    if (device == nullptr)
+    {
+        MESSAGE("Vulkan unavailable - ramp-base probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        return;
+    }
+    Probe p;
+    {
+        engine::terrain::TerrainSplatTextureCache splatCache;
+        engine::terrain::TerrainPaletteTextureCache paletteCache;
+        RefPtr<tmodel::SplatWeights> sw =
+            MakeRef<tmodel::SplatWeights>(DefaultAllocator(), 16, 16); // all-zero: nothing painted
+        const Float3 blue{0.12f, 0.12f, 0.86f};
+        RefPtr<tmodel::TerrainPaletteData> palette = MakePaletteData(Span<const Float3>{&blue, 1});
+        const f32 scale = 1000.0f;
+        const engine::terrain::PaletteGpu gpu =
+            paletteCache.GetOrCreate(*device, *palette, Span<const f32>{&scale, 1});
+        const engine::terrain::SplatTextureViews views =
+            splatCache.GetOrCreate(*device, *sw, sw->Version());
+        ProbeCfg cfg;
+        cfg.terrain = MakeFlat();
+        cfg.weightView = views.weightView;
+        cfg.indexView = views.indexView;
+        cfg.paletteArrayView = gpu.arrayView;
+        cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+        cfg.tileScaleGeneration = gpu.generation;
+        cfg.paletteCount = 1; // hasWeights TRUE, hasBase FALSE - the confusing case
+        p = RenderTerrainProbe(*device, cfg);
+        splatCache.Clear(*device);
+        paletteCache.Clear(*device);
+    }
+    REQUIRE(p.valid);
+    const f64 half = static_cast<f64>(kSize) * kSize / 2.0;
+    std::printf("[terrain-rampbase] left R=%.1f B=%.1f per px\n", p.leftR / half, p.leftB / half);
+    CHECK(p.leftR / half < 150.0);     // NOT the white dummy (white lit reads near-saturated)
+    CHECK(p.leftR > p.leftB);          // the ramp is warm-green (R > B at low heightT)...
+    CHECK(p.filled > 30000u);          // ...and the terrain still rendered
+    device->Destroy();
+    vulkan->Destroy();
+}

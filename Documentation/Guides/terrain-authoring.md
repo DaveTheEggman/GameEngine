@@ -40,6 +40,8 @@ Create a Terrain asset and open its page:
   share, G/B/A = the first three paint layers).
 - **Base layer**: the albedo (plus optional normal/ORM/height) that shows wherever nothing is
   painted - and what the eraser reveals. The base is **never painted directly**; it is the canvas.
+  With NO base albedo assigned, the built-in height/slope ramp (the greenish fresh-terrain look)
+  acts as the base, so painting layers composites over it and erasing returns to it.
 - **Paint layers**: add as many as you want (the palette is unbounded; up to 256 layers can be
   referenced by the 8-bit paint index, and up to 4 blend at any single texel). Each layer has an
   albedo picker, optional **normal**, **ORM**, **height**, and **mask** pickers, and a **tile scale**
@@ -139,8 +141,9 @@ updates occasionally bump cook versions - the first open after one re-cooks auto
 - **Painting shows white/gray instead of my texture**: hover the layer swatch and check the asset
   name - the classic cause is a `*_disp_*` displacement map picked instead of the `*_diff_*`
   color map. Then check the Console for cook errors and let the re-cook finish.
-- **Erasing shows white**: erase reveals the BASE layer; if no base albedo is assigned the base
-  is a white dummy. Assign a base albedo on the terrain page.
+- **Erasing shows the greenish ramp**: erase reveals the BASE layer; with no base albedo
+  assigned, the built-in height/slope ramp is the base. Assign a base albedo on the terrain page
+  for a real material.
 - **Everything is one flat color at distance**: tile scale too small (texture repeats sub-pixel)
   - raise the layer's tile scale.
 - **Normal/ORM map looks wrong on the base layer**: the texture asset's colorSpace is probably

@@ -141,11 +141,20 @@ PSOutput main(PSIn i) {
     float3 blendedOrm = float3(1.0, 1.0, 0.0); // AO, roughness, metallic (default material)
     bool hasBase = SplatParams.w >= 0.5;
     bool hasWeights = SplatParams.y >= 0.5 && SplatParams.x >= 0.5;
+    // The procedural height/slope colour ramp (grass -> rock). It is BOTH the no-material
+    // fallback AND the implicit BASE when no base albedo is assigned: a fresh terrain starts on
+    // the ramp, and adding paint layers must composite OVER that same look (not flip the
+    // unpainted remainder to the white dummy - the "why did my terrain turn white" confusion).
+    const float3 kRampLow  = float3(0.24, 0.40, 0.16); // grass
+    const float3 kRampHigh = float3(0.52, 0.50, 0.46); // rock
+    float3 rampCol = lerp(kRampLow, kRampHigh, i.heightT);
+    rampCol = lerp(kRampHigh * 0.8, rampCol, saturate(n.y)); // steep faces read as exposed rock
     if (hasWeights || hasBase) {
         // Base maps tile in terrain-LOCAL XZ (glued to the surface under move/rotate). These are in
         // UNIFORM control flow, so plain Sample (implicit derivatives) is valid.
         float2 baseUV = i.localXZ / max(SplatParams.z, 1e-3);
-        float3 baseCol = BaseAlbedo.Sample(AlbedoSampler, baseUV).rgb;
+        float3 baseCol =
+            hasBase ? BaseAlbedo.Sample(AlbedoSampler, baseUV).rgb : rampCol;
         float3 baseNrm = BaseNormal.Sample(AlbedoSampler, baseUV).rgb * 2.0 - 1.0;
         float3 baseOrm = BaseOrm.Sample(AlbedoSampler, baseUV).rgb;
         // Height-blend controls (terrain-height-blend.md): ShadowParams.w = height maps bound,
@@ -276,12 +285,7 @@ PSOutput main(PSIn i) {
             blendedOrm = baseOrm;
         }
     } else {
-        // No layers bound -> the height/slope colour ramp (headless tools, layerless terrains).
-        const float3 kLow  = float3(0.24, 0.40, 0.16); // grass
-        const float3 kHigh = float3(0.52, 0.50, 0.46); // rock
-        base = lerp(kLow, kHigh, i.heightT);
-        float slope = saturate(n.y);                    // steep faces read as exposed rock
-        base = lerp(kHigh * 0.8, base, slope);
+        base = rampCol; // no material at all -> the ramp (headless tools, layerless terrains)
     }
 
     // Perturb the shading normal by the blended tangent-space normal. The frame is analytic in the
