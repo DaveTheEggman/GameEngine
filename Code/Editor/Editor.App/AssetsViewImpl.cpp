@@ -34,9 +34,11 @@ import foundation.fonts;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
+import foundation.settings;
 import :editor_icons;
 import :import_dialog;
 import :group_picker_dialog;
+import :layout; // EditorAssetBrowserSettings (per-project list/grid view mode)
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -683,7 +685,7 @@ namespace editor::app
         }
     }
 
-    void AssetsView::SetGridMode(bool grid)
+    void AssetsView::SetGridMode(bool grid, bool persist)
     {
         m_gridMode = grid;
         m_listToggle->IsChecked.SetValue(!grid);
@@ -691,6 +693,29 @@ namespace editor::app
         m_list->Visibility = grid ? ui::VisibilityValue::Gone : ui::VisibilityValue::Visible;
         m_grid->Visibility = grid ? ui::VisibilityValue::Visible : ui::VisibilityValue::Gone;
         Invalidate();
+        if (persist)
+        {
+            // Remember the choice per project so the browser reopens in the last-used view.
+            if (foundation::settings::Settings* store = m_context->ProjectEditorSettings())
+            {
+                store->Section<EditorAssetBrowserSettings>().gridMode = grid;
+                store->MarkChanged<EditorAssetBrowserSettings>();
+                m_context->RequestProjectEditorSettingsSave();
+            }
+        }
+    }
+
+    void AssetsView::ApplySavedViewMode()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return; // no project store yet -> keep the default (list)
+        }
+        if (const EditorAssetBrowserSettings* section = store->Find<EditorAssetBrowserSettings>())
+        {
+            SetGridMode(section->gridMode, /*persist*/ false); // applying saved state must not re-save
+        }
     }
 
     Array<Guid> AssetsView::SelectedInstanceIds(ui::SelectionModel* selection, i32 clicked)

@@ -124,6 +124,21 @@ export namespace editor::app
         }
     };
 
+    // The asset browser's view mode (list vs grid): persisted so a project reopens in the last-used
+    // view. Per-project, alongside the other editor-state sections (a view toggle is UI state, not a
+    // project setting - it lives here with layout / open pages, not in the project's data).
+    class EditorAssetBrowserSettings final : public ISerializable
+    {
+        RTTI_OBJECT(EditorAssetBrowserSettings, ISerializable)
+    public:
+        bool gridMode = false; // false = list, true = grid
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "gridMode", gridMode);
+        }
+    };
+
     // Register the app-side section types (call once at startup, before any store Load).
     inline void RegisterEditorProjectSettingsTypes()
     {
@@ -136,6 +151,9 @@ export namespace editor::app
         GlobalTypeRegistry().Register(EditorOpenPagesSettings::StaticType(),
                                       TypeDomain(u8"Editor"));
         RegisterSerializable<EditorOpenPagesSettings>();
+        GlobalTypeRegistry().Register(EditorAssetBrowserSettings::StaticType(),
+                                      TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorAssetBrowserSettings>();
     }
 
     // ---- store <-> live state ------------------------------------------------------------
@@ -263,4 +281,5 @@ export namespace editor::app
     RTTI_DEFINE_OBJECT_VERSIONED(EditorDockLayoutSettings, "rtti::editor::editor::app", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorFavoritesSettings, "rtti::editor::editor::app", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorOpenPagesSettings, "rtti::editor::editor::app", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorAssetBrowserSettings, "rtti::editor::editor::app", 1)
 }

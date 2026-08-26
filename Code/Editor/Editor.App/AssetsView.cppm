@@ -225,6 +225,7 @@ export namespace editor::app
             split->SetPanes(m_tree.Get(), right.Get());
             AddView(split.Get());
             Rebuild();
+            ApplySavedViewMode(); // restore the last-used list/grid view for this project
         }
 
         ~AssetsView() override
@@ -657,7 +658,10 @@ export namespace editor::app
 
         void NavigateToBreadcrumb(i32 segment);
 
-        void SetGridMode(bool grid);
+        // `persist` writes the choice to the per-project editor settings (a user toggle); the initial
+        // apply from saved settings passes false so loading does not immediately re-save.
+        void SetGridMode(bool grid, bool persist = true);
+        void ApplySavedViewMode(); // read the saved list/grid mode from the project settings + apply
 
         // === menus ===
 

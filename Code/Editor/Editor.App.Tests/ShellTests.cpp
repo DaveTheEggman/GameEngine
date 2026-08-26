@@ -157,6 +157,37 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
     RemoveStateDir(dir);
 }
 
+TEST_CASE("editor-layout: the asset browser list/grid view mode round-trips through the store")
+{
+    const StringView dir = u8"scratch_editor_test_assetview";
+    RemoveStateDir(dir);
+    REQUIRE(CreateDirectory(dir));
+    RegisterEditorProjectSettingsTypes();
+
+    // Default is list (gridMode false); a fresh store reads the default.
+    {
+        foundation::settings::Settings store;
+        CHECK_FALSE(store.Section<EditorAssetBrowserSettings>().gridMode);
+    }
+
+    // Toggle to grid, persist, and load back through the same file the app writes.
+    {
+        foundation::settings::Settings store;
+        store.Section<EditorAssetBrowserSettings>().gridMode = true;
+        store.MarkChanged<EditorAssetBrowserSettings>();
+        REQUIRE(SaveProjectEditorSettings(store, dir).IsOk());
+    }
+    {
+        foundation::settings::Settings loaded;
+        REQUIRE(LoadProjectEditorSettings(loaded, dir).IsOk());
+        const EditorAssetBrowserSettings* section = loaded.Find<EditorAssetBrowserSettings>();
+        REQUIRE(section != nullptr);
+        CHECK(section->gridMode); // the grid choice survived save + reload
+    }
+
+    RemoveStateDir(dir);
+}
+
 TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
 {
     // A hand-built split tree: [A | (B tabbed C)] over D - exercises nesting, ratios, tab order.
