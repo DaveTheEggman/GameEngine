@@ -75,6 +75,7 @@ namespace
         rhi::TextureView* weightView = nullptr;     // RGBA8Unorm slot weights
         rhi::TextureView* indexView = nullptr;      // RGBA8Uint palette indices
         rhi::TextureView* baseAlbedoView = nullptr; // the BASE layer (erase reveals)
+        rhi::TextureView* baseNormalView = nullptr; // BASE tangent-space normal map (terrain PBR)
         f32 baseTileScale = 1.0f;
         rhi::TextureView* paletteArrayView = nullptr; // Texture2DArray, one slice per layer
         rhi::Buffer* tileScaleBuffer = nullptr;       // f32[paletteCount]
@@ -160,6 +161,7 @@ namespace
             rd->weightView = cfg.weightView;
             rd->indexView = cfg.indexView;
             rd->baseAlbedoView = cfg.baseAlbedoView;
+            rd->baseNormalView = cfg.baseNormalView;
             rd->baseTileScale = cfg.baseTileScale;
             rd->paletteArrayView = cfg.paletteArrayView;
             rd->tileScaleBuffer = cfg.tileScaleBuffer;
@@ -957,6 +959,85 @@ TEST_CASE("terrain probe: painting the CPU weights re-uploads and changes the bl
     else
     {
         MESSAGE("WebGPU unavailable - splat re-upload cross-check skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: a base normal map perturbs the flat-ground shading (R5 - Vk + WebGPU)")
+{
+    // A FLAT terrain has ONE geometric normal, so a directional sun shades it uniformly. A base
+    // normal map tilted toward world +X must make the ground respond to sun direction: a +X sun
+    // brightens it (vs the flat-normal control) and a -X sun darkens it. Proves the analytic tangent
+    // frame (terrain-layer-pbr.md R2) + the blend perturb the normal in the correct direction, and
+    // that the SampleGrad-on-array normal tap matches across Vulkan and WebGPU.
+    auto run = [](rhi::Backend* backend, const Float3& toLight, bool withNormal) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            RefPtr<texture::Texture> albedo = MakeSolid(*dev, 170, 170, 170);
+            // Tangent-space normal (0.6, 0, 0.8): under the flat-terrain frame (T=+X, up=+Y) this
+            // tilts the world normal toward +X. Encode n*0.5+0.5 -> (204, 128, 229).
+            RefPtr<texture::Texture> normal = MakeSolid(*dev, 204, 128, 229);
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            cfg.toLight = &toLight;
+            cfg.baseAlbedoView = albedo->View();
+            cfg.baseTileScale = 1.0f;
+            if (withNormal)
+            {
+                cfg.baseNormalView = normal->View();
+            }
+            p = RenderTerrainProbe(*dev, cfg);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const Float3 plusX = Normalized(Float3{0.85f, 0.5f, 0.0f});
+    const Float3 minusX = Normalized(Float3{-0.85f, 0.5f, 0.0f});
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe aPlus = run(vulkan, plusX, true); // normal + aligned sun
+    if (!aPlus.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain normal-map probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    const Probe aMinus = run(vulkan, minusX, true);  // normal + opposed sun
+    const Probe cPlus = run(vulkan, plusX, false);   // flat control, +X
+    const Probe cMinus = run(vulkan, minusX, false); // flat control, -X
+
+    std::printf("[terrain-normal] normal +X=%.0f -X=%.0f | flat +X=%.0f -X=%.0f\n", aPlus.total,
+                aMinus.total, cPlus.total, cMinus.total);
+
+    // Flat control: +X and -X sun shade the one-normal ground ~equally.
+    CHECK(cPlus.total == doctest::Approx(cMinus.total).epsilon(0.06));
+    // The normal map makes it directional: aligned sun brighter, opposed sun darker, than flat.
+    CHECK(aPlus.total > cPlus.total * 1.10);
+    CHECK(aMinus.total < cMinus.total * 0.90);
+
+    // WebGPU parity on the aligned case (the SampleGrad-on-array normal tap is where naga diverges).
+    const Probe wPlus = run(webgpu, plusX, true);
+    if (wPlus.valid)
+    {
+        CHECK(wPlus.total == doctest::Approx(aPlus.total).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - terrain normal-map parity skipped");
     }
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
