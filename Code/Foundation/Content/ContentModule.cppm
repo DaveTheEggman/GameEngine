@@ -68,6 +68,10 @@ export namespace foundation::content
         // --- tooling / write ---
         [[nodiscard]] Status WriteObject(ISerializable& object);
         [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data);
+        // Remove a named data stream's sidecar if present (idempotent: NotFound is not an error).
+        // Cooks call this for an ON-DEMAND stream that a re-cook no longer produces, so a stale
+        // sidecar from an earlier cook does not keep loading (e.g. a removed per-layer terrain map).
+        [[nodiscard]] Status DeleteData(StringView streamName);
 
     private:
         friend class ContentDatabase; // storage layout (envelope/sidecar paths) for delete

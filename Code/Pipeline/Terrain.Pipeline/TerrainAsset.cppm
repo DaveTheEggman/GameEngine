@@ -257,7 +257,9 @@ export namespace pipeline
         // 6: albedo-array mips average in linear space (R3; v5 averaged sRGB bytes) - re-cook.
         // 7: per-layer height array + heightBlendContrast (terrain-height-blend.md P0) - re-cook.
         // 8: per-layer coverage/opacity mask array (terrain-coverage-mask.md P0) - re-cook.
-        [[nodiscard]] u32 Version() const override { return 8; }
+        // 9: on-demand sidecars are DELETED when their map is removed (was: stale sidecar persisted
+        //    and kept loading) - force a re-cook so existing terrains shed any stale arrays.
+        [[nodiscard]] u32 Version() const override { return 9; }
 
         // The palette pack READS every palette albedo/normal/ORM/height/mask content (hash-chained:
         // editing any re-cooks the terrain's arrays); base/heightfield/weights are runtime refs only.
@@ -460,7 +462,14 @@ export namespace pipeline
         {
             if (ta.paletteAlbedoIds.IsEmpty())
             {
-                return Status{}; // no palette: no sidecars (pure-base terrain)
+                // No palette (pure-base terrain): clear EVERY palette sidecar so a terrain whose
+                // layers were all removed does not keep loading stale cooked arrays.
+                (void)ctx.output->DeleteData(foundation::terrain::kPaletteStream);
+                (void)ctx.output->DeleteData(foundation::terrain::kPaletteNormalStream);
+                (void)ctx.output->DeleteData(foundation::terrain::kPaletteOrmStream);
+                (void)ctx.output->DeleteData(foundation::terrain::kPaletteHeightStream);
+                (void)ctx.output->DeleteData(foundation::terrain::kPaletteMaskStream);
+                return Status{};
             }
             // Snap the authored slice size to a sane power of two (mips need clean halving).
             u32 sliceSize = 64;
@@ -495,48 +504,49 @@ export namespace pipeline
                     stream, Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
             };
 
-            // Albedo is always present when the palette is non-empty; normal/ORM only on demand (R4).
+            // An optional map array is written when ANY layer supplies it, and OTHERWISE its sidecar
+            // is DELETED - a re-cook that drops a map (the user cleared the picker) must not leave the
+            // stale sidecar behind, or the factory keeps loading it (HasX() stays true). Idempotent.
+            auto writeOrClear = [&](StringView stream, const Array<Guid>& ids, const u8 def[4],
+                                    bool srgb) -> Status
+            {
+                if (AnyNonNil(ids))
+                {
+                    return writeArray(stream, ids, def, srgb);
+                }
+                return ctx.output->DeleteData(stream);
+            };
+
+            // Albedo is always present when the palette is non-empty; the rest are on demand (R4).
             if (Status s = writeArray(foundation::terrain::kPaletteStream, ta.paletteAlbedoIds, kWhite,
                                       /*srgb*/ true);
                 !s.IsOk())
             {
                 return s;
             }
-            if (AnyNonNil(ta.paletteNormalIds))
+            if (Status s = writeOrClear(foundation::terrain::kPaletteNormalStream, ta.paletteNormalIds,
+                                        kFlatNormal, /*srgb*/ false);
+                !s.IsOk())
             {
-                if (Status s = writeArray(foundation::terrain::kPaletteNormalStream,
-                                          ta.paletteNormalIds, kFlatNormal, /*srgb*/ false);
-                    !s.IsOk())
-                {
-                    return s;
-                }
+                return s;
             }
-            if (AnyNonNil(ta.paletteOrmIds))
+            if (Status s = writeOrClear(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds,
+                                        kDefaultOrm, /*srgb*/ false);
+                !s.IsOk())
             {
-                if (Status s = writeArray(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds,
-                                          kDefaultOrm, /*srgb*/ false);
-                    !s.IsOk())
-                {
-                    return s;
-                }
+                return s;
             }
-            if (AnyNonNil(ta.paletteHeightIds))
+            if (Status s = writeOrClear(foundation::terrain::kPaletteHeightStream,
+                                        ta.paletteHeightIds, kMidHeight, /*srgb*/ false);
+                !s.IsOk())
             {
-                if (Status s = writeArray(foundation::terrain::kPaletteHeightStream,
-                                          ta.paletteHeightIds, kMidHeight, /*srgb*/ false);
-                    !s.IsOk())
-                {
-                    return s;
-                }
+                return s;
             }
-            if (AnyNonNil(ta.paletteMaskIds))
+            if (Status s = writeOrClear(foundation::terrain::kPaletteMaskStream, ta.paletteMaskIds,
+                                        kOpaqueMask, /*srgb*/ false);
+                !s.IsOk())
             {
-                if (Status s = writeArray(foundation::terrain::kPaletteMaskStream, ta.paletteMaskIds,
-                                          kOpaqueMask, /*srgb*/ false);
-                    !s.IsOk())
-                {
-                    return s;
-                }
+                return s;
             }
             return Status{};
         }

@@ -309,6 +309,21 @@ namespace foundation::content
         return writable->Save(DataPath(streamName).AsView(), data);
     }
 
+    Status Instance::DeleteData(StringView streamName)
+    {
+        IWritableFileSystem* writable = m_db->Mount().AsWritable();
+        if (writable == nullptr)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
+        const String path = DataPath(streamName);
+        if (!m_db->Mount().Exists(path.AsView()))
+        {
+            return Status{}; // idempotent: nothing to remove
+        }
+        return writable->Delete(path.AsView());
+    }
+
     UniquePtr<IStream> Instance::OpenEnvelope() const
     {
         return m_db->Mount().Open(EnvelopePath().AsView(), FileMode::Read);

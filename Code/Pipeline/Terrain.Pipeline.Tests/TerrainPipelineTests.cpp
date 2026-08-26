@@ -446,3 +446,72 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
 
     RemoveTree();
 }
+
+TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale sidecar (P1 fix)")
+{
+    hf::RegisterHeightfieldResourceTypes();
+    RegisterTerrainAsset();
+    RegisterTerrainResourceTypes();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+
+    Guid terrainId;
+    {
+        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
+        RefPtr<hf::Heightfield> grid =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+        hf::HeightfieldSource hfSrc;
+        hf::HeightfieldSource::FromHeightfield(*grid, hfSrc);
+        REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
+        REQUIRE(
+            hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+
+        auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
+        terrainId = tInst->Id();
+
+        TerrainAsset withMask;
+        withMask.heightfieldId = hfInst->Id();
+        withMask.baseAlbedoId = Guid{111, 222};
+        withMask.paletteTextureSize = 64;
+        withMask.paletteAlbedoIds.PushBack(Guid{321, 654});
+        withMask.paletteMaskIds.PushBack(Guid{91, 92}); // a mask -> sidecar written
+        withMask.paletteTileScales.PushBack(4.0f);
+
+        TerrainAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = tInst;
+        REQUIRE(builder.Build(withMask, ctx).IsOk());
+        REQUIRE(static_cast<bool>(tInst->ReadData(kPaletteMaskStream))); // sidecar present
+
+        // Re-cook the SAME instance with the mask REMOVED - the stale sidecar must be deleted.
+        TerrainAsset noMask;
+        noMask.heightfieldId = hfInst->Id();
+        noMask.baseAlbedoId = Guid{111, 222};
+        noMask.paletteTextureSize = 64;
+        noMask.paletteAlbedoIds.PushBack(Guid{321, 654});
+        noMask.paletteTileScales.PushBack(4.0f);
+        REQUIRE(builder.Build(noMask, ctx).IsOk());
+        CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteMaskStream))); // sidecar GONE
+    }
+
+    // The reloaded product must NOT report a mask (no stale array leaks into the runtime).
+    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    hf::HeightfieldFactory heightfieldFactory;
+    TerrainFactory terrainFactory;
+    ResourceManager manager(db);
+    manager.AddFactory(&heightfieldFactory);
+    manager.AddFactory(&terrainFactory);
+
+    Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
+    REQUIRE(terrain);
+    REQUIRE(terrain->paletteData);
+    CHECK(terrain->paletteData->IsValid());       // albedo still there
+    CHECK_FALSE(terrain->paletteData->HasMask()); // but the removed mask does NOT leak
+
+    RemoveTree();
+}
