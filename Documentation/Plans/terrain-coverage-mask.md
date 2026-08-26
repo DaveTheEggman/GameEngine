@@ -249,3 +249,19 @@ under +Z. If the probe disagrees, fix B's sign in the SHADER - never ask authors
 
 Everything else stands as written: phasing, the verification bar (plus R3's fixture correction and
 R5's green case), the palette-only data model, and the touch list (with R1's 7 -> 8).
+
+---
+
+## POST-IMPLEMENTATION REVIEW (Fable, 2026-08-26) - PASS, no findings
+
+Every amendment held: R1 builder 7 -> 8 + both envelopes at DataVersion 5
+(RTTI_DEFINE_OBJECT_VERSIONED 5); R2 SplatParams2 appended with the lane named at BOTH the HLSL
+declaration and the C++ ViewData fill (the discipline finally arrived pre-review); R3 the mask
+probe's tileScale = the footprint (one repeat), and the half-split provably lands on screen AND
+mirrors exactly when the mask flips; R4's mip-softening note shipped in the authoring guide; R5
+the import note now says `_nor_gl_` imports AS-IS and the green-sign probe PINS it empirically -
+a +green base normal brightens 4x under a -Z sun and darkens under +Z against a symmetric flat
+control, closing the green-axis gap layer-pbr left argued-but-unmeasured. The shader ordering is
+exactly as ruled (mask multiply -> baseW recompute -> linear or height-blend weighting, uniform
+branch, SampleGrad with hoisted grads). WGSL cook clean; full clang + gcc batteries green; the
+mask probe shows opaque = pure layer, zero = pure revealed base, WebGPU parity on the split.
