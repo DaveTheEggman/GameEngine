@@ -3,8 +3,8 @@
 // TerrainEditorPage (terrain.md phase 2, TerrainPage): the COMPOSITION + PREVIEW surface for a
 // TerrainAsset. Left = a 3D orbit preview of the cooked terrain product (a TerrainComponent bound by
 // the asset guid, on the shared PreviewViewport substrate - mesh/material precedent). Right = the
-// authored fields: the heightfield + splatmap references (pickers), the layer list (albedo ref + tile
-// scale per layer), castShadows, and stats. Editing rewrites the asset, pushes a merge-keyed undo
+// authored fields: the heightfield + splatmap references (pickers), the layer list (albedo + normal +
+// ORM refs + tile scale per layer), castShadows, and stats. Editing rewrites the asset, pushes a merge-keyed undo
 // command, and Save writes it back + re-cooks so the bound TerrainResource hot-swaps. Brushes NEVER
 // live here (per the direction ruling): sculpt + splat paint are scene-viewport IViewportTools; this
 // page keeps ONE input-routing path by staying a composition + preview surface.
@@ -73,6 +73,7 @@ export namespace editor
                            Function<void(const Guid&)> apply);
         void AddLayer();
         void RemoveLayer(u32 index);
+        void SetPaletteMap(bool normal, u32 index, const Guid& g); // set per-layer normal/ORM id
         void RemapWeightsOnRemove(u32 removedIndex); // frees removed-layer slots; decrements above
         void CreateSplatmap(i32 size); // author + assign a new blank splatmap asset (composition)
 

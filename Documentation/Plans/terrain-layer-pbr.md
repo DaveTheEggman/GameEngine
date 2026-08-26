@@ -221,7 +221,14 @@ compat is PINNED by probe #3 (pre/post in the same run).
   normal-map probe proves a tilted base normal brightens under an aligned sun / darkens under an
   opposed one while the flat control stays symmetric (R2 direction correct), matching across
   backends. commits 0abd5fa4 (impl) + cd7991e9 (probe).
-- P2 - Editor: per-layer normal + ORM pickers on the terrain page; recook wiring.
+- P2 - DONE (editor): the terrain page grows a Base normal + Base ORM picker under the base layer,
+  and a Layer N normal + Layer N ORM picker on each palette row, mirroring the albedo pickers
+  (`PickReference` -> `AssetPickerDialog` filtered to TextureAsset -> `CommitEdit` + rebind + recook).
+  Each per-row setter routes through `SetPaletteMap`, which lazily grows the optional
+  `paletteNormalIds` / `paletteOrmIds` to the albedo count so an older terrain (empty map arrays)
+  edits cleanly; `AddLayer` / `RemoveLayer` keep the three arrays parallel. Tests: v3 snapshot
+  round-trips the base + ragged per-layer normal/ORM ids through the page's versioned undo payload,
+  and a no-maps snapshot stays empty (Editor.Terrain.Tests 19 pass on clang + gcc).
 - P3 - Polish + docs -> IMPLEMENTED; note height-blend/triplanar as the next optional track.
 
 ## Verification

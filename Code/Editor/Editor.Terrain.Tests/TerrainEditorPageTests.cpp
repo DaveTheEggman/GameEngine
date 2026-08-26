@@ -111,6 +111,86 @@ TEST_CASE("TerrainAsset v2 blob snapshot round-trips its authored fields (the un
     CHECK(b.castShadows == false);
 }
 
+TEST_CASE("TerrainAsset v3 snapshot round-trips the per-layer normal + ORM ids (the P2 undo path)")
+{
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.baseNormalId = Guid{101, 102};
+    a.baseOrmId = Guid{103, 104};
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteAlbedoIds.PushBack(Guid{99, 111});
+    a.paletteTileScales.PushBack(16.0f);
+    a.paletteTileScales.PushBack(48.0f);
+    // A partially-authored palette: layer 0 has a normal but no ORM, layer 1 the reverse. The page
+    // grows these arrays lazily (SetPaletteMap), so a snapshot must survive the ragged shape.
+    a.paletteNormalIds.PushBack(Guid{201, 202});
+    a.paletteNormalIds.PushBack(Guid{});
+    a.paletteOrmIds.PushBack(Guid{});
+    a.paletteOrmIds.PushBack(Guid{203, 204});
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+
+    CHECK(b.baseNormalId == Guid{101, 102});
+    CHECK(b.baseOrmId == Guid{103, 104});
+    REQUIRE(b.paletteNormalIds.Size() == 2u);
+    CHECK(b.paletteNormalIds[0] == Guid{201, 202});
+    CHECK(b.paletteNormalIds[1] == Guid{});
+    REQUIRE(b.paletteOrmIds.Size() == 2u);
+    CHECK(b.paletteOrmIds[0] == Guid{});
+    CHECK(b.paletteOrmIds[1] == Guid{203, 204});
+}
+
+TEST_CASE("TerrainAsset snapshot with no maps round-trips empty normal/ORM arrays (never populated)")
+{
+    // With no maps authored, the arrays must stay empty across a snapshot so the page's lazy-grow
+    // picker path (SetPaletteMap) stays the only thing that ever sizes them.
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteTileScales.PushBack(16.0f);
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+    CHECK(b.baseNormalId == Guid{});
+    CHECK(b.baseOrmId == Guid{});
+    CHECK(b.paletteNormalIds.IsEmpty());
+    CHECK(b.paletteOrmIds.IsEmpty());
+}
+
 TEST_CASE("TerrainAsset reads a v1 (fixed-layer) payload: layer 0 -> base, layers 1.. -> palette")
 {
     // A legacy envelope written WITHOUT a version scope (v1 payloads predate the gate).

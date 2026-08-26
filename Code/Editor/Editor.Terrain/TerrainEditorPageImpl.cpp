@@ -290,6 +290,26 @@ namespace editor
                                                   [self](const Guid& g)
                                                   { self->m_asset->baseAlbedoId = g; }});
                       });
+            const String tn =
+                Format(u8"Base normal: {}", AssetName(m_context, m_asset->baseNormalId));
+            addButton(tn.AsView(),
+                      [self]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"baseNormal",
+                                              core::Function<void(const Guid&)>{
+                                                  [self](const Guid& g)
+                                                  { self->m_asset->baseNormalId = g; }});
+                      });
+            const String to =
+                Format(u8"Base ORM: {}", AssetName(m_context, m_asset->baseOrmId));
+            addButton(to.AsView(),
+                      [self]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"baseOrm",
+                                              core::Function<void(const Guid&)>{
+                                                  [self](const Guid& g)
+                                                  { self->m_asset->baseOrmId = g; }});
+                      });
         }
 
         // PAINT palette: the unbounded layer list (add/remove; removal remaps the weight raster).
@@ -312,6 +332,28 @@ namespace editor
                                                           self->m_asset->paletteAlbedoIds[idx] = g;
                                                       }
                                                   }});
+                      });
+            const Guid nId = idx < m_asset->paletteNormalIds.Size() ? m_asset->paletteNormalIds[idx]
+                                                                    : Guid{};
+            const String tn = Format(u8"Layer {} normal: {}", i, AssetName(m_context, nId));
+            addButton(tn.AsView(),
+                      [self, idx]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"paletteNormal",
+                                              core::Function<void(const Guid&)>{
+                                                  [self, idx](const Guid& g)
+                                                  { self->SetPaletteMap(true, idx, g); }});
+                      });
+            const Guid oId =
+                idx < m_asset->paletteOrmIds.Size() ? m_asset->paletteOrmIds[idx] : Guid{};
+            const String to = Format(u8"Layer {} ORM: {}", i, AssetName(m_context, oId));
+            addButton(to.AsView(),
+                      [self, idx]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"paletteOrm",
+                                              core::Function<void(const Guid&)>{
+                                                  [self, idx](const Guid& g)
+                                                  { self->SetPaletteMap(false, idx, g); }});
                       });
             addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
         }
@@ -412,8 +454,27 @@ namespace editor
         }
         m_asset->paletteAlbedoIds.PushBack(Guid{});
         m_asset->paletteTileScales.PushBack(32.0f);
+        // Keep the optional normal/ORM arrays parallel with the albedo list so row indices line up.
+        m_asset->paletteNormalIds.PushBack(Guid{});
+        m_asset->paletteOrmIds.PushBack(Guid{});
         CommitEdit(u8"addLayer");
         RebuildFieldsDeferred();
+    }
+
+    // Set a per-layer normal (normal==true) or ORM (false) map id, growing the (optional) array to
+    // match the albedo list first so an older terrain with no maps still edits cleanly.
+    void TerrainEditorPage::SetPaletteMap(bool normal, u32 index, const Guid& g)
+    {
+        if (m_asset.Get() == nullptr || index >= m_asset->paletteAlbedoIds.Size())
+        {
+            return;
+        }
+        Array<Guid>& ids = normal ? m_asset->paletteNormalIds : m_asset->paletteOrmIds;
+        while (ids.Size() < m_asset->paletteAlbedoIds.Size())
+        {
+            ids.PushBack(Guid{});
+        }
+        ids[index] = g;
     }
 
     void TerrainEditorPage::RemoveLayer(u32 index)
@@ -426,6 +487,14 @@ namespace editor
         if (index < m_asset->paletteTileScales.Size())
         {
             m_asset->paletteTileScales.RemoveAt(index);
+        }
+        if (index < m_asset->paletteNormalIds.Size())
+        {
+            m_asset->paletteNormalIds.RemoveAt(index);
+        }
+        if (index < m_asset->paletteOrmIds.Size())
+        {
+            m_asset->paletteOrmIds.RemoveAt(index);
         }
         // Remap the weight raster (ruling R6): slots referencing the removed layer are freed
         // (their weight falls to base); indices above it decrement. Applied to the LIVE runtime
