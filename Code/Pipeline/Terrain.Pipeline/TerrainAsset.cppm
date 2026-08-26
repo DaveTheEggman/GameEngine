@@ -48,12 +48,15 @@ export namespace pipeline
         Guid baseAlbedoId;            // the BASE layer albedo (nil = white dummy)
         Guid baseNormalId;            // the BASE normal map (nil = flat); DataVersion 3
         Guid baseOrmId;               // the BASE ORM (nil = 1,1,0 default); DataVersion 3
+        Guid baseHeightId;            // the BASE height/displacement map (nil = dummy); DataVersion 4
         f32 baseTileScale = 1.0f;
         Array<Guid> paletteAlbedoIds; // paint layers, unbounded (parallel to paletteTileScales)
         Array<Guid> paletteNormalIds; // per-palette-layer normal map (nil allowed); DataVersion 3
         Array<Guid> paletteOrmIds;    // per-palette-layer ORM (nil allowed); DataVersion 3
+        Array<Guid> paletteHeightIds; // per-palette-layer height map (nil allowed); DataVersion 4
         Array<f32> paletteTileScales;
         i32 paletteTextureSize = 1024; // common Texture2DArray slice size (authoring setting)
+        f32 heightBlendContrast = 0.25f; // height-blend soft-skirt width (terrain-height-blend.md); DV4
         bool castShadows = true;
 
         void Serialize(ISerializer& ar) override
@@ -74,6 +77,12 @@ export namespace pipeline
                     foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
                     foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
                     foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
+                }
+                if (ar.Version() >= 4) // per-layer height maps + contrast (terrain-height-blend.md)
+                {
+                    foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
+                    foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
+                    foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
                 }
             }
             else
@@ -241,10 +250,11 @@ export namespace pipeline
         // 4: palette albedos decode through ctx.sourceDb (v3 cooked every slice WHITE) - re-cook.
         // 5: per-layer normal + ORM arrays (terrain-layer-pbr.md P0) - re-cook.
         // 6: albedo-array mips average in linear space (R3; v5 averaged sRGB bytes) - re-cook.
-        [[nodiscard]] u32 Version() const override { return 6; }
+        // 7: per-layer height array + heightBlendContrast (terrain-height-blend.md P0) - re-cook.
+        [[nodiscard]] u32 Version() const override { return 7; }
 
-        // The palette pack READS every palette albedo/normal/ORM's content (hash-chained: editing any
-        // re-cooks the terrain's arrays); base/heightfield/weights are runtime references only.
+        // The palette pack READS every palette albedo/normal/ORM/height's content (hash-chained:
+        // editing any re-cooks the terrain's arrays); base/heightfield/weights are runtime refs only.
         void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
         {
@@ -262,6 +272,7 @@ export namespace pipeline
             chain(ta.paletteAlbedoIds);
             chain(ta.paletteNormalIds);
             chain(ta.paletteOrmIds);
+            chain(ta.paletteHeightIds);
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
@@ -278,11 +289,14 @@ export namespace pipeline
             src.baseAlbedoId = ta.baseAlbedoId;
             src.baseNormalId = ta.baseNormalId;
             src.baseOrmId = ta.baseOrmId;
+            src.baseHeightId = ta.baseHeightId;
             src.baseTileScale = ta.baseTileScale;
             src.paletteAlbedoIds = ta.paletteAlbedoIds;
             src.paletteNormalIds = ta.paletteNormalIds;
             src.paletteOrmIds = ta.paletteOrmIds;
+            src.paletteHeightIds = ta.paletteHeightIds;
             src.paletteTileScales = ta.paletteTileScales;
+            src.heightBlendContrast = ta.heightBlendContrast;
             src.castShadows = ta.castShadows;
             const Status wrote = ctx.output->WriteObject(src);
             if (!wrote.IsOk())
@@ -456,10 +470,12 @@ export namespace pipeline
                 foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
             const u32 sliceCount = static_cast<u32>(ta.paletteAlbedoIds.Size());
 
-            // Per-map default slices (terrain-layer-pbr.md): white albedo, flat normal, default ORM.
+            // Per-map default slices (terrain-layer-pbr.md / terrain-height-blend.md): white albedo,
+            // flat normal, default ORM, mid height (0.5 = neutral in the height-blend competition).
             static const u8 kWhite[4] = {255, 255, 255, 255};
             static const u8 kFlatNormal[4] = {128, 128, 255, 255};       // tangent-space +Z
             static const u8 kDefaultOrm[4] = {255, 255, 0, 255};         // AO 1, roughness 1, metallic 0
+            static const u8 kMidHeight[4] = {128, 128, 128, 255};        // height 0.5 (.r used)
 
             auto writeArray = [&](StringView stream, const Array<Guid>& ids, const u8 def[4],
                                   bool srgb) -> Status
@@ -490,6 +506,15 @@ export namespace pipeline
             {
                 if (Status s = writeArray(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds,
                                           kDefaultOrm, /*srgb*/ false);
+                    !s.IsOk())
+                {
+                    return s;
+                }
+            }
+            if (AnyNonNil(ta.paletteHeightIds))
+            {
+                if (Status s = writeArray(foundation::terrain::kPaletteHeightStream,
+                                          ta.paletteHeightIds, kMidHeight, /*srgb*/ false);
                     !s.IsOk())
                 {
                     return s;

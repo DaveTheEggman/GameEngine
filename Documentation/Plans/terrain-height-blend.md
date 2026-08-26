@@ -142,11 +142,14 @@ Mirror the layer-pbr P2 pickers I just shipped:
 
 ## Phasing
 
-- P0 - Data + cook: `Layer.height` + `TerrainSource` / `TerrainAsset` height ids + `heightBlendContrast`
-  + both DataVersion bumps (4) + v-gated reads; `TerrainPaletteData.heightTexels` + the sidecar stream;
-  the cook builds the height array ON DEMAND with the `{128,128,128,255}` default; ScanDependencies
-  chains it. Tests: on-demand height array + nil-layer default fill + no-height compat + source-id +
-  contrast round-trip (Terrain.Pipeline.Tests).
+- P0 - DONE (data + cook): `Layer.height` + `TerrainSource` / `TerrainAsset` height ids +
+  `heightBlendContrast` + both DataVersion bumps (4, RTTI 4) + builder Version 6 -> 7 (R1) + v-gated
+  reads; `TerrainPaletteData.heightTexels` / `HasHeight()` + the `palette.height` sidecar stream (factory
+  ReadArrayStream cross-checks geometry vs the albedo header); the cook builds the height array ON
+  DEMAND (`AnyNonNil`) with the `{128,128,128,255}` mid default; `ScanDependencies` chains the height
+  ids; factory copies contrast source -> resource. Tests: on-demand height array + nil-layer mid-default
+  slice + no-height compat (`HasHeight()` false) + base/palette id + contrast round-trip
+  (Terrain.Pipeline.Tests 12 pass, clang + gcc).
 - P1 - Renderer + shader: palette cache builds the height array; render data + component fill + the
   contrast/heightBound params into ShadowParams.zw; set-3 t9/t10 + 1x1 mid-height dummies + the cache
   key; the PS runs the height-blend reweighting under the uniform `heightBound` branch. WGSL: all

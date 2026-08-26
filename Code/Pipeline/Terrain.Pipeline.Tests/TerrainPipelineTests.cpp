@@ -31,6 +31,7 @@ namespace
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.bin");
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.normal.bin");
         FileDelete(u8"scratch_terrainpipe_db/terrain.palette.orm.bin");
+        FileDelete(u8"scratch_terrainpipe_db/terrain.palette.height.bin");
         RemoveDirectory(u8"scratch_terrainpipe_db");
     }
 }
@@ -262,6 +263,98 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat, P0)")
     REQUIRE(terrain);
     REQUIRE(terrain->paletteData);
     CHECK(terrain->paletteData->IsValid());     // albedo array present
+    CHECK_FALSE(terrain->paletteData->HasNormal());
+    CHECK_FALSE(terrain->paletteData->HasOrm());
+    CHECK_FALSE(terrain->paletteData->HasHeight());
+
+    RemoveTree();
+}
+
+TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array built on demand (P0)")
+{
+    hf::RegisterHeightfieldResourceTypes();
+    RegisterTerrainAsset();
+    RegisterTerrainResourceTypes();
+    RemoveTree();
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+
+    Guid terrainId;
+    u32 sliceSize = 0, mipCount = 0;
+    Array<u8> cookedHeight; // the raw cooked height stream (header + texels)
+    {
+        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                              u8".rasset");
+        auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
+        RefPtr<hf::Heightfield> grid =
+            MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+        hf::HeightfieldSource hfSrc;
+        hf::HeightfieldSource::FromHeightfield(*grid, hfSrc);
+        REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
+        REQUIRE(
+            hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+
+        auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
+        terrainId = tInst->Id();
+        TerrainAsset asset;
+        asset.heightfieldId = hfInst->Id();
+        asset.baseAlbedoId = Guid{111, 222};
+        asset.baseHeightId = Guid{77, 88};       // base height id (unresolvable -> dummy at bind)
+        asset.heightBlendContrast = 0.4f;        // authored contrast must survive the cook
+        asset.baseTileScale = 16.0f;
+        asset.paletteTextureSize = 64;
+        asset.paletteAlbedoIds.PushBack(Guid{321, 654});
+        asset.paletteAlbedoIds.PushBack(Guid{});
+        asset.paletteHeightIds.PushBack(Guid{55, 66}); // layer 0 HAS a height -> array built
+        asset.paletteHeightIds.PushBack(Guid{});       // layer 1 nil -> default mid-height slice
+        asset.paletteTileScales.PushBack(4.0f);
+        asset.paletteTileScales.PushBack(8.0f);
+
+        TerrainAssetBuilder builder;
+        NativeFileSystem srcMount(u8".");
+        pipeline::AssetBuildContext ctx;
+        ctx.sources = &srcMount;
+        ctx.output = tInst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+
+        UniquePtr<IStream> h = tInst->ReadData(kPaletteHeightStream);
+        REQUIRE(h);
+        cookedHeight.Resize(static_cast<usize>(h->Size()));
+        REQUIRE(h->Read(cookedHeight.Data(), static_cast<u64>(cookedHeight.Size())) ==
+                cookedHeight.Size());
+        // No normal/ORM authored -> those arrays stay absent.
+        CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteNormalStream)));
+        CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteOrmStream)));
+    }
+
+    // The nil palette layer's height slice defaulted to mid-height (128,128,128,255).
+    REQUIRE(cookedHeight.Size() > sizeof(u32) * 3);
+    MemCopy(&sliceSize, cookedHeight.Data(), sizeof(u32));
+    MemCopy(&mipCount, cookedHeight.Data() + sizeof(u32), sizeof(u32));
+    const usize sliceBytes = TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+    const usize slice1 = sizeof(u32) * 3 + sliceBytes * 1; // layer 1 (nil), mip 0, first texel
+    CHECK(cookedHeight[slice1 + 0] == 128);
+    CHECK(cookedHeight[slice1 + 1] == 128);
+    CHECK(cookedHeight[slice1 + 2] == 128);
+    CHECK(cookedHeight[slice1 + 3] == 255);
+
+    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    hf::HeightfieldFactory heightfieldFactory;
+    TerrainFactory terrainFactory;
+    ResourceManager manager(db);
+    manager.AddFactory(&heightfieldFactory);
+    manager.AddFactory(&terrainFactory);
+
+    Proxy<TerrainResource> terrain = manager.Bind<TerrainResource>(terrainId);
+    REQUIRE(terrain);
+    CHECK(terrain->base.height.IsBound());
+    CHECK(terrain->base.height.id == Guid{77, 88});
+    CHECK(terrain->palette[0].height.IsBound());
+    CHECK(terrain->palette[0].height.id == Guid{55, 66});
+    CHECK_FALSE(terrain->palette[1].height.IsBound()); // nil id stays unbound
+    CHECK(terrain->heightBlendContrast == doctest::Approx(0.4f)); // contrast survived cook -> resource
+    REQUIRE(terrain->paletteData);
+    CHECK(terrain->paletteData->HasHeight());     // height array present (a layer used it)
     CHECK_FALSE(terrain->paletteData->HasNormal());
     CHECK_FALSE(terrain->paletteData->HasOrm());
 

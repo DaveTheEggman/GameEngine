@@ -30,6 +30,8 @@ export namespace foundation::terrain
 {
     /// The cooked terrain (serialized): the referenced resources by guid + per-layer tiling +
     /// cast-shadows. The factory resolves the guids; nothing here is bulk data.
+    /// DataVersion 4 = per-layer HEIGHT (displacement) maps + heightBlendContrast (terrain-height-blend.md;
+    /// all new ids default nil + contrast 0.25 -> the OFF path, so v3 payloads are visually unchanged).
     /// DataVersion 3 = per-layer normal + ORM maps (terrain-layer-pbr.md; all new ids default nil ->
     /// flat normal / default ORM, so v2 payloads are visually unchanged). DataVersion 2 = the top-K
     /// model (base + palette + weightsId). Version 1 (the fixed-4-layer model: splatmapId +
@@ -45,11 +47,16 @@ export namespace foundation::terrain
         Guid baseAlbedoId;            // the BASE layer albedo (nil = white dummy)
         Guid baseNormalId;            // the BASE normal map (nil = flat); DataVersion 3
         Guid baseOrmId;               // the BASE ORM (nil = 1,1,0 default); DataVersion 3
+        Guid baseHeightId;            // the BASE height/displacement map (nil = dummy); DataVersion 4
         f32 baseTileScale = 1.0f;
         Array<Guid> paletteAlbedoIds; // paint layers, unbounded (parallel to paletteTileScales)
         Array<Guid> paletteNormalIds; // per-palette-layer normal map (nil allowed); DataVersion 3
         Array<Guid> paletteOrmIds;    // per-palette-layer ORM (nil allowed); DataVersion 3
+        Array<Guid> paletteHeightIds; // per-palette-layer height map (nil allowed); DataVersion 4
         Array<f32> paletteTileScales;
+        // Height-blend soft-skirt width (terrain-height-blend.md; consulted only when height maps are
+        // present). 0..1; small = sharp interlock, large = washes toward an equal mix. DataVersion 4.
+        f32 heightBlendContrast = 0.25f;
         bool castShadows = true;
 
         void Serialize(ISerializer& ar) override
@@ -68,6 +75,12 @@ export namespace foundation::terrain
                     foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
                     foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
                     foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
+                }
+                if (ar.Version() >= 4) // per-layer height maps + contrast (terrain-height-blend.md)
+                {
+                    foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
+                    foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
+                    foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
                 }
             }
             else
@@ -114,6 +127,10 @@ export namespace foundation::terrain
         // sliceSize/mipCount/sliceCount geometry. The renderer ignores these until the P1 shader lands.
         Array<u8> normalTexels;
         Array<u8> ormTexels;
+        // The HEIGHT/displacement array (terrain-height-blend.md), built ON DEMAND: empty = absent (no
+        // palette layer used a height map -> the renderer binds a 1x1 mid-height dummy). Same geometry
+        // as albedo; read via the red channel.
+        Array<u8> heightTexels;
 
         /// Total bytes of one slice's full mip chain for `sliceSize`/`mipCount`.
         [[nodiscard]] static usize SliceBytes(u32 sliceSize, u32 mipCount) noexcept
@@ -145,13 +162,18 @@ export namespace foundation::terrain
         {
             return IsValid() && ormTexels.Size() == ArrayBytes();
         }
+        [[nodiscard]] bool HasHeight() const noexcept
+        {
+            return IsValid() && heightTexels.Size() == ArrayBytes();
+        }
     };
 
     /// The terrain cooked instance's palette sidecar streams (see TerrainPaletteData). The normal /
-    /// ORM streams are ABSENT when no palette layer uses that map (terrain-layer-pbr.md R4).
+    /// ORM / height streams are ABSENT when no palette layer uses that map (terrain-layer-pbr.md R4).
     inline constexpr StringView kPaletteStream = u8"palette";
     inline constexpr StringView kPaletteNormalStream = u8"palette.normal";
     inline constexpr StringView kPaletteOrmStream = u8"palette.orm";
+    inline constexpr StringView kPaletteHeightStream = u8"palette.height";
 
     /// The runtime terrain product: the resolved resource handles the renderer draws with. The
     /// heightfield drives geometry (via foundation.terrain's chunk model) + the shared collision.
@@ -166,7 +188,8 @@ export namespace foundation::terrain
             Ref<texture::Texture> albedo;
             Ref<texture::Texture> normal; // tangent-space normal map (nil = flat); terrain-layer-pbr.md
             Ref<texture::Texture> orm;    // R=AO G=roughness B=metallic (nil = 1,1,0 default)
-            f32 tileScale = 1.0f;         // shared by all three maps of this layer
+            Ref<texture::Texture> height; // displacement map for height-blend (nil = dummy); .r used
+            f32 tileScale = 1.0f;         // shared by all maps of this layer
         };
 
         Ref<heightfield::Heightfield> heightfield;
@@ -176,6 +199,9 @@ export namespace foundation::terrain
         // The cook-built palette texel array (null = no palette or an in-memory terrain that
         // assigns it directly); engine.terrain uploads it as the Texture2DArray.
         RefPtr<TerrainPaletteData> paletteData;
+        // Height-blend soft-skirt width (terrain-height-blend.md), copied from the source; the renderer
+        // feeds it to the shader only when height maps are present.
+        f32 heightBlendContrast = 0.25f;
         bool castShadows = true;
 
         [[nodiscard]] u32 PaletteCount() const noexcept
@@ -203,6 +229,7 @@ export namespace foundation::terrain
             }
             RefPtr<TerrainResource> terrain = MakeRef<TerrainResource>(DefaultAllocator());
             terrain->castShadows = src->castShadows;
+            terrain->heightBlendContrast = src->heightBlendContrast;
             // Stamp each ref's serialized identity (its source guid) as well as binding the proxy:
             // Ref<T>::id exists precisely to carry this, and factory-built products must round-trip
             // their sub-ref ids (serializing one otherwise writes nil) - and the editor resolves the
@@ -231,6 +258,7 @@ export namespace foundation::terrain
             bind(terrain->base.albedo, src->baseAlbedoId);
             bind(terrain->base.normal, src->baseNormalId);
             bind(terrain->base.orm, src->baseOrmId);
+            bind(terrain->base.height, src->baseHeightId);
             for (usize i = 0; i < src->paletteAlbedoIds.Size(); ++i)
             {
                 TerrainResource::Layer layer;
@@ -244,6 +272,10 @@ export namespace foundation::terrain
                 if (i < src->paletteOrmIds.Size())
                 {
                     bind(layer.orm, src->paletteOrmIds[i]);
+                }
+                if (i < src->paletteHeightIds.Size())
+                {
+                    bind(layer.height, src->paletteHeightIds[i]);
                 }
                 terrain->palette.PushBack(Move(layer));
             }
@@ -278,6 +310,14 @@ export namespace foundation::terrain
                         otex.Size() == expect)
                     {
                         palette->ormTexels = Move(otex);
+                    }
+                    u32 hhdr[3] = {0, 0, 0};
+                    Array<u8> htex;
+                    if (ReadArrayStream(instance, kPaletteHeightStream, hhdr, htex) &&
+                        hhdr[0] == hdr[0] && hhdr[1] == hdr[1] && hhdr[2] == hdr[2] &&
+                        htex.Size() == expect)
+                    {
+                        palette->heightTexels = Move(htex);
                     }
                     terrain->paletteData = Move(palette);
                 }
@@ -323,5 +363,5 @@ export namespace foundation::terrain
 
     RTTI_DEFINE_OBJECT(TerrainResource, "rtti::terrain")
     RTTI_DEFINE_OBJECT(TerrainPaletteData, "rtti::terrain")
-    RTTI_DEFINE_OBJECT_VERSIONED(TerrainSource, "rtti::terrain", 3)
+    RTTI_DEFINE_OBJECT_VERSIONED(TerrainSource, "rtti::terrain", 4)
 }
