@@ -1,8 +1,9 @@
 # Terrain Layers: Per-Layer Normal + ORM Maps (top-K blended)
 
-Status: APPROVED (Fable, 2026-08-26) with required amendments R1-R7 (see RULING at the bottom).
-Extends terrain-splat-topk.md (the base + unbounded palette + top-K weight model). Pure
-material/render extension - NO change to the paint tool, weight rasters, or paint data model.
+Status: APPROVED (Fable, 2026-08-26) with required amendments R1-R7 (RULING at the bottom); folded
+into the body. Building P0. Extends terrain-splat-topk.md (the base + unbounded palette + top-K
+weight model). Pure material/render extension - NO change to the paint tool, weight rasters, or
+paint data model.
 
 ## Motivation
 
@@ -36,15 +37,17 @@ slope, with no bumps and no specular variation. `TerrainResource::Layer` carries
 - Changing the paint tool, the weight rasters, or the base/palette model (terrain-splat-topk.md
   stands unchanged).
 
-## Locked shape (confirm in review)
+## Locked shape (PINNED by the ruling from the codebase, R1)
 
 - Three textures per layer MAX: `albedo`, `normal`, `orm`. Each of `normal`/`orm` is OPTIONAL per
-  layer (missing -> a cook-injected default slice; see Defaults).
-- ORM packing: one texture per layer, `R = AO`, `G = roughness`, `B = metallic` (glTF metallic-
-  roughness adjacent; AO folded into R). Single texture keeps it to three parallel arrays.
-- Normal maps: tangent-space, engine's standard normal convention (match the mesh material's decode:
-  `nTS = tex.rgb * 2 - 1`, or RG-reconstruct if that is the house convention - use whatever
-  mesh/forward uses so authoring is uniform). Tangent frame is ANALYTIC (no per-vertex tangents).
+  layer (missing -> renderer dummy if NO layer has it, else a cook default slice - R4).
+- ORM packing: one texture per layer, `R = AO`, `G = roughness`, `B = metallic` - CONFIRMED
+  channel-identical to the mesh material (MetallicRoughness `.gb`, Occlusion `.r`) and glTF's common
+  packed image. SV_Target3 = (roughness, metallic) = `float2(orm.g, orm.b)` (terrain.ps.hlsl:52).
+- Normal maps: tangent-space, full RGB `* 2 - 1` decode (forward.ps.hlsl:332), flat default
+  (128,128,255). NO RG-reconstruct, NO handedness (terrain UVs never mirror), NO NormalScale in v1.
+  Tangent frame is ANALYTIC in the CHUNK frame (no per-vertex tangents; R2).
+- AO is AMBIENT-ONLY (forward.ps.hlsl:433 does the same); a later GTAO combine is orthogonal.
 
 ## Design overview
 
@@ -73,26 +76,45 @@ No new weight data, no paint change: normals/ORM ride the SAME (index, weight) t
         f32 tileScale = 1.0f;           // existing; shared by all three maps of this layer
     };
 
-`base` (the base Layer) and every `palette[i]` gain `normal` + `orm`. `TerrainSource` mirrors:
-`baseNormalId` / `baseOrmId`, `paletteNormalIds[]` / `paletteOrmIds[]` (parallel to
-`paletteAlbedoIds[]`; nil entries allowed). Bump `TerrainSource::DataVersion` and gate the read
-(serializer-strict-versioning); write the v(old)->v(new) upgrade (all new ids default nil ->
-flat/default, so old terrains are visually unchanged).
+`base` (the base Layer) and every `palette[i]` gain `normal` + `orm`. BOTH the runtime `TerrainSource`
+AND the pipeline envelope `TerrainAsset` mirror it (R5): `baseNormalId` / `baseOrmId`,
+`paletteNormalIds[]` / `paletteOrmIds[]` (parallel to `paletteAlbedoIds[]`; nil entries allowed).
+Bump `TerrainSource::DataVersion` AND `TerrainAssetBuilder::Version()` (RE-COOK note in the landing
+commit), gate both reads (serializer-strict-versioning); the v(old)->v(new) upgrade defaults all new
+ids nil -> flat/default, so old terrains are visually unchanged.
+
+Sidecar layout (R5): THREE separate streams on the terrain's cooked instance - the existing
+"palette" (albedo) + new "palette.normal" / "palette.orm" - each with the same
+{sliceSize, mipCount, sliceCount} header. An ABSENT stream = no array (pairs with the R4 on-demand
+rule). `TerrainPaletteData` carries the three texel arrays + per-array presence under ONE uid (all
+present arrays rebuild together, share the generation). `ScanDependencies` chains every normal/ORM
+source's PIXELS as reads.
 
 ### Cooked palette data (Terrain.Pipeline, TerrainPaletteData)
 
 Today the cook packs every palette albedo, resized to one common slice size, into a single array
-product. Extend it to THREE arrays built the same way, all at the same common size / slice count /
-mip chain:
-- `albedoArray`  (existing)
-- `normalArray`  (NEW): each palette layer's normal map; a layer with no normal gets a DEFAULT flat
-  slice `(128,128,255)` (tangent-space +Z).
-- `ormArray`     (NEW): each palette layer's ORM; no-ORM layer gets DEFAULT `(255,255,0)` = AO 1,
-  roughness 1, metallic 0 (matches today's constant material exactly).
-Base normal/ORM are standalone `Texture2D` products (like base albedo), with the same defaults when
-nil. The recipe CHAINS every source normal/ORM's PIXELS (reads) so editing an albedo/normal/ORM
-re-cooks the array (mirrors the albedo-pixel chaining from topk R-notes). Normal-map slices are NOT
-sRGB (linear); albedo stays sRGB; ORM is linear.
+product. Extend to THREE arrays at the same common size / slice count / mip chain, but built ONLY
+ON DEMAND (R4 - no default-array bloat; a real albedo array is ~11-22MB, do not triple it for
+terrains that never assign these maps):
+- `albedoArray` (existing) - but switch its format to RGBA8UnormSrgb (R3, below).
+- `normalArray` (NEW, RGBA8Unorm linear): built ONLY IF at least one palette layer has a normal map;
+  then nil layers inside it get the DEFAULT flat slice `(128,128,255)`. If NO layer has a normal
+  map, the array is NOT written at all and the renderer binds a 1x1 flat-normal dummy.
+- `ormArray` (NEW, RGBA8Unorm linear): same rule; default slice `(255,255,0)` = AO 1 / roughness 1 /
+  metallic 0 (= today's constant material exactly); absent -> 1x1 default-ORM dummy.
+BASE normal/ORM are NOT cook products (R4): `base.normal`/`base.orm` are plain runtime `Ref`s bound
+by the factory like base albedo; a nil base ref binds the renderer's 1x1 dummy. So "cook-injected
+default slice" applies ONLY to nil layers INSIDE a present array.
+
+R3 (close an EXISTING sRGB gap while here): today the albedo palette array is RGBA8Unorm (raw sRGB
+bytes, no decode) while BASE albedo binds the texture product's sRGB-aware view - the SAME texture
+shades brighter as base than as a palette layer. Fix it: albedoArray becomes RGBA8UnormSrgb; its
+mips average in LINEAR space (reuse the texture cook's recipe, TextureAsset.cppm:513). The normal +
+ORM arrays are linear with a plain box filter; normal-map mips are NOT renormalized in v1 (standard,
+accepted).
+
+The recipe CHAINS every source albedo/normal/ORM's PIXELS (reads) so editing any of them re-cooks
+the affected array (mirrors the topk albedo-pixel chaining).
 
 ## Renderer (Engine.Terrain)
 
@@ -101,9 +123,12 @@ sRGB (linear); albedo stays sRGB; ORM is linear.
 Add, parallel to the albedo views:
 - `rhi::TextureView* baseNormalView; rhi::TextureView* baseOrmView;`
 - `rhi::TextureView* normalArrayView; rhi::TextureView* ormArrayView;`
-All uid/generation-keyed, retire-queued on rebuild, Cleared at teardown, exactly like the albedo
-array (topk R4 - the splat-cache suite extends to cover them; the palette-array cache builds all
-three arrays together so they share a generation).
+Any of these that has no cook product / nil base ref binds a 1x1 DUMMY (R4): a flat-normal
+(128,128,255) dummy texture + a default-ORM (255,255,0) dummy + a 1x1 flat-normal array + a 1x1
+default-ORM array, created once alongside the existing white dummy in TerrainRenderer. Present arrays
+are uid/generation-keyed, retire-queued on rebuild, Cleared at teardown, exactly like the albedo
+array (the splat-cache suite extends to cover them; the palette-array cache builds all present arrays
+together so they share a generation).
 
 ### Set-3 bind group
 
@@ -134,11 +159,13 @@ corner results, exactly like albedo. Sketch (extends the existing `BlendTexel`):
 
     // After the 2x2 bilinear lerp of the corners (color, nTS, orm):
     float3 gN = normalize(i.normal);                      // geometric world normal
-    // Analytic tangent frame for world-XZ-tiled maps (no per-vertex tangents):
-    float3 T = normalize(float3(1,0,0) - gN * gN.x);      // world +X projected to the tangent plane
-    float3 B = normalize(cross(gN, T));                   // world +Z-ish (fix V sign to the map convention)
+    // Analytic tangent frame in the CHUNK frame (R2): the tiling UV is terrain-LOCAL XZ, so the map's
+    // U axis is local +X ROTATED to world by ChunkToWorld (world +X shears on a rotated terrain).
+    float3 axisU = normalize(mul(float4(1,0,0,0), ChunkToWorld).xyz); // the map's U in world
+    float3 T = normalize(axisU - gN * dot(axisU, gN));    // Gram-Schmidt onto the tangent plane
+    float3 B = cross(gN, T);                              // world image of local +Z; sign PINNED by probe #1
     float3 N = normalize(nTS.x * T + nTS.y * B + nTS.z * gN);  // perturbed world normal
-    // ... lighting uses N (was gN); AO from orm.r modulates ambient:
+    // ... lighting uses N (was gN); AO (R1: ambient-ONLY, matches the mesh material):
     float3 lit = base * (ambient * orm.r + ndl_N * shadow);
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));
     o.material = float2(orm.g, orm.b);                    // roughness, metallic
@@ -147,9 +174,12 @@ Notes:
 - Blending tangent-space normal VECTORS weighted then normalizing is the standard, adequate for
   terrain (RNM/UDN partial-derivative blends are overkill here); the base's flat `(0,0,1)` default
   contributes `baseW` toward "no perturbation," which is exactly right.
-- The V-axis sign (B) and the normal-map green convention (OpenGL vs DirectX) must line up with
-  `splatUV`/`localXZ` orientation - finalize + PIN with the probe (a known-direction normal map lit
-  from a known sun must brighten the correct facing).
+- Conventions PINNED from the mesh material (R1): normal decode is full RGB `* 2 - 1`
+  (forward.ps.hlsl:332), flat default (128,128,255), NO RG-reconstruct, NO handedness (terrain UVs
+  never mirror - skip the tangentWS.w equivalent), NO NormalScale in v1.
+- The V-axis sign (B) is PINNED by probe #1 run on an identity-transform terrain AND a 90-degree-
+  rotated one (the rotation is exactly what R2 guards): a known-direction normal map under a sun
+  flip must move the brightness the predicted way on both.
 - `ndl` recomputed with the perturbed `N`. Shadow bias still uses a stable normal (use gN for the
   CSM normal-offset to avoid self-shadow acne from high-frequency perturbation; keep sampling with
   gN in SampleCascade).
@@ -165,10 +195,11 @@ normal/ORM arrays).
 
 ## Migration / compatibility
 
-No behavioral migration: new source ids default nil, the cook injects the flat-normal + default-ORM
-slices, and the shader math with `(0,0,1)` normals + `(1,1,0)` ORM reduces to today's output. So
-existing terrains render byte-identical until an author assigns a normal/ORM map. DataVersion bump
-covers the deserialize; a re-cook produces the (default-filled) arrays.
+No behavioral migration: new ids default nil, so no normal/ORM array is built (R4), the renderer
+binds the flat-normal + default-ORM dummies, and the shader math with `(0,0,1)` normals + `(1,1,0)`
+ORM reduces to today's output - byte-identical until an author assigns a map. The `TerrainSource`
+AND `TerrainAsset` DataVersion bumps cover the deserialize (RE-COOK note in the landing commit);
+compat is PINNED by probe #3 (pre/post in the same run).
 
 ## Phasing
 
@@ -187,6 +218,10 @@ covers the deserialize; a re-cook produces the (default-filled) arrays.
 
 - Headless (Terrain.Pipeline): three arrays built at the common size, correct slice for each layer,
   DEFAULT slices for nil normal/ORM (exact `(128,128,255)` / `(255,255,0)`), source-id round-trip.
+- ORDER (R7): run `Tools.ShaderPack Data/Shaders <out> wgsl` the MOMENT the PS changes, BEFORE any
+  GPU probe - SampleGrad-in-branch on the two new arrays is exactly where naga rejected us last time
+  (webgpu-stricter-than-vulkan). Probe #3 (compat) renders the pre-change baseline and the post-change
+  frame in the SAME run/driver (old-path fixture expectations, not stored goldens).
 - Renderer pixel probe (the established bar - Vulkan AND WebGPU, pixel-exact parity):
   1. A terrain with a NORMAL map lit from a fixed sun shows the expected bump shading (differs from
      the flat-normal baseline in the predicted direction) - proves the tangent frame + convention.
@@ -198,26 +233,31 @@ covers the deserialize; a re-cook produces the (default-filled) arrays.
 - Extend the type-confusion FillTerrainRenderData to the new fields (keeps compiling as the layout
   grows); the splat-cache retire/Clear suite covers the two new arrays.
 
-## Open questions / to settle in review
+## Settled by the ruling (were open questions)
 
-- ORM as one packed texture (R=AO,G=rough,B=metal) vs separate roughness/metallic (+ AO) textures.
-  Spec leans packed (one texture, one array, glTF-adjacent). Confirm the channel convention against
-  the mesh material so authoring is uniform.
-- Normal decode convention (full RGB vs RG-reconstruct; OpenGL vs DirectX green). Match the mesh/
-  forward material exactly; PIN with the probe.
-- Whether AO should also attenuate direct light (spec: ambient-only, the conservative choice) or
-  feed a later GTAO combine.
+- ORM packing: PACKED, R=AO/G=roughness/B=metallic, channel-identical to the mesh material + glTF
+  (R1). Not separate textures.
+- Normal decode: full RGB `* 2 - 1`, no RG-reconstruct, no handedness, no NormalScale (R1); green/V
+  sign PINNED by probe #1 on identity + 90-deg-rotated terrain (R2).
+- AO: ambient-only (R1).
+- sRGB: albedo array becomes RGBA8UnormSrgb (fixes the base-vs-palette brightness gap), normal/ORM
+  linear (R3).
 
 ## Touch list
 
 - foundation.terrain: `Layer.normal/orm` + `TerrainSource` normal/ORM ids + DataVersion + upgrade.
-- Terrain.Pipeline: TerrainPaletteData builds normal + ORM arrays (defaults for nil, linear/sRGB,
-  pixel-chained) + base normal/ORM standalone products; round-trip tests.
-- Engine.Terrain: TerrainRenderData + TerrainRenderer set-3 bind (t5..t8) + cache/retire; the PS
-  top-K normal+ORM blend + analytic tangent frame + GBUFFER normal/material writes.
+- Terrain.Pipeline: `TerrainAsset` envelope ids + `Version()` bump (R5); TerrainPaletteData builds
+  normal + ORM arrays ON DEMAND (R4: absent when no layer uses them; default slices only for nil
+  layers inside a present array), albedo array -> RGBA8UnormSrgb with linear-space mips (R3),
+  normal/ORM linear; three sidecar streams + PIXEL chaining; base normal/ORM are runtime refs, NOT
+  cook products (R4); round-trip tests.
+- Engine.Terrain: TerrainRenderData views + the 1x1 flat-normal / default-ORM dummies + dummy arrays
+  (R4); TerrainRenderer set-3 bind (t5..t8) + cache/retire; the PS top-K normal+ORM blend + the
+  CHUNK-frame analytic tangent frame (R2) + GBUFFER normal/material writes. Depth pipeline unchanged
+  (R6).
 - Editor.Terrain: TerrainEditorPage per-layer normal + ORM pickers + recook.
-- Tests: Terrain.Pipeline cook, the extended Vulkan+WebGPU pixel probe, FillTerrainRenderData, the
-  splat-cache suite.
+- Tests: Terrain.Pipeline cook (on-demand arrays, sRGB, defaults, round-trip), the extended
+  Vulkan+WebGPU pixel probe (WGSL pack FIRST - R7), FillTerrainRenderData, the splat-cache suite.
 
 Related: [terrain.md], [terrain-splat-topk.md].
 
