@@ -82,6 +82,7 @@ namespace
         rhi::TextureView* normalArrayView = nullptr;  // per-layer normal array (terrain PBR)
         rhi::TextureView* ormArrayView = nullptr;     // per-layer ORM array
         rhi::TextureView* heightArrayView = nullptr;  // per-layer height array (height-blend)
+        rhi::TextureView* maskArrayView = nullptr;    // per-layer coverage mask array (coverage-mask)
         f32 heightBlendContrast = 0.25f;              // soft-skirt width (only when a height map binds)
         Float4x4 chunkToWorld = Float4x4::Identity(); // R2: the tangent frame follows THIS
         rhi::Buffer* tileScaleBuffer = nullptr;       // f32[paletteCount]
@@ -174,6 +175,7 @@ namespace
             rd->normalArrayView = cfg.normalArrayView;
             rd->ormArrayView = cfg.ormArrayView;
             rd->heightArrayView = cfg.heightArrayView;
+            rd->maskArrayView = cfg.maskArrayView;
             rd->heightBlendContrast = cfg.heightBlendContrast;
             rd->tileScaleBuffer = cfg.tileScaleBuffer;
             rd->tileScaleGeneration = cfg.tileScaleGeneration;
@@ -1323,4 +1325,196 @@ TEST_CASE("terrain probe: height-blend biases the top-K toward the tallest layer
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
     if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: a coverage mask cuts a layer to reveal the base (Vk + WebGPU)")
+{
+    // A flat terrain, ONE palette layer (BLUE) painted one-hot over a distinct BASE (RED). A coverage
+    // mask with the layer's tileScale = the terrain world size (exactly one repeat spans the footprint,
+    // ruling R3) splits the footprint: the OPAQUE half renders the layer (blue), the ZERO half reveals
+    // the base (red). Flipping the mask swaps the halves; a uniform ZERO mask reveals base everywhere;
+    // no mask (OFF) renders the layer everywhere.
+    enum Pattern { Off = 0, SplitA = 1, SplitB = 2, Cut = 3 };
+    constexpr f32 kWorld = 130.0f; // MakeFlat's world size -> one mask repeat spans the footprint
+
+    auto run = [](rhi::Backend* backend, int pattern) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            engine::terrain::TerrainSplatTextureCache splatCache;
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw = MakeStripeWeights(1); // layer 0 one-hot everywhere
+            const Float3 blue[1] = {Float3{0.05f, 0.05f, 0.9f}};
+            RefPtr<tmodel::TerrainPaletteData> palette = MakePaletteData(Span<const Float3>{blue, 1});
+            const usize sliceBytes =
+                tmodel::TerrainPaletteData::SliceBytes(palette->sliceSize, palette->mipCount);
+            if (pattern != Off)
+            {
+                palette->maskTexels.Resize(sliceBytes); // one slice
+                const u32 side = palette->sliceSize;
+                for (u32 y = 0; y < side; ++y)
+                {
+                    for (u32 x = 0; x < side; ++x)
+                    {
+                        u8 v = 255;
+                        if (pattern == SplitA) { v = (x < side / 2) ? 255 : 0; }
+                        else if (pattern == SplitB) { v = (x < side / 2) ? 0 : 255; }
+                        else if (pattern == Cut) { v = 0; }
+                        u8* t = palette->maskTexels.Data() + (y * side + x) * 4;
+                        t[0] = v; t[1] = v; t[2] = v; t[3] = 255;
+                    }
+                }
+            }
+            RefPtr<texture::Texture> red = MakeSolid(*dev, 230, 30, 30); // BASE albedo (revealed)
+            f32 scales[1] = {kWorld}; // one mask repeat across the footprint (R3)
+
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            const engine::terrain::SplatTextureViews views =
+                splatCache.GetOrCreate(*dev, *sw, sw->Version());
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{scales, 1});
+            REQUIRE(views.weightView != nullptr);
+            REQUIRE(gpu.arrayView != nullptr);
+            if (pattern != Off)
+            {
+                REQUIRE(gpu.maskArrayView != nullptr); // HasMask() -> the cache built the array
+            }
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
+            cfg.baseAlbedoView = red->View();
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = 1;
+            cfg.maskArrayView = (pattern != Off) ? gpu.maskArrayView : nullptr;
+            p = RenderTerrainProbe(*dev, cfg);
+
+            splatCache.Clear(*dev);
+            paletteCache.Clear(*dev);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const auto R = [](const Probe& p) { return p.leftR + p.rightR; };
+    const auto B = [](const Probe& p) { return p.leftB + p.rightB; };
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe off = run(vulkan, Off);
+    if (!off.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain coverage-mask probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    const Probe cut = run(vulkan, Cut);
+    const Probe splitA = run(vulkan, SplitA);
+    const Probe splitB = run(vulkan, SplitB);
+
+    std::printf("[terrain-mask] off(R=%.0f B=%.0f) cut(R=%.0f B=%.0f) "
+                "splitA(lB=%.0f lR=%.0f rB=%.0f rR=%.0f) splitB(lB=%.0f lR=%.0f rB=%.0f rR=%.0f)\n",
+                R(off), B(off), R(cut), B(cut), splitA.leftB, splitA.leftR, splitA.rightB,
+                splitA.rightR, splitB.leftB, splitB.leftR, splitB.rightB, splitB.rightR);
+
+    // OFF: no mask -> the layer (blue) shows everywhere.
+    CHECK(B(off) > R(off) * 1.5);
+    // CUT: an all-zero mask reveals the BASE (red) everywhere - coverage falls to base.
+    CHECK(R(cut) > B(cut) * 1.5);
+    // SPLIT: the two screen halves DIFFER - one shows the layer (blue), the other the base (red).
+    const bool aLeftBlue = splitA.leftB > splitA.leftR;
+    const bool aRightBlue = splitA.rightB > splitA.rightR;
+    CHECK(aLeftBlue != aRightBlue); // a real spatial split landed on screen
+    // FLIP: swapping the mask swaps which half shows the layer.
+    const bool bLeftBlue = splitB.leftB > splitB.leftR;
+    CHECK(bLeftBlue != aLeftBlue);
+
+    // WebGPU parity on the split fixture (mask SampleGrad on the array is a naga divergence surface).
+    const Probe wA = run(webgpu, SplitA);
+    if (wA.valid)
+    {
+        CHECK((wA.leftB > wA.leftR) == aLeftBlue);
+        CHECK((wA.rightB > wA.rightR) == aRightBlue);
+        CHECK(wA.total == doctest::Approx(splitA.total).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - terrain coverage-mask parity skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: a +green base normal leans -Z (R5 - pins GL green-up, no author flip)")
+{
+    // Ruling R5: the terrain tangent frame's B = cross(n, T) points toward -Z, which under the
+    // top-left UV origin IS glTF/GL green-up - so Poly Haven `_nor_gl_` maps import AS-IS. Layer-pbr's
+    // probe pinned only the U axis (its test normal had green = 0); this pins the GREEN sign. A base
+    // normal tilted toward +green (128, 204, 229) must brighten under a -Z sun and darken under +Z.
+    // If this fails, fix B's sign in the SHADER - never ask authors to flip their maps.
+    auto run = [](rhi::Backend* backend, const Float3& toLight, bool useNormal) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            RefPtr<texture::Texture> albedo = MakeSolid(*dev, 170, 170, 170);
+            RefPtr<texture::Texture> normal = MakeSolid(*dev, 128, 204, 229); // tangent (0, +.6, +.8)
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            cfg.eye = Float3{0, 120, 0.001f};
+            cfg.toLight = &toLight;
+            cfg.baseAlbedoView = albedo->View();
+            if (useNormal)
+            {
+                cfg.baseNormalView = normal->View();
+            }
+            cfg.baseTileScale = 1000.0f;
+            p = RenderTerrainProbe(*dev, cfg);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const Float3 plusZ = Normalized(Float3{0.0f, 0.5f, 0.85f});
+    const Float3 minusZ = Normalized(Float3{0.0f, 0.5f, -0.85f});
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+
+    const Probe nMinus = run(vulkan, minusZ, true); // +green normal, -Z sun (aligned with lean)
+    if (!nMinus.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain green-sign probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        return;
+    }
+    const Probe nPlus = run(vulkan, plusZ, true);   // +green normal, +Z sun (opposed)
+    const Probe cMinus = run(vulkan, minusZ, false); // flat control
+    const Probe cPlus = run(vulkan, plusZ, false);
+
+    std::printf("[terrain-green] normal -Z=%.0f +Z=%.0f | flat -Z=%.0f +Z=%.0f\n", nMinus.total,
+                nPlus.total, cMinus.total, cPlus.total);
+
+    // Flat control: the two sun directions shade the flat ground ~equally.
+    CHECK(cMinus.total == doctest::Approx(cPlus.total).epsilon(0.06));
+    // +green normal leans toward -Z (B = cross(n,T) = -Z): the -Z sun brightens, the +Z sun darkens.
+    CHECK(nMinus.total > cMinus.total * 1.10);
+    CHECK(nPlus.total < cPlus.total * 0.90);
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
 }

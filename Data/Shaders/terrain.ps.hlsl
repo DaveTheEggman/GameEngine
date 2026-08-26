@@ -20,6 +20,7 @@ cbuffer TerrainView : register(b0, space0) {
     float4   ShadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
     float4   ShadowParams; // x = far-fade width, y = uv.y sign, z = heightBlendContrast, w = height maps bound
     float4   SplatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
+    float4   SplatParams2; // x = mask maps bound (terrain-coverage-mask.md), yzw spare
 };
 
 struct PSIn {
@@ -54,6 +55,10 @@ Texture2DArray          OrmArray     : register(t8, space3);
 // AND ShadowParams.w reads 0, so the reweight is skipped and the blend stays linear (byte-identical).
 Texture2D               BaseHeight   : register(t9, space3);
 Texture2DArray          HeightArray  : register(t10, space3);
+// Per-layer COVERAGE/opacity mask (terrain-coverage-mask.md): multiplies into a palette layer's weight
+// before the base-weight recompute so a sparse layer reveals the base through its gaps. .r channel.
+// Absent -> a 1x1 OPAQUE (1.0) dummy binds AND SplatParams2.x reads 0, so the multiply is skipped.
+Texture2DArray          MaskArray    : register(t11, space3);
 SamplerState            AlbedoSampler : register(s0, space3); // repeat, trilinear
 
 struct PSOutput {
@@ -149,6 +154,7 @@ PSOutput main(PSIn i) {
         bool  heightBound = ShadowParams.w >= 0.5;
         float contrast    = max(ShadowParams.z, 1e-3);
         float baseH = heightBound ? BaseHeight.Sample(AlbedoSampler, baseUV).r : 0.0;
+        bool  maskBound = SplatParams2.x >= 0.5;
         if (hasWeights) {
             // Manual bilinear over the splat texels: Load index+weight at the 4 corners, blend
             // per corner (skip zero-weight slots - the typical texel uses 1-2), lerp the results.
@@ -171,6 +177,21 @@ PSOutput main(PSIn i) {
                 int2 texel = clamp(t00 + offs, int2(0, 0), maxT);
                 uint4 idx = IndexMap.Load(int3(texel, 0));
                 float4 w = WeightMap.Load(int3(texel, 0));
+                // Coverage mask (terrain-coverage-mask.md): multiply each palette slot's weight by its
+                // mask BEFORE the base-weight recompute, so masked-out coverage falls to base. Uniform
+                // branch (SplatParams2.x); the freed weight reveals whatever is beneath. Composes with
+                // height-blend below, which then reweights the already-masked weights.
+                if (maskBound) {
+                    [unroll] for (int mk = 0; mk < 4; ++mk) {
+                        if (w[mk] > 0.0) {
+                            uint mLayer = idx[mk];
+                            float mTile = max(TileScales[mLayer], 1e-3);
+                            float3 mUv = float3(i.localXZ / mTile, (float)mLayer);
+                            w[mk] *= MaskArray.SampleGrad(AlbedoSampler, mUv,
+                                                          dxLocal / mTile, dyLocal / mTile).r;
+                        }
+                    }
+                }
                 float baseW = saturate(1.0 - (w.x + w.y + w.z + w.w));
                 float3 c, nTS, orm;
                 if (!heightBound) {

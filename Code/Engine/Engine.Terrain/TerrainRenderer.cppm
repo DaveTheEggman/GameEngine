@@ -96,8 +96,8 @@ export namespace engine::terrain
             // terrain-height-blend.md) - integer index map (t0, Load-only: filtering palette indices is
             // garbage, ruling R1) + weight map (t1) + base albedo (t2) + palette albedo array (t3) + the
             // per-layer tileScale storage buffer (t4) + base normal (t5) + normal array (t6) + base ORM
-            // (t7) + ORM array (t8) + base height (t9) + height array (t10) + the repeat/trilinear
-            // albedo sampler (s0, reused for all arrays).
+            // (t7) + ORM array (t8) + base height (t9) + height array (t10) + coverage mask array
+            // (t11, terrain-coverage-mask.md) + the repeat/trilinear albedo sampler (s0, all arrays).
             rhi::BindGroupLayoutEntry idxEntry =
                 rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
             idxEntry.textureSampleType = rhi::TextureSampleType::Uint; // integer data texture
@@ -122,10 +122,13 @@ export namespace engine::terrain
                 rhi::BindGroupLayoutEntry::SampledTexture(9, rhi::ShaderStage::Fragment), // base height
                 rhi::BindGroupLayoutEntry::SampledTexture(
                     10, rhi::ShaderStage::Fragment, rhi::TextureViewDimension::Texture2DArray),
+                rhi::BindGroupLayoutEntry::SampledTexture(
+                    11, rhi::ShaderStage::Fragment,
+                    rhi::TextureViewDimension::Texture2DArray), // coverage mask array
                 rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment),
             };
             rhi::BindGroupLayoutDesc mld{};
-            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 12};
+            mld.entries = Span<const rhi::BindGroupLayoutEntry>{matEntries, 13};
             if (!m_device->CreateBindGroupLayout(mld, m_materialLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
@@ -340,6 +343,7 @@ export namespace engine::terrain
                 {u8"terrain.defaultOrmArray", true, &m_defaultOrmArrayTex, &m_defaultOrmArrayView},
                 {u8"terrain.midHeight", false, &m_midHeightTex, &m_midHeightView},
                 {u8"terrain.midHeightArray", true, &m_midHeightArrayTex, &m_midHeightArrayView},
+                {u8"terrain.opaqueMaskArray", true, &m_opaqueMaskArrayTex, &m_opaqueMaskArrayView},
             };
             for (const DummyDesc& d : dummies)
             {
@@ -412,6 +416,9 @@ export namespace engine::terrain
                     tb->WriteTexture(m_midHeightTex, Span<const u8>{midHeight, 4}, layout,
                                      rhi::Extent3D{1, 1, 1});
                     tb->WriteTexture(m_midHeightArrayTex, Span<const u8>{midHeight, 4}, layout,
+                                     rhi::Extent3D{1, 1, 1});
+                    const u8 opaqueMask[4] = {255, 255, 255, 255}; // coverage 1 (.r used)
+                    tb->WriteTexture(m_opaqueMaskArrayTex, Span<const u8>{opaqueMask, 4}, layout,
                                      rhi::Extent3D{1, 1, 1});
                     (void)tb->Submit();
                     q->DestroyTransferBatch(tb);
@@ -549,6 +556,10 @@ export namespace engine::terrain
                     data->baseHeightView != nullptr || data->heightArrayView != nullptr;
                 ubo.shadowParams.z = data->heightBlendContrast;
                 ubo.shadowParams.w = heightBound ? 1.0f : 0.0f;
+                // Coverage mask (terrain-coverage-mask.md): SplatParams2.x = mask maps bound (a palette
+                // mask array is present). Off (0) => the PS skips the coverage multiply, byte-identical.
+                const bool maskBound = data->maskArrayView != nullptr;
+                ubo.splatParams2 = Float4{maskBound ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
                 MemCopy(vr.ptr, &ubo, sizeof(ubo));
 
                 // Local-space frustum (chunkToWorld folded in) matches the chunks' local bounds.
@@ -813,6 +824,7 @@ export namespace engine::terrain
             Float4 shadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
             Float4 shadowParams; // x = far-fade width, y = uv.y sign, z = heightBlendContrast, w = height maps bound
             Float4 splatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
+            Float4 splatParams2; // x = mask maps bound (terrain-coverage-mask.md), yzw spare
         };
 
         struct LodMesh
@@ -1007,6 +1019,9 @@ export namespace engine::terrain
                 (data.baseHeightView != nullptr) ? data.baseHeightView : m_midHeightView;
             rhi::TextureView* hgtArr =
                 (data.heightArrayView != nullptr) ? data.heightArrayView : m_midHeightArrayView;
+            // Coverage mask (terrain-coverage-mask.md): absent = the opaque dummy (no coverage cut).
+            rhi::TextureView* maskArr =
+                (data.maskArrayView != nullptr) ? data.maskArrayView : m_opaqueMaskArrayView;
 
             // Keyed by the WEIGHT view pointer, VALIDATED by every view's uniqueId + the buffer
             // generation (bind-group-cache-versioning: pointers alias across reloads; ids don't).
@@ -1018,7 +1033,7 @@ export namespace engine::terrain
                     found->ids[4] == baseNrm->uniqueId && found->ids[5] == nrmArr->uniqueId &&
                     found->ids[6] == baseOrm->uniqueId && found->ids[7] == ormArr->uniqueId &&
                     found->ids[8] == baseHgt->uniqueId && found->ids[9] == hgtArr->uniqueId &&
-                    found->tileGen == tileGen;
+                    found->ids[10] == maskArr->uniqueId && found->tileGen == tileGen;
                 if (match)
                 {
                     return found->bindGroup;
@@ -1052,11 +1067,12 @@ export namespace engine::terrain
                 rhi::BindGroupEntry::TextureEntry(ormArr),
                 rhi::BindGroupEntry::TextureEntry(baseHgt),
                 rhi::BindGroupEntry::TextureEntry(hgtArr),
+                rhi::BindGroupEntry::TextureEntry(maskArr),
                 rhi::BindGroupEntry::SamplerEntry(m_albedoSampler),
             };
             rhi::BindGroupDesc bgd{};
             bgd.layout = m_materialLayout;
-            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 12};
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 13};
             rhi::BindGroup* bg = nullptr;
             if (!m_device->CreateBindGroup(bgd, bg).IsOk())
             {
@@ -1065,7 +1081,8 @@ export namespace engine::terrain
             MaterialBindGroup entry{bg,
                                     {idx->uniqueId, wgt->uniqueId, base->uniqueId, pal->uniqueId,
                                      baseNrm->uniqueId, nrmArr->uniqueId, baseOrm->uniqueId,
-                                     ormArr->uniqueId, baseHgt->uniqueId, hgtArr->uniqueId},
+                                     ormArr->uniqueId, baseHgt->uniqueId, hgtArr->uniqueId,
+                                     maskArr->uniqueId},
                                     tileGen};
             m_materialBindGroups.InsertOrAssign(wgt, entry);
             return bg;
@@ -1309,7 +1326,8 @@ export namespace engine::terrain
             }
             rhi::TextureView* pbrViews[] = {m_flatNormalView,     m_flatNormalArrayView,
                                             m_defaultOrmView,     m_defaultOrmArrayView,
-                                            m_midHeightView,      m_midHeightArrayView};
+                                            m_midHeightView,      m_midHeightArrayView,
+                                            m_opaqueMaskArrayView};
             for (rhi::TextureView*& v : pbrViews)
             {
                 if (v != nullptr)
@@ -1318,9 +1336,10 @@ export namespace engine::terrain
                 }
             }
             m_flatNormalView = m_flatNormalArrayView = m_defaultOrmView = m_defaultOrmArrayView =
-                m_midHeightView = m_midHeightArrayView = nullptr;
-            rhi::Texture* pbrTex[] = {m_flatNormalTex,  m_flatNormalArrayTex, m_defaultOrmTex,
-                                      m_defaultOrmArrayTex, m_midHeightTex,   m_midHeightArrayTex};
+                m_midHeightView = m_midHeightArrayView = m_opaqueMaskArrayView = nullptr;
+            rhi::Texture* pbrTex[] = {m_flatNormalTex,      m_flatNormalArrayTex, m_defaultOrmTex,
+                                      m_defaultOrmArrayTex, m_midHeightTex,       m_midHeightArrayTex,
+                                      m_opaqueMaskArrayTex};
             for (rhi::Texture*& t : pbrTex)
             {
                 if (t != nullptr)
@@ -1329,7 +1348,7 @@ export namespace engine::terrain
                 }
             }
             m_flatNormalTex = m_flatNormalArrayTex = m_defaultOrmTex = m_defaultOrmArrayTex =
-                m_midHeightTex = m_midHeightArrayTex = nullptr;
+                m_midHeightTex = m_midHeightArrayTex = m_opaqueMaskArrayTex = nullptr;
             if (m_dummyTileBuffer != nullptr)
             {
                 m_device->DestroyBuffer(m_dummyTileBuffer);
@@ -1382,8 +1401,8 @@ export namespace engine::terrain
         {
             rhi::BindGroup* bindGroup = nullptr;
             // index/weight/base/palette + baseNormal/normalArray/baseOrm/ormArray +
-            // baseHeight/heightArray view uniqueIds.
-            u64 ids[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+            // baseHeight/heightArray + maskArray view uniqueIds.
+            u64 ids[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             u64 tileGen = 0;
         };
 
@@ -1427,6 +1446,8 @@ export namespace engine::terrain
         rhi::TextureView* m_midHeightView = nullptr;
         rhi::Texture* m_midHeightArrayTex = nullptr; // 1x1x1 mid-height palette array
         rhi::TextureView* m_midHeightArrayView = nullptr;
+        rhi::Texture* m_opaqueMaskArrayTex = nullptr; // 1x1x1 opaque-coverage palette array
+        rhi::TextureView* m_opaqueMaskArrayView = nullptr;
         rhi::Buffer* m_dummyTileBuffer = nullptr; // one f32 = 1.0
         HashMap<rhi::TextureView*, MaterialBindGroup> m_materialBindGroups;
         render::GpuRetireQueue* m_retire = nullptr; // borrowed (RenderSubsystem owns + ticks)

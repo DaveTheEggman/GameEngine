@@ -241,6 +241,7 @@ export namespace engine::terrain
                         rd->normalArrayView = palette.normalArrayView;
                         rd->ormArrayView = palette.ormArrayView;
                         rd->heightArrayView = palette.heightArrayView;
+                        rd->maskArrayView = palette.maskArrayView;
                         rd->tileScaleBuffer = palette.tileScaleBuffer;
                         rd->tileScaleGeneration = palette.generation;
                         rd->paletteCount = res->paletteData->sliceCount;

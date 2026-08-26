@@ -75,6 +75,7 @@ export namespace engine::terrain
         rhi::TextureView* normalArrayView = nullptr;
         rhi::TextureView* ormArrayView = nullptr;
         rhi::TextureView* heightArrayView = nullptr; // null = no palette layer used a height map
+        rhi::TextureView* maskArrayView = nullptr;   // null = no palette layer used a coverage mask
         rhi::Buffer* tileScaleBuffer = nullptr;
         u64 tileScaleGeneration = 0; // part of the set-3 cache key (never raw pointers)
         u32 paletteCount = 0;
