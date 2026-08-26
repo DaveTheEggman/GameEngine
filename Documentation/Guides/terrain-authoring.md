@@ -68,12 +68,17 @@ Then add a `TerrainComponent` to a scene entity and pick the terrain asset in th
   interlocked seams across the WHOLE terrain - existing soft gradients will visibly sharpen; raise
   the contrast slider to widen the skirt back out.
 - **Mask** is a grayscale coverage/opacity map (the `*_mask_` file that ships with SPARSE sets - sparse
-  grass, scattered gravel); only the red channel is read. It multiplies into the layer's paint weight
-  so the layer shows only where the mask is opaque, and the gaps reveal the BASE layer beneath (e.g.
-  dirt through sparse grass). Palette layers only (the base has nothing beneath it). Optional; missing
-  = fully opaque (the layer covers solidly, as before). At a distance the mask's mip average softens
-  sparse coverage toward a uniform mix - intended for a weight multiplier; coverage-preserving mips
-  are a later refinement.
+  grass, scattered gravel); only the red channel is read. It cuts the layer's paint weight so the layer
+  shows only where the mask is opaque, and the freed coverage reveals the OTHER layers you PAINTED
+  underneath it (proportionally) - so grass gaps show the ground layer you painted, falling to the base
+  canvas only where nothing else is painted. Palette layers only. Optional; missing = fully opaque.
+  IMPORTANT caveats: (1) the reveal only works where the lower layer still has weight - painting the
+  sparse layer to FULL strength evicts the layers under it (flat top-K has no stacking), so paint it a
+  touch lighter or the gaps show base. (2) Many photo textures (e.g. Poly Haven `sparse_grass`) already
+  bake the dirt into the diffuse's gaps - those look right from the diffuse ALONE, and adding the mask
+  double-cuts them; only use a mask when the diffuse is a clean overlay. At a distance the mask's mip
+  average softens sparse coverage toward a uniform mix (intended; coverage-preserving mips are a later
+  refinement).
 
 **Normal handedness**: our terrain uses the glTF / OpenGL green-up convention (verified by probe), so
 Poly Haven `_nor_gl_` maps and glTF-exported normals import AS-IS - do NOT flip green.

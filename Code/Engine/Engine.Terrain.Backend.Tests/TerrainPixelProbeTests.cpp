@@ -1566,3 +1566,104 @@ TEST_CASE("terrain probe: no base albedo -> the RAMP is the implicit base (never
     device->Destroy();
     vulkan->Destroy();
 }
+
+TEST_CASE("terrain probe: a masked layer reveals the PAINTED layer beneath, not base (Vk + WebGPU)")
+{
+    // TWO painted palette layers - GROUND (red, layer 0) + GRASS (green, layer 1), each at ~0.5
+    // weight - over a distinct BASE (blue). GRASS carries a fully-ZERO coverage mask; GROUND has none
+    // (opaque). The freed grass coverage must flow to the painted GROUND (red), NOT the base canvas
+    // (blue): reveal what you painted. If the old dump-to-base behavior regressed, the base (blue)
+    // would dominate and this flips.
+    auto run = [](rhi::Backend* backend, bool maskGrass) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            engine::terrain::TerrainSplatTextureCache splatCache;
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw = MakeTwoLayerWeights(128, 128); // ground + grass ~0.5 each
+            const Float3 colors[2] = {Float3{0.9f, 0.05f, 0.05f},  // layer 0 GROUND = red
+                                      Float3{0.05f, 0.9f, 0.05f}}; // layer 1 GRASS = green
+            RefPtr<tmodel::TerrainPaletteData> palette = MakePaletteData(Span<const Float3>{colors, 2});
+            const usize sliceBytes =
+                tmodel::TerrainPaletteData::SliceBytes(palette->sliceSize, palette->mipCount);
+            if (maskGrass)
+            {
+                // slice 0 (ground) OPAQUE, slice 1 (grass) fully ZERO -> grass coverage is freed.
+                palette->maskTexels.Resize(sliceBytes * 2);
+                for (usize t = 0; t < sliceBytes; t += 4)
+                {
+                    u8* g = palette->maskTexels.Data() + t; // ground slice
+                    g[0] = 255; g[1] = 255; g[2] = 255; g[3] = 255;
+                    u8* r = palette->maskTexels.Data() + sliceBytes + t; // grass slice
+                    r[0] = 0; r[1] = 0; r[2] = 0; r[3] = 255;
+                }
+            }
+            RefPtr<texture::Texture> blue = MakeSolid(*dev, 30, 30, 230); // BASE (must NOT win)
+            f32 scales[2] = {1000.0f, 1000.0f};
+
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            const engine::terrain::SplatTextureViews views =
+                splatCache.GetOrCreate(*dev, *sw, sw->Version());
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{scales, 2});
+            REQUIRE(views.weightView != nullptr);
+            REQUIRE(gpu.arrayView != nullptr);
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
+            cfg.baseAlbedoView = blue->View();
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = 2;
+            cfg.maskArrayView = maskGrass ? gpu.maskArrayView : nullptr;
+            p = RenderTerrainProbe(*dev, cfg);
+
+            splatCache.Clear(*dev);
+            paletteCache.Clear(*dev);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const auto R = [](const Probe& p) { return p.leftR + p.rightR; };
+    const auto B = [](const Probe& p) { return p.leftB + p.rightB; };
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe masked = run(vulkan, true);
+    if (!masked.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain reveal-painted-layer probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+
+    std::printf("[terrain-reveal] masked-grass R(ground)=%.0f B(base)=%.0f\n", R(masked), B(masked));
+
+    // The freed grass coverage went to the painted GROUND (red), not the base (blue).
+    CHECK(R(masked) > B(masked) * 1.5);
+
+    const Probe wMasked = run(webgpu, true);
+    if (wMasked.valid)
+    {
+        CHECK(R(wMasked) > B(wMasked) * 1.5);
+        CHECK(R(wMasked) == doctest::Approx(R(masked)).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - terrain reveal-painted-layer parity skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}

@@ -26,32 +26,38 @@ still competes.
 
 ## The blend math
 
-The mask is a HARD coverage multiplier applied to each PALETTE layer's weight BEFORE the base-weight
-computation and BEFORE height-blend:
+The mask is a coverage multiplier applied to each PALETTE layer's weight, and the REMOVED coverage is
+handed to the OTHER PAINTED layers (revised 2026-08-26 after the first user test - see the note below):
 
     // Per splat texel corner, per palette slot k:
     //   m_k        = MaskArray slice idx[k] sampled at layer k's tiling UV (red channel, [0,1])
-    //   w'[k]      = w[k] * m_k                          (effective coverage weight)
+    //   freed     += w[k] * (1 - m_k)                    (coverage removed from this slot)
+    //   w'[k]      = w[k] * m_k                          (cut weight)
+    //   receiverW  = sum of w'[k] over UNCUT slots (m_k ~= 1) - the other painted layers
     // then:
-    //   baseW      = saturate(1 - sum(w'[k]))            (gaps reveal base - what is beneath)
-    //   ... feed w'[k] + baseW into the existing linear OR height-blend weighting ...
+    //   if receiverW > 0:  w''[k] = w'[k] + freed * (w'[k] / receiverW)  for each UNCUT slot
+    //                      (palette sum restored -> baseW unchanged: gaps reveal PAINTED layers)
+    //   else:              baseW = saturate(1 - sum(w'[k]))  (no other painted layer -> reveal base)
 
-- The mask applies to PALETTE layers ONLY. The BASE layer is "what shows where nothing else covers" -
-  there is nothing beneath it, so masking base is meaningless; base has NO mask and its weight simply
-  grows to fill the cut coverage. (Layer.mask exists on the struct for array-build symmetry but the
-  base layer's is never bound.)
-- Because `baseW` is recomputed from the MASKED weights, a fully-masked texel (all `m_k = 0`) falls
-  entirely to base - exactly sparse-grass-over-dirt. A fully-opaque mask (`m_k = 1`) leaves the blend
+- The mask applies to PALETTE layers ONLY. The BASE layer is "what shows where nothing else covers";
+  base has NO mask. (Layer.mask exists on the struct for array-build symmetry but base's is never bound.)
+- REVEAL-PAINTED, not reveal-base: the freed coverage flows to the layers you actually PAINTED under
+  the sparse one (proportional to their weight) - grass gaps show the ground layer you painted, not
+  the base canvas. Only when NO other painted layer has weight (a sparse layer painted directly over
+  base) does the freed coverage fall to base. A fully-opaque mask (`m_k = 1`) leaves the blend
   identical to today.
-- Composition order per corner: Load idx/weight -> multiply each `w[k]` by its mask (if maskBound) ->
-  recompute baseW -> run the existing linear or height-blend weighting on the masked weights -> the
-  2x2 bilinear across corner results still anti-aliases the seam. Mask can only REDUCE a weight, so
-  the "skip zero-weight slots" fast path still holds (a fully-masked slot drops out of the loop).
+- Composition order per corner: Load idx/weight -> for each slot multiply `w[k]` by its mask + tally
+  `freed` and the uncut `receiverW` -> redistribute `freed` into the uncut slots (or let baseW absorb
+  it) -> run the existing linear or height-blend weighting on the result -> the 2x2 bilinear across
+  corners anti-aliases the seam.
 
-Limitation (state it up front): a flat top-K blend has no layer ORDERING, so the gaps reveal the base
-layer (and any other still-weighted palette layers, proportionally) - NOT a specifically chosen
-"layer directly beneath this one." For the common sparse-over-ground case (one sparse palette layer +
-base) this is exactly right; stacking two sparse layers with a chosen reveal order is out of scope.
+Limitation (state it up front): a flat top-K blend has NO layer ORDERING, and painting a layer to full
+strength EVICTS the others (their weight -> 0). So "grass fully covering intact ground, grass has
+holes" cannot be expressed - once the ground weight is gone there is nothing to reveal but base. The
+mask reveals a painted layer only where that layer still has weight (paint the sparse layer at partial
+strength, or rely on feathered edges). True ordered/stacked layers are a separate, larger feature; for
+a photo texture whose diffuse already bakes the substrate into its gaps (e.g. Poly Haven sparse_grass),
+skip the mask entirely - the diffuse already reads as grass-on-dirt.
 
 OFF path (no palette layer authored a mask): the shader keeps the pre-track weighting unchanged - the
 mask samples and the multiply are skipped entirely, byte-identical output. Strictly opt-in per terrain.
@@ -108,9 +114,10 @@ Mirror height P0:
 - Add `Texture2DArray MaskArray : register(t11, space3);`.
 - Read `maskBound = SplatParams2.x >= 0.5`.
 - In the manual-bilinear corner loop, per palette slot: when `maskBound`, sample
-  `MaskArray.SampleGrad(AlbedoSampler, uvk, gx, gy).r` (grads already hoisted) and multiply it into
-  `wk` before the `wk > 0` test and before accumulating. Recompute `baseW` from the masked weights.
-  Then the existing linear / height-blend weighting runs on the masked weights unchanged.
+  `MaskArray.SampleGrad(AlbedoSampler, uvk, gx, gy).r` (grads already hoisted), tally the removed
+  coverage (`freed`) and the uncut slots' weight (`receiverW`), then either redistribute `freed` into
+  the uncut slots (reveal painted layers) or let the `baseW = 1 - sum` recompute absorb it (reveal
+  base when no other painted layer). Then the existing linear / height-blend weighting runs unchanged.
 - `maskBound` is UNIFORM (cbuffer), so the branch is uniform control flow (safe under the WGSL
   derivative rules) and no-mask terrains skip the extra samples.
 - Tangent frame, CSM, and GBuffer writes are UNCHANGED - the mask only reweights coverage.
@@ -146,6 +153,11 @@ Mirror the height/normal/ORM pickers, palette rows ONLY:
 - P3 - DONE (docs): this spec -> IMPLEMENTED; terrain-authoring.md gains the mask slot + the R5
   green-up note (Poly Haven `_nor_gl_` import as-is) + the EXR-source note (PNG-in). R4 mip softening
   recorded as intended (coverage-preserving mips deferred).
+- POST-SHIP REVISION (2026-08-26, first user test): the freed coverage now flows to the OTHER PAINTED
+  layers, not the base canvas (reveal-painted, not reveal-base). Shader redistributes `freed` into the
+  uncut slots proportionally; base absorbs it only when no other painted layer has weight. New Vk +
+  WebGPU probe: two painted layers (ground red + fully-masked grass) over a blue base -> the ground
+  (red) wins, not the base (blue) (13 cases / 862 asserts). See the revised blend-math + limitation.
 
 ## Verification (mirroring height-blend / layer-pbr R5)
 
