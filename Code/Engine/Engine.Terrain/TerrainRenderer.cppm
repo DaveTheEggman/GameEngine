@@ -10,6 +10,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <cstdio>
 
 export module engine.terrain:renderer;
 
@@ -1157,12 +1158,23 @@ export namespace engine::terrain
             return pso;
         }
 
-        // Depth-only PSO (vertex-only terrain_depth VS, 0 color targets). `biased` adds the shadow-pass
-        // slope-scaled depth bias (the camera prepass must match the forward depth exactly, so no bias).
+        // Depth-only PSO (vertex-only, 0 color targets). `biased` adds the shadow-pass
+        // slope-scaled depth bias (the camera prepass must match the forward depth exactly, so no
+        // bias). INVARIANCE HARDENING: the CAMERA prepass (unbiased) uses the MAIN "terrain" VS
+        // module - the same bytecode the color pass rasterizes with - so both passes are
+        // GUARANTEED bit-identical clip positions and the color pass's LessEqual never loses
+        // fragments to ULP divergence (a separately compiled twin VS, though source-identical,
+        // may reassociate the position transform; at distance the per-pixel depth gradient
+        // shrinks below ULPs and fragments drop in row bands). The prepass-vs-color LOD parity
+        // itself is owned by the pipeline (ctx.viewMatrix on the prepass context - the actual
+        // zoomed-out banding bug). The extra interpolants are discarded (no fragment stage) and
+        // the VS touches sets 0-2 only, so the 3-set depth layout still fits. Shadow passes keep
+        // the cheap terrain_depth VS - cascade depth never depth-tests against the color pass.
         rhi::RenderPipeline* EnsureDepthPipeline(rhi::TextureFormat depthFormat, bool biased)
         {
+            const StringView shaderName = biased ? u8"terrain_depth" : u8"terrain";
             DepthPso& p = m_depthPso[biased ? 1u : 0u];
-            const u64 shaderVersion = m_shaders->Version(u8"terrain_depth");
+            const u64 shaderVersion = m_shaders->Version(shaderName);
             if (p.pso != nullptr && p.format == depthFormat && p.shaderVersion == shaderVersion)
             {
                 return p.pso;
@@ -1173,7 +1185,7 @@ export namespace engine::terrain
                 p.pso = nullptr;
             }
             rhi::ShaderModule* vs = m_shaders->GetVariant(
-                u8"terrain_depth", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+                shaderName, shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
             if (vs == nullptr)
             {
                 return nullptr;

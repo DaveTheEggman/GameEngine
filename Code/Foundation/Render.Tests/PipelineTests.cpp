@@ -610,3 +610,90 @@ TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO buil
     frame.End();
     CHECK(psoCache.Size() >= 1); // the unlit permutation compiled + built
 }
+
+namespace
+{
+    // Captures the RenderRecordContext fields per pass kind - the regression net for the
+    // prepass-LOD bug: the depth prepass MUST carry the same camera view matrix as the color
+    // pass, or per-view LOD selection (terrain chunk coverage, mesh LOD chains) picks DIFFERENT
+    // levels in the two passes and their depths z-fight (far-chunk row banding).
+    class CtxCaptureRenderer final : public Renderer
+    {
+    public:
+        [[nodiscard]] Span<const RenderCategory> SupportedCategories() const override
+        {
+            static const RenderCategory kCats[] = {RenderCategories::Opaque};
+            return Span<const RenderCategory>{kCats, 1};
+        }
+        void Resolve(const RenderRecordContext& ctx, Span<const DrawItem>,
+                     Array<ResolvedDraw>&) override
+        {
+            colorViewMatrix = ctx.viewMatrix;
+            colorSeen = true;
+        }
+        void ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem>,
+                              Array<ResolvedDraw>&) override
+        {
+            if (ctx.depthPrepass)
+            {
+                prepassViewMatrix = ctx.viewMatrix;
+                prepassSeen = true;
+            }
+        }
+        Float4x4 colorViewMatrix = Float4x4::Identity();
+        Float4x4 prepassViewMatrix = Float4x4::Identity();
+        bool colorSeen = false;
+        bool prepassSeen = false;
+    };
+
+    [[nodiscard]] bool SameMatrix(const Float4x4& a, const Float4x4& b)
+    {
+        for (i32 r = 0; r < 4; ++r)
+        {
+            for (i32 c = 0; c < 4; ++c)
+            {
+                if (a.m[r][c] != b.m[r][c])
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+}
+
+TEST_CASE("depth prepass context carries the camera view matrix (per-view LOD parity)")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256))
+    {
+        return;
+    }
+    CtxCaptureRenderer capture;
+    RendererRegistry registry;
+    registry.Register(&capture);
+    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+
+    ExtractedScene scene;
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->category = RenderCategories::Opaque;
+    rd->rendererId = capture.RendererId();
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{10, 20, 30}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0f, 1.0f, 0.1f, 1000.0f);
+    ViewSettings settings;
+
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+    frame.End();
+
+    REQUIRE(capture.colorSeen);
+    REQUIRE(capture.prepassSeen);
+    // BOTH passes saw the REAL camera view (not identity), and the SAME one - the invariant that
+    // keeps per-view LOD selection identical between the prepass and the color pass.
+    CHECK_FALSE(SameMatrix(capture.prepassViewMatrix, Float4x4::Identity()));
+    CHECK(SameMatrix(capture.prepassViewMatrix, camera.view));
+    CHECK(SameMatrix(capture.colorViewMatrix, camera.view));
+}

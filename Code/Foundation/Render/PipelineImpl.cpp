@@ -652,6 +652,13 @@ namespace foundation::render
         ctx.view =
             &view; // instance-share cache is keyed by view pointer (prepass fills, forward reuses)
         ctx.viewProj = view.Camera().ViewProjection();
+        // The camera view matrix: per-view LOD selection (terrain chunk coverage, mesh LOD
+        // chains) reads viewMatrix + the view's projection. WITHOUT it the prepass selects LODs
+        // from an identity view (camera at origin -> maximal coverage -> finest LOD) while the
+        // forward pass selects by real distance - two DIFFERENT surfaces whose depths z-fight,
+        // dropping far fragments in row bands (the zoomed-out terrain artifact). The cascade
+        // path already fills it for exactly this reason.
+        ctx.viewMatrix = view.Camera().view;
         ctx.depthFormat = m_pass.DepthFormat();
         ctx.depthPrepass = true;
         // Scene-pass MSAA (msaa.md Decision 3): the depth prepass runs at the view's sample count so
