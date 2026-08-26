@@ -1,9 +1,10 @@
 # Terrain Layers: Height-Blended Splatting (per-layer displacement as a blend mask)
 
-Status: APPROVED (Fable, 2026-08-26) with amendments R1-R6 (RULING at the bottom). Extends
-terrain-layer-pbr.md (per-layer normal + ORM on the top-K blend) and terrain-splat-topk.md (base +
-unbounded palette + top-K weight rasters). Pure material/render extension - NO change to the paint
-tool, the weight rasters, or the paint data model.
+Status: IMPLEMENTED (2026-08-26). Approved by Fable with amendments R1-R6 (RULING at the bottom), all
+folded; P0-P3 shipped (commits in the phase list). Extends terrain-layer-pbr.md (per-layer normal +
+ORM on the top-K blend) and terrain-splat-topk.md (base + unbounded palette + top-K weight rasters).
+Pure material/render extension - NO change to the paint tool, the weight rasters, or the paint data
+model. Next optional track: per-layer coverage mask (terrain-coverage-mask.md, drafted).
 
 ## Motivation
 
@@ -163,11 +164,17 @@ Mirror the layer-pbr P2 pickers I just shipped:
   NEW probe proves the tall layer wins a 50/50 tie (red R=14.4M vs B=65K), swapping the tall slice
   flips it, OFF holds the linear ~50/50 mix (R=7.27M/B=7.67M), and R6 - equal heights -> the greater
   WEIGHT wins - all matching across backends (9 cases / 617 asserts, clang + gcc).
-- P2 - Editor: base + per-layer height pickers + the height-blend contrast slider on the terrain page;
-  recook wiring. Tests: the v4 page snapshot round-trips the height ids + contrast through the
-  versioned undo payload; a no-height snapshot stays empty.
-- P3 - Polish + docs -> IMPLEMENTED; note POM / tessellated micro-displacement + per-layer height
-  amplitude as the next optional tracks.
+- P2 - DONE (editor): the terrain page grows a Base height picker under the base layer, a Layer N
+  height picker on each palette row (routed through `SetPaletteMap`, now a 3-way Normal/Orm/Height enum
+  that lazily grows the target array), and a "Height blend" contrast FloatEditor (0..1, default 0.25)
+  in the property grid; `AddLayer` / `RemoveLayer` keep the fourth array parallel. All recook-wired
+  (`PickReference` -> commit -> rebind -> RequestCook). Tests: the v4 page snapshot round-trips base +
+  ragged per-layer height ids + contrast through the versioned undo payload, and a no-height snapshot
+  stays empty with the default contrast preserved (Editor.Terrain.Tests 21 pass, clang + gcc).
+- P3 - DONE (docs): this spec -> IMPLEMENTED; Guides/terrain-authoring.md gains the height-blend note
+  (R3 - crisp interlocked seams replace soft dissolves the moment a terrain opts in; raise the contrast
+  to widen the skirt). Next optional tracks: POM / tessellated micro-displacement, per-layer height
+  amplitude, and the per-layer coverage mask (terrain-coverage-mask.md, already drafted).
 
 ## Verification (the required bar, mirroring layer-pbr R5)
 

@@ -38,32 +38,42 @@ Create a Terrain asset and open its page:
   buttons (512 / 1024 / 2048) to author a blank one and wire it in. A fresh raster is all-base -
   nothing is painted yet. You can also import a PNG as weights (legacy channel layout: R = base
   share, G/B/A = the first three paint layers).
-- **Base layer**: the albedo (plus optional normal/ORM) that shows wherever nothing is painted -
-  and what the eraser reveals. The base is **never painted directly**; it is the canvas.
+- **Base layer**: the albedo (plus optional normal/ORM/height) that shows wherever nothing is
+  painted - and what the eraser reveals. The base is **never painted directly**; it is the canvas.
 - **Paint layers**: add as many as you want (the palette is unbounded; up to 256 layers can be
   referenced by the 8-bit paint index, and up to 4 blend at any single texel). Each layer has an
-  albedo picker, optional **normal** and **ORM** pickers, and a **tile scale** (world units per
-  texture repeat, shared by all three maps of the layer).
+  albedo picker, optional **normal**, **ORM**, and **height** pickers, and a **tile scale** (world
+  units per texture repeat, shared by all maps of the layer).
+- **Height blend**: a per-terrain slider (0..1, default 0.25) that only bites once a layer has a
+  height map assigned. Smaller = crisper, interlocked seams; larger = a wider soft skirt.
 - **Palette texture size**: the common resolution every palette texture is resampled to at cook
   (default 1024). Raise it for hero terrains, lower it for cheap ones.
 
 Then add a `TerrainComponent` to a scene entity and pick the terrain asset in the inspector.
 
-### Per-layer textures: albedo, normal, ORM
+### Per-layer textures: albedo, normal, ORM, height
 
 - **Albedo** is the color map (sRGB - the importer's default is correct).
 - **Normal** is a tangent-space normal map. Optional; missing = flat.
 - **ORM** is one packed texture: **R = ambient occlusion, G = roughness, B = metallic** - the
   standard glTF shared-image layout, so exported ORM textures drop straight in. Optional;
   missing = AO 1 / roughness 1 / metallic 0 (today's default look).
+- **Height** is a grayscale displacement map (the `*_disp_*` file from a texture pack); only the red
+  channel is read. It does NOT move geometry - it re-biases the blend so, at a boundary, the layer
+  whose local height is greater shows through first (gravel in the low spots, grass on the high
+  tufts) instead of a uniform cross-fade. Optional; assign it on two or more layers and set the
+  **Height blend** slider to taste. NOTE: turning height-blend on trades soft dissolves for crisp,
+  interlocked seams across the WHOLE terrain - existing soft gradients will visibly sharpen; raise
+  the contrast slider to widen the skirt back out.
 
 **Color-space gotcha**: normal and ORM maps are *data*, not color. If you hand-import one as a
 texture asset, set its **colorSpace to Linear** (the import default is Srgb, which warps data
 maps). Textures brought in by the model importer as material maps are already Linear.
 
-**Pick the right file**: texture packs ship `*_diff_*` (color) next to `*_disp_*` (displacement)
-and `*_nor_*` maps with near-identical names. Assigning a displacement map as a paint albedo
-renders as flat gray - hover a layer swatch in the paint panel to see the asset NAME and confirm.
+**Pick the right file**: texture packs ship `*_diff_*` (color) next to `*_disp_*` (displacement/
+height), `*_nor_*` (normal), and `*_rough_*` / ORM maps with near-identical names. Assign each to
+its matching slot - a `*_disp_*` map belongs in the **height** picker, not albedo (as albedo it
+renders as flat gray). Hover a layer swatch in the paint panel to see the asset NAME and confirm.
 
 ## 3. Sculpt
 

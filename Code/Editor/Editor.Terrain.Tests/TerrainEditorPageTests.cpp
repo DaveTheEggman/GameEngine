@@ -234,3 +234,75 @@ TEST_CASE("TerrainAsset reads a v1 (fixed-layer) payload: layer 0 -> base, layer
     CHECK(b.paletteTileScales[0] == doctest::Approx(4.0f));
     CHECK(b.castShadows == false);
 }
+
+TEST_CASE("TerrainAsset v4 snapshot round-trips per-layer height ids + contrast (the P2 undo path)")
+{
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.baseHeightId = Guid{131, 132};
+    a.heightBlendContrast = 0.4f;
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteAlbedoIds.PushBack(Guid{99, 111});
+    a.paletteTileScales.PushBack(16.0f);
+    a.paletteTileScales.PushBack(48.0f);
+    // A ragged height palette: layer 0 has a height map, layer 1 does not (the page grows the array
+    // lazily via SetPaletteMap, so a snapshot must survive the ragged shape).
+    a.paletteHeightIds.PushBack(Guid{211, 212});
+    a.paletteHeightIds.PushBack(Guid{});
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+
+    CHECK(b.baseHeightId == Guid{131, 132});
+    CHECK(b.heightBlendContrast == doctest::Approx(0.4f));
+    REQUIRE(b.paletteHeightIds.Size() == 2u);
+    CHECK(b.paletteHeightIds[0] == Guid{211, 212});
+    CHECK(b.paletteHeightIds[1] == Guid{});
+}
+
+TEST_CASE("TerrainAsset snapshot with no height maps keeps the arrays empty + the default contrast")
+{
+    pipeline::RegisterTerrainAsset();
+    pipeline::TerrainAsset a;
+    a.baseAlbedoId = Guid{55, 66};
+    a.paletteAlbedoIds.PushBack(Guid{77, 88});
+    a.paletteTileScales.PushBack(16.0f);
+
+    MemoryStream out;
+    {
+        BinarySerializer wr(out, SerializeMode::Write);
+        BeginVersionedPayload(wr, pipeline::TerrainAsset::StaticType());
+        a.Serialize(wr);
+        REQUIRE(wr.IsOk());
+    }
+    MemoryStream in;
+    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
+    (void)in.Seek(0, SeekOrigin::Begin);
+    pipeline::TerrainAsset b;
+    {
+        BinarySerializer rd(in, SerializeMode::Read);
+        BeginVersionedPayload(rd, pipeline::TerrainAsset::StaticType());
+        b.Serialize(rd);
+        REQUIRE(rd.IsOk());
+    }
+    CHECK(b.baseHeightId == Guid{});
+    CHECK(b.paletteHeightIds.IsEmpty());
+    CHECK(b.heightBlendContrast == doctest::Approx(0.25f)); // default preserved
+}

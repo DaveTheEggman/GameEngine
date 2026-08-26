@@ -310,6 +310,16 @@ namespace editor
                                                   [self](const Guid& g)
                                                   { self->m_asset->baseOrmId = g; }});
                       });
+            const String th =
+                Format(u8"Base height: {}", AssetName(m_context, m_asset->baseHeightId));
+            addButton(th.AsView(),
+                      [self]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"baseHeight",
+                                              core::Function<void(const Guid&)>{
+                                                  [self](const Guid& g)
+                                                  { self->m_asset->baseHeightId = g; }});
+                      });
         }
 
         // PAINT palette: the unbounded layer list (add/remove; removal remaps the weight raster).
@@ -341,8 +351,9 @@ namespace editor
                       {
                           self->PickReference(u8"TextureAsset", u8"paletteNormal",
                                               core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g)
-                                                  { self->SetPaletteMap(true, idx, g); }});
+                                                  [self, idx](const Guid& g) {
+                                                      self->SetPaletteMap(PaletteMap::Normal, idx, g);
+                                                  }});
                       });
             const Guid oId =
                 idx < m_asset->paletteOrmIds.Size() ? m_asset->paletteOrmIds[idx] : Guid{};
@@ -352,8 +363,21 @@ namespace editor
                       {
                           self->PickReference(u8"TextureAsset", u8"paletteOrm",
                                               core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g)
-                                                  { self->SetPaletteMap(false, idx, g); }});
+                                                  [self, idx](const Guid& g) {
+                                                      self->SetPaletteMap(PaletteMap::Orm, idx, g);
+                                                  }});
+                      });
+            const Guid hId =
+                idx < m_asset->paletteHeightIds.Size() ? m_asset->paletteHeightIds[idx] : Guid{};
+            const String th = Format(u8"Layer {} height: {}", i, AssetName(m_context, hId));
+            addButton(th.AsView(),
+                      [self, idx]()
+                      {
+                          self->PickReference(u8"TextureAsset", u8"paletteHeight",
+                                              core::Function<void(const Guid&)>{
+                                                  [self, idx](const Guid& g) {
+                                                      self->SetPaletteMap(PaletteMap::Height, idx, g);
+                                                  }});
                       });
             addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
         }
@@ -371,6 +395,21 @@ namespace editor
                                            }},
                 StringView(u8"Terrain"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(cs.Get()));
+        }
+        {
+            // Height-blend soft-skirt width (terrain-height-blend.md): only bites when a layer has a
+            // height map; smaller = crisper interlocked seams, larger = a wider skirt.
+            auto hb = MakeRef<ui::toolkit::FloatEditor>(
+                DefaultAllocator(), StringView(u8"Height blend"),
+                static_cast<f64>(m_asset->heightBlendContrast), 0.0, 1.0, 0.05, 2,
+                core::Function<void(f64)>{[self](f64 v)
+                                          {
+                                              self->m_asset->heightBlendContrast =
+                                                  static_cast<f32>(v);
+                                              self->CommitEdit(u8"heightBlend");
+                                          }},
+                StringView(u8"Terrain"));
+            grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(hb.Get()));
         }
         {
             auto fe = MakeRef<ui::toolkit::FloatEditor>(
@@ -454,22 +493,25 @@ namespace editor
         }
         m_asset->paletteAlbedoIds.PushBack(Guid{});
         m_asset->paletteTileScales.PushBack(32.0f);
-        // Keep the optional normal/ORM arrays parallel with the albedo list so row indices line up.
+        // Keep the optional normal/ORM/height arrays parallel with the albedo list so rows line up.
         m_asset->paletteNormalIds.PushBack(Guid{});
         m_asset->paletteOrmIds.PushBack(Guid{});
+        m_asset->paletteHeightIds.PushBack(Guid{});
         CommitEdit(u8"addLayer");
         RebuildFieldsDeferred();
     }
 
-    // Set a per-layer normal (normal==true) or ORM (false) map id, growing the (optional) array to
-    // match the albedo list first so an older terrain with no maps still edits cleanly.
-    void TerrainEditorPage::SetPaletteMap(bool normal, u32 index, const Guid& g)
+    // Set a per-layer normal / ORM / height map id, growing the (optional) target array to match the
+    // albedo list first so an older terrain with no maps still edits cleanly.
+    void TerrainEditorPage::SetPaletteMap(PaletteMap map, u32 index, const Guid& g)
     {
         if (m_asset.Get() == nullptr || index >= m_asset->paletteAlbedoIds.Size())
         {
             return;
         }
-        Array<Guid>& ids = normal ? m_asset->paletteNormalIds : m_asset->paletteOrmIds;
+        Array<Guid>& ids = (map == PaletteMap::Normal)  ? m_asset->paletteNormalIds
+                           : (map == PaletteMap::Orm)   ? m_asset->paletteOrmIds
+                                                        : m_asset->paletteHeightIds;
         while (ids.Size() < m_asset->paletteAlbedoIds.Size())
         {
             ids.PushBack(Guid{});
@@ -495,6 +537,10 @@ namespace editor
         if (index < m_asset->paletteOrmIds.Size())
         {
             m_asset->paletteOrmIds.RemoveAt(index);
+        }
+        if (index < m_asset->paletteHeightIds.Size())
+        {
+            m_asset->paletteHeightIds.RemoveAt(index);
         }
         // Remap the weight raster (ruling R6): slots referencing the removed layer are freed
         // (their weight falls to base); indices above it decrement. Applied to the LIVE runtime
