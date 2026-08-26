@@ -218,7 +218,12 @@ export namespace engine::terrain
                     {
                         rd->baseOrmView = baseOrm->View();
                     }
+                    if (texture::Texture* baseHgt = res->base.height.Get())
+                    {
+                        rd->baseHeightView = baseHgt->View();
+                    }
                     rd->baseTileScale = res->base.tileScale;
+                    rd->heightBlendContrast = res->heightBlendContrast;
                     // The palette Texture2DArray + tileScale buffer (cook-built texels, cached by
                     // TerrainPaletteData::uid + the tile-scale hash; a palette edit re-cooks ->
                     // new uid -> rebuild with the old array RETIRED).
@@ -235,6 +240,7 @@ export namespace engine::terrain
                         rd->paletteArrayView = palette.arrayView;
                         rd->normalArrayView = palette.normalArrayView;
                         rd->ormArrayView = palette.ormArrayView;
+                        rd->heightArrayView = palette.heightArrayView;
                         rd->tileScaleBuffer = palette.tileScaleBuffer;
                         rd->tileScaleGeneration = palette.generation;
                         rd->paletteCount = res->paletteData->sliceCount;

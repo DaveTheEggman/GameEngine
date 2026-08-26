@@ -66,6 +66,7 @@ export namespace engine::terrain
         rhi::TextureView* baseAlbedoView = nullptr;
         rhi::TextureView* baseNormalView = nullptr; // null = flat-normal dummy
         rhi::TextureView* baseOrmView = nullptr;    // null = default-ORM dummy
+        rhi::TextureView* baseHeightView = nullptr; // null = mid-height dummy (height-blend)
         f32 baseTileScale = 1.0f;
         // The paint palette: a Texture2DArray (one slice per palette layer, cook-resized to a
         // common size) + the per-layer tileScale buffer (slot 0 = base, slot 1+i = palette i). The
@@ -73,8 +74,12 @@ export namespace engine::terrain
         rhi::TextureView* paletteArrayView = nullptr;
         rhi::TextureView* normalArrayView = nullptr;
         rhi::TextureView* ormArrayView = nullptr;
+        rhi::TextureView* heightArrayView = nullptr; // null = no palette layer used a height map
         rhi::Buffer* tileScaleBuffer = nullptr;
         u64 tileScaleGeneration = 0; // part of the set-3 cache key (never raw pointers)
         u32 paletteCount = 0;
+        // Height-blend soft-skirt width (terrain-height-blend.md); the renderer packs it into the view
+        // UBO only when a base or palette height map is present (else the OFF linear path runs).
+        f32 heightBlendContrast = 0.25f;
     };
 }

@@ -227,6 +227,7 @@ export namespace engine::terrain
         rhi::TextureView* arrayView = nullptr;  // ALBEDO Texture2DArray, one slice per palette layer
         rhi::TextureView* normalArrayView = nullptr; // null = no layer used a normal map (dummy binds)
         rhi::TextureView* ormArrayView = nullptr;    // null = no layer used an ORM map
+        rhi::TextureView* heightArrayView = nullptr; // null = no layer used a height map (dummy binds)
         rhi::Buffer* tileScaleBuffer = nullptr; // f32[paletteCount]; base tile rides the view UBO
         u64 generation = 0;                     // part of the set-3 cache key
     };
@@ -306,13 +307,15 @@ export namespace engine::terrain
             rhi::TextureView* normalArrayView = nullptr;
             rhi::Texture* ormTexture = nullptr;         // linear; null when no layer used an ORM map
             rhi::TextureView* ormArrayView = nullptr;
+            rhi::Texture* heightTexture = nullptr;      // linear; null when no layer used a height map
+            rhi::TextureView* heightArrayView = nullptr;
             rhi::Buffer* tileScaleBuffer = nullptr;
         };
 
         [[nodiscard]] static PaletteGpu MakeGpu(const Entry& e) noexcept
         {
-            return PaletteGpu{e.arrayView, e.normalArrayView, e.ormArrayView, e.tileScaleBuffer,
-                              e.generation};
+            return PaletteGpu{e.arrayView,       e.normalArrayView, e.ormArrayView,
+                              e.heightArrayView, e.tileScaleBuffer, e.generation};
         }
 
         [[nodiscard]] static u64 HashScales(Span<const f32> scales) noexcept
@@ -423,6 +426,15 @@ export namespace engine::terrain
                 Destroy(device, out);
                 return false;
             }
+            if (data.HasHeight() &&
+                !BuildArray(device, rhi::TextureFormat::RGBA8Unorm,
+                            Span<const u8>{data.heightTexels.Data(), data.heightTexels.Size()},
+                            data.sliceSize, data.mipCount, data.sliceCount, u8"terrain.palette.height",
+                            out.heightTexture, out.heightArrayView))
+            {
+                Destroy(device, out);
+                return false;
+            }
 
             // The tileScale storage buffer: TileScales[i] = palette layer i (tight f32; the base
             // tile rides the view UBO, so a base-tile edit never rebuilds this buffer).
@@ -462,6 +474,8 @@ export namespace engine::terrain
                 m_retire->Retire(entry.normalTexture);
                 m_retire->Retire(entry.ormArrayView);
                 m_retire->Retire(entry.ormTexture);
+                m_retire->Retire(entry.heightArrayView);
+                m_retire->Retire(entry.heightTexture);
                 m_retire->Retire(entry.tileScaleBuffer);
                 entry.arrayView = nullptr;
                 entry.arrayTexture = nullptr;
@@ -469,6 +483,8 @@ export namespace engine::terrain
                 entry.normalTexture = nullptr;
                 entry.ormArrayView = nullptr;
                 entry.ormTexture = nullptr;
+                entry.heightArrayView = nullptr;
+                entry.heightTexture = nullptr;
                 entry.tileScaleBuffer = nullptr;
                 return;
             }
@@ -499,6 +515,8 @@ export namespace engine::terrain
             tex(entry.normalTexture);
             view(entry.ormArrayView);
             tex(entry.ormTexture);
+            view(entry.heightArrayView);
+            tex(entry.heightTexture);
             if (entry.tileScaleBuffer != nullptr)
             {
                 device.DestroyBuffer(entry.tileScaleBuffer);

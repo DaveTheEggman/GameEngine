@@ -43,9 +43,11 @@ weighted-summed by those. Height-blend replaces the WEIGHTS (only) with height-b
 - The base contributor is included ONLY when `baseW > 0` (else its mid-height would bleed phantom base
   where the palette already sums to 1).
 - `depth` (contrast) is a per-terrain scalar > 0. Small depth = sharp, near-binary transition (the
-  tallest layer wins hard); large depth = wide soft skirt approaching the linear blend. Clamped to a
-  safe floor so `sum(b) >= depth > 0` (the max contributor always survives with `b = depth`) - no
-  divide-by-zero, no need for a zero-sum guard.
+  tallest layer wins hard); large depth = a wider soft skirt (more contributors survive). NOTE (R2):
+  growing depth washes the SCORE differences out toward an EQUAL mix of the participating
+  contributors - it does NOT recover the linear paint-weight blend (that is exclusively the OFF path).
+  Clamped to a safe floor so `sum(b) >= depth > 0` (the max contributor always survives with
+  `b = depth`) - no divide-by-zero, no need for a zero-sum guard.
 - The reweighting is per CORNER; the existing 2x2 bilinear across the four corner RESULTS still does
   the spatial smoothing, so seams stay anti-aliased.
 
@@ -150,10 +152,17 @@ Mirror the layer-pbr P2 pickers I just shipped:
   ids; factory copies contrast source -> resource. Tests: on-demand height array + nil-layer mid-default
   slice + no-height compat (`HasHeight()` false) + base/palette id + contrast round-trip
   (Terrain.Pipeline.Tests 12 pass, clang + gcc).
-- P1 - Renderer + shader: palette cache builds the height array; render data + component fill + the
-  contrast/heightBound params into ShadowParams.zw; set-3 t9/t10 + 1x1 mid-height dummies + the cache
-  key; the PS runs the height-blend reweighting under the uniform `heightBound` branch. WGSL: all
-  variants translate (naga check BEFORE any probe). Verified on Vulkan AND WebGPU (see below).
+- P1 - DONE (renderer + shader): the palette cache builds the height Texture2DArray on demand
+  (`HasHeight()`) + retire/destroy/MakeGpu wired; TerrainRenderData baseHeight/heightArray views +
+  contrast; component fill; ShadowParams.z = contrast / .w = heightBound (R5 - both comments renamed
+  off "spare"); set-3 extended to t9/t10 + 1x1 mid-height 2D/array dummies + the material cache key
+  gains the two view uniqueIds; the PS keeps the LINEAR path verbatim when `!heightBound` (byte-hold)
+  and runs the Mishkinis reweight under the uniform branch otherwise (samples each slot once, scores =
+  weight + height, cull below `sMax - contrast`, renormalize). WGSL: naga translates every variant
+  (the 8 existing probes stayed green -> cook succeeded + OFF byte-hold). Verified Vulkan AND WebGPU: a
+  NEW probe proves the tall layer wins a 50/50 tie (red R=14.4M vs B=65K), swapping the tall slice
+  flips it, OFF holds the linear ~50/50 mix (R=7.27M/B=7.67M), and R6 - equal heights -> the greater
+  WEIGHT wins - all matching across backends (9 cases / 617 asserts, clang + gcc).
 - P2 - Editor: base + per-layer height pickers + the height-blend contrast slider on the terrain page;
   recook wiring. Tests: the v4 page snapshot round-trips the height ids + contrast through the
   versioned undo payload; a no-height snapshot stays empty.

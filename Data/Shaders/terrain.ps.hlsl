@@ -49,6 +49,11 @@ Texture2D               BaseNormal   : register(t5, space3);
 Texture2DArray          NormalArray  : register(t6, space3);
 Texture2D               BaseOrm      : register(t7, space3);
 Texture2DArray          OrmArray     : register(t8, space3);
+// Per-layer HEIGHT/displacement maps (terrain-height-blend.md): the top-K weights are re-biased
+// toward the tallest layer per texel (Mishkinis), .r channel. Absent -> a 1x1 mid-height dummy binds
+// AND ShadowParams.w reads 0, so the reweight is skipped and the blend stays linear (byte-identical).
+Texture2D               BaseHeight   : register(t9, space3);
+Texture2DArray          HeightArray  : register(t10, space3);
 SamplerState            AlbedoSampler : register(s0, space3); // repeat, trilinear
 
 struct PSOutput {
@@ -138,6 +143,12 @@ PSOutput main(PSIn i) {
         float3 baseCol = BaseAlbedo.Sample(AlbedoSampler, baseUV).rgb;
         float3 baseNrm = BaseNormal.Sample(AlbedoSampler, baseUV).rgb * 2.0 - 1.0;
         float3 baseOrm = BaseOrm.Sample(AlbedoSampler, baseUV).rgb;
+        // Height-blend controls (terrain-height-blend.md): ShadowParams.w = height maps bound,
+        // .z = contrast (soft-skirt width). Both uniform, so branching on heightBound is uniform
+        // control flow (safe for SampleGrad derivatives; no-height terrains pay nothing).
+        bool  heightBound = ShadowParams.w >= 0.5;
+        float contrast    = max(ShadowParams.z, 1e-3);
+        float baseH = heightBound ? BaseHeight.Sample(AlbedoSampler, baseUV).r : 0.0;
         if (hasWeights) {
             // Manual bilinear over the splat texels: Load index+weight at the 4 corners, blend
             // per corner (skip zero-weight slots - the typical texel uses 1-2), lerp the results.
@@ -161,20 +172,74 @@ PSOutput main(PSIn i) {
                 uint4 idx = IndexMap.Load(int3(texel, 0));
                 float4 w = WeightMap.Load(int3(texel, 0));
                 float baseW = saturate(1.0 - (w.x + w.y + w.z + w.w));
-                float3 c = baseCol * baseW;
-                float3 nTS = baseNrm * baseW;
-                float3 orm = baseOrm * baseW;
-                [unroll] for (int k = 0; k < 4; ++k) {
-                    float wk = w[k];
-                    if (wk > 0.0) {
-                        uint layer = idx[k];
-                        float tile = max(TileScales[layer], 1e-3);
-                        float3 uvk = float3(i.localXZ / tile, (float)layer);
-                        float2 gx = dxLocal / tile;
-                        float2 gy = dyLocal / tile;
-                        c += PaletteArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
-                        nTS += (NormalArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * 2.0 - 1.0) * wk;
-                        orm += OrmArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
+                float3 c, nTS, orm;
+                if (!heightBound) {
+                    // LINEAR blend (OFF path) - byte-identical to pre-height-blend: base gets the
+                    // remainder weight, each active palette slot gets its raw weight.
+                    c = baseCol * baseW;
+                    nTS = baseNrm * baseW;
+                    orm = baseOrm * baseW;
+                    [unroll] for (int k = 0; k < 4; ++k) {
+                        float wk = w[k];
+                        if (wk > 0.0) {
+                            uint layer = idx[k];
+                            float tile = max(TileScales[layer], 1e-3);
+                            float3 uvk = float3(i.localXZ / tile, (float)layer);
+                            float2 gx = dxLocal / tile;
+                            float2 gy = dyLocal / tile;
+                            c += PaletteArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
+                            nTS += (NormalArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * 2.0 - 1.0) * wk;
+                            orm += OrmArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * wk;
+                        }
+                    }
+                } else {
+                    // HEIGHT-BLEND (Mishkinis): sample each active slot's maps once, then re-bias the
+                    // weights toward the tallest contributor with a soft skirt of width `contrast`,
+                    // renormalize (stays convex), and combine albedo/normal/ORM with the new weights.
+                    float3 slotC[4], slotN[4]; float3 slotO[4]; float slotH[4];
+                    [unroll] for (int k = 0; k < 4; ++k) {
+                        slotC[k] = float3(0.0, 0.0, 0.0);
+                        slotN[k] = float3(0.0, 0.0, 0.0);
+                        slotO[k] = float3(0.0, 0.0, 0.0);
+                        slotH[k] = 0.0;
+                        if (w[k] > 0.0) {
+                            uint layer = idx[k];
+                            float tile = max(TileScales[layer], 1e-3);
+                            float3 uvk = float3(i.localXZ / tile, (float)layer);
+                            float2 gx = dxLocal / tile;
+                            float2 gy = dyLocal / tile;
+                            slotC[k] = PaletteArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb;
+                            slotN[k] = NormalArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb * 2.0 - 1.0;
+                            slotO[k] = OrmArray.SampleGrad(AlbedoSampler, uvk, gx, gy).rgb;
+                            slotH[k] = HeightArray.SampleGrad(AlbedoSampler, uvk, gx, gy).r;
+                        }
+                    }
+                    // Scores = weight + height; the base competes only when it has remainder weight.
+                    float sBase = (baseW > 0.0) ? (baseW + baseH) : -1e30;
+                    float sMax = sBase;
+                    float sK[4];
+                    [unroll] for (int k = 0; k < 4; ++k) {
+                        sK[k] = (w[k] > 0.0) ? (w[k] + slotH[k]) : -1e30;
+                        sMax = max(sMax, sK[k]);
+                    }
+                    float lo = sMax - contrast; // contributors below this are culled (skirt width)
+                    float bBase = (baseW > 0.0) ? max(sBase - lo, 0.0) : 0.0;
+                    float sum = bBase;
+                    float bK[4];
+                    [unroll] for (int k = 0; k < 4; ++k) {
+                        bK[k] = (w[k] > 0.0) ? max(sK[k] - lo, 0.0) : 0.0;
+                        sum += bK[k];
+                    }
+                    float inv = 1.0 / max(sum, 1e-6); // the max contributor survives, so sum >= contrast
+                    float ewBase = bBase * inv;
+                    c = baseCol * ewBase;
+                    nTS = baseNrm * ewBase;
+                    orm = baseOrm * ewBase;
+                    [unroll] for (int k = 0; k < 4; ++k) {
+                        float ew = bK[k] * inv;
+                        c += slotC[k] * ew;
+                        nTS += slotN[k] * ew;
+                        orm += slotO[k] * ew;
                     }
                 }
                 cornerC[cIdx] = c;

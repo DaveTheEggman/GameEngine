@@ -81,6 +81,8 @@ namespace
         rhi::TextureView* paletteArrayView = nullptr; // Texture2DArray, one slice per layer
         rhi::TextureView* normalArrayView = nullptr;  // per-layer normal array (terrain PBR)
         rhi::TextureView* ormArrayView = nullptr;     // per-layer ORM array
+        rhi::TextureView* heightArrayView = nullptr;  // per-layer height array (height-blend)
+        f32 heightBlendContrast = 0.25f;              // soft-skirt width (only when a height map binds)
         Float4x4 chunkToWorld = Float4x4::Identity(); // R2: the tangent frame follows THIS
         rhi::Buffer* tileScaleBuffer = nullptr;       // f32[paletteCount]
         u64 tileScaleGeneration = 0;
@@ -171,6 +173,8 @@ namespace
             rd->paletteArrayView = cfg.paletteArrayView;
             rd->normalArrayView = cfg.normalArrayView;
             rd->ormArrayView = cfg.ormArrayView;
+            rd->heightArrayView = cfg.heightArrayView;
+            rd->heightBlendContrast = cfg.heightBlendContrast;
             rd->tileScaleBuffer = cfg.tileScaleBuffer;
             rd->tileScaleGeneration = cfg.tileScaleGeneration;
             rd->paletteCount = cfg.paletteCount;
@@ -404,6 +408,30 @@ namespace
                 const u32 layer = Min(static_cast<u32>(x) * bands / n, bands - 1);
                 idx[at + 0] = static_cast<u8>(layer);
                 wts[at + 0] = 255; // one-hot: pure layer, no base
+            }
+        }
+        sw->BumpVersion();
+        return sw;
+    }
+
+    // A weights raster with TWO active slots everywhere: slot 0 -> palette layer 0 at weight w0/255,
+    // slot 1 -> palette layer 1 at weight w1/255 (the base owns 1 - their sum). For the height-blend
+    // fixture: equal w0/w1 -> a 50/50 tie the height maps break.
+    RefPtr<tmodel::SplatWeights> MakeTwoLayerWeights(u8 w0, u8 w1)
+    {
+        constexpr i32 n = 32;
+        RefPtr<tmodel::SplatWeights> sw = MakeRef<tmodel::SplatWeights>(DefaultAllocator(), n, n);
+        Span<u8> idx = sw->Indices();
+        Span<u8> wts = sw->Weights();
+        for (i32 y = 0; y < n; ++y)
+        {
+            for (i32 x = 0; x < n; ++x)
+            {
+                const usize at = sw->TexelOffset(x, y);
+                idx[at + 0] = 0;
+                idx[at + 1] = 1;
+                wts[at + 0] = w0;
+                wts[at + 1] = w1;
             }
         }
         sw->BumpVersion();
@@ -1174,6 +1202,123 @@ TEST_CASE("terrain probe: ARRAY normal + ORM blend through top-K, and the R2 rot
     else
     {
         MESSAGE("WebGPU unavailable - array-PBR parity skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: height-blend biases the top-K toward the tallest layer (Vk + WebGPU)")
+{
+    // A flat 2-layer terrain, painted 50/50 (a tie the linear blend renders as an equal red/blue mix).
+    // Layer 0 = red, layer 1 = blue; each carries a CONSTANT height slice. With height-blend ON the
+    // tie breaks toward whichever layer is taller; swapping the tall slice flips the winner. The R6
+    // pin: with EQUAL heights the greater WEIGHT must win (the crossover sits at the weight tie, so an
+    // implementation that dropped the weight term from the score fails here). OFF (no height array)
+    // holds the linear 50/50 mix - anchoring that the height binding is what tips the result.
+    auto run = [](rhi::Backend* backend, u8 h0, u8 h1, u8 w0, u8 w1, bool bindHeight,
+                  f32 contrast) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            engine::terrain::TerrainSplatTextureCache splatCache;
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw = MakeTwoLayerWeights(w0, w1);
+            const Float3 colors[2] = {Float3{0.9f, 0.05f, 0.05f}, Float3{0.05f, 0.05f, 0.9f}};
+            RefPtr<tmodel::TerrainPaletteData> palette =
+                MakePaletteData(Span<const Float3>{colors, 2});
+            // Constant per-layer height slices (.r used): layer 0 = h0, layer 1 = h1.
+            const usize sliceBytes =
+                tmodel::TerrainPaletteData::SliceBytes(palette->sliceSize, palette->mipCount);
+            palette->heightTexels.Resize(sliceBytes * 2);
+            for (usize t = 0; t < sliceBytes; t += 4)
+            {
+                u8* p0 = palette->heightTexels.Data() + t;
+                p0[0] = h0; p0[1] = h0; p0[2] = h0; p0[3] = 255;
+                u8* p1 = palette->heightTexels.Data() + sliceBytes + t;
+                p1[0] = h1; p1[1] = h1; p1[2] = h1; p1[3] = 255;
+            }
+            f32 scales[2] = {1000.0f, 1000.0f};
+
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            const engine::terrain::SplatTextureViews views =
+                splatCache.GetOrCreate(*dev, *sw, sw->Version());
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{scales, 2});
+            REQUIRE(views.weightView != nullptr);
+            REQUIRE(gpu.arrayView != nullptr);
+            if (bindHeight)
+            {
+                REQUIRE(gpu.heightArrayView != nullptr); // HasHeight() -> the cache built the array
+            }
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = 2;
+            cfg.heightArrayView = bindHeight ? gpu.heightArrayView : nullptr;
+            cfg.heightBlendContrast = contrast;
+            p = RenderTerrainProbe(*dev, cfg);
+
+            splatCache.Clear(*dev);
+            paletteCache.Clear(*dev);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const auto R = [](const Probe& p) { return p.leftR + p.rightR; };
+    const auto B = [](const Probe& p) { return p.leftB + p.rightB; };
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe redTall = run(vulkan, 255, 0, 128, 128, true, 0.15f);
+    if (!redTall.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain height-blend probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    const Probe blueTall = run(vulkan, 0, 255, 128, 128, true, 0.15f);
+    const Probe off = run(vulkan, 255, 0, 128, 128, false, 0.15f);      // linear 50/50 control
+    const Probe weightWins = run(vulkan, 128, 128, 180, 60, true, 0.15f); // R6: equal height
+
+    std::printf("[terrain-heightblend] redTall(R=%.0f B=%.0f) blueTall(R=%.0f B=%.0f) "
+                "off(R=%.0f B=%.0f) weightWins(R=%.0f B=%.0f)\n",
+                R(redTall), B(redTall), R(blueTall), B(blueTall), R(off), B(off), R(weightWins),
+                B(weightWins));
+
+    // Taller layer wins the 50/50 tie; swapping the tall slice flips the winner.
+    CHECK(R(redTall) > B(redTall) * 1.5);
+    CHECK(B(blueTall) > R(blueTall) * 1.5);
+    // OFF control: the same 50/50 weights render an ~equal red/blue mix (no height steering)...
+    CHECK(R(off) == doctest::Approx(B(off)).epsilon(0.15));
+    // ... and turning height-blend ON is what pushed red up (binding the array changed the result).
+    CHECK(R(redTall) > R(off) * 1.2);
+    // R6: equal heights -> the greater WEIGHT wins (score keeps the weight term).
+    CHECK(R(weightWins) > B(weightWins) * 1.5);
+
+    // WebGPU parity on the red-tall case (SampleGrad on the height array is a naga divergence surface).
+    const Probe wRedTall = run(webgpu, 255, 0, 128, 128, true, 0.15f);
+    if (wRedTall.valid)
+    {
+        CHECK(wRedTall.total == doctest::Approx(redTall.total).epsilon(0.05));
+        CHECK(R(wRedTall) == doctest::Approx(R(redTall)).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - terrain height-blend parity skipped");
     }
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
