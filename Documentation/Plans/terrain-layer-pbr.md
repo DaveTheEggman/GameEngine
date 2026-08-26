@@ -1,9 +1,10 @@
 # Terrain Layers: Per-Layer Normal + ORM Maps (top-K blended)
 
-Status: APPROVED (Fable, 2026-08-26) with required amendments R1-R7 (RULING at the bottom); folded
-into the body. Building P0. Extends terrain-splat-topk.md (the base + unbounded palette + top-K
-weight model). Pure material/render extension - NO change to the paint tool, weight rasters, or
-paint data model.
+Status: IMPLEMENTED (2026-08-26). Approved by Fable with required amendments R1-R7 (RULING at the
+bottom), all folded into the body; P0-P2 shipped (commits below), P3 = this closeout. Extends
+terrain-splat-topk.md (the base + unbounded palette + top-K weight model). Pure material/render
+extension - NO change to the paint tool, weight rasters, or paint data model. Next optional track:
+height-blend / triplanar (see the Deferred note below).
 
 ## Motivation
 
