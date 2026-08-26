@@ -368,3 +368,29 @@ FillTerrainRenderData and the palette-cache retire/Clear suite to the new views/
 
 Build order stands as phased (P0 data/cook -> P1 renderer -> P2 editor -> P3 docs), green +
 reviewed between phases. Height-blend + triplanar stay out, as specced.
+
+---
+
+## POST-IMPLEMENTATION REVIEW (Fable, 2026-08-26) - PASS with fixes applied in-pass
+
+Opus's build honors the amendments: R1 conventions exact (RGB*2-1 decode, packed ORM channels,
+AO ambient-only, (rough, metal) target, shadow bias on the geometric normal), R2 tangent frame
+built from the ChunkToWorld-rotated local +X, R4 on-demand arrays + renderer dummies + base as
+runtime refs, R5 separate headered sidecars with geometry cross-checks + both envelopes gated
+(TerrainAsset v3 / TerrainSource v3 / builder v5), R6 ten-entry set-3 with the 8-id cache key,
+depth path untouched. The WGSL cook is clean (checked in-pass). Findings, all FIXED in-pass:
+
+1. R3's mip half was deferred with a stale "rides P1" note: the albedo array uploaded as
+   RGBA8UnormSrgb but its mips still averaged the ENCODED bytes (dark mips). Added
+   BoxHalveRgba8SrgbAware (decode -> average -> encode, alpha linear) used for the albedo array
+   only; pinned by the checker test (black/white averages to sRGB ~188, not 128).
+2. Probe gaps: the shipped normal probe exercised only the BASE (Texture2D) path. Added the
+   array-PBR probe: one-hot painted layer with an ARRAY normal shades directionally (4x
+   asymmetry measured), an ORM array with AO=0 removes exactly the ambient share, the R2
+   ROTATION pin (90-degree terrain: the asymmetry leaves the world-X sun pair and moves fully to
+   world-Z - the frame follows the chunk, not the world), and WebGPU parity on the array taps.
+
+ADVISORY (authoring, not a code defect): BASE normal/ORM maps bind texture PRODUCTS, so a
+hand-imported TextureAsset left at the default colorSpace=Srgb will decode a normal/ORM map
+through the sRGB curve (warped values). Set colorSpace=Linear on those assets (model-importer-
+produced data maps already are). The PALETTE arrays decode raw source pixels and are immune.

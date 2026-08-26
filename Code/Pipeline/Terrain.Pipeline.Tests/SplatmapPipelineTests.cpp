@@ -408,3 +408,34 @@ TEST_CASE("terrain.pipeline: the palette-array cook helpers resize and mip a sli
     // The chain 4x4 + 2x2 + 1x1 at 4 bytes per texel.
     CHECK(TerrainPaletteData::SliceBytes(4, 3) == (16u + 4u + 1u) * 4u);
 }
+
+TEST_CASE("terrain.pipeline: the sRGB-aware halve averages in LINEAR space (albedo mips, R3)")
+{
+    // A 2x2 black/white checker: averaging the sRGB BYTES gives 128 (too dark); averaging in
+    // linear then re-encoding gives sRGB ~188 (the texture cook's rule). The albedo palette
+    // array uploads as RGBA8UnormSrgb, so its mips must use the sRGB-aware halve.
+    u8 checker[2 * 2 * 4] = {};
+    const u32 whiteTexels[2] = {0u, 3u}; // (0,0) + (1,1) white, the others black
+    for (u32 t : whiteTexels)
+    {
+        checker[t * 4 + 0] = 255;
+        checker[t * 4 + 1] = 255;
+        checker[t * 4 + 2] = 255;
+    }
+    for (u32 t = 0; t < 4; ++t)
+    {
+        checker[t * 4 + 3] = 255; // alpha 255 everywhere
+    }
+
+    u8 srgbMip[4] = {};
+    CHECK(BoxHalveRgba8SrgbAware(Span<const u8>{checker, sizeof(checker)}, 2,
+                                 Span<u8>{srgbMip, sizeof(srgbMip)}) == 1u);
+    CHECK(srgbMip[0] >= 186); // linear 0.5 encodes to sRGB ~188
+    CHECK(srgbMip[0] <= 190);
+    CHECK(srgbMip[3] == 255); // alpha is linear: plain average
+
+    u8 plainMip[4] = {};
+    CHECK(BoxHalveRgba8(Span<const u8>{checker, sizeof(checker)}, 2,
+                        Span<u8>{plainMip, sizeof(plainMip)}) == 1u);
+    CHECK(plainMip[0] == 128); // the plain box filter (correct for LINEAR normal/ORM data)
+}

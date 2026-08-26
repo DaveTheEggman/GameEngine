@@ -165,6 +165,60 @@ export namespace pipeline
         return half;
     }
 
+    /// Box-halve an sRGB-ENCODED RGBA8 level averaging the colour channels in LINEAR space
+    /// (decode -> average -> re-encode; alpha is linear and averages as-is). Averaging sRGB bytes
+    /// directly darkens mips - a 50% black/white checker must average to sRGB ~188, not 128 (the
+    /// texture cook's rule; terrain-layer-pbr.md R3). Used for the ALBEDO palette array, which
+    /// uploads as RGBA8UnormSrgb; the linear normal/ORM arrays keep the plain box filter.
+    inline u32 BoxHalveRgba8SrgbAware(Span<const u8> src, u32 dim, Span<u8> dst)
+    {
+        // 256-entry sRGB -> linear decode table (built once).
+        static const auto kToLinear = []
+        {
+            struct Table { f32 v[256]; };
+            Table t{};
+            for (u32 i = 0; i < 256; ++i)
+            {
+                const f32 c = static_cast<f32>(i) / 255.0f;
+                t.v[i] = (c <= 0.04045f) ? (c / 12.92f) : Pow((c + 0.055f) / 1.055f, 2.4f);
+            }
+            return t;
+        }();
+        const auto encode = [](f32 linear) -> u8
+        {
+            const f32 c = (linear <= 0.0031308f) ? (linear * 12.92f)
+                                                 : (1.055f * Pow(linear, 1.0f / 2.4f) - 0.055f);
+            return static_cast<u8>(Clamp(c * 255.0f + 0.5f, 0.0f, 255.0f));
+        };
+        const u32 half = dim > 1 ? dim / 2 : 1;
+        for (u32 y = 0; y < half; ++y)
+        {
+            const u32 sy0 = Min(y * 2, dim - 1);
+            const u32 sy1 = Min(y * 2 + 1, dim - 1);
+            for (u32 x = 0; x < half; ++x)
+            {
+                const u32 sx0 = Min(x * 2, dim - 1);
+                const u32 sx1 = Min(x * 2 + 1, dim - 1);
+                const usize at[4] = {(static_cast<usize>(sy0) * dim + sx0) * 4,
+                                     (static_cast<usize>(sy0) * dim + sx1) * 4,
+                                     (static_cast<usize>(sy1) * dim + sx0) * 4,
+                                     (static_cast<usize>(sy1) * dim + sx1) * 4};
+                for (u32 c = 0; c < 3; ++c)
+                {
+                    const f32 avg = (kToLinear.v[src[at[0] + c]] + kToLinear.v[src[at[1] + c]] +
+                                     kToLinear.v[src[at[2] + c]] + kToLinear.v[src[at[3] + c]]) *
+                                    0.25f;
+                    dst[(static_cast<usize>(y) * half + x) * 4 + c] = encode(avg);
+                }
+                const u32 alphaSum = src[at[0] + 3] + src[at[1] + 3] + src[at[2] + 3] +
+                                     src[at[3] + 3];
+                dst[(static_cast<usize>(y) * half + x) * 4 + 3] =
+                    static_cast<u8>((alphaSum + 2) / 4);
+            }
+        }
+        return half;
+    }
+
     // Cooks a TerrainAsset -> Terrain resource (a reference pass-through for the guids, PLUS the
     // paint-palette Texture2DArray texels: every palette albedo's source pixels decoded, resized
     // to the common slice size, mip-chained, and packed into the terrain's own cooked instance as
@@ -186,7 +240,8 @@ export namespace pipeline
         // 3: the cooked payload moved to the top-K model (TerrainSource v2) - force a re-cook.
         // 4: palette albedos decode through ctx.sourceDb (v3 cooked every slice WHITE) - re-cook.
         // 5: per-layer normal + ORM arrays (terrain-layer-pbr.md P0) - re-cook.
-        [[nodiscard]] u32 Version() const override { return 5; }
+        // 6: albedo-array mips average in linear space (R3; v5 averaged sRGB bytes) - re-cook.
+        [[nodiscard]] u32 Version() const override { return 6; }
 
         // The palette pack READS every palette albedo/normal/ORM's content (hash-chained: editing any
         // re-cooks the terrain's arrays); base/heightfield/weights are runtime references only.
@@ -319,12 +374,13 @@ export namespace pipeline
         }
 
         // Build one slice-major mip-chained RGBA8 array (header + texels) for `sliceCount` layers.
-        // `ids[i]` (nil / out-of-range / undecodable) -> a slice filled with `defaultRGBA`. Mips are a
-        // plain box filter (linear data: normal/ORM). The albedo sRGB-linear mip fix rides P1 with the
-        // renderer format change (terrain-layer-pbr.md R3), so albedo also uses the box filter here.
+        // `ids[i]` (nil / out-of-range / undecodable) -> a slice filled with `defaultRGBA`. Mips:
+        // the ALBEDO array (`srgb`) averages in LINEAR space (it uploads as RGBA8UnormSrgb -
+        // averaging the encoded bytes darkens mips; terrain-layer-pbr.md R3), the linear
+        // normal/ORM arrays use the plain box filter.
         static void CookArray(pipeline::AssetBuildContext& ctx, const Array<Guid>& ids, u32 sliceCount,
                               u32 sliceSize, u32 mipCount, usize sliceBytes, const u8 defaultRGBA[4],
-                              Array<u8>& blob)
+                              bool srgb, Array<u8>& blob)
         {
             const u32 header[3] = {sliceSize, mipCount, sliceCount};
             blob.Resize(sizeof(header) + sliceBytes * sliceCount);
@@ -360,8 +416,16 @@ export namespace pipeline
                     {
                         const u32 half = dim > 1 ? dim / 2 : 1;
                         next.Resize(static_cast<usize>(half) * half * 4u);
-                        (void)BoxHalveRgba8(Span<const u8>{level.Data(), bytes}, dim,
-                                            Span<u8>{next.Data(), next.Size()});
+                        if (srgb)
+                        {
+                            (void)BoxHalveRgba8SrgbAware(Span<const u8>{level.Data(), bytes}, dim,
+                                                         Span<u8>{next.Data(), next.Size()});
+                        }
+                        else
+                        {
+                            (void)BoxHalveRgba8(Span<const u8>{level.Data(), bytes}, dim,
+                                                Span<u8>{next.Data(), next.Size()});
+                        }
                         level = next;
                         dim = half;
                     }
@@ -397,16 +461,18 @@ export namespace pipeline
             static const u8 kFlatNormal[4] = {128, 128, 255, 255};       // tangent-space +Z
             static const u8 kDefaultOrm[4] = {255, 255, 0, 255};         // AO 1, roughness 1, metallic 0
 
-            auto writeArray = [&](StringView stream, const Array<Guid>& ids, const u8 def[4]) -> Status
+            auto writeArray = [&](StringView stream, const Array<Guid>& ids, const u8 def[4],
+                                  bool srgb) -> Status
             {
                 Array<u8> blob;
-                CookArray(ctx, ids, sliceCount, sliceSize, mipCount, sliceBytes, def, blob);
+                CookArray(ctx, ids, sliceCount, sliceSize, mipCount, sliceBytes, def, srgb, blob);
                 return ctx.output->WriteData(
                     stream, Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
             };
 
             // Albedo is always present when the palette is non-empty; normal/ORM only on demand (R4).
-            if (Status s = writeArray(foundation::terrain::kPaletteStream, ta.paletteAlbedoIds, kWhite);
+            if (Status s = writeArray(foundation::terrain::kPaletteStream, ta.paletteAlbedoIds, kWhite,
+                                      /*srgb*/ true);
                 !s.IsOk())
             {
                 return s;
@@ -414,7 +480,7 @@ export namespace pipeline
             if (AnyNonNil(ta.paletteNormalIds))
             {
                 if (Status s = writeArray(foundation::terrain::kPaletteNormalStream,
-                                          ta.paletteNormalIds, kFlatNormal);
+                                          ta.paletteNormalIds, kFlatNormal, /*srgb*/ false);
                     !s.IsOk())
                 {
                     return s;
@@ -422,8 +488,8 @@ export namespace pipeline
             }
             if (AnyNonNil(ta.paletteOrmIds))
             {
-                if (Status s =
-                        writeArray(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds, kDefaultOrm);
+                if (Status s = writeArray(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds,
+                                          kDefaultOrm, /*srgb*/ false);
                     !s.IsOk())
                 {
                     return s;

@@ -76,8 +76,12 @@ namespace
         rhi::TextureView* indexView = nullptr;      // RGBA8Uint palette indices
         rhi::TextureView* baseAlbedoView = nullptr; // the BASE layer (erase reveals)
         rhi::TextureView* baseNormalView = nullptr; // BASE tangent-space normal map (terrain PBR)
+        rhi::TextureView* baseOrmView = nullptr;    // BASE ORM (R=AO G=rough B=metal)
         f32 baseTileScale = 1.0f;
         rhi::TextureView* paletteArrayView = nullptr; // Texture2DArray, one slice per layer
+        rhi::TextureView* normalArrayView = nullptr;  // per-layer normal array (terrain PBR)
+        rhi::TextureView* ormArrayView = nullptr;     // per-layer ORM array
+        Float4x4 chunkToWorld = Float4x4::Identity(); // R2: the tangent frame follows THIS
         rhi::Buffer* tileScaleBuffer = nullptr;       // f32[paletteCount]
         u64 tileScaleGeneration = 0;
         u32 paletteCount = 0;
@@ -148,7 +152,7 @@ namespace
             rd->nodes = tree.Nodes().Data();
             rd->nodeCount = static_cast<u32>(tree.Nodes().Size());rd->chunkCount = static_cast<u32>(chunks.Size());
             rd->heightView = heightView;
-            rd->chunkToWorld = Float4x4::Identity();
+            rd->chunkToWorld = cfg.chunkToWorld;
             rd->gridSize = terrain.Size();
             rd->worldSizeXZ = terrain.WorldSize();
             rd->minY = terrain.MinY();
@@ -162,8 +166,11 @@ namespace
             rd->indexView = cfg.indexView;
             rd->baseAlbedoView = cfg.baseAlbedoView;
             rd->baseNormalView = cfg.baseNormalView;
+            rd->baseOrmView = cfg.baseOrmView;
             rd->baseTileScale = cfg.baseTileScale;
             rd->paletteArrayView = cfg.paletteArrayView;
+            rd->normalArrayView = cfg.normalArrayView;
+            rd->ormArrayView = cfg.ormArrayView;
             rd->tileScaleBuffer = cfg.tileScaleBuffer;
             rd->tileScaleGeneration = cfg.tileScaleGeneration;
             rd->paletteCount = cfg.paletteCount;
@@ -1038,6 +1045,135 @@ TEST_CASE("terrain probe: a base normal map perturbs the flat-ground shading (R5
     else
     {
         MESSAGE("WebGPU unavailable - terrain normal-map parity skipped");
+    }
+
+    if (vulkan != nullptr) { vulkan->Destroy(); }
+    if (webgpu != nullptr) { webgpu->Destroy(); }
+}
+
+TEST_CASE("terrain probe: ARRAY normal + ORM blend through top-K, and the R2 rotation pin")
+{
+    // The per-LAYER (Texture2DArray) PBR path - which the base-normal probe does not touch, and
+    // exactly where the WGSL cook can diverge (SampleGrad on the second/third array):
+    //   1. a one-hot painted layer whose ARRAY normal tilts toward local +X shades directionally
+    //      (aligned sun brighter than opposed);
+    //   2. an ORM array with AO=0 kills the ambient term (darker than AO=1);
+    //   3. R2: on a 90-degree-ROTATED terrain the perturbation FOLLOWS the chunk frame - the
+    //      world-X sun pair becomes symmetric and the world-Z pair carries the asymmetry
+    //      (a world-axis tangent frame would keep it on X and shear);
+    //   4. WebGPU parity on the aligned case.
+    auto run = [](rhi::Backend* backend, const Float3& toLight, u8 ao,
+                  const Float4x4& chunkToWorld) -> Probe
+    {
+        rhi::Device* dev = (backend != nullptr) ? testsupport::MakeTestDevice(backend) : nullptr;
+        if (dev == nullptr)
+        {
+            return Probe{};
+        }
+        Probe p;
+        {
+            engine::terrain::TerrainSplatTextureCache splatCache;
+            engine::terrain::TerrainPaletteTextureCache paletteCache;
+            RefPtr<tmodel::SplatWeights> sw = MakeStripeWeights(1); // one-hot layer 0 everywhere
+            const Float3 gray{0.66f, 0.66f, 0.66f};
+            RefPtr<tmodel::TerrainPaletteData> palette =
+                MakePaletteData(Span<const Float3>{&gray, 1});
+            // ARRAY normal: tangent-space (0.6, 0, 0.8) -> encoded (204, 128, 229); tilts the
+            // shading normal toward the map's U axis (= local +X rotated by chunkToWorld).
+            const usize sliceBytes = tmodel::TerrainPaletteData::SliceBytes(4, 1);
+            palette->normalTexels.Resize(sliceBytes);
+            palette->ormTexels.Resize(sliceBytes);
+            for (usize t = 0; t < sliceBytes / 4; ++t)
+            {
+                u8* n = palette->normalTexels.Data() + t * 4;
+                n[0] = 204; n[1] = 128; n[2] = 229; n[3] = 255;
+                u8* o = palette->ormTexels.Data() + t * 4;
+                o[0] = ao; o[1] = 255; o[2] = 0; o[3] = 255;
+            }
+            REQUIRE(palette->HasNormal());
+            REQUIRE(palette->HasOrm());
+
+            const f32 scale = 1000.0f;
+            const engine::terrain::PaletteGpu gpu =
+                paletteCache.GetOrCreate(*dev, *palette, Span<const f32>{&scale, 1});
+            REQUIRE(gpu.arrayView != nullptr);
+            REQUIRE(gpu.normalArrayView != nullptr);
+            REQUIRE(gpu.ormArrayView != nullptr);
+            const engine::terrain::SplatTextureViews views =
+                splatCache.GetOrCreate(*dev, *sw, sw->Version());
+            REQUIRE(views.weightView != nullptr);
+
+            ProbeCfg cfg;
+            cfg.terrain = MakeFlat();
+            cfg.toLight = &toLight;
+            cfg.chunkToWorld = chunkToWorld;
+            cfg.weightView = views.weightView;
+            cfg.indexView = views.indexView;
+            cfg.paletteArrayView = gpu.arrayView;
+            cfg.normalArrayView = gpu.normalArrayView;
+            cfg.ormArrayView = gpu.ormArrayView;
+            cfg.tileScaleBuffer = gpu.tileScaleBuffer;
+            cfg.tileScaleGeneration = gpu.generation;
+            cfg.paletteCount = 1;
+            p = RenderTerrainProbe(*dev, cfg);
+
+            splatCache.Clear(*dev);
+            paletteCache.Clear(*dev);
+        }
+        dev->Destroy();
+        return p;
+    };
+
+    const Float3 plusX = Normalized(Float3{0.85f, 0.5f, 0.0f});
+    const Float3 minusX = Normalized(Float3{-0.85f, 0.5f, 0.0f});
+    const Float3 plusZ = Normalized(Float3{0.0f, 0.5f, 0.85f});
+    const Float3 minusZ = Normalized(Float3{0.0f, 0.5f, -0.85f});
+    const Float4x4 identity = Float4x4::Identity();
+    const Float4x4 rotated = Float4x4::RotationY(kPi * 0.5f);
+
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+
+    const Probe nPlus = run(vulkan, plusX, 255, identity);
+    if (!nPlus.valid)
+    {
+        MESSAGE("Vulkan unavailable - terrain array-PBR probe skipped");
+        if (vulkan != nullptr) { vulkan->Destroy(); }
+        if (webgpu != nullptr) { webgpu->Destroy(); }
+        return;
+    }
+    const Probe nMinus = run(vulkan, minusX, 255, identity);
+    const Probe aoDark = run(vulkan, plusX, 0, identity);
+    std::printf("[terrain-arraypbr] +X=%.0f -X=%.0f ao0=%.0f\n", nPlus.total, nMinus.total,
+                aoDark.total);
+    // 1. The ARRAY normal makes flat ground directional (aligned sun brighter than opposed).
+    CHECK(nPlus.total > nMinus.total * 1.10);
+    // 2. AO=0 kills the ambient term (strictly darker with a real margin).
+    CHECK(aoDark.total < nPlus.total * 0.95);
+
+    // 3. R2 pin: rotate the terrain 90 degrees about Y - the perturbation follows the CHUNK frame,
+    // so the X-sun pair evens out and the Z-sun pair carries the asymmetry.
+    const Probe rotPX = run(vulkan, plusX, 255, rotated);
+    const Probe rotMX = run(vulkan, minusX, 255, rotated);
+    const Probe rotPZ = run(vulkan, plusZ, 255, rotated);
+    const Probe rotMZ = run(vulkan, minusZ, 255, rotated);
+    std::printf("[terrain-arraypbr] rot +X=%.0f -X=%.0f +Z=%.0f -Z=%.0f\n", rotPX.total,
+                rotMX.total, rotPZ.total, rotMZ.total);
+    CHECK(rotPX.total == doctest::Approx(rotMX.total).epsilon(0.05)); // asymmetry LEFT world X
+    const f64 zAsym = Abs(rotPZ.total - rotMZ.total);
+    CHECK(zAsym > 0.10 * rotPZ.total); // ... and moved to world Z (flip-agnostic magnitude)
+
+    // 4. WebGPU parity on the aligned array-normal case (naga divergence surface).
+    const Probe wPlus = run(webgpu, plusX, 255, identity);
+    if (wPlus.valid)
+    {
+        CHECK(wPlus.total == doctest::Approx(nPlus.total).epsilon(0.05));
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - array-PBR parity skipped");
     }
 
     if (vulkan != nullptr) { vulkan->Destroy(); }
