@@ -519,8 +519,8 @@ export namespace editor
 
         // (split out so the lambda below can live next to its state)
         void ScenePage_GridToggleInit();
-        void LoadGridPref(); // read this scene's saved grid state (per-project store, keyed by guid)
-        void SaveGridPref(); // persist it on toggle
+        void LoadViewPrefs(); // read this scene's saved view state (grid + LOD; per-project, by guid)
+        void SaveViewPrefs(); // persist it on any viewport toggle
 
         // Reflect externally-driven state (the W/E/R keys, X space toggle) back into the
         // toolbar. SetIsChecked no-ops when unchanged, and the mode handlers only act on

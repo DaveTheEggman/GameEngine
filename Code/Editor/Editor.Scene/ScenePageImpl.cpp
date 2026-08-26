@@ -1193,27 +1193,37 @@ namespace editor
         m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
                                            {
                                                self->m_showGrid = value;
-                                               self->SaveGridPref(); // persist per-scene
+                                               self->SaveViewPrefs(); // persist per-scene
                                            });
-        LoadGridPref(); // restore this scene's last-used grid state before the first SyncToolbar
         // LOD overlay (mesh-lod.md P3): tint every chained mesh's bounds by the level this
         // viewport's camera selects. Off by default - a debug lens, not an editing mode.
         m_lodToggle = m_toolbar->AddToggle(u8"LOD");
         m_lodToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                          { self->m_showLodOverlay = value; });
+                                          {
+                                              self->m_showLodOverlay = value;
+                                              self->SaveViewPrefs(); // persist per-scene
+                                          });
+        // Restore this scene's saved grid + LOD state before the first SyncToolbar mirrors it.
+        LoadViewPrefs();
     }
 
     // Per-scene grid pref (keyed by the scene guid, in the per-project editor settings). Reading it
     // just sets m_showGrid (SyncToolbar mirrors it to the toggle); an unsaved scene (nil guid) keeps
     // the default. Loading never writes (only the user toggle persists).
-    void SceneEditorPage::LoadGridPref()
+    void SceneEditorPage::LoadViewPrefs()
     {
-        m_showGrid = LoadSceneGridPref(m_context->ProjectEditorSettings(), InstanceId(), m_showGrid);
+        const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay};
+        const SceneViewPref p =
+            LoadSceneViewPref(m_context->ProjectEditorSettings(), InstanceId(), fallback);
+        m_showGrid = p.showGrid;
+        m_showLodOverlay = p.showLodOverlay;
     }
 
-    void SceneEditorPage::SaveGridPref()
+    void SceneEditorPage::SaveViewPrefs()
     {
-        if (SaveSceneGridPref(m_context->ProjectEditorSettings(), InstanceId(), m_showGrid))
+        // Save the WHOLE pref (grid + LOD) so toggling one never resurrects the other's default.
+        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay};
+        if (SaveSceneViewPref(m_context->ProjectEditorSettings(), pref))
         {
             m_context->RequestProjectEditorSettingsSave();
         }

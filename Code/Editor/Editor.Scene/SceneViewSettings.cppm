@@ -24,16 +24,22 @@ export namespace editor
 {
     namespace settings = foundation::settings;
 
-    // One scene's saved view state, keyed by its guid.
+    // One scene's saved view state, keyed by its guid. The defaults match the page's defaults
+    // (grid on, LOD-overlay off) so an absent pref reads as the fresh-page look.
     struct SceneViewPref
     {
         Guid scene;
         bool showGrid = true;
+        bool showLodOverlay = false;
         void Serialize(ISerializer& ar)
         {
             ar.Key("scene");
             ar.GuidValue(scene);
             foundation::core::Serialize(ar, "showGrid", showGrid);
+            if (ar.Version() >= 2) // showLodOverlay added in SceneViewSettings v2
+            {
+                foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
+            }
         }
     };
     inline void Serialize(ISerializer& ar, SceneViewPref& p)
@@ -63,10 +69,11 @@ export namespace editor
         RegisterSerializable<SceneViewSettings>();
     }
 
-    // Read a scene's saved grid state; returns `fallback` when the store/scene has no saved pref (a
-    // nil guid = an unsaved scene = edit-live-only). Never mutates the store.
-    [[nodiscard]] inline bool LoadSceneGridPref(settings::Settings* store, const Guid& scene,
-                                                bool fallback)
+    // Read a scene's saved view pref; returns `fallback` when the store/scene has no saved pref (a
+    // nil guid = an unsaved scene = edit-live-only). Never mutates the store. The WHOLE pref is
+    // loaded/saved together so toggling one field never resurrects another's default.
+    [[nodiscard]] inline SceneViewPref LoadSceneViewPref(settings::Settings* store, const Guid& scene,
+                                                         const SceneViewPref& fallback)
     {
         if (store == nullptr || scene.IsNil())
         {
@@ -78,36 +85,36 @@ export namespace editor
             {
                 if (p.scene == scene)
                 {
-                    return p.showGrid;
+                    return p;
                 }
             }
         }
         return fallback;
     }
 
-    // Upsert a scene's grid state into the store (marks the section changed). Returns false without
-    // touching the store when there is nothing to key by (no store / unsaved scene) - the caller
-    // then skips its RequestProjectEditorSettingsSave.
-    inline bool SaveSceneGridPref(settings::Settings* store, const Guid& scene, bool showGrid)
+    // Upsert a scene's view pref into the store (marks the section changed). Returns false without
+    // touching the store when there is nothing to key by (no store / unsaved scene = nil guid) - the
+    // caller then skips its RequestProjectEditorSettingsSave.
+    inline bool SaveSceneViewPref(settings::Settings* store, const SceneViewPref& pref)
     {
-        if (store == nullptr || scene.IsNil())
+        if (store == nullptr || pref.scene.IsNil())
         {
             return false;
         }
         SceneViewSettings& section = store->Section<SceneViewSettings>();
         for (SceneViewPref& p : section.prefs)
         {
-            if (p.scene == scene)
+            if (p.scene == pref.scene)
             {
-                p.showGrid = showGrid;
+                p = pref;
                 store->MarkChanged<SceneViewSettings>();
                 return true;
             }
         }
-        section.prefs.PushBack(SceneViewPref{scene, showGrid});
+        section.prefs.PushBack(pref);
         store->MarkChanged<SceneViewSettings>();
         return true;
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 2)
 }

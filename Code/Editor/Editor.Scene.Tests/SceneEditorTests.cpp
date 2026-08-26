@@ -397,26 +397,29 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     RemoveProjectTree(dir);
 }
 
-TEST_CASE("scene-editor: the per-scene grid view state round-trips through the project settings store")
+TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips through the settings store")
 {
     RegisterSceneViewSettingsType();
     const Guid sceneA{1, 2};
     const Guid sceneB{3, 4};
 
     foundation::settings::Settings store;
-    // No entry yet -> the caller's fallback (the page's current m_showGrid) is returned untouched.
-    CHECK(LoadSceneGridPref(&store, sceneA, true) == true);
-    CHECK(LoadSceneGridPref(&store, sceneA, false) == false);
+    // No entry yet -> the caller's fallback (the page's current state) is returned untouched.
+    const SceneViewPref fb{sceneA, true, false};
+    CHECK(LoadSceneViewPref(&store, sceneA, fb).showGrid == true);
+    CHECK(LoadSceneViewPref(&store, sceneA, fb).showLodOverlay == false);
 
-    // Upsert two scenes; a nil guid or null store is a no-op (unsaved scene = edit-live-only).
-    CHECK(SaveSceneGridPref(&store, sceneA, false));
-    CHECK(SaveSceneGridPref(&store, sceneB, true));
-    CHECK_FALSE(SaveSceneGridPref(&store, Guid{}, false));
-    CHECK_FALSE(SaveSceneGridPref(nullptr, sceneA, false));
+    // Upsert two scenes with DIFFERENT grid + LOD state; nil guid / null store is a no-op.
+    CHECK(SaveSceneViewPref(&store, SceneViewPref{sceneA, false, true}));
+    CHECK(SaveSceneViewPref(&store, SceneViewPref{sceneB, true, false}));
+    CHECK_FALSE(SaveSceneViewPref(&store, SceneViewPref{Guid{}, false, false}));
+    CHECK_FALSE(SaveSceneViewPref(nullptr, SceneViewPref{sceneA, false, false}));
 
-    // Read back: each scene keeps its OWN state (per-page), the fallback is ignored once saved.
-    CHECK(LoadSceneGridPref(&store, sceneA, true) == false);
-    CHECK(LoadSceneGridPref(&store, sceneB, false) == true);
+    // Read back: each scene keeps its OWN grid + LOD state (per-page), fallback ignored once saved.
+    CHECK(LoadSceneViewPref(&store, sceneA, fb).showGrid == false);
+    CHECK(LoadSceneViewPref(&store, sceneA, fb).showLodOverlay == true);
+    CHECK(LoadSceneViewPref(&store, sceneB, fb).showGrid == true);
+    CHECK(LoadSceneViewPref(&store, sceneB, fb).showLodOverlay == false);
 
     // Persist to XML (the file the app writes) and reload: the per-scene state survives.
     MemoryStream buf;
@@ -424,11 +427,13 @@ TEST_CASE("scene-editor: the per-scene grid view state round-trips through the p
     (void)buf.Seek(0, SeekOrigin::Begin);
     foundation::settings::Settings loaded;
     REQUIRE(loaded.Load(buf, foundation::xml::XmlSerializerFactory()).IsOk());
-    CHECK(LoadSceneGridPref(&loaded, sceneA, true) == false);
-    CHECK(LoadSceneGridPref(&loaded, sceneB, false) == true);
+    CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showGrid == false);
+    CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showLodOverlay == true);
+    CHECK(LoadSceneViewPref(&loaded, sceneB, fb).showGrid == true);
 
-    // Toggling an existing scene updates in place (no duplicate row).
-    CHECK(SaveSceneGridPref(&loaded, sceneA, true));
-    CHECK(LoadSceneGridPref(&loaded, sceneA, false) == true);
+    // Toggling only ONE field updates in place (no duplicate row) and leaves the other intact.
+    CHECK(SaveSceneViewPref(&loaded, SceneViewPref{sceneA, true, true})); // flip grid, keep LOD on
+    CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showGrid == true);
+    CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showLodOverlay == true);
     CHECK(loaded.Find<SceneViewSettings>()->prefs.Size() == 2u);
 }
