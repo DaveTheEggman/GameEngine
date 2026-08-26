@@ -19,6 +19,8 @@ module;
 module editor.scene;
 
 import foundation.core;
+import foundation.settings; // per-scene grid pref in the project editor settings store
+import :view_settings;       // SceneViewSettings + Load/SaveSceneGridPref helpers
 import foundation.content;
 import foundation.rhi;
 import foundation.graphics;
@@ -1189,12 +1191,32 @@ namespace editor
             }});
         SceneEditorPage* self = this;
         m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                           { self->m_showGrid = value; });
+                                           {
+                                               self->m_showGrid = value;
+                                               self->SaveGridPref(); // persist per-scene
+                                           });
+        LoadGridPref(); // restore this scene's last-used grid state before the first SyncToolbar
         // LOD overlay (mesh-lod.md P3): tint every chained mesh's bounds by the level this
         // viewport's camera selects. Off by default - a debug lens, not an editing mode.
         m_lodToggle = m_toolbar->AddToggle(u8"LOD");
         m_lodToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
                                           { self->m_showLodOverlay = value; });
+    }
+
+    // Per-scene grid pref (keyed by the scene guid, in the per-project editor settings). Reading it
+    // just sets m_showGrid (SyncToolbar mirrors it to the toggle); an unsaved scene (nil guid) keeps
+    // the default. Loading never writes (only the user toggle persists).
+    void SceneEditorPage::LoadGridPref()
+    {
+        m_showGrid = LoadSceneGridPref(m_context->ProjectEditorSettings(), InstanceId(), m_showGrid);
+    }
+
+    void SceneEditorPage::SaveGridPref()
+    {
+        if (SaveSceneGridPref(m_context->ProjectEditorSettings(), InstanceId(), m_showGrid))
+        {
+            m_context->RequestProjectEditorSettingsSave();
+        }
     }
 
     void SceneEditorPage::SyncToolbar()

@@ -42,6 +42,7 @@ target_sources(Editor.Scene
         SkeletonPageImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
+            SceneViewSettings.cppm
             CameraPreview.cppm
             EditContext.cppm
             Gizmo.cppm

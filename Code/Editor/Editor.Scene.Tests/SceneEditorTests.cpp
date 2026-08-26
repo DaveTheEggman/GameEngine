@@ -16,6 +16,8 @@ import foundation.ui.toolkit;
 import editor.core;
 import editor.scene;
 import foundation.shell;
+import foundation.settings;
+import foundation.xml.serialization;
 
 using namespace foundation::core;
 using namespace editor;
@@ -393,4 +395,40 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     CHECK(forward.y < -0.5f);
 
     RemoveProjectTree(dir);
+}
+
+TEST_CASE("scene-editor: the per-scene grid view state round-trips through the project settings store")
+{
+    RegisterSceneViewSettingsType();
+    const Guid sceneA{1, 2};
+    const Guid sceneB{3, 4};
+
+    foundation::settings::Settings store;
+    // No entry yet -> the caller's fallback (the page's current m_showGrid) is returned untouched.
+    CHECK(LoadSceneGridPref(&store, sceneA, true) == true);
+    CHECK(LoadSceneGridPref(&store, sceneA, false) == false);
+
+    // Upsert two scenes; a nil guid or null store is a no-op (unsaved scene = edit-live-only).
+    CHECK(SaveSceneGridPref(&store, sceneA, false));
+    CHECK(SaveSceneGridPref(&store, sceneB, true));
+    CHECK_FALSE(SaveSceneGridPref(&store, Guid{}, false));
+    CHECK_FALSE(SaveSceneGridPref(nullptr, sceneA, false));
+
+    // Read back: each scene keeps its OWN state (per-page), the fallback is ignored once saved.
+    CHECK(LoadSceneGridPref(&store, sceneA, true) == false);
+    CHECK(LoadSceneGridPref(&store, sceneB, false) == true);
+
+    // Persist to XML (the file the app writes) and reload: the per-scene state survives.
+    MemoryStream buf;
+    REQUIRE(store.Save(buf, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buf.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings loaded;
+    REQUIRE(loaded.Load(buf, foundation::xml::XmlSerializerFactory()).IsOk());
+    CHECK(LoadSceneGridPref(&loaded, sceneA, true) == false);
+    CHECK(LoadSceneGridPref(&loaded, sceneB, false) == true);
+
+    // Toggling an existing scene updates in place (no duplicate row).
+    CHECK(SaveSceneGridPref(&loaded, sceneA, true));
+    CHECK(LoadSceneGridPref(&loaded, sceneA, false) == true);
+    CHECK(loaded.Find<SceneViewSettings>()->prefs.Size() == 2u);
 }

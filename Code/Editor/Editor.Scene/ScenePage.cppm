@@ -44,6 +44,7 @@ import editor.core;
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import editor.camera;
+import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
 import :model_prefab;
 import :game_page;
@@ -518,6 +519,8 @@ export namespace editor
 
         // (split out so the lambda below can live next to its state)
         void ScenePage_GridToggleInit();
+        void LoadGridPref(); // read this scene's saved grid state (per-project store, keyed by guid)
+        void SaveGridPref(); // persist it on toggle
 
         // Reflect externally-driven state (the W/E/R keys, X space toggle) back into the
         // toolbar. SetIsChecked no-ops when unchanged, and the mode handlers only act on
@@ -794,6 +797,7 @@ export namespace editor
     {
         GlobalTypeRegistry().Register(scene::SceneDocument::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<scene::SceneDocument>();
+        RegisterSceneViewSettingsType();
         GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<scene::PrefabDocument>();
 
