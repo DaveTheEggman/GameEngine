@@ -19,9 +19,10 @@ namespace pipeline
 {
     REFLECT_MEMBERS(TerrainAsset, "rtti::pipeline::terrain")
     {
-        // DataVersion 2 = the top-K splat model (base + palette + weightsId); v<2 payloads carry
-        // the fixed-4-layer fields and upgrade in Serialize (terrain-splat-topk.md).
-        builder.DataVersion(2)
+        // DataVersion 3 = per-layer normal + ORM ids (terrain-layer-pbr.md; nil -> flat/default).
+        // v2 = the top-K splat model (base + palette + weightsId); v<2 payloads carry the fixed-4-
+        // layer fields and upgrade in Serialize (terrain-splat-topk.md).
+        builder.DataVersion(3)
             .Attribute("displayName", String(u8"Terrain"))
             .Attribute("category", String(u8"Terrain"))
             .Property<&TerrainAsset::castShadows>("castShadows")

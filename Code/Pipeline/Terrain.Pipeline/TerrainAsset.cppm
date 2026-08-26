@@ -46,8 +46,12 @@ export namespace pipeline
         Guid heightfieldId;           // the referenced heightfield asset (shared with physics/nav)
         Guid weightsId;               // the SplatmapAsset (top-K weights); nil = none (pure base)
         Guid baseAlbedoId;            // the BASE layer albedo (nil = white dummy)
+        Guid baseNormalId;            // the BASE normal map (nil = flat); DataVersion 3
+        Guid baseOrmId;               // the BASE ORM (nil = 1,1,0 default); DataVersion 3
         f32 baseTileScale = 1.0f;
         Array<Guid> paletteAlbedoIds; // paint layers, unbounded (parallel to paletteTileScales)
+        Array<Guid> paletteNormalIds; // per-palette-layer normal map (nil allowed); DataVersion 3
+        Array<Guid> paletteOrmIds;    // per-palette-layer ORM (nil allowed); DataVersion 3
         Array<f32> paletteTileScales;
         i32 paletteTextureSize = 1024; // common Texture2DArray slice size (authoring setting)
         bool castShadows = true;
@@ -64,6 +68,13 @@ export namespace pipeline
                 foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
                 foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
                 foundation::core::Serialize(ar, "paletteTextureSize", paletteTextureSize);
+                if (ar.Version() >= 3) // per-layer normal + ORM maps (terrain-layer-pbr.md)
+                {
+                    foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
+                    foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
+                    foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
+                    foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
+                }
             }
             else
             {
@@ -174,21 +185,28 @@ export namespace pipeline
         }
         // 3: the cooked payload moved to the top-K model (TerrainSource v2) - force a re-cook.
         // 4: palette albedos decode through ctx.sourceDb (v3 cooked every slice WHITE) - re-cook.
-        [[nodiscard]] u32 Version() const override { return 4; }
+        // 5: per-layer normal + ORM arrays (terrain-layer-pbr.md P0) - re-cook.
+        [[nodiscard]] u32 Version() const override { return 5; }
 
-        // The palette pack READS every palette albedo's content (hash-chained: editing an albedo
-        // re-cooks the terrain's array); base/heightfield/weights are runtime references only.
+        // The palette pack READS every palette albedo/normal/ORM's content (hash-chained: editing any
+        // re-cooks the terrain's arrays); base/heightfield/weights are runtime references only.
         void ScanDependencies(const pipeline::Asset& asset, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
         {
             const TerrainAsset& ta = static_cast<const TerrainAsset&>(asset);
-            for (usize i = 0; i < ta.paletteAlbedoIds.Size(); ++i)
+            auto chain = [&out](const Array<Guid>& ids)
             {
-                if (!ta.paletteAlbedoIds[i].IsNil())
+                for (usize i = 0; i < ids.Size(); ++i)
                 {
-                    out.reads.PushBack(ta.paletteAlbedoIds[i]);
+                    if (!ids[i].IsNil())
+                    {
+                        out.reads.PushBack(ids[i]);
+                    }
                 }
-            }
+            };
+            chain(ta.paletteAlbedoIds);
+            chain(ta.paletteNormalIds);
+            chain(ta.paletteOrmIds);
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
@@ -203,15 +221,13 @@ export namespace pipeline
             src.heightfieldId = ta.heightfieldId;
             src.weightsId = ta.weightsId;
             src.baseAlbedoId = ta.baseAlbedoId;
+            src.baseNormalId = ta.baseNormalId;
+            src.baseOrmId = ta.baseOrmId;
             src.baseTileScale = ta.baseTileScale;
-            for (usize i = 0; i < ta.paletteAlbedoIds.Size(); ++i)
-            {
-                src.paletteAlbedoIds.PushBack(ta.paletteAlbedoIds[i]);
-            }
-            for (usize i = 0; i < ta.paletteTileScales.Size(); ++i)
-            {
-                src.paletteTileScales.PushBack(ta.paletteTileScales[i]);
-            }
+            src.paletteAlbedoIds = ta.paletteAlbedoIds;
+            src.paletteNormalIds = ta.paletteNormalIds;
+            src.paletteOrmIds = ta.paletteOrmIds;
+            src.paletteTileScales = ta.paletteTileScales;
             src.castShadows = ta.castShadows;
             const Status wrote = ctx.output->WriteObject(src);
             if (!wrote.IsOk())
@@ -222,13 +238,13 @@ export namespace pipeline
         }
 
     private:
-        // Decode one palette albedo's SOURCE pixels as RGBA8: a TextureAsset's file (image
-        // decoder) or its embedded "pixels" sidecar. Missing/undecodable -> a 1x1 white slice
-        // (matches the renderer's absent-slot dummy) so palette INDICES stay stable. Reads the
-        // SOURCE db: at cook time ctx.db holds cooked texture PRODUCTS (possibly compressed),
-        // whose ReadObject is not a TextureAsset - resolving there whites out every slice.
-        static void DecodeAlbedoRgba8(pipeline::AssetBuildContext& ctx, const Guid& id,
-                                      Array<u8>& outPixels, u32& outW, u32& outH)
+        // Decode one layer texture's SOURCE pixels as RGBA8: a TextureAsset's file (image decoder)
+        // or its embedded "pixels" sidecar. Missing/undecodable -> leaves outPixels EMPTY (the caller
+        // fills a per-map default 1x1 slice: white albedo / flat normal / default ORM). Reads the
+        // SOURCE db: at cook time ctx.db holds cooked texture PRODUCTS (possibly compressed), whose
+        // ReadObject is not a TextureAsset - resolving there fails to decode.
+        static void DecodeTextureRgba8(pipeline::AssetBuildContext& ctx, const Guid& id,
+                                       Array<u8>& outPixels, u32& outW, u32& outH)
         {
             outPixels.Clear();
             outW = 1;
@@ -287,49 +303,48 @@ export namespace pipeline
                     }
                 }
             }
-            if (outPixels.IsEmpty())
-            {
-                outW = 1;
-                outH = 1;
-                outPixels.Resize(4, u8{255}); // white
-            }
         }
 
-        [[nodiscard]] static Status CookPaletteArray(const TerrainAsset& ta,
-                                                     pipeline::AssetBuildContext& ctx)
+        // True iff at least one id is non-nil (a map array is built only on demand, R4).
+        [[nodiscard]] static bool AnyNonNil(const Array<Guid>& ids)
         {
-            if (ta.paletteAlbedoIds.IsEmpty())
+            for (usize i = 0; i < ids.Size(); ++i)
             {
-                return Status{}; // no palette: no sidecar (pure-base terrain)
+                if (!ids[i].IsNil())
+                {
+                    return true;
+                }
             }
-            // Snap the authored slice size to a sane power of two (mips need clean halving).
-            u32 sliceSize = 64;
-            while (sliceSize < static_cast<u32>(Max(ta.paletteTextureSize, 64)) &&
-                   sliceSize < 4096u)
-            {
-                sliceSize *= 2;
-            }
-            u32 mipCount = 1;
-            for (u32 d = sliceSize; d > 1; d /= 2)
-            {
-                ++mipCount;
-            }
-            const usize sliceBytes =
-                foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+            return false;
+        }
 
-            Array<u8> blob;
-            const u32 header[3] = {sliceSize, mipCount,
-                                   static_cast<u32>(ta.paletteAlbedoIds.Size())};
-            blob.Resize(sizeof(header) + sliceBytes * ta.paletteAlbedoIds.Size());
+        // Build one slice-major mip-chained RGBA8 array (header + texels) for `sliceCount` layers.
+        // `ids[i]` (nil / out-of-range / undecodable) -> a slice filled with `defaultRGBA`. Mips are a
+        // plain box filter (linear data: normal/ORM). The albedo sRGB-linear mip fix rides P1 with the
+        // renderer format change (terrain-layer-pbr.md R3), so albedo also uses the box filter here.
+        static void CookArray(pipeline::AssetBuildContext& ctx, const Array<Guid>& ids, u32 sliceCount,
+                              u32 sliceSize, u32 mipCount, usize sliceBytes, const u8 defaultRGBA[4],
+                              Array<u8>& blob)
+        {
+            const u32 header[3] = {sliceSize, mipCount, sliceCount};
+            blob.Resize(sizeof(header) + sliceBytes * sliceCount);
             MemCopy(blob.Data(), header, sizeof(header));
 
             Array<u8> decoded;
             Array<u8> level;
             Array<u8> next;
-            for (usize slice = 0; slice < ta.paletteAlbedoIds.Size(); ++slice)
+            for (u32 slice = 0; slice < sliceCount; ++slice)
             {
                 u32 w = 0, h = 0;
-                DecodeAlbedoRgba8(ctx, ta.paletteAlbedoIds[slice], decoded, w, h);
+                const Guid id = (slice < ids.Size()) ? ids[slice] : Guid{};
+                DecodeTextureRgba8(ctx, id, decoded, w, h);
+                if (decoded.IsEmpty()) // nil / undecodable -> a 1x1 default slice
+                {
+                    w = 1;
+                    h = 1;
+                    decoded.Resize(4);
+                    MemCopy(decoded.Data(), defaultRGBA, 4);
+                }
                 level.Resize(static_cast<usize>(sliceSize) * sliceSize * 4u);
                 ResizeRgba8Bilinear(Span<const u8>{decoded.Data(), decoded.Size()}, w, h,
                                     Span<u8>{level.Data(), level.Size()}, sliceSize, sliceSize);
@@ -352,9 +367,69 @@ export namespace pipeline
                     }
                 }
             }
-            return ctx.output->WriteData(
-                foundation::terrain::kPaletteStream,
-                Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
+        }
+
+        [[nodiscard]] static Status CookPaletteArray(const TerrainAsset& ta,
+                                                     pipeline::AssetBuildContext& ctx)
+        {
+            if (ta.paletteAlbedoIds.IsEmpty())
+            {
+                return Status{}; // no palette: no sidecars (pure-base terrain)
+            }
+            // Snap the authored slice size to a sane power of two (mips need clean halving).
+            u32 sliceSize = 64;
+            while (sliceSize < static_cast<u32>(Max(ta.paletteTextureSize, 64)) &&
+                   sliceSize < 4096u)
+            {
+                sliceSize *= 2;
+            }
+            u32 mipCount = 1;
+            for (u32 d = sliceSize; d > 1; d /= 2)
+            {
+                ++mipCount;
+            }
+            const usize sliceBytes =
+                foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
+            const u32 sliceCount = static_cast<u32>(ta.paletteAlbedoIds.Size());
+
+            // Per-map default slices (terrain-layer-pbr.md): white albedo, flat normal, default ORM.
+            static const u8 kWhite[4] = {255, 255, 255, 255};
+            static const u8 kFlatNormal[4] = {128, 128, 255, 255};       // tangent-space +Z
+            static const u8 kDefaultOrm[4] = {255, 255, 0, 255};         // AO 1, roughness 1, metallic 0
+
+            auto writeArray = [&](StringView stream, const Array<Guid>& ids, const u8 def[4]) -> Status
+            {
+                Array<u8> blob;
+                CookArray(ctx, ids, sliceCount, sliceSize, mipCount, sliceBytes, def, blob);
+                return ctx.output->WriteData(
+                    stream, Span<const byte>{reinterpret_cast<const byte*>(blob.Data()), blob.Size()});
+            };
+
+            // Albedo is always present when the palette is non-empty; normal/ORM only on demand (R4).
+            if (Status s = writeArray(foundation::terrain::kPaletteStream, ta.paletteAlbedoIds, kWhite);
+                !s.IsOk())
+            {
+                return s;
+            }
+            if (AnyNonNil(ta.paletteNormalIds))
+            {
+                if (Status s = writeArray(foundation::terrain::kPaletteNormalStream,
+                                          ta.paletteNormalIds, kFlatNormal);
+                    !s.IsOk())
+                {
+                    return s;
+                }
+            }
+            if (AnyNonNil(ta.paletteOrmIds))
+            {
+                if (Status s =
+                        writeArray(foundation::terrain::kPaletteOrmStream, ta.paletteOrmIds, kDefaultOrm);
+                    !s.IsOk())
+                {
+                    return s;
+                }
+            }
+            return Status{};
         }
     };
 

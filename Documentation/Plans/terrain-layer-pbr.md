@@ -203,11 +203,13 @@ compat is PINNED by probe #3 (pre/post in the same run).
 
 ## Phasing
 
-- P0 - Data + cook: `Layer.normal/orm` + source ids + DataVersion + upgrade; TerrainPaletteData
-  builds the three parallel arrays (default flat-normal / default-ORM slices for nil), linear vs
-  sRGB per array, pixel-chaining. Headless: the cook packs three arrays of matching slice
-  count/size; nil layers get the exact default slices; round-trip of the new source ids. No render
-  change yet (the arrays exist, the shader still ignores them). Green + reviewed before P1.
+- P0 - DONE (data + cook): `TerrainResource::Layer.normal/orm` + `TerrainSource` / `TerrainAsset` ids
+  + both DataVersion bumps (3) + v-gated reads; TerrainPaletteData carries optional normalTexels /
+  ormTexels + the two sidecar streams; the cook builds the normal/ORM arrays ON DEMAND (absent when
+  no layer uses that map) with the exact default slices (128,128,255) / (255,255,0) for nil layers,
+  ScanDependencies chains their pixels. Tests: on-demand arrays + nil-layer default fill + no-maps
+  compat + source-id round-trip (Terrain.Pipeline.Tests 10 pass). The R3 sRGB albedo fix rides P1
+  (it needs the renderer format change too). No render change yet.
 - P1 - Renderer + shader: TerrainRenderData views, set-3 bind extension + cache, the PS normal+ORM
   blend + analytic tangent frame + GBUFFER writes. Verify a normal-mapped layer shades bumpy and an
   ORM roughness change alters the specular/SSR.
