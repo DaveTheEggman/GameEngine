@@ -167,10 +167,11 @@ export namespace foundation::terrain
     {
         // Shared elliptical-brush visitor: calls fn(x, y, t) for every texel inside the WORLD
         // circle (per-axis UV radii - the same non-square-footprint handling the sculpt brush
-        // uses) with the cosine-falloff-scaled strength t in (0, 1].
+        // uses) with the falloff-scaled strength t in (0, 1]. `coreFraction` = the flat inner
+        // core's share of the radius (full strength inside it, cosine skirt outside).
         template <typename TFn>
         inline void VisitSplatBrush(const SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX,
-                                    f32 uvRadiusY, f32 amount, TFn&& fn)
+                                    f32 uvRadiusY, f32 amount, f32 coreFraction, TFn&& fn)
         {
             const i32 w = sw.Width();
             const i32 h = sw.Height();
@@ -197,16 +198,18 @@ export namespace foundation::terrain
                     {
                         continue;
                     }
-                    // Hard inner core + cosine skirt: full strength inside half the radius, then
-                    // the smooth falloff to the rim. The core makes a full-strength stamp
+                    // Hard inner core + cosine skirt: full strength inside `core`, the smooth
+                    // falloff to the rim outside it. The core makes a full-strength stamp
                     // DECISIVE (one-hot paint / clean erase at the texel under the cursor - the
                     // stamp-brush model needs an exact 1 somewhere, and a pure cosine never
-                    // delivers it at a texel centre); the skirt keeps the edge soft.
-                    constexpr f32 kCore = 0.5f;
+                    // delivers it at a texel centre); the skirt keeps the edge soft. Callers
+                    // SCALE the core with the stamp amount (soft profile at blending strengths,
+                    // hard at 1.0) - see the paint tool.
+                    const f32 core = Clamp(coreFraction, 0.0f, 0.95f);
                     const f32 fall =
-                        dist <= kCore
+                        dist <= core
                             ? 1.0f
-                            : 0.5f + 0.5f * Cos(3.14159265f * (dist - kCore) / (1.0f - kCore));
+                            : 0.5f + 0.5f * Cos(3.14159265f * (dist - core) / (1.0f - core));
                     const f32 t = Clamp(amount * fall, 0.0f, 1.0f);
                     if (t > 0.0f)
                     {
@@ -229,7 +232,7 @@ export namespace foundation::terrain
     /// the top-K stays meaningful. Bumps the version if anything changed; returns the touched
     /// rect for region-delta undo + the bounded GPU re-upload.
     inline SplatRegion PaintTopK(SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
-                                 u32 paletteIndex, f32 amount)
+                                 u32 paletteIndex, f32 amount, f32 coreFraction = 0.5f)
     {
         SplatRegion region;
         if (sw.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f ||
@@ -242,7 +245,7 @@ export namespace foundation::terrain
         const u8 layer = static_cast<u8>(paletteIndex);
         bool changed = false;
         detail::VisitSplatBrush(
-            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount,
+            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount, coreFraction,
             [&](i32 x, i32 y, f32 t)
             {
                 const usize at = sw.TexelOffset(x, y);
@@ -345,7 +348,7 @@ export namespace foundation::terrain
     /// Erase over the brush disc: every slot fades w *= (1 - t) - the base (= the remainder)
     /// rises toward 1. Slots that quantize to 0 are freed (index cleared).
     inline SplatRegion EraseTopK(SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
-                                 f32 amount)
+                                 f32 amount, f32 coreFraction = 0.5f)
     {
         SplatRegion region;
         if (sw.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f)
@@ -356,7 +359,7 @@ export namespace foundation::terrain
         Span<u8> wts = sw.Weights();
         bool changed = false;
         detail::VisitSplatBrush(
-            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount,
+            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount, coreFraction,
             [&](i32 x, i32 y, f32 t)
             {
                 const usize at = sw.TexelOffset(x, y);

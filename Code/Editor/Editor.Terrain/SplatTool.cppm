@@ -75,7 +75,8 @@ export namespace editor
         void SetSpacing(f32 s) noexcept { m_spacing = Clamp(s, kMinSpacing, 1.0f); }
         [[nodiscard]] f32 Spacing() const noexcept { return m_spacing; }
         /// Airbrush mode: while the button is held, ALSO deposit stamps on a time cadence at the
-        /// cursor (build-up by hovering - the soft-blend workflow); off = movement-only stamps.
+        /// cursor. Airbrush deposits strength x period per stamp, so strength reads as coverage
+        /// PER SECOND of hover (the soft-blend workflow); off = movement-only stamps.
         void SetAirbrush(bool on) noexcept { m_airbrush = on; }
         [[nodiscard]] bool IsAirbrush() const noexcept { return m_airbrush; }
 
@@ -105,7 +106,7 @@ export namespace editor
         void BeginStroke(const Pick& pick);
         // Distance-spaced stamps along the drag (+ time-cadence stamps when airbrush is on).
         void AdvanceStroke(const Pick& pick, f32 deltaSeconds);
-        void ApplyStamp(f32 uvX, f32 uvY, const Pick& pick);
+        void ApplyStamp(f32 uvX, f32 uvY, const Pick& pick, f32 amount);
         void EndStroke();
         void UpdateStatus();
 

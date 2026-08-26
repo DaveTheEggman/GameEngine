@@ -182,15 +182,26 @@ TEST_CASE("terrain splat: airbrush mode builds up while holding still (time-cade
     const u8 afterPress = fx.weights->WeightOfLayer(16, 16, 4);
     REQUIRE(afterPress >= 126); // the press stamp (~half coverage)
 
-    // Holding STILL now accrues time-cadence stamps (20/s): 12 frames at 1/60 = 0.2s = 4 stamps
-    // at half strength each -> coverage climbs well past the single press stamp.
+    // Airbrush is a GENTLE flow: stamps deposit strength x period, so strength reads as coverage
+    // per SECOND of hover. A short hold (0.2s) adds only a little...
     for (i32 i = 0; i < 12; ++i)
     {
         editor::ViewportToolInput hold = CenterRay(0.0f); // deltaSeconds = 1/60
         hold.leftDown = true;
         (void)tool.Update(hold);
     }
-    CHECK(fx.weights->WeightOfLayer(16, 16, 4) > afterPress + 60);
+    const u8 shortHold = fx.weights->WeightOfLayer(16, 16, 4);
+    CHECK(shortHold > afterPress);      // it DOES build while held...
+    CHECK(shortHold <= afterPress + 20); // ...but gently (the old per-stamp flow blew past +60)
+
+    // ...while a long hover (2s total) builds real coverage.
+    for (i32 i = 0; i < 108; ++i)
+    {
+        editor::ViewportToolInput hold = CenterRay(0.0f);
+        hold.leftDown = true;
+        (void)tool.Update(hold);
+    }
+    CHECK(fx.weights->WeightOfLayer(16, 16, 4) > afterPress + 40);
 
     editor::ViewportToolInput release = CenterRay(0.0f);
     release.leftReleased = true;

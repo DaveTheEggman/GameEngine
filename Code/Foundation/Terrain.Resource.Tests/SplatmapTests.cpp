@@ -219,3 +219,23 @@ TEST_CASE("splat weights: cooked source round-trips both rasters")
     REQUIRE(bad.Get() != nullptr);
     CHECK(bad->IsEmpty());
 }
+
+TEST_CASE("splat weights: the brush core scales - small cores grade, the default core is flat")
+{
+    // The soft-blend fix: at low stamp amounts the tool shrinks the flat core, so coverage GRADES
+    // across the radius instead of converging a flat half-radius core against a thin skirt.
+    SplatWeights hard(32, 32);
+    (void)PaintTopK(hard, 0.5f, 0.5f, 0.25f, 0.25f, 1, 1.0f); // default core 0.5
+    SplatWeights soft(32, 32);
+    (void)PaintTopK(soft, 0.5f, 0.5f, 0.25f, 0.25f, 1, 1.0f, /*coreFraction*/ 0.0f);
+
+    // Centre: both full.
+    CHECK(hard.WeightOfLayer(16, 16, 1) == 255);
+    CHECK(soft.WeightOfLayer(16, 16, 1) >= 250); // cosine ~1 at the centre texel
+    // Inside the default core (~35% of the radius): hard = flat full, soft = already graded.
+    const u8 hardMid = hard.WeightOfLayer(19, 16, 1);
+    const u8 softMid = soft.WeightOfLayer(19, 16, 1);
+    CHECK(hardMid == 255);
+    CHECK(softMid < 220);
+    CHECK(softMid > 60); // graded, not culled
+}

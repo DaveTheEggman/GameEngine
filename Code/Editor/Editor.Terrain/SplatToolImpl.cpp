@@ -300,7 +300,7 @@ namespace editor
         m_region = terrain::SplatRegion{};
         m_airbrushClock = 0.0f;
         // The press deposits ONE full stamp and anchors the spacing walker there.
-        ApplyStamp(pick.uvX, pick.uvY, pick);
+        ApplyStamp(pick.uvX, pick.uvY, pick, m_strength);
         m_lastStampU = pick.uvX;
         m_lastStampV = pick.uvY;
     }
@@ -332,7 +332,7 @@ namespace editor
             const f32 f = spacing / dist;
             m_lastStampU += (pick.uvX - m_lastStampU) * f;
             m_lastStampV += (pick.uvY - m_lastStampV) * f;
-            ApplyStamp(m_lastStampU, m_lastStampV, pick);
+            ApplyStamp(m_lastStampU, m_lastStampV, pick, m_strength);
         }
         if (m_airbrush)
         {
@@ -340,12 +340,15 @@ namespace editor
             for (i32 i = 0; m_airbrushClock >= kAirbrushPeriod && i < kMaxStampsPerFrame; ++i)
             {
                 m_airbrushClock -= kAirbrushPeriod;
-                ApplyStamp(pick.uvX, pick.uvY, pick);
+                // Airbrush stamps deposit strength x period: strength reads as COVERAGE PER
+                // SECOND of hover (a gentle flow you steer with time), not per stamp - 20
+                // per-stamp-strength deposits a second saturated instantly at any setting.
+                ApplyStamp(pick.uvX, pick.uvY, pick, m_strength * kAirbrushPeriod);
             }
         }
     }
 
-    void TerrainSplatTool::ApplyStamp(f32 uvX, f32 uvY, const Pick& pick)
+    void TerrainSplatTool::ApplyStamp(f32 uvX, f32 uvY, const Pick& pick, f32 amount)
     {
         if (m_strokeWeights.Get() == nullptr)
         {
@@ -354,13 +357,17 @@ namespace editor
         // Per-axis UV radii keep the brush a CIRCLE in world space on a non-square footprint.
         const f32 uvRadiusX = m_radius / pick.worldSizeX;
         const f32 uvRadiusY = m_radius / pick.worldSizeY;
-        // Strength IS the per-stamp coverage fraction: 1 = one-hot under the falloff in a single
-        // stamp (and a hard eraser); the cosine falloff inside the cores softens the rim.
-        const f32 t = Clamp(m_strength, 0.0f, 1.0f);
+        // `amount` is the per-stamp coverage fraction (movement/press stamps pass strength;
+        // airbrush passes strength x period = coverage/second). The brush's flat CORE scales
+        // with it: a 1.0 stamp keeps the decisive half-radius core (one-hot paint, hard erase),
+        // a low-amount blending stamp is nearly pure cosine - a SOFT brush, so edge blends
+        // grade across the whole radius instead of converging a flat core against a thin skirt.
+        const f32 t = Clamp(amount, 0.0f, 1.0f);
+        const f32 core = 0.5f * t;
         const terrain::SplatRegion r =
-            m_erase ? terrain::EraseTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t)
+            m_erase ? terrain::EraseTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t, core)
                     : terrain::PaintTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY,
-                                         m_paletteIndex, t);
+                                         m_paletteIndex, t, core);
         if (!r.IsEmpty())
         {
             m_region.Add(r.minX, r.minY);
