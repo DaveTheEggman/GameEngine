@@ -303,11 +303,16 @@ its OWN box, so set halfExtents = scale/2):
 | Wall W    | Cube  | (-25, 1.5, 0)     | (1, 3, 52)    | RigidBody Static Box, halfExtents (0.5, 1.5, 26) |
 | Building  | Cube  | (0, 3, 0)         | (12, 6, 12)   | RigidBody Static Box, halfExtents (6, 3, 6) |
 | Bike      | Cube  | (-18, 0.9, -20)   | (0.8,1.6,1.8) | CharacterComponent (defaults) + ScriptBehavior -> Bike.xasset class `Bike` |
-| Camera    | -     | (-18, 4, -27)     | (1, 1, 1)     | Camera + ScriptBehavior -> FollowCamera class `FollowCamera`, target = Bike |
+| Camera    | -     | (-18, 4, -27)     | (1, 1, 1)     | Camera + ScriptBehavior -> FollowCamera class `FollowCamera`, target = Bike; rotation quat (0, 0.9784, 0.2069, 0) = yaw 180 + pitch ~24 down, so the STATIC camera frames the Bike |
 | Sun       | -     | (0, 10, 0)        | (1, 1, 1)     | Directional Light, rotationEuler ~ (-50, -30, 0) |
 
 Bike Y=0.9 = capsule (radius 0.35 + halfHeight 0.55) resting on the ground; the cube visual is
-cosmetic, the capsule collides. Camera spawn is approximate (FollowCamera snaps behind on frame 1).
+cosmetic, the capsule collides. CAMERA FORWARD IS -Z (engine convention: an entity's/camera's forward
+is its local -Z, RenderComponents.cppm "Directional uses the entity's forward (-Z)"). So an UNROTATED
+camera placed behind the bike (more-negative Z) looks AWAY from it - the camera needs a rotation to
+face the Bike. At runtime FollowCamera aims it (snaps behind on frame 1, so its spawn rotation is
+approximate); the authored rotation above only matters for the STATIC editor preview (author it so
+authoring frames the bike, not empty space).
 Verify: New Game shows the block. (Houses/roads come with P1-4.)
 
 **P1-2 Player bike entity + control behavior. [CODE DONE; AUTHORING pending]** `CharacterComponent`
