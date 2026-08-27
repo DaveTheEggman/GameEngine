@@ -242,6 +242,7 @@ export namespace editor
         Function<void(usize, String)> OnRename;
         Function<void(usize, usize)> OnToggle; // (row group, column group)
         Function<void()> OnAddGroup;
+        Function<void(usize)> OnRemoveGroup; // remove group `index` (only the last is offered)
 
         CollisionMatrixEditor(StringView name, StringView category)
             : ui::toolkit::PropertyEditor(name, category)

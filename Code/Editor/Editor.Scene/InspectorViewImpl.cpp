@@ -49,6 +49,7 @@ import foundation.script.resource;
 import engine.script;
 import foundation.ui;
 import foundation.ui.toolkit;
+import foundation.fonts; // TextAlignment (centered collision-matrix column headers)
 import editor.core;
 import editor.app;
 import :edit;
@@ -108,12 +109,63 @@ namespace editor
     {
         CollisionMatrixEditor* self = this;
         const usize count = names.Size();
+
+        // A proper labeled matrix: group names down the LEFT (editable), VERTICAL names across the TOP
+        // (rotated -90 so narrow columns stay narrow - the horizontal version clipped in the inspector),
+        // and a checkbox at every crossing. Fixed column widths keep the header + every row aligned.
+        constexpr f32 kNameColW = 104.0f;         // the left name column
+        constexpr f32 kCellW = 26.0f;             // each group column (narrow; vertical headers)
+        constexpr f32 kRowH = 22.0f;
+        constexpr f32 kHeaderH = 88.0f;           // room for the rotated names
+        constexpr f32 kQuarterTurn = -1.5707963f; // -90 deg: header names read bottom-to-top
+
+        auto fixedCell = [](f32 width)
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+            return lp;
+        };
+        auto centeredSlot = [](f32 width)
+        {
+            auto slot = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            slot->Direction = ui::Orientation::Horizontal;
+            slot->JustifyContent = ui::Justify::Center;
+            slot->AlignItems = ui::Align::Center;
+            (void)width;
+            return slot;
+        };
+
+        // Header row: an empty corner over the name column, then a VERTICAL name per group column.
+        {
+            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            header->Direction = ui::Orientation::Horizontal;
+            header->Spacing = 2.0f;
+            header->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"")).Get(),
+                            fixedCell(kNameColW));
+            for (usize j = 0; j < count; ++j)
+            {
+                auto slot = centeredSlot(kCellW);
+                auto head = MakeRef<ui::Label>(DefaultAllocator(), names[j].AsView());
+                head->FontSize.SetValue(Optional<f32>{11.0f});
+                head->TooltipText = names[j];
+                head->Transform.Rotation = kQuarterTurn; // vertical
+                head->Transform.Origin = Float2{0.5f, 0.5f};
+                slot->AddView(head.Get(), MakeRef<ui::FlexLayoutParams>(DefaultAllocator()));
+                header->AddView(slot.Get(), fixedCell(kCellW));
+            }
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kHeaderH));
+            column.AddView(header.Get(), lp);
+        }
+
         for (usize i = 0; i < count; ++i)
         {
             auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 2.0f;
 
+            // Row header: the editable group name on the LEFT.
             auto name = MakeRef<ui::EditText>(DefaultAllocator());
             name->SetText(names[i].AsView());
             ui::EditText* nameRaw = name.Get();
@@ -125,37 +177,48 @@ namespace editor
                         self->OnRename(i, String(nameRaw->Text()));
                     }
                 });
-            {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Grow = 1.0f;
-                row->AddView(name.Get(), lp);
-            }
+            row->AddView(name.Get(), fixedCell(kNameColW));
 
+            // A centered checkbox at each crossing; symmetric (OnToggle flips both (i,j) and (j,i)).
             for (usize j = 0; j < count; ++j)
             {
                 const bool collides = i < matrix.Size() && (matrix[i] & (1u << j)) != 0;
-                auto cell = MakeRef<ui::Button>(DefaultAllocator(),
-                                                collides ? StringView(u8"+") : StringView(u8"-"));
-                cell->FontSize.SetValue(Optional<f32>{12.0f});
-                String tip(u8"vs ");
-                tip.Append(names[j].AsView());
-                cell->TooltipText = Move(tip);
-                cell->OnClick.Add(
-                    [self, i, j](ui::ButtonBase*)
+                auto slot = centeredSlot(kCellW);
+                auto box = MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8""), collides);
+                box->OnCheckedChanged.Add(
+                    [self, i, j](ui::CheckBox*, bool)
                     {
                         if (self->OnToggle)
                         {
                             self->OnToggle(i, j);
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
-                row->AddView(cell.Get(), lp);
+                slot->AddView(box.Get(), MakeRef<ui::FlexLayoutParams>(DefaultAllocator()));
+                row->AddView(slot.Get(), fixedCell(kCellW));
+            }
+
+            // Remove: offered on the LAST group only - popping the tail never renumbers the groups
+            // BELOW it, so entities keep their assigned collisionGroup (a mid-list delete would shift
+            // every higher index and silently re-group bodies). Keep at least one group.
+            if (i + 1 == count && count > 1)
+            {
+                auto del = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"x"));
+                del->FontSize.SetValue(Optional<f32>{12.0f});
+                del->TooltipText = String(u8"Remove this group (the last one)");
+                del->OnClick.Add(
+                    [self, i](ui::ButtonBase*)
+                    {
+                        if (self->OnRemoveGroup)
+                        {
+                            self->OnRemoveGroup(i);
+                        }
+                    });
+                row->AddView(del.Get(), fixedCell(20.0f));
             }
 
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(row.Get(), lp);
         }
 
@@ -173,7 +236,7 @@ namespace editor
                 });
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(add.Get(), lp);
         }
     }
@@ -567,6 +630,25 @@ namespace editor
             raw->matrix.PushBack(0xFFFFFFFFu);
             commit(editedCopy());
             raw->RequestRebuild(); // the new row/column appears (deferred, mutation-queue-safe)
+        };
+        matrix->OnRemoveGroup = [commit, editedCopy, raw = matrix.Get()](usize index)
+        {
+            // Only the LAST group is removable: popping the tail leaves every lower index unchanged,
+            // so entities keep their assigned collisionGroup. (A mid-list delete would renumber the
+            // higher groups and silently re-group bodies - that needs an entity remap, deferred.)
+            if (index + 1 != raw->names.Size() || raw->names.Size() <= 1)
+            {
+                return;
+            }
+            raw->names.RemoveAt(index);
+            raw->matrix.RemoveAt(index);
+            const u32 clear = ~(1u << index);
+            for (u32& m : raw->matrix)
+            {
+                m &= clear; // drop the removed group's column from every remaining row
+            }
+            commit(editedCopy());
+            raw->RequestRebuild();
         };
         AddEditor(matrix.Get(), []() {});
     }
