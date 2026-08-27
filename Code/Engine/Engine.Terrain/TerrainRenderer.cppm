@@ -650,7 +650,9 @@ export namespace engine::terrain
             }
             m_depthFormat = ctx.depthFormat;
             rhi::RenderPipeline* pso = EnsureDepthPipeline(ctx.depthFormat, /*biased*/ !ctx.depthPrepass);
-            rhi::BindGroup* viewBg = EnsureViewBindGroup();
+            // The DEPTH-pass group binds the dummy shadow view (not the live cascade being written) -
+            // a cascade-cast pass would otherwise sample its own render attachment (WebGPU hazard).
+            rhi::BindGroup* viewBg = EnsureDepthViewBindGroup();
             rhi::BindGroup* chunkBg = EnsureChunkBindGroup();
             if (pso == nullptr || viewBg == nullptr || chunkBg == nullptr)
             {
@@ -871,50 +873,70 @@ export namespace engine::terrain
                 Float2{skirtDepth, 0.0f}};
         }
 
+        // The forward/resolve pass view bind group: t1 = the LIVE CSM cascade array (or the dummy
+        // when there is no caster this frame), which the terrain PS samples for shadow receive.
         rhi::BindGroup* EnsureViewBindGroup()
+        {
+            return BuildViewBindGroup(m_activeShadowView, m_activeShadowGen, m_viewBg, m_viewBgGen,
+                                      m_viewBgShadow, m_viewBgShadowGen);
+        }
+
+        // The depth-only pass (camera prepass + each CSM cascade cast) view bind group: t1 = the
+        // DUMMY shadow view, NEVER the live cascade. The depth VS/PS never samples t1, and during a
+        // cascade cast the live cascade IS the render attachment - binding it here too is a WebGPU
+        // read+write hazard ("usage (TextureBinding|RenderAttachment) ... same synchronization
+        // scope"). The dummy is a standalone depth texture, never an attachment, so it is always safe.
+        rhi::BindGroup* EnsureDepthViewBindGroup()
+        {
+            return BuildViewBindGroup(m_dummyShadowView, 0, m_depthViewBg, m_depthViewBgGen,
+                                      m_depthViewBgShadow, m_depthViewBgShadowGen);
+        }
+
+        rhi::BindGroup* BuildViewBindGroup(rhi::TextureView* shadowT1, u64 shadowGen,
+                                           rhi::BindGroup*& bg, u32& bgGen,
+                                           rhi::TextureView*& bgShadow, u64& bgShadowGen)
         {
             const u32 gen = m_viewRing.Generation();
             // Rebuild on a ring roll-over OR a change of the bound shadow map (pointer or generation -
             // a freed view's address can be reused, so the generation guards address aliasing).
-            if (m_viewBg != nullptr && m_viewBgGen == gen && m_viewBgShadow == m_activeShadowView &&
-                m_viewBgShadowGen == m_activeShadowGen)
+            if (bg != nullptr && bgGen == gen && bgShadow == shadowT1 && bgShadowGen == shadowGen)
             {
-                return m_viewBg;
+                return bg;
             }
-            if (m_viewBg != nullptr)
+            if (bg != nullptr)
             {
                 // May sit in a submitted frame's descriptor set - retire (frame-aged) when possible.
                 if (m_retire != nullptr)
                 {
-                    m_retire->Retire(m_viewBg);
+                    m_retire->Retire(bg);
                 }
                 else
                 {
-                    m_device->DestroyBindGroup(m_viewBg);
+                    m_device->DestroyBindGroup(bg);
                 }
-                m_viewBg = nullptr;
+                bg = nullptr;
             }
-            if (m_viewRing.Buffer() == nullptr || m_activeShadowView == nullptr)
+            if (m_viewRing.Buffer() == nullptr || shadowT1 == nullptr)
             {
                 return nullptr;
             }
             rhi::BindGroupEntry entries[] = {
                 rhi::BindGroupEntry::BufferEntry(m_viewRing.Buffer(), 0, kViewSlotSize), // b0
-                rhi::BindGroupEntry::TextureEntry(m_activeShadowView),                   // t1 (CSM array)
+                rhi::BindGroupEntry::TextureEntry(shadowT1),                             // t1 (CSM array)
                 rhi::BindGroupEntry::SamplerEntry(m_shadowSampler),                      // s0 (compare)
             };
             rhi::BindGroupDesc bgd{};
             bgd.layout = m_viewLayout;
             bgd.entries = Span<const rhi::BindGroupEntry>{entries, 3};
-            if (!m_device->CreateBindGroup(bgd, m_viewBg).IsOk())
+            if (!m_device->CreateBindGroup(bgd, bg).IsOk())
             {
-                m_viewBg = nullptr;
+                bg = nullptr;
                 return nullptr;
             }
-            m_viewBgGen = gen;
-            m_viewBgShadow = m_activeShadowView;
-            m_viewBgShadowGen = m_activeShadowGen;
-            return m_viewBg;
+            bgGen = gen;
+            bgShadow = shadowT1;
+            bgShadowGen = shadowGen;
+            return bg;
         }
 
         rhi::BindGroup* EnsureChunkBindGroup()
@@ -1250,6 +1272,11 @@ export namespace engine::terrain
                 m_device->DestroyBindGroup(m_viewBg);
                 m_viewBg = nullptr;
             }
+            if (m_depthViewBg != nullptr)
+            {
+                m_device->DestroyBindGroup(m_depthViewBg);
+                m_depthViewBg = nullptr;
+            }
             if (m_chunkBg != nullptr)
             {
                 m_device->DestroyBindGroup(m_chunkBg);
@@ -1433,6 +1460,12 @@ export namespace engine::terrain
         LodMesh m_lodMeshes[tmodel::kMaxChunkLod + 1];
         rhi::BindGroup* m_viewBg = nullptr;
         u32 m_viewBgGen = 0;
+        // The depth/shadow-cast pass's own view group (t1 = dummy shadow view, never the live
+        // cascade being rendered - a WebGPU read+write hazard otherwise).
+        rhi::BindGroup* m_depthViewBg = nullptr;
+        u32 m_depthViewBgGen = 0;
+        rhi::TextureView* m_depthViewBgShadow = nullptr;
+        u64 m_depthViewBgShadowGen = 0;
         rhi::BindGroup* m_chunkBg = nullptr;
         u32 m_chunkBgGen = 0;
         HashMap<rhi::TextureView*, HeightBindGroup> m_heightBindGroups;
