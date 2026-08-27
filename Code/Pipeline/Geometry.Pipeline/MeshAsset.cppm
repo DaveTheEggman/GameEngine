@@ -313,9 +313,13 @@ export namespace pipeline{
         RegisterSerializable<SkinnedMeshAsset>();
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry",
-                                     3) // v3 = geometry sidecar; v2 = Float4 tangent blobs
-    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry",
-                                     3) // v3 = geometry sidecar; v2 = Float4 tangent blobs
+    // v4 = LOD chain (mesh-lod.md P1) - the LOD keys are gated on version >= 4 in
+    //      StaticMeshSource::SerializeStatic. The LOD wire ORIGINALLY reused v3, but v3 was already
+    //      taken by the geometry sidecar, so a pre-LOD v3 source (no LOD keys) failed strict
+    //      deserialization. Bumping to 4 makes v3 unambiguously "pre-LOD, no keys": it loads as a
+    //      1-LOD chain and the cook regenerates the chain. v3 = geometry sidecar; v2 = Float4
+    //      tangent blobs.
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry", 4)
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry", 4)
 
 } // namespace foundation::geometry

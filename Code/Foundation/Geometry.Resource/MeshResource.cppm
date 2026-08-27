@@ -182,9 +182,11 @@ export namespace foundation::geometry
             foundation::core::Serialize(ar, "subCount", subCount);
             foundation::core::Serialize(ar, "subMaterial", subMaterial);
             foundation::core::Serialize(ar, "subPrim", subPrim);
-            // v3: the LOD chain (mesh-lod.md P1). Older payloads stay 1-LOD via the
-            // field defaults (strict versioning: the gate, not optional keys).
-            if (ar.Version() >= 3)
+            // v4: the LOD chain (mesh-lod.md P1). Older payloads (v3 = pre-LOD, and below) stay 1-LOD
+            // via the field defaults - strict versioning uses the gate, NOT optional keys. NOTE the
+            // gate is >= 4, not >= 3: v3 was already the geometry-sidecar version, so gating LOD on
+            // >= 3 wrongly required LOD keys from pre-LOD v3 sources and failed their deserialization.
+            if (ar.Version() >= 4)
             {
                 foundation::core::Serialize(ar, "lodCount", lodCount);
                 foundation::core::Serialize(ar, "lodStart", lodStart);
@@ -326,7 +328,12 @@ export namespace foundation::geometry
         }
     };
 
-    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 3)
-    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 3)
+    // v4 = LOD chain gated on version >= 4 (SerializeStatic). This is the authority for the COOKED
+    // stream (WriteObject(source)); the source .xasset side keys off the mesh-ASSET version, which is
+    // also bumped to 4 in lockstep, so the >= 4 gate means the same thing in both paths. (The LOD wire
+    // reused v3, which the geometry sidecar already occupied - see MeshAsset.cppm.) v3 = the source
+    // pre-LOD; v<2 = Float3 tangent (migrated in SerializeStatic).
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 4)
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 4)
 
 } // namespace foundation::geometry
