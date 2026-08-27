@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>TerrainPlayground</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0a0a0c; }
+    /* The canvas fills the window; its backing pixel size is synced to the displayed size below
+       so WebGPU renders at native resolution and the web shell's resize pump reconfigures the
+       swapchain to match. */
+    #canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <script type="text/javascript">
+    // Full C++ stacks in the mid-frame-wait tripwire: Chrome truncates Error.stack
+    // at 10 frames by default, which is exactly deep enough to reach WaitIdle and
+    // stop BEFORE the frame that names the actual caller.
+    Error.stackTraceLimit = 64;
+    var Module = {
+      canvas: (function () {
+        var c = document.getElementById('canvas');
+        // Match the canvas backing store to its CSS size (DPR-aware, capped at 2x for perf).
+        function resize() {
+          var dpr = Math.min(window.devicePixelRatio || 1, 2);
+          var w = Math.max(1, Math.floor(c.clientWidth * dpr));
+          var h = Math.max(1, Math.floor(c.clientHeight * dpr));
+          if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+        // Take keyboard focus so WASD/QE reach the app immediately.
+        window.addEventListener('load', function () { c.focus(); });
+        return c;
+      })(),
+      print: function (t) { console.log(t); },
+      printErr: function (t) { console.error(t); }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

@@ -739,6 +739,9 @@ if(EMSCRIPTEN)
     if(OPTION_BUILD_SAMPLES)
         add_subdirectory(Code/Samples/WebTriangle)  # WebShell + web runner + WebGPU factory -> WebTriangle.html
         add_subdirectory(Code/Samples/WebScene)     # DefaultApplication + a lit PBR scene -> WebScene.html
+        if(OPTION_EXTENSION_IMGUI)
+            add_subdirectory(Code/Samples/TerrainPlayground) # in-code heightfield -> engine.terrain -> TerrainPlayground.html
+        endif()
     endif()
     return()
 endif()
