@@ -354,6 +354,11 @@ namespace engine::physics
     {
         builder.Method<&ScenePhysics::rayCast>(
             "rayCast", {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance"});
+        builder.Method<&ScenePhysics::sphereCast>(
+            "sphereCast",
+            {"fromX", "fromY", "fromZ", "dirX", "dirY", "dirZ", "maxDistance", "radius"});
+        builder.Method<&ScenePhysics::nearestOverlap>("nearestOverlap",
+                                                      {"x", "y", "z", "radius", "groupMask"});
         builder.Method<&ScenePhysics::setGravity>("setGravity", {"x", "y", "z"});
         builder.Method<&ScenePhysics::gravityY>("gravityY");
         builder.Method<&ScenePhysics::bodyCount>("bodyCount");

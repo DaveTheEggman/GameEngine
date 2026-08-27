@@ -1134,6 +1134,83 @@ export namespace engine::physics
             return result;
         }
 
+        // A swept SPHERE (radius) from (from*) along (dir*) up to maxDistance -> the CLOSEST hit, as a
+        // RayCastHit (hit == false on a miss). Like rayCast but with a volume - the ray that would slip
+        // through a gap a fat projectile cannot.
+        [[nodiscard]] RayCastHit sphereCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
+                                            f32 dirZ, f32 maxDistance, f32 radius) const
+        {
+            RayCastHit result;
+            result.scene = scene;
+            PhysicsWorld* world = World();
+            if (world == nullptr)
+            {
+                return result;
+            }
+            QueryShape shape;
+            shape.kind = ShapeKind::Sphere;
+            shape.radius = radius;
+            RayHit hit;
+            if (world->ShapeCast(shape, Float3{fromX, fromY, fromZ}, Quaternion::Identity,
+                                 Float3{dirX, dirY, dirZ}, maxDistance, hit))
+            {
+                result.hit = true;
+                result.body = hit.body;
+                result.packedEntity = hit.userData;
+                result.distance = hit.fraction * maxDistance;
+                result.position = hit.position;
+                result.normal = hit.normal;
+                result.surface = static_cast<i32>(hit.surface);
+            }
+            return result;
+        }
+
+        // The body NEAREST to (x,y,z) whose shape overlaps a SPHERE (radius) there, filtered to
+        // `groupMask` (bit g = include collision group g; ~0 = all) -> a RayCastHit (hit == false if
+        // none). The script surface returns one handle rather than a list, so this gives the nearest -
+        // exactly what "aim at / act on the closest thing in range" needs; the group mask does the
+        // category filtering (e.g. only delivery-zone triggers). `result.position` is the body origin.
+        [[nodiscard]] RayCastHit nearestOverlap(f32 x, f32 y, f32 z, f32 radius, i32 groupMask) const
+        {
+            RayCastHit result;
+            result.scene = scene;
+            PhysicsWorld* world = World();
+            if (world == nullptr)
+            {
+                return result;
+            }
+            QueryShape shape;
+            shape.kind = ShapeKind::Sphere;
+            shape.radius = radius;
+            Array<foundation::physics::BodyId> bodies;
+            world->ShapeOverlap(shape, Float3{x, y, z}, Quaternion::Identity, bodies,
+                                static_cast<u32>(groupMask));
+            f32 bestSq = 3.4e38f;
+            for (const foundation::physics::BodyId& b : bodies)
+            {
+                Float3 pos;
+                Quaternion rot;
+                world->GetBodyTransform(b, pos, rot);
+                const f32 dx = pos.x - x, dy = pos.y - y, dz = pos.z - z;
+                const f32 d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < bestSq)
+                {
+                    bestSq = d2;
+                    result.hit = true;
+                    result.body = b;
+                    result.packedEntity = world->UserData(b);
+                    result.position = pos;
+                    result.normal = Float3{0.0f, 0.0f, 0.0f};
+                    result.surface = 0;
+                }
+            }
+            if (result.hit)
+            {
+                result.distance = Sqrt(bestSq);
+            }
+            return result;
+        }
+
         [[nodiscard]] f32 bodyCount() const
         {
             PhysicsWorld* world = World();

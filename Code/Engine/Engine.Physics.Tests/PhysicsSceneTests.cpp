@@ -458,6 +458,64 @@ TEST_CASE("physics.scene: ScenePhysics.rayCast returns an EXPLICIT RayCastHit (n
     CHECK_FALSE(ScenePhysics{nullptr}.rayCast(0, 5, 0, 0, -1, 0, 20).hit);
 }
 
+TEST_CASE("physics.scene: ScenePhysics.sphereCast sweeps a sphere (hits earlier than a ray)")
+{
+    PlayScene play;
+    play.AddFloor();
+    scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor, top face at y=1.0
+    play.Start();
+    play.Step(10);
+
+    ScenePhysics physics{&play.scene};
+    // A downward sphere (r=0.5) touches the box top (y=1.0) when its centre reaches y=1.5 -> distance
+    // 3.5 from y=5 (a point ray needs y=1.0 -> distance 4.0), so the volume hits EARLIER.
+    const RayCastHit swept = physics.sphereCast(0, 5, 0, 0, -1, 0, 20, 0.5f);
+    CHECK(swept.hit);
+    CHECK(swept.entity().Handle() == box);
+    CHECK(swept.distance == doctest::Approx(3.5f).epsilon(0.03));
+    const RayCastHit ray = physics.rayCast(0, 5, 0, 0, -1, 0, 20);
+    CHECK(swept.distance < ray.distance);
+
+    // A clear sweep misses; a null scene is safe.
+    CHECK_FALSE(physics.sphereCast(0, 100, 0, 0, 1, 0, 1, 0.5f).hit);
+    CHECK_FALSE(ScenePhysics{nullptr}.sphereCast(0, 5, 0, 0, -1, 0, 20, 0.5f).hit);
+}
+
+TEST_CASE("physics.scene: ScenePhysics.nearestOverlap picks the nearest overlapping body + group mask")
+{
+    PlayScene play;
+    RigidBodyComponentManager* rbm = play.scene.GetSystem<RigidBodyComponentManager>();
+    const auto addBox = [&](Float3 p, u8 group) -> scene::EntityHandle
+    {
+        scene::EntityHandle e = play.scene.CreateEntity(u8"b");
+        play.scene.SetLocalPosition(e, p);
+        RigidBodyComponent& b = rbm->Add(e);
+        b.motion = MotionKind::Static;
+        b.layer = PhysicsLayer::Static;
+        b.halfExtents = Float3{0.5f, 0.5f, 0.5f};
+        b.collisionGroup = group;
+        return e;
+    };
+    scene::EntityHandle nearBox = addBox(Float3{2.0f, 0.0f, 0.0f}, 3);
+    (void)addBox(Float3{6.0f, 0.0f, 0.0f}, 3); // farther
+    play.Start();
+    play.Step(1);
+
+    ScenePhysics physics{&play.scene};
+    // A big sphere at the origin overlaps BOTH; the nearest body origin (x=2) wins.
+    const RayCastHit h = physics.nearestOverlap(0, 0, 0, 8.0f, ~0);
+    CHECK(h.hit);
+    CHECK(h.entity().Handle() == nearBox);
+    CHECK(h.position.x == doctest::Approx(2.0f).epsilon(0.01));
+    CHECK(h.distance == doctest::Approx(2.0f).epsilon(0.02));
+
+    // Group mask that excludes group 3 -> nothing (both boxes are group 3).
+    CHECK_FALSE(physics.nearestOverlap(0, 0, 0, 8.0f, ~(1 << 3)).hit);
+    // A small sphere reaching neither -> miss; null scene safe.
+    CHECK_FALSE(physics.nearestOverlap(0, 0, 0, 1.0f, ~0).hit);
+    CHECK_FALSE(ScenePhysics{nullptr}.nearestOverlap(0, 0, 0, 8.0f, ~0).hit);
+}
+
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")
 {
     RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name
