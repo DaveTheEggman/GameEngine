@@ -24,6 +24,7 @@ module;
 #include "Core/Log/Log.h"
 
 #include <angelscript.h>
+#include <scriptarray/scriptarray.h>
 #include <scriptstdstring/scriptstdstring.h>
 
 #include <new>
@@ -553,6 +554,10 @@ namespace foundation::script::angelscript
                                          asCALL_CDECL);
             RegisterStdString(m_engine);
             m_stringTypeId = m_engine->GetTypeIdByDecl("string");
+            // The native `array<T>` type. `defaultArray=true` also enables the `T[]` sugar. A facade
+            // that returns an engine Array<T> is rendered as a CScriptArray on the way out
+            // (SetGenericReturn / BuildScriptArray); see script-array-returns.md.
+            RegisterScriptArray(m_engine, true);
             RegisterCoroutineSurface();
             RegisterDelegateSurface();
         }
@@ -1266,10 +1271,135 @@ namespace foundation::script::angelscript
             }
             if ((typeId & asTYPEID_OBJHANDLE) != 0)
             {
+                // A facade returning an engine Array<T> arrives as a container Variant: render it as a
+                // native CScriptArray (declared `array<Elem>@`), not a boxed handle.
+                if (const core::TypeInfo* vt = value.Type();
+                    !value.IsEmpty() && vt != nullptr && core::IsContainer(*vt))
+                {
+                    asITypeInfo* arrType = m_engine->GetTypeInfoById(
+                        typeId & ~(asTYPEID_OBJHANDLE | asTYPEID_HANDLETOCONST));
+                    *static_cast<void**>(gen->GetAddressOfReturnLocation()) =
+                        BuildScriptArray(arrType, *vt, value);
+                    return;
+                }
                 BoxedVariant* box = (!value.IsEmpty() && TypeInfoForTypeId(typeId) != nullptr)
                                         ? NewBox(value)
                                         : nullptr;
                 *static_cast<void**>(gen->GetAddressOfReturnLocation()) = box;
+            }
+        }
+
+        // Engine container Variant (Array<T>) -> a native CScriptArray of `arrType` (the declared
+        // `array<Elem>` return). Each element is walked via reflection getAt: an object/handle element
+        // is a refcounted box (SetValue AddRefs, the local ref is then dropped so the array owns the
+        // only one); a numeric element is copied width-matched. See script-array-returns.md.
+        [[nodiscard]] CScriptArray* BuildScriptArray(asITypeInfo* arrType,
+                                                     const core::TypeInfo& containerType,
+                                                     const core::Variant& value) const
+        {
+            if (arrType == nullptr || containerType.container == nullptr)
+            {
+                return nullptr;
+            }
+            const core::ContainerInfo& ci = *containerType.container;
+            core::Variant holder = value; // ToInstance needs a mutable lvalue; the copy is cheap
+            const core::Instance inst = core::ToInstance(holder);
+            if (inst.Pointer() == nullptr)
+            {
+                return CScriptArray::Create(arrType, 0u);
+            }
+            const core::usize n = ci.size(inst);
+            CScriptArray* arr = CScriptArray::Create(arrType, static_cast<asUINT>(n));
+            if (arr == nullptr)
+            {
+                return nullptr;
+            }
+            const int subId = arrType->GetSubTypeId();
+            for (core::usize i = 0; i < n; ++i)
+            {
+                core::Variant elem = ci.getAt(inst, i);
+                if ((subId & asTYPEID_OBJHANDLE) != 0)
+                {
+                    BoxedVariant* box = elem.IsEmpty() ? nullptr : NewBox(core::Move(elem));
+                    arr->SetValue(static_cast<asUINT>(i), &box); // AddRefs (skips a null handle)
+                    ReleaseBox(box);                             // drop our ref; array owns it now
+                }
+                else if (subId == m_stringTypeId)
+                {
+                    // A value-object `string` element: SetValue assign-copies from a source std::string.
+                    std::string tmp = StdFromVariantString(elem);
+                    arr->SetValue(static_cast<asUINT>(i), &tmp);
+                }
+                else
+                {
+                    WriteScalarElement(*arr, static_cast<asUINT>(i), subId, elem);
+                }
+            }
+            return arr;
+        }
+
+        // A numeric / bool / enum array element: hand CScriptArray::SetValue a width-matched temporary
+        // (it byte-copies per the subtype id). Enum subtype ids sort above asTYPEID_DOUBLE and are
+        // int32-backed, matching the 32-bit case.
+        void WriteScalarElement(CScriptArray& arr, asUINT index, int subId,
+                                const core::Variant& elem) const
+        {
+            bool ok = false;
+            const double num = NumericOf(elem, ok);
+            switch (subId)
+            {
+            case asTYPEID_BOOL:
+            case asTYPEID_INT8:
+            case asTYPEID_UINT8:
+            {
+                asBYTE b = static_cast<asBYTE>(static_cast<core::i64>(num));
+                arr.SetValue(index, &b);
+                return;
+            }
+            case asTYPEID_INT16:
+            case asTYPEID_UINT16:
+            {
+                asWORD w = static_cast<asWORD>(static_cast<core::i64>(num));
+                arr.SetValue(index, &w);
+                return;
+            }
+            case asTYPEID_INT64:
+            case asTYPEID_UINT64:
+            {
+                asQWORD q = 0;
+                if (const core::i64* iv = elem.TryGet<core::i64>())
+                {
+                    q = static_cast<asQWORD>(*iv);
+                }
+                else if (const core::u64* uv = elem.TryGet<core::u64>())
+                {
+                    q = static_cast<asQWORD>(*uv);
+                }
+                else
+                {
+                    q = static_cast<asQWORD>(static_cast<core::i64>(num));
+                }
+                arr.SetValue(index, &q);
+                return;
+            }
+            case asTYPEID_FLOAT:
+            {
+                float f = static_cast<float>(num);
+                arr.SetValue(index, &f);
+                return;
+            }
+            case asTYPEID_DOUBLE:
+            {
+                double d = num;
+                arr.SetValue(index, &d);
+                return;
+            }
+            default: // INT32 / UINT32 and enum subtypes (id > asTYPEID_DOUBLE): all 32-bit
+            {
+                asDWORD d = static_cast<asDWORD>(static_cast<core::i64>(num));
+                arr.SetValue(index, &d);
+                return;
+            }
             }
         }
 
@@ -1750,6 +1880,23 @@ namespace foundation::script::angelscript
                     return true;
                 }
                 AppendAscii(out, primitive);
+                return true;
+            }
+            // A reflected container (Array<T>): the native `array<Elem>@`. The element reuses its own
+            // spelling (`Entity@`, `int`, `string`, ...). Only the RETURN position is wired today (a
+            // facade returning a set); a container is never a facade parameter yet, but the element
+            // must be spellable either way. See script-array-returns.md.
+            if (core::IsContainer(*type))
+            {
+                const core::TypeInfo* elem = type->container->elementType;
+                core::String elemDecl;
+                if (elem == nullptr || !AppendDeclType(elemDecl, elem, /*isParam*/ false))
+                {
+                    return false;
+                }
+                AppendAscii(out, "array<");
+                out.Append(elemDecl);
+                AppendAscii(out, isParam ? ">" : ">@");
                 return true;
             }
             // A native AngelScript enum: an int-backed VALUE type, spelled by name with no handle.

@@ -310,6 +310,94 @@ namespace
     }
 }
 
+// A facade that returns an engine Array<T> renders as a native `array<T>` (script-array-returns.md):
+// a numeric array (scalar element path) and a reflected-value array (Room boxes as a handle element,
+// the same flavor as Entity in the physics facades).
+namespace
+{
+    class Bag : public Object
+    {
+        RTTI_OBJECT(Bag, Object)
+    public:
+        Array<i32> numbers() const
+        {
+            Array<i32> out;
+            out.PushBack(10);
+            out.PushBack(20);
+            out.PushBack(30);
+            return out;
+        }
+        Array<Room> rooms() const
+        {
+            Array<Room> out;
+            Room a;
+            a.size = 3.0;
+            Room b;
+            b.size = 4.0;
+            out.PushBack(a);
+            out.PushBack(b);
+            return out;
+        }
+        Array<i32> empty() const { return {}; }
+        Array<String> names() const
+        {
+            Array<String> out;
+            out.PushBack(String(u8"ab"));
+            out.PushBack(String(u8"cde"));
+            return out;
+        }
+    };
+}
+REFLECT_MEMBERS(Bag, "rtti::script::test")
+{
+    builder.Method<&Bag::numbers>("numbers");
+    builder.Method<&Bag::rooms>("rooms");
+    builder.Method<&Bag::empty>("empty");
+    builder.Method<&Bag::names>("names");
+    builder.Constructor();
+}
+namespace
+{
+    void RegisterBag(IScriptManager& manager)
+    {
+        static bool once = [] {
+            RttiRegisterValue_Room();
+            RegisterArrayType<i32>();
+            RegisterArrayType<Room>();
+            RegisterArrayType<String>();
+            return true;
+        }();
+        (void)once;
+        manager.RegisterType(TypeOf<Room>());
+        manager.RegisterType(Bag::StaticType());
+    }
+}
+
+TEST_CASE("angelscript: a facade Array<T> return crosses as a native array<T> (numeric + value element)")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterBag(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    const Status status = ctx->Load(u8"double N; double R; double E; double L;\n"
+                                    u8"void main() {\n"
+                                    u8"  Bag b;\n"
+                                    u8"  array<int>@ ns = b.numbers();\n"
+                                    u8"  N = ns.length() + ns[0] + ns[1] + ns[2];\n" // 3 + 60 = 63
+                                    u8"  array<Room@>@ rs = b.rooms();\n"
+                                    u8"  R = rs.length() + rs[0].size + rs[1].size;\n" // 2 + 7 = 9
+                                    u8"  E = b.empty().length();\n"                    // 0
+                                    u8"  array<string>@ ss = b.names();\n"
+                                    u8"  L = ss.length() + ss[0].length() + ss[1].length();\n" // 2+2+3=7
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"N").Get<f64>() == 63.0);
+    CHECK(ctx->GetGlobal(u8"R").Get<f64>() == 9.0);
+    CHECK(ctx->GetGlobal(u8"E").Get<f64>() == 0.0);
+    CHECK(ctx->GetGlobal(u8"L").Get<f64>() == 7.0);
+}
+
 TEST_CASE("angelscript: a nested-value member is a borrow handle edited in place (unit 2b)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();

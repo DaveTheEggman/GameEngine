@@ -1081,6 +1081,25 @@ namespace foundation::script
             lua_pushnumber(state, static_cast<f64>(value.AsEnumInt()));
             return;
         }
+        // A reflected container (Array<T>) crosses as a native 1-indexed Lua table (script gets `#t`
+        // and ipairs); each element is pushed recursively - numbers, strings, boxed reflected handles.
+        // GC-managed, no manual refcount. The facade returns an engine Array<T>; see
+        // script-array-returns.md. Must precede the boxed-Variant fallthrough.
+        if (const TypeInfo* containerType = value.Type();
+            containerType != nullptr && IsContainer(*containerType))
+        {
+            const ContainerInfo& ci = *containerType->container;
+            Variant holder = value; // ToInstance needs a mutable lvalue; the copy is cheap
+            const Instance inst = ToInstance(holder);
+            const usize count = (inst.Pointer() != nullptr) ? ci.size(inst) : usize{0};
+            lua_createtable(state, static_cast<int>(count), 0);
+            for (usize i = 0; i < count; ++i)
+            {
+                PushVariant(state, ci.getAt(inst, i));
+                lua_rawseti(state, -2, static_cast<int>(i) + 1);
+            }
+            return;
+        }
         // Everything else (objects, reflected values) travels as a boxed Variant with the
         // dynamic type's dispatch metatable, so script sees properties/methods directly.
         void* payload = lua_newuserdatadtor(state, sizeof(Variant), DestroyVariantUserdata);

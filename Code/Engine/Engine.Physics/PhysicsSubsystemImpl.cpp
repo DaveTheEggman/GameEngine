@@ -350,14 +350,6 @@ namespace engine::physics
         builder.Method<&RayCastHit::impulse>("impulse", {"x", "y", "z"});
     }
 
-    // The full overlap-query result: an indexed handle (count() + entity(i)) since the facade surface
-    // has no native array<T> to return - the script iterates it by index.
-    REFLECT_VALUE(OverlapHits, "rtti::engine::physics")
-    {
-        builder.Method<&OverlapHits::count>("count");
-        builder.Method<&OverlapHits::entity>("entity", {"index"});
-    }
-
     REFLECT_VALUE(ScenePhysics, "rtti::engine::physics")
     {
         builder.Method<&ScenePhysics::rayCast>(
@@ -399,10 +391,10 @@ namespace engine::physics
         GlobalTypeRegistry().Register(core::TypeOf<RayCastHit>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<RayCastHit>());
         foundation::script::RegisterExtraFacadeName(u8"RayCastHit");
-        RttiRegisterValue_OverlapHits();
-        GlobalTypeRegistry().Register(core::TypeOf<OverlapHits>());
-        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<OverlapHits>());
-        foundation::script::RegisterExtraFacadeName(u8"OverlapHits");
+        // ScenePhysics.overlapSphere returns Array<Entity>, which crosses as a native array<Entity> /
+        // Lua table (script-array-returns.md). Patch the container TypeInfo so the backend renders it;
+        // no script root / facade name - a native array is not a boxed handle type.
+        core::RegisterArrayType<foundation::script::Entity>();
         RttiRegisterValue_ScenePhysics();
         GlobalTypeRegistry().Register(core::TypeOf<ScenePhysics>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<ScenePhysics>());

@@ -224,6 +224,102 @@ TEST_CASE("script.luau: Float3 maps to Luau's native vector (fast path - fields,
     CHECK(probe->Invoke(u8"dot", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(32.0));
 }
 
+// A facade Array<T> return renders as a native 1-indexed Lua table (script-array-returns.md): a numeric
+// array and a reflected-value array (LuauRoom boxes as a userdata element - the Entity flavor).
+namespace
+{
+    struct LuauRoom
+    {
+        f64 size = 0.0;
+    };
+
+    class LuauBag : public Object
+    {
+        RTTI_OBJECT(LuauBag, Object)
+    public:
+        [[nodiscard]] Array<i32> numbers() const
+        {
+            Array<i32> out;
+            out.PushBack(10);
+            out.PushBack(20);
+            out.PushBack(30);
+            return out;
+        }
+        [[nodiscard]] Array<LuauRoom> rooms() const
+        {
+            Array<LuauRoom> out;
+            out.PushBack(LuauRoom{3.0});
+            out.PushBack(LuauRoom{4.0});
+            return out;
+        }
+        [[nodiscard]] Array<i32> empty() const { return {}; }
+        [[nodiscard]] Array<String> names() const
+        {
+            Array<String> out;
+            out.PushBack(String(u8"ab"));
+            out.PushBack(String(u8"cde"));
+            return out;
+        }
+    };
+
+    constexpr StringView kBagProbe = u8R"lua(
+BagProbe = {}
+BagProbe.__index = BagProbe
+function BagProbe.new() return setmetatable({ b = LuauBag.new() }, BagProbe) end
+function BagProbe:nums()
+    local ns = self.b:numbers()
+    return #ns + ns[1] + ns[2] + ns[3]
+end
+function BagProbe:roomSizes()
+    local rs = self.b:rooms()
+    return #rs + rs[1].size + rs[2].size
+end
+function BagProbe:emptyLen()
+    local e = self.b:empty()
+    return #e
+end
+function BagProbe:nameLens()
+    local ss = self.b:names()
+    return #ss + #ss[1] + #ss[2]
+end
+)lua";
+}
+REFLECT_VALUE(LuauRoom, "rtti::luau::test")
+{
+    builder.Property<&LuauRoom::size>("size");
+}
+REFLECT_MEMBERS(LuauBag, "rtti::luau::test")
+{
+    builder.Constructor();
+    builder.Method<&LuauBag::numbers>("numbers");
+    builder.Method<&LuauBag::rooms>("rooms");
+    builder.Method<&LuauBag::empty>("empty");
+    builder.Method<&LuauBag::names>("names");
+}
+
+TEST_CASE("script.luau: a facade Array<T> return crosses as a native table (numeric + value element)")
+{
+    RttiRegisterValue_LuauRoom();
+    RegisterArrayType<i32>();
+    RegisterArrayType<LuauRoom>();
+    RegisterArrayType<String>();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    manager->RegisterType(TypeOf<LuauRoom>());
+    manager->RegisterType(LuauBag::StaticType());
+    manager->FinalizeTypes();
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(kBagProbe, u8"luau.bag").IsOk());
+    RefPtr<ScriptObject> probe = context->CreateInstance(u8"BagProbe", Span<Variant>{});
+    REQUIRE(probe.Get() != nullptr);
+
+    CHECK(probe->Invoke(u8"nums", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(63.0));
+    CHECK(probe->Invoke(u8"roomSizes", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(9.0));
+    CHECK(probe->Invoke(u8"emptyLen", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(0.0));
+    CHECK(probe->Invoke(u8"nameLens", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(7.0));
+}
+
 // The ScriptName alias mechanism on the Luau backend: a "scriptName" class attribute makes the class
 // table install under the alias, not the C++ name.
 namespace

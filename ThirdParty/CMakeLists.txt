@@ -261,7 +261,9 @@ target_compile_definitions(jolt PUBLIC
 set_target_properties(jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # AngelScript 2.39.0 WIP - vendored BY COPY (github.com/anjo76/angelscript, sdk library
-# + the scriptstdstring and scriptbuilder add-ons; no submodule). Compiled from source as
+# + the scriptstdstring, scriptbuilder and scriptarray add-ons; no submodule). scriptarray
+# provides the native `array<T>` type - facades return engine Array<T>, which the backend
+# renders as a CScriptArray (script-array-returns.md). Compiled from source as
 # one static lib; per-architecture native-call sources self-select via as_config.h #ifdefs,
 # so globbing every .cpp is safe. Include dirs are PUBLIC + SYSTEM so foundation.script.angelscript
 # can #include <angelscript.h> / <scriptstdstring/scriptstdstring.h> /
@@ -286,7 +288,8 @@ endif()
 add_library(angelscript STATIC
     ${util_angelscript_sources}
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptstdstring/scriptstdstring.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptbuilder/scriptbuilder.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptbuilder/scriptbuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on/scriptarray/scriptarray.cpp)
 add_library(ThirdParty::AngelScript ALIAS angelscript)
 target_include_directories(angelscript SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/include

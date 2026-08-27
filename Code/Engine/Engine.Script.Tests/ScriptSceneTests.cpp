@@ -3147,12 +3147,12 @@ TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scri
     CHECK(sys->World()->LinearVelocity(bodies->Get(e)->body).y > 0.0f); // impulse dominated gravity
 }
 
-// The FULL overlap set reaches script. ScenePhysics.overlapSphere returns an OverlapHits value handle
-// (there is no native array<T> on the facade surface); a behavior iterates count()/entity(i) and acts
-// on EVERY hit. This proves the value-with-Array<u64>-member marshals through the VM (asOBJ_REF box:
-// real ctor/dtor, no memcpy) AND the reflected count()/entity(i32) Method bindings resolve. The scanner
-// impulses each overlapped body upward; both dynamic targets end with positive Y velocity.
-TEST_CASE("script.scene: ScenePhysics.overlapSphere returns the FULL set - behavior acts on every hit")
+// The FULL overlap set reaches script as a NATIVE array. ScenePhysics.overlapSphere returns
+// Array<Entity>, which crosses as a real AngelScript `array<Entity@>`; a behavior iterates it with
+// .length()/[] and acts on EVERY hit. This proves the container-return marshaling end to end
+// (script-array-returns.md). The scanner impulses each overlapped body upward; both dynamic targets
+// end with positive Y velocity.
+TEST_CASE("script.scene: ScenePhysics.overlapSphere returns a native array - behavior acts on every hit")
 {
     engine::physics::RegisterPhysicsScriptFacade();
     ContactWorld world;
@@ -3168,9 +3168,9 @@ TEST_CASE("script.scene: ScenePhysics.overlapSphere returns the FULL set - behav
         u8"    Scanner(Entity@ entity) { @self = entity; }\n"
         u8"    void onStart() {\n"
         u8"        ScenePhysics@ p = ScenePhysics::of(self.scene);\n"
-        u8"        OverlapHits@ hits = p.overlapSphere(0.0f, 0.0f, 0.0f, 3.0f, -1);\n"
-        u8"        for (int i = 0; i < hits.count(); i++) {\n"
-        u8"            p.applyImpulse(hits.entity(i), 0.0f, 5000.0f, 0.0f);\n"
+        u8"        array<Entity@>@ hits = p.overlapSphere(0.0f, 0.0f, 0.0f, 3.0f, -1);\n"
+        u8"        for (uint i = 0; i < hits.length(); i++) {\n"
+        u8"            p.applyImpulse(hits[i], 0.0f, 5000.0f, 0.0f);\n"
         u8"        }\n"
         u8"    }\n"
         u8"}\n",
@@ -3184,6 +3184,43 @@ TEST_CASE("script.scene: ScenePhysics.overlapSphere returns the FULL set - behav
     REQUIRE(bodies->Get(a) != nullptr);
     REQUIRE(bodies->Get(b) != nullptr);
     // Both bodies overlapped the r=3 sphere at the origin and both received the upward impulse.
+    CHECK(sys->World()->LinearVelocity(bodies->Get(a)->body).y > 0.0f);
+    CHECK(sys->World()->LinearVelocity(bodies->Get(b)->body).y > 0.0f);
+}
+
+// The Luau twin: overlapSphere's Array<Entity> crosses as a 1-indexed Lua table walked with #/[]. This
+// is the case the u64/precision rule protects (a Lua table element is an f64, so the facade returns
+// RESOLVED Entity elements, never packed handles). A Luau behavior impulses every hit.
+TEST_CASE("script.scene: LUAU ScenePhysics.overlapSphere returns a Lua table - acts on every hit")
+{
+    engine::physics::RegisterPhysicsScriptFacade();
+    ContactWorld world;
+    const scene::EntityHandle a = world.AddBody(u8"left", Float3{-1.5f, 0, 0},
+                                                physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle b = world.AddBody(u8"right", Float3{1.5f, 0, 0},
+                                                physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle scanner = world.scene->CreateEntity(u8"scanner");
+    RefPtr<ScriptClass> sweep = MakeClassLang(
+        u8"luau", u8"Scanner",
+        u8"Scanner = {}\n"
+        u8"Scanner.__index = Scanner\n"
+        u8"function Scanner.new(entity) return setmetatable({ entity = entity }, Scanner) end\n"
+        u8"function Scanner:onStart()\n"
+        u8"    local p = ScenePhysics.of(self.entity.scene)\n"
+        u8"    local hits = p:overlapSphere(0.0, 0.0, 0.0, 3.0, -1)\n"
+        u8"    for i = 1, #hits do\n"
+        u8"        p:applyImpulse(hits[i], 0.0, 5000.0, 0.0)\n"
+        u8"    end\n"
+        u8"end\n",
+        {u8"onStart"});
+    world.Attach(scanner, sweep);
+
+    world.Play(2);
+    auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
+    auto* bodies = world.scene->GetSystem<engine::physics::RigidBodyComponentManager>();
+    REQUIRE(sys->World() != nullptr);
+    REQUIRE(bodies->Get(a) != nullptr);
+    REQUIRE(bodies->Get(b) != nullptr);
     CHECK(sys->World()->LinearVelocity(bodies->Get(a)->body).y > 0.0f);
     CHECK(sys->World()->LinearVelocity(bodies->Get(b)->body).y > 0.0f);
 }

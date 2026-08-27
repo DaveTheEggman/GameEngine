@@ -516,7 +516,7 @@ TEST_CASE("physics.scene: ScenePhysics.nearestOverlap picks the nearest overlapp
     CHECK_FALSE(ScenePhysics{nullptr}.nearestOverlap(0, 0, 0, 8.0f, ~0).hit);
 }
 
-TEST_CASE("physics.scene: ScenePhysics.overlapSphere returns the FULL set (count + entity(i) + copy)")
+TEST_CASE("physics.scene: ScenePhysics.overlapSphere returns the FULL set as Array<Entity>")
 {
     PlayScene play;
     RigidBodyComponentManager* rbm = play.scene.GetSystem<RigidBodyComponentManager>();
@@ -537,25 +537,19 @@ TEST_CASE("physics.scene: ScenePhysics.overlapSphere returns the FULL set (count
     play.Step(1);
 
     ScenePhysics physics{&play.scene};
-    const OverlapHits all = physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0);
-    CHECK(all.count() == 2);
-    // Both entities present (order not guaranteed); entity(i) resolves each.
-    const scene::EntityHandle e0 = all.entity(0).Handle();
-    const scene::EntityHandle e1 = all.entity(1).Handle();
+    const Array<foundation::script::Entity> all = physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0);
+    CHECK(all.Size() == 2);
+    // Both entities present (order not guaranteed); each element is a resolved, live Entity.
+    const scene::EntityHandle e0 = all[0].Handle();
+    const scene::EntityHandle e1 = all[1].Handle();
     CHECK(((e0 == a) || (e1 == a)));
     CHECK(((e0 == b) || (e1 == b)));
-    // Out of range -> invalid, no crash.
-    CHECK(all.entity(2).Handle() == scene::EntityHandle{});
-    CHECK(all.entity(-1).Handle() == scene::EntityHandle{});
-
-    // The VM carries a COPY of the value handle - the Array member must survive the copy intact.
-    const OverlapHits copy = all;
-    CHECK(copy.count() == 2);
-    CHECK(copy.entity(0).isValid());
+    CHECK(all[0].isValid());
+    CHECK(all[1].isValid());
 
     // Group mask excluding group 3 -> empty; a null scene is safe.
-    CHECK(physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~(1 << 3)).count() == 0);
-    CHECK(ScenePhysics{nullptr}.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0).count() == 0);
+    CHECK(physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~(1 << 3)).Size() == 0);
+    CHECK(ScenePhysics{nullptr}.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0).Size() == 0);
 }
 
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")
