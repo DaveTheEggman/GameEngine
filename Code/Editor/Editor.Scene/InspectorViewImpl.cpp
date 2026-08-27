@@ -177,6 +177,18 @@ namespace editor
                         self->OnRename(i, String(nameRaw->Text()));
                     }
                 });
+            // Mirror the typed text into the in-memory name list every keystroke (NO commit/rebuild -
+            // that would steal focus mid-edit). EditText only fires OnSubmit on Enter/activate, NOT on
+            // blur, so clicking Add/Remove/a checkbox after typing would otherwise drop an un-submitted
+            // rename; the structural handlers read `names`, so this keeps their edited copy current.
+            name->OnTextChanged.Add(
+                [self, i, nameRaw](ui::EditText*)
+                {
+                    if (i < self->names.Size())
+                    {
+                        self->names[i] = String(nameRaw->Text());
+                    }
+                });
             row->AddView(name.Get(), fixedCell(kNameColW));
 
             // A centered checkbox at each crossing; symmetric (OnToggle flips both (i,j) and (j,i)).
