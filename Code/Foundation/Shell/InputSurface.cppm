@@ -493,6 +493,7 @@ export namespace foundation::shell
             // tripwire, not a fix.
             if (m_captured != capturedBefore)
             {
+                /*
                 if (capturedBefore == nullptr)
                 {
                     LOG_DEBUG(u8"Input",
@@ -515,6 +516,7 @@ export namespace foundation::shell
                     LOG_DEBUG(u8"Input", u8"viewport capture moved to window {}",
                                        m_captured->Window());
                 }
+                */
                 m_captureNoButtonFrames = 0;
                 m_captureLeakLogged = false;
             }
