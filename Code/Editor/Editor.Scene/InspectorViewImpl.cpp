@@ -1358,13 +1358,38 @@ namespace editor
             return;
         }
 
-        if (prop.type == &TypeOf<i32>() || prop.type == &TypeOf<u32>() ||
-            prop.type == &TypeOf<i64>() || prop.type == &TypeOf<u64>())
+        // Every integer width, narrow ones INCLUDED: a u8 field (e.g. RigidBodyComponent.collisionGroup)
+        // is reflected but was invisible when only i32/u32/i64/u64 were handled - it silently fell
+        // through with no editor. All widths edit through one i64-backed IntEditor.
+        if (prop.type == &TypeOf<i8>() || prop.type == &TypeOf<u8>() || prop.type == &TypeOf<i16>() ||
+            prop.type == &TypeOf<u16>() || prop.type == &TypeOf<i32>() ||
+            prop.type == &TypeOf<u32>() || prop.type == &TypeOf<i64>() ||
+            prop.type == &TypeOf<u64>())
         {
             const TypeInfo* intType = prop.type;
             auto value = [getVariant, intType]() -> i64
             {
                 const Variant v = getVariant();
+                if (intType == &TypeOf<i8>())
+                {
+                    const i8* p = v.TryGet<i8>();
+                    return p ? static_cast<i64>(*p) : 0;
+                }
+                if (intType == &TypeOf<u8>())
+                {
+                    const u8* p = v.TryGet<u8>();
+                    return p ? static_cast<i64>(*p) : 0;
+                }
+                if (intType == &TypeOf<i16>())
+                {
+                    const i16* p = v.TryGet<i16>();
+                    return p ? static_cast<i64>(*p) : 0;
+                }
+                if (intType == &TypeOf<u16>())
+                {
+                    const u16* p = v.TryGet<u16>();
+                    return p ? static_cast<i64>(*p) : 0;
+                }
                 if (intType == &TypeOf<i32>())
                 {
                     const i32* p = v.TryGet<i32>();
@@ -1385,7 +1410,27 @@ namespace editor
             };
             auto setter = [edit, id, type, propName, intType](i64 v)
             {
-                if (intType == &TypeOf<i32>())
+                if (intType == &TypeOf<i8>())
+                {
+                    edit->SetComponentProperty(id, type, propName,
+                                               Variant::From<i8>(static_cast<i8>(v)));
+                }
+                else if (intType == &TypeOf<u8>())
+                {
+                    edit->SetComponentProperty(id, type, propName,
+                                               Variant::From<u8>(static_cast<u8>(v)));
+                }
+                else if (intType == &TypeOf<i16>())
+                {
+                    edit->SetComponentProperty(id, type, propName,
+                                               Variant::From<i16>(static_cast<i16>(v)));
+                }
+                else if (intType == &TypeOf<u16>())
+                {
+                    edit->SetComponentProperty(id, type, propName,
+                                               Variant::From<u16>(static_cast<u16>(v)));
+                }
+                else if (intType == &TypeOf<i32>())
                 {
                     edit->SetComponentProperty(id, type, propName,
                                                Variant::From<i32>(static_cast<i32>(v)));
