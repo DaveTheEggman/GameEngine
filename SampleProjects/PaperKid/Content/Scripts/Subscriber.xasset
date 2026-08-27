@@ -1,0 +1,13 @@
+<root>
+	<string name="guid">473c4146-2060-4ebc-ac90-d6c636e59874</string>
+	<string name="typeNamespace">rtti::pipeline::script</string>
+	<string name="typeName">ScriptClassAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">4484674501347914364</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">Subscriber.as</string>
+		<string name="language">angelscript</string>
+	</object>
+</root>
