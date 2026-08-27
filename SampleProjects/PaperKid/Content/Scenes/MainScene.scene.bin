@@ -193,7 +193,7 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">a92e9c64-f85a-47e0-9a9f-3dd8fb19b0cb</string>
+				<string name="mesh">48276d84-a9c8-4839-a9d9-12c36dad2d85</string>
 				<array name="materials" count="0"/>
 				<object name="color">
 					<f32 name="r">1</f32>
@@ -214,7 +214,7 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
 					<f32 name="r">1</f32>
@@ -235,7 +235,7 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
 					<f32 name="r">1</f32>
@@ -256,7 +256,7 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
 					<f32 name="r">1</f32>
@@ -277,7 +277,7 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
 					<f32 name="r">1</f32>
@@ -298,12 +298,12 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
-					<f32 name="r">1</f32>
-					<f32 name="g">1</f32>
-					<f32 name="b">1</f32>
+					<f32 name="r">0.56379414</f32>
+					<f32 name="g">0.93064237</f32>
+					<f32 name="b">0.2876953</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
@@ -319,12 +319,12 @@
 					<u64 name="type">5133810385441919920</u64>
 					<u32 name="version">4</u32>
 				</array>
-				<string name="mesh">ec521ef8-d346-426e-a37e-6bf609c92c75</string>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
 				<array name="materials" count="0"/>
 				<object name="color">
-					<f32 name="r">1</f32>
-					<f32 name="g">1</f32>
-					<f32 name="b">1</f32>
+					<f32 name="r">0.20212853</f32>
+					<f32 name="g">0.21208903</f32>
+					<f32 name="b">0.8791016</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>

@@ -97,7 +97,10 @@ class Bike
 
         float direction = (m_speed >= 0.0f) ? 1.0f : -1.0f;
         float turnRate = Math::DegreesToRadians(turnSpeedDegrees);
-        m_heading += steer * direction * turnRate * speedFraction * d;
+        // A positive yaw about +Y turns local forward (+Z) toward +X, which is screen-LEFT from the
+        // trailing camera - so a positive steer (D = right) must DECREASE the heading to turn right.
+        // (direction already inverts this while reversing, so backing up steers like a real vehicle.)
+        m_heading -= steer * direction * turnRate * speedFraction * d;
     }
 
     // Drive the character along the heading and point the mesh the same way.

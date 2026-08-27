@@ -18,14 +18,15 @@ class FollowCamera
     // ---- tunables (inspector-authored behavior properties) ----
     [null, "The entity to follow (the bike)"] Entity@ target;
     [7.0, "Distance behind the target (m)"]   float distance;
-    [3.5, "Height above the target (m)"]      float height;
-    [1.0, "Aim this far above the target (m)"] float lookHeight;
+    [2.2, "Height above the target (m)"]      float height;
+    [1.3, "Aim this far above the target (m)"] float lookHeight;
     [4.0, "Position spring rate (higher = snappier)"] float positionSmoothing;
 
     FollowCamera(Entity@ entity) { @self = entity; }
 
     void onUpdate(double dt)
     {
+        //return;
         float d = float(dt);
         if (d <= 0.0f || target is null || !target.isValid())
         {
@@ -73,7 +74,10 @@ class FollowCamera
             return;
         }
 
-        float yaw = Math::RadiansToDegrees(Math::Atan2(dir.x, dir.z));
+        // Engine forward is -Z: FromYawPitchRoll gives forward = (-sin(yaw)cos(pitch), -sin(pitch),
+        // -cos(yaw)cos(pitch)). To aim forward along `dir`, BOTH atan2 args are negated (yaw = 0 must
+        // face -Z, not +Z) - without the negation the camera faces exactly away from the target.
+        float yaw = Math::RadiansToDegrees(Math::Atan2(-dir.x, -dir.z));
         // dir.y < 0 (target below the raised camera) -> positive pitch = look down.
         float pitch = Math::RadiansToDegrees(-Math::Asin(dir.y / len));
         self.setRotationEuler(pitch, yaw, 0.0f);
