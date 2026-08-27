@@ -516,6 +516,48 @@ TEST_CASE("physics.scene: ScenePhysics.nearestOverlap picks the nearest overlapp
     CHECK_FALSE(ScenePhysics{nullptr}.nearestOverlap(0, 0, 0, 8.0f, ~0).hit);
 }
 
+TEST_CASE("physics.scene: ScenePhysics.overlapSphere returns the FULL set (count + entity(i) + copy)")
+{
+    PlayScene play;
+    RigidBodyComponentManager* rbm = play.scene.GetSystem<RigidBodyComponentManager>();
+    const auto addBox = [&](Float3 p, u8 group) -> scene::EntityHandle
+    {
+        scene::EntityHandle e = play.scene.CreateEntity(u8"b");
+        play.scene.SetLocalPosition(e, p);
+        RigidBodyComponent& b = rbm->Add(e);
+        b.motion = MotionKind::Static;
+        b.layer = PhysicsLayer::Static;
+        b.halfExtents = Float3{0.5f, 0.5f, 0.5f};
+        b.collisionGroup = group;
+        return e;
+    };
+    scene::EntityHandle a = addBox(Float3{2.0f, 0.0f, 0.0f}, 3);
+    scene::EntityHandle b = addBox(Float3{6.0f, 0.0f, 0.0f}, 3);
+    play.Start();
+    play.Step(1);
+
+    ScenePhysics physics{&play.scene};
+    const OverlapHits all = physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0);
+    CHECK(all.count() == 2);
+    // Both entities present (order not guaranteed); entity(i) resolves each.
+    const scene::EntityHandle e0 = all.entity(0).Handle();
+    const scene::EntityHandle e1 = all.entity(1).Handle();
+    CHECK(((e0 == a) || (e1 == a)));
+    CHECK(((e0 == b) || (e1 == b)));
+    // Out of range -> invalid, no crash.
+    CHECK(all.entity(2).Handle() == scene::EntityHandle{});
+    CHECK(all.entity(-1).Handle() == scene::EntityHandle{});
+
+    // The VM carries a COPY of the value handle - the Array member must survive the copy intact.
+    const OverlapHits copy = all;
+    CHECK(copy.count() == 2);
+    CHECK(copy.entity(0).isValid());
+
+    // Group mask excluding group 3 -> empty; a null scene is safe.
+    CHECK(physics.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~(1 << 3)).count() == 0);
+    CHECK(ScenePhysics{nullptr}.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0).count() == 0);
+}
+
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")
 {
     RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name

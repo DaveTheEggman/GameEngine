@@ -1080,6 +1080,39 @@ export namespace engine::physics
         }
     };
 
+    // The FULL result of an overlap query: every entity whose body intersected the shape. The facade
+    // surface has no native array<T> to return, so the set is exposed as an INDEXED handle - count()
+    // + entity(i) - the same way a reflected type's collection is reached. A value handle (the VM
+    // carries a copy) storing the packed entity words; entity(i) resolves LIVE at call time (an entity
+    // destroyed between the query and the read reads back invalid), like RayCastHit.
+    struct OverlapHits
+    {
+        scene::Scene* scene = nullptr;
+        Array<u64> packed; // one packed entity word per overlapping body
+
+        [[nodiscard]] i32 count() const { return static_cast<i32>(packed.Size()); }
+
+        // The i-th overlapping entity (0 <= i < count()); invalid Entity out of range / dead scene /
+        // an entity no longer live.
+        [[nodiscard]] foundation::script::Entity entity(i32 index) const
+        {
+            if (scene == nullptr || index < 0 || index >= static_cast<i32>(packed.Size()))
+            {
+                return foundation::script::Entity{};
+            }
+            const scene::EntityHandle handle = UnpackEntity(packed[static_cast<usize>(index)]);
+            if (!scene->IsValid(handle))
+            {
+                return foundation::script::Entity{};
+            }
+            foundation::script::Entity e;
+            e.scene = scene;
+            e.entityIndex = handle.index;
+            e.entityGeneration = handle.generation;
+            return e;
+        }
+    };
+
     struct ScenePhysics
     {
         scene::Scene* scene = nullptr;
@@ -1207,6 +1240,32 @@ export namespace engine::physics
             if (result.hit)
             {
                 result.distance = Sqrt(bestSq);
+            }
+            return result;
+        }
+
+        // ALL bodies overlapping a SPHERE (radius) at (x,y,z), filtered to `groupMask` (bit g = include
+        // collision group g; ~0 = all) -> an OverlapHits handle (count() + entity(i)). This is the full
+        // set (nearestOverlap is the convenience for "just the closest"); the script iterates it with
+        // `for (int i = 0; i < h.count(); i++) { Entity@ e = h.entity(i); ... }`.
+        [[nodiscard]] OverlapHits overlapSphere(f32 x, f32 y, f32 z, f32 radius, i32 groupMask) const
+        {
+            OverlapHits result;
+            result.scene = scene;
+            PhysicsWorld* world = World();
+            if (world == nullptr)
+            {
+                return result;
+            }
+            QueryShape shape;
+            shape.kind = ShapeKind::Sphere;
+            shape.radius = radius;
+            Array<foundation::physics::BodyId> bodies;
+            world->ShapeOverlap(shape, Float3{x, y, z}, Quaternion::Identity, bodies,
+                                static_cast<u32>(groupMask));
+            for (const foundation::physics::BodyId& b : bodies)
+            {
+                result.packed.PushBack(world->UserData(b));
             }
             return result;
         }

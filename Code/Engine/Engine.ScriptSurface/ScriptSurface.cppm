@@ -40,5 +40,7 @@ export namespace engine
     /// facades. A new subsystem facade bumps this deliberately; a lost registration fails loudly.
     // 33 = +RayCastHit (2026-08-22, script-surface-of P0: ScenePhysics.rayCast returns the
     // explicit hit-result value handle; the stored lastHit + hit* accessors are deleted).
-    inline constexpr usize kSubsystemFacadeNameCount = 33;
+    // 34 = +OverlapHits (2026-08-26: ScenePhysics.overlapSphere returns the full overlap set as an
+    // indexed count()/entity(i) handle - the facade surface has no native array<T> to return).
+    inline constexpr usize kSubsystemFacadeNameCount = 34;
 }

@@ -3147,6 +3147,47 @@ TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scri
     CHECK(sys->World()->LinearVelocity(bodies->Get(e)->body).y > 0.0f); // impulse dominated gravity
 }
 
+// The FULL overlap set reaches script. ScenePhysics.overlapSphere returns an OverlapHits value handle
+// (there is no native array<T> on the facade surface); a behavior iterates count()/entity(i) and acts
+// on EVERY hit. This proves the value-with-Array<u64>-member marshals through the VM (asOBJ_REF box:
+// real ctor/dtor, no memcpy) AND the reflected count()/entity(i32) Method bindings resolve. The scanner
+// impulses each overlapped body upward; both dynamic targets end with positive Y velocity.
+TEST_CASE("script.scene: ScenePhysics.overlapSphere returns the FULL set - behavior acts on every hit")
+{
+    engine::physics::RegisterPhysicsScriptFacade();
+    ContactWorld world;
+    const scene::EntityHandle a = world.AddBody(u8"left", Float3{-1.5f, 0, 0},
+                                                physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle b = world.AddBody(u8"right", Float3{1.5f, 0, 0},
+                                                physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+    const scene::EntityHandle scanner = world.scene->CreateEntity(u8"scanner");
+    RefPtr<ScriptClass> sweep = MakeClass(
+        u8"Scanner",
+        u8"class Scanner {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Scanner(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        ScenePhysics@ p = ScenePhysics::of(self.scene);\n"
+        u8"        OverlapHits@ hits = p.overlapSphere(0.0f, 0.0f, 0.0f, 3.0f, -1);\n"
+        u8"        for (int i = 0; i < hits.count(); i++) {\n"
+        u8"            p.applyImpulse(hits.entity(i), 0.0f, 5000.0f, 0.0f);\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+    world.Attach(scanner, sweep);
+
+    world.Play(2); // onStart sweeps + impulses every hit; the next step integrates
+    auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
+    auto* bodies = world.scene->GetSystem<engine::physics::RigidBodyComponentManager>();
+    REQUIRE(sys->World() != nullptr);
+    REQUIRE(bodies->Get(a) != nullptr);
+    REQUIRE(bodies->Get(b) != nullptr);
+    // Both bodies overlapped the r=3 sphere at the origin and both received the upward impulse.
+    CHECK(sys->World()->LinearVelocity(bodies->Get(a)->body).y > 0.0f);
+    CHECK(sys->World()->LinearVelocity(bodies->Get(b)->body).y > 0.0f);
+}
+
 // ---- Track B: the scene event bus reaches script. A behavior publishes scene.events.emit(name, x);
 //      EVERY behavior AND the Level that declare on<Name>(x) receive it (same bus, both tiers), the
 //      payload surviving as a Variant. Auto-unsubscribe when a subscriber is torn down. The bus is
