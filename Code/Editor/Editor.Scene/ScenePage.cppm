@@ -74,6 +74,13 @@ export namespace editor
                         ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
             : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
+            // Set the instance id NOW, before the viewport toolbar's ScenePage_GridToggleInit ->
+            // LoadViewPrefs runs: the per-scene grid/LOD prefs are keyed by this guid, and the ctor
+            // builds the toolbar before the context's later SetInstanceId, so loading with a nil guid
+            // would always fall back to the default (grid on) and never restore the saved toggle. Same
+            // early-bind MeshPage does; the context's SetInstanceId is then the identical value.
+            SetInstanceId(instance.Id());
+
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
             m_gameUI = host.Ctx().GetSubsystem<engine::ui::UISubsystem>();
