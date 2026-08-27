@@ -282,6 +282,98 @@ TEST_CASE("physics: point query finds containing bodies")
     CHECK(hits.IsEmpty());
 }
 
+TEST_CASE("physics: sphere overlap finds intersecting bodies (deduped) + honors the group mask")
+{
+    PhysicsWorld world;
+    BodyDesc a = BoxAt(0.0f, MotionKind::Static); // at the origin, group 0
+    const BodyId bodyA = world.CreateBody(a);
+    BodyDesc b = BoxAt(0.0f, MotionKind::Static);
+    b.position = Float3{5.0f, 0.0f, 0.0f};
+    b.group = 1;
+    const BodyId bodyB = world.CreateBody(b);
+
+    QueryShape sphere;
+    sphere.kind = ShapeKind::Sphere;
+    sphere.radius = 1.0f;
+
+    Array<BodyId> hits;
+    world.ShapeOverlap(sphere, Float3{0.0f, 0.0f, 0.0f}, Quaternion::Identity, hits);
+    REQUIRE(hits.Size() == 1);
+    CHECK(hits[0] == bodyA);
+
+    hits.Clear();
+    world.ShapeOverlap(sphere, Float3{5.0f, 0.0f, 0.0f}, Quaternion::Identity, hits);
+    REQUIRE(hits.Size() == 1);
+    CHECK(hits[0] == bodyB);
+
+    // The gap between them -> nothing.
+    hits.Clear();
+    world.ShapeOverlap(sphere, Float3{2.5f, 0.0f, 0.0f}, Quaternion::Identity, hits);
+    CHECK(hits.IsEmpty());
+
+    // A big sphere spanning both -> both, EACH ONCE (de-dup across sub-shape hits).
+    QueryShape big;
+    big.kind = ShapeKind::Sphere;
+    big.radius = 3.0f;
+    hits.Clear();
+    world.ShapeOverlap(big, Float3{2.5f, 0.0f, 0.0f}, Quaternion::Identity, hits);
+    CHECK(hits.Size() == 2);
+
+    // Group mask excluding group 1 -> only A, even with the big sphere.
+    hits.Clear();
+    world.ShapeOverlap(big, Float3{2.5f, 0.0f, 0.0f}, Quaternion::Identity, hits, ~(1u << 1));
+    REQUIRE(hits.Size() == 1);
+    CHECK(hits[0] == bodyA);
+}
+
+TEST_CASE("physics: a BOX query shape overlaps too (not only spheres)")
+{
+    PhysicsWorld world;
+    const BodyId body = world.CreateBody(BoxAt(0.0f, MotionKind::Static)); // 0.5-half box at origin
+    QueryShape box;
+    box.kind = ShapeKind::Box;
+    box.halfExtents = Float3{0.4f, 0.4f, 0.4f};
+
+    Array<BodyId> hits;
+    world.ShapeOverlap(box, Float3{0.7f, 0.0f, 0.0f}, Quaternion::Identity, hits); // 0.3 into the box
+    REQUIRE(hits.Size() == 1);
+    CHECK(hits[0] == body);
+
+    hits.Clear();
+    world.ShapeOverlap(box, Float3{2.0f, 0.0f, 0.0f}, Quaternion::Identity, hits); // clear
+    CHECK(hits.IsEmpty());
+}
+
+TEST_CASE("physics: shape cast sweeps a sphere onto the nearest body (earlier than a ray)")
+{
+    PhysicsWorld world;
+    (void)world.CreateBody(FloorDesc());
+    BodyDesc target = BoxAt(0.5f, MotionKind::Static); // spans y in [0,1], top face at y=1.0
+    target.userData = 42;
+    (void)world.CreateBody(target);
+
+    QueryShape sphere;
+    sphere.kind = ShapeKind::Sphere;
+    sphere.radius = 0.5f;
+    RayHit hit;
+    REQUIRE(world.ShapeCast(sphere, Float3{0.0f, 10.0f, 0.0f}, Quaternion::Identity,
+                            Float3{0.0f, -1.0f, 0.0f}, 100.0f, hit));
+    CHECK(hit.userData == 42u); // the box, not the floor below it
+    // Sphere (r=0.5) touches the box top (y=1.0) when its centre reaches y=1.5 -> travelled 8.5/100.
+    CHECK(hit.fraction == doctest::Approx(0.085f).epsilon(0.05));
+    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.05)); // contact on the box top
+
+    // The VOLUME makes it hit EARLIER than a point ray (which needs y=1.0 -> 9.0/100).
+    RayHit rayHit;
+    REQUIRE(world.RayCast(Float3{0.0f, 10.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, 100.0f, rayHit));
+    CHECK(hit.fraction < rayHit.fraction);
+
+    // A clear sweep misses.
+    RayHit miss;
+    CHECK_FALSE(world.ShapeCast(sphere, Float3{500.0f, 10.0f, 0.0f}, Quaternion::Identity,
+                                Float3{0.0f, 1.0f, 0.0f}, 10.0f, miss));
+}
+
 // ---- cooked shapes (P2: builder-cooked convex hulls + triangle meshes) ----
 
 namespace

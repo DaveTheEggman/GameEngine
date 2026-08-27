@@ -126,6 +126,16 @@ export namespace foundation::physics
         u32 surface = 0;
     };
 
+    /// A PRIMITIVE query volume for ShapeCast / ShapeOverlap (sphere / box / capsule only - cooked /
+    /// plane / heightfield are body shapes, not query shapes). Convex, so no mass/density needed.
+    struct QueryShape
+    {
+        ShapeKind kind = ShapeKind::Sphere;
+        f32 radius = 0.5f;                    // Sphere / Capsule
+        Float3 halfExtents{0.5f, 0.5f, 0.5f}; // Box
+        f32 halfHeight = 0.5f;                // Capsule (cylinder half-length)
+    };
+
     enum class ContactKind : u8
     {
         Begin,
@@ -306,6 +316,15 @@ export namespace foundation::physics
                                    u32 groupMask = 0xFFFFFFFFu) const;
         /// Bodies whose shapes contain `point` (triggers included).
         void QueryPoint(Float3 point, Array<BodyId>& out, u32 groupMask = 0xFFFFFFFFu) const;
+        /// Sweep `shape` (at `rotation`) from `from` along `direction` up to `maxDistance`; reports the
+        /// CLOSEST hit (like RayCast, but with a volume). `out.fraction` is the sweep fraction.
+        [[nodiscard]] bool ShapeCast(const QueryShape& shape, Float3 from, Quaternion rotation,
+                                     Float3 direction, f32 maxDistance, RayHit& out,
+                                     u32 groupMask = 0xFFFFFFFFu) const;
+        /// Bodies overlapping `shape` placed at (`position`, `rotation`), triggers included. Each body
+        /// appears once (sub-shape hits are de-duplicated).
+        void ShapeOverlap(const QueryShape& shape, Float3 position, Quaternion rotation,
+                          Array<BodyId>& out, u32 groupMask = 0xFFFFFFFFu) const;
 
         // ---- joints ----
         [[nodiscard]] JointId CreateJoint(const JointDesc& desc);
