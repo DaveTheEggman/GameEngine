@@ -30,6 +30,7 @@ import pipeline.core;
 import pipeline.importer;
 import foundation.content;
 import foundation.ui;
+import foundation.ui.gamekit; // RegisterGamekitMarkup - so <screen> roots validate at cook
 import foundation.ui.resource;
 
 using namespace foundation::core;
@@ -137,6 +138,8 @@ export namespace pipeline{
             // Validation IS the cook: parse against the registered control set. Silent
             // drops (unknown attributes / child elements) surface as cook WARNINGS.
             MarkupLoader::Initialize();
+            foundation::ui::gamekit::RegisterGamekitMarkup(); // so <screen> HUD/menu roots validate
+
             Array<String> warnings;
             RefPtr<View> tree =
                 MarkupLoader::LoadFromString(markup.AsView(), nullptr, &warnings);

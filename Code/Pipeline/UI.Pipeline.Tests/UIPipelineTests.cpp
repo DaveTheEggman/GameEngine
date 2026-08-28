@@ -12,6 +12,7 @@ import foundation.resource;
 import pipeline.core;
 import pipeline.importer;
 import foundation.ui;
+import foundation.ui.gamekit; // UIScreen + RegisterGamekitMarkup (the <screen> HUD repro)
 import foundation.ui.resource;
 import ui.pipeline;
 
@@ -115,6 +116,50 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     CHECK_FALSE(themes.Build(emptyTheme, ctx).IsOk());
 
     RemoveTree(u8"scratch_uipipe_bad_db");
+}
+
+TEST_CASE("ui.pipeline: a gamekit <screen> document validates at cook")
+{
+    // <screen> is gamekit markup, not a builtin - the cook registers it (RegisterGamekitMarkup)
+    // so game HUD/menu roots validate. Without that registration this Build FAILS as an unknown
+    // control, exactly like <NotARealControl/> above.
+    RegisterUIResource();
+    RegisterUIAssets();
+    RemoveTree(u8"scratch_uipipe_screen_db");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_screen_db");
+    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    auto* instance = outDb.RootGroup()->CreateInstance(u8"hud", UIDocumentSource::StaticType());
+
+    UIDocumentAsset asset;
+    asset.markup =
+        String(u8"<screen mode=\"overlay\"><Label id=\"hud-timer\" text=\"90\"/></screen>");
+    UIDocumentAssetBuilder builder;
+    pipeline::AssetBuildContext ctx;
+    ctx.output = instance;
+    CHECK(builder.Build(asset, ctx).IsOk());
+
+    RemoveTree(u8"scratch_uipipe_screen_db");
+}
+
+TEST_CASE("ui.gamekit: a <screen> child Label keeps its id as Name and is findable")
+{
+    // Repro for the PaperKid HUD: a <screen mode="overlay"> root with nested id'd Labels. The `ui`
+    // facade's ui::findLabel searches the screen root recursively, so the nested Label MUST carry
+    // its markup id as its View Name. (The bug this guards: findLabel returning loud-null on a HUD.)
+    MarkupLoader::Initialize();
+    foundation::ui::gamekit::RegisterGamekitMarkup();
+    RefPtr<View> tree = MarkupLoader::LoadFromString(
+        u8"<screen mode=\"overlay\">"
+        u8"  <Panel><Flex><Label id=\"hud-timer\" text=\"90\"/></Flex></Panel>"
+        u8"</screen>");
+    REQUIRE(tree.Get() != nullptr);
+    // The root IS a gamekit UIScreen (used directly, not wrapped).
+    CHECK(Cast<foundation::ui::gamekit::UIScreen>(tree.Get()) != nullptr);
+    auto* group = Cast<ViewGroup>(tree.Get());
+    REQUIRE(group != nullptr);
+    // The nested Label is findable by its id, and is a Label (what ui::findLabel casts to).
+    CHECK(group->FindByName(u8"hud-timer") != nullptr);
+    CHECK(group->FindByName<Label>(u8"hud-timer") != nullptr);
 }
 
 TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
