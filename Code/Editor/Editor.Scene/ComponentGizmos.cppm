@@ -183,6 +183,17 @@ export namespace editor
         [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
     };
 
+    /// EDIT-TIME joint constraint gizmo (JointComponent): the anchor cross, a link line to the
+    /// connected target entity, and the hinge/slider axis arrow - from component data + transforms.
+    /// Same "Show Colliders" gate + DebugView as the collider gizmos.
+    class JointGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+        [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
+    };
+
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
@@ -202,5 +213,7 @@ export namespace editor
             DefaultAllocator().New<PhysicsColliderGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<CharacterColliderGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<JointGizmoRenderer>(),
+                                                    DefaultAllocator()));
     }
 }

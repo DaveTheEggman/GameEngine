@@ -408,4 +408,52 @@ namespace editor
                           color);
         dd.DrawWireBoxCenter(position, Float3{ch->radius, ch->halfHeight, ch->radius}, color);
     }
+
+    const TypeInfo* JointGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::physics::JointComponent>();
+    }
+
+    // The joint anchor (cross), a link line to the connected target (nil target = ancestor/world,
+    // not drawn), and the hinge/slider axis (arrow) - all from JointComponent data + the transform.
+    void JointGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                  GizmoContext& ctx)
+    {
+        if (!ctx.showColliders)
+        {
+            return;
+        }
+        const auto* joint = component.TryGet<engine::physics::JointComponent>();
+        if (joint == nullptr)
+        {
+            return;
+        }
+        using foundation::physics::JointKind;
+        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+        const Float3 anchor = TransformPoint(joint->localAnchor, world);
+        const Color color{1.0f, 0.5f, 0.1f, 1.0f}; // orange
+        render::debug::DebugDraw& dd = *ctx.debug;
+        dd.DrawCross(anchor, 0.25f, color);
+        // Link to the connected body (nil target = nearest ancestor / world; only drawn if resolved).
+        if (!joint->targetEntity.id.IsNil())
+        {
+            const scene::EntityHandle target = ctx.scene->FindEntity(joint->targetEntity.id);
+            if (target.IsAssigned())
+            {
+                dd.DrawLine(anchor, detail::WorldPosition(ctx.scene->GetWorldMatrix(target)), color);
+            }
+        }
+        // Hinge = rotation axis; Slider = slide direction. A short arrow either side of the anchor.
+        if (joint->kind == JointKind::Hinge || joint->kind == JointKind::Slider)
+        {
+            const Float3 axisEnd = TransformPoint(joint->localAnchor + joint->localAxis, world);
+            Float3 dir = axisEnd - anchor;
+            const f32 len = Length(dir);
+            if (len > 1e-4f)
+            {
+                dir = dir * (1.0f / len);
+                dd.DrawArrow(anchor - dir * 0.5f, anchor + dir * 0.5f, color, 0.1f);
+            }
+        }
+    }
 }

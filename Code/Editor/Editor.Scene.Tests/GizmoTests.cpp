@@ -356,11 +356,12 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 8u); // +PhysicsCollider + CharacterCollider (edit-time colliders)
+    CHECK(registry.Count() == 9u); // +PhysicsCollider/Character/Joint (edit-time physics gizmos)
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::RigidBodyComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::CharacterComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::physics::JointComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::CameraComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::DecalComponent>()) != nullptr);
