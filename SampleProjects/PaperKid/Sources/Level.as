@@ -31,13 +31,10 @@ class Level
 
     void onStart()
     {
-        // Fall back if the property default was not applied - a 0 timeLimit would insta-fail on the
-        // first update (Level-tier property application is not the behavior path). Same for quota.
-        m_timeLeft = (timeLimit > 0.0f) ? timeLimit : 90.0f;
-        if (quota < 1)
-        {
-            quota = 3;
-        }
+        // timeLimit/quota are real inspector properties now: the harvested default (or an
+        // inspector-authored override) is applied to the fields BEFORE onStart, exactly like a
+        // behavior's properties. Just seed the countdown from the authored value.
+        m_timeLeft = timeLimit;
         m_delivered = 0;
         m_ended = false;
         m_started = true;
