@@ -75,6 +75,7 @@ class Game
     // ---- screens: each clears the stack and pushes one document, then wires its buttons ----
     void showMainMenu()
     {
+        run::setTimeScale(0.0f); // no gameplay behind a menu (freezes any loaded scene)
         ui::clear();
         Screen menu = ui::push(kMainMenuDoc);
         menu.findButton("start-btn").onClick(Action(this.onStartGame));
@@ -90,12 +91,14 @@ class Game
         m_deliveries = 0;
         run::loadScene(kPlayingLevel);
         ui::clear();
+        run::setTimeScale(1.0f); // gameplay runs
         m_state = GameState::Playing;
     }
 
     void showPause()
     {
-        // Pause OVERLAYS the running scene (a modal screen); the scene keeps its state, frozen.
+        // Pause OVERLAYS the running scene (modal); timescale 0 actually freezes gameplay under it.
+        run::setTimeScale(0.0f);
         Screen pause = ui::push(kPauseDoc);
         pause.findButton("resume-btn").onClick(Action(this.onResume));
         pause.findButton("settings-btn").onClick(Action(this.onOpenSettingsFromPause));
@@ -117,6 +120,7 @@ class Game
     void onResume()
     {
         ui::pop(); // drop the pause overlay, back to Playing
+        run::setTimeScale(1.0f); // gameplay resumes
         m_state = GameState::Playing;
     }
     void onQuitToMenu() { showMainMenu(); }
