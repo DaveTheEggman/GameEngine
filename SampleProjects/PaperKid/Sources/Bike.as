@@ -13,6 +13,10 @@
 //
 // Tunables are [metadata]-annotated FIELDS: they show up in the inspector, authored per-entity.
 
+// The paper prefab thrown on the Throw action (P1-5). Copied from Content/Scenes/Paper.xasset's
+// guid - keep in sync with that envelope.
+Guid kPaperPrefab = Guid("6eccb2d5-b150-4cc7-ba67-1a1c09383be4");
+
 class Bike
 {
     private Entity@ self;
@@ -26,11 +30,22 @@ class Bike
     [130.0, "Yaw rate at full speed (deg/s)"]  float turnSpeedDegrees;
     [0.25, "Steering authority floor (0..1)"]  float minSteerFraction;
 
+    // ---- throwing (P1-5) ----
+    [60.0, "Throw impulse (launch strength; scales with paper mass)"] float throwImpulse;
+    [0.65, "Throw arc (upward bias)"]                 float throwArc;
+    [0.6, "Auto-aim strength (0 = straight, 1 = locked on)"] float autoAim;
+    [18.0, "Auto-aim range (m)"]                      float aimRange;
+    [10, "Papers per level"]                          int startingPapers;
+    [2, "Subscriber collision group"]                 int subscriberGroup;
+
     // ---- runtime state (no metadata => not properties) ----
     private float m_heading = 0.0f; // yaw in RADIANS (0 = facing world +Z)
     private float m_speed = 0.0f;   // signed forward speed (negative = reversing)
+    private int m_papers = 0;       // papers remaining (seeded from startingPapers in onStart)
 
     Bike(Entity@ entity) { @self = entity; }
+
+    void onStart() { m_papers = startingPapers; }
 
     void onUpdate(double dt)
     {
@@ -46,6 +61,13 @@ class Bike
         updateSpeed(throttle, d);
         updateHeading(steer, d);
         applyMotion();
+
+        // Throw a paper on the (edge-triggered) Throw action, papers permitting.
+        if (m_papers > 0 && Input::wasPressed("Throw"))
+        {
+            throwPaper();
+            m_papers -= 1;
+        }
     }
 
     // Ramp the signed speed toward the throttle intent, clamped to the forward/reverse caps.
@@ -112,5 +134,55 @@ class Bike
 
         CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);
         self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
+    }
+
+    // Spawn + launch a paper. The base throw is the bike's forward heading plus an upward arc; a soft
+    // auto-aim biases the HORIZONTAL direction toward the nearest subscriber delivery zone in front.
+    private void throwPaper()
+    {
+        Float3 pos = self.worldPosition();
+        float fx = Math::Sin(m_heading); // bike forward XZ (matches applyMotion: forward = (sin h, 0, cos h))
+        float fz = Math::Cos(m_heading);
+
+        float aimX = fx;
+        float aimZ = fz;
+
+        // Overlap the subscriber-group zones nearby; bias toward the nearest one that is IN FRONT.
+        int mask = 1 << subscriberGroup;
+        array<Entity@>@ zones =
+            ScenePhysics::of(self.scene).overlapSphere(pos.x, pos.y, pos.z, aimRange, mask);
+        float bestDist = aimRange * aimRange + 1.0f;
+        for (uint i = 0; i < zones.length(); i++)
+        {
+            Float3 zp = zones[i].worldPosition();
+            float dx = zp.x - pos.x;
+            float dz = zp.z - pos.z;
+            float dist2 = dx * dx + dz * dz;
+            if (dist2 < 0.0001f) { continue; }
+            float len = Math::Sqrt(dist2);
+            float ndx = dx / len;
+            float ndz = dz / len;
+            if (ndx * fx + ndz * fz > 0.1f && dist2 < bestDist) // in front + nearer than the best so far
+            {
+                bestDist = dist2;
+                aimX = fx + (ndx - fx) * autoAim; // lerp forward -> zone by the auto-aim strength
+                aimZ = fz + (ndz - fz) * autoAim;
+            }
+        }
+        float l = Math::Sqrt(aimX * aimX + aimZ * aimZ);
+        if (l > 0.0001f) { aimX /= l; aimZ /= l; }
+
+        // Spawn in front of + above the bike so the paper clears it, then launch (horizontal + arc).
+        Float3 origin = Float3(pos.x + fx, pos.y + 1.2f, pos.z + fz);
+        Entity@ paper = self.scene.spawn(kPaperPrefab, origin.x, origin.y, origin.z);
+        if (paper is null || !paper.isValid())
+        {
+            return;
+        }
+        // (aimX, throwArc, aimZ) with unit horizontal -> normalize so throwImpulse is the launch magnitude.
+        float mag = Math::Sqrt(1.0f + throwArc * throwArc);
+        ScenePhysics::of(self.scene).applyImpulse(paper, aimX / mag * throwImpulse,
+                                                  throwArc / mag * throwImpulse,
+                                                  aimZ / mag * throwImpulse);
     }
 }

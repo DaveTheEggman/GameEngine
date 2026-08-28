@@ -2,7 +2,7 @@
 	<u32 name="magic">3586350318</u32>
 	<u32 name="version">3</u32>
 	<string name="name">Scene</string>
-	<array name="entities" count="9">
+	<array name="entities" count="10">
 		<string name="id">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
 		<string name="name">Sun</string>
 		<u8 name="active">1</u8>
@@ -143,6 +143,26 @@
 			<f32 name="y">6</f32>
 			<f32 name="z">12</f32>
 		</object>
+		<string name="id">8092f5e4-bca1-49a8-b6a1-b152ea706b03</string>
+		<string name="name">DeliveryZone</string>
+		<u8 name="active">1</u8>
+		<string name="parent">e1252a95-5d98-4a00-9df2-d550331a79a1</string>
+		<object name="position">
+			<f32 name="x">0.5416667</f32>
+			<f32 name="y">-0.41666666</f32>
+			<f32 name="z">0</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">0.16666667</f32>
+			<f32 name="y">0.16666667</f32>
+			<f32 name="z">0.4166667</f32>
+		</object>
 		<string name="id">d675703d-69d7-4fc7-8e99-aebee4267072</string>
 		<string name="name">Bike</string>
 		<u8 name="active">1</u8>
@@ -184,7 +204,7 @@
 			<f32 name="z">1</f32>
 		</object>
 	</array>
-	<array name="components" count="18">
+	<array name="components" count="21">
 		<object>
 			<string name="owner">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="type">mesh</string>
@@ -325,6 +345,27 @@
 					<f32 name="r">0.20212853</f32>
 					<f32 name="g">0.21208903</f32>
 					<f32 name="b">0.8791016</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<bool name="visible">true</bool>
+				<f32 name="lodBias">0</f32>
+				<i32 name="forceLod">-1</i32>
+			</object>
+		</object>
+		<object>
+			<string name="owner">8092f5e4-bca1-49a8-b6a1-b152ea706b03</string>
+			<string name="type">mesh</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">5133810385441919920</u64>
+					<u32 name="version">4</u32>
+				</array>
+				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
+				<array name="materials" count="0"/>
+				<object name="color">
+					<f32 name="r">0.8602431</f32>
+					<f32 name="g">0.09683335</f32>
+					<f32 name="b">0.09683335</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
@@ -558,6 +599,36 @@
 			</object>
 		</object>
 		<object>
+			<string name="owner">8092f5e4-bca1-49a8-b6a1-b152ea706b03</string>
+			<string name="type">physics.RigidBody</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">16919434437036753967</u64>
+					<u32 name="version">2</u32>
+				</array>
+				<u8 name="motion">0</u8>
+				<u8 name="layer">0</u8>
+				<u8 name="shape">0</u8>
+				<object name="halfExtents">
+					<f32 name="x">1</f32>
+					<f32 name="y">0.5</f32>
+					<f32 name="z">2.5</f32>
+				</object>
+				<f32 name="radius">0.5</f32>
+				<f32 name="halfHeight">0.5</f32>
+				<f32 name="planeHalfExtent">1000</f32>
+				<f32 name="friction">0.5</f32>
+				<f32 name="restitution">0</f32>
+				<f32 name="linearDamping">0.05</f32>
+				<f32 name="angularDamping">0.05</f32>
+				<bool name="isTrigger">true</bool>
+				<u8 name="collisionGroup">2</u8>
+				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
+				<string name="material">00000000-0000-0000-0000-000000000000</string>
+				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+			</object>
+		</object>
+		<object>
 			<string name="owner">d675703d-69d7-4fc7-8e99-aebee4267072</string>
 			<string name="type">physics.Character</string>
 			<object name="data">
@@ -586,7 +657,11 @@
 					<string name="script">7f3a9c21-4b56-4d8e-9a12-0c5e6f701234</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0"/>
+					<array name="overrides" count="1">
+						<u64 name="nameHash">9306705833465037412</u64>
+						<u8 name="kind">1</u8>
+						<f64 name="number">120</f64>
+					</array>
 				</array>
 			</object>
 		</object>
@@ -607,6 +682,22 @@
 						<u8 name="kind">7</u8>
 						<string name="guid">d675703d-69d7-4fc7-8e99-aebee4267072</string>
 					</array>
+				</array>
+			</object>
+		</object>
+		<object>
+			<string name="owner">8092f5e4-bca1-49a8-b6a1-b152ea706b03</string>
+			<string name="type">script</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">14062242794954242583</u64>
+					<u32 name="version">1</u32>
+				</array>
+				<array name="behaviors" count="1">
+					<string name="script">473c4146-2060-4ebc-ac90-d6c636e59874</string>
+					<bool name="enabled">true</bool>
+					<f32 name="updateInterval">0</f32>
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -715,8 +806,16 @@
 				</object>
 				<i32 name="collisionSteps">1</i32>
 				<bool name="debugDraw">true</bool>
-				<array name="groupNames" count="0"/>
-				<array name="groupCollides" count="0"/>
+				<array name="groupNames" count="3">
+					<string>Default</string>
+					<string>Papers</string>
+					<string>Subscribers</string>
+				</array>
+				<array name="groupCollides" count="3">
+					<u32>4294967283</u32>
+					<u32>4294967293</u32>
+					<u32>4294967290</u32>
+				</array>
 			</object>
 		</object>
 	</array>

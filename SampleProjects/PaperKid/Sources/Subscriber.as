@@ -26,6 +26,7 @@ class Subscriber
     // so there is nothing to check - just score it, once.
     void onTriggerEnter(Entity@ other)
     {
+        Log::info("Collided");
         if (m_delivered || self is null || !self.isValid())
         {
             return;
