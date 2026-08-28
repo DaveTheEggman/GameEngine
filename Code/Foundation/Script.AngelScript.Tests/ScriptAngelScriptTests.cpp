@@ -560,6 +560,24 @@ TEST_CASE("angelscript: a context runs valid source")
     CHECK(ctx->GetGlobal(u8"G").Get<String>() == u8"hi engine");
 }
 
+TEST_CASE("angelscript: string concatenates numbers (opAdd from RegisterStdString, no utils needed)")
+{
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    // Documents that a HUD can build "Score: 1200" without RegisterStdStringUtils: the primitive
+    // opAdd(int64/double) operators ship with RegisterStdString (int widens to int64).
+    const Status status = ctx->Load(u8"string C;\n"
+                                    u8"void main() {\n"
+                                    u8"  int score = 1200;\n"
+                                    u8"  double t = 3.5;\n"
+                                    u8"  C = \"Score: \" + score + \" (\" + t + \")\";\n"
+                                    u8"}\n",
+                                    u8"main");
+    CHECK(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"C").Get<String>() == u8"Score: 1200 (3.5)");
+}
+
 TEST_CASE("angelscript: a compile error is reported")
 {
     RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();

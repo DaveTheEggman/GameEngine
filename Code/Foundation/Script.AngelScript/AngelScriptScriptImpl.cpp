@@ -553,6 +553,10 @@ namespace foundation::script::angelscript
             m_engine->SetMessageCallback(asFUNCTION(&AngelScriptManager::OnMessage), this,
                                          asCALL_CDECL);
             RegisterStdString(m_engine);
+            // NOTE: RegisterStdString already registers the number-concat operators
+            // (string opAdd(int64/double/bool/...)), so `"Score: " + n` works. The formatInt/
+            // formatFloat GLOBALS (RegisterStdStringUtils) are NOT vendored (their upstream
+            // scriptstdstring_utils.cpp is absent); add them only when precision/padding is needed.
             m_stringTypeId = m_engine->GetTypeIdByDecl("string");
             // The native `array<T>` type. `defaultArray=true` also enables the `T[]` sugar. A facade
             // that returns an engine Array<T> is rendered as a CScriptArray on the way out
