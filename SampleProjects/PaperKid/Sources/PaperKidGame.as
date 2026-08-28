@@ -13,10 +13,12 @@
 // matching .xasset envelope. These MUST match the envelopes; a malformed string parses to Nil.
 
 // --- authored asset guids (keep in sync with the .xasset envelopes) ---
-Guid kMainMenuDoc = Guid("ac96b003-5b7c-433f-896c-489befb6e2c2");   // main-menu
-Guid kPauseDoc = Guid("985eb393-4110-4fc4-9742-7bac60ca136d");      // pause
-Guid kSettingsDoc = Guid("d30677d4-cb28-4ec1-958a-f8046e0c67a5");   // settings
-Guid kPlayingLevel = Guid("855ffed4-4da7-4fa0-9756-a95c6c842890");  // MainScene
+Guid kMainMenuDoc = Guid("ac96b003-5b7c-433f-896c-489befb6e2c2");     // main-menu
+Guid kPauseDoc = Guid("985eb393-4110-4fc4-9742-7bac60ca136d");        // pause
+Guid kSettingsDoc = Guid("d30677d4-cb28-4ec1-958a-f8046e0c67a5");     // settings
+Guid kPlayingLevel = Guid("855ffed4-4da7-4fa0-9756-a95c6c842890");    // MainScene
+Guid kLevelClearedDoc = Guid("1df972ca-bcdd-4a73-bda6-4df4a858249f"); // level-cleared
+Guid kLevelFailedDoc = Guid("3aa68e31-9f1c-44e6-8cd6-48f2f7e64d42");  // level-failed
 
 enum GameState
 {
@@ -169,10 +171,7 @@ class Game
         {
             return;
         }
-        Log::info("Level CLEARED");
-        m_state = GameState::LevelCleared;
-        // P1-7 will push a level-cleared screen here; for now, back to the menu.
-        showMainMenu();
+        showLevelCleared();
     }
 
     // The timer ran out -> level failed.
@@ -182,9 +181,31 @@ class Game
         {
             return;
         }
-        Log::info("Time up - level FAILED");
-        m_state = GameState::LevelFailed;
-        // P1-7 will push a level-failed screen here; for now, back to the menu.
-        showMainMenu();
+        showLevelFailed();
     }
+
+    // ---- end-of-level screens (P1-7): a modal over the frozen scene + a live score summary ----
+    void showLevelCleared()
+    {
+        run::setTimeScale(0.0f); // freeze the scene under the results modal
+        Screen s = ui::push(kLevelClearedDoc);
+        s.findLabel("summary").setText("Delivered " + m_deliveries + " papers    Score " + m_score);
+        s.findButton("play-again-btn").onClick(Action(this.onPlayAgain));
+        s.findButton("menu-btn").onClick(Action(this.onBackToMenu));
+        m_state = GameState::LevelCleared;
+    }
+
+    void showLevelFailed()
+    {
+        run::setTimeScale(0.0f);
+        Screen s = ui::push(kLevelFailedDoc);
+        s.findLabel("summary").setText("Delivered " + m_deliveries + " papers    Score " + m_score);
+        s.findButton("retry-btn").onClick(Action(this.onPlayAgain));
+        s.findButton("menu-btn").onClick(Action(this.onBackToMenu));
+        m_state = GameState::LevelFailed;
+    }
+
+    // Play Again / Retry: reload the level fresh (enterPlaying resets score + resumes time).
+    void onPlayAgain() { enterPlaying(); }
+    void onBackToMenu() { showMainMenu(); }
 }
