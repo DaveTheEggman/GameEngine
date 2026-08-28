@@ -61,6 +61,14 @@ namespace
         bool argWasExact() const { return lastI64 == 9007199254740993LL; } // 2^53 + 1
         i32 echoI32() const { return lastI32; }
         i64 bigConst() const { return 9007199254740993LL; } // 2^53 + 1
+        // A 9-arg method: exceeds the old 8-arg marshalling cap (kMaxArgs). The trailing args must
+        // NOT be truncated - matches facades like DebugDraw.line (6 coords + 3 color = 9 args).
+        f32 lastSum9 = 0.0f;
+        void take9(f32 a, f32 b, f32 c, f32 d, f32 e, f32 f, f32 g, f32 h, f32 i)
+        {
+            lastSum9 = a + b + c + d + e + f + g + h + i;
+        }
+        [[nodiscard]] f32 sum9() const { return lastSum9; }
     };
 }
 
@@ -71,6 +79,9 @@ REFLECT_MEMBERS(NumProbe, "rtti::script::test")
     builder.Method<&NumProbe::argWasExact>("argWasExact");
     builder.Method<&NumProbe::echoI32>("echoI32");
     builder.Method<&NumProbe::bigConst>("bigConst");
+    builder.Method<&NumProbe::take9>("take9",
+                                     {"a", "b", "c", "d", "e", "f", "g", "h", "i"});
+    builder.Method<&NumProbe::sum9>("sum9");
     builder.Constructor();
 }
 
@@ -537,6 +548,29 @@ TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (n
     CHECK(ctx->GetGlobal(u8"ArgOk").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u8"ReturnOk").Get<bool>() == true);
     CHECK(ctx->GetGlobal(u8"I32Ok").Get<bool>() == true);
+}
+
+TEST_CASE("angelscript: a reflected method marshals 9 args without truncating the trailing ones")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    REQUIRE(static_cast<bool>(manager));
+    manager->RegisterType(NumProbe::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    // 9 args exceed the old 8-arg marshalling cap (kMaxArgs). Powers of two so any dropped or garbled
+    // argument changes the sum: 1+2+4+8+16+32+64+128+256 = 511. Truncation would lose the 256.
+    // (This is the bug that made DebugDraw.line - 6 coords + 3 color = 9 args - a silent no-op.)
+    const Status status =
+        ctx->Load(u8"float S;\n"
+                  u8"void main() {\n"
+                  u8"  NumProbe p;\n"
+                  u8"  p.take9(1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f, 64.0f, 128.0f, 256.0f);\n"
+                  u8"  S = p.sum9();\n"
+                  u8"}\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == doctest::Approx(511.0));
 }
 
 TEST_CASE("angelscript: a context runs valid source")

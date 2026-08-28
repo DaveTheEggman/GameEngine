@@ -437,7 +437,10 @@ namespace foundation::script::angelscript
         return core::String(ViewOfAscii(type != nullptr ? type->name : "object"));
     }
 
-    inline constexpr int kMaxArgs = 8;
+    // Max arguments a reflected facade method / script call marshals (fixed-size temp arrays below).
+    // 16, not 8: facade methods take flat scalar args and can exceed 8 (e.g. DebugDraw.line = 6
+    // coords + 3 color = 9); an over-cap call used to silently truncate its trailing args.
+    inline constexpr int kMaxArgs = 16;
 
     // Every reflected instance held by script: a refcounted box around a Variant.
     struct BoxedVariant
