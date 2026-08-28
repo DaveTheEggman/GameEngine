@@ -71,6 +71,8 @@ namespace engine::runtime
         // requestExit as an ARITY FAMILY (mirrors emit): requestExit() + requestExit(code:int).
         builder.Method<static_cast<void (*)()>(&Run::requestExit)>("requestExit");
         builder.Method<static_cast<void (*)(i32)>(&Run::requestExit)>("requestExit", {"code"});
+        builder.Method<&Run::setTimeScale>("setTimeScale", {"scale"}); // 0 = pause gameplay, 0.5 slow-mo
+        builder.Method<&Run::timeScale>("timeScale");
         builder.Constructor();
     }
 

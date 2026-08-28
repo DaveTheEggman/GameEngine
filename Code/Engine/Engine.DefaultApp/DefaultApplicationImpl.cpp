@@ -456,6 +456,15 @@ namespace engine::runtime
         // so a borrowed pointer is safe.
         gi.RunBinding().requestExit = core::Function<void(core::i32)>{
             [hostPtr = &host](core::i32 code) { hostPtr->RequestExit(code); }};
+
+        // run.setTimeScale(scale): scale the run's GAMEPLAY time by setting the instance's scene-GROUP
+        // time scale (SceneManager). 0 pauses the scene (behaviors + physics freeze); the Game script
+        // tier keeps ticking so it can resume. Scoped to the run's scenes - the context/editor is
+        // unaffected. Clamped to >= 0 (SceneManager also clamps).
+        gi.RunBinding().setTimeScale = core::Function<void(core::f32)>{
+            [instance](core::f32 scale) { instance->Scenes().SetTimeScale(scale < 0.0f ? 0.0f : scale); }};
+        gi.RunBinding().timeScale =
+            core::Function<core::f32()>{[instance]() -> core::f32 { return instance->Scenes().TimeScale(); }};
     }
 
     engine::physics::PhysicsSubsystem* DefaultApplication::Physics() const noexcept

@@ -838,6 +838,28 @@ TEST_CASE("game-instance: run.events().emit publishes on the run bus, round-trip
     gi.StopScript();
 }
 
+TEST_CASE("game-instance: run.setTimeScale routes from script to the run binding")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    f32 captured = -1.0f;
+    gi.RunBinding().setTimeScale = Function<void(f32)>{[&captured](f32 s) { captured = s; }};
+    const bool ok = gi.StartScript(u8"class Game {\n"
+                                   u8"  Game() {}\n"
+                                   u8"  void launch() { run::setTimeScale(0.5f); }\n" // pause/slow-mo API
+                                   u8"  void update(float dt) {}\n"
+                                   u8"  void exit() {}\n"
+                                   u8"}\n",
+                                   u8"game.as", Span<const String>{});
+    REQUIRE(ok);
+    CHECK(captured == doctest::Approx(0.5f)); // launch() -> run::setTimeScale -> binding (synchronous)
+    gi.StopScript();
+}
+
 TEST_CASE("game-instance: run.events():emit publishes on the run bus, round-tripping to on<Event> (Luau)")
 {
     RegisterCoreTypes();

@@ -76,6 +76,11 @@ export namespace engine::runtime
         core::Function<scene::Scene*()> currentScene;          // the instance's live scene (or null)
         core::Function<void(i32)> requestExit;                 // end the run (standalone stops the loop;
                                                                // the editor stops the Game tab's session)
+        core::Function<void(f32)> setTimeScale;                // set the run's scene-GROUP time scale
+                                                               // (0 = pause gameplay, 0.5 = slow-mo, 1 =
+                                                               // real time); the Game orchestrator keeps
+                                                               // running so it can resume.
+        core::Function<f32()> timeScale;                       // the run's current scene-group time scale
         // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
         // ruling). run.events() publishes here. The GameInstance fills it with &RunEvents().
         messaging::EventBus* runEvents = nullptr;
@@ -185,6 +190,26 @@ export namespace engine::runtime
         /// Arity-0 convenience: exit with code 0 (mirrors the C++ host default). Exposed as its own
         /// overload so `run::requestExit()` / `run.requestExit()` bind on both backends.
         static void requestExit() { requestExit(0); }
+
+        /// run.setTimeScale(scale): scale the run's GAMEPLAY time - 0 pauses the scene (behaviors +
+        /// physics freeze; the timer stops), 0.5 is slow-mo, 1 is real time. The general "pause" is
+        /// setTimeScale(0). It scales the run's scene GROUP, not the whole context, so the Game
+        /// orchestrator (this script tier) keeps running to resume, and the editor is unaffected.
+        /// Unwired -> a safe no-op.
+        static void setTimeScale(f32 scale)
+        {
+            RunScriptBinding* b = Resolve();
+            if (b != nullptr && b->setTimeScale)
+            {
+                b->setTimeScale(scale);
+            }
+        }
+        /// The run's current gameplay time scale (1 if unwired).
+        [[nodiscard]] static f32 timeScale()
+        {
+            RunScriptBinding* b = Resolve();
+            return (b != nullptr && b->timeScale) ? b->timeScale() : 1.0f;
+        }
     };
 
     // Registers the `Run` facade (bound to scripts as `run` via ScriptName) + its RunEvents handle type
