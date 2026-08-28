@@ -24,7 +24,9 @@ enum GameState
     MainMenu,
     Playing,
     Paused,
-    Settings
+    Settings,
+    LevelCleared,
+    LevelFailed
 }
 
 class Game
@@ -32,6 +34,10 @@ class Game
     GameState m_state = GameState::Booting;
     // Where "Back" returns from the Settings screen (Settings opens from both Main menu and Pause).
     GameState m_settingsReturn = GameState::MainMenu;
+
+    // ---- scoring (P1-6) ----
+    int m_score = 0;
+    int m_deliveries = 0;
 
     // ---- Game-tier lifecycle ----
     void launch()
@@ -79,7 +85,9 @@ class Game
 
     void enterPlaying()
     {
-        // Load the (empty) level and drop all menu screens so the scene shows through.
+        // Load the level and drop all menu screens so the scene shows through. Fresh score/quota.
+        m_score = 0;
+        m_deliveries = 0;
         run::loadScene(kPlayingLevel);
         ui::clear();
         m_state = GameState::Playing;
@@ -135,5 +143,44 @@ class Game
         {
             showMainMenu();
         }
+    }
+
+    // ---- run-bus inbox (P1-6): the Level relays these; the Game scores + ends the level ----
+    // A delivery landed (Level relays Subscriber's "Delivered" with the house's points).
+    void onDelivered(int points)
+    {
+        if (m_state != GameState::Playing)
+        {
+            return;
+        }
+        m_deliveries += 1;
+        m_score += points;
+        Log::info("Delivered"); // deliveries/score tracked in m_deliveries/m_score (HUD in P1-7)
+    }
+
+    // The delivery quota was met -> level cleared.
+    void onQuotaMet(int deliveries)
+    {
+        if (m_state != GameState::Playing)
+        {
+            return;
+        }
+        Log::info("Level CLEARED");
+        m_state = GameState::LevelCleared;
+        // P1-7 will push a level-cleared screen here; for now, back to the menu.
+        showMainMenu();
+    }
+
+    // The timer ran out -> level failed.
+    void onTimeUp(int unused)
+    {
+        if (m_state != GameState::Playing)
+        {
+            return;
+        }
+        Log::info("Time up - level FAILED");
+        m_state = GameState::LevelFailed;
+        // P1-7 will push a level-failed screen here; for now, back to the menu.
+        showMainMenu();
     }
 }
