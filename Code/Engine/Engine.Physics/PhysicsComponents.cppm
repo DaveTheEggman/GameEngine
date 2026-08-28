@@ -55,6 +55,10 @@ export namespace engine::physics
 
         // Runtime (transient):
         BodyId body;
+        // An impulse applied to this body BEFORE its Jolt body existed (a script that spawns a prefab
+        // and launches it the same frame - e.g. a thrown paper). Accumulated by ScenePhysics.applyImpulse
+        // when `body` is invalid, then flushed once in CreateBodyForEntity. Runtime only, never serialized.
+        Float3 pendingImpulse{0, 0, 0};
         // Entity-active latch (entity-active-state.md P3): the effective-active state this
         // domain last reconciled against. Runtime only, never serialized.
         bool simActive = false;

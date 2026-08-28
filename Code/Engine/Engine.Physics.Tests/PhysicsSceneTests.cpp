@@ -552,6 +552,26 @@ TEST_CASE("physics.scene: ScenePhysics.overlapSphere returns the FULL set as Arr
     CHECK(ScenePhysics{nullptr}.overlapSphere(0.0f, 0.0f, 0.0f, 8.0f, ~0).Size() == 0);
 }
 
+TEST_CASE("physics.scene: applyImpulse before the body exists is queued + flushed at body creation")
+{
+    PlayScene play;
+    (void)play.AddFloor();
+    play.Start(); // world + floor body exist (the running-game state)
+    // A body added AFTER start builds on the next assembly (Step) - like a prefab spawned mid-play.
+    const scene::EntityHandle box = play.AddBox(5.0f);
+    play.scene.UpdateTransforms();
+    // Launch it +Z now: the world exists but this body is NOT built yet, so the impulse queues on the
+    // component (PaperKid's spawn-a-paper-and-throw-it-the-same-frame case). Without the queue the
+    // impulse was silently dropped and the object just fell.
+    ScenePhysics physics{&play.scene};
+    physics.applyImpulse(foundation::script::WrapEntity(&play.scene, box), 0.0f, 0.0f, 5000.0f);
+    play.Step(1); // assembly builds the body + flushes the queued impulse
+    auto* bodies = play.scene.GetSystem<RigidBodyComponentManager>();
+    REQUIRE(bodies->Get(box) != nullptr);
+    REQUIRE(bodies->Get(box)->body.IsValid());
+    CHECK(play.physics->World()->LinearVelocity(bodies->Get(box)->body).z > 0.0f); // the impulse landed
+}
+
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")
 {
     RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name

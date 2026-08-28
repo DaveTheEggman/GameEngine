@@ -845,6 +845,15 @@ export namespace engine::physics
                     c.body = m_world->CreateBody(desc);
                     c.prevPosition = c.currPosition = position;
                     c.prevRotation = c.currRotation = rotation;
+                    // Flush an impulse queued before the body existed (spawn-then-launch, e.g. a
+                    // thrown paper): applyImpulse accumulated it on the component; apply it now once.
+                    if (c.body.IsValid() &&
+                        (c.pendingImpulse.x != 0.0f || c.pendingImpulse.y != 0.0f ||
+                         c.pendingImpulse.z != 0.0f))
+                    {
+                        m_world->AddImpulse(c.body, c.pendingImpulse);
+                        c.pendingImpulse = Float3{0, 0, 0};
+                    }
                     if (!c.body.IsValid())
                     {
                         LOG_WARNING(u8"Physics", u8"body creation failed for '{}'",
@@ -1265,11 +1274,23 @@ export namespace engine::physics
             {
                 return;
             }
-            RigidBodyComponentManager* bodies = scene->GetSystem<RigidBodyComponentManager>();
-            RigidBodyComponent* body = (bodies != nullptr) ? bodies->Get(entity.Handle()) : nullptr;
-            if (body != nullptr)
+            RigidBodyComponent* body = (scene->GetSystem<RigidBodyComponentManager>() != nullptr)
+                                           ? scene->GetSystem<RigidBodyComponentManager>()->Get(
+                                                 entity.Handle())
+                                           : nullptr;
+            if (body == nullptr)
+            {
+                return;
+            }
+            if (body->body.IsValid())
             {
                 world->AddImpulse(body->body, Float3{x, y, z});
+            }
+            else
+            {
+                // Body not created yet (a prefab spawned + launched THIS frame): queue the impulse on
+                // the component; CreateBodyForEntity applies it when the Jolt body is made next assembly.
+                body->pendingImpulse += Float3{x, y, z};
             }
         }
 
