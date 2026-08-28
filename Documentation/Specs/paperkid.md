@@ -1,12 +1,19 @@
 # PaperKid - a small game (design + build plan)
 
-> Status: **P0 DONE + PLAYABLE IN-EDITOR** (2026-08-22). The scripted screen-flow backbone runs end to
-> end in a GameEditorPage tab, behaving like the standalone runtime; several engine seams were built to
-> get there (see "Current state" below). NEXT UP: P1 (the ride + deliver loop). Prereqs done + project
-> skeleton committed 2026-08-19; six gameplay decisions locked. A vertical-slice game to exercise the
+> Status: **P1 DONE + PLAYABLE IN-EDITOR** (2026-08-28). One block is fully playable start to finish:
+> ride the bike (third-person follow cam), throw papers with soft auto-aim, deliver to subscriber houses
+> up to a quota under a countdown, and see the correct Cleared / Failed screen - all in a GameEditorPage
+> tab behaving like the standalone runtime. NEXT UP: P2 (obstacles + crash - nav-agent pedestrians +
+> vehicles, static junk, crash-on-contact, difficulty knobs). A vertical-slice game to exercise the
 > game-ready runtime end to end, built as the tracked, committed EDITOR SAMPLE PROJECT (authored
 > in-editor - it dogfoods the whole authoring stack; absorbs the week-2026-08-22 "editor sample project"
 > seed).
+>
+> P1 shipped a few engine pieces beyond the sample: Level-tier `[metadata]` script properties (real
+> inspector props, not runtime fallbacks); the game-UI cook validating `<screen>` roots + the
+> `ui::find*` stale-screenRoot fix; the `DebugDraw.of(scene)` script facade (used for the auto-aim arc
+> preview); and the AngelScript reflected-call arg cap raised 8 -> 16 (a 9-arg facade method used to
+> silently no-op). See [[game-ui-kit-track]] / [[scene-scripting-tier]] / [[debug-draw]].
 > Locked decisions (2026-08-13): third-person 3D follow camera; FREE-ROAM a town block; PRIMITIVE
 > blockout art. Author: Opus, from a design exchange. Opus builds; Fable reviews per phase.
 >
@@ -265,10 +272,12 @@ These were NOT pre-existing - PaperKid P0 drove them out. A fresh session buildi
 
 - **P0 - DONE.** Skeleton + screen flow: PaperKidGame state machine + Main/Pause/Settings screens; boot
   -> menu -> New Game (loads + renders MainScene) -> Pause/Resume/Quit; Settings round-trips. No gameplay.
-- **P1 - The ride + deliver loop (one block).** Bike control + third-person camera; one authored block
-  with marked subscriber houses + delivery zones; throw + soft auto-aim + delivery scoring; timer +
-  quota; real Level Cleared / Level Failed transitions. Core loop playable on one level.
-- **P2 - Obstacles + crash.** Vehicles + pedestrians as nav agents, static junk, collision -> crash
+- **P1 - DONE (2026-08-28).** The ride + deliver loop (one block): bike control + third-person camera; one
+  authored block with marked subscriber houses + delivery zones; throw + soft auto-aim + delivery scoring;
+  timer + quota; real Level Cleared / Level Failed transitions. Shipped BEYOND the plan: an overlay HUD
+  (timer / deliveries / papers), an out-of-papers fail (with in-flight grace), and a DebugDraw auto-aim
+  arc preview. Core loop playable on one level.
+- **P2 - NEXT. Obstacles + crash.** Vehicles + pedestrians as nav agents, static junk, collision -> crash
   effect, limited papers, the level-data difficulty knobs. The loop gains its challenge.
 - **P3 - Progression + full screens + settings.** Level list + advance, lives + Game Over, real
   Loading screen, finished Cleared/Failed/GameOver + Settings (audio volumes + input rebind).
@@ -286,6 +295,12 @@ build/gcc before committing. [[tests-required-for-additions]] [[dev-build-config
 
 Goal: one hand-authored block is fully playable - ride, find marked subscriber houses, throw papers,
 score deliveries, meet a quota before a timer, and hit real Cleared/Failed screens.
+
+> **STATUS: P1 COMPLETE (2026-08-28).** All of P1-1..P1-7 shipped (block authored; Bike control +
+> FollowCamera; Subscriber houses/zones; throw + soft auto-aim; Level tier + Game scoring; HUD +
+> Cleared/Failed screens). PLUS beyond-plan extras: an overlay HUD (`hud.sml`, timer/deliveries/papers),
+> an out-of-papers fail with an in-flight grace window, and a `DebugDraw.of(scene)` auto-aim arc preview.
+> The per-item notes below are kept as the build record.
 
 **P1-1 Author the block scene (MainScene). [AUTHORING - in-editor]** In the scene editor, build one
 50x50 block (a ground `Plane`, four `Cube` perimeter walls, one central `Cube` building to lap), a real
@@ -360,8 +375,8 @@ papers, deliveries x/quota, score. Drive its labels from script via reflected Vi
 Continue / Retry / Quit button each) and wire them like the P0 screens. Verify: HUD updates live; the
 end screens appear on the right transition. [[game-ui-subsystem]] [[game-ui-p1-progress]]
 
-**P1 acceptance:** one level is fully playable start to finish - ride, deliver to quota under a timer,
-see the correct Cleared/Failed screen. Camera + throw feel is rough (juice is P4).
+**P1 acceptance: MET (2026-08-28).** One level is fully playable start to finish - ride, deliver to quota
+under a timer, see the correct Cleared/Failed screen. Camera + throw feel is rough (juice is P4).
 
 ### P2 - Obstacles + crash
 
