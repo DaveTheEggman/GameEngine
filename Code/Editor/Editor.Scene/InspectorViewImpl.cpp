@@ -548,6 +548,10 @@ namespace editor
                 {
                     BuildCollisionMatrixRow(type, category);
                 }
+                if (type == &TypeOf<engine::script::SceneScriptSettings>())
+                {
+                    BuildSceneScriptPropertyRows(type, category); // the Level's [metadata] rows
+                }
             });
     }
 
@@ -581,7 +585,10 @@ namespace editor
         {
             MemoryStream buffer;
             BinarySerializer writer(buffer, SerializeMode::Write);
+            // Version-wrapped to match SetSceneSettingsBlockCommand's read (Version()-gated fields).
+            foundation::core::BeginVersionedPayload(writer, *type);
             engine::physics::SerializePhysicsSceneSettings(writer, copy);
+            foundation::core::EndVersionedPayload(writer);
             Array<byte> blob;
             const Span<const byte> bytes = buffer.Bytes();
             blob.Reserve(bytes.Size());
@@ -2065,46 +2072,62 @@ namespace editor
         }
         for (const foundation::script::ScriptPropertyDesc& property : scriptClass->properties)
         {
-            BuildScriptPropertyRow(id, category, index, property);
+            const u64 hash = property.hash;
+            using engine::script::ScriptComponent;
+            using foundation::script::ScriptPropertyValue;
+            auto access = MakeRef<ScriptPropertyAccess>(DefaultAllocator());
+            // The effective value re-resolves the component each call (pools move on edit).
+            access->effective = [self, id, index, hash, property]() -> ScriptPropertyValue
+            {
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+                ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                if (c != nullptr && index < c->behaviors.Size())
+                {
+                    if (const auto* over = c->behaviors[index].FindOverride(hash))
+                    {
+                        return over->value;
+                    }
+                }
+                return property.defaultValue;
+            };
+            access->setOverride = [self, id, index, hash](const ScriptPropertyValue& value)
+            {
+                self->MutateScriptComponent(id,
+                                            [index, hash, value](ScriptComponent& c)
+                                            {
+                                                if (index < c.behaviors.Size())
+                                                {
+                                                    c.behaviors[index].SetOverride(hash, value);
+                                                }
+                                            });
+            };
+            access->removeOverride = [self, id, index, hash]()
+            {
+                self->MutateScriptComponent(id,
+                                            [index, hash](ScriptComponent& c)
+                                            {
+                                                if (index < c.behaviors.Size())
+                                                {
+                                                    c.behaviors[index].RemoveOverride(hash);
+                                                }
+                                            });
+            };
+            BuildScriptPropertyRow(category, property, access);
         }
     }
 
     void
-    SceneInspectorView::BuildScriptPropertyRow(const Guid& id, StringView category, usize index,
-                                               const foundation::script::ScriptPropertyDesc& property)
+    SceneInspectorView::BuildScriptPropertyRow(StringView category,
+                                               const foundation::script::ScriptPropertyDesc& property,
+                                               const RefPtr<ScriptPropertyAccess>& access)
     {
-        SceneInspectorView* self = this;
-        const u64 hash = property.hash;
-        using engine::script::ScriptComponent;
         using foundation::script::ScriptPropertyType;
         using foundation::script::ScriptPropertyValue;
 
-        // The effective value = override if present, else the harvested default.
-        auto effective = [self, id, index, hash, property]() -> ScriptPropertyValue
-        {
-            const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
-            ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-            if (c != nullptr && index < c->behaviors.Size())
-            {
-                if (const auto* over = c->behaviors[index].FindOverride(hash))
-                {
-                    return over->value;
-                }
-            }
-            return property.defaultValue;
-        };
-        auto setOverride = [self, id, index, hash](const ScriptPropertyValue& value)
-        {
-            self->MutateScriptComponent(id,
-                                        [index, hash, value](ScriptComponent& c)
-                                        {
-                                            if (index < c.behaviors.Size())
-                                            {
-                                                c.behaviors[index].SetOverride(hash, value);
-                                            }
-                                        });
-        };
+        // The access holder is shared (by RefPtr copy) into every editor + refresh closure, so the
+        // move-only read/write hooks outlive this call: access->effective() reads, ->setOverride writes.
         const StringView name = property.name.AsView();
 
         switch (property.type)
@@ -2112,13 +2135,13 @@ namespace editor
         case ScriptPropertyType::Float:
         {
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), name, effective().number, -1e9, 1e9, 0.1, 3,
-                Function<void(f64)>{[setOverride](f64 v)
+                DefaultAllocator(), name, access->effective().number, -1e9, 1e9, 0.1, 3,
+                Function<void(f64)>{[access](f64 v)
                                     {
                                         ScriptPropertyValue value;
                                         value.kind = ScriptPropertyType::Float;
                                         value.number = v;
-                                        setOverride(value);
+                                        access->setOverride(value);
                                     }},
                 category);
             if (!property.description.IsEmpty())
@@ -2126,40 +2149,40 @@ namespace editor
                 editor->SetTooltip(property.description.AsView());
             }
             AddEditor(editor.Get(),
-                      [effective, raw = editor.Get()]() { raw->SetValue(effective().number); });
+                      [access, raw = editor.Get()]() { raw->SetValue(access->effective().number); });
             break;
         }
         case ScriptPropertyType::Int:
         {
             auto editor = MakeRef<ui::toolkit::IntEditor>(
-                DefaultAllocator(), name, static_cast<i64>(effective().number),
+                DefaultAllocator(), name, static_cast<i64>(access->effective().number),
                 std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
-                Function<void(i64)>{[setOverride](i64 v)
+                Function<void(i64)>{[access](i64 v)
                                     {
                                         ScriptPropertyValue value;
                                         value.kind = ScriptPropertyType::Int;
                                         value.number = static_cast<f64>(v);
-                                        setOverride(value);
+                                        access->setOverride(value);
                                     }},
                 category);
             if (!property.description.IsEmpty())
             {
                 editor->SetTooltip(property.description.AsView());
             }
-            AddEditor(editor.Get(), [effective, raw = editor.Get()]()
-                      { raw->SetValue(static_cast<i64>(effective().number)); });
+            AddEditor(editor.Get(), [access, raw = editor.Get()]()
+                      { raw->SetValue(static_cast<i64>(access->effective().number)); });
             break;
         }
         case ScriptPropertyType::Bool:
         {
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), name, effective().boolean,
-                Function<void(bool)>{[setOverride](bool v)
+                DefaultAllocator(), name, access->effective().boolean,
+                Function<void(bool)>{[access](bool v)
                                      {
                                          ScriptPropertyValue value;
                                          value.kind = ScriptPropertyType::Bool;
                                          value.boolean = v;
-                                         setOverride(value);
+                                         access->setOverride(value);
                                      }},
                 category);
             if (!property.description.IsEmpty())
@@ -2167,39 +2190,39 @@ namespace editor
                 editor->SetTooltip(property.description.AsView());
             }
             AddEditor(editor.Get(),
-                      [effective, raw = editor.Get()]() { raw->SetValue(effective().boolean); });
+                      [access, raw = editor.Get()]() { raw->SetValue(access->effective().boolean); });
             break;
         }
         case ScriptPropertyType::String:
         {
             auto editor = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), name, effective().text.AsView(),
-                Function<void(StringView)>{[setOverride](StringView v)
+                DefaultAllocator(), name, access->effective().text.AsView(),
+                Function<void(StringView)>{[access](StringView v)
                                            {
                                                ScriptPropertyValue value;
                                                value.kind = ScriptPropertyType::String;
                                                value.text = String(v);
-                                               setOverride(value);
+                                               access->setOverride(value);
                                            }},
                 category);
             if (!property.description.IsEmpty())
             {
                 editor->SetTooltip(property.description.AsView());
             }
-            AddEditor(editor.Get(), [effective, raw = editor.Get()]()
-                      { raw->SetValue(effective().text.AsView()); });
+            AddEditor(editor.Get(), [access, raw = editor.Get()]()
+                      { raw->SetValue(access->effective().text.AsView()); });
             break;
         }
         case ScriptPropertyType::Color:
         {
             auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                DefaultAllocator(), name, effective().color,
-                Function<void(Color)>{[setOverride](Color v)
+                DefaultAllocator(), name, access->effective().color,
+                Function<void(Color)>{[access](Color v)
                                       {
                                           ScriptPropertyValue value;
                                           value.kind = ScriptPropertyType::Color;
                                           value.color = v;
-                                          setOverride(value);
+                                          access->setOverride(value);
                                       }},
                 category);
             if (!property.description.IsEmpty())
@@ -2207,19 +2230,19 @@ namespace editor
                 editor->SetTooltip(property.description.AsView());
             }
             AddEditor(editor.Get(),
-                      [effective, raw = editor.Get()]() { raw->SetValue(effective().color); });
+                      [access, raw = editor.Get()]() { raw->SetValue(access->effective().color); });
             break;
         }
         case ScriptPropertyType::Vec3:
         {
             auto editor = MakeRef<ui::toolkit::Float3Editor>(
-                DefaultAllocator(), name, effective().vector, -1e9f, 1e9f, 0.1f,
-                Function<void(Float3)>{[setOverride](Float3 v)
+                DefaultAllocator(), name, access->effective().vector, -1e9f, 1e9f, 0.1f,
+                Function<void(Float3)>{[access](Float3 v)
                                        {
                                            ScriptPropertyValue value;
                                            value.kind = ScriptPropertyType::Vec3;
                                            value.vector = v;
-                                           setOverride(value);
+                                           access->setOverride(value);
                                        }},
                 category);
             if (!property.description.IsEmpty())
@@ -2227,17 +2250,17 @@ namespace editor
                 editor->SetTooltip(property.description.AsView());
             }
             AddEditor(editor.Get(),
-                      [effective, raw = editor.Get()]() { raw->SetValue(effective().vector); });
+                      [access, raw = editor.Get()]() { raw->SetValue(access->effective().vector); });
             break;
         }
         case ScriptPropertyType::Entity:
         {
-            BuildScriptEntityPropertyRow(id, category, index, property);
+            BuildScriptEntityPropertyRow(category, property, access);
             break;
         }
         case ScriptPropertyType::Asset:
         {
-            BuildScriptAssetPropertyRow(id, category, index, property);
+            BuildScriptAssetPropertyRow(category, property, access);
             break;
         }
         case ScriptPropertyType::None:
@@ -2247,29 +2270,14 @@ namespace editor
     }
 
     void SceneInspectorView::BuildScriptEntityPropertyRow(
-        const Guid& id, StringView category, usize index,
-        const foundation::script::ScriptPropertyDesc& property)
+        StringView category, const foundation::script::ScriptPropertyDesc& property,
+        const RefPtr<ScriptPropertyAccess>& access)
     {
-        using engine::script::ScriptComponent;
         using foundation::script::ScriptPropertyType;
         using foundation::script::ScriptPropertyValue;
         SceneInspectorView* self = this;
-        const u64 hash = property.hash;
 
-        auto currentTarget = [self, id, index, hash]() -> Guid
-        {
-            const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
-            ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-            if (c != nullptr && index < c->behaviors.Size())
-            {
-                if (const auto* over = c->behaviors[index].FindOverride(hash))
-                {
-                    return over->value.guid;
-                }
-            }
-            return Guid{};
-        };
+        auto currentTarget = [access]() -> Guid { return access->effective().guid; };
         auto nameOf = [self](const Guid& target) -> StringView
         {
             if (target.IsNil())
@@ -2288,50 +2296,28 @@ namespace editor
         {
             raw->SetTooltip(property.description.AsView());
         }
-        raw->OnPick = [self, id, index, hash]()
+        raw->OnPick = [self, access]()
         {
             if (self->Context == nullptr)
             {
                 return;
             }
             auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
-            menu->AddItem(StringView(u8"(none)"),
-                          [self, id, index, hash]()
-                          {
-                              self->MutateScriptComponent(
-                                  id,
-                                  [index, hash](engine::script::ScriptComponent& c)
-                                  {
-                                      if (index < c.behaviors.Size())
-                                      {
-                                          c.behaviors[index].RemoveOverride(hash);
-                                      }
-                                  });
-                          });
+            menu->AddItem(StringView(u8"(none)"), [access]() { access->removeOverride(); });
             menu->AddSeparator();
             self->m_edit->Scene().ForEachEntity(
-                [self, id, index, hash, &menu](scene::EntityHandle handle)
+                [self, access, &menu](scene::EntityHandle handle)
                 {
                     const Guid target = self->m_edit->Scene().GetEntityId(handle);
                     String label(self->m_edit->Scene().GetEntityName(handle));
-                    menu->AddItem(
-                        label.AsView(),
-                        [self, id, index, hash, target]()
-                        {
-                            self->MutateScriptComponent(
-                                id,
-                                [index, hash, target](engine::script::ScriptComponent& c)
-                                {
-                                    if (index >= c.behaviors.Size())
-                                    {
-                                        return;
-                                    }
-                                    ScriptPropertyValue value;
-                                    value.kind = ScriptPropertyType::Entity;
-                                    value.guid = target;
-                                    c.behaviors[index].SetOverride(hash, value);
-                                });
-                        });
+                    menu->AddItem(label.AsView(),
+                                  [access, target]()
+                                  {
+                                      ScriptPropertyValue value;
+                                      value.kind = ScriptPropertyType::Entity;
+                                      value.guid = target;
+                                      access->setOverride(value);
+                                  });
                 });
             const Float2 pos = self->m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
             menu->Show(self->Context, pos.x, pos.y);
@@ -2403,30 +2389,15 @@ namespace editor
     }
 
     void SceneInspectorView::BuildScriptAssetPropertyRow(
-        const Guid& id, StringView category, usize index,
-        const foundation::script::ScriptPropertyDesc& property)
+        StringView category, const foundation::script::ScriptPropertyDesc& property,
+        const RefPtr<ScriptPropertyAccess>& access)
     {
-        using engine::script::ScriptComponent;
         using foundation::script::ScriptPropertyType;
         using foundation::script::ScriptPropertyValue;
         SceneInspectorView* self = this;
-        const u64 hash = property.hash;
         const String assetType = property.assetType.IsEmpty() ? String(u8"") : property.assetType;
 
-        auto currentTarget = [self, id, index, hash]() -> Guid
-        {
-            const scene::EntityHandle live = self->m_edit->Resolve(id);
-            auto* mgr = self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
-            ScriptComponent* c = (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-            if (c != nullptr && index < c->behaviors.Size())
-            {
-                if (const auto* over = c->behaviors[index].FindOverride(hash))
-                {
-                    return over->value.guid;
-                }
-            }
-            return Guid{};
-        };
+        auto currentTarget = [access]() -> Guid { return access->effective().guid; };
 
         auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), property.name.AsView(),
                                                  AssetNameFor(currentTarget()), category);
@@ -2435,7 +2406,7 @@ namespace editor
         {
             raw->SetTooltip(property.description.AsView());
         }
-        raw->OnPick = [self, id, index, hash, assetType]()
+        raw->OnPick = [self, access, assetType]()
         {
             if (self->Context == nullptr || self->m_editor->Project() == nullptr)
             {
@@ -2448,26 +2419,107 @@ namespace editor
             typeNames.PushBack(Move(assetTypeName));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 DefaultAllocator(), *self->m_editor, Move(typeNames));
-            dialog->OnPicked = [self, id, index, hash](const Guid& picked)
+            dialog->OnPicked = [access](const Guid& picked)
             {
-                self->MutateScriptComponent(
-                    id,
-                    [index, hash, picked](engine::script::ScriptComponent& c)
-                    {
-                        if (index >= c.behaviors.Size())
-                        {
-                            return;
-                        }
-                        ScriptPropertyValue value;
-                        value.kind = ScriptPropertyType::Asset;
-                        value.guid = picked;
-                        c.behaviors[index].SetOverride(hash, value);
-                    });
+                ScriptPropertyValue value;
+                value.kind = ScriptPropertyType::Asset;
+                value.guid = picked;
+                access->setOverride(value);
             };
             dialog->Show(self->Context);
         };
         AddEditor(raw, [self, currentTarget, raw]()
                   { raw->SetValueText(self->AssetNameFor(currentTarget())); });
+    }
+
+    void SceneInspectorView::BuildSceneScriptPropertyRows(const TypeInfo* settingsType,
+                                                          StringView category)
+    {
+        using engine::script::SceneScriptSettings;
+        using foundation::script::ScriptPropertyValue;
+        SceneEditContext* edit = m_edit;
+        scene::SceneSystem* system = edit->FindSystemBySettingsType(settingsType);
+        if (system == nullptr)
+        {
+            return;
+        }
+        auto* live = static_cast<SceneScriptSettings*>(system->SettingsInstance());
+
+        // The bound Level class carries the harvested [metadata] properties. Bind through the
+        // editor's resource manager if the Ref has not resolved yet (mirrors BehaviorClass).
+        foundation::script::ScriptClass* scriptClass = live->script.Get();
+        if (scriptClass == nullptr && !live->script.id.IsNil() && m_editor->Resources() != nullptr)
+        {
+            scriptClass =
+                m_editor->Resources()->Bind<foundation::script::ScriptClass>(live->script.id).Get();
+        }
+        if (scriptClass == nullptr)
+        {
+            return; // no Level bound (or not yet cooked) - nothing to author
+        }
+
+        // Commit an edited copy of the settings as a version-wrapped blob (one undo step), the
+        // same shape SetSceneSettingsBlockCommand reads back.
+        auto commit = [edit, settingsType](SceneScriptSettings copy)
+        {
+            MemoryStream buffer;
+            BinarySerializer writer(buffer, SerializeMode::Write);
+            foundation::core::BeginVersionedPayload(writer, *settingsType);
+            engine::script::SerializeSceneScriptSettings(writer, copy);
+            foundation::core::EndVersionedPayload(writer);
+            Array<byte> blob;
+            const Span<const byte> bytes = buffer.Bytes();
+            blob.Reserve(bytes.Size());
+            for (byte b : bytes)
+            {
+                blob.PushBack(b);
+            }
+            (void)edit->ApplySceneSettingsBlock(settingsType, Move(blob));
+        };
+
+        for (const foundation::script::ScriptPropertyDesc& property : scriptClass->properties)
+        {
+            const u64 hash = property.hash;
+            auto access = MakeRef<ScriptPropertyAccess>(DefaultAllocator());
+            // Re-resolve the live settings each call (the settings block is replaced wholesale on
+            // every edit, so a captured pointer would dangle).
+            access->effective = [edit, settingsType, hash, property]() -> ScriptPropertyValue
+            {
+                scene::SceneSystem* s = edit->FindSystemBySettingsType(settingsType);
+                if (s != nullptr)
+                {
+                    auto* now = static_cast<SceneScriptSettings*>(s->SettingsInstance());
+                    if (const auto* over = now->FindOverride(hash))
+                    {
+                        return over->value;
+                    }
+                }
+                return property.defaultValue;
+            };
+            access->setOverride = [edit, settingsType, commit, hash](const ScriptPropertyValue& value)
+            {
+                scene::SceneSystem* s = edit->FindSystemBySettingsType(settingsType);
+                if (s == nullptr)
+                {
+                    return;
+                }
+                SceneScriptSettings copy = *static_cast<SceneScriptSettings*>(s->SettingsInstance());
+                copy.SetOverride(hash, value);
+                commit(Move(copy));
+            };
+            access->removeOverride = [edit, settingsType, commit, hash]()
+            {
+                scene::SceneSystem* s = edit->FindSystemBySettingsType(settingsType);
+                if (s == nullptr)
+                {
+                    return;
+                }
+                SceneScriptSettings copy = *static_cast<SceneScriptSettings*>(s->SettingsInstance());
+                copy.RemoveOverride(hash);
+                commit(Move(copy));
+            };
+            BuildScriptPropertyRow(category, property, access);
+        }
     }
 
     StringView SceneInspectorView::AssetNameFor(const Guid& target)

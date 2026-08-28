@@ -56,7 +56,7 @@ namespace engine::script
     {
         builder.Attribute("displayName", String(u8"Scene Script"))
             .Attribute("category", String(u8"Scripting"))
-            .DataVersion(1)
+            .DataVersion(2) // v2: hash-keyed Level property overrides
             .Property<&SceneScriptSettings::script>("script")
             .PropAttribute("displayName", String(u8"Level Script"))
             .PropAttribute("description",

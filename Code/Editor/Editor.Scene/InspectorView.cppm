@@ -545,18 +545,37 @@ export namespace editor
 
         void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index);
 
-        void BuildScriptPropertyRow(const Guid& id, StringView category, usize index,
-                                    const foundation::script::ScriptPropertyDesc& property);
+        // A property row's read/write hooks, so ONE set of row builders serves both the entity
+        // behavior tier (override lives on a ScriptComponent behavior) and the scene-script/Level
+        // tier (override lives on the scene's SceneScriptSettings). `effective` returns the current
+        // value (override or harvested default); `setOverride`/`removeOverride` are undoable writes.
+        // Ref-counted so the (move-only Function) hooks can be shared into multiple editor closures.
+        struct ScriptPropertyAccess : public RefCounted
+        {
+            Function<foundation::script::ScriptPropertyValue()> effective;
+            Function<void(const foundation::script::ScriptPropertyValue&)> setOverride;
+            Function<void()> removeOverride;
+        };
+
+        void BuildScriptPropertyRow(StringView category,
+                                    const foundation::script::ScriptPropertyDesc& property,
+                                    const RefPtr<ScriptPropertyAccess>& access);
 
         // Entity-typed property: a picker over the CURRENT scene's entities (a menu of
         // names; the override stores the target's guid).
-        void BuildScriptEntityPropertyRow(const Guid& id, StringView category, usize index,
-                                          const foundation::script::ScriptPropertyDesc& property);
+        void BuildScriptEntityPropertyRow(StringView category,
+                                          const foundation::script::ScriptPropertyDesc& property,
+                                          const RefPtr<ScriptPropertyAccess>& access);
 
         // Asset-typed property (asset:<TypeName>): an AssetPickerDialog over that
         // asset type; the override stores the picked guid.
-        void BuildScriptAssetPropertyRow(const Guid& id, StringView category, usize index,
-                                         const foundation::script::ScriptPropertyDesc& property);
+        void BuildScriptAssetPropertyRow(StringView category,
+                                         const foundation::script::ScriptPropertyDesc& property,
+                                         const RefPtr<ScriptPropertyAccess>& access);
+
+        // The Level tier's property rows: harvested metadata of the scene's bound Level class,
+        // edited as overrides on the scene's SceneScriptSettings (committed as a settings blob).
+        void BuildSceneScriptPropertyRows(const TypeInfo* settingsType, StringView category);
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target);
 

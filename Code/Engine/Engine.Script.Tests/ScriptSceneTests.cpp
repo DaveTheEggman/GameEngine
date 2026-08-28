@@ -2757,6 +2757,96 @@ TEST_CASE("script.scene: a Level runs onStart/onUpdate/onStop through its bound 
     CHECK_FALSE(level->LevelActive());
 }
 
+TEST_CASE("script.scene: a Level's harvested property default is applied before onStart")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+    const scene::EntityHandle probe = bed.scene.CreateEntity(u8"probe");
+
+    // The Level reads its declared `timeLimit` in onStart and stamps it into a bound-scene entity,
+    // so the test can read back the applied value. No override -> the harvested default (90) applies.
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    private Scene@ scene;\n"
+                  u8"    float timeLimit;\n"
+                  u8"    Level(Scene@ s) { @scene = s; }\n"
+                  u8"    void onStart() { scene.find(\"probe\").setPosition(timeLimit, 0.0f, 0.0f); }\n"
+                  u8"}\n",
+                  {u8"onStart"}, {FloatProperty(u8"timeLimit", 90.0)});
+    level->Settings().script = levelClass;
+
+    bed.Start(); // construct + apply timeLimit=90 (default) + onStart
+    CHECK(level->LevelActive());
+    CHECK(Near(bed.scene.GetLocalTransform(probe).position.x, 90.0f)); // default reached the field
+}
+
+TEST_CASE("script.scene: a Level's hash-keyed property override wins over the harvested default")
+{
+    ScriptedScene bed;
+    SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
+    level->SetRunHost(&bed.host);
+    const scene::EntityHandle probe = bed.scene.CreateEntity(u8"probe");
+
+    RefPtr<ScriptClass> levelClass =
+        MakeClass(u8"Level",
+                  u8"class Level {\n"
+                  u8"    private Scene@ scene;\n"
+                  u8"    float timeLimit;\n"
+                  u8"    Level(Scene@ s) { @scene = s; }\n"
+                  u8"    void onStart() { scene.find(\"probe\").setPosition(timeLimit, 0.0f, 0.0f); }\n"
+                  u8"}\n",
+                  {u8"onStart"}, {FloatProperty(u8"timeLimit", 90.0)});
+    level->Settings().script = levelClass;
+
+    // The scene-settings override (the inspector-authored value) must win over the class default.
+    ScriptPropertyValue five;
+    five.kind = ScriptPropertyType::Float;
+    five.number = 5.0;
+    level->Settings().SetOverride(ScriptPropertyNameHash(u8"timeLimit"), five);
+
+    bed.Start();
+    CHECK(Near(bed.scene.GetLocalTransform(probe).position.x, 5.0f)); // override reached the field
+}
+
+TEST_CASE("script.scene: SceneScriptSettings overrides round-trip through a v2 versioned payload")
+{
+    // The exact machinery the editor's settings-block command and the scene-file path use:
+    // BeginVersionedPayload(TypeOf<SceneScriptSettings>) writes the v2 chain, the Serialize body's
+    // `ar.Version() >= 2` gate lets the overrides through, and the read reconstructs them.
+    RegisterScriptComponentReflection(); // patches DataVersion(2) onto the TypeInfo
+
+    SceneScriptSettings out;
+    out.enabled = true;
+    ScriptPropertyValue value;
+    value.kind = ScriptPropertyType::Float;
+    value.number = 42.0;
+    out.SetOverride(ScriptPropertyNameHash(u8"timeLimit"), value);
+
+    MemoryStream buffer;
+    {
+        BinarySerializer w(buffer, SerializeMode::Write);
+        BeginVersionedPayload(w, TypeOf<SceneScriptSettings>());
+        SerializeSceneScriptSettings(w, out);
+        EndVersionedPayload(w);
+        REQUIRE(w.IsOk());
+    }
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    SceneScriptSettings in;
+    {
+        BinarySerializer r(buffer, SerializeMode::Read);
+        BeginVersionedPayload(r, TypeOf<SceneScriptSettings>());
+        SerializeSceneScriptSettings(r, in);
+        EndVersionedPayload(r);
+        REQUIRE(r.IsOk());
+    }
+    const ScriptPropertyOverride* over = in.FindOverride(ScriptPropertyNameHash(u8"timeLimit"));
+    REQUIRE(over != nullptr);
+    CHECK(over->value.number == doctest::Approx(42.0));
+    CHECK(in.enabled);
+}
+
 TEST_CASE("script.scene: a Level receives onFixedUpdate on the fixed lane")
 {
     ScriptedScene bed;

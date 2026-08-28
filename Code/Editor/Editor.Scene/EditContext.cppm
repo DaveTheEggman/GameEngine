@@ -1301,7 +1301,7 @@ export namespace editor
                 {
                     MemoryStream buffer;
                     BinarySerializer writer(buffer, SerializeMode::Write);
-                    system->SerializeSettings(writer);
+                    WriteSettings(*system, writer);
                     const Span<const byte> bytes = buffer.Bytes();
                     m_old.Reserve(bytes.Size());
                     for (byte b : bytes)
@@ -1325,6 +1325,21 @@ export namespace editor
             }
 
         private:
+            // Settings blobs carry the type's data-version chain (like the scene-file settings
+            // path), so a SerializeSettings body that gates a field on ar.Version() round-trips
+            // through undo/redo. A settings-less system (no SettingsType) falls back to raw.
+            static void WriteSettings(scene::SceneSystem& system, ISerializer& ar)
+            {
+                const TypeInfo* type = system.SettingsType();
+                if (type == nullptr)
+                {
+                    system.SerializeSettings(ar);
+                    return;
+                }
+                foundation::core::BeginVersionedPayload(ar, *type);
+                system.SerializeSettings(ar);
+                foundation::core::EndVersionedPayload(ar);
+            }
             static bool Apply(scene::SceneSystem& system, const Array<byte>& blob)
             {
                 MemoryStream buffer;
@@ -1334,7 +1349,7 @@ export namespace editor
                 }
                 (void)buffer.Seek(0, SeekOrigin::Begin);
                 BinarySerializer reader(buffer, SerializeMode::Read);
-                system.SerializeSettings(reader);
+                WriteSettings(system, reader); // Begin/EndVersionedPayload works both directions
                 return true;
             }
 

@@ -561,6 +561,87 @@ export namespace engine::script
         bool m_gameScriptHold = false; // a game script is loaded into this host (teardown pin)
     };
 
+    // ---- shared property application (behavior tier + scene-script/Level tier) ----
+
+    /// Marshal one harvested property value into a Variant for the generated setter. Entity/Asset
+    /// values resolve against `scene` (nullptr -> a null Variant, same as an unresolved reference).
+    /// Shared so the behavior tier and the Level tier apply properties identically.
+    [[nodiscard]] inline Variant ScriptPropertyValueToVariant(const ScriptPropertyValue& value,
+                                                              ScriptPropertyType declaredType,
+                                                              scene::Scene* scene)
+    {
+        const ScriptPropertyType kind =
+            value.kind != ScriptPropertyType::None ? value.kind : declaredType;
+        switch (kind)
+        {
+        case ScriptPropertyType::Float:
+        case ScriptPropertyType::Int:
+            return Variant::From<f64>(value.number);
+        case ScriptPropertyType::Bool:
+            return Variant::From<bool>(value.boolean);
+        case ScriptPropertyType::String:
+            return Variant::From<String>(String(value.text.AsView()));
+        case ScriptPropertyType::Color:
+            return Variant::From<Color>(value.color);
+        case ScriptPropertyType::Vec3:
+            return Variant::From<Float3>(value.vector);
+        case ScriptPropertyType::Entity:
+        {
+            if (value.guid.IsNil() || scene == nullptr)
+            {
+                return Variant{};
+            }
+            const scene::EntityHandle target = scene->FindEntity(value.guid);
+            if (!target.IsAssigned())
+            {
+                return Variant{};
+            }
+            Entity handle;
+            handle.scene = scene;
+            handle.entityIndex = target.index;
+            handle.entityGeneration = target.generation;
+            return Variant::From(handle);
+        }
+        case ScriptPropertyType::Asset:
+            return Variant::From<Guid>(value.guid);
+        case ScriptPropertyType::None:
+        default:
+            return Variant{};
+        }
+    }
+
+    /// Push a class's harvested defaults, then hash-keyed overrides (overrides win), through each
+    /// property's generated per-property setter ("<name>="). `contextName` names the owner in the
+    /// no-setter warning (an entity name for a behavior, the scene name for a Level).
+    inline void ApplyScriptProperties(ScriptObject& instance, const ScriptClass& scriptClass,
+                                      Span<const ScriptPropertyOverride> overrides,
+                                      scene::Scene* scene, StringView contextName)
+    {
+        for (const ScriptPropertyDesc& property : scriptClass.properties)
+        {
+            const ScriptPropertyValue* chosen = &property.defaultValue;
+            for (const ScriptPropertyOverride& over : overrides)
+            {
+                if (over.nameHash == property.hash)
+                {
+                    chosen = &over.value;
+                    break;
+                }
+            }
+            Variant marshalled = ScriptPropertyValueToVariant(*chosen, property.type, scene);
+            String setter(property.name.AsView());
+            setter += u8"=";
+            Variant args[1] = {Move(marshalled)};
+            if (auto result = instance.Invoke(setter.AsView(), Span<Variant>{args, 1});
+                !result.HasValue())
+            {
+                LOG_WARNING(u8"Script",
+                            u8"'{}': class '{}' has no setter '{}=' for its declared property",
+                            contextName, scriptClass.className, property.name);
+            }
+        }
+    }
+
     // ---- per-scene dispatch ----
 
     class ScriptSceneSystem final : public scene::SceneSystem
@@ -1029,74 +1110,14 @@ export namespace engine::script
             m_eventSubs.EnsureFor(scriptClass);
         }
 
-        // Defaults first, then hash-keyed overrides win; pushed through the class's
-        // per-property setter ("<name>=") - Invoke builds the setter call.
+        // Defaults first, then hash-keyed overrides win (shared with the Level tier).
         void ApplyProperties(ScriptBehavior& behavior, const ScriptClass& scriptClass,
                              scene::EntityHandle entity)
         {
-            for (const ScriptPropertyDesc& property : scriptClass.properties)
-            {
-                const ScriptPropertyOverride* over = behavior.FindOverride(property.hash);
-                const ScriptPropertyValue& value =
-                    over != nullptr ? over->value : property.defaultValue;
-                Variant marshalled = PropertyValueToVariant(value, property.type);
-
-                String setter(property.name.AsView());
-                setter += u8"=";
-                Variant args[1] = {Move(marshalled)};
-                if (auto result =
-                        behavior.instance->Invoke(setter.AsView(), Span<Variant>{args, 1});
-                    !result.HasValue())
-                {
-                    LOG_WARNING(
-                        u8"Script",
-                        u8"'{}': class '{}' has no setter '{}=' for its declared property",
-                        m_scene->GetEntityName(entity), scriptClass.className, property.name);
-                }
-            }
-        }
-
-        [[nodiscard]] Variant PropertyValueToVariant(const ScriptPropertyValue& value,
-                                                     ScriptPropertyType declaredType) const
-        {
-            const ScriptPropertyType kind =
-                value.kind != ScriptPropertyType::None ? value.kind : declaredType;
-            switch (kind)
-            {
-            case ScriptPropertyType::Float:
-            case ScriptPropertyType::Int:
-                return Variant::From<f64>(value.number);
-            case ScriptPropertyType::Bool:
-                return Variant::From<bool>(value.boolean);
-            case ScriptPropertyType::String:
-                return Variant::From<String>(String(value.text.AsView()));
-            case ScriptPropertyType::Color:
-                return Variant::From<Color>(value.color);
-            case ScriptPropertyType::Vec3:
-                return Variant::From<Float3>(value.vector);
-            case ScriptPropertyType::Entity:
-            {
-                if (value.guid.IsNil() || m_scene == nullptr)
-                {
-                    return Variant{};
-                }
-                const scene::EntityHandle target = m_scene->FindEntity(value.guid);
-                if (!target.IsAssigned())
-                {
-                    return Variant{};
-                }
-                Entity handle;
-                handle.scene = m_scene;
-                handle.entityIndex = target.index;
-                handle.entityGeneration = target.generation;
-                return Variant::From(handle);
-            }
-            case ScriptPropertyType::Asset:
-                return Variant::From<Guid>(value.guid);
-            case ScriptPropertyType::None:
-            default:
-                return Variant{};
-            }
+            ApplyScriptProperties(*behavior.instance, scriptClass,
+                                  Span<const ScriptPropertyOverride>{behavior.overrides.Data(),
+                                                                     behavior.overrides.Size()},
+                                  m_scene, m_scene->GetEntityName(entity));
         }
 
         // One handler dispatch: declared-handler gate (no method-missing probing), the
@@ -1203,12 +1224,56 @@ export namespace engine::script
     {
         resource::Ref<ScriptClass> script; // the Level class (a cooked script asset); nil = none
         bool enabled = true;
+        // Hash-keyed property overrides (values differing from the Level class's harvested
+        // defaults) - same default-diff model as a behavior's overrides, one set per scene.
+        Array<ScriptPropertyOverride> overrides;
+
+        [[nodiscard]] const ScriptPropertyOverride* FindOverride(u64 nameHash) const
+        {
+            for (const ScriptPropertyOverride& entry : overrides)
+            {
+                if (entry.nameHash == nameHash)
+                {
+                    return &entry;
+                }
+            }
+            return nullptr;
+        }
+        void SetOverride(u64 nameHash, const ScriptPropertyValue& value)
+        {
+            for (ScriptPropertyOverride& entry : overrides)
+            {
+                if (entry.nameHash == nameHash)
+                {
+                    entry.value = value;
+                    return;
+                }
+            }
+            overrides.PushBack(ScriptPropertyOverride{nameHash, value});
+        }
+        void RemoveOverride(u64 nameHash)
+        {
+            for (usize i = 0; i < overrides.Size(); ++i)
+            {
+                if (overrides[i].nameHash == nameHash)
+                {
+                    overrides.RemoveAt(i);
+                    return;
+                }
+            }
+        }
     };
 
     inline void SerializeSceneScriptSettings(ISerializer& ar, SceneScriptSettings& s)
     {
         foundation::core::Serialize(ar, "script", s.script);
         foundation::core::Serialize(ar, "enabled", s.enabled);
+        // v2 added the Level property overrides. A v1 payload has no such key: skip the read so
+        // the strict reader does not fail (overrides stays empty -> class defaults apply).
+        if (ar.Version() >= 2)
+        {
+            foundation::core::Serialize(ar, "overrides", s.overrides); // count-prefixed array scope
+        }
     }
 
     /// The scene-root script tier (Unreal Level Blueprint / Godot scene script). One `Level` object
@@ -1322,6 +1387,20 @@ export namespace engine::script
             Variant arg = Variant::From(handle);
             m_boundClass = scriptClass;
             m_level = m_host->Instantiate(*scriptClass, Span<Variant>{&arg, 1});
+            if (m_level.Get() == nullptr)
+            {
+                m_faulted = true;
+                LOG_ERROR(u8"Script", u8"scene '{}': level script '{}' failed to instantiate",
+                          m_scene->Name(), scriptClass->className);
+                return;
+            }
+            // Apply harvested defaults + hash-keyed overrides BEFORE onStart (same as behaviors),
+            // so a Level's [metadata] properties are real inspector-authored values, not runtime
+            // fallbacks. The scene name labels the no-setter warning.
+            ApplyScriptProperties(*m_level, *scriptClass,
+                                  Span<const ScriptPropertyOverride>{m_settings.overrides.Data(),
+                                                                     m_settings.overrides.Size()},
+                                  m_scene, m_scene->Name());
             // Subscribe this scene's bus to the Level's on<Event> handlers (P-B1 named inbox).
             m_eventSubs.EnsureFor(*scriptClass);
         }
