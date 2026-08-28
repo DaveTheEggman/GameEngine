@@ -38,10 +38,19 @@ class Bike
     [10, "Papers per level"]                          int startingPapers;
     [2, "Subscriber collision group"]                 int subscriberGroup;
 
+    // ---- aim preview (P1-8): a debug-drawn arc of where the throw will go ----
+    [10.0, "Aim preview launch speed (visual only, m/s)"] float aimPreviewSpeed;
+    [1.5, "Aim preview duration (s)"]                     float aimPreviewTime;
+
     // ---- runtime state (no metadata => not properties) ----
     private float m_heading = 0.0f; // yaw in RADIANS (0 = facing world +Z)
     private float m_speed = 0.0f;   // signed forward speed (negative = reversing)
     private int m_papers = 0;       // papers remaining (seeded from startingPapers in onStart)
+    // The throw aim, recomputed each frame (for the preview) and reused by a throw.
+    private float m_aimX = 0.0f;    // horizontal aim direction (unit XZ)
+    private float m_aimZ = 1.0f;
+    private bool m_hasTarget = false;      // the auto-aim locked a subscriber zone this frame
+    private Float3 m_targetPos = Float3(0.0f, 0.0f, 0.0f);
 
     Bike(Entity@ entity) { @self = entity; }
 
@@ -65,6 +74,14 @@ class Bike
         updateSpeed(throttle, d);
         updateHeading(steer, d);
         applyMotion();
+
+        // Preview the throw: recompute the aim + draw its projected arc each frame (papers permitting).
+        // Immediate-mode debug draw is cleared every frame, so it must be re-issued from onUpdate.
+        if (m_papers > 0)
+        {
+            computeAim();
+            drawAimPreview();
+        }
 
         // Throw a paper on the (edge-triggered) Throw action, papers permitting.
         if (m_papers > 0 && Input::wasPressed("Throw"))
@@ -153,9 +170,10 @@ class Bike
         self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
     }
 
-    // Spawn + launch a paper. The base throw is the bike's forward heading plus an upward arc; a soft
-    // auto-aim biases the HORIZONTAL direction toward the nearest subscriber delivery zone in front.
-    private void throwPaper()
+    // Compute the throw's HORIZONTAL aim: the bike's forward heading, biased by a soft auto-aim toward
+    // the nearest subscriber delivery zone in front. Fills m_aimX/m_aimZ (unit XZ) and the locked-
+    // target state (m_hasTarget/m_targetPos). Called each frame for the preview and before a throw.
+    private void computeAim()
     {
         Float3 pos = self.worldPosition();
         float fx = Math::Sin(m_heading); // bike forward XZ (matches applyMotion: forward = (sin h, 0, cos h))
@@ -163,6 +181,7 @@ class Bike
 
         float aimX = fx;
         float aimZ = fz;
+        m_hasTarget = false;
 
         // Overlap the subscriber-group zones nearby; bias toward the nearest one that is IN FRONT.
         int mask = 1 << subscriberGroup;
@@ -184,10 +203,66 @@ class Bike
                 bestDist = dist2;
                 aimX = fx + (ndx - fx) * autoAim; // lerp forward -> zone by the auto-aim strength
                 aimZ = fz + (ndz - fz) * autoAim;
+                m_hasTarget = true;
+                m_targetPos = zp;
             }
         }
         float l = Math::Sqrt(aimX * aimX + aimZ * aimZ);
         if (l > 0.0001f) { aimX /= l; aimZ /= l; }
+        m_aimX = aimX;
+        m_aimZ = aimZ;
+    }
+
+    // Debug-draw the throw's projected path: sample the ballistic arc under the scene's gravity and
+    // connect it with line segments, plus a marker on the locked target. The launch SPEED here is a
+    // visual tunable (aimPreviewSpeed) - the real throw is an impulse whose speed depends on the paper
+    // mass, so dial aimPreviewSpeed to match the felt throw. Immediate-mode: re-issued every frame.
+    private void drawAimPreview()
+    {
+        Float3 pos = self.worldPosition();
+        float fx = Math::Sin(m_heading);
+        float fz = Math::Cos(m_heading);
+        Float3 origin = Float3(pos.x + fx, pos.y + 1.2f, pos.z + fz); // matches the throw spawn point
+
+        // Launch velocity = throw direction (unit horizontal aim + upward arc) at the preview speed.
+        float mag = Math::Sqrt(1.0f + throwArc * throwArc);
+        float vx = m_aimX / mag * aimPreviewSpeed;
+        float vy = throwArc / mag * aimPreviewSpeed;
+        float vz = m_aimZ / mag * aimPreviewSpeed;
+        float g = ScenePhysics::of(self.scene).gravityY();
+
+        DebugDraw@ dbg = DebugDraw::of(self.scene);
+        int steps = 24;
+        float dt = aimPreviewTime / float(steps);
+        // Track the previous point as PLAIN FLOATS (reassigning a Float3 in the loop does not draw).
+        float prevX = origin.x;
+        float prevY = origin.y;
+        float prevZ = origin.z;
+        for (int i = 1; i <= steps; i++)
+        {
+            float t = dt * float(i);
+            float px = origin.x + vx * t;
+            float py = origin.y + vy * t + 0.5f * g * t * t;
+            float pz = origin.z + vz * t;
+            dbg.line(prevX, prevY, prevZ, px, py, pz, 1.0f, 0.85f, 0.1f); // amber arc
+            prevX = px;
+            prevY = py;
+            prevZ = pz;
+            if (py < 0.0f) { break; } // stop at the ground plane
+        }
+        if (m_hasTarget)
+        {
+            dbg.sphere(m_targetPos.x, m_targetPos.y, m_targetPos.z, 0.6f, 0.2f, 1.0f, 0.3f); // locked (green)
+        }
+    }
+
+    // Spawn + launch a paper along the freshly-computed aim (horizontal aim + upward arc).
+    private void throwPaper()
+    {
+        computeAim();
+        Float3 pos = self.worldPosition();
+        float fx = Math::Sin(m_heading);
+        float fz = Math::Cos(m_heading);
 
         // Spawn in front of + above the bike so the paper clears it, then launch (horizontal + arc).
         Float3 origin = Float3(pos.x + fx, pos.y + 1.2f, pos.z + fz);
@@ -196,10 +271,10 @@ class Bike
         {
             return;
         }
-        // (aimX, throwArc, aimZ) with unit horizontal -> normalize so throwImpulse is the launch magnitude.
+        // (m_aimX, throwArc, m_aimZ) with unit horizontal -> normalize so throwImpulse is the magnitude.
         float mag = Math::Sqrt(1.0f + throwArc * throwArc);
-        ScenePhysics::of(self.scene).applyImpulse(paper, aimX / mag * throwImpulse,
+        ScenePhysics::of(self.scene).applyImpulse(paper, m_aimX / mag * throwImpulse,
                                                   throwArc / mag * throwImpulse,
-                                                  aimZ / mag * throwImpulse);
+                                                  m_aimZ / mag * throwImpulse);
     }
 }
