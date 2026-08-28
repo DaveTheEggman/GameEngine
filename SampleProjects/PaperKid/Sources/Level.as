@@ -26,20 +26,29 @@ class Level
     private float m_timeLeft = 0.0f;
     private int m_delivered = 0;
     private bool m_ended = false;
+    private bool m_started = false;
 
     Level(Scene@ s) { @scene = s; }
 
     void onStart()
     {
-        m_timeLeft = timeLimit;
+        // Fall back if the property default was not applied - a 0 timeLimit would insta-fail on the
+        // first update (Level-tier property application is not the behavior path). Same for quota.
+        m_timeLeft = (timeLimit > 0.0f) ? timeLimit : 90.0f;
+        if (quota < 1)
+        {
+            quota = 3;
+        }
         m_delivered = 0;
         m_ended = false;
+        m_started = true;
     }
 
     // Gameplay dt; runs only while the scene simulates.
     void onUpdate(double dt)
     {
-        if (m_ended)
+        // Do NOT count down before onStart has seeded m_timeLeft (0 would insta-fail).
+        if (!m_started || m_ended)
         {
             return;
         }
