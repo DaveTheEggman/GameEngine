@@ -3116,6 +3116,35 @@ TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS s
     CHECK(sys->World()->Gravity().y == doctest::Approx(-20.0f)); // setGravity hit the REAL scene world
 }
 
+// DebugDraw.of(scene): the immediate-mode debug-draw facade is script-callable. No render service is
+// installed in this bed, so each draw is a safe no-op (SceneDebug resolves null); the test proves the
+// facade RESOLVES and the calls run to completion without faulting (a rename after the draws lands).
+TEST_CASE("script.scene: DebugDraw.of(scene) is script-callable + null-safe without a render service")
+{
+    engine::render::RegisterRenderScriptFacade(); // registers the DebugDraw facade type + prelude name
+    ScriptedScene bed;
+    RefPtr<ScriptClass> gizmo =
+        MakeClass(u8"Gizmo",
+                  u8"class Gizmo {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Gizmo(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() {\n"
+                  u8"        DebugDraw@ d = DebugDraw::of(self.scene);\n"
+                  u8"        d.line(0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 1.0f, 0.0f, 0.0f);\n"
+                  u8"        d.sphere(1.0f, 1.0f, 1.0f, 0.5f, 0.0f, 1.0f, 0.0f);\n"
+                  u8"        d.arrow(0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f);\n"
+                  u8"        self.setName(\"drew\");\n" // reached only if the draws did not fault
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(gizmo, u8"gizmo");
+    bed.scene.Start();
+    bed.scene.SetSimulationEnabled(true);
+    bed.Frame(); // instantiate + onStart: DebugDraw::of + no-op draws + the rename
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"drew"));
+}
+
 // scene.physics on the SECOND backend - ScenePhysics::of returns the concrete handle type (its
 // declared return), so AngelScript boxes it right. Cross-backend parity for the scene-system facade.
 TEST_CASE("script.scene: ScenePhysics.of(scene) reads + writes gravity on THIS scene's world "

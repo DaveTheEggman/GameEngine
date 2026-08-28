@@ -133,8 +133,8 @@ namespace engine::runtime
         m_scenes->RegisterManager(&m_instance.Scenes());
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
-            host.Ctx().AddSubsystem<engine::render::RenderSubsystem>(*gfx->Raw(),
-                                                                       gfx->FramesInFlight());
+            m_render = host.Ctx().AddSubsystem<engine::render::RenderSubsystem>(
+                *gfx->Raw(), gfx->FramesInFlight());
             // Drives skeletal animation from the scene tick (injects the SkeletalAnimation manager,
             // ticks players, feeds bone matrices to mesh components). Needs the render managers.
             host.Ctx().AddSubsystem<engine::animation::AnimationSubsystem>();
@@ -221,6 +221,10 @@ namespace engine::runtime
                 if (self->m_audio != nullptr)
                 {
                     self->m_audio->ExposeToScript(context, self->Resources());
+                }
+                if (self->m_render != nullptr)
+                {
+                    self->m_render->ExposeToScript(context); // `DebugDraw.of(scene)` -> DebugScene
                 }
                 // `ui` -> the app-wide screen tier (finders + push/pop over the ScreenStack).
                 engine::uiscript::InstallUiScreenScriptService(context, self->m_uiScreenBinding);

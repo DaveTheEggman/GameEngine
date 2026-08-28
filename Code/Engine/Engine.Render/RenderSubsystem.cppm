@@ -27,6 +27,7 @@ import foundation.shaders.system;  // ShaderSystem, ShaderSystemHost
 import foundation.materials;       // MaterialSystem
 import foundation.materials.pipelinecache;   // PipelineStateCache
 import foundation.render;          // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
+import foundation.script;           // IScriptContext (the DebugDraw facade's per-context service)
 import :components;
 import :extract;
 import :scene_renderer;
@@ -88,6 +89,16 @@ export namespace engine::render
                    ? kMsaaLevels[static_cast<u32>(index)].samples
                    : 1u;
     }
+
+    // The per-script-context render hook: a service the app installs so the `DebugDraw` facade can
+    // reach RenderSubsystem::DebugScene from a script (mirrors Audio/Input/UI's ExposeToScript). A
+    // facade has no GetContext(), but it has CurrentScriptContext() -> GetService().
+    class RenderSubsystem; // forward for the binding
+    inline constexpr StringView kRenderScriptService = u8"render.runtime";
+    struct RenderScriptBinding
+    {
+        RenderSubsystem* render = nullptr;
+    };
 
     class RenderSubsystem final : public foundation::runtime::Subsystem,
                                   public ISceneRenderer,
@@ -201,6 +212,15 @@ export namespace engine::render
         [[nodiscard]] debug::DebugDraw& DebugView(const void* viewportKey);
         [[nodiscard]] debug::DebugDraw& DebugScreen() noexcept { return m_debugScreen; }
 
+        // Publish this subsystem as the per-context render service, so the `DebugDraw` script facade
+        // resolves it via CurrentScriptContext()->GetService(kRenderScriptService). Called by the app
+        // for each run context (alongside Input/Audio/UI ExposeToScript).
+        void ExposeToScript(foundation::script::IScriptContext& context)
+        {
+            m_scriptBinding.render = this;
+            context.SetService(kRenderScriptService, &m_scriptBinding);
+        }
+
         // Temporal AA on/off (projection jitter + history resolve) + resolve tunables.
         void SetTaaEnabled(bool on) noexcept;
         [[nodiscard]] bool TaaEnabled() const noexcept { return m_taaEnabled; }
@@ -304,6 +324,7 @@ export namespace engine::render
         debug::DebugDraw m_debugScreen;                         // whole-window HUD (drawn once)
         HashMap<scene::Scene*, debug::DebugDraw> m_debugScenes; // per-scene gizmos (every view of a scene)
         HashMap<const void*, debug::DebugDraw> m_debugViews;    // per-view gizmos (one keyed viewport)
+        RenderScriptBinding m_scriptBinding;                   // published by ExposeToScript (DebugDraw facade)
         bool m_globalPostActive = false; // a post setter was called => global override wins
         f32 m_exposure = 1.0f;
         bool m_bloomEnabled = true;

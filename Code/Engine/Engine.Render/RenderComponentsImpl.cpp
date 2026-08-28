@@ -16,7 +16,10 @@ import foundation.scene;
 import foundation.geometry;
 import foundation.materials;
 import foundation.rhi;
+import foundation.render;          // debug::DebugDraw (the DebugDraw facade wraps DebugScene's accumulator)
+import foundation.script;          // IScriptContext::GetService + CurrentScriptContext (the render service)
 import foundation.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
+import :subsystem;                 // RenderSubsystem + RenderScriptBinding (the DebugDraw facade target)
 
 using namespace foundation::core;
 using namespace foundation::render;
@@ -146,6 +149,83 @@ namespace engine::render
         builder.Method<&SceneRender::setMaterial>("setMaterial", {"entity", "resourceId"});
         builder.Method<&SceneRender::of>("of", {"scene"});
         builder.Constructor(); // some backends only materialize constructible foreign classes
+    }
+
+    // --- DebugDraw facade bodies (the impl unit sees :subsystem's RenderSubsystem) ---
+    namespace
+    {
+        // The scene's per-scene debug accumulator, via the per-context render service (null-safe).
+        [[nodiscard]] debug::DebugDraw* SceneDebug(foundation::scene::Scene* scene)
+        {
+            if (scene == nullptr)
+            {
+                return nullptr;
+            }
+            foundation::script::IScriptContext* ctx = foundation::script::CurrentScriptContext();
+            RenderScriptBinding* binding =
+                ctx != nullptr ? static_cast<RenderScriptBinding*>(ctx->GetService(kRenderScriptService))
+                               : nullptr;
+            return (binding != nullptr && binding->render != nullptr)
+                       ? &binding->render->DebugScene(*scene)
+                       : nullptr;
+        }
+    }
+
+    void DebugDraw::line(f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawLine(Float3(x0, y0, z0), Float3(x1, y1, z1), Color(r, g, b, 1.0f));
+        }
+    }
+    void DebugDraw::ray(f32 x, f32 y, f32 z, f32 dx, f32 dy, f32 dz, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawRay(Float3(x, y, z), Float3(dx, dy, dz), Color(r, g, b, 1.0f));
+        }
+    }
+    void DebugDraw::arrow(f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawArrow(Float3(x0, y0, z0), Float3(x1, y1, z1), Color(r, g, b, 1.0f));
+        }
+    }
+    void DebugDraw::sphere(f32 x, f32 y, f32 z, f32 radius, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawWireSphere(Float3(x, y, z), radius, Color(r, g, b, 1.0f));
+        }
+    }
+    void DebugDraw::cross(f32 x, f32 y, f32 z, f32 size, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawCross(Float3(x, y, z), size, Color(r, g, b, 1.0f));
+        }
+    }
+    void DebugDraw::text(f32 x, f32 y, f32 z, String label, f32 r, f32 g, f32 b) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawText3D(Float3(x, y, z), label.AsView(), Color(r, g, b, 1.0f));
+        }
+    }
+
+    REFLECT_VALUE(DebugDraw, "rtti::engine::render")
+    {
+        builder.Method<&DebugDraw::line>("line",
+                                         {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
+        builder.Method<&DebugDraw::ray>("ray", {"x", "y", "z", "dx", "dy", "dz", "r", "g", "b"});
+        builder.Method<&DebugDraw::arrow>("arrow",
+                                          {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
+        builder.Method<&DebugDraw::sphere>("sphere", {"x", "y", "z", "radius", "r", "g", "b"});
+        builder.Method<&DebugDraw::cross>("cross", {"x", "y", "z", "size", "r", "g", "b"});
+        builder.Method<&DebugDraw::text>("text", {"x", "y", "z", "label", "r", "g", "b"});
+        builder.Method<&DebugDraw::of>("of", {"scene"});
+        builder.Constructor();
     }
 
     REFLECT_ENUM(SpriteOrientation, "rtti::engine::render")
@@ -404,6 +484,13 @@ namespace engine::render
         GlobalTypeRegistry().Register(core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneRender>());
         foundation::script::RegisterExtraFacadeName(u8"SceneRender");
+
+        // DebugDraw.of(scene): immediate-mode debug draw into the scene's per-scene gizmo list
+        // (reaches RenderSubsystem::DebugScene via the per-context render service the app installs).
+        RttiRegisterValue_DebugDraw();
+        GlobalTypeRegistry().Register(core::TypeOf<DebugDraw>());
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<DebugDraw>());
+        foundation::script::RegisterExtraFacadeName(u8"DebugDraw");
 
         // The render scene-SYSTEM settings handles (EnvironmentSettings.of(scene) / PostProcess-
         // Settings.of(scene)): register + seed the emission root + name for the prelude. Their

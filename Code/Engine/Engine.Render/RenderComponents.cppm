@@ -856,6 +856,35 @@ export namespace engine::render
         }
     };
 
+    // DebugDraw.of(scene): immediate-mode debug drawing into a scene's per-scene gizmo list - drawn
+    // in EVERY view of that scene (incl. play-in-editor), CLEARED each frame, so a persistent overlay
+    // (an aim path, a marker) must be re-issued every tick from a script's update. A value handle
+    // carrying the scene ptr; each call resolves the RenderSubsystem via the per-context render
+    // service and appends to DebugScene(scene). Colors are 0..1 linear floats (alpha 1); world units.
+    // Methods are defined in RenderComponentsImpl.cpp (the impl unit can see :subsystem's
+    // RenderSubsystem; this :components interface cannot).
+    struct DebugDraw
+    {
+        scene::Scene* scene = nullptr;
+
+        // A depth-tested world-space segment from (x0,y0,z0) to (x1,y1,z1).
+        void line(f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 r, f32 g, f32 b) const;
+        // A segment from `origin` extending along `direction` (drawn to origin+direction).
+        void ray(f32 x, f32 y, f32 z, f32 dx, f32 dy, f32 dz, f32 r, f32 g, f32 b) const;
+        // A line with an arrowhead at the end point (direction cue).
+        void arrow(f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1, f32 r, f32 g, f32 b) const;
+        // A wireframe sphere / a 3-axis cross marker at a point.
+        void sphere(f32 x, f32 y, f32 z, f32 radius, f32 r, f32 g, f32 b) const;
+        void cross(f32 x, f32 y, f32 z, f32 size, f32 r, f32 g, f32 b) const;
+        // A world-space text label anchored at (x,y,z).
+        void text(f32 x, f32 y, f32 z, String label, f32 r, f32 g, f32 b) const;
+
+        [[nodiscard]] static DebugDraw of(foundation::script::Scene sceneHandle)
+        {
+            return DebugDraw{sceneHandle.scene};
+        }
+    };
+
 } // namespace foundation::render (exported)
 
 // Registers all render component/enum reflection (idempotent). Called by RenderSubsystem::OnInit

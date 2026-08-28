@@ -43,5 +43,6 @@ export namespace engine
     // (OverlapHits was briefly +1 here on 2026-08-26; retired same day - overlapSphere now returns a
     // native Array<Entity>, which is not a boxed facade type, so it adds no surface name. See
     // script-array-returns.md.)
-    inline constexpr usize kSubsystemFacadeNameCount = 33;
+    // 34 = +DebugDraw (2026-08-28: DebugDraw.of(scene) immediate-mode debug draw facade).
+    inline constexpr usize kSubsystemFacadeNameCount = 34;
 }

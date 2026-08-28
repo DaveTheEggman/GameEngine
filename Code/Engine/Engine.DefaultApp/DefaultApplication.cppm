@@ -269,6 +269,8 @@ export namespace engine::runtime
         core::String m_uiFontPath;
         engine::physics::PhysicsSubsystem* m_physics = nullptr;
         engine::audio::AudioSubsystem* m_audio = nullptr;
+        engine::render::RenderSubsystem* m_render = nullptr; // for the `DebugDraw.of(scene)` service
+
         net::NetworkStartup m_netStartup; // preset before Configure (default = single-player)
         engine::script::ScriptSubsystem* m_scripts = nullptr;
         // The app host, captured in Configure (stable for the app's lifetime). Used to route
