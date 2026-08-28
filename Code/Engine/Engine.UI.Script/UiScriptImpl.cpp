@@ -250,7 +250,18 @@ namespace engine::uiscript
     ViewGroup Ui::root()
     {
         UiScreenScriptBinding* b = Resolve();
-        return Wrap<ViewGroup>((b != nullptr) ? b->screenRoot : nullptr);
+        if (b == nullptr)
+        {
+            return Wrap<ViewGroup>(nullptr);
+        }
+        // The ScreenStack's attached root is the SOURCE OF TRUTH for where pushed screens live
+        // (Push adds to it). The separately-captured screenRoot can diverge - in an embedded host it
+        // was captured stale/null while the stack still pointed at the live root - which made
+        // ui::findLabel() miss a pushed HUD even though ui::top() found it. Prefer the stack's root;
+        // fall back to screenRoot only when no stack is wired.
+        foundation::ui::RootView* root =
+            (b->stack != nullptr && b->stack->Root() != nullptr) ? b->stack->Root() : b->screenRoot;
+        return Wrap<ViewGroup>(root);
     }
     Screen Ui::top()
     {

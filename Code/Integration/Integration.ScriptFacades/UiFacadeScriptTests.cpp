@@ -113,6 +113,35 @@ TEST_CASE("ui-facade: AngelScript pushes a screen, finds + drives typed controls
     REQUIRE(status.IsOk());
     CheckOutcome(bed, *ctx);
 }
+
+TEST_CASE("ui-facade: findLabel works when the binding's screenRoot is stale (uses the stack's root)")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    UiBed bed;
+    // Reproduce the embedded-host (PaperKid HUD) bug: the binding captured a stale/null screenRoot
+    // while the ScreenStack still points at the live root. ui::push lands on the stack's root, so
+    // ui::findLabel (root search) MUST use the stack's root - not the stale screenRoot - or it misses
+    // a pushed screen even though ui::top() finds it.
+    bed.binding.screenRoot = nullptr;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status = ctx->Load(u8"string t;\n"
+                                    u8"void main() {\n"
+                                    u8"  ui::push(Guid(17, 34));\n"
+                                    u8"  ui::findLabel(\"status\").setText(\"Loading\");\n"
+                                    u8"  t = ui::findLabel(\"status\").text;\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"t").template Get<String>() == StringView(u8"Loading"));
+    CHECK(bed.stack.Count() == 1);
+}
 #endif // OPTION_HAS_ANGELSCRIPT
 
 #ifdef OPTION_HAS_LUAU
