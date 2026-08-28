@@ -21,6 +21,10 @@ import foundation.render;
 import foundation.geometry;
 import engine.render;
 import engine.navigation;
+import engine.physics;          // RigidBodyComponent (edit-time collider gizmo)
+import foundation.physics;      // ShapeKind / MotionKind
+import foundation.heightfield;  // Heightfield (ShapeKind::Heightfield bounds)
+import foundation.physics.resource; // CollisionShape (ShapeKind::Cooked outline)
 
 using namespace foundation::core;
 namespace geometry = foundation::geometry;
@@ -282,5 +286,126 @@ namespace editor
         };
         const Color color = kLevelColors[(level < 3u) ? level : 3u];
         ctx.debug->DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
+    }
+
+    const TypeInfo* PhysicsColliderGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::physics::RigidBodyComponent>();
+    }
+
+    // Draw the collider's shape wireframe from the component data + the entity's world transform -
+    // no physics world, no Jolt body (edit time). Colours are STATIC (dynamic=green, static/
+    // kinematic=blue, trigger=yellow) since there is no live body to query awake/sleeping.
+    void PhysicsColliderGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                            GizmoContext& ctx)
+    {
+        if (!ctx.showColliders) // the editor "Show Colliders" toggle (runtime debug draw is separate)
+        {
+            return;
+        }
+        const auto* body = component.TryGet<engine::physics::RigidBodyComponent>();
+        if (body == nullptr)
+        {
+            return;
+        }
+        using foundation::physics::MotionKind;
+        using foundation::physics::ShapeKind;
+
+        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+        Float3 position, scale;
+        Quaternion rotation;
+        if (!Decompose(world, position, rotation, scale))
+        {
+            return;
+        }
+        const Color color = body->isTrigger ? Color{1.0f, 0.8f, 0.2f, 1.0f}
+                            : body->motion == MotionKind::Dynamic ? Color{0.3f, 1.0f, 0.4f, 1.0f}
+                                                                  : Color{0.4f, 0.6f, 1.0f, 1.0f};
+        // The rigid (unscaled) frame - primitive sizes are absolute half-extents/radii, like runtime.
+        const Float4x4 rigid = Transform{position, rotation, Float3{1, 1, 1}}.ToMatrix();
+        render::debug::DebugDraw& dd = *ctx.debug;
+        switch (body->shape)
+        {
+        case ShapeKind::Box:
+            dd.DrawTransformedBox(Float3{} - body->halfExtents, body->halfExtents, rigid, color);
+            break;
+        case ShapeKind::Sphere:
+            dd.DrawWireSphere(position, body->radius, color);
+            break;
+        case ShapeKind::Capsule:
+            dd.DrawWireSphere(position, body->radius, color);
+            dd.DrawTransformedBox(
+                Float3{-body->radius, -(body->halfHeight + body->radius), -body->radius},
+                Float3{body->radius, body->halfHeight + body->radius, body->radius}, rigid, color);
+            break;
+        case ShapeKind::Plane:
+        {
+            const f32 extent = body->planeHalfExtent < 25.0f ? body->planeHalfExtent : 25.0f;
+            const i32 kCells = 10;
+            for (i32 g = -kCells; g <= kCells; ++g)
+            {
+                const f32 off = extent * static_cast<f32>(g) / kCells;
+                dd.DrawLine(TransformPoint(Float3{off, 0, -extent}, rigid),
+                            TransformPoint(Float3{off, 0, extent}, rigid), color);
+                dd.DrawLine(TransformPoint(Float3{-extent, 0, off}, rigid),
+                            TransformPoint(Float3{extent, 0, off}, rigid), color);
+            }
+            break;
+        }
+        case ShapeKind::Heightfield:
+            if (const auto* hf = body->heightfield.Get())
+            {
+                const Float2 ws = hf->WorldSize();
+                dd.DrawTransformedBox(Float3{-ws.x * 0.5f, hf->MinY(), -ws.y * 0.5f},
+                                      Float3{ws.x * 0.5f, hf->MaxY(), ws.y * 0.5f}, rigid, color);
+            }
+            break;
+        case ShapeKind::Cooked:
+            if (const auto* cooked = body->collisionShape.Get())
+            {
+                // Outline is authored unit-scale; re-apply the entity's scale.
+                const Float4x4 shapeMatrix = Transform{position, rotation, scale}.ToMatrix();
+                const Array<Float3>& outline = cooked->outline;
+                for (usize t = 0; t + 2 < outline.Size(); t += 3)
+                {
+                    const Float3 a = TransformPoint(outline[t + 0], shapeMatrix);
+                    const Float3 b = TransformPoint(outline[t + 1], shapeMatrix);
+                    const Float3 d = TransformPoint(outline[t + 2], shapeMatrix);
+                    dd.DrawLine(a, b, color);
+                    dd.DrawLine(b, d, color);
+                    dd.DrawLine(d, a, color);
+                }
+            }
+            break;
+        }
+    }
+
+    const TypeInfo* CharacterColliderGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::physics::CharacterComponent>();
+    }
+
+    // The character controller's capsule from radius/halfHeight at the entity position. A fixed
+    // colour (edit time has no live controller to query the on-ground state).
+    void CharacterColliderGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                              GizmoContext& ctx)
+    {
+        if (!ctx.showColliders)
+        {
+            return;
+        }
+        const auto* ch = component.TryGet<engine::physics::CharacterComponent>();
+        if (ch == nullptr)
+        {
+            return;
+        }
+        const Float3 position = detail::WorldPosition(ctx.scene->GetWorldMatrix(owner));
+        const Color color{0.2f, 0.9f, 0.9f, 1.0f}; // cyan
+        render::debug::DebugDraw& dd = *ctx.debug;
+        dd.DrawWireSphere(Float3{position.x, position.y + ch->halfHeight, position.z}, ch->radius,
+                          color);
+        dd.DrawWireSphere(Float3{position.x, position.y - ch->halfHeight, position.z}, ch->radius,
+                          color);
+        dd.DrawWireBoxCenter(position, Float3{ch->radius, ch->halfHeight, ch->radius}, color);
     }
 }

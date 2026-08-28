@@ -31,6 +31,7 @@ export namespace editor
         Guid scene;
         bool showGrid = true;
         bool showLodOverlay = false;
+        bool showColliders = false; // edit-time physics collider wireframes (v3)
         void Serialize(ISerializer& ar)
         {
             ar.Key("scene");
@@ -39,6 +40,10 @@ export namespace editor
             if (ar.Version() >= 2) // showLodOverlay added in SceneViewSettings v2
             {
                 foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
+            }
+            if (ar.Version() >= 3) // showColliders added in v3
+            {
+                foundation::core::Serialize(ar, "showColliders", showColliders);
             }
         }
     };
@@ -116,5 +121,5 @@ export namespace editor
         return true;
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 2)
+    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 3)
 }

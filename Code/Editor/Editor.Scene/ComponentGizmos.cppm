@@ -20,6 +20,7 @@ import foundation.scene;
 import foundation.render;
 import engine.render;
 import engine.navigation;
+import engine.physics; // RigidBodyComponent (edit-time collider gizmo)
 
 using namespace foundation::core;
 
@@ -40,6 +41,10 @@ export namespace editor
         // The page's LOD-overlay toolbar toggle: the overlay renderer draws nothing
         // without it (DrawWhenUnselected renderers run for every entity every frame).
         bool lodOverlay = false;
+        // The page's "Show Colliders" toolbar toggle: the physics collider gizmo draws every
+        // entity's collider wireframe when on, nothing when off. EDITOR-only (drawn into the
+        // viewport's DebugView) - independent of the RUNTIME PhysicsSceneSettings.debugDraw.
+        bool showColliders = false;
     };
 
     /// A viewport gizmo for one component type. Registered per scene-editor module; the page
@@ -155,6 +160,29 @@ export namespace editor
         [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
     };
 
+    /// EDIT-TIME physics collider wireframe (approach: draw the shape geometry directly from the
+    /// RigidBodyComponent + the entity transform, with NO physics world - matching Traktor's shape
+    /// guides). Drawn for every entity when the "Show Colliders" toggle is on (ctx.showColliders),
+    /// nothing when off. This is an EDITOR concern, distinct from the RUNTIME
+    /// PhysicsSceneSettings.debugDraw (which draws from live Jolt bodies during simulation).
+    class PhysicsColliderGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+        [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
+    };
+
+    /// EDIT-TIME character-controller capsule (CharacterComponent), from radius/halfHeight + the
+    /// entity transform - the companion of PhysicsColliderGizmoRenderer, same "Show Colliders" gate.
+    class CharacterColliderGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+        [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
+    };
+
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
@@ -170,5 +198,9 @@ export namespace editor
             DefaultAllocator().New<NavMeshZoneGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<LodOverlayGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<PhysicsColliderGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<CharacterColliderGizmoRenderer>(), DefaultAllocator()));
     }
 }

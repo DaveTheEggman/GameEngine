@@ -9,8 +9,11 @@
 
 import foundation.core;
 import foundation.scene;
+import foundation.render;   // debug::DebugDraw (collider gizmo test)
+import foundation.physics;  // ShapeKind
 import engine.render;
 import engine.navigation;
+import engine.physics;      // RigidBodyComponent + manager
 import editor.core;
 import editor.scene;
 
@@ -353,9 +356,11 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 6u); // +LodOverlayGizmoRenderer (mesh-lod.md P3)
+    CHECK(registry.Count() == 8u); // +PhysicsCollider + CharacterCollider (edit-time colliders)
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::physics::RigidBodyComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::physics::CharacterComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::CameraComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::DecalComponent>()) != nullptr);
@@ -452,4 +457,33 @@ TEST_CASE("gizmo-controller: a pointer-less update follows an entity the simulat
     CHECK(ctl.IsActive());
     CHECK(ctl.Gizmo().position.y == doctest::Approx(-3.0f));
     CHECK(ctl.Gizmo().position.z == doctest::Approx(2.0f));
+}
+
+// The EDIT-TIME physics collider gizmo (approach b: draw the shape from component data + the entity
+// transform, no physics world). Gated on the editor "Show Colliders" toggle (ctx.showColliders) -
+// distinct from the runtime PhysicsSceneSettings.debugDraw.
+TEST_CASE("component-gizmo: physics collider gizmo draws a box only when Show Colliders is on")
+{
+    foundation::scene::Scene scene;
+    auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
+    const auto e = scene.CreateEntity(u8"Box");
+    engine::physics::RigidBodyComponent& body = bodies->Add(e);
+    body.shape = foundation::physics::ShapeKind::Box;
+    body.halfExtents = Float3{1.0f, 2.0f, 0.5f};
+
+    foundation::render::debug::DebugDraw dd;
+    PhysicsColliderGizmoRenderer renderer;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+
+    // Off -> nothing drawn (no world needed either way; this is pure shape data).
+    ctx.showColliders = false;
+    renderer.Draw(bodies->GetComponentInstance(e), e, ctx);
+    CHECK_FALSE(dd.HasAnyDraws());
+
+    // On -> the box wireframe lands as line segments (12 edges = 24 verts).
+    ctx.showColliders = true;
+    renderer.Draw(bodies->GetComponentInstance(e), e, ctx);
+    CHECK(dd.LineVertices().Size() > 0);
 }

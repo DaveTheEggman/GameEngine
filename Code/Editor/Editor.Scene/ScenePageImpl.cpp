@@ -889,6 +889,7 @@ namespace editor
         gizmoCamera.position = m_camera.position;
         ctx.viewCamera = &gizmoCamera;
         ctx.lodOverlay = m_showLodOverlay;
+        ctx.showColliders = m_showColliders;
         Selection<Guid>& selection = m_editContext->EntitySelection();
         m_scene->ForEachEntity(
             [&](scene::EntityHandle e)
@@ -1203,7 +1204,15 @@ namespace editor
                                               self->m_showLodOverlay = value;
                                               self->SaveViewPrefs(); // persist per-scene
                                           });
-        // Restore this scene's saved grid + LOD state before the first SyncToolbar mirrors it.
+        // Edit-time physics collider wireframes (editor gizmo - distinct from the RUNTIME
+        // PhysicsSceneSettings.debugDraw). Off by default; draws from component shapes, no world.
+        m_collidersToggle = m_toolbar->AddToggle(u8"Colliders");
+        m_collidersToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
+                                                {
+                                                    self->m_showColliders = value;
+                                                    self->SaveViewPrefs(); // persist per-scene
+                                                });
+        // Restore this scene's saved grid + LOD + collider state before the first SyncToolbar mirrors it.
         LoadViewPrefs();
     }
 
@@ -1212,17 +1221,18 @@ namespace editor
     // the default. Loading never writes (only the user toggle persists).
     void SceneEditorPage::LoadViewPrefs()
     {
-        const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay};
+        const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders};
         const SceneViewPref p =
             LoadSceneViewPref(m_context->ProjectEditorSettings(), InstanceId(), fallback);
         m_showGrid = p.showGrid;
         m_showLodOverlay = p.showLodOverlay;
+        m_showColliders = p.showColliders;
     }
 
     void SceneEditorPage::SaveViewPrefs()
     {
-        // Save the WHOLE pref (grid + LOD) so toggling one never resurrects the other's default.
-        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay};
+        // Save the WHOLE pref (grid + LOD + colliders) so toggling one never resurrects a default.
+        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders};
         if (SaveSceneViewPref(m_context->ProjectEditorSettings(), pref))
         {
             m_context->RequestProjectEditorSettingsSave();
@@ -1245,6 +1255,10 @@ namespace editor
         if (m_lodToggle != nullptr)
         {
             m_lodToggle->SetIsChecked(m_showLodOverlay);
+        }
+        if (m_collidersToggle != nullptr)
+        {
+            m_collidersToggle->SetIsChecked(m_showColliders);
         }
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
