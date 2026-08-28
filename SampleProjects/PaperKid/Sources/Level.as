@@ -1,15 +1,14 @@
 // Level - the per-scene script for PaperKid's driving level (P1-6). Set this class on MainScene's
-// Scene Script settings. It owns the countdown timer + the delivery quota, harvests the SCENE bus,
-// and relays to the RUN bus what the Game (PaperKidGame) needs to hear:
+// Scene Script settings. It owns the countdown timer + the delivery quota.
 //
-//   - Subscriber.as emits scene "Delivered"(points) when a paper lands in a zone -> the Level counts
-//     it, relays "Delivered"(points) to the run bus (the Game adds to score), and emits "QuotaMet"
-//     to the run bus once enough deliveries land.
-//   - the timer ticks ONLY while the scene simulates (per-scene time - paused freezes it); at 0 it
-//     emits "TimeUp" to the run bus.
-//
-// The Game drives LevelCleared / LevelFailed off those run-bus events (its on<Event> inbox). This
-// scene->run relay is explicit on purpose: there is no implicit scene->run bridge.
+// KEY: in a GameInstance the SCENE bus IS the run bus (SetSceneEventBus(&m_runEvents)) - ONE bus per
+// run scope. So a scene event a behavior emits is already heard by the Game's on<Event> inbox; there
+// is NO relay to do (and re-emitting the same name loops back into this handler). The Level therefore:
+//   - COUNTS the Subscriber's "Delivered"(points) (the Game also hears it directly for score), and on
+//     reaching quota emits the NEW signal "QuotaMet";
+//   - ticks the countdown ONLY while the scene simulates (per-scene time - pause/timescale 0 freezes
+//     it), emitting the NEW signal "TimeUp" at 0.
+// The Game drives LevelCleared / LevelFailed off "QuotaMet" / "TimeUp".
 //
 // (Out-of-papers as a fail condition is deferred: a just-thrown paper is still in flight and may yet
 // deliver, so "no papers left" cannot fail immediately - that needs in-flight tracking, a follow-up.)
@@ -61,7 +60,9 @@ class Level
         }
     }
 
-    // Scene bus: a subscriber scored a delivery (Subscriber.as emits "Delivered", points).
+    // The scene bus IS this run's bus, so the Game already hears the Subscriber's "Delivered" directly
+    // - do NOT re-emit it (that fed the same bus and looped back into this handler until quota). The
+    // Level only COUNTS deliveries and, on reaching quota, emits the NEW "QuotaMet" signal.
     void onDelivered(int points)
     {
         if (m_ended)
@@ -69,7 +70,6 @@ class Level
             return;
         }
         m_delivered += 1;
-        run::events().emit("Delivered", points); // relay to the Game for scoring
         if (m_delivered >= quota)
         {
             m_ended = true;
