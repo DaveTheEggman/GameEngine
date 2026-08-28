@@ -45,7 +45,11 @@ class Bike
 
     Bike(Entity@ entity) { @self = entity; }
 
-    void onStart() { m_papers = startingPapers; }
+    void onStart()
+    {
+        m_papers = startingPapers;
+        updatePapersHud();
+    }
 
     void onUpdate(double dt)
     {
@@ -67,7 +71,20 @@ class Bike
         {
             throwPaper();
             m_papers -= 1;
+            updatePapersHud();
+            // On the LAST paper, tell the Level (it grace-waits for this one to land, then fails if
+            // quota is still unmet). The scene bus IS the run bus, so the Level's onOutOfPapers hears it.
+            if (m_papers == 0)
+            {
+                self.scene.events.emit("OutOfPapers", 0);
+            }
         }
+    }
+
+    // Mirror the remaining paper count into the overlay HUD (a no-op when the HUD is not shown).
+    private void updatePapersHud()
+    {
+        ui::findLabel("hud-papers").setText("Papers " + m_papers);
     }
 
     // Ramp the signed speed toward the throttle intent, clamped to the forward/reverse caps.

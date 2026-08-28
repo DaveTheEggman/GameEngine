@@ -19,6 +19,7 @@ Guid kSettingsDoc = Guid("d30677d4-cb28-4ec1-958a-f8046e0c67a5");     // setting
 Guid kPlayingLevel = Guid("855ffed4-4da7-4fa0-9756-a95c6c842890");    // MainScene
 Guid kLevelClearedDoc = Guid("1df972ca-bcdd-4a73-bda6-4df4a858249f"); // level-cleared
 Guid kLevelFailedDoc = Guid("3aa68e31-9f1c-44e6-8cd6-48f2f7e64d42");  // level-failed
+Guid kHudDoc = Guid("99b0b28b-bca7-4b49-b0df-ed034b176973");          // hud (overlay)
 
 enum GameState
 {
@@ -88,11 +89,14 @@ class Game
 
     void enterPlaying()
     {
-        // Load the level and drop all menu screens so the scene shows through. Fresh score/quota.
+        // Fresh score, then drop the menus and put up the overlay HUD BEFORE the scene starts, so the
+        // Level/Bike onStart handlers have its labels to populate. The HUD is an Overlay screen: it
+        // passes input through to the bike (a Modal screen would freeze gameplay).
         m_score = 0;
         m_deliveries = 0;
-        run::loadScene(kPlayingLevel);
         ui::clear();
+        ui::push(kHudDoc);
+        run::loadScene(kPlayingLevel);
         run::setTimeScale(1.0f); // gameplay runs
         m_state = GameState::Playing;
     }
@@ -174,14 +178,15 @@ class Game
         showLevelCleared();
     }
 
-    // The timer ran out -> level failed.
-    void onTimeUp(int unused)
+    // The level failed. The Level tells us WHY: reason 0 = the timer ran out, reason 1 = out of
+    // papers (with quota unmet after the in-flight grace). The screen title reflects the reason.
+    void onLevelFailed(int reason)
     {
         if (m_state != GameState::Playing)
         {
             return;
         }
-        showLevelFailed();
+        showLevelFailed(reason);
     }
 
     // ---- end-of-level screens (P1-7): a modal over the frozen scene + a live score summary ----
@@ -195,10 +200,11 @@ class Game
         m_state = GameState::LevelCleared;
     }
 
-    void showLevelFailed()
+    void showLevelFailed(int reason)
     {
         run::setTimeScale(0.0f);
         Screen s = ui::push(kLevelFailedDoc);
+        s.findLabel("title").setText(reason == 1 ? "Out of Papers!" : "Time's Up!");
         s.findLabel("summary").setText("Delivered " + m_deliveries + " papers    Score " + m_score);
         s.findButton("retry-btn").onClick(Action(this.onPlayAgain));
         s.findButton("menu-btn").onClick(Action(this.onBackToMenu));
