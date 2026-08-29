@@ -35,13 +35,8 @@ RUN wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh \
     && chmod +x /tmp/llvm.sh && /tmp/llvm.sh 21 \
     && rm -f /tmp/llvm.sh
 
-# SDL3 (matched to the vendored Windows libs, release-3.4.10) built here so libSDL3.so carries the
-# 2.35 floor; the build script bundles it beside the binaries (the Deck has no system SDL3). SDL is
-# C, so libSDL3.so has no libstdc++/GLIBCXX dependency - only the glibc floor.
-RUN git clone --depth 1 --branch release-3.4.10 https://github.com/libsdl-org/SDL.git /tmp/SDL3 \
-    && cmake -S /tmp/SDL3 -B /tmp/SDL3/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-        -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
-    && cmake --build /tmp/SDL3/build && cmake --install /tmp/SDL3/build \
-    && ldconfig && rm -rf /tmp/SDL3
+# SDL3 is vendored as source (ThirdParty/SDL3) and built statically in-tree, so nothing to install
+# here - the X11/Wayland/audio -dev packages above are its build deps, and the binaries carry SDL
+# internally (no libSDL3.so to bundle).
 
 WORKDIR /work

@@ -442,11 +442,12 @@ add_subdirectory(Code/Foundation/Shell.Null)
 if(EMSCRIPTEN)
     add_subdirectory(Code/Foundation/Shell.Web)
 else()
-    find_package(SDL3 QUIET GLOBAL)  # GLOBAL: consumers across roles (Shell.Desktop, its tests, runners) link SDL3::SDL3
-    if(SDL3_FOUND)
+    # SDL3 is resolved in ThirdParty (vendored + static by default; ENGINE_SDL_TARGET set there,
+    # SDL3::SDL3-static or system SDL3::SDL3). Consumers link ${ENGINE_SDL_TARGET}.
+    if(ENGINE_SDL_TARGET)
         add_subdirectory(Code/Foundation/Shell.Desktop)
     else()
-        message(STATUS "SDL3 not found - skipping Foundation::Shell.Desktop")
+        message(STATUS "SDL3 unavailable - skipping Foundation::Shell.Desktop")
     endif()
 endif()
 add_subdirectory(Code/Foundation/Input)     # action-mapping layer (InputMap + ActionRuntime + asset/cooked) over Core + Shell

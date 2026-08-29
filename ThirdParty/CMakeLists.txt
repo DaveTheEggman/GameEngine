@@ -1,11 +1,31 @@
 # Third-party dependencies.
 
-# SDL3 - pre-built development libraries (Windows). Point find_package(SDL3)
-# to the vendored copy and store the DLL path for post-build copies.
-if(WIN32 AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake/SDL3Config.cmake)
-    set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/cmake" CACHE PATH "SDL3 CMake config" FORCE)
-    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll)
-        set(BUILDSYSTEM_SDL3_DLL "${CMAKE_CURRENT_SOURCE_DIR}/SDL3/lib/x64/SDL3.dll" CACHE FILEPATH "" FORCE)
+# SDL3 - vendored SOURCE, built as a STATIC library. Desktop binaries carry SDL inside
+# the executable: no libSDL3.so / SDL3.dll runtime dependency on Linux or Windows. SDL still dlopens
+# the platform windowing/audio backends (X11/Wayland/PipeWire/ALSA) at RUNTIME by design, so those
+# stay enabled (a static SDL is still portable). Building from source means SDL is compiled by this
+# build's toolchain, so its glibc floor matches the rest of the engine rather than a prebuilt's.
+# Set ENGINE_SYSTEM_SDL to use a system find_package(SDL3) instead (distro packaging). Not built for
+# Emscripten - the browser shell replaces SDL there.
+#
+# ENGINE_SDL_TARGET (the link target for the desktop shell + its consumers) is exported to the root
+# scope here; empty means no SDL, so the root skips Foundation::Shell.Desktop.
+option(ENGINE_SYSTEM_SDL "Use a system SDL3 (find_package) instead of the vendored static build" OFF)
+if(NOT EMSCRIPTEN)
+    if(NOT ENGINE_SYSTEM_SDL AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/CMakeLists.txt)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)       # static only - no runtime .so/.dll
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE) # skip SDL_test, tests, examples, install
+        set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+        set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+        add_subdirectory(SDL3 EXCLUDE_FROM_ALL)       # compiled only when the shell links it
+        set(ENGINE_SDL_TARGET SDL3::SDL3-static CACHE INTERNAL "SDL link target for the desktop shell")
+    else()
+        find_package(SDL3 QUIET GLOBAL)               # system SDL3 (escape hatch / distro packaging)
+        if(SDL3_FOUND)
+            set(ENGINE_SDL_TARGET SDL3::SDL3 CACHE INTERNAL "SDL link target for the desktop shell")
+        endif()
     endif()
 endif()
 

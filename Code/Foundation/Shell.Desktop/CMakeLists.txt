@@ -7,7 +7,7 @@ add_library(Foundation::Shell.Desktop ALIAS Shell.Desktop)
 
 target_link_libraries(Shell.Desktop
     PUBLIC Foundation::Shell Foundation::Policy
-    PRIVATE SDL3::SDL3)
+    PRIVATE ${ENGINE_SDL_TARGET}) # vendored static SDL3 (or system SDL3 under ENGINE_SYSTEM_SDL)
 
 target_sources(Shell.Desktop
     PRIVATE

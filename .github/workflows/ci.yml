@@ -66,36 +66,9 @@ jobs:
           sudo /tmp/llvm.sh 21
           clang++-21 --version   # fail loudly here if the install did not produce the binary
 
-      # SDL3 is a system dependency on Linux (only Windows uses the vendored prebuilt in
-      # ThirdParty/SDL3). Ubuntu 24.04's apt has no libsdl3-dev, so build it from the same
-      # release the Windows libs ship (3.4.10). Without it, Foundation::Shell.Desktop is skipped
-      # and the editor/player fail to link. Its X11/Wayland build deps are installed above.
-      #
-      # Cache the install so it compiles once and restores on later runs (keyed by the SDL
-      # version + runner image); the build step is skipped on a cache hit. Installed to a prefix
-      # under HOME (cacheable as one directory, no sudo); the step after puts it on the CMake +
-      # loader paths so find_package(SDL3) and the test binaries find it.
-      - name: Cache SDL3
-        id: cache-sdl3
-        uses: actions/cache@v4
-        with:
-          path: ~/sdl3-install
-          key: sdl3-release-3.4.10-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Build and install SDL3 (release-3.4.10)
-        if: steps.cache-sdl3.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch release-3.4.10 https://github.com/libsdl-org/SDL.git /tmp/SDL3-src
-          cmake -S /tmp/SDL3-src -B /tmp/SDL3-src/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF \
-            -DCMAKE_INSTALL_PREFIX="$HOME/sdl3-install"
-          cmake --build /tmp/SDL3-src/build
-          cmake --install /tmp/SDL3-src/build
-
-      - name: Put SDL3 on the CMake + library paths
-        run: |
-          echo "CMAKE_PREFIX_PATH=$HOME/sdl3-install${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=$HOME/sdl3-install/lib:$HOME/sdl3-install/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+      # SDL3 is vendored as source (ThirdParty/SDL3) and built statically in-tree, so there is no
+      # SDL to install here - only its build deps (the X11/Wayland/audio -dev packages above),
+      # which the source build compiles against.
 
       # OOM insurance for the memory-heavy modules build: a large swapfile means a
       # spike gets paged instead of OOM-killed (slower, but the job survives). The runner

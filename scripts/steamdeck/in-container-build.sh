@@ -42,20 +42,19 @@ log "Cook shaders.dpak ($FORMATS)"
 "$BIN/Tools.ShaderPack" "Data/Shaders" "/tmp/shaders.dpak" $FORMATS
 
 # --- 4. stage runnable bundles ---------------------------------------------------------------
-# Vendored runtime .so + the container-built SDL3. wgpu is needed by both; DXC is EDITOR-ONLY
-# (shader authoring) and its glibc floor (2.38) exceeds the Deck host, so it is bundled with the
-# editor for completeness but flagged - the editor still launches in pack mode without it.
+# SDL3 is linked statically (vendored source), so there is no libSDL3.so to bundle - it lives inside
+# the executables. wgpu is still a runtime .so needed by both. DXC is EDITOR-ONLY (shader authoring)
+# and its glibc floor (2.38) exceeds the Deck host, so it is bundled with the editor but flagged
+# in the glibc check below - the editor still launches in pack mode without it.
 WGPU="ThirdParty/WgpuNative/lib/linux-x86_64/libwgpu_native.so"
 DXC1="ThirdParty/DXC/lib/linux-x86_64/libdxcompiler.so"
 DXC2="ThirdParty/DXC/lib/linux-x86_64/libdxil.so"
-SDL_SO="$(ls /usr/local/lib/libSDL3.so* 2>/dev/null | head -1)"
 
 rm -rf "$DIST"
 mkdir -p "$DIST/Editor/Data" "$DIST/Player"
 
 log "Stage $DIST/Editor"
 cp "$BIN/Tools.Editor" "$DIST/Editor/"
-cp -P /usr/local/lib/libSDL3.so* "$DIST/Editor/"
 cp "$WGPU" "$DIST/Editor/"
 cp "$DXC1" "$DXC2" "$DIST/Editor/"           # editor cooks shaders (see glibc note below)
 cp "/tmp/shaders.dpak" "$DIST/Editor/shaders.dpak"
@@ -65,7 +64,6 @@ strip "$DIST/Editor/Tools.Editor" 2>/dev/null || true
 
 log "Stage $DIST/Player"
 cp "$BIN/Engine.Player" "$DIST/Player/"
-cp -P /usr/local/lib/libSDL3.so* "$DIST/Player/"
 cp "$WGPU" "$DIST/Player/"
 cp "/tmp/shaders.dpak" "$DIST/Player/shaders.dpak"
 strip "$DIST/Player/Engine.Player" 2>/dev/null || true
@@ -76,8 +74,8 @@ Steam Deck bundles (built for glibc <= $MAX_GLIBC, libstdc++ linked statically).
 Editor/   ./Tools.Editor    - the authoring tool (runs in shader-pack mode).
 Player/   ./Engine.Player   - the game runtime; point it at a project or a cooked dist.
 
-Shared libraries (libSDL3, libwgpu_native) ship beside each binary and are found via the
-executable's \$ORIGIN rpath. Requires GPU drivers with Vulkan (the Deck has them).
+SDL3 is linked statically (inside the binary). libwgpu_native.so ships beside each binary and is
+found via the executable's \$ORIGIN rpath. Requires GPU drivers with Vulkan (the Deck has them).
 
 NOTE: libdxcompiler.so (DXC, the editor's shader COMPILER) needs glibc 2.38, which exceeds the
 Deck host - so on-device shader authoring/recompiling will not work. The editor still launches

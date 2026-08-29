@@ -54,9 +54,35 @@ the test. Existing Shell.Desktop tests must stay green (they exercise SDL).
 
 ---
 
-## State (appended 2026-08-03; original content above is unchanged)
+## State (appended 2026-08-29)
 
-**NOT STARTED.** No commits. Pure CMake/link plumbing (vendor SDL3 as source);
+**DONE.** SDL3 3.4.10 vendored as source at `ThirdParty/SDL3` (34M, replacing the
+58M prebuilt SDK - a net shrink) and built statically in-tree:
+`ThirdParty/CMakeLists.txt` does `add_subdirectory(SDL3)` with `SDL_SHARED=OFF /
+SDL_STATIC=ON` (tests/examples/install off) and exports `ENGINE_SDL_TARGET =
+SDL3::SDL3-static`; the root CMakeLists adds `Foundation::Shell.Desktop` when that
+target exists, and Shell.Desktop + Shell.Desktop.Tests link `${ENGINE_SDL_TARGET}`.
+The escape hatch is `option(ENGINE_SYSTEM_SDL ... OFF)` -> `find_package(SDL3)` +
+`SDL3::SDL3`. SDL keeps its runtime dlopen of X11/Wayland/PipeWire/ALSA (backends
+`*_SHARED=ON`), which is what keeps the static binary portable.
+
+Verified (Linux/clang and Linux/gcc, Debug): `ldd` on Tools.Editor, Engine.Player,
+and Shell.Desktop.Tests shows no libSDL3 (SDL is inside the exe);
+Shell.Desktop.Tests 10/10. Because SDL is compiled by the same toolchain as the
+engine, its glibc floor matches the engine's rather than a prebuilt binary's floor,
+which is also what lets the Steam Deck build lane ship no libSDL3.so. The CI/release
+SDL install+cache steps and the Steam Deck Dockerfile's SDL build were removed (SDL
+builds in-tree now).
+
+Paths in the original spec referenced the pre-debrand `Code/Draconic/...` tree; the
+real files are `Code/Foundation/Shell.Desktop*` and the option is `ENGINE_SYSTEM_SDL`
+(not `DRACONIC_SYSTEM_SDL`). Windows build still needs its first re-configure after
+this lands; the CMake has no Linux-only SDL options (SDL's own CMake handles the
+per-platform backends).
+
+### Original state (appended 2026-08-03)
+
+NOT STARTED. No commits. Pure CMake/link plumbing (vendor SDL3 as source);
 self-contained, pick up whenever desired.
 
 ### Size measurement (appended 2026-08-03, for the "where it lives" decision)

@@ -7,7 +7,7 @@ add_executable(Shell.Desktop.Tests
 
 # The test TU includes <SDL3/SDL.h> directly to push synthetic events.
 target_link_libraries(Shell.Desktop.Tests PRIVATE
-    Foundation::Shell.Desktop Foundation::Runtime.Client Foundation::Runtime.Desktop SDL3::SDL3 doctest::doctest)
+    Foundation::Shell.Desktop Foundation::Runtime.Client Foundation::Runtime.Desktop ${ENGINE_SDL_TARGET} doctest::doctest)
 
 target_compile_definitions(Shell.Desktop.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
