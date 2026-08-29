@@ -54,4 +54,17 @@ export namespace foundation::core
 
     // Identity transform (position 0, rotation identity, scale 1) - the default-constructed value.
     inline constexpr Transform IdentityTransform{};
+
+    // The affine transform with scale removed (translation + rotation only). Use where a matrix
+    // must PLACE something whose dimensions are absolute in world units and so must not be warped
+    // by the placing entity's scale - e.g. a baked navmesh, whose agent radius / cell size are
+    // world-unit quantities, so both the bake frame and the runtime placement must be rigid (a
+    // zone sharing a scaled entity with its geometry would otherwise un-scale the geometry the
+    // bake sees and erode the navmesh to nothing).
+    [[nodiscard]] inline Float4x4 RigidPart(const Float4x4& m) noexcept
+    {
+        Transform t = Transform::FromMatrix(m);
+        t.scale = Float3::One;
+        return t.ToMatrix();
+    }
 }

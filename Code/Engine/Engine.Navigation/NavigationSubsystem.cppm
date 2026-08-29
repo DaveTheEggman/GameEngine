@@ -193,7 +193,9 @@ export namespace engine::navigation
                         return;
                     }
                     RuntimeZone rz;
-                    rz.world = m_scene->GetWorldMatrix(entity);
+                    // Rigid (no scale): matches the bake frame (NavigationBakeImpl), so a scaled
+                    // zone entity does not double-scale the navmesh at runtime.
+                    rz.world = RigidPart(m_scene->GetWorldMatrix(entity));
                     rz.invWorld = Inverse(rz.world);
                     rz.center = m_scene->GetWorldPosition(entity);
                     rz.extents = z.extents;

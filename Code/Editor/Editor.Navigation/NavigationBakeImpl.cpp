@@ -54,7 +54,11 @@ namespace editor::navigation
         {
             return 0;
         }
-        const Float4x4 zoneWorld = scene.GetWorldMatrix(zoneEntity);
+        // Rigid (no scale): the navmesh is baked in world units, so a zone entity's scale must
+        // not warp the geometry Recast sees. A zone sharing a scaled entity with its ground would
+        // otherwise un-scale that ground to unit size and erode the navmesh to nothing. The
+        // runtime places the navmesh with the matching rigid frame (RuntimeZone.world).
+        const Float4x4 zoneWorld = RigidPart(scene.GetWorldMatrix(zoneEntity));
         const Float4x4 zoneInv = Inverse(zoneWorld);
         const AABB zoneBox =
             AABB::FromCenterExtents(scene.GetWorldPosition(zoneEntity), zoneExtents);

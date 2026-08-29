@@ -49,7 +49,9 @@ namespace engine::navigation
                         {
                             return;
                         }
-                        const Float4x4 world = scene.GetWorldMatrix(entity);
+                        // Rigid (no scale): matches the bake + crowd placement frame, so the
+                        // debug overlay shows the navmesh exactly where agents path on it.
+                        const Float4x4 world = RigidPart(scene.GetWorldMatrix(entity));
                         Array<Float3> tris;
                         product->mesh.DebugTriangles(tris);
                         for (usize t = 0; t + 2 < tris.Size(); t += 3)

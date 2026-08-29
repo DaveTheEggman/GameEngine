@@ -63,6 +63,30 @@ namespace
         mesh->CalculateBounds();
         return mesh;
     }
+
+    // A UNIT (1x1) ground quad centered at the origin. Meant to be scaled up by its entity - the
+    // case where the zone shares that scaled entity, so the bake frame must strip the scale.
+    RefPtr<geometry::StaticMesh> UnitGroundMesh()
+    {
+        RefPtr<geometry::StaticMesh> mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
+        const Float3 corners[] = {{-0.5f, 0, -0.5f}, {0.5f, 0, -0.5f}, {0.5f, 0, 0.5f},
+                                  {-0.5f, 0, 0.5f}};
+        for (const Float3& p : corners)
+        {
+            geometry::StaticMeshVertex v;
+            v.position = p;
+            v.normal = Float3{0, 1, 0};
+            mesh->vertices.PushBack(v);
+        }
+        const u32 tris[] = {0, 3, 2, 0, 2, 1}; // +Y winding
+        mesh->indices.Resize(sizeof(tris) / sizeof(tris[0]));
+        for (u32 i : tris)
+        {
+            mesh->indices.Add(i);
+        }
+        mesh->CalculateBounds();
+        return mesh;
+    }
 }
 
 TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable zone asset")
@@ -121,4 +145,47 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
     CHECK(path.complete);
 
     RemoveTree(u8"scratch_navbake_db");
+}
+
+TEST_CASE("editor.navigation: bake succeeds when the zone shares a SCALED entity with its ground")
+{
+    // Regression: authoring a nav zone directly on the ground entity, where that entity is scaled
+    // up (e.g. a unit plane scaled to 20x20). The bake frame must be rigid - otherwise
+    // Inverse(zoneWorld) cancels the entity's scale, hands Recast a 1x1 plane, and the agent-radius
+    // erosion wipes it ("No walkable geometry inside the zone"). With RigidPart the geometry keeps
+    // its true world size and bakes.
+    pipeline::RegisterNavigationZoneAsset();
+    RemoveTree(u8"scratch_navbake_scaled_db");
+
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_scaled_db");
+    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    auto* assetInstance =
+        db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
+    REQUIRE(assetInstance != nullptr);
+
+    scene::Scene sceneObj(u8"bake_scaled");
+    engine::navigation::AddNavigationSceneManagers(sceneObj);
+    auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
+
+    // ONE entity carries both the (unit) ground mesh and the zone, scaled up 20x in X/Z.
+    RefPtr<geometry::StaticMesh> ground = UnitGroundMesh();
+    scene::EntityHandle entity = sceneObj.CreateEntity(u8"ground_zone");
+    engine::render::MeshComponent& mc = meshes->Add(entity);
+    mc.mesh = foundation::resource::Ref<geometry::StaticMesh>(ground);
+
+    engine::navigation::NavMeshZoneComponent& z =
+        sceneObj.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(entity);
+    z.extents = Float3{15, 10, 15};
+
+    Transform t = sceneObj.GetLocalTransform(entity);
+    t.scale = Float3{20, 1, 20};
+    sceneObj.SetLocalTransform(entity, t);
+    sceneObj.UpdateTransforms();
+
+    const editor::navigation::BakeResult result =
+        editor::navigation::BakeNavigationZone(sceneObj, entity, *assetInstance);
+    CHECK(result.triangleCount == 2u); // the unit plane's world bounds (20x20) intersect the zone
+    CHECK(result.baked);               // fails without RigidPart: the unit-size plane erodes away
+
+    RemoveTree(u8"scratch_navbake_scaled_db");
 }
