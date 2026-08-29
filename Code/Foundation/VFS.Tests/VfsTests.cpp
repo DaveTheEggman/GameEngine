@@ -335,3 +335,38 @@ TEST_CASE("vfs.sourcePath: wire shape is String-compatible (existing data loads)
         CHECK(back.AsView() == u8"Fonts/Roboto.ttf");
     }
 }
+
+TEST_CASE("vfs: data-root discovery via the .dataroot marker")
+{
+    const StringView base = u8"scratch_dataroot_test";
+    const String dataDir = PathJoin(base, u8"Data");
+    REQUIRE(CreateDirectories(dataDir.AsView()));
+    const String marker = PathJoin(dataDir.AsView(), kDataRootMarker);
+    const byte one[] = {byte{'1'}};
+    REQUIRE(WriteFile(marker.AsView(), Span<const byte>{one, 1}).IsOk());
+
+    // IsDataRoot: true for the marked dir, false for its parent (no marker).
+    CHECK(IsDataRoot(dataDir.AsView()));
+    CHECK_FALSE(IsDataRoot(base));
+
+    // FindDataRootFrom returns <ancestor>/Data, walking up from a deeper start.
+    CHECK(FindDataRootFrom(base) == dataDir);
+    const String deep = PathJoin(PathJoin(base, u8"sub").AsView(), u8"deep");
+    CHECK(FindDataRootFrom(deep.AsView()) == dataDir);
+    // No Data/.dataroot anywhere up the chain -> empty.
+    CHECK(FindDataRootFrom(u8"scratch_dataroot_absent").IsEmpty());
+
+    // DataPath joins; an empty root passes the relative through unchanged.
+    CHECK(DataPath(dataDir.AsView(), u8"Assets/x.ttf") ==
+          PathJoin(dataDir.AsView(), u8"Assets/x.ttf"));
+    CHECK(DataPath(u8"", u8"Assets/x.ttf") == String(u8"Assets/x.ttf"));
+
+    // Best-effort cleanup.
+    NativeFileSystem scratch(base);
+    if (IWritableFileSystem* w = scratch.AsWritable())
+    {
+        (void)w->Delete(u8"Data/.dataroot");
+    }
+    (void)RemoveDirectory(dataDir.AsView());
+    (void)RemoveDirectory(base);
+}

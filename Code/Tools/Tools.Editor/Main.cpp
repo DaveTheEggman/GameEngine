@@ -210,10 +210,23 @@ namespace
     // default - a fresh project must render game-UI text in an export from day one), the
     // default SKY, and the primitive meshes. Payload files come from the baseline-assets dir
     // (the source tree in dev; a relocated editor looks beside the exe).
+    // The discovered Data root (runtime, relocatable), cached for the process. Empty when the
+    // .dataroot marker is not found - callers then fall back to the compile-time source paths,
+    // which keeps a dev build running from a checkout with no staged Data/ beside the exe.
+    [[nodiscard]] StringView EditorDataRoot()
+    {
+        static const String root = foundation::vfs::FindDataRoot();
+        return root.AsView();
+    }
+
     [[nodiscard]] String BaselineAssetPath(StringView relative)
     {
-        String path(StringView(reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_BASELINE_ASSETS)));
-        path = PathJoin(path.AsView(), relative);
+        const StringView root = EditorDataRoot();
+        String base = root.IsEmpty()
+                          ? String(StringView(
+                                reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_BASELINE_ASSETS)))
+                          : foundation::vfs::DataPath(root, u8"Assets");
+        String path = PathJoin(base.AsView(), relative);
         if (FileExists(path.AsView()))
         {
             return path;
@@ -337,10 +350,21 @@ int main(int argc, char** argv)
         }
     }
     config.startInProjectManager = config.projectDirectory.IsEmpty();
-    config.fontPath =
-        String(StringView(reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_FONT_PATH)));
-    config.monoFontPath =
-        String(StringView(reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_MONO_FONT_PATH)));
+    {
+        // Fonts resolve from the discovered Data root (relocatable); the compile-time source
+        // paths are the dev fallback when the .dataroot marker is not found. The UI font also
+        // has an embedded twin (below) as a last resort, so UI text renders even if both miss.
+        const StringView dataRoot = EditorDataRoot();
+        config.fontPath =
+            dataRoot.IsEmpty()
+                ? String(StringView(reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_FONT_PATH)))
+                : foundation::vfs::DataPath(dataRoot, u8"Assets/fonts/roboto/Roboto-Regular.ttf");
+        config.monoFontPath =
+            dataRoot.IsEmpty()
+                ? String(StringView(
+                      reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_MONO_FONT_PATH)))
+                : foundation::vfs::DataPath(dataRoot, u8"Assets/fonts/dejavu/DejaVuSansMono.ttf");
+    }
     config.embeddedFont = reinterpret_cast<const u8*>(g_embeddedEditorFont);
     config.embeddedFontSize = static_cast<usize>(g_embeddedEditorFontSize);
     config.logBuffer = &logBuffer;

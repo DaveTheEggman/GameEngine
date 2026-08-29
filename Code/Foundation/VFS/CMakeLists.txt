@@ -15,5 +15,6 @@ target_sources(VFS
             IFileSystem.cppm
             SourcePath.cppm
             NativeFileSystem.cppm
-            VirtualFileSystem.cppm)
+            VirtualFileSystem.cppm
+            DataRoot.cppm)
 
