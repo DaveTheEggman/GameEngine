@@ -189,3 +189,32 @@ TEST_CASE("FloatingPanel: negative X/Y clamps to the parent origin")
     CHECK(panel->Bounds.x == doctest::Approx(0.0f));
     CHECK(panel->Bounds.y == doctest::Approx(0.0f));
 }
+
+TEST_CASE("FloatingPanel: the resize band lives in the border inset, plus a corner grab square")
+{
+    // Pass-17 polish: a 9px hit band used to claim the outer ~3px of hosted content (a
+    // PropertyGrid's scrollbar edge). Edges now claim only the 6px content inset; the
+    // bottom-right corner keeps a 12px OS-style grip square. CursorAt is the observable seam.
+    auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Band"));
+    // A content child filling the body is the discriminator: a point the band does NOT claim
+    // falls through to it; a band point returns the panel itself.
+    auto content = core::MakeRef<View>(core::DefaultAllocator());
+    content->IsHitTestVisible = true;
+    panel->SetContent(content);
+    panel->Measure(BoxConstraints::Tight(300.0f, 200.0f));
+    panel->Layout(0.0f, 0.0f, 300.0f, 200.0f);
+
+    // The override sits in FloatingPanel's protected section; View::HitTest is the public
+    // surface, so probe through the base pointer.
+    View* asView = panel.Get();
+    // 8px inside the right edge (over content territory): NOT a resize zone anymore.
+    CHECK(asView->HitTest(Float2{292.0f, 120.0f}) == content.Get());
+    // Inside the 6px inset: the panel claims it (horizontal resize).
+    CHECK(asView->HitTest(Float2{297.0f, 120.0f}) == panel.Get());
+    // Bottom inset: the panel claims it (vertical resize).
+    CHECK(asView->HitTest(Float2{150.0f, 197.0f}) == panel.Get());
+    // The corner square reaches FURTHER in than the edges (12px): diagonal grab.
+    CHECK(asView->HitTest(Float2{290.0f, 190.0f}) == panel.Get());
+    // Same distance-in on a plain edge is content.
+    CHECK(asView->HitTest(Float2{290.0f, 120.0f}) == content.Get());
+}

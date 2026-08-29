@@ -320,6 +320,60 @@ TEST_CASE("script.luau: a facade Array<T> return crosses as a native table (nume
     CHECK(probe->Invoke(u8"nameLens", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(7.0));
 }
 
+// Container MEMBERS bind as owner ops (`shelf:rooms_count()` / `:rooms_at(0)` / `:rooms_add()` /
+// `:rooms_removeAt(0)` / `:rooms_move(a, b)`) - the AngelScript RegisterContainerMethods twin,
+// ZERO-based, write-through (pass-17 ruling). The bare property is NOT exposed: it used to cross
+// as a detached copy-table whose mutations were silently lost.
+namespace
+{
+    class LuauShelf : public Object
+    {
+        RTTI_OBJECT(LuauShelf, Object)
+    public:
+        Array<UniquePtr<LuauRoom>> rooms;
+    };
+}
+REFLECT_MEMBERS(LuauShelf, "rtti::luau::test")
+{
+    builder.Constructor();
+    builder.Nested<&LuauShelf::rooms>("rooms");
+}
+
+TEST_CASE("script.luau: container members are owner ops - write-through, zero-based, no bare table")
+{
+    RttiRegisterValue_LuauRoom();
+    RegisterUniquePtrArrayType<LuauRoom>();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    manager->RegisterType(TypeOf<LuauRoom>());
+    manager->RegisterType(LuauShelf::StaticType());
+    manager->FinalizeTypes();
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    // The C++-owned shelf crosses in as a global; script mutations must land in THIS object.
+    RefPtr<LuauShelf> shelf = MakeRef<LuauShelf>(DefaultAllocator());
+    context->SetGlobal(u8"shelf", Variant::FromObject(RefPtr<Object>(shelf.Get())));
+
+    REQUIRE(context
+                ->Load(u8"Bare = (shelf.rooms == nil) and 1 or 0\n" // the copy-table trap is CLOSED
+                       u8"local r = shelf:rooms_add()\n"
+                       u8"r.size = 42\n"                            // through the returned handle
+                       u8"Cnt = shelf:rooms_count()\n"
+                       u8"Z = shelf:rooms_at(0).size\n"             // zero-based, like AngelScript
+                       u8"OOB = (shelf:rooms_at(5) == nil) and 1 or 0\n",
+                       u8"luau.shelf")
+                .IsOk());
+
+    CHECK(context->GetGlobal(u8"Bare").Get<f64>() == doctest::Approx(1.0));
+    CHECK(context->GetGlobal(u8"Cnt").Get<f64>() == doctest::Approx(1.0));
+    CHECK(context->GetGlobal(u8"Z").Get<f64>() == doctest::Approx(42.0));
+    CHECK(context->GetGlobal(u8"OOB").Get<f64>() == doctest::Approx(1.0));
+
+    // The mutation is visible from C++ - the handle wrote into the REAL container, not a copy.
+    REQUIRE(shelf->rooms.Size() == 1u);
+    CHECK(shelf->rooms[0]->size == doctest::Approx(42.0));
+}
+
 // The ScriptName alias mechanism on the Luau backend: a "scriptName" class attribute makes the class
 // table install under the alias, not the C++ name.
 namespace
@@ -1019,6 +1073,18 @@ TEST_CASE("script.luau: backend conformance battery")
     dialect.coroutineClass = kCoroutine;
     dialect.delegateModule = kDelegate;
     dialect.overloadModule = kOverload;
+    dialect.containerModule = u8"crate = Crate.new()\n"
+                              u8"local a = crate:items_add()\n"
+                              u8"a.size = 5\n"
+                              u8"local b = crate:items_add()\n"
+                              u8"b.size = 9\n"
+                              u8"KN = crate:items_count()\n"
+                              u8"KZ = crate:items_at(0).size\n"
+                              u8"crate:items_move(1, 0)\n"
+                              u8"KM = crate:items_at(0).size\n"
+                              u8"crate:items_removeAt(0)\n"
+                              u8"KR = crate:items_count()\n"
+                              u8"KL = crate:items_at(0).size\n";
     dialect.debugModule = kDebug;
     dialect.debugSection = u8"debug.luau";
     dialect.debugFunction = u8"debugRun";

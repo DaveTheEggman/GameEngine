@@ -101,6 +101,30 @@ namespace foundation::script::conformance
         builder.Method<static_cast<f64 (Colliding::*)(String) const>(&Colliding::clash)>("clash");
     }
 
+    // Container-member contract fixtures (pass-17 ruling): a reflected Array member binds as
+    // owner ops (`items_count/_at/_add/_removeAt/_move`) with ZERO-based indices and
+    // WRITE-THROUGH element handles on every backend - one contract, no per-backend container
+    // semantics. Registered on demand, like DelegateSignal.
+    struct CrateItem
+    {
+        f64 size = 0.0;
+    };
+    class Crate : public Object
+    {
+        RTTI_OBJECT(Crate, Object)
+    public:
+        Array<UniquePtr<CrateItem>> items;
+    };
+    REFLECT_VALUE(CrateItem, "rtti::script::conformance")
+    {
+        builder.Property<&CrateItem::size>("size");
+    }
+    REFLECT_MEMBERS(Crate, "rtti::script::conformance")
+    {
+        builder.Constructor();
+        builder.Nested<&Crate::items>("items");
+    }
+
     /// The language-specific sources. Every snippet implements a FIXED contract:
     ///  - functionsModule: function `add(a, b)` returning a + b, function `greeting()`
     ///    returning the string "hi", a module global `answer` readable as 42.
@@ -132,6 +156,13 @@ namespace foundation::script::conformance
         // the arity family), `OC = over.combine(2, 3)` (-> 5), `OCT = over.combineText("x", 7)`
         // (-> 7, the distinct-name overload). Via the backend's own construct + method-call syntax.
         StringView overloadModule;
+        // Optional container-member module: constructs a global `crate` of the native Crate type,
+        // adds two items via `items_add` setting sizes 5 and 9 THROUGH THE RETURNED HANDLES, then
+        // computes module globals: KN = items_count() (-> 2), KZ = items_at(0).size (-> 5,
+        // zero-based), then items_move(1, 0), KM = items_at(0).size (-> 9), then items_removeAt(0),
+        // KR = items_count() (-> 1), KL = items_at(0).size (-> 5). KZ/KM/KL only pass when
+        // mutations through returned handles WROTE THROUGH into the container.
+        StringView containerModule;
         // Optional (certified only when the backend declares the Debugger capability): a module
         // with a zero-arg entry function `debugFunction`. Execution reaching `debugBreakLine`
         // (1-based, in the section named `debugSection`) must have a local named `debugLocalName`
@@ -444,6 +475,28 @@ namespace foundation::script::conformance
             CHECK(octx->GetGlobal(u8"OP1").Get<f64>() == doctest::Approx(105.0)); // ping(5) - arity 1
             CHECK(octx->GetGlobal(u8"OC").Get<f64>() == doctest::Approx(5.0));    // combine
             CHECK(octx->GetGlobal(u8"OCT").Get<f64>() == doctest::Approx(7.0));   // combineText
+        }
+
+        // --- Container members (the write-through contract). ---
+        if (!dialect.containerModule.IsEmpty())
+        {
+            static bool crateOnce = [] {
+                RttiRegisterValue_CrateItem();
+                RegisterUniquePtrArrayType<CrateItem>();
+                return true;
+            }();
+            (void)crateOnce;
+            manager->RegisterType(TypeOf<CrateItem>());
+            manager->RegisterType(Crate::StaticType()); // late registration, like DelegateSignal
+            RefPtr<IScriptContext> cctx = manager->CreateContext();
+            REQUIRE(cctx.Get() != nullptr);
+            REQUIRE(cctx->Load(dialect.containerModule, u8"main").IsOk());
+
+            CHECK(cctx->GetGlobal(u8"KN").Get<f64>() == doctest::Approx(2.0)); // two adds
+            CHECK(cctx->GetGlobal(u8"KZ").Get<f64>() == doctest::Approx(5.0)); // handle wrote through
+            CHECK(cctx->GetGlobal(u8"KM").Get<f64>() == doctest::Approx(9.0)); // move(1, 0)
+            CHECK(cctx->GetGlobal(u8"KR").Get<f64>() == doctest::Approx(1.0)); // removeAt(0)
+            CHECK(cctx->GetGlobal(u8"KL").Get<f64>() == doctest::Approx(5.0)); // survivor intact
         }
 
         // --- Committed seams (skipped when the capability is absent - the default). Turning

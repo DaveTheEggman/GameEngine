@@ -1385,6 +1385,150 @@ namespace foundation::script
             return InvokeReflected(state, context, *method);
         }
 
+        // Resolve a polymorphic container's add-by-name to a concrete derived type: match the
+        // name against each creatable derived type's `displayName` attribute, then its bare type
+        // name (the AngelScript ResolveElementType twin - keep in sync).
+        [[nodiscard]] const TypeInfo* ResolveContainerElementType(const TypeInfo& base,
+                                                                  StringView name)
+        {
+            Array<const TypeInfo*> derived;
+            EnumerateDerived(base, derived);
+            for (const TypeInfo* t : derived)
+            {
+                if (TypeAttrString(*t, "displayName", StringView{}) == name)
+                {
+                    return t;
+                }
+            }
+            for (const TypeInfo* t : derived)
+            {
+                if (StringView(reinterpret_cast<const utf8char*>(t->name)) == name)
+                {
+                    return t;
+                }
+            }
+            return nullptr;
+        }
+
+        // Container-member ops on the OWNER (`shelf:rooms_count()`, `shelf:rooms_at(0)`, ...),
+        // mirroring AngelScript's RegisterContainerMethods surface so both backends share ONE
+        // write-through contract for reflected container members (pass-17 ruling: the bare
+        // property used to cross as a detached copy-table whose mutations were silently lost).
+        // Indices are ZERO-based on both backends - this is an engine accessor, not a Lua table.
+        // Elements come back like AS's ContainerDispatch: Object / copyable values via getAt
+        // (owned; Object handles write through by refcount), non-copyable values as
+        // generation-guarded BORROWS pinned to the owner - edited in place.
+        enum class ContainerOp : int
+        {
+            Count = 0,
+            At,
+            Add,
+            RemoveAt,
+            MoveElement,
+        };
+
+        // The element Variant for index `index`: getAt when the element is copyable/Object-owned,
+        // else a borrow over its address pinned to `parent` (the AS ContainerElementVariant twin).
+        [[nodiscard]] Variant ContainerElementForScript(const ContainerInfo& ci,
+                                                        const Instance& container, usize index,
+                                                        const Variant& parent)
+        {
+            Variant element = ContainerGetAt(ci, container, index);
+            if (element.IsEmpty())
+            {
+                const Instance addr = ContainerAddressAt(ci, container, index);
+                if (addr.Pointer() != nullptr)
+                {
+                    element = Variant::Borrow(addr.Pointer(), addr.Type(), parent);
+                }
+            }
+            return element;
+        }
+
+        int ContainerOpThunk(lua_State* state)
+        {
+            auto* property = static_cast<const PropertyInfo*>(
+                lua_tolightuserdata(state, lua_upvalueindex(1)));
+            auto* context = static_cast<LuauScriptContext*>(
+                lua_tolightuserdata(state, lua_upvalueindex(2)));
+            const ContainerOp op =
+                static_cast<ContainerOp>(lua_tointeger(state, lua_upvalueindex(3)));
+
+            Variant* self = VariantAt(state, 1);
+            if (self == nullptr)
+            {
+                lua_pushstring(state, "container op called without a bound self (use ':')");
+                lua_error(state);
+            }
+            ScriptCallScope scope(context);
+            Instance owner = ToInstance(*self);
+            if (owner.Pointer() == nullptr || property->type == nullptr ||
+                property->type->container == nullptr)
+            {
+                lua_pushnil(state);
+                return 1;
+            }
+            // The container member is reached transiently via property.address per call (never
+            // cached), matching the AS dispatcher - a reallocation between calls cannot dangle.
+            Instance container(property->address(owner), property->type);
+            const ContainerInfo& ci = *property->type->container;
+            const usize size = ContainerSize(ci, container);
+            switch (op)
+            {
+            case ContainerOp::Count:
+                lua_pushnumber(state, static_cast<f64>(size));
+                return 1;
+            case ContainerOp::At:
+            {
+                const usize index = static_cast<usize>(lua_tointeger(state, 2));
+                if (index >= size)
+                {
+                    lua_pushnil(state);
+                    return 1;
+                }
+                context->PushVariant(state, ContainerElementForScript(ci, container, index, *self));
+                return 1;
+            }
+            case ContainerOp::Add:
+            {
+                if (IsPolymorphicContainer(ci)) // add by element-type name
+                {
+                    const char* typeName = lua_tostring(state, 2);
+                    const TypeInfo* elem =
+                        (typeName != nullptr && ci.elementType != nullptr)
+                            ? ResolveContainerElementType(
+                                  *ci.elementType,
+                                  StringView(reinterpret_cast<const utf8char*>(typeName)))
+                            : nullptr;
+                    if (elem == nullptr ||
+                        ContainerCreateElement(ci, container, size, *elem).Pointer() == nullptr)
+                    {
+                        lua_pushnil(state);
+                        return 1;
+                    }
+                }
+                else if (ContainerEmplaceDefault(ci, container, size).Pointer() == nullptr)
+                {
+                    lua_pushnil(state);
+                    return 1;
+                }
+                context->PushVariant(state, ContainerElementForScript(ci, container, size, *self));
+                return 1;
+            }
+            case ContainerOp::RemoveAt:
+                (void)ContainerRemoveAt(ci, container,
+                                        static_cast<usize>(lua_tointeger(state, 2)));
+                return 0;
+            case ContainerOp::MoveElement:
+                (void)ContainerMoveElement(ci, container,
+                                           static_cast<usize>(lua_tointeger(state, 2)),
+                                           static_cast<usize>(lua_tointeger(state, 3)));
+                return 0;
+            }
+            lua_pushnil(state);
+            return 1;
+        }
+
         int IndexThunk(lua_State* state)
         {
             // (userdata, key) -> method (from the methods table) or property value.
@@ -1411,6 +1555,17 @@ namespace foundation::script
             }
             if (const PropertyInfo* property = FindPropertyInChain(type, key))
             {
+                // A container MEMBER is not a plain value: it binds as owner ops
+                // (`<name>_count/_at/_add/_removeAt/_move` - the AS-parity write-through
+                // surface). A bare read used to hand script a detached copy-table whose
+                // mutations were silently lost; nil is the honest answer (same as AS, where
+                // the bare property does not exist).
+                if (IsNested(*property) && property->type != nullptr &&
+                    property->type->container != nullptr)
+                {
+                    lua_pushnil(state);
+                    return 1;
+                }
                 ScriptCallScope scope(context);
                 Instance instance = ToInstance(*boxed);
                 if (instance.Pointer() == nullptr)
@@ -1535,6 +1690,58 @@ namespace foundation::script
                     lua_pushcclosure(state, MethodThunk, "reflected_method", 2);
                 }
                 lua_rawset(state, -3);
+            }
+        }
+        // Container members bind as owner ops in the SAME methods table (the AngelScript
+        // RegisterContainerMethods twin: `<name>_count/_at/_add/_removeAt/_move`), so
+        // `shelf:rooms_at(0)` dispatches exactly like a reflected method. First wins up the chain.
+        for (const TypeInfo* t = &type; t != nullptr; t = t->base)
+        {
+            for (const PropertyInfo& property : Properties(*t))
+            {
+                if (!IsNested(property) || property.name == nullptr || property.type == nullptr ||
+                    property.type->container == nullptr)
+                {
+                    continue;
+                }
+                static constexpr struct
+                {
+                    const char* suffix;
+                    ContainerOp op;
+                } kOps[] = {
+                    {"_count", ContainerOp::Count},       {"_at", ContainerOp::At},
+                    {"_add", ContainerOp::Add},           {"_removeAt", ContainerOp::RemoveAt},
+                    {"_move", ContainerOp::MoveElement},
+                };
+                for (const auto& entry : kOps)
+                {
+                    char opName[192];
+                    usize n = 0;
+                    for (const char* c = property.name; *c != '\0' && n < 150; ++c)
+                    {
+                        opName[n++] = *c;
+                    }
+                    for (const char* c = entry.suffix; *c != '\0'; ++c)
+                    {
+                        opName[n++] = *c;
+                    }
+                    opName[n] = '\0';
+                    lua_pushstring(state, opName);
+                    lua_pushvalue(state, -1);
+                    lua_rawget(state, -3);
+                    const bool taken = !lua_isnil(state, -1);
+                    lua_pop(state, 1);
+                    if (taken)
+                    {
+                        lua_pop(state, 1);
+                        continue;
+                    }
+                    lua_pushlightuserdata(state, const_cast<PropertyInfo*>(&property));
+                    lua_pushlightuserdata(state, this);
+                    lua_pushinteger(state, static_cast<int>(entry.op));
+                    lua_pushcclosure(state, ContainerOpThunk, "reflected_container_op", 3);
+                    lua_rawset(state, -3);
+                }
             }
         }
         const int methodsIndex = lua_gettop(state);

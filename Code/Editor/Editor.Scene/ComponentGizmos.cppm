@@ -44,6 +44,11 @@ export namespace editor
         // entity's collider wireframe when on, nothing when off. EDITOR-only (drawn into the
         // viewport's DebugView) - independent of the RUNTIME PhysicsSceneSettings.debugDraw.
         bool showColliders = false;
+        // Set by DrawEntity per entity: false when the entity is EFFECTIVELY inactive (itself or
+        // an ancestor disabled). The simulation never builds bodies/joints/characters for such an
+        // entity, so the physics renderers draw DIMMED - "the sim ignores this" is the
+        // interesting information (pass-17 polish).
+        bool entityEffectivelyActive = true;
     };
 
     /// A viewport gizmo for one component type. Registered per scene-editor module; the page

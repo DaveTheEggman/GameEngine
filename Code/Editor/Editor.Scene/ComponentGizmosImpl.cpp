@@ -129,6 +129,7 @@ namespace editor
         {
             return;
         }
+        ctx.entityEffectivelyActive = ctx.scene->IsEffectivelyActive(entity);
         ctx.scene->ForEachManager(
             [&](scene::ComponentManagerBase& mgr)
             {
@@ -304,6 +305,25 @@ namespace editor
             const foundation::heightfield::Heightfield* heightfield = nullptr;
         };
 
+        // A capsule wireframe that READS as a capsule: cap spheres at +-halfHeight plus four
+        // side lines. (The old sphere-inside-a-bounding-box drawing read as a box collider with
+        // a sphere in it - pass-17 polish.)
+        void DrawWireCapsule(render::debug::DebugDraw& dd, const Float4x4& frame, f32 radius,
+                             f32 halfHeight, const Color& color)
+        {
+            const Float3 top = TransformPoint(Float3{0, halfHeight, 0}, frame);
+            const Float3 bottom = TransformPoint(Float3{0, -halfHeight, 0}, frame);
+            dd.DrawWireSphere(top, radius, color);
+            dd.DrawWireSphere(bottom, radius, color);
+            const Float3 offsets[4] = {
+                {radius, 0, 0}, {-radius, 0, 0}, {0, 0, radius}, {0, 0, -radius}};
+            for (const Float3& o : offsets)
+            {
+                dd.DrawLine(TransformPoint(Float3{o.x, -halfHeight, o.z}, frame),
+                            TransformPoint(Float3{o.x, halfHeight, o.z}, frame), color);
+            }
+        }
+
         void DrawColliderShape(const ColliderShapeDraw& s, const Float4x4& world,
                                const Color& color, render::debug::DebugDraw& dd)
         {
@@ -326,10 +346,7 @@ namespace editor
                 dd.DrawWireSphere(position, s.radius, color);
                 break;
             case ShapeKind::Capsule:
-                dd.DrawWireSphere(position, s.radius, color);
-                dd.DrawTransformedBox(Float3{-s.radius, -(s.halfHeight + s.radius), -s.radius},
-                                      Float3{s.radius, s.halfHeight + s.radius, s.radius}, rigid,
-                                      color);
+                DrawWireCapsule(dd, rigid, s.radius, s.halfHeight, color);
                 break;
             case ShapeKind::Plane:
             {
@@ -397,7 +414,9 @@ namespace editor
         }
         using foundation::physics::MotionKind;
 
-        const Color color = body->isTrigger ? Color{1.0f, 0.8f, 0.2f, 1.0f}
+        const Color color = !ctx.entityEffectivelyActive
+                                ? Color{0.45f, 0.45f, 0.45f, 1.0f} // dimmed: sim will skip it
+                            : body->isTrigger ? Color{1.0f, 0.8f, 0.2f, 1.0f}
                             : body->motion == MotionKind::Dynamic ? Color{0.3f, 1.0f, 0.4f, 1.0f}
                                                                   : Color{0.4f, 0.6f, 1.0f, 1.0f};
         ColliderShapeDraw s;
@@ -429,8 +448,10 @@ namespace editor
             return;
         }
         // Compound teal: visually distinct from the body's own shape, so a rig reads as
-        // "one body + its folded children", not one anonymous pile of wireframes.
-        const Color color{0.25f, 0.85f, 0.8f, 1.0f};
+        // "one body + its folded children", not one anonymous pile of wireframes. Dimmed when
+        // the entity is effectively inactive (the sim never folds it in).
+        const Color color = ctx.entityEffectivelyActive ? Color{0.25f, 0.85f, 0.8f, 1.0f}
+                                                        : Color{0.45f, 0.45f, 0.45f, 1.0f};
         ColliderShapeDraw s;
         s.shape = collider->shape;
         s.halfExtents = collider->halfExtents;
@@ -462,13 +483,12 @@ namespace editor
             return;
         }
         const Float3 position = detail::WorldPosition(ctx.scene->GetWorldMatrix(owner));
-        const Color color{0.2f, 0.9f, 0.9f, 1.0f}; // cyan
-        render::debug::DebugDraw& dd = *ctx.debug;
-        dd.DrawWireSphere(Float3{position.x, position.y + ch->halfHeight, position.z}, ch->radius,
-                          color);
-        dd.DrawWireSphere(Float3{position.x, position.y - ch->halfHeight, position.z}, ch->radius,
-                          color);
-        dd.DrawWireBoxCenter(position, Float3{ch->radius, ch->halfHeight, ch->radius}, color);
+        const Color color = ctx.entityEffectivelyActive
+                                ? Color{0.2f, 0.9f, 0.9f, 1.0f}  // cyan
+                                : Color{0.45f, 0.45f, 0.45f, 1.0f}; // dimmed: sim will skip it
+        const Float4x4 frame =
+            Transform{position, Quaternion::Identity, Float3::One}.ToMatrix();
+        DrawWireCapsule(*ctx.debug, frame, ch->radius, ch->halfHeight, color);
     }
 
     const TypeInfo* JointGizmoRenderer::ComponentType() const
@@ -493,7 +513,9 @@ namespace editor
         using foundation::physics::JointKind;
         const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
         const Float3 anchor = TransformPoint(joint->localAnchor, world);
-        const Color color{1.0f, 0.5f, 0.1f, 1.0f}; // orange
+        const Color color = ctx.entityEffectivelyActive
+                                ? Color{1.0f, 0.5f, 0.1f, 1.0f}     // orange
+                                : Color{0.45f, 0.45f, 0.45f, 1.0f}; // dimmed: sim will skip it
         render::debug::DebugDraw& dd = *ctx.debug;
         dd.DrawCross(anchor, 0.25f, color);
         // Link to the connected body (nil target = nearest ancestor / world; only drawn if resolved).

@@ -345,7 +345,8 @@ export namespace foundation::ui::toolkit
     private:
         static constexpr f32 kHeaderHeight = 24.0f;
         static constexpr f32 kContentInset = 6.0f;
-        static constexpr f32 kResizeBand = 9.0f;
+        static constexpr f32 kResizeBand = 9.0f;   // grip stroke drawing (visual), not hit width
+        static constexpr f32 kResizeCorner = 12.0f; // bottom-right corner grab square (hit)
         static constexpr f32 kChevronBoxW = 22.0f;
         static constexpr f32 kChevronX = 8.0f;
         static constexpr f32 kChevronSize = 8.0f;
@@ -405,8 +406,15 @@ export namespace foundation::ui::toolkit
         }
         [[nodiscard]] bool InResizeBand(Float2 p, bool& right, bool& bottom) const
         {
-            right = p.x >= Width() - kResizeBand;
-            bottom = p.y >= Height() - kResizeBand;
+            // The EDGE bands live in the content inset (the border area OUTSIDE the hosted
+            // content), so they never eat the content's own edge - a 9px band used to claim the
+            // outer ~3px of a hosted PropertyGrid's scrollbar (pass-17 polish). The bottom-right
+            // CORNER keeps a larger grab square (the OS-window resize-grip convention; the
+            // corner of a scrollable area is dead space).
+            const bool inCorner =
+                p.x >= Width() - kResizeCorner && p.y >= Height() - kResizeCorner;
+            right = inCorner || p.x >= Width() - kContentInset;
+            bottom = inCorner || p.y >= Height() - kContentInset;
             return (right || bottom) && p.y > kHeaderHeight;
         }
 

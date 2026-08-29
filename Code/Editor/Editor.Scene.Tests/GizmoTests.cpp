@@ -584,3 +584,82 @@ TEST_CASE("component-gizmo: child collider draws its wireframe only when Show Co
     CHECK(dd.HasAnyDraws());
     CHECK(dd.LineVertices().Size() > 0);
 }
+
+// Pass-17 polish: an EFFECTIVELY-inactive entity's physics gizmos draw DIMMED (uniform gray),
+// never skipped - "the sim will ignore this" is the interesting information. The registry's
+// DrawEntity sets ctx.entityEffectivelyActive from the scene.
+TEST_CASE("component-gizmo: an inactive entity's collider draws dimmed gray, not skipped")
+{
+    foundation::scene::Scene scene;
+    auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
+    const auto e = scene.CreateEntity(u8"Box");
+    engine::physics::RigidBodyComponent& body = bodies->Add(e);
+    body.shape = foundation::physics::ShapeKind::Box;
+    body.motion = foundation::physics::MotionKind::Dynamic; // active color = green (R != G)
+
+    GizmoRendererRegistry registry;
+    RegisterBuiltinGizmoRenderers(registry);
+    foundation::render::debug::DebugDraw dd;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+    ctx.showColliders = true;
+
+    scene.SetActive(e, false);
+    registry.DrawEntity(e, /*selected*/ true, ctx);
+    REQUIRE(dd.LineVertices().Size() > 0); // dimmed, NOT skipped
+    const u32 packed = dd.LineVertices()[0].color;
+    const u32 r = packed & 0xFFu;
+    const u32 g = (packed >> 8) & 0xFFu;
+    const u32 b = (packed >> 16) & 0xFFu;
+    CHECK(r == g); // uniform gray = the dim color, not the dynamic green
+    CHECK(g == b);
+
+    // Re-activated: back to the normal (non-gray) palette.
+    scene.SetActive(e, true);
+    foundation::render::debug::DebugDraw dd2;
+    ctx.debug = &dd2;
+    registry.DrawEntity(e, /*selected*/ true, ctx);
+    REQUIRE(dd2.LineVertices().Size() > 0);
+    const u32 active = dd2.LineVertices()[0].color;
+    CHECK(((active & 0xFFu) != ((active >> 8) & 0xFFu))); // green: R != G
+}
+
+// Pass-17 polish: the capsule gizmo reads as a CAPSULE (two cap spheres + four side lines), not
+// a sphere inside a bounding box.
+TEST_CASE("component-gizmo: the capsule collider draws cap spheres + side lines, not a box")
+{
+    foundation::scene::Scene scene;
+    auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
+    const auto e = scene.CreateEntity(u8"Cap");
+    engine::physics::RigidBodyComponent& body = bodies->Add(e);
+    body.shape = foundation::physics::ShapeKind::Capsule;
+    body.radius = 0.5f;
+    body.halfHeight = 1.0f;
+
+    foundation::render::debug::DebugDraw dd;
+    PhysicsColliderGizmoRenderer renderer;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+    ctx.showColliders = true;
+    renderer.Draw(bodies->GetComponentInstance(e), e, ctx);
+
+    // Two wire spheres are far more segments than a 12-edge box (24 verts); the old drawing was
+    // one sphere + one box. Also pin the FOUR side lines' verticality: at least 8 vertices sit
+    // at exactly +-halfHeight on Y with |x|==radius or |z|==radius.
+    CHECK(dd.LineVertices().Size() > 100u);
+    usize sideVerts = 0;
+    for (const auto& v : dd.LineVertices())
+    {
+        const bool atCapY = v.position.y == doctest::Approx(1.0f).epsilon(0.001) ||
+                            v.position.y == doctest::Approx(-1.0f).epsilon(0.001);
+        const bool onRim = Abs(Abs(v.position.x) - 0.5f) < 0.001f ||
+                           Abs(Abs(v.position.z) - 0.5f) < 0.001f;
+        if (atCapY && onRim)
+        {
+            ++sideVerts;
+        }
+    }
+    CHECK(sideVerts >= 8u); // the four side lines' endpoints (plus any coincident ring verts)
+}

@@ -175,11 +175,15 @@ namespace foundation::physics
             return Quaternion{q.GetX(), q.GetY(), q.GetZ(), q.GetW()};
         }
 
-        // A convex query volume (sphere/box/capsule) for ShapeCast / ShapeOverlap. Other ShapeKinds
-        // are body shapes, not query shapes, so they return null (the query then no-ops safely).
-        // Dimensions come straight off the script surface, so non-positive sizes are rejected here
-        // (null -> no-hit) instead of tripping Jolt's debug asserts / feeding the broadphase NaNs.
-        [[nodiscard]] JPH::Ref<JPH::Shape> BuildQueryShape(const QueryShape& q)
+        // Run `fn(const JPH::Shape&)` with a STACK-constructed convex query volume
+        // (sphere/box/capsule) for ShapeCast / ShapeOverlap - Jolt's transient-shape idiom
+        // (SetEmbedded marks the refcount so a query cannot delete a stack object), chosen over
+        // heap Refs because these queries run per projectile per frame (auto-aim). Other
+        // ShapeKinds are body shapes, not query shapes -> false (the query no-ops safely).
+        // Dimensions come straight off the script surface, so non-positive sizes are rejected
+        // here (false -> no-hit) instead of tripping Jolt's debug asserts / feeding the
+        // broadphase NaNs.
+        template <typename Fn> [[nodiscard]] bool WithQueryShape(const QueryShape& q, Fn&& fn)
         {
             switch (q.kind)
             {
@@ -189,27 +193,40 @@ namespace foundation::physics
                     Min(q.halfExtents.x, Min(q.halfExtents.y, q.halfExtents.z));
                 if (!(minExtent > 0.0f))
                 {
-                    return JPH::Ref<JPH::Shape>{};
+                    return false;
                 }
                 // Jolt asserts halfExtent >= convexRadius; shrink the radius for thin boxes.
                 const float convexRadius =
                     Min(JPH::cDefaultConvexRadius, minExtent * 0.5f);
-                return JPH::Ref<JPH::Shape>(new JPH::BoxShape(ToJph(q.halfExtents), convexRadius));
+                JPH::BoxShape shape(ToJph(q.halfExtents), convexRadius);
+                shape.SetEmbedded();
+                fn(shape);
+                return true;
             }
             case ShapeKind::Sphere:
+            {
                 if (!(q.radius > 0.0f))
                 {
-                    return JPH::Ref<JPH::Shape>{};
+                    return false;
                 }
-                return JPH::Ref<JPH::Shape>(new JPH::SphereShape(q.radius));
+                JPH::SphereShape shape(q.radius);
+                shape.SetEmbedded();
+                fn(shape);
+                return true;
+            }
             case ShapeKind::Capsule:
+            {
                 if (!(q.radius > 0.0f) || !(q.halfHeight > 0.0f))
                 {
-                    return JPH::Ref<JPH::Shape>{};
+                    return false;
                 }
-                return JPH::Ref<JPH::Shape>(new JPH::CapsuleShape(q.halfHeight, q.radius));
+                JPH::CapsuleShape shape(q.halfHeight, q.radius);
+                shape.SetEmbedded();
+                fn(shape);
+                return true;
+            }
             default:
-                return JPH::Ref<JPH::Shape>{};
+                return false;
             }
         }
 
@@ -750,69 +767,74 @@ namespace foundation::physics
                                     Array<BodyId>& out, u32 groupMask) const
     {
         out.Clear(); // fill semantics: a reused array never mixes results across queries
-        JPH::Ref<JPH::Shape> js = BuildQueryShape(shape);
-        if (js == nullptr)
-        {
-            return;
-        }
-        const JPH::RMat44 com = JPH::RMat44::sRotationTranslation(ToJph(rotation), ToJph(position));
-        const JPH::CollideShapeSettings settings;
-        JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
-        const GroupMaskFilter filter(groupMask);
-        m_impl->system->GetNarrowPhaseQuery().CollideShape(js, JPH::Vec3::sReplicate(1.0f), com,
-                                                           settings, JPH::RVec3::sZero(), collector,
-                                                           {}, filter);
-        // A compound/multi-shape body can report several sub-shape hits; return each body ONCE.
-        for (const JPH::CollideShapeResult& r : collector.mHits)
-        {
-            const BodyId id{r.mBodyID2.GetIndexAndSequenceNumber()};
-            bool seen = false;
-            for (const BodyId& existing : out)
+        (void)WithQueryShape(
+            shape,
+            [&](const JPH::Shape& js)
             {
-                if (existing == id)
+                const JPH::RMat44 com =
+                    JPH::RMat44::sRotationTranslation(ToJph(rotation), ToJph(position));
+                const JPH::CollideShapeSettings settings;
+                JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+                const GroupMaskFilter filter(groupMask);
+                m_impl->system->GetNarrowPhaseQuery().CollideShape(
+                    &js, JPH::Vec3::sReplicate(1.0f), com, settings, JPH::RVec3::sZero(), collector,
+                    {}, filter);
+                // A compound/multi-shape body can report several sub-shape hits; each body ONCE.
+                for (const JPH::CollideShapeResult& r : collector.mHits)
                 {
-                    seen = true;
-                    break;
+                    const BodyId id{r.mBodyID2.GetIndexAndSequenceNumber()};
+                    bool seen = false;
+                    for (const BodyId& existing : out)
+                    {
+                        if (existing == id)
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        out.PushBack(id);
+                    }
                 }
-            }
-            if (!seen)
-            {
-                out.PushBack(id);
-            }
-        }
+            });
     }
 
     bool PhysicsWorld::ShapeCast(const QueryShape& shape, Float3 from, Quaternion rotation,
                                  Float3 direction, f32 maxDistance, RayHit& out, u32 groupMask) const
     {
-        JPH::Ref<JPH::Shape> js = BuildQueryShape(shape);
-        if (js == nullptr)
-        {
-            return false;
-        }
-        const JPH::RMat44 start = JPH::RMat44::sRotationTranslation(ToJph(rotation), ToJph(from));
-        const JPH::RShapeCast cast = JPH::RShapeCast::sFromWorldTransform(
-            js, JPH::Vec3::sReplicate(1.0f), start, ToJph(direction) * maxDistance);
-        const JPH::ShapeCastSettings settings;
-        JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
-        const GroupMaskFilter filter(groupMask);
-        m_impl->system->GetNarrowPhaseQuery().CastShape(cast, settings, JPH::RVec3::sZero(),
-                                                        collector, {}, filter);
-        if (!collector.HadHit())
-        {
-            return false;
-        }
-        const JPH::ShapeCastResult& hit = collector.mHit;
-        out.body = BodyId{hit.mBodyID2.GetIndexAndSequenceNumber()};
-        out.fraction = hit.mFraction;
-        out.position = FromJph(hit.mContactPointOn2);
-        // mPenetrationAxis points from the query shape INTO the hit body; the outward surface
-        // normal is its negation. Guard the (rare) zero-penetration touch.
-        out.normal =
-            hit.mPenetrationAxis.IsNearZero() ? Float3{0, 0, 0} : FromJph(-hit.mPenetrationAxis.Normalized());
-        out.userData = UserData(out.body);
-        out.surface = 0;
-        return true;
+        bool hitAny = false;
+        (void)WithQueryShape(
+            shape,
+            [&](const JPH::Shape& js)
+            {
+                const JPH::RMat44 start =
+                    JPH::RMat44::sRotationTranslation(ToJph(rotation), ToJph(from));
+                const JPH::RShapeCast cast = JPH::RShapeCast::sFromWorldTransform(
+                    &js, JPH::Vec3::sReplicate(1.0f), start, ToJph(direction) * maxDistance);
+                const JPH::ShapeCastSettings settings;
+                JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+                const GroupMaskFilter filter(groupMask);
+                m_impl->system->GetNarrowPhaseQuery().CastShape(cast, settings, JPH::RVec3::sZero(),
+                                                                collector, {}, filter);
+                if (!collector.HadHit())
+                {
+                    return;
+                }
+                const JPH::ShapeCastResult& hit = collector.mHit;
+                out.body = BodyId{hit.mBodyID2.GetIndexAndSequenceNumber()};
+                out.fraction = hit.mFraction;
+                out.position = FromJph(hit.mContactPointOn2);
+                // mPenetrationAxis points from the query shape INTO the hit body; the outward
+                // surface normal is its negation. Guard the (rare) zero-penetration touch.
+                out.normal = hit.mPenetrationAxis.IsNearZero()
+                                 ? Float3{0, 0, 0}
+                                 : FromJph(-hit.mPenetrationAxis.Normalized());
+                out.userData = UserData(out.body);
+                out.surface = 0;
+                hitAny = true;
+            });
+        return hitAny;
     }
 
     void PhysicsWorld::DrainContacts(Array<ContactEvent>& out)

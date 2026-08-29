@@ -1177,6 +1177,21 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.m
                              u8"  OC = over.combine(2, 3);\n"
                              u8"  OCT = over.combineText(\"x\", 7);\n"
                              u8"}\n";
+    // Container contract: two adds through returned handles, zero-based at, move, removeAt.
+    dialect.containerModule =
+        u8"Crate@ crate = Crate();\n"
+        u8"double KN = 0; double KZ = 0; double KM = 0; double KR = 0; double KL = 0;\n"
+        u8"void main() {\n"
+        u8"  CrateItem@ a = crate.items_add(); a.size = 5;\n"
+        u8"  CrateItem@ b = crate.items_add(); b.size = 9;\n"
+        u8"  KN = crate.items_count();\n"
+        u8"  KZ = crate.items_at(0).size;\n"
+        u8"  crate.items_move(1, 0);\n"
+        u8"  KM = crate.items_at(0).size;\n"
+        u8"  crate.items_removeAt(0);\n"
+        u8"  KR = crate.items_count();\n"
+        u8"  KL = crate.items_at(0).size;\n"
+        u8"}\n";
     // AngelScript's natural coroutine surface: a delegate to a method (`this.RunWait`)
     // wrapped in the ScriptCoroutine funcdef, started with startCoroutine; `wait` is a
     // host function, `waitUntil` a script helper (injected per module). The shared
