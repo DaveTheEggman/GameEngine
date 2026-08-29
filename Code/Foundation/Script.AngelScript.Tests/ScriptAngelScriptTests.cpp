@@ -1148,7 +1148,7 @@ TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as it
 
 #include "../Script.Tests/BackendConformance.h"
 
-TEST_CASE("angelscript: CERTIFIED - the backend conformance battery (scripting.md B2)")
+TEST_CASE("angelscript: CERTIFIED - the backend conformance battery")
 {
     foundation::script::conformance::Dialect dialect;
     dialect.languageId = u8"angelscript";

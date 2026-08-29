@@ -165,7 +165,7 @@ TEST_CASE("net-scene-system: a NetworkSceneSystem with no endpoint is inert")
     CHECK(sys->Endpoint() == nullptr);
 }
 
-TEST_CASE("net-subsystem: the transport pump drives every enumerated endpoint per frame (P3)")
+TEST_CASE("net-subsystem: the transport pump drives every enumerated endpoint per frame")
 {
     // The NetworkSubsystem owns the per-frame transport pump: its PostUpdate visits every live endpoint
     // (via the app-provided source) and drives UpdateTransport. Driven here through a real Context (the

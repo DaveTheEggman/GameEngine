@@ -1211,7 +1211,7 @@ TEST_CASE("script.scene: the Roll Call sample game - orbs EMIT OrbCollected, the
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.y, 1.0f)); // win branch ran
 }
 
-TEST_CASE("script.scene: the Roll Call sample game runs on a LUAU Level (P4 acceptance)")
+TEST_CASE("script.scene: the Roll Call sample game runs on a LUAU Level")
 {
     ScriptedScene bed;
     SceneScriptSystem* level = bed.scene.AddSystem<SceneScriptSystem>();
@@ -1346,7 +1346,7 @@ TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accu
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 2.0f)); // 2 calls over 4 ticks
 }
 
-TEST_CASE("script.scene: updateInterval survives the SerializeScene wire (P3 symmetry)")
+TEST_CASE("script.scene: updateInterval survives the SerializeScene wire")
 {
     RegisterScriptComponentReflection();
     scene::Scene scene(u8"interval-wire");
@@ -1867,7 +1867,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
 
 // The SAME run-host debugger wiring, backend-neutral, on Luau: a breakpoint in a Luau
 // behavior handler pauses the game, the world holds still, Continue resumes clean, no fault.
-TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game and resumes clean (P6.4)")
+TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game and resumes clean")
 {
     ScriptedScene bed;
     RefPtr<ScriptClass> breaker = MakeClassLang(
@@ -1927,7 +1927,7 @@ TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game
 // mid-send (a C facade boundary) on its pooled thread when the receiver's onPing breaks on a
 // SECOND pooled thread (pool depth = nesting depth). The game pauses; Continue completes the
 // nested handler. Proves the executor + debugger survive re-entrant dispatch across the C boundary.
-TEST_CASE("script.scene: LUAU a breakpoint in a nested entity.send handler pauses on a second thread (P6.4)")
+TEST_CASE("script.scene: LUAU a breakpoint in a nested entity.send handler pauses on a second thread")
 {
     ScriptedScene bed;
     RefPtr<ScriptClass> receiver = MakeClassLang(

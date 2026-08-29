@@ -271,7 +271,7 @@ TEST_CASE("network-controller: the replicated scene's NetworkSceneSystem drives 
     CHECK(sys->Endpoint() == controller.NetEndpoint()); // re-wired to the fresh endpoint
 }
 
-TEST_CASE("game-instance: destroying the replicated scene clears the endpoint's scene (no dangling) (P2)")
+TEST_CASE("game-instance: destroying the replicated scene clears the endpoint's scene (no dangling)")
 {
     // Scene-dies-before-endpoint. DestroyScene of the CURRENT
     // scene runs SetScene(nullptr) first, so the endpoint's replicated-scene pointer + the controller's

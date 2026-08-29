@@ -116,7 +116,7 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built on demand (P0)")
+TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built on demand")
 {
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainAsset();
@@ -212,7 +212,7 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat, P0)")
+TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
 {
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainAsset();
@@ -272,7 +272,7 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat, P0)")
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array built on demand (P0)")
+TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array built on demand")
 {
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainAsset();
@@ -363,7 +363,7 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on demand, OPAQUE default (P0)")
+TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on demand, OPAQUE default")
 {
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainAsset();
@@ -447,7 +447,7 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale sidecar (P1 fix)")
+TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale sidecar")
 {
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainAsset();

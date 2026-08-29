@@ -846,7 +846,7 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
     CHECK(level.PrefabInstanceCount() == 1u);
 }
 
-TEST_CASE("prefab P2: apply-as-template keeps source ids; revert discards deltas")
+TEST_CASE("prefab: apply-as-template keeps source ids; revert discards deltas")
 {
     Scene author(u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
@@ -1099,7 +1099,7 @@ namespace
     }
 }
 
-TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASELINE")
+TEST_CASE("prefab: nested instance spawns linked, owner customization is BASELINE")
 {
     const Guid innerId{0xAA, 0x1};
     const Guid outerId{0xBB, 0x2};
@@ -1148,7 +1148,7 @@ TEST_CASE("prefab P4: nested instance spawns linked, owner customization is BASE
     CHECK(health->Get(hub)->value == doctest::Approx(5.0f));
 }
 
-TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene overrides")
+TEST_CASE("prefab: scene round-trip preserves nesting links, guids, and scene overrides")
 {
     const Guid innerId{0xAA, 0x11};
     const Guid outerId{0xBB, 0x22};
@@ -1215,7 +1215,7 @@ TEST_CASE("prefab P4: scene round-trip preserves nesting links, guids, and scene
     CHECK(IsPrefabComponentOverridden(loaded, member, *manager));
 }
 
-TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance")
+TEST_CASE("prefab: inner-template edits propagate THROUGH the outer instance")
 {
     const Guid innerId{0xAA, 0x21};
     const Guid outerId{0xBB, 0x32};
@@ -1276,7 +1276,7 @@ TEST_CASE("prefab P4: inner-template edits propagate THROUGH the outer instance"
     CHECK(level.FindPrefabInstanceByRoot(cartGuid) != nullptr); // cart intact
 }
 
-TEST_CASE("prefab P4: apply-to-prefab keeps nested records with owner customization")
+TEST_CASE("prefab: apply-to-prefab keeps nested records with owner customization")
 {
     const Guid innerId{0xAA, 0x31};
     const Guid outerId{0xBB, 0x42};
@@ -1380,7 +1380,7 @@ TEST_CASE(
     CHECK(health->Get(survivedWheel)->value == doctest::Approx(99.0f));
 }
 
-TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance members")
+TEST_CASE("prefab: rebuild preserves user entities under NESTED sub-instance members")
 {
     const Guid innerId{0xAA, 0x51};
     const Guid outerId{0xBB, 0x51};
@@ -1437,7 +1437,7 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
     CHECK(level.GetEntityId(level.GetParent(survived)) == wheelLive);
 }
 
-TEST_CASE("prefab P4: nested instances keep their captured sibling order")
+TEST_CASE("prefab: nested instances keep their captured sibling order")
 {
     const Guid innerId{0xAA, 0x61};
     const Guid outerId{0xBB, 0x61};
@@ -1507,7 +1507,7 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
     CHECK(after[1] == u8"Cone");
 }
 
-TEST_CASE("prefab P4: un-overridden nested placement follows the outer template")
+TEST_CASE("prefab: un-overridden nested placement follows the outer template")
 {
     const Guid innerId{0xAA, 0x71};
     const Guid outerId{0xBB, 0x71};

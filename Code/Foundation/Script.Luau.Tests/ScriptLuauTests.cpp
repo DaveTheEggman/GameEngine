@@ -441,7 +441,7 @@ TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
             << " ms");
 }
 
-TEST_CASE("script.luau: resumable-thread call throughput (perf case - the executor cost, Fable P6)")
+TEST_CASE("script.luau: resumable-thread call throughput (perf case - the executor cost)")
 {
     // Every script CALL runs on a POOLED lua thread via lua_resume (never lua_pcall on the
     // main state) so the debugger's lua_break can suspend it and production runs share ONE
@@ -486,7 +486,7 @@ TEST_CASE("script.luau: a compile error reports its source line (not -1)")
     CHECK(capture.line == 3);
 }
 
-TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (per-class identity, P6.2)")
+TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (per-class identity)")
 {
     struct Capture final : IScriptErrorHandler
     {
@@ -517,7 +517,7 @@ TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (pe
     CHECK(capture.line == 2);                          // its OWN line, not an offset in a merge
 }
 
-TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and continues (P6.3)")
+TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and continues")
 {
     struct StateCapture final : IScriptDebuggerListener
     {
@@ -624,7 +624,7 @@ namespace
     };
 }
 
-TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a call (P6.3b)")
+TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a call")
 {
     DebuggerStateCounter listener;
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -673,7 +673,7 @@ TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a 
     debugger->SetListener(nullptr);
 }
 
-TEST_CASE("script.luau: step debugger StepInto descends into the callee (P6.3b)")
+TEST_CASE("script.luau: step debugger StepInto descends into the callee")
 {
     DebuggerStateCounter listener;
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -730,7 +730,7 @@ TEST_CASE("script.luau: step debugger StepInto descends into the callee (P6.3b)"
     debugger->SetListener(nullptr);
 }
 
-TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Continue finishes it (P6.3b)")
+TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Continue finishes it")
 {
     DebuggerStateCounter listener;
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -789,7 +789,7 @@ TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Conti
     debugger->SetListener(nullptr);
 }
 
-TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module reload (P6.4)")
+TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module reload")
 {
     DebuggerStateCounter listener;
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -829,7 +829,7 @@ TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module rel
     debugger->SetListener(nullptr);
 }
 
-TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still fires on schedule (P6.4)")
+TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still fires on schedule")
 {
     DebuggerStateCounter listener;
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
@@ -1096,7 +1096,7 @@ TEST_CASE("script.luau: backend conformance battery")
                                              dialect);
 }
 
-TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-analyze (P5)")
+TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-analyze")
 {
     RegisterCoreTypes();       // Float3 (-> native vector)
     RttiRegisterEnum_Facing(); // the Facing enum

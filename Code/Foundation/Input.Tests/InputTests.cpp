@@ -757,7 +757,7 @@ TEST_CASE("input: the UI consumption mask gates device classes independently")
     CHECK(runtime.IsDown(shoot));
 }
 
-TEST_CASE("input reflection: the leaf value types + enums reflect (P2 breadth)")
+TEST_CASE("input reflection: the leaf value types + enums reflect")
 {
     using namespace foundation::input;
     RegisterInputTypeReflection();

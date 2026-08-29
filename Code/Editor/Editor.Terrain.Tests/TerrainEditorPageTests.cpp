@@ -111,7 +111,7 @@ TEST_CASE("TerrainAsset v2 blob snapshot round-trips its authored fields (the un
     CHECK(b.castShadows == false);
 }
 
-TEST_CASE("TerrainAsset v3 snapshot round-trips the per-layer normal + ORM ids (the P2 undo path)")
+TEST_CASE("TerrainAsset v3 snapshot round-trips the per-layer normal + ORM ids (the undo path)")
 {
     pipeline::RegisterTerrainAsset();
     pipeline::TerrainAsset a;
@@ -235,7 +235,7 @@ TEST_CASE("TerrainAsset reads a v1 (fixed-layer) payload: layer 0 -> base, layer
     CHECK(b.castShadows == false);
 }
 
-TEST_CASE("TerrainAsset v4 snapshot round-trips per-layer height ids + contrast (the P2 undo path)")
+TEST_CASE("TerrainAsset v4 snapshot round-trips per-layer height ids + contrast (the undo path)")
 {
     pipeline::RegisterTerrainAsset();
     pipeline::TerrainAsset a;
@@ -307,7 +307,7 @@ TEST_CASE("TerrainAsset snapshot with no height maps keeps the arrays empty + th
     CHECK(b.heightBlendContrast == doctest::Approx(0.25f)); // default preserved
 }
 
-TEST_CASE("TerrainAsset v5 snapshot round-trips the per-layer coverage mask ids (the P2 undo path)")
+TEST_CASE("TerrainAsset v5 snapshot round-trips the per-layer coverage mask ids (the undo path)")
 {
     pipeline::RegisterTerrainAsset();
     pipeline::TerrainAsset a;

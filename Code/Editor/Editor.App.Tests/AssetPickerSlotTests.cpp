@@ -87,7 +87,7 @@ TEST_CASE("asset-slot: empty text renders the (none) placeholder")
     CHECK(slot->BodyButton()->Text.Value().AsView() == StringView(u8"Grass"));
 }
 
-TEST_CASE("asset-slot: drop accepts matching types and rejects mismatches (P2)")
+TEST_CASE("asset-slot: drop accepts matching types and rejects mismatches")
 {
     auto slot = MakeRef<app::AssetPickerSlot>(DefaultAllocator());
     Array<String> accepted;

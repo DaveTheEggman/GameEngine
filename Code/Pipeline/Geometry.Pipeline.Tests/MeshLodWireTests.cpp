@@ -310,7 +310,7 @@ TEST_CASE("mesh lod wire: version 4 round-trips the full LOD chain")
     REQUIRE(loaded.lodCoverage.Size() == 2);
 }
 
-TEST_CASE("mesh lod wire: the P0 optimizer preserves every level of a chain")
+TEST_CASE("mesh lod wire: the optimizer preserves every level of a chain")
 {
     StaticMeshSource source;
     BuildTwoLodSource(source);
