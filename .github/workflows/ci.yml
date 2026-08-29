@@ -45,16 +45,14 @@ jobs:
 
       # Ubuntu 24.04 ships Clang 18, but the codebase targets a current Clang (the dev toolchain
       # is 21) - e.g. -Wno-c2y-extensions is unknown to Clang 18 and, under -Werror, fails the
-      # build, and Clang 18's C++23-modules support is weaker. Install Clang 21 from apt.llvm.org
-      # and point clang/clang++ at it so the 'clang' preset (CMAKE_CXX_COMPILER=clang++) uses it.
+      # build, and Clang 18's C++23-modules support is weaker. Install Clang 21 from apt.llvm.org;
+      # the Configure step selects the versioned clang++-21 binary explicitly (see there).
       - name: Install Clang 21 (match the dev toolchain)
         run: |
           wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
           chmod +x /tmp/llvm.sh
           sudo /tmp/llvm.sh 21
-          sudo update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-21   100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
-          clang++ --version
+          clang++-21 --version   # fail loudly here if the install did not produce the binary
 
       # SDL3 is a system dependency on Linux (only Windows uses the vendored prebuilt in
       # ThirdParty/SDL3). Ubuntu 24.04's apt has no libsdl3-dev, so build it from the same
@@ -110,7 +108,15 @@ jobs:
           max-size: 2G
 
       - name: Configure
-        run: cmake --preset clang -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        # Override the preset's CMAKE_CXX_COMPILER ('clang++') with the versioned Clang 21 binary.
+        # A command-line -D beats the preset cache var (and beats CC/CXX env), so this does not
+        # depend on update-alternatives having repointed /usr/bin/clang++. ASM uses the CXX driver.
+        run: >
+          cmake --preset clang
+          -DCMAKE_C_COMPILER=clang-21
+          -DCMAKE_CXX_COMPILER=clang++-21
+          -DCMAKE_ASM_COMPILER=clang++-21
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build --preset clang
