@@ -1,10 +1,10 @@
-// Bike - the player's ride (P1-2 of the driving slice).
+// Bike - the player's ride.
 //
 // A per-entity script BEHAVIOR attached to the bike entity (which carries a CharacterComponent =
 // Jolt CharacterVirtual, kinematic arcade feel - no ragdoll). Each frame it reads the "Move" axis
 // (WASD via the Composite2D binding in DefaultInputMap): Y = throttle/brake, X = steer. It keeps a
 // heading (yaw) and a scalar speed, turns the heading, then drives the character with a horizontal
-// velocity pointing along that heading. The third-person camera (P1-3, FollowCamera.as) reads this
+// velocity pointing along that heading. The third-person camera (FollowCamera.as) reads this
 // entity's transform to trail behind.
 //
 // Facing is derived from the heading with the reflected math surface: a yaw quaternion about +Y
@@ -13,7 +13,7 @@
 //
 // Tunables are [metadata]-annotated FIELDS: they show up in the inspector, authored per-entity.
 
-// The paper prefab thrown on the Throw action (P1-5). Copied from Content/Scenes/Paper.xasset's
+// The paper prefab thrown on the Throw action. Copied from Content/Scenes/Paper.xasset's
 // guid - keep in sync with that envelope.
 Guid kPaperPrefab = Guid("6eccb2d5-b150-4cc7-ba67-1a1c09383be4");
 
@@ -30,7 +30,7 @@ class Bike
     [130.0, "Yaw rate at full speed (deg/s)"]  float turnSpeedDegrees;
     [0.25, "Steering authority floor (0..1)"]  float minSteerFraction;
 
-    // ---- throwing (P1-5) ----
+    // ---- throwing ----
     [60.0, "Throw impulse (launch strength; scales with paper mass)"] float throwImpulse;
     [0.65, "Throw arc (upward bias)"]                 float throwArc;
     [0.6, "Auto-aim strength (0 = straight, 1 = locked on)"] float autoAim;
@@ -38,7 +38,7 @@ class Bike
     [10, "Papers per level"]                          int startingPapers;
     [2, "Subscriber collision group"]                 int subscriberGroup;
 
-    // ---- aim preview (P1-8): a debug-drawn arc of where the throw will go ----
+    // ---- aim preview: a debug-drawn arc of where the throw will go ----
     [10.0, "Aim preview launch speed (visual only, m/s)"] float aimPreviewSpeed;
     [1.5, "Aim preview duration (s)"]                     float aimPreviewTime;
 

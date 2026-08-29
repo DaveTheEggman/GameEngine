@@ -1,9 +1,9 @@
-// PaperKidGame - the Game-tier orchestrator (P0: the skeleton + screen flow).
+// PaperKidGame - the Game-tier orchestrator (the skeleton + screen flow).
 //
 // This is the project's startup script (Project.xml startupScriptId), run by the play-in-editor
 // GameEditorPage as the reserved `Game` tier: launch() boots it, update(dt) ticks it, exit() tears
 // it down, and on<Event>(...) methods harvest the run bus. It drives the whole screen/state flow
-// over the run + ui facades for the P1 driving slice (bike, deliveries, scoring, level flow).
+// over the run + ui facades for the driving slice (bike, deliveries, scoring, level flow).
 //
 // Screens are authored UIDocuments (Sources/screens/*.sml), pushed by guid via ui::push; their
 // id-tagged buttons are wired to handlers with button.onClick(Action(this.handler)). The empty
@@ -38,7 +38,7 @@ class Game
     // Where "Back" returns from the Settings screen (Settings opens from both Main menu and Pause).
     GameState m_settingsReturn = GameState::MainMenu;
 
-    // ---- scoring (P1-6) ----
+    // ---- scoring ----
     int m_score = 0;
     int m_deliveries = 0;
 
@@ -153,8 +153,8 @@ class Game
         }
     }
 
-    // ---- run-bus inbox (P1-6): scene bus == run bus, so these arrive directly; the Game scores + ends the level ----
-    // A delivery landed (Subscriber's "Delivered", carrying the house's points).
+    // ---- run-bus inbox: scene bus == run bus, so these arrive directly; the Game scores + ends the level ----
+    // A delivery arrived (Subscriber's "Delivered", carrying the house's points).
     void onDelivered(int points)
     {
         if (m_state != GameState::Playing)
@@ -163,7 +163,7 @@ class Game
         }
         m_deliveries += 1;
         m_score += points;
-        Log::info("Delivered"); // deliveries/score tracked in m_deliveries/m_score (HUD in P1-7)
+        Log::info("Delivered"); // deliveries/score tracked in m_deliveries/m_score
     }
 
     // The delivery quota was met -> level cleared.
@@ -187,7 +187,7 @@ class Game
         showLevelFailed(reason);
     }
 
-    // ---- end-of-level screens (P1-7): a modal over the frozen scene + a live score summary ----
+    // ---- end-of-level screens: a modal over the frozen scene + a live score summary ----
     void showLevelCleared()
     {
         run::setTimeScale(0.0f); // freeze the scene under the results modal

@@ -1,4 +1,4 @@
-// Subscriber - a house that wants the paper (P1-4 delivery marking, ZERO native).
+// Subscriber - a house that wants the paper (delivery marking, ZERO native).
 //
 // The locked marking decision: a subscriber house is simply an entity CARRYING this behavior - its
 // presence IS the mark. No tag component, no name lookup. Per-house data = the [metadata] fields
@@ -7,7 +7,7 @@
 //
 // On the FIRST paper to enter, it emits "Delivered" onto the scene event bus - which IS the run
 // bus (one bus per run scope), so the Game script hears it directly and counts it toward quota +
-// score - then goes inert so one house scores once. The auto-aim (P1-5) finds these zones with `scene.physics.nearestOverlap` on the
+// score - then goes inert so one house scores once. The auto-aim finds these zones with `scene.physics.nearestOverlap` on the
 // zone group, so no self-registration is needed here.
 
 class Subscriber

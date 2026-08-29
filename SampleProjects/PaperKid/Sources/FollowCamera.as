@@ -1,4 +1,4 @@
-// FollowCamera - the third-person chase camera (P1-3 of the driving slice).
+// FollowCamera - the third-person chase camera.
 //
 // A behavior on the camera entity. The target (the bike) is an [null] Entity@ PROPERTY: pick it in
 // the inspector (an entity picker, resolved to a live handle at start) - no fragile name lookup.
