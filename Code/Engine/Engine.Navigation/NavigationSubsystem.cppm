@@ -11,6 +11,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"      // legacy-bake warning (rigid-frame convention)
 #include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 export module engine.navigation:subsystem;
@@ -191,6 +192,32 @@ export namespace engine::navigation
                     {
                         z.runtimeIndex = -1;
                         return;
+                    }
+                    // A legacy bake (pre-rigid-frame, bakedFrame 0) divided geometry by the FULL
+                    // world matrix, scale included; the rigid runtime frame below places such a
+                    // navmesh wrong on a scaled zone entity - agents path off the floor with no
+                    // error. Warn and skip rather than desync silently; a re-bake stamps the zone.
+                    if (product->bakedFrame != nav::kNavigationZoneFrameRigid)
+                    {
+                        Float3 translation{};
+                        Quaternion rotation{};
+                        Float3 scale{1.0f, 1.0f, 1.0f};
+                        (void)Decompose(m_scene->GetWorldMatrix(entity), translation, rotation,
+                                        scale);
+                        const bool unitScale = Abs(scale.x - 1.0f) < 1e-3f &&
+                                               Abs(scale.y - 1.0f) < 1e-3f &&
+                                               Abs(scale.z - 1.0f) < 1e-3f;
+                        if (!unitScale)
+                        {
+                            LOG_WARNING(u8"Navigation",
+                                        u8"zone '{}' was baked before the rigid-frame convention "
+                                        u8"and sits on a scaled entity - skipping it (re-bake the "
+                                        u8"zone to fix)",
+                                        m_scene->GetEntityName(entity));
+                            z.runtimeIndex = -1;
+                            return;
+                        }
+                        // Unit scale: legacy and rigid frames agree exactly; load as-is.
                     }
                     RuntimeZone rz;
                     // Rigid (no scale): matches the bake frame (NavigationBakeImpl), so a scaled

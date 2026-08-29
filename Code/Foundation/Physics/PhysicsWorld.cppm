@@ -322,7 +322,8 @@ export namespace foundation::physics
                                      Float3 direction, f32 maxDistance, RayHit& out,
                                      u32 groupMask = 0xFFFFFFFFu) const;
         /// Bodies overlapping `shape` placed at (`position`, `rotation`), triggers included. Each body
-        /// appears once (sub-shape hits are de-duplicated).
+        /// appears once (sub-shape hits are de-duplicated). `out` is FILLED (cleared first), so a
+        /// reused array never mixes results across queries.
         void ShapeOverlap(const QueryShape& shape, Float3 position, Quaternion rotation,
                           Array<BodyId>& out, u32 groupMask = 0xFFFFFFFFu) const;
 

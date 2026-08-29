@@ -69,6 +69,15 @@ namespace
             lastSum9 = a + b + c + d + e + f + g + h + i;
         }
         [[nodiscard]] f32 sum9() const { return lastSum9; }
+        // A 16-arg method: the TOP of the raised marshalling cap (kMaxArgs = 16). The last arg is
+        // the one a cap-boundary off-by-one would drop.
+        f32 lastSum16 = 0.0f;
+        void take16(f32 a, f32 b, f32 c, f32 d, f32 e, f32 f, f32 g, f32 h, f32 i, f32 j, f32 k,
+                    f32 l, f32 m, f32 n, f32 o, f32 p)
+        {
+            lastSum16 = a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p;
+        }
+        [[nodiscard]] f32 sum16() const { return lastSum16; }
     };
 }
 
@@ -82,6 +91,9 @@ REFLECT_MEMBERS(NumProbe, "rtti::script::test")
     builder.Method<&NumProbe::take9>("take9",
                                      {"a", "b", "c", "d", "e", "f", "g", "h", "i"});
     builder.Method<&NumProbe::sum9>("sum9");
+    builder.Method<&NumProbe::take16>("take16", {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+                                                 "k", "l", "m", "n", "o", "p"});
+    builder.Method<&NumProbe::sum16>("sum16");
     builder.Constructor();
 }
 
@@ -571,6 +583,30 @@ TEST_CASE("angelscript: a reflected method marshals 9 args without truncating th
                   u8"main");
     REQUIRE(status.IsOk());
     CHECK(ctx->GetGlobal(u8"S").Get<f64>() == doctest::Approx(511.0));
+}
+
+TEST_CASE("angelscript: a reflected method marshals 16 args - the top of the raised cap")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    REQUIRE(static_cast<bool>(manager));
+    manager->RegisterType(NumProbe::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    // 16 args = kMaxArgs exactly (raised from 8). Powers of two so any dropped or garbled argument
+    // changes the sum: 1+2+...+32768 = 65535. A boundary off-by-one would lose the trailing 32768.
+    const Status status =
+        ctx->Load(u8"float S;\n"
+                  u8"void main() {\n"
+                  u8"  NumProbe p;\n"
+                  u8"  p.take16(1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f, 64.0f, 128.0f,\n"
+                  u8"           256.0f, 512.0f, 1024.0f, 2048.0f, 4096.0f, 8192.0f,\n"
+                  u8"           16384.0f, 32768.0f);\n"
+                  u8"  S = p.sum16();\n"
+                  u8"}\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == doctest::Approx(65535.0));
 }
 
 TEST_CASE("angelscript: a context runs valid source")

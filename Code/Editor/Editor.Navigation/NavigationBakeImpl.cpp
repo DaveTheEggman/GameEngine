@@ -17,6 +17,7 @@ import foundation.geometry;
 import engine.render;
 import engine.navigation;
 import foundation.navigation;
+import foundation.navigation.resource; // kNavigationZoneFrameRigid (the bake stamp)
 import navigation.pipeline;
 
 using namespace foundation::core;
@@ -130,6 +131,7 @@ namespace editor::navigation
             {
                 asset.navMeshBlob.Resize(blob.Size());
                 MemCopy(asset.navMeshBlob.Data(), blob.Data(), blob.Size());
+                asset.bakedFrame = nav::kNavigationZoneFrameRigid;
                 result.baked = true;
             }
         }

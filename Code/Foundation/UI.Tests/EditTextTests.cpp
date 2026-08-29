@@ -234,6 +234,34 @@ TEST_CASE("edit-text: UndoRedo")
     CHECK(edit->Text() == u8"abc");
 }
 
+// OnEditingFinished fires on focus loss (the blur-commit hook); OnSubmit stays Enter/activate-only.
+TEST_CASE("edit-text: OnEditingFinished_FiresOnceOnBlur_NoSubmit")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    auto other = MakeEdit();
+    root->AddView(edit.Get());
+    root->AddView(other.Get());
+    LayoutPass(ctx, root.Get());
+
+    int finished = 0;
+    int submitted = 0;
+    edit->OnEditingFinished.Add(
+        Event<void(EditText*)>::Handler{[&finished](EditText*) { ++finished; }});
+    edit->OnSubmit.Add(Event<void(EditText*)>::Handler{[&submitted](EditText*) { ++submitted; }});
+
+    ctx.GetFocusManager()->SetFocus(edit.Get());
+    edit->Behavior().HandleTextInput(U'x'); // an edit-in-progress to finish
+    CHECK(finished == 0);                   // gaining focus / typing is not an edit end
+
+    ctx.GetFocusManager()->SetFocus(other.Get()); // blur
+
+    CHECK(finished == 1);  // exactly once
+    CHECK(submitted == 0); // blur does NOT submit
+}
+
 // === PasswordBox ===
 
 TEST_CASE("edit-text: PasswordBox_DisplayTextIsMasked")

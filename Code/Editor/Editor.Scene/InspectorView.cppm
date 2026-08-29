@@ -239,6 +239,11 @@ export namespace editor
     public:
         Array<String> names; // display names (index = group)
         Array<u32> matrix;   // parallel collide masks
+        // The last COMMITTED names, snapshotted at each grid build: the blur-commit path compares
+        // against these so leaving an untouched field pushes no undo entry, and an Enter-committed
+        // rename (whose rebuild refreshes this snapshot) is not committed a second time on the old
+        // field's focus loss.
+        Array<String> committedNames;
         Function<void(usize, String)> OnRename;
         Function<void(usize, usize)> OnToggle; // (row group, column group)
         Function<void()> OnAddGroup;

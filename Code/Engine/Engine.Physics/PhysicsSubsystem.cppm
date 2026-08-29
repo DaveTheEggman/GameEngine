@@ -147,6 +147,9 @@ export namespace engine::physics
                     {
                         c.body = BodyId{};
                         c.simActive = false;
+                        // The queue is RUN-scoped: an impulse queued in the last frame before Stop
+                        // must not fire as an unexplained kick at the next Play.
+                        c.pendingImpulse = Float3{0, 0, 0};
                     });
             }
             if (auto* joints = m_scene->GetSystem<JointComponentManager>())
@@ -572,6 +575,15 @@ export namespace engine::physics
                         const bool eff = scene.IsEffectivelyActive(e);
                         if (eff == c.simActive)
                         {
+                            // A queued impulse lives only until the assembly right after it was
+                            // queued (spawn-then-launch). If the body STILL is not valid here (build
+                            // failed, or the entity is inactive), drop the queue - otherwise a
+                            // script calling applyImpulse every frame accumulates an unbounded
+                            // launch that fires whenever the body finally appears.
+                            if (!c.body.IsValid())
+                            {
+                                c.pendingImpulse = Float3{0, 0, 0};
+                            }
                             return;
                         }
                         c.simActive = eff;
@@ -582,6 +594,9 @@ export namespace engine::physics
                                 m_world->DestroyBody(c.body);
                                 c.body = BodyId{};
                             }
+                            // Impulses queued while active die with the body; re-activation must
+                            // not launch a sum accumulated across the inactive window.
+                            c.pendingImpulse = Float3{0, 0, 0};
                         }
                         else if (!c.body.IsValid())
                         {
@@ -1145,7 +1160,8 @@ export namespace engine::physics
 
         // A swept SPHERE (radius) from (from*) along (dir*) up to maxDistance -> the CLOSEST hit, as a
         // RayCastHit (hit == false on a miss). Like rayCast but with a volume - the ray that would slip
-        // through a gap a fat projectile cannot.
+        // through a gap a fat projectile cannot. (dir*) must be UNIT length, like rayCast: `distance`
+        // scales by |dir| otherwise.
         [[nodiscard]] RayCastHit sphereCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
                                             f32 dirZ, f32 maxDistance, f32 radius) const
         {
@@ -1194,7 +1210,7 @@ export namespace engine::physics
             Array<foundation::physics::BodyId> bodies;
             world->ShapeOverlap(shape, Float3{x, y, z}, Quaternion::Identity, bodies,
                                 static_cast<u32>(groupMask));
-            f32 bestSq = 3.4e38f;
+            f32 bestSq = kFloatMax; // best body-ORIGIN distance (see the semantics note above)
             for (const foundation::physics::BodyId& b : bodies)
             {
                 Float3 pos;
@@ -1265,8 +1281,10 @@ export namespace engine::physics
 
         // Apply an impulse to `entity`'s rigid body in THIS scene (the scriptable-impulse gameplay
         // op - a genuine WORLD operation, so it lives on scene.physics keyed by the entity, not on
-        // the component data which cannot reach the world). No-op if the entity has no rigid body or
-        // its body is not yet created. Fixes the "no scriptable impulse on a dynamic body" gap.
+        // the component data which cannot reach the world). If the body is not yet created (a prefab
+        // spawned + launched THIS frame), the impulse is queued on the component and applied at the
+        // next assembly; a queue that survives an assembly without gaining a body is dropped (the
+        // reconcile pass clears it), and Stop clears it too - it never outlives the run.
         void applyImpulse(foundation::script::Entity entity, f32 x, f32 y, f32 z)
         {
             PhysicsWorld* world = World();

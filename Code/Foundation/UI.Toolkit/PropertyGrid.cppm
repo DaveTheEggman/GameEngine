@@ -195,6 +195,18 @@ export namespace foundation::ui::toolkit
             m_needsRebuild = false;
             m_content->Spacing = RowSpacing;
 
+            // Remember each category's CURRENT expansion before tearing the expanders down: a
+            // rebuild (undo/redo, shape change) must not slam shut a group the user opened - or
+            // reopen one they collapsed. The remembered state wins over the default-collapsed
+            // list; the default applies only to categories seen for the first time.
+            for (usize i = 0; i < m_content->ChildCount(); ++i)
+            {
+                if (auto* expander = Cast<Expander>(m_content->GetChildAt(i)))
+                {
+                    RememberExpansion(expander->HeaderText(), expander->IsExpanded());
+                }
+            }
+
             // Clear existing content.
             while (m_content->ChildCount() > 0)
             {
@@ -268,7 +280,17 @@ export namespace foundation::ui::toolkit
                 contentLp->Width = SizeSpec::Match();
                 expander->SetContent(catContent.Get(), contentLp);
 
-                for (usize k = 0; k < m_collapsedCategories.Size(); ++k)
+                bool remembered = false;
+                for (usize k = 0; k < m_expansionNames.Size(); ++k)
+                {
+                    if (StringView(m_expansionNames[k]) == StringView(categoryOrder[c]))
+                    {
+                        expander->SetIsExpanded(m_expansionStates[k]); // the user's last state
+                        remembered = true;
+                        break;
+                    }
+                }
+                for (usize k = 0; !remembered && k < m_collapsedCategories.Size(); ++k)
                 {
                     if (StringView(m_collapsedCategories[k]) == StringView(categoryOrder[c]))
                     {
@@ -355,6 +377,23 @@ export namespace foundation::ui::toolkit
         Array<RefPtr<View>> m_actionViews;
         Array<String> m_collapsedCategories; // categories whose expanders build collapsed
         bool m_needsRebuild = true;
+        // Per-category expansion memory across rebuilds (parallel arrays, keyed by header text).
+        Array<String> m_expansionNames;
+        Array<bool> m_expansionStates;
+
+        void RememberExpansion(StringView category, bool expanded)
+        {
+            for (usize i = 0; i < m_expansionNames.Size(); ++i)
+            {
+                if (StringView(m_expansionNames[i]) == category)
+                {
+                    m_expansionStates[i] = expanded;
+                    return;
+                }
+            }
+            m_expansionNames.PushBack(String(category));
+            m_expansionStates.PushBack(expanded);
+        }
     };
 
     RTTI_DEFINE_OBJECT(PropertyGrid, "rtti::ui::toolkit")

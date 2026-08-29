@@ -162,6 +162,37 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
     RemoveTree(dir);
 }
 
+TEST_CASE("content: Instance::DeleteData removes exactly one stream sidecar, idempotently")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"scratch_content_deletedata_db";
+    RemoveTree(dir);
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+    foundation::content::Instance* inst =
+        db.RootGroup()->CreateInstance(u8"thing", MaterialResource::StaticType());
+    REQUIRE(inst != nullptr);
+    const byte bytes[] = {byte{7}, byte{8}};
+    REQUIRE(inst->WriteData(u8"alpha", Span<const byte>(bytes, 2)).IsOk());
+    REQUIRE(inst->WriteData(u8"beta", Span<const byte>(bytes, 2)).IsOk());
+    REQUIRE(mount.Exists(u8"thing.alpha.bin"));
+    REQUIRE(mount.Exists(u8"thing.beta.bin"));
+
+    // Removes ONLY the named stream (instance-scoped path - no over-delete).
+    CHECK(inst->DeleteData(u8"alpha").IsOk());
+    CHECK_FALSE(mount.Exists(u8"thing.alpha.bin"));
+    CHECK(mount.Exists(u8"thing.beta.bin"));
+
+    // Idempotent: a missing sidecar is Ok, not an error.
+    CHECK(inst->DeleteData(u8"alpha").IsOk());
+    CHECK(inst->DeleteData(u8"never-written").IsOk());
+
+    RemoveTree(dir);
+}
+
 TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh guid")
 {
     GlobalTypeRegistry().Register(MaterialResource::StaticType());

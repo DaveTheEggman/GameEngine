@@ -6,7 +6,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include "Core/Log/Log.h" // TEMP diagnostic (terrain-tool availability)
 
 module editor.terrain;
 
@@ -117,56 +116,29 @@ namespace editor
         }
     }
 
-    // TEMP diagnostic: logs the availability breakdown once whenever it CHANGES, so a "the button
-    // does nothing" report says exactly which link is missing (no manager / no component / terrain
-    // unresolved / heightfield unresolved). Remove once terrain-in-scene is confirmed working.
-    namespace
-    {
-        void DiagOnce(StringView msg)
-        {
-            static String last;
-            if (last.AsView() != msg)
-            {
-                last = String(msg);
-                LOG_WARNING(u8"Terrain", u8"[sculpt-avail] {}", msg);
-            }
-        }
-    }
-
     bool TerrainSculptTool::IsAvailable() const
     {
         engine::terrain::TerrainComponentManager* mgr = TerrainManager(*m_scene);
         if (mgr == nullptr)
         {
-            DiagOnce(u8"no TerrainComponentManager in the scene");
             return false;
         }
         bool any = false;
-        i32 components = 0;
-        i32 terrainResolved = 0;
-        i32 heightfieldResolved = 0;
         mgr->ForEach(
             [&](engine::terrain::TerrainComponent& c, scene::EntityHandle)
             {
-                ++components;
                 foundation::terrain::TerrainResource* res = c.terrain.Get();
                 if (res == nullptr)
                 {
                     return;
                 }
-                ++terrainResolved;
                 foundation::heightfield::Heightfield* hf = res->heightfield.Get();
                 if (hf == nullptr || hf->IsEmpty())
                 {
                     return;
                 }
-                ++heightfieldResolved;
                 any = true;
             });
-        DiagOnce(any ? StringView(u8"AVAILABLE")
-                     : Format(u8"unavailable: components={} terrainResolved={} heightfieldResolved={}",
-                              components, terrainResolved, heightfieldResolved)
-                           .AsView());
         return any;
     }
 
@@ -415,6 +387,10 @@ namespace editor
             EndStroke(); // gesture-end guarantee: never leave a half-open stroke on a tool switch
         }
         m_hasHover = false;
+        // The panel is activation-scoped but the tool is manager-owned: drop the radius-sync
+        // callback so wheel resizes stop writing into the dead panel's detached FloatEditor
+        // (the next activation re-binds a fresh one).
+        OnRadiusChanged = {};
     }
 
     void TerrainSculptTool::Draw(render::debug::DebugDraw& drawList)

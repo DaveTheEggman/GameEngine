@@ -773,6 +773,17 @@ namespace editor
                 return;
             }
             m_toolFloat->SetContent(RefPtr<foundation::ui::View>(view));
+            if (view != nullptr)
+            {
+                // Fresh mount = fresh chrome: adopt the ACTIVE tool's name (sculpt vs splat panels
+                // are otherwise indistinguishable) and un-collapse - a panel collapsed for the last
+                // tool returning as a bare title bar reads as "this tool has no panel".
+                if (editor::IViewportTool* tool = m_viewportTools.ActiveTool())
+                {
+                    m_toolFloat->SetTitle(tool->DisplayName());
+                }
+                m_toolFloat->SetCollapsed(false);
+            }
             m_toolFloat->Visibility =
                 (view != nullptr) ? foundation::ui::Visibility::Visible : foundation::ui::Visibility::Gone;
             break;

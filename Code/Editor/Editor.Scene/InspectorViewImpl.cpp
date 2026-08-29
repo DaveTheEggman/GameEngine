@@ -49,7 +49,6 @@ import foundation.script.resource;
 import engine.script;
 import foundation.ui;
 import foundation.ui.toolkit;
-import foundation.fonts; // TextAlignment (centered collision-matrix column headers)
 import editor.core;
 import editor.app;
 import :edit;
@@ -109,6 +108,12 @@ namespace editor
     {
         CollisionMatrixEditor* self = this;
         const usize count = names.Size();
+        // Snapshot the committed names (see the member comment: blur-commit change detection).
+        committedNames.Clear();
+        for (const String& n : names)
+        {
+            committedNames.PushBack(String(n.AsView()));
+        }
 
         // A proper labeled matrix: group names down the LEFT (editable), VERTICAL names across the TOP
         // (rotated -90 so narrow columns stay narrow - the horizontal version clipped in the inspector),
@@ -125,13 +130,12 @@ namespace editor
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
             return lp;
         };
-        auto centeredSlot = [](f32 width)
+        auto centeredSlot = []()
         {
             auto slot = MakeRef<ui::FlexLayout>(DefaultAllocator());
             slot->Direction = ui::Orientation::Horizontal;
             slot->JustifyContent = ui::Justify::Center;
             slot->AlignItems = ui::Align::Center;
-            (void)width;
             return slot;
         };
 
@@ -144,7 +148,7 @@ namespace editor
                             fixedCell(kNameColW));
             for (usize j = 0; j < count; ++j)
             {
-                auto slot = centeredSlot(kCellW);
+                auto slot = centeredSlot();
                 auto head = MakeRef<ui::Label>(DefaultAllocator(), names[j].AsView());
                 head->FontSize.SetValue(Optional<f32>{11.0f});
                 head->TooltipText = names[j];
@@ -189,13 +193,30 @@ namespace editor
                         self->names[i] = String(nameRaw->Text());
                     }
                 });
+            // Commit on blur too: a rename typed and then clicked-away-from (another entity, save,
+            // panel close) must not live only in the display copy. Change-detected against the
+            // committed snapshot so an untouched field pushes no undo entry, and an Enter-committed
+            // rename (rebuild refreshes the snapshot) is not committed twice.
+            name->OnEditingFinished.Add(
+                [self, i, nameRaw](ui::EditText*)
+                {
+                    if (i >= self->committedNames.Size() || !self->OnRename)
+                    {
+                        return;
+                    }
+                    const String typed(nameRaw->Text());
+                    if (typed.AsView() != self->committedNames[i].AsView())
+                    {
+                        self->OnRename(i, String(typed.AsView()));
+                    }
+                });
             row->AddView(name.Get(), fixedCell(kNameColW));
 
             // A centered checkbox at each crossing; symmetric (OnToggle flips both (i,j) and (j,i)).
             for (usize j = 0; j < count; ++j)
             {
                 const bool collides = i < matrix.Size() && (matrix[i] & (1u << j)) != 0;
-                auto slot = centeredSlot(kCellW);
+                auto slot = centeredSlot();
                 auto box = MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8""), collides);
                 box->OnCheckedChanged.Add(
                     [self, i, j](ui::CheckBox*, bool)

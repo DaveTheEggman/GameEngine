@@ -1,4 +1,4 @@
-// mesh-lod.md P1 wire: the LOD chain through StaticMeshSource v3 -> StaticMesh.
+// mesh-lod.md P1 wire: the LOD chain through StaticMeshSource v4 -> StaticMesh.
 // Covers the serialize round-trip (sidecar write/read), the FillStatic validation
 // (malformed tables collapse to 1 LOD - render at LOD 0, never crash), the
 // SubMeshesForLod slicing contract, and the P0 optimizer staying set-preserving
@@ -57,7 +57,7 @@ namespace
     }
 }
 
-TEST_CASE("mesh lod wire: v3 sidecar round-trip carries the chain; FillStatic slices it")
+TEST_CASE("mesh lod wire: v4 sidecar round-trip carries the chain; FillStatic slices it")
 {
     RegisterMeshAssets();
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_lod_db");
@@ -145,6 +145,64 @@ TEST_CASE("mesh lod wire: malformed chains collapse to 1 LOD (render at LOD 0, n
     plain.FillStatic(mesh3);
     CHECK(mesh3.lodCount == 1);
     CHECK(mesh3.SubMeshesForLod(1).Size() == 1); // LOD 0 view
+}
+
+// Pass-17 regression: the same v3-with-LOD migration shape for a SKINNED source is NOT harmless -
+// binary reads are positional, so the skinning fields (which follow the static section) consume the
+// unread LOD bytes: an empty/garbage skin stream with ar.IsOk() still true. The Serialize body now
+// validates the parallel-stream invariant (one 24B VertexSkinning per vertex) and FAILS the payload,
+// so the asset re-imports instead of animating garbage.
+TEST_CASE("mesh lod wire: a v3 skinned payload that HAS LOD keys fails LOUDLY (no silent garbage)")
+{
+    SkinnedMeshSource authored;
+    BuildTwoLodSource(authored); // fills the static half (slicing works on the base class)
+    const usize vcount = authored.vertexBlob.Size() / sizeof(StaticMeshVertex);
+    authored.skinningBlob.Resize(vcount * sizeof(VertexSkinning), u8{0});
+    authored.skeletonIndex = 0;
+
+    // Write WITH the LOD keys (version 4 = the buggy writer's actual output shape when it stamped
+    // v3), then read as version 3: SerializeStatic skips the LOD section, so skinningBlob's array
+    // header reads out of the LOD bytes - the misalignment the invariant catches.
+    MemoryStream buffer;
+    const SerializedDataVersion v4[] = {{TypeOf<SkinnedMeshSource>().id, 4}};
+    const SerializedDataVersion v3[] = {{TypeOf<SkinnedMeshSource>().id, 3}};
+    {
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        ar.PushVersionScope(v4, 1);
+        authored.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    SkinnedMeshSource poisoned;
+    {
+        BinarySerializer ar(buffer, SerializeMode::Read);
+        ar.PushVersionScope(v3, 1);
+        poisoned.Serialize(ar);
+        ar.PopVersionScope();
+        CHECK_FALSE(ar.IsOk()); // loud failure, never a silent desync
+    }
+
+    // The clean v3 shape (written v3 = no LOD keys) still round-trips with the skin stream intact.
+    MemoryStream clean;
+    {
+        BinarySerializer ar(clean, SerializeMode::Write);
+        ar.PushVersionScope(v3, 1);
+        authored.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    (void)clean.Seek(0, SeekOrigin::Begin);
+    SkinnedMeshSource loaded;
+    {
+        BinarySerializer ar(clean, SerializeMode::Read);
+        ar.PushVersionScope(v3, 1);
+        loaded.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(loaded.skinningBlob.Size() == authored.skinningBlob.Size());
+    CHECK(loaded.skeletonIndex == 0);
 }
 
 // Regression: a PRE-LOD payload (version 3, no LOD keys) must deserialize cleanly as a 1-LOD chain,

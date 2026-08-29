@@ -1,7 +1,9 @@
 // FloatingPanel control tests (foundation.ui.toolkit:floating_panel): the draggable / resizable /
-// collapsible / closable float panel. Exercised headlessly (no UIContext, no layout pass) - covers
-// construction, the collapse toggle, content swap, preferred-size clamping, and OnClose. The drag /
-// resize geometry needs a laid-out parent + captured mouse (the in-app path) and is out of scope.
+// collapsible / closable float panel. The bare-panel cases run headlessly (no UIContext, no layout
+// pass): construction, the collapse toggle, content swap, preferred-size clamping, and OnClose.
+// The layout-driven clamp (ClampToParent from OnLayout) needs only an AbsoluteLayout parent inside
+// a measured root - no captured mouse - and is covered below. POINTER drag / resize geometry still
+// needs a captured mouse (the in-app path) and stays out of scope.
 
 #include <doctest/doctest.h>
 
@@ -64,4 +66,126 @@ TEST_CASE("FloatingPanel: OnClose notifies subscribers")
     panel->OnClose.Add([&closed]() { ++closed; });
     panel->OnClose.Invoke();
     CHECK(closed == 1);
+}
+
+// === Layout-driven clamping (ClampToParent runs from OnLayout; no mouse capture needed) ===
+
+namespace
+{
+    // Runs the measure/layout pass TWICE: the first pass lays the panel out at the requested
+    // AbsoluteLayoutParams X/Y and runs the clamp (which corrects X/Y and invalidates); the
+    // second pass applies the corrected position to Bounds - exactly the in-app flow, where the
+    // clamp's Invalidate() schedules the next frame's layout.
+    void RunLayout(UIContext& ctx, RootView* root, core::f32 w, core::f32 h)
+    {
+        root->ViewportSize = Float2{w, h};
+        ctx.BeginFrame(0.016f);
+        root->Measure(BoxConstraints::Tight(w, h));
+        root->Layout(0, 0, w, h);
+        root->Measure(BoxConstraints::Tight(w, h));
+        root->Layout(0, 0, w, h);
+    }
+}
+
+TEST_CASE("FloatingPanel: layout clamps X/Y so the whole panel stays inside the parent")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto host = core::MakeRef<AbsoluteLayout>(core::DefaultAllocator());
+    root->AddView(host.Get());
+
+    auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Tools"));
+    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
+    pos->X = 1000.0f; // far past the right edge
+    pos->Y = 900.0f;  // far past the bottom edge
+    host->AddView(panel.Get(), pos);
+
+    RunLayout(ctx, root.Get(), 800, 600);
+
+    // Clamped so the INTENDED box sits flush against the parent's right/bottom edge.
+    CHECK(panel->Width() > 0.0f);
+    CHECK(panel->Height() > 0.0f);
+    CHECK(panel->Bounds.x == doctest::Approx(800.0f - panel->Width()));
+    CHECK(panel->Bounds.y == doctest::Approx(600.0f - panel->Height()));
+    CHECK(panel->Bounds.x + panel->Width() <= 800.0f + 0.01f);
+    CHECK(panel->Bounds.y + panel->Height() <= 600.0f + 0.01f);
+}
+
+TEST_CASE("FloatingPanel: the panel follows a shrinking parent back inside")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto host = core::MakeRef<AbsoluteLayout>(core::DefaultAllocator());
+    root->AddView(host.Get());
+
+    auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Brush"));
+    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
+    pos->X = 500.0f;
+    pos->Y = 350.0f;
+    host->AddView(panel.Get(), pos);
+
+    RunLayout(ctx, root.Get(), 800, 600);
+    // Fits at 800x600: laid out exactly where it was placed.
+    CHECK(panel->Bounds.x == doctest::Approx(500.0f));
+    CHECK(panel->Bounds.y == doctest::Approx(350.0f));
+
+    // Shrink the viewport (the bottom dock expanding upward): the panel is pulled back inside
+    // instead of sliding behind the new edges.
+    RunLayout(ctx, root.Get(), 600, 420);
+    CHECK(panel->Bounds.x == doctest::Approx(600.0f - panel->Width()));
+    CHECK(panel->Bounds.y == doctest::Approx(420.0f - panel->Height()));
+    CHECK(panel->Bounds.x + panel->Width() <= 600.0f + 0.01f);
+    CHECK(panel->Bounds.y + panel->Height() <= 420.0f + 0.01f);
+}
+
+TEST_CASE("FloatingPanel: a collapsed panel clamps against its header height")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto host = core::MakeRef<AbsoluteLayout>(core::DefaultAllocator());
+    root->AddView(host.Get());
+
+    auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"P"));
+    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
+    pos->Y = 900.0f; // past the bottom either way
+    host->AddView(panel.Get(), pos);
+
+    RunLayout(ctx, root.Get(), 800, 600);
+    const core::f32 expandedY = panel->Bounds.y; // clamped against the full panel height
+
+    panel->SetCollapsed(true);
+    pos->Y = 900.0f; // push past the bottom again
+    RunLayout(ctx, root.Get(), 800, 600);
+
+    // Collapsed the panel is only its header tall, so it clamps flush to the bottom edge at a
+    // LOWER Y than the full-height panel could reach.
+    CHECK(panel->Bounds.y == doctest::Approx(600.0f - panel->Height()));
+    CHECK(panel->Bounds.y > expandedY);
+}
+
+TEST_CASE("FloatingPanel: negative X/Y clamps to the parent origin")
+{
+    UIContext ctx;
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto host = core::MakeRef<AbsoluteLayout>(core::DefaultAllocator());
+    root->AddView(host.Get());
+
+    auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"P"));
+    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
+    pos->X = -120.0f;
+    pos->Y = -45.0f;
+    host->AddView(panel.Get(), pos);
+
+    RunLayout(ctx, root.Get(), 800, 600);
+
+    CHECK(panel->Bounds.x == doctest::Approx(0.0f));
+    CHECK(panel->Bounds.y == doctest::Approx(0.0f));
 }

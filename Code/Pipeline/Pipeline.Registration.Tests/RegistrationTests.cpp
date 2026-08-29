@@ -94,3 +94,26 @@ TEST_CASE("pipeline.registration: Pipeline-collection types carry the Pipeline d
     // sweep took effect and did not silently default them to Runtime.
     CHECK(pipelineDomained >= 14);
 }
+
+TEST_CASE("pipeline.registration: every builder's ProductType is a registered serializable")
+{
+    // Pass-17 tripwire: the cook driver stamps builder->ProductType() into the product envelope
+    // and the factory reconstructs it via ReadObject - so the product type MUST be a registered
+    // serializable (the cooked SERIALIZED form). Three builders (Terrain/Heightfield/SplatWeights)
+    // shipped returning their RUNTIME product type at once (1bb4b31d); this audits all of them,
+    // including builder N+1.
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry registry;
+    pipeline::RegisterAllBuilders(registry);
+    REQUIRE(registry.Count() == pipeline::kBuilderCount);
+
+    registry.ForEach(
+        [](const pipeline::IAssetBuilder& builder)
+        {
+            const TypeInfo* product = builder.ProductType();
+            REQUIRE(product != nullptr);
+            INFO("builder product type: ",
+                 doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
+            CHECK(GlobalSerializableRegistry().Contains(product->id));
+        });
+}

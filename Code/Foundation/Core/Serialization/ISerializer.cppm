@@ -94,5 +94,13 @@ export namespace foundation::core
         // bytes (compact); text writes the canonical 36-char string (readable, one copyable value).
         // The Serializer base provides the text default; binary overrides for compactness.
         virtual void GuidValue(Guid& value) = 0;
+
+        // === Payload-level validation (strict versioning) ===
+        // A Serialize body that detects structurally-invalid data after reading (a cross-field
+        // invariant a positional format cannot express) fails the whole payload here, so corrupt
+        // data loads loudly, never silently. The Serializer base routes this into its status;
+        // the defaults keep bare mocks working.
+        virtual void FailPayload(ErrorCode code) noexcept { (void)code; }
+        [[nodiscard]] virtual bool IsPayloadOk() const noexcept { return true; }
     };
 }

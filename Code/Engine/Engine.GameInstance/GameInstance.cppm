@@ -366,6 +366,10 @@ export namespace engine::runtime
             m_scriptLoads.Clear();
             SetScene(nullptr);
             m_sceneManager.Clear();
+            // The group time scale is RUN-scoped (run.setTimeScale): the SceneManager survives a
+            // stop on the persistent editor instance, so a game paused at Stop must not leave the
+            // next Play frozen at scale 0.
+            m_sceneManager.SetTimeScale(1.0f);
         }
 
         // ---- scene / level load (task #123): the load ORCHESTRATION lives on the instance (the

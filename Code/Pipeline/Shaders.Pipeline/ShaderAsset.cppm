@@ -119,6 +119,10 @@ export namespace pipeline{
     {
         GlobalTypeRegistry().Register(ShaderAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<ShaderAsset>();
+        // The cooked PRODUCT: ReadObject constructs it by type name in cook hosts (pass-17
+        // tripwire - it was registered only in tests).
+        GlobalTypeRegistry().Register(foundation::shaders::ShaderSource::StaticType());
+        RegisterSerializable<foundation::shaders::ShaderSource>();
     }
 
     // ShaderAsset::StaticType() is defined WITH reflected properties in ShaderAssetImpl.cpp

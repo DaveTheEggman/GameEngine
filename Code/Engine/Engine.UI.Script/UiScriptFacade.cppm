@@ -33,8 +33,7 @@ export namespace engine::uiscript
     // by the UISubsystem's screen tier + the resource manager. Null members = safe no-ops.
     struct UiScreenScriptBinding
     {
-        foundation::ui::RootView* screenRoot = nullptr;         // engine.ui's ScreenRoot() (app-wide)
-        foundation::ui::gamekit::ScreenStack* stack = nullptr;  // the stack over that root (tier-owned)
+        foundation::ui::gamekit::ScreenStack* stack = nullptr;  // the stack over the screen root (tier-owned)
         // Instantiate a cooked UIDocument (by guid) into a live view tree. The app supplies this
         // (resource manager + MarkupLoader); nil -> push returns a null Screen.
         Function<RefPtr<foundation::ui::View>(const Guid&)> instantiate;

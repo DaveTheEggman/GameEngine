@@ -98,6 +98,7 @@ namespace
         u32 filled = 0; // pixels brighter than the black background
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
         f64 leftR = 0, leftB = 0, rightR = 0, rightB = 0; // per-channel halves (colour checks)
+        f64 leftG = 0, rightG = 0;                        // green halves (mask-reveal A/B checks)
         // Band-centre channel means (x split into kBands, centre half of each band, centre half
         // in y - clear of band boundaries and the terrain rim) for the >4-layer stripe fixture.
         f64 bandR[kBands] = {};
@@ -153,7 +154,8 @@ namespace
             rd->rendererId = renderer.RendererId();
             rd->chunks = chunks.Data();
             rd->nodes = tree.Nodes().Data();
-            rd->nodeCount = static_cast<u32>(tree.Nodes().Size());rd->chunkCount = static_cast<u32>(chunks.Size());
+            rd->nodeCount = static_cast<u32>(tree.Nodes().Size());
+        rd->chunkCount = static_cast<u32>(chunks.Size());
             rd->heightView = heightView;
             rd->chunkToWorld = cfg.chunkToWorld;
             rd->gridSize = terrain.Size();
@@ -247,8 +249,8 @@ namespace
                     }
                     (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
-                    if (x < kSize / 2) { probe.leftR += p[0]; probe.leftB += p[2]; }
-                    else { probe.rightR += p[0]; probe.rightB += p[2]; }
+                    if (x < kSize / 2) { probe.leftR += p[0]; probe.leftG += p[1]; probe.leftB += p[2]; }
+                    else { probe.rightR += p[0]; probe.rightG += p[1]; probe.rightB += p[2]; }
                     // Band-centre sums (the stripe fixture): centre half in y, centre half of
                     // each band in x - clear of stripe-boundary bilinear blends + the rim.
                     if (y >= kSize / 4 && y < kSize * 3 / 4)
@@ -531,7 +533,8 @@ namespace
             rd->rendererId = renderer.RendererId();
             rd->chunks = chunks.Data();
             rd->nodes = tree.Nodes().Data();
-            rd->nodeCount = static_cast<u32>(tree.Nodes().Size());rd->chunkCount = static_cast<u32>(chunks.Size());
+            rd->nodeCount = static_cast<u32>(tree.Nodes().Size());
+        rd->chunkCount = static_cast<u32>(chunks.Size());
             rd->heightView = heightView;
             rd->chunkToWorld = Float4x4::Identity();
             rd->gridSize = ridge->Size();
@@ -778,6 +781,30 @@ TEST_CASE("terrain probe: the ridge casts a CSM shadow onto the flat ground (cas
 
     device->Destroy();
     vulkan->Destroy();
+
+    // WebGPU leg: the cascade-cast pass is where the live-CSM-bound-while-attached hazard lives
+    // (02b19cfc) - Vulkan tolerates the read+write bind, WebGPU rejects the pass. Running the SAME
+    // shadowed scene here is the regression net: with the bug, WebGPU drops the cast/receive work
+    // and the asymmetry vanishes.
+    rhi::Backend* webgpuBackend = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpuBackend);
+    rhi::Device* webgpuDevice =
+        webgpuBackend != nullptr ? testsupport::MakeTestDevice(webgpuBackend) : nullptr;
+    if (webgpuDevice == nullptr)
+    {
+        MESSAGE("WebGPU unavailable - terrain shadow probe WebGPU leg skipped");
+        if (webgpuBackend != nullptr) { webgpuBackend->Destroy(); }
+        return;
+    }
+    const ShadowProbe wOn = RenderShadowProbe(*webgpuDevice, /*shadowsEnabled*/ true);
+    REQUIRE(wOn.valid);
+    const f64 wOnAsym =
+        Abs(wOn.leftGround - wOn.rightGround) / (wOn.leftGround + wOn.rightGround);
+    std::printf("[terrain-shadow-webgpu] on L=%.0f R=%.0f (asym %.3f) total=%.0f\n", wOn.leftGround,
+                wOn.rightGround, wOnAsym, wOn.total);
+    CHECK(wOnAsym > 0.15); // the cast shadow survives the WebGPU binding rules
+    webgpuDevice->Destroy();
+    webgpuBackend->Destroy();
 }
 
 TEST_CASE("terrain probe: SIX palette layers render distinct stripes (R5 - the 4-layer cap is gone)")
@@ -1652,6 +1679,18 @@ TEST_CASE("terrain probe: a masked layer reveals the PAINTED layer beneath, not 
 
     // The freed grass coverage went to the painted GROUND (red), not the base (blue).
     CHECK(R(masked) > B(masked) * 1.5);
+
+    // Unmasked A/B baseline: without the mask the same scene splits ground/grass evenly and the
+    // masked run's red total clearly exceeds it (proving the redistribution happened, not just
+    // "red exists").
+    const Probe unmasked = run(vulkan, false);
+    REQUIRE(unmasked.valid);
+    const auto G = [](const Probe& p) { return p.leftG + p.rightG; };
+    std::printf("[terrain-reveal] unmasked R=%.0f G=%.0f B=%.0f\n", R(unmasked), G(unmasked),
+                B(unmasked));
+    CHECK(G(unmasked) > B(unmasked));          // grass visible before masking
+    CHECK(R(masked) > R(unmasked) * 1.3);      // masking grass boosted ground coverage
+    CHECK(G(masked) < G(unmasked) * 0.3);      // ...and actually removed the grass
 
     const Probe wMasked = run(webgpu, true);
     if (wMasked.valid)

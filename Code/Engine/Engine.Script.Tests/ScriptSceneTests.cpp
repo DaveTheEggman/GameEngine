@@ -28,6 +28,9 @@ import foundation.physics;
 import engine.physics;
 import engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
 import engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
+import foundation.render;             // debug::DebugDraw accessors (the DebugDraw real-effect test)
+import foundation.rhi;                // rhi::Device (base of the headless NullDevice)
+import foundation.rhi.null;           // NullDevice (headless RenderSubsystem, no GPU)
 import foundation.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
 import engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
 import foundation.animation;          // animation components + managers (Track A, animation surface)
@@ -3143,6 +3146,54 @@ TEST_CASE("script.scene: DebugDraw.of(scene) is script-callable + null-safe with
     bed.scene.SetSimulationEnabled(true);
     bed.Frame(); // instantiate + onStart: DebugDraw::of + no-op draws + the rename
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"drew"));
+}
+
+// DebugDraw.of(scene) with the render service INSTALLED (the way RenderSubsystem::ExposeToScript
+// wires a real run): the draw lands in THAT scene's per-scene debug list on the subsystem, and no
+// other scene's. A headless RenderSubsystem over the NullDevice (DebugScene is pure accumulator
+// state, no GPU) is the real service - the same object the render pass reads at frame end.
+TEST_CASE("script.scene: DebugDraw.of(scene) appends to THIS scene's list on the real render service")
+{
+    engine::render::RegisterRenderScriptFacade();
+
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    engine::render::RenderSubsystem sub{device, 2};
+
+    ScriptedScene bed;
+    // The app-side wiring: ExposeToScript installs the per-context render service at context
+    // creation (the host's configurator seam, exactly like Input/Audio in a real run).
+    bed.host.SetContextConfigurator(Function<void(IScriptContext&)>{
+        [&sub](IScriptContext& ctx) { sub.ExposeToScript(ctx); }});
+
+    RefPtr<ScriptClass> gizmo =
+        MakeClass(u8"Gizmo",
+                  u8"class Gizmo {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Gizmo(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() {\n"
+                  u8"        DebugDraw@ d = DebugDraw::of(self.scene);\n"
+                  u8"        d.line(0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 3.0f, 1.0f, 0.0f, 0.0f);\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(gizmo, u8"gizmo");
+    (void)e;
+    bed.scene.Start();
+    bed.scene.SetSimulationEnabled(true);
+    bed.Frame(); // instantiate + onStart: the draw goes through the service into the subsystem
+
+    // The scripted scene's per-scene list got EXACTLY the one line (2 vertices), endpoints intact.
+    auto& drawn = sub.DebugScene(bed.scene);
+    CHECK(drawn.HasAnyDraws());
+    REQUIRE(drawn.LineVertices().Size() == 2u);
+    CHECK(drawn.LineVertices()[1].position.x == doctest::Approx(1.0f));
+    CHECK(drawn.LineVertices()[1].position.y == doctest::Approx(2.0f));
+    CHECK(drawn.LineVertices()[1].position.z == doctest::Approx(3.0f));
+
+    // Another scene's list on the SAME subsystem stays empty - per-scene isolation, no bleed.
+    scene::Scene other{u8"other-scene"};
+    CHECK_FALSE(sub.DebugScene(other).HasAnyDraws());
 }
 
 // scene.physics on the SECOND backend - ScenePhysics::of returns the concrete handle type (its

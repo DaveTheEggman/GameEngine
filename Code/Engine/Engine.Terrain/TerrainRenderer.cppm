@@ -10,7 +10,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <cstdio>
 
 export module engine.terrain:renderer;
 
@@ -1183,8 +1182,10 @@ export namespace engine::terrain
         // Depth-only PSO (vertex-only, 0 color targets). `biased` adds the shadow-pass
         // slope-scaled depth bias (the camera prepass must match the forward depth exactly, so no
         // bias). INVARIANCE HARDENING: the CAMERA prepass (unbiased) uses the MAIN "terrain" VS
-        // module - the same bytecode the color pass rasterizes with - so both passes are
-        // GUARANTEED bit-identical clip positions and the color pass's LessEqual never loses
+        // module - the same bytecode the color pass rasterizes with - so both passes get
+        // bit-identical clip positions on every driver we ship on (D3D12 guarantees same-bytecode
+        // position identity; Vulkan does not formally without the Invariant decoration, but
+        // same-module reuse holds in practice) and the color pass's LessEqual never loses
         // fragments to ULP divergence (a separately compiled twin VS, though source-identical,
         // may reassociate the position transform; at distance the per-pixel depth gradient
         // shrinks below ULPs and fragments drop in row bands). The prepass-vs-color LOD parity

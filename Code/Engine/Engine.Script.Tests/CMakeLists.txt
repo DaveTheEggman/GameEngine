@@ -9,7 +9,7 @@ target_link_libraries(Engine.Script.Tests PRIVATE
     Engine::Script Foundation::Script.Resource Foundation::Scene Foundation::Scene.Resource
     Foundation::Content Foundation::Resource Foundation::VFS
     Foundation::Physics Engine::Physics Engine::Integration
-    Engine::Render Foundation::Audio Engine::Audio
+    Engine::Render Foundation::RHI.Null Foundation::Audio Engine::Audio
     Foundation::Animation Engine::Animation
     Foundation::Particles Engine::Particles
     Foundation::Net Foundation::Net.Replication

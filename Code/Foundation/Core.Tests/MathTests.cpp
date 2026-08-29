@@ -512,3 +512,48 @@ TEST_CASE("math: yaw/pitch/roll round-trips through quaternion")
     CHECK(Abs(qy.x * qa.x + qy.y * qa.y + qy.z * qa.z + qy.w * qa.w) ==
           doctest::Approx(1.0f).epsilon(0.001f));
 }
+
+TEST_CASE("math: RigidPart strips scale, keeps translation + rotation (pass-17)")
+{
+    // The nav-zone placement frame: a matrix must PLACE world-unit-sized data without warping it.
+    Transform t;
+    t.position = Float3{3.0f, -2.0f, 7.5f};
+    t.rotation = Quaternion::FromAxisAngle(Normalized(Float3{0.3f, 1.0f, 0.2f}), 0.9f);
+    t.scale = Float3{2.0f, 0.5f, 4.0f};
+
+    const Float4x4 rigid = RigidPart(t.ToMatrix());
+    Float3 pos, scale;
+    Quaternion rot;
+    REQUIRE(Decompose(rigid, pos, rot, scale));
+    CHECK(pos.x == doctest::Approx(3.0f));
+    CHECK(pos.y == doctest::Approx(-2.0f));
+    CHECK(pos.z == doctest::Approx(7.5f));
+    CHECK(scale.x == doctest::Approx(1.0f));
+    CHECK(scale.y == doctest::Approx(1.0f));
+    CHECK(scale.z == doctest::Approx(1.0f));
+    // Same rotation (allow the q/-q double cover).
+    CHECK(Abs(rot.x * t.rotation.x + rot.y * t.rotation.y + rot.z * t.rotation.z +
+              rot.w * t.rotation.w) == doctest::Approx(1.0f).epsilon(0.001f));
+
+    // A unit-scale matrix passes through unchanged (within rounding).
+    Transform u = t;
+    u.scale = Float3::One;
+    const Float4x4 same = RigidPart(u.ToMatrix());
+    const Float4x4 orig = u.ToMatrix();
+    for (int r = 0; r < 4; ++r)
+    {
+        for (int c = 0; c < 4; ++c)
+        {
+            CHECK(same.m[r][c] == doctest::Approx(orig.m[r][c]).epsilon(0.001f));
+        }
+    }
+
+    // DOCUMENTED failure behaviour: a degenerate frame (a zero scale axis) cannot decompose;
+    // RigidPart falls back to translation + IDENTITY rotation (never garbage).
+    Transform degenerate = t;
+    degenerate.scale.y = 0.0f;
+    const Float4x4 fallback = RigidPart(degenerate.ToMatrix());
+    REQUIRE(Decompose(fallback, pos, rot, scale));
+    CHECK(pos.x == doctest::Approx(3.0f));
+    CHECK(rot.w == doctest::Approx(1.0f)); // identity rotation, not an arbitrary one
+}

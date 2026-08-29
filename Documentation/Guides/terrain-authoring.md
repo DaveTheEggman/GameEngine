@@ -70,7 +70,8 @@ Then add a `TerrainComponent` to a scene entity and pick the terrain asset in th
 - **Mask** is a grayscale coverage/opacity map (the `*_mask_` file that ships with SPARSE sets - sparse
   grass, scattered gravel); only the red channel is read. It cuts the layer's paint weight so the layer
   shows only where the mask is opaque, and the freed coverage reveals the OTHER layers you PAINTED
-  underneath it (proportionally) - so grass gaps show the ground layer you painted, falling to the base
+  underneath it (weighted by how uncut each layer's own mask is there) - so grass gaps show the ground
+  layer you painted, falling to the base
   canvas only where nothing else is painted. Palette layers only. Optional; missing = fully opaque.
   IMPORTANT caveats: (1) the reveal only works where the lower layer still has weight - painting the
   sparse layer to FULL strength evicts the layers under it (flat top-K has no stacking), so paint it a

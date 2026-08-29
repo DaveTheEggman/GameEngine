@@ -451,6 +451,10 @@ namespace editor
             EndStroke(); // gesture-end guarantee: never leave a half-open stroke on a tool switch
         }
         m_hasHover = false;
+        // The panel is activation-scoped but the tool is manager-owned: drop the radius-sync
+        // callback so wheel resizes stop writing into the dead panel's detached FloatEditor
+        // (the next activation re-binds a fresh one).
+        OnRadiusChanged = {};
     }
 
     void TerrainSplatTool::Draw(render::debug::DebugDraw& drawList)

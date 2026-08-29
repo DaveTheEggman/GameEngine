@@ -106,8 +106,8 @@ export namespace foundation::ui::toolkit
             (void)left;
             (void)top;
             // Re-clamp against the CURRENT parent size (available here). If the viewport shrank - the
-            // bottom dock expanded upward - pull the panel back inside; a changed margin needs another
-            // pass to reposition it.
+            // bottom dock expanded upward - pull the panel back inside; a changed X/Y needs another
+            // layout pass to reposition it.
             if (AbsoluteLayoutParams* pp = PosParams())
             {
                 const f32 beforeX = pp->X;
@@ -410,8 +410,8 @@ export namespace foundation::ui::toolkit
             return (right || bottom) && p.y > kHeaderHeight;
         }
 
-        // Resize can't push the panel past the parent's right/bottom edge (Bounds.x/y = Margin.Left/Top
-        // under Top|Left gravity).
+        // Resize can't push the panel past the parent's right/bottom edge (Bounds.x/y track the
+        // AbsoluteLayoutParams X/Y).
         [[nodiscard]] f32 MaxWidthInParent() const
         {
             if (Parent == nullptr)
@@ -429,13 +429,11 @@ export namespace foundation::ui::toolkit
             return Max(kMinHeight, Parent->Bounds.height - Bounds.y);
         }
 
-        // Keep the WHOLE panel inside its parent by clamping its layout margin (Top|Left gravity:
-        // Bounds.x/y track Margin.Left/Top). Clamp against the INTENDED size (not the laid-out
-        // Height()/Width(), which lags a frame). GravityHelper does not clamp an overflowing child, so
-        // this is the only guard; run it on every layout so the panel follows a shrinking viewport
-        // (e.g. the bottom dock expanding upward) instead of sliding behind it. The opposite margins
-        // are NOT reserved - under Top|Left they don't move the panel, and reserving them left a gap
-        // that stopped the panel hugging the right/bottom edges.
+        // Keep the WHOLE panel inside its parent by clamping its AbsoluteLayoutParams X/Y
+        // (Bounds.x/y track them). Clamp against the INTENDED size (not the laid-out
+        // Height()/Width(), which lags a frame). AbsoluteLayout does not clamp an overflowing
+        // child, so this is the only guard; run it on every layout so the panel follows a
+        // shrinking viewport (e.g. the bottom dock expanding upward) instead of sliding behind it.
         void ClampToParent()
         {
             AbsoluteLayoutParams* pp = PosParams();

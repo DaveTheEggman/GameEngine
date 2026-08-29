@@ -718,3 +718,159 @@ terrain/editor suites clean, and the Backend probe suite is leak-free
 on the Vulkan half with only finding 4's residue on the WebGPU half.
 
 Baseline for pass 17: this pass's commit.
+
+## Review pass 17 (2026-08-29, Fable): the weekend full review - terrain UX/FloatingPanel arc, physics queries + gizmos, PaperKid P1 + script surface, editor persistence - PASS (5 HIGH + 12 MEDIUM findings, all fixed in-pass)
+
+Scope: 120 commits since pass 16 (6fae78c1..250dfb5a), the largest pass yet.
+The mid-range terrain material stack (top-K splat, layer-PBR, height-blend,
+coverage-mask) already carried in-pass review records in its spec docs and was
+not re-reviewed; its post-review deltas (reveal-painted, stale-sidecar delete,
+CSM WebGPU fix, prepass viewMatrix) were. Method: four parallel review agents
+over disjoint tracks with file-cited findings, every finding verified against
+current code before fixing; full clang+gcc batteries + WGSL cook as the gate.
+
+**HIGH findings (all fixed):**
+
+1. Physics `pendingImpulse` was an unbounded, never-expiring queue: it
+   survived Stop->Play (unexplained kick at next Play), survived deactivation
+   (re-enable launched the accumulated sum), and grew forever on a body whose
+   build fails while a script calls applyImpulse per frame. Fixed: the queue
+   is RUN-scoped - cleared at OnSceneStopped, at the reconcile's
+   deactivate-destroy, and dropped by the reconcile when a queue survives an
+   assembly without gaining a body. Lifecycle test added; applyImpulse doc
+   comment corrected (it claimed no-op, the opposite of the behavior).
+2. `run.setTimeScale` was never restored: the SceneManager outlives a run on
+   the persistent editor instance, so a game paused at Stop left the next
+   Play frozen at scale 0. Fixed: GameInstance::ClearScenes resets the group
+   scale to 1; SceneManager::SetTimeScale now clamps >= 0 at the sink (the
+   facade comment claimed it already did - it did not). Tests added (incl.
+   the Luau twin the facade was missing).
+3. Skinned v3-with-LOD wire poison: sidecars written by the buggy >= 3 LOD
+   gate (2026-08-23..27) read back through the v4 gate with the skinning
+   fields consuming the unread LOD bytes - garbage skin stream, ar.IsOk()
+   true. No skinned assets in-tree, but user-project imports from that window
+   are exposed. Fixed: ISerializer gained a FailPayload/IsPayloadOk
+   validation seam (strict-versioning idiom); SkinnedMeshSource::Serialize
+   validates the parallel-stream invariant (24B per vertex) and fails the
+   payload LOUDLY -> re-import. Wire test pins poison-fails + clean-v3-loads.
+4. Stale scaled-zone navmesh bakes (250dfb5a changed the frame convention on
+   both sides with no migration): a legacy bake on a scaled entity now placed
+   rigid = half-size/offset navmesh, agents pathing off the floor silently.
+   Fixed: NavigationZoneSource/Asset v1 carry a `bakedFrame` stamp (builder
+   v2); the bake stamps rigid; the subsystem SKIPS a legacy bake on a
+   non-unit-scale entity with a re-bake warning (unit scale loads - the
+   conventions agree exactly). Runtime tests: scaled-rigid navigates
+   correctly, legacy-scaled refused, legacy-unit still loads.
+5. The 02b19cfc WebGPU CSM fix had zero regression net (the only cascade-cast
+   probe was Vulkan-only; reverting the fix passed the suite). Fixed: the
+   shadow probe gained a WebGPU leg asserting the cast-shadow asymmetry
+   survives WebGPU's binding rules.
+
+**MEDIUM findings (fixed):**
+
+- Coverage-mask receiver threshold (d768a53f follow-up): the `mask >= 0.999`
+  receiver test on a byte-quantized, filtered sample meant only exactly-255
+  texels could receive - a photo mask's opaque pixels (250..254) never
+  qualified (reveal-base resurfacing one case over) with hard rings along the
+  iso-contour, and the `receiverW > 1e-4` guard amplified a vanishing
+  receiver unboundedly. Replaced with continuous receptivity
+  (`recv = postCutWeight * smoothstep(0.75, 0.95, mask)`) and a soft knee
+  (`freed * saturate(recvSum / 0.05)`); convexity preserved; WGSL cook
+  clean; probe gained the previously-dead unmasked A/B baseline (green
+  removal + red boost pinned, both backends). Spec + guide amended.
+- Registration tripwire: every builder's ProductType must be a registered
+  serializable (the 1bb4b31d contract). The new audit test IMMEDIATELY caught
+  two more latent instances: AnimationGraphSource and ShaderSource were
+  registered only in tests - ReadObject-by-name on those products had no
+  production registration. Both registered at their asset registrars.
+  BuilderRegistry gained ForEach for the audit.
+- Script-reachable Jolt asserts: query shapes built from raw script sizes
+  (radius <= 0 aborts debug builds inside Jolt). BuildQueryShape validates
+  (null -> clean no-hit; NaN caught); thin boxes get a shrunken convex
+  radius. ShapeOverlap changed to FILL semantics (cleared first - it appended
+  and deduped against caller entries, silently dropping hits on a reused
+  array). Tests added.
+- Collider gizmo gap: "Show Colliders" ignored descendant ColliderComponents
+  (the standard body-plus-children rig showed one wireframe - the exact
+  confusion the feature exists to remove). New ChildColliderGizmoRenderer
+  (compound teal) sharing an extracted DrawColliderShape helper; registry
+  9 -> 10; draw-behavior tests added for joint/character/child renderers
+  (the joint/character renderers had registration-only coverage).
+- Collision-matrix rename data loss: a rename typed then clicked-away lived
+  only in the display copy (never committed, silently lost on save). EditText
+  gained an `OnEditingFinished` event (fired on focus loss - neutral wrt the
+  queued global commit-on-blur decision); the matrix commits on blur,
+  change-detected against a committed-names snapshot so untouched fields push
+  no undo entry and Enter-commits are not doubled. The delete path's three
+  invariants (last-only, never-below-one, stale-bit clearing) + narrow-int
+  rows + SceneViewPref v3 showColliders were all untested - tests added.
+- AssetFormPage rebuild slammed shut every array group the user opened (undo
+  = re-expand + re-scroll). PropertyGrid now remembers per-category expansion
+  across rebuilds; the default-collapsed list applies only to first-seen
+  categories. Tests added.
+- Crash handler (39cfdce1 follow-up): backtrace() dlopens/allocates on first
+  use, so a SIGABRT from heap corruption (raised INSIDE malloc holding the
+  arena lock) could deadlock the handler - strictly worse than no handler.
+  Warmed at install. Added sigaltstack + SA_ONSTACK so a stack-overflow
+  SIGSEGV (the headline case) actually prints instead of re-faulting on the
+  exhausted stack.
+- `ui::find*` root: dropped the separately-captured raw screenRoot pointer
+  entirely (stale in the embedded host, dangling post-shutdown); the
+  ScreenStack is the only root source. Integration test updated to the new
+  contract.
+- DebugDraw facade: only the unbound no-op path was tested; m_debugScenes
+  entries (keyed on raw Scene*) were never evicted - script can mint them, so
+  every level reload leaked one and a recycled Scene* would adopt a dead
+  scene's list. Evicted in OnDestroying; real-effect test added over the
+  null-RHI device (right scene's list, not another's) - the pattern
+  Engine.Render.Tests already used.
+- AngelScript marshaling hardening: arg-cap clamps now warn loudly (the
+  "facade call quietly no-ops" class - the DebugDraw.line lesson); a 16-arg
+  boundary test pins the raised cap (Luau needs no cap - marshals off
+  lua_gettop, verified); nested container returns (array of arrays) are
+  refused with a warning instead of type-confused BoxedVariant refcounting;
+  non-numeric elements in numeric arrays warn instead of silently writing 0.
+- FloatingPanel: the seven-commit clamp/position saga had tests for none of
+  it (the five existing cases covered construction/collapse only, with a
+  wrong "needs capture" scope note). Layout-driven clamp tests added (edge
+  clamp, shrink-follow, collapsed header-height clamp, negative origin);
+  stale margin-scheme comments rewritten to the AbsoluteLayout reality; tool
+  panels now adopt the active tool's name + un-collapse on mount (sculpt and
+  splat panels were indistinguishable; a collapsed panel returning as a bare
+  title bar read as "no panel"); tools drop OnRadiusChanged on deactivate
+  (wheel resizes wrote into a dead panel's detached editor).
+- Cook/content consistency: the empty-palette terrain branch now propagates
+  DeleteData status like writeOrClear (read-only mounts fail consistently);
+  Instance::DeleteData got its own Content.Tests coverage (single-stream
+  scope, idempotency); RigidPart got Foundation math tests incl. the
+  documented degenerate-frame fallback (translation + identity rotation).
+
+**Hygiene:** the pass-16-era TEMP sculpt-availability diagnostic (74c36f52)
+was still shipping (warning-level log + a Format() alloc per frame while
+unavailable) - removed as its own comment promised; the commented-out
+InputSurface capture narration (3ed2e670 leftover) deleted with the watchdog
+comment corrected; dead includes/imports dropped (<cstdio> in
+TerrainRenderer, engine.physics in the gizmo interface, foundation.fonts in
+the inspector); MeshLodWireTests' stale v3 wording -> v4; PaperKid samples:
+Bike.as no longer burns a paper when the spawn failed (throwPaper returns
+success), the removed-relay comments (the 4x-loop mental model) and leftover
+debug logs cleaned, the "no gameplay yet" header updated; the per-project
+settings store now logs a partial load like its user-level sibling (it
+silently discarded status while this pass added two sections to it);
+nearestOverlap's magic 3.4e38 -> kFloatMax with the body-ORIGIN semantics
+named; sphereCast documents its unit-direction requirement; the Vulkan
+position-invariance comment no longer overstates the spec.
+
+**Filed (week-2026-08-29, not fixed here):** the Luau-vs-AngelScript
+container-PROPERTY semantics divergence (copy-table vs borrow-handle - a
+contract decision); physics query hot-path allocations (Jolt SetEmbedded
+idiom); gizmo IsEffectivelyActive/capsule-shape polish; the FloatingPanel
+resize-band scrollbar overlap. Already filed by the user mid-week: EditText
+global commit-on-blur; the intermittent AngelScript cook-teardown assert.
+
+Verdict: PASS. Full clang battery 147/147 green (incl. all new tests); gcc
+battery green; WGSL cook clean (67 files / 84 variants). The registration
+tripwire catching two additional latent ProductType bugs on its first run is
+the pass's best argument for audit-shaped tests.
+
+Baseline for pass 18: this pass's commit.

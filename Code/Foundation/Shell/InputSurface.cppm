@@ -487,36 +487,12 @@ export namespace foundation::shell
             }
 
             // I2 instrumentation (issues-triage: "scene view mouse capture never released", one
-            // hard-to-repro occurrence). Log every capture transition with its reason so the next
-            // occurrence names the path, and trip a loud one-shot watchdog if capture ever persists
-            // with no mouse button down (the leak signature). Cheap + permanent - a watch-list
-            // tripwire, not a fix.
+            // hard-to-repro occurrence). The per-transition LOG_DEBUG narration was removed as
+            // noise (pass 17); what remains is the loud one-shot watchdog below, which trips if
+            // capture ever persists with no mouse button down (the leak signature) - that is the
+            // permanent tripwire.
             if (m_captured != capturedBefore)
             {
-                /*
-                if (capturedBefore == nullptr)
-                {
-                    LOG_DEBUG(u8"Input",
-                                       u8"viewport capture acquired (window {}) - button pressed "
-                                       u8"over the hovered surface",
-                                       m_captured->Window());
-                }
-                else if (m_captured == nullptr && m_extMouseCapture)
-                {
-                    LOG_DEBUG(u8"Input",
-                                       u8"viewport capture released - external overlay took the mouse");
-                }
-                else if (m_captured == nullptr)
-                {
-                    LOG_DEBUG(u8"Input",
-                                       u8"viewport capture released - no mouse button held");
-                }
-                else
-                {
-                    LOG_DEBUG(u8"Input", u8"viewport capture moved to window {}",
-                                       m_captured->Window());
-                }
-                */
                 m_captureNoButtonFrames = 0;
                 m_captureLeakLogged = false;
             }

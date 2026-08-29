@@ -27,6 +27,12 @@ namespace resource = foundation::resource;
 
 export namespace foundation::navigation
 {
+    /// The bake-frame convention stamp (see bakedFrame below). 0 = legacy (pre-2026-08-29: the
+    /// bake divided geometry by the zone's FULL world matrix, scale included); 1 = rigid (the bake
+    /// and the runtime both use the scale-free RigidPart frame). The two agree exactly on
+    /// unit-scale zone entities and desync on scaled ones.
+    inline constexpr u32 kNavigationZoneFrameRigid = 1;
+
     // Cooked record: the serialized navmesh blob (from NavigationMeshBuilder::Build). Produced by
     // the NavigationZoneAssetBuilder, bound at runtime through NavigationZoneResource.
     class NavigationZoneSource : public ISerializable
@@ -34,10 +40,17 @@ export namespace foundation::navigation
         RTTI_OBJECT(NavigationZoneSource, ISerializable)
     public:
         Array<u8> navMeshBlob; // header + Detour tile
+        u32 bakedFrame = 0;    // frame convention the bake used; 0 = legacy (see above)
 
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "navMeshBlob", navMeshBlob);
+            // v1: the frame-convention stamp. Legacy payloads (version 0) read as bakedFrame 0,
+            // which the subsystem flags on scaled zone entities (rigid-frame desync -> re-bake).
+            if (ar.Version() >= 1)
+            {
+                foundation::core::Serialize(ar, "bakedFrame", bakedFrame);
+            }
         }
     };
 
@@ -48,6 +61,7 @@ export namespace foundation::navigation
         RTTI_OBJECT(NavigationZoneResource, Object)
     public:
         NavigationMesh mesh;
+        u32 bakedFrame = 0; // frame convention of the bake (kNavigationZoneFrameRigid = current)
 
         [[nodiscard]] bool IsValid() const noexcept { return mesh.IsValid(); }
     };
@@ -69,6 +83,7 @@ export namespace foundation::navigation
                 return RefPtr<Object>{};
             }
             RefPtr<NavigationZoneResource> zone = MakeRef<NavigationZoneResource>(DefaultAllocator());
+            zone->bakedFrame = source->bakedFrame;
             if (!source->navMeshBlob.IsEmpty())
             {
                 // A malformed blob leaves the mesh invalid; the product still constructs so the
@@ -89,6 +104,6 @@ export namespace foundation::navigation
         GlobalTypeRegistry().Register(NavigationZoneResource::StaticType());
     }
 
-    RTTI_DEFINE_OBJECT(NavigationZoneSource, "rtti::navigation")
+    RTTI_DEFINE_OBJECT_VERSIONED(NavigationZoneSource, "rtti::navigation", 1) // v1: bakedFrame stamp
     RTTI_DEFINE_OBJECT(NavigationZoneResource, "rtti::navigation")
 }

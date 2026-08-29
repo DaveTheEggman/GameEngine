@@ -436,4 +436,17 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showGrid == true);
     CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showLodOverlay == true);
     CHECK(loaded.Find<SceneViewSettings>()->prefs.Size() == 2u);
+
+    // v3 field (showColliders): round-trips through XML per scene, and the versioned gate means a
+    // default-false pref stays false after reload (pass-17: the field shipped without this pin).
+    CHECK(SaveSceneViewPref(&loaded, SceneViewPref{sceneA, true, true, true}));
+    CHECK(SaveSceneViewPref(&loaded, SceneViewPref{sceneB, true, false, false}));
+    MemoryStream buf3;
+    REQUIRE(loaded.Save(buf3, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buf3.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings reloaded;
+    REQUIRE(reloaded.Load(buf3, foundation::xml::XmlSerializerFactory()).IsOk());
+    CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showColliders == true);
+    CHECK(LoadSceneViewPref(&reloaded, sceneB, fb).showColliders == false);
+    CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showLodOverlay == true); // siblings intact
 }

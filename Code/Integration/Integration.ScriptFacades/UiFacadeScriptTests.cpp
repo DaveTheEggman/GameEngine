@@ -43,8 +43,7 @@ namespace
             root = MakeRef<ui::RootView>(DefaultAllocator());
             context.AddRootView(root.Get());
             stack.Attach(root.Get());
-            binding.screenRoot = root.Get();
-            binding.stack = &stack;
+            binding.stack = &stack; // the stack's attached root IS the root source (pass 17)
             binding.instantiate = Function<RefPtr<ui::View>(const Guid&)>{
                 [](const Guid&) -> RefPtr<ui::View>
                 {
@@ -114,7 +113,7 @@ TEST_CASE("ui-facade: AngelScript pushes a screen, finds + drives typed controls
     CheckOutcome(bed, *ctx);
 }
 
-TEST_CASE("ui-facade: findLabel works when the binding's screenRoot is stale (uses the stack's root)")
+TEST_CASE("ui-facade: findLabel resolves through the stack's root (the only root source)")
 {
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
@@ -124,11 +123,10 @@ TEST_CASE("ui-facade: findLabel works when the binding's screenRoot is stale (us
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     UiBed bed;
-    // Reproduce the embedded-host (PaperKid HUD) bug: the binding captured a stale/null screenRoot
-    // while the ScreenStack still points at the live root. ui::push lands on the stack's root, so
-    // ui::findLabel (root search) MUST use the stack's root - not the stale screenRoot - or it misses
-    // a pushed screen even though ui::top() finds it.
-    bed.binding.screenRoot = nullptr;
+    // The embedded-host (PaperKid HUD) bug was a separately-captured stale/null screenRoot while
+    // the ScreenStack pointed at the live root; the binding no longer carries a raw root pointer
+    // at all - ui::push lands on the stack's root and ui::findLabel searches the SAME root by
+    // construction. This pins that a pushed screen is findable with nothing but the stack wired.
     engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
 
     const Status status = ctx->Load(u8"string t;\n"

@@ -256,6 +256,17 @@ export namespace pipeline
 
         [[nodiscard]] usize Count() const noexcept { return m_builders.Size(); }
 
+        /// Visit every registered builder (the registration tripwires audit the whole set - e.g.
+        /// "every ProductType() is a registered serializable", the invariant three builders broke
+        /// at once in pass 17).
+        template <typename F> void ForEach(F&& fn) const
+        {
+            for (const UniquePtr<IAssetBuilder>& b : m_builders)
+            {
+                fn(*b);
+            }
+        }
+
     private:
         Array<UniquePtr<IAssetBuilder>> m_builders;
     };

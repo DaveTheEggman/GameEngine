@@ -860,6 +860,52 @@ TEST_CASE("game-instance: run.setTimeScale routes from script to the run binding
     gi.StopScript();
 }
 
+TEST_CASE("game-instance: run.setTimeScale/timeScale route from script to the run binding (Luau)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    f32 captured = -1.0f;
+    gi.RunBinding().setTimeScale = Function<void(f32)>{[&captured](f32 s) { captured = s; }};
+    gi.RunBinding().timeScale = Function<f32()>{[&captured]() { return captured; }};
+    const bool ok = gi.StartScript(u8"Scale = -1\n"
+                                   u8"Game = {}\n"
+                                   u8"Game.__index = Game\n"
+                                   u8"function Game.new() return setmetatable({}, Game) end\n"
+                                   u8"function Game:launch()\n"
+                                   u8"  run.setTimeScale(0.5)\n" // pause/slow-mo API
+                                   u8"  Scale = run.timeScale()\n" // read it back through the binding
+                                   u8"end\n"
+                                   u8"function Game:update(dt) end\n"
+                                   u8"function Game:exit() end\n",
+                                   u8"game.luau", Span<const String>{});
+    REQUIRE(ok);
+    CHECK(captured == doctest::Approx(0.5f)); // launch() -> run.setTimeScale -> binding (synchronous)
+    auto* ctx = gi.ScriptContext();
+    REQUIRE(ctx != nullptr);
+    // The exact scale round-tripped back through run.timeScale() (getter reads the binding).
+    CHECK(ctx->GetGlobal(u8"Scale").Get<f64>() == doctest::Approx(0.5));
+    gi.StopScript();
+}
+
+TEST_CASE("game-instance: ClearScenes resets the run-scoped group time scale to 1")
+{
+    engine::runtime::GameInstance gi;
+    (void)gi.Scenes().CreateScene(u8"L1");
+
+    // A game paused via run.setTimeScale(0) then stopped: the SceneManager survives a stop on the
+    // persistent editor instance, so the RUN-scoped scale must not leak into the next Play.
+    gi.Scenes().SetTimeScale(0.0f);
+    CHECK(gi.Scenes().TimeScale() == doctest::Approx(0.0f));
+
+    gi.ClearScenes();
+    CHECK(gi.Scenes().SceneCount() == 0u);                    // the group is gone
+    CHECK(gi.Scenes().TimeScale() == doctest::Approx(1.0f)); // the next run starts unfrozen
+}
+
 TEST_CASE("game-instance: run.events():emit publishes on the run bus, round-tripping to on<Event> (Luau)")
 {
     RegisterCoreTypes();

@@ -288,6 +288,93 @@ namespace editor
         ctx.debug->DrawTransformedBox(mesh->bounds.min, mesh->bounds.max, world, color);
     }
 
+    namespace
+    {
+        // Shared shape-wireframe drawing for the body + child-collider gizmos: one shape at the
+        // entity's world transform (rigid frame for primitives, scaled for cooked outlines -
+        // matching how the runtime builds the Jolt shapes).
+        struct ColliderShapeDraw
+        {
+            foundation::physics::ShapeKind shape = foundation::physics::ShapeKind::Box;
+            Float3 halfExtents{0.5f, 0.5f, 0.5f};
+            f32 radius = 0.5f;
+            f32 halfHeight = 0.5f;
+            f32 planeHalfExtent = 1000.0f;
+            const foundation::physics::CollisionShape* cooked = nullptr;
+            const foundation::heightfield::Heightfield* heightfield = nullptr;
+        };
+
+        void DrawColliderShape(const ColliderShapeDraw& s, const Float4x4& world,
+                               const Color& color, render::debug::DebugDraw& dd)
+        {
+            using foundation::physics::ShapeKind;
+            Float3 position, scale;
+            Quaternion rotation;
+            if (!Decompose(world, position, rotation, scale))
+            {
+                return;
+            }
+            // The rigid (unscaled) frame - primitive sizes are absolute half-extents/radii, like
+            // the runtime.
+            const Float4x4 rigid = Transform{position, rotation, Float3{1, 1, 1}}.ToMatrix();
+            switch (s.shape)
+            {
+            case ShapeKind::Box:
+                dd.DrawTransformedBox(Float3{} - s.halfExtents, s.halfExtents, rigid, color);
+                break;
+            case ShapeKind::Sphere:
+                dd.DrawWireSphere(position, s.radius, color);
+                break;
+            case ShapeKind::Capsule:
+                dd.DrawWireSphere(position, s.radius, color);
+                dd.DrawTransformedBox(Float3{-s.radius, -(s.halfHeight + s.radius), -s.radius},
+                                      Float3{s.radius, s.halfHeight + s.radius, s.radius}, rigid,
+                                      color);
+                break;
+            case ShapeKind::Plane:
+            {
+                const f32 extent = s.planeHalfExtent < 25.0f ? s.planeHalfExtent : 25.0f;
+                const i32 kCells = 10;
+                for (i32 g = -kCells; g <= kCells; ++g)
+                {
+                    const f32 off = extent * static_cast<f32>(g) / kCells;
+                    dd.DrawLine(TransformPoint(Float3{off, 0, -extent}, rigid),
+                                TransformPoint(Float3{off, 0, extent}, rigid), color);
+                    dd.DrawLine(TransformPoint(Float3{-extent, 0, off}, rigid),
+                                TransformPoint(Float3{extent, 0, off}, rigid), color);
+                }
+                break;
+            }
+            case ShapeKind::Heightfield:
+                if (s.heightfield != nullptr)
+                {
+                    const Float2 ws = s.heightfield->WorldSize();
+                    dd.DrawTransformedBox(
+                        Float3{-ws.x * 0.5f, s.heightfield->MinY(), -ws.y * 0.5f},
+                        Float3{ws.x * 0.5f, s.heightfield->MaxY(), ws.y * 0.5f}, rigid, color);
+                }
+                break;
+            case ShapeKind::Cooked:
+                if (s.cooked != nullptr)
+                {
+                    // Outline is authored unit-scale; re-apply the entity's scale.
+                    const Float4x4 shapeMatrix = Transform{position, rotation, scale}.ToMatrix();
+                    const Array<Float3>& outline = s.cooked->outline;
+                    for (usize t = 0; t + 2 < outline.Size(); t += 3)
+                    {
+                        const Float3 a = TransformPoint(outline[t + 0], shapeMatrix);
+                        const Float3 b = TransformPoint(outline[t + 1], shapeMatrix);
+                        const Float3 d = TransformPoint(outline[t + 2], shapeMatrix);
+                        dd.DrawLine(a, b, color);
+                        dd.DrawLine(b, d, color);
+                        dd.DrawLine(d, a, color);
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     const TypeInfo* PhysicsColliderGizmoRenderer::ComponentType() const
     {
         return &TypeOf<engine::physics::RigidBodyComponent>();
@@ -309,75 +396,50 @@ namespace editor
             return;
         }
         using foundation::physics::MotionKind;
-        using foundation::physics::ShapeKind;
 
-        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
-        Float3 position, scale;
-        Quaternion rotation;
-        if (!Decompose(world, position, rotation, scale))
-        {
-            return;
-        }
         const Color color = body->isTrigger ? Color{1.0f, 0.8f, 0.2f, 1.0f}
                             : body->motion == MotionKind::Dynamic ? Color{0.3f, 1.0f, 0.4f, 1.0f}
                                                                   : Color{0.4f, 0.6f, 1.0f, 1.0f};
-        // The rigid (unscaled) frame - primitive sizes are absolute half-extents/radii, like runtime.
-        const Float4x4 rigid = Transform{position, rotation, Float3{1, 1, 1}}.ToMatrix();
-        render::debug::DebugDraw& dd = *ctx.debug;
-        switch (body->shape)
+        ColliderShapeDraw s;
+        s.shape = body->shape;
+        s.halfExtents = body->halfExtents;
+        s.radius = body->radius;
+        s.halfHeight = body->halfHeight;
+        s.planeHalfExtent = body->planeHalfExtent;
+        s.cooked = body->collisionShape.Get();
+        s.heightfield = body->heightfield.Get();
+        DrawColliderShape(s, ctx.scene->GetWorldMatrix(owner), color, *ctx.debug);
+    }
+
+    const TypeInfo* ChildColliderGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::physics::ColliderComponent>();
+    }
+
+    void ChildColliderGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                          GizmoContext& ctx)
+    {
+        if (!ctx.showColliders)
         {
-        case ShapeKind::Box:
-            dd.DrawTransformedBox(Float3{} - body->halfExtents, body->halfExtents, rigid, color);
-            break;
-        case ShapeKind::Sphere:
-            dd.DrawWireSphere(position, body->radius, color);
-            break;
-        case ShapeKind::Capsule:
-            dd.DrawWireSphere(position, body->radius, color);
-            dd.DrawTransformedBox(
-                Float3{-body->radius, -(body->halfHeight + body->radius), -body->radius},
-                Float3{body->radius, body->halfHeight + body->radius, body->radius}, rigid, color);
-            break;
-        case ShapeKind::Plane:
+            return;
+        }
+        const auto* collider = component.TryGet<engine::physics::ColliderComponent>();
+        if (collider == nullptr)
         {
-            const f32 extent = body->planeHalfExtent < 25.0f ? body->planeHalfExtent : 25.0f;
-            const i32 kCells = 10;
-            for (i32 g = -kCells; g <= kCells; ++g)
-            {
-                const f32 off = extent * static_cast<f32>(g) / kCells;
-                dd.DrawLine(TransformPoint(Float3{off, 0, -extent}, rigid),
-                            TransformPoint(Float3{off, 0, extent}, rigid), color);
-                dd.DrawLine(TransformPoint(Float3{-extent, 0, off}, rigid),
-                            TransformPoint(Float3{extent, 0, off}, rigid), color);
-            }
-            break;
+            return;
         }
-        case ShapeKind::Heightfield:
-            if (const auto* hf = body->heightfield.Get())
-            {
-                const Float2 ws = hf->WorldSize();
-                dd.DrawTransformedBox(Float3{-ws.x * 0.5f, hf->MinY(), -ws.y * 0.5f},
-                                      Float3{ws.x * 0.5f, hf->MaxY(), ws.y * 0.5f}, rigid, color);
-            }
-            break;
-        case ShapeKind::Cooked:
-            if (const auto* cooked = body->collisionShape.Get())
-            {
-                // Outline is authored unit-scale; re-apply the entity's scale.
-                const Float4x4 shapeMatrix = Transform{position, rotation, scale}.ToMatrix();
-                const Array<Float3>& outline = cooked->outline;
-                for (usize t = 0; t + 2 < outline.Size(); t += 3)
-                {
-                    const Float3 a = TransformPoint(outline[t + 0], shapeMatrix);
-                    const Float3 b = TransformPoint(outline[t + 1], shapeMatrix);
-                    const Float3 d = TransformPoint(outline[t + 2], shapeMatrix);
-                    dd.DrawLine(a, b, color);
-                    dd.DrawLine(b, d, color);
-                    dd.DrawLine(d, a, color);
-                }
-            }
-            break;
-        }
+        // Compound teal: visually distinct from the body's own shape, so a rig reads as
+        // "one body + its folded children", not one anonymous pile of wireframes.
+        const Color color{0.25f, 0.85f, 0.8f, 1.0f};
+        ColliderShapeDraw s;
+        s.shape = collider->shape;
+        s.halfExtents = collider->halfExtents;
+        s.radius = collider->radius;
+        s.halfHeight = collider->halfHeight;
+        s.planeHalfExtent = collider->planeHalfExtent;
+        s.cooked = collider->collisionShape.Get();
+        s.heightfield = collider->heightfield.Get();
+        DrawColliderShape(s, ctx.scene->GetWorldMatrix(owner), color, *ctx.debug);
     }
 
     const TypeInfo* CharacterColliderGizmoRenderer::ComponentType() const

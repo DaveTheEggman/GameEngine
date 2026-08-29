@@ -463,12 +463,24 @@ export namespace pipeline
             if (ta.paletteAlbedoIds.IsEmpty())
             {
                 // No palette (pure-base terrain): clear EVERY palette sidecar so a terrain whose
-                // layers were all removed does not keep loading stale cooked arrays.
-                (void)ctx.output->DeleteData(foundation::terrain::kPaletteStream);
-                (void)ctx.output->DeleteData(foundation::terrain::kPaletteNormalStream);
-                (void)ctx.output->DeleteData(foundation::terrain::kPaletteOrmStream);
-                (void)ctx.output->DeleteData(foundation::terrain::kPaletteHeightStream);
-                (void)ctx.output->DeleteData(foundation::terrain::kPaletteMaskStream);
+                // layers were all removed does not keep loading stale cooked arrays. Status
+                // propagates like writeOrClear's delete path (a non-writable mount fails the cook
+                // consistently, not just on the map-removal shape); a missing sidecar is Ok.
+                const StringView streams[] = {
+                    foundation::terrain::kPaletteStream,
+                    foundation::terrain::kPaletteNormalStream,
+                    foundation::terrain::kPaletteOrmStream,
+                    foundation::terrain::kPaletteHeightStream,
+                    foundation::terrain::kPaletteMaskStream,
+                };
+                for (const StringView stream : streams)
+                {
+                    const Status st = ctx.output->DeleteData(stream);
+                    if (!st.IsOk())
+                    {
+                        return st;
+                    }
+                }
                 return Status{};
             }
             // Snap the authored slice size to a sane power of two (mips need clean halving).

@@ -82,6 +82,10 @@ namespace engine::render
             }
         }
         m_providers.Resize(w);
+        // Evict the scene's debug-draw list: the map is keyed on the raw Scene*, and script can
+        // mint entries freely (DebugDraw.of(scene)), so without this every level reload leaks one
+        // entry - and a recycled Scene* address would silently adopt the dead scene's list.
+        m_debugScenes.Remove(&scene);
     }
 
     void RenderSubsystem::SetSkyEquirect(u32 w, u32 h, Span<const f32> rgba)

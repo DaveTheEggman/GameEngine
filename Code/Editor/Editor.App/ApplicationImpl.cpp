@@ -2200,8 +2200,17 @@ namespace editor::app
         // The per-project editor-state STORE (one structured file: dock layout, favorites,
         // open pages, per-page prefs). Absent on a fresh project - sections read as defaults.
         m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(DefaultAllocator());
-        (void)LoadProjectEditorSettings(*m_projectEditorSettings,
-                                        m_project->EditorStateRoot().AsView());
+        const Status projectLoaded = LoadProjectEditorSettings(
+            *m_projectEditorSettings, m_project->EditorStateRoot().AsView());
+        if (!projectLoaded.IsOk() && projectLoaded.Code() != ErrorCode::NotFound)
+        {
+            // Same failure mode as the user-level store above: a partial load means Settings
+            // aborted at an uninstantiable section, and a later save rewrites the file from the
+            // gutted store - silently losing dock layout / favorites / open pages.
+            LOG_ERROR(u8"Editor",
+                      u8"editor.project.settings.xml load FAILED (partial store) - check for "
+                      u8"unregistered section types; later saves may drop sections");
+        }
         m_context.SetProjectEditorSettings(m_projectEditorSettings.Get());
         m_context.OnProjectEditorSettingsSaveRequested = [this]()
         {

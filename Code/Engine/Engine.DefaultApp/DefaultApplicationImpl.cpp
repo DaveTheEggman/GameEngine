@@ -236,7 +236,6 @@ namespace engine::runtime
         // instantiate the markup into a view tree).
         if (m_ui != nullptr)
         {
-            m_uiScreenBinding.screenRoot = m_ui->ScreenRoot();
             m_uiScreenBinding.stack = &m_ui->Screens();
             m_uiScreenBinding.instantiate =
                 core::Function<core::RefPtr<foundation::ui::View>(const core::Guid&)>{

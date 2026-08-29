@@ -113,6 +113,11 @@ export namespace pipeline{
         RegisterSerializable<SkeletonAsset>();
         RegisterSerializable<AnimationClipAsset>();
         RegisterSerializable<AnimationGraphAsset>();
+        // The graph's cooked PRODUCT: ReadObject constructs it by type name in cook hosts, so it
+        // must be registered here too (pass-17 tripwire - the clip/skeleton products ride
+        // RegisterModelResourceTypes, but the graph source registered nowhere).
+        GlobalTypeRegistry().Register(foundation::animation::AnimationGraphSource::StaticType());
+        RegisterSerializable<foundation::animation::AnimationGraphSource>();
     }
 
     class AnimationGraphAssetBuilder final : public pipeline::DefaultAssetBuilder

@@ -3,7 +3,7 @@
 // This is the project's startup script (Project.xml startupScriptId), run by the play-in-editor
 // GameEditorPage as the reserved `Game` tier: launch() boots it, update(dt) ticks it, exit() tears
 // it down, and on<Event>(...) methods harvest the run bus. It drives the whole screen/state flow
-// over the run + ui facades; there is no gameplay yet (that is P1+).
+// over the run + ui facades for the P1 driving slice (bike, deliveries, scoring, level flow).
 //
 // Screens are authored UIDocuments (Sources/screens/*.sml), pushed by guid via ui::push; their
 // id-tagged buttons are wired to handlers with button.onClick(Action(this.handler)). The empty
@@ -58,12 +58,10 @@ class Game
         {
             if (m_state == GameState::Playing)
             {
-                Log::info("Pause pressed");
                 showPause();
             }
             else if (m_state == GameState::Paused)
             {
-                Log::info("Resume pressed");
                 onResume();
             }
         }
@@ -155,8 +153,8 @@ class Game
         }
     }
 
-    // ---- run-bus inbox (P1-6): the Level relays these; the Game scores + ends the level ----
-    // A delivery landed (Level relays Subscriber's "Delivered" with the house's points).
+    // ---- run-bus inbox (P1-6): scene bus == run bus, so these arrive directly; the Game scores + ends the level ----
+    // A delivery landed (Subscriber's "Delivered", carrying the house's points).
     void onDelivered(int points)
     {
         if (m_state != GameState::Playing)

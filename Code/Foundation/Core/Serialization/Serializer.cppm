@@ -80,6 +80,11 @@ export namespace foundation::core
         [[nodiscard]] Status GetStatus() const noexcept { return m_status; }
         [[nodiscard]] bool IsOk() const noexcept { return m_status.IsOk(); }
 
+        /// Payload-level validation hook (see ISerializer): routed into the serializer status, so
+        /// a failed payload surfaces exactly like a missing key. First failure wins.
+        void FailPayload(ErrorCode code) noexcept override { Fail(code); }
+        [[nodiscard]] bool IsPayloadOk() const noexcept override { return IsOk(); }
+
         [[nodiscard]] bool IsReading() const noexcept { return m_mode == SerializeMode::Read; }
         [[nodiscard]] bool IsWriting() const noexcept { return m_mode == SerializeMode::Write; }
 

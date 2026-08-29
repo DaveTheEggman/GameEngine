@@ -209,6 +209,20 @@ export namespace foundation::geometry
             SerializeStatic(ar);
             foundation::core::Serialize(ar, "skinningBlob", skinningBlob);
             foundation::core::Serialize(ar, "skeletonIndex", skeletonIndex);
+            // v3 poison check: the buggy >= 3 LOD gate (2026-08-23..27) wrote LOD keys into
+            // v3-stamped payloads. Binary reads are positional, so on a skinned v3 payload the
+            // skinning fields above would consume the LOD bytes and yield a garbage skin stream
+            // with ar.IsOk() still true. The parallel-stream invariant (one 24B VertexSkinning per
+            // vertex) catches exactly that misalignment - fail LOUDLY so the asset re-imports
+            // instead of animating garbage.
+            if (ar.Mode() == SerializeMode::Read && ar.IsPayloadOk())
+            {
+                const usize vcount = vertexBlob.Size() / sizeof(StaticMeshVertex);
+                if (skinningBlob.Size() != vcount * sizeof(VertexSkinning))
+                {
+                    ar.FailPayload(ErrorCode::InvalidArgument);
+                }
+            }
         }
 
         static void FromMesh(const SkinnedMesh& mesh, SkinnedMeshSource& out)

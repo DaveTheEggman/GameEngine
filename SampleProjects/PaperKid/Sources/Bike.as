@@ -83,10 +83,11 @@ class Bike
             drawAimPreview();
         }
 
-        // Throw a paper on the (edge-triggered) Throw action, papers permitting.
-        if (m_papers > 0 && Input::wasPressed("Throw"))
+        // Throw a paper on the (edge-triggered) Throw action, papers permitting. A paper is only
+        // consumed when the throw actually spawned one (a failed prefab resolve must not burn
+        // papers toward the OutOfPapers fail condition with nothing thrown).
+        if (m_papers > 0 && Input::wasPressed("Throw") && throwPaper())
         {
-            throwPaper();
             m_papers -= 1;
             updatePapersHud();
             // On the LAST paper, tell the Level (it grace-waits for this one to land, then fails if
@@ -257,7 +258,8 @@ class Bike
     }
 
     // Spawn + launch a paper along the freshly-computed aim (horizontal aim + upward arc).
-    private void throwPaper()
+    // Returns whether a paper actually spawned (the caller only consumes one on success).
+    private bool throwPaper()
     {
         computeAim();
         Float3 pos = self.worldPosition();
@@ -269,12 +271,13 @@ class Bike
         Entity@ paper = self.scene.spawn(kPaperPrefab, origin.x, origin.y, origin.z);
         if (paper is null || !paper.isValid())
         {
-            return;
+            return false;
         }
         // (m_aimX, throwArc, m_aimZ) with unit horizontal -> normalize so throwImpulse is the magnitude.
         float mag = Math::Sqrt(1.0f + throwArc * throwArc);
         ScenePhysics::of(self.scene).applyImpulse(paper, m_aimX / mag * throwImpulse,
                                                   throwArc / mag * throwImpulse,
                                                   m_aimZ / mag * throwImpulse);
+        return true;
     }
 }

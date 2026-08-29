@@ -69,6 +69,81 @@ TEST_CASE("toolkit-propertyeditor: TooltipAndRowVisibility")
     CHECK(ed->RowVisible());
 }
 
+namespace
+{
+    // Depth-first search for the category Expander PropertyGrid built for `header` (the grid's
+    // internal tree is ScrollView -> FlexLayout -> Expander per category).
+    Expander* FindCategoryExpander(View* view, StringView header)
+    {
+        if (auto* expander = Cast<Expander>(view))
+        {
+            if (expander->HeaderText() == header)
+            {
+                return expander;
+            }
+        }
+        if (auto* group = Cast<ViewGroup>(view))
+        {
+            for (usize i = 0; i < group->ChildCount(); ++i)
+            {
+                if (Expander* found = FindCategoryExpander(group->GetChildAt(i), header))
+                {
+                    return found;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    RefPtr<BoolEditor> InCategory(StringView name, StringView category)
+    {
+        return core::MakeRef<BoolEditor>(core::DefaultAllocator(), name, false,
+                                         Function<void(bool)>{}, category);
+    }
+}
+
+TEST_CASE("toolkit-propertygrid: user expansion survives rebuilds of a default-collapsed category")
+{
+    auto grid = core::MakeRef<PropertyGrid>(core::DefaultAllocator());
+    grid->AddProperty(InCategory(u8"A", u8"Bulk"));
+    grid->SetCategoryDefaultCollapsed(StringView(u8"Bulk"));
+
+    grid->Measure(BoxConstraints::Tight(400, 600)); // builds the category expanders
+    Expander* expander = FindCategoryExpander(grid.Get(), StringView(u8"Bulk"));
+    REQUIRE(expander != nullptr);
+    CHECK_FALSE(expander->IsExpanded()); // the default-collapsed list applies on first build
+
+    // The user opens the category, then a rebuild happens (a property is added).
+    expander->SetIsExpanded(true);
+    grid->AddProperty(InCategory(u8"B", u8"Bulk"));
+    grid->Measure(BoxConstraints::Tight(400, 600));
+
+    // The rebuilt expander is a NEW view; the remembered state wins over the default.
+    expander = FindCategoryExpander(grid.Get(), StringView(u8"Bulk"));
+    REQUIRE(expander != nullptr);
+    CHECK(expander->IsExpanded());
+}
+
+TEST_CASE("toolkit-propertygrid: user collapse survives rebuilds of a normal category")
+{
+    auto grid = core::MakeRef<PropertyGrid>(core::DefaultAllocator());
+    grid->AddProperty(InCategory(u8"A", u8"Main"));
+
+    grid->Measure(BoxConstraints::Tight(400, 600));
+    Expander* expander = FindCategoryExpander(grid.Get(), StringView(u8"Main"));
+    REQUIRE(expander != nullptr);
+    CHECK(expander->IsExpanded()); // no default-collapse: builds expanded
+
+    // The user closes the category, then a rebuild happens.
+    expander->SetIsExpanded(false);
+    grid->AddProperty(InCategory(u8"B", u8"Main"));
+    grid->Measure(BoxConstraints::Tight(400, 600));
+
+    expander = FindCategoryExpander(grid.Get(), StringView(u8"Main"));
+    REQUIRE(expander != nullptr);
+    CHECK_FALSE(expander->IsExpanded()); // stays collapsed - not reopened by the rebuild
+}
+
 TEST_CASE("toolkit-propertyeditor: display-name changes reach the bound label sink")
 {
     // PropertyGrid binds each row's label view through BindDisplayNameSink so a later

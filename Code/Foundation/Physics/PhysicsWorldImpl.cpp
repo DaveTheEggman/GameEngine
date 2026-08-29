@@ -177,15 +177,36 @@ namespace foundation::physics
 
         // A convex query volume (sphere/box/capsule) for ShapeCast / ShapeOverlap. Other ShapeKinds
         // are body shapes, not query shapes, so they return null (the query then no-ops safely).
+        // Dimensions come straight off the script surface, so non-positive sizes are rejected here
+        // (null -> no-hit) instead of tripping Jolt's debug asserts / feeding the broadphase NaNs.
         [[nodiscard]] JPH::Ref<JPH::Shape> BuildQueryShape(const QueryShape& q)
         {
             switch (q.kind)
             {
             case ShapeKind::Box:
-                return JPH::Ref<JPH::Shape>(new JPH::BoxShape(ToJph(q.halfExtents)));
+            {
+                const f32 minExtent =
+                    Min(q.halfExtents.x, Min(q.halfExtents.y, q.halfExtents.z));
+                if (!(minExtent > 0.0f))
+                {
+                    return JPH::Ref<JPH::Shape>{};
+                }
+                // Jolt asserts halfExtent >= convexRadius; shrink the radius for thin boxes.
+                const float convexRadius =
+                    Min(JPH::cDefaultConvexRadius, minExtent * 0.5f);
+                return JPH::Ref<JPH::Shape>(new JPH::BoxShape(ToJph(q.halfExtents), convexRadius));
+            }
             case ShapeKind::Sphere:
+                if (!(q.radius > 0.0f))
+                {
+                    return JPH::Ref<JPH::Shape>{};
+                }
                 return JPH::Ref<JPH::Shape>(new JPH::SphereShape(q.radius));
             case ShapeKind::Capsule:
+                if (!(q.radius > 0.0f) || !(q.halfHeight > 0.0f))
+                {
+                    return JPH::Ref<JPH::Shape>{};
+                }
                 return JPH::Ref<JPH::Shape>(new JPH::CapsuleShape(q.halfHeight, q.radius));
             default:
                 return JPH::Ref<JPH::Shape>{};
@@ -728,6 +749,7 @@ namespace foundation::physics
     void PhysicsWorld::ShapeOverlap(const QueryShape& shape, Float3 position, Quaternion rotation,
                                     Array<BodyId>& out, u32 groupMask) const
     {
+        out.Clear(); // fill semantics: a reused array never mixes results across queries
         JPH::Ref<JPH::Shape> js = BuildQueryShape(shape);
         if (js == nullptr)
         {

@@ -20,7 +20,6 @@ import foundation.scene;
 import foundation.render;
 import engine.render;
 import engine.navigation;
-import engine.physics; // RigidBodyComponent (edit-time collider gizmo)
 
 using namespace foundation::core;
 
@@ -173,6 +172,19 @@ export namespace editor
         [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
     };
 
+    /// EDIT-TIME compound-child collider wireframe (ColliderComponent): the runtime folds every
+    /// descendant ColliderComponent into the nearest ancestor body, so "Show Colliders" must draw
+    /// them too - a body-plus-three-children rig showing only the root shape reads as "the child
+    /// colliders are not registered". Drawn at the child's OWN entity transform, in a distinct
+    /// colour (compound teal), same gate as the body renderer.
+    class ChildColliderGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+        [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
+    };
+
     /// EDIT-TIME character-controller capsule (CharacterComponent), from radius/halfHeight + the
     /// entity transform - the companion of PhysicsColliderGizmoRenderer, same "Show Colliders" gate.
     class CharacterColliderGizmoRenderer final : public IGizmoRenderer
@@ -211,6 +223,8 @@ export namespace editor
             DefaultAllocator().New<LodOverlayGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<PhysicsColliderGizmoRenderer>(), DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(
+            DefaultAllocator().New<ChildColliderGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<CharacterColliderGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<JointGizmoRenderer>(),

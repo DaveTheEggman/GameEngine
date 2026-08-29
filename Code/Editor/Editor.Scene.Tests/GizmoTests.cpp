@@ -356,10 +356,11 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 9u); // +PhysicsCollider/Character/Joint (edit-time physics gizmos)
+    CHECK(registry.Count() == 10u); // +PhysicsCollider/ChildCollider/Character/Joint (edit-time physics gizmos)
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::RigidBodyComponent>()) != nullptr);
+    CHECK(registry.Find(&TypeOf<engine::physics::ColliderComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::CharacterComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::JointComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::render::ReflectionProbeComponent>()) != nullptr);
@@ -486,5 +487,100 @@ TEST_CASE("component-gizmo: physics collider gizmo draws a box only when Show Co
     // On -> the box wireframe lands as line segments (12 edges = 24 verts).
     ctx.showColliders = true;
     renderer.Draw(bodies->GetComponentInstance(e), e, ctx);
+    CHECK(dd.LineVertices().Size() > 0);
+}
+
+// The EDIT-TIME joint gizmo (component data + transforms, no physics world): the anchor cross
+// always; a link line only for a RESOLVED explicit target (nil = ancestor/world, not drawn); the
+// axis arrow only for hinge/slider kinds. Same "Show Colliders" gate as the collider gizmos.
+TEST_CASE("component-gizmo: joint gizmo - gated, anchor-only for a nil target, hinge adds the axis")
+{
+    foundation::scene::Scene scene;
+    auto* joints = scene.AddSystem<engine::physics::JointComponentManager>();
+    const auto e = scene.CreateEntity(u8"Jointed");
+    engine::physics::JointComponent& joint = joints->Add(e);
+    // Defaults: kind = Fixed, targetEntity nil -> the anchor-only branch (no link, no axis).
+
+    foundation::render::debug::DebugDraw dd;
+    JointGizmoRenderer renderer;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+
+    // Off -> nothing drawn.
+    ctx.showColliders = false;
+    renderer.Draw(joints->GetComponentInstance(e), e, ctx);
+    CHECK_FALSE(dd.HasAnyDraws());
+
+    // On, nil target, Fixed kind: the anchor cross alone lands (non-empty).
+    ctx.showColliders = true;
+    renderer.Draw(joints->GetComponentInstance(e), e, ctx);
+    CHECK(dd.HasAnyDraws());
+    const usize anchorOnly = dd.LineVertices().Size();
+    CHECK(anchorOnly > 0u);
+
+    // Hinge kind: the rotation-axis arrow draws ON TOP of the cross (strictly more line verts).
+    dd.Clear();
+    joint.kind = foundation::physics::JointKind::Hinge;
+    renderer.Draw(joints->GetComponentInstance(e), e, ctx);
+    CHECK(dd.LineVertices().Size() > anchorOnly);
+}
+
+// The EDIT-TIME character-controller capsule (radius/halfHeight + entity transform, no live
+// CharacterVirtual) - same "Show Colliders" gate as the collider gizmos.
+TEST_CASE("component-gizmo: character capsule draws only when Show Colliders is on")
+{
+    foundation::scene::Scene scene;
+    auto* characters = scene.AddSystem<engine::physics::CharacterComponentManager>();
+    const auto e = scene.CreateEntity(u8"Hero");
+    (void)characters->Add(e); // defaults: radius 0.35, halfHeight 0.55
+
+    foundation::render::debug::DebugDraw dd;
+    CharacterColliderGizmoRenderer renderer;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+
+    // Off -> nothing drawn.
+    ctx.showColliders = false;
+    renderer.Draw(characters->GetComponentInstance(e), e, ctx);
+    CHECK_FALSE(dd.HasAnyDraws());
+
+    // On -> the capsule wireframe (cap spheres + bounds box) lands as line segments.
+    ctx.showColliders = true;
+    renderer.Draw(characters->GetComponentInstance(e), e, ctx);
+    CHECK(dd.HasAnyDraws());
+    CHECK(dd.LineVertices().Size() > 0);
+}
+
+// The EDIT-TIME compound-child collider (ColliderComponent): the runtime folds descendant colliders
+// into the ancestor body, so "Show Colliders" must draw them at the CHILD's own transform too - a
+// body-plus-children rig showing only the root shape reads as "the children are not registered".
+TEST_CASE("component-gizmo: child collider draws its wireframe only when Show Colliders is on")
+{
+    foundation::scene::Scene scene;
+    auto* colliders = scene.AddSystem<engine::physics::ColliderComponentManager>();
+    const auto parent = scene.CreateEntity(u8"Body");
+    const auto child = scene.CreateEntity(u8"Fist");
+    scene.SetParent(child, parent);
+    engine::physics::ColliderComponent& collider = colliders->Add(child);
+    collider.shape = foundation::physics::ShapeKind::Box;
+    collider.halfExtents = Float3{0.25f, 0.25f, 0.25f};
+
+    foundation::render::debug::DebugDraw dd;
+    ChildColliderGizmoRenderer renderer;
+    GizmoContext ctx;
+    ctx.scene = &scene;
+    ctx.debug = &dd;
+
+    // Off -> nothing drawn.
+    ctx.showColliders = false;
+    renderer.Draw(colliders->GetComponentInstance(child), child, ctx);
+    CHECK_FALSE(dd.HasAnyDraws());
+
+    // On -> the child's box wireframe lands as line segments.
+    ctx.showColliders = true;
+    renderer.Draw(colliders->GetComponentInstance(child), child, ctx);
+    CHECK(dd.HasAnyDraws());
     CHECK(dd.LineVertices().Size() > 0);
 }

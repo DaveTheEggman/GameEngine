@@ -192,39 +192,40 @@ PSOutput main(PSIn i) {
                 // height-blend below, which then reweights the already-masked weights.
                 if (maskBound) {
                     // Sample each slot's coverage mask and cut its weight; the REMOVED coverage is
-                    // handed to the other PAINTED (uncut) layers in proportion to their weight, so a
-                    // sparse layer reveals the layer you PAINTED beneath it - not the base canvas.
-                    // Only when no other painted layer is present does the freed coverage fall to
-                    // base (picked up by the baseW recompute below). A flat top-K blend has no layer
-                    // order, so if a layer was painted to full strength it evicted the others and
-                    // there is nothing left to reveal but base.
+                    // handed to the other PAINTED layers so a sparse layer reveals the layer you
+                    // PAINTED beneath it - not the base canvas. Receptivity is CONTINUOUS
+                    // (smoothstep on the mask value), not a hard >= 0.999 test: a byte-quantized
+                    // photo mask (opaque pixels at 250..254/255) and bilinear-filtered texels near a
+                    // hole must still receive, and a step would draw a hard ring along its
+                    // iso-contour. Heavily-cut areas of a layer receive ~nothing, so a mask still
+                    // cuts its own layer. The redistributed share also fades out (the /kRecvKnee
+                    // saturate) as the receiver pool vanishes, instead of amplifying a vanishing
+                    // slot to full coverage; whatever is not redistributed falls to base via the
+                    // baseW recompute below (sparse-over-base -> reveal base, unchanged).
                     float freed = 0.0;
-                    float receiverW = 0.0; // total weight of the uncut painted slots (the receivers)
-                    float mval[4];
+                    float recvSum = 0.0;
+                    float recv[4];
                     [unroll] for (int mk = 0; mk < 4; ++mk) {
-                        mval[mk] = 1.0;
+                        recv[mk] = 0.0;
                         if (w[mk] > 0.0) {
                             uint mLayer = idx[mk];
                             float mTile = max(TileScales[mLayer], 1e-3);
                             float3 mUv = float3(i.localXZ / mTile, (float)mLayer);
-                            mval[mk] = MaskArray.SampleGrad(AlbedoSampler, mUv,
-                                                            dxLocal / mTile, dyLocal / mTile).r;
-                            freed += w[mk] * (1.0 - mval[mk]);
-                            w[mk] *= mval[mk];
-                            if (mval[mk] >= 0.999) { receiverW += w[mk]; } // essentially uncut
+                            float mval = MaskArray.SampleGrad(AlbedoSampler, mUv,
+                                                              dxLocal / mTile, dyLocal / mTile).r;
+                            freed += w[mk] * (1.0 - mval);
+                            w[mk] *= mval;
+                            recv[mk] = w[mk] * smoothstep(0.75, 0.95, mval);
+                            recvSum += recv[mk];
                         }
                     }
-                    if (receiverW > 1e-4) {
-                        // Restore the freed coverage into the uncut layers (proportional); this brings
-                        // the palette sum back to its original value, so baseW stays unchanged below.
+                    if (freed > 0.0 && recvSum > 1e-5) {
+                        const float kRecvKnee = 0.05; // receiver pool below this redistributes less
+                        float share = freed * saturate(recvSum / kRecvKnee);
                         [unroll] for (int rk = 0; rk < 4; ++rk) {
-                            if (w[rk] > 0.0 && mval[rk] >= 0.999) {
-                                w[rk] += freed * (w[rk] / receiverW);
-                            }
+                            w[rk] += share * (recv[rk] / recvSum);
                         }
                     }
-                    // else: no uncut layer -> the freed coverage stays out of the palette and the
-                    // baseW recompute picks it up (sparse-over-base -> reveal base).
                 }
                 float baseW = saturate(1.0 - (w.x + w.y + w.z + w.w));
                 float3 c, nTS, orm;

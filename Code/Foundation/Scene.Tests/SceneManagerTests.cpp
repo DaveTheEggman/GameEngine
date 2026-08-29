@@ -81,6 +81,12 @@ TEST_CASE("scene-manager: group time scale folds into the tick (identity at 1.0)
     mgr.BeginFrame(FrameTime(0.016f, 1.0f, 1.0f, 1.0f, 0.0f));
     mgr.Update(FrameTime(0.016f, 1.0f, 1.0f, 1.0f, 0.0f));
     CHECK(mgr.TimeScale() == doctest::Approx(0.0f));
+
+    // A negative scale clamps to 0 (a group never ticks backwards): -2 lands as pause, not rewind.
+    mgr.SetTimeScale(-2.0f);
+    CHECK(mgr.TimeScale() == doctest::Approx(0.0f));
+    mgr.SetTimeScale(0.5f); // and the clamp does not stick - a valid scale still lands
+    CHECK(mgr.TimeScale() == doctest::Approx(0.5f));
 }
 
 TEST_CASE("scene-manager: Clear destroys the whole group and notifies")

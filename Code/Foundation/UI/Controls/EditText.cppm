@@ -64,6 +64,11 @@ export namespace foundation::ui
         // === Events ===
         Event<void(EditText*)> OnTextChanged;
         Event<void(EditText*)> OnSubmit;
+        /// Fired when the field loses focus. OnSubmit fires only on Enter/activate, so a consumer
+        /// that must not drop a typed-then-clicked-away edit commits from here too. Whether OnSubmit
+        /// itself should fire on blur is a separate open decision (week-2026-08-29); this event is
+        /// the neutral hook either way.
+        Event<void(EditText*)> OnEditingFinished;
 
         EditText() : m_behavior(this)
         {
@@ -353,7 +358,11 @@ export namespace foundation::ui
             e.Handled = true;
         }
         void OnFocusGained() override { ResetBlink(); }
-        void OnFocusLost() override { m_isDragging = false; }
+        void OnFocusLost() override
+        {
+            m_isDragging = false;
+            OnEditingFinished.Invoke(this);
+        }
         void OnActivate() override { OnSubmit.Invoke(this); }
 
         // Text to display; overridden by PasswordBox for masking. Public so tests can inspect it

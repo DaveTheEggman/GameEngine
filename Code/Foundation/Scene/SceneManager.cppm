@@ -56,7 +56,8 @@ export namespace foundation::scene
 
         /// The GROUP time scale - the `instance` term of dt = host x context x GROUP x scene (§5). Default
         /// 1.0, so the editor / default manager reproduces the previous two-level behaviour exactly.
-        void SetTimeScale(f32 scale) noexcept { m_timeScale = scale; }
+        /// Clamped to >= 0 like every other term of the chain (a negative dt would run time backward).
+        void SetTimeScale(f32 scale) noexcept { m_timeScale = Max(scale, 0.0f); }
         [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
 
         /// The current scene of the group (the multi-scene model, §4.4) - what a game's script time-pairs

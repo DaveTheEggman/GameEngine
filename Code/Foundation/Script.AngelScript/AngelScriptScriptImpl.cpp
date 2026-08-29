@@ -1309,6 +1309,16 @@ namespace foundation::script::angelscript
                 return nullptr;
             }
             const core::ContainerInfo& ci = *containerType.container;
+            // Nested containers (Array<Array<T>>) are OUTSIDE the array-return contract: the
+            // OBJHANDLE branch below would box the inner array as a BoxedVariant and SetValue
+            // would AddRef it as the (different) declared subtype - type-confused refcounting.
+            // Refuse loudly instead of corrupting.
+            if (ci.elementType != nullptr && ci.elementType->container != nullptr)
+            {
+                LOG_WARNING(u8"Script",
+                            u8"nested container return (array of arrays) is not marshaled");
+                return nullptr;
+            }
             core::Variant holder = value; // ToInstance needs a mutable lvalue; the copy is cheap
             const core::Instance inst = core::ToInstance(holder);
             if (inst.Pointer() == nullptr)
@@ -1353,6 +1363,13 @@ namespace foundation::script::angelscript
         {
             bool ok = false;
             const double num = NumericOf(elem, ok);
+            if (!ok)
+            {
+                // A non-numeric element in a numeric array slot: 0 is written (below) so the
+                // array stays well-formed, but say so - silence here is the no-op bug class.
+                LOG_WARNING(u8"Script",
+                            u8"non-numeric element written as 0 into a numeric script array");
+            }
             switch (subId)
             {
             case asTYPEID_BOOL:
@@ -1648,6 +1665,13 @@ namespace foundation::script::angelscript
                           BoxedVariant** boxTemps)
         {
             const core::usize limit = function->GetParamCount();
+            if (args.Size() > static_cast<core::usize>(kMaxArgs) &&
+                limit > static_cast<core::usize>(kMaxArgs))
+            {
+                LOG_WARNING(u8"Script", u8"script call '{}' has {} args; only {} are marshaled",
+                            reinterpret_cast<const char8_t*>(function->GetName()), args.Size(),
+                            kMaxArgs);
+            }
             for (core::usize i = 0;
                  i < args.Size() && i < limit && i < static_cast<core::usize>(kMaxArgs); ++i)
             {
@@ -2375,6 +2399,11 @@ namespace foundation::script::angelscript
         int argc = static_cast<int>(gen->GetArgCount());
         if (argc > kMaxArgs)
         {
+            // Loud, not silent: a dropped trailing argument is the "facade call quietly no-ops"
+            // bug class (the DebugDraw.line lesson). The call still proceeds with the first
+            // kMaxArgs so existing behavior is unchanged.
+            LOG_WARNING(u8"Script", u8"reflected factory call has {} args; only {} are marshaled",
+                        argc, kMaxArgs);
             argc = kMaxArgs;
         }
         core::Variant args[kMaxArgs];
@@ -2572,6 +2601,8 @@ namespace foundation::script::angelscript
         int argc = static_cast<int>(gen->GetArgCount());
         if (argc > kMaxArgs)
         {
+            LOG_WARNING(u8"Script", u8"reflected call to '{}' has {} args; only {} are marshaled",
+                        reinterpret_cast<const char8_t*>(method.name), argc, kMaxArgs);
             argc = kMaxArgs;
         }
         core::Variant args[kMaxArgs];
@@ -3050,6 +3081,13 @@ namespace foundation::script::angelscript
                       BoxedVariant** boxTemps)
         {
             const core::usize limit = function->GetParamCount();
+            if (args.Size() > static_cast<core::usize>(kMaxArgs) &&
+                limit > static_cast<core::usize>(kMaxArgs))
+            {
+                LOG_WARNING(u8"Script", u8"script call '{}' has {} args; only {} are marshaled",
+                            reinterpret_cast<const char8_t*>(function->GetName()), args.Size(),
+                            kMaxArgs);
+            }
             for (core::usize i = 0;
                  i < args.Size() && i < limit && i < static_cast<core::usize>(kMaxArgs); ++i)
             {

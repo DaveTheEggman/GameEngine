@@ -42,12 +42,13 @@ handed to the OTHER PAINTED layers (revised 2026-08-26 after the first user test
 - The mask applies to PALETTE layers ONLY. The BASE layer is "what shows where nothing else covers";
   base has NO mask. (Layer.mask exists on the struct for array-build symmetry but base's is never bound.)
 - REVEAL-PAINTED, not reveal-base: the freed coverage flows to the layers you actually PAINTED under
-  the sparse one (proportional to their weight) - grass gaps show the ground layer you painted, not
+  the sparse one (by continuous receptivity, smoothstep(0.75, 0.95, mask)) - grass gaps show the ground layer you painted, not
   the base canvas. Only when NO other painted layer has weight (a sparse layer painted directly over
   base) does the freed coverage fall to base. A fully-opaque mask (`m_k = 1`) leaves the blend
   identical to today.
 - Composition order per corner: Load idx/weight -> for each slot multiply `w[k]` by its mask + tally
-  `freed` and the uncut `receiverW` -> redistribute `freed` into the uncut slots (or let baseW absorb
+  `freed` and a continuous receiver pool `recvSum` (post-cut weight x smoothstep receptivity) ->
+  redistribute `freed * saturate(recvSum / 0.05)` into the receivers (or let baseW absorb
   it) -> run the existing linear or height-blend weighting on the result -> the 2x2 bilinear across
   corners anti-aliases the seam.
 
@@ -115,8 +116,10 @@ Mirror height P0:
 - Read `maskBound = SplatParams2.x >= 0.5`.
 - In the manual-bilinear corner loop, per palette slot: when `maskBound`, sample
   `MaskArray.SampleGrad(AlbedoSampler, uvk, gx, gy).r` (grads already hoisted), tally the removed
-  coverage (`freed`) and the uncut slots' weight (`receiverW`), then either redistribute `freed` into
-  the uncut slots (reveal painted layers) or let the `baseW = 1 - sum` recompute absorb it (reveal
+  coverage (`freed`) and a continuous receiver pool (`recvSum` = post-cut weight x
+  smoothstep(0.75, 0.95, mask) receptivity), then redistribute `freed * saturate(recvSum / 0.05)`
+  into the receivers (reveal painted layers) and let the `baseW = 1 - sum` recompute absorb the
+  remainder (reveal
   base when no other painted layer). Then the existing linear / height-blend weighting runs unchanged.
 - `maskBound` is UNIFORM (cbuffer), so the branch is uniform control flow (safe under the WGSL
   derivative rules) and no-mask terrains skip the extra samples.
@@ -277,3 +280,18 @@ control, closing the green-axis gap layer-pbr left argued-but-unmeasured. The sh
 exactly as ruled (mask multiply -> baseW recompute -> linear or height-blend weighting, uniform
 branch, SampleGrad with hoisted grads). WGSL cook clean; full clang + gcc batteries green; the
 mask probe shows opaque = pure layer, zero = pure revealed base, WebGPU parity on the split.
+
+## Pass-17 review amendment (2026-08-29, Fable)
+
+The reveal-painted redistribution originally gated receivers on a HARD `mask >= 0.999` test. Two
+defects (pass-17 review):
+- masks are byte-quantized and filtered, so only exactly-255 texels qualified - a photo mask's
+  opaque pixels (250..254) could never receive, resurfacing the reveal-base symptom one case over,
+  with hard rings along the 0.999 iso-contour of any soft mask edge;
+- the `receiverW > 1e-4` guard amplified a vanishing receiver to ~full coverage right at the
+  threshold (unbounded factor).
+
+Fixed: receptivity is now continuous - `recv = postCutWeight * smoothstep(0.75, 0.95, mask)`, and
+the redistributed share fades with the pool (`freed * saturate(recvSum / 0.05)`), the remainder
+falling to base. Convexity unchanged (share <= freed). The probe gained an unmasked A/B baseline
+(green-layer removal + red boost asserted, both backends).

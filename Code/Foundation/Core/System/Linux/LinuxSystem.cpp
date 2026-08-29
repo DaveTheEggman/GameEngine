@@ -908,12 +908,33 @@ namespace foundation::core::sys
             return;
         }
         installed = true;
+
+        // Warm the unwinder NOW: glibc's backtrace() dlopens/allocates on first use, so calling
+        // it from the handler could re-enter malloc - fatal when the crash IS a malloc abort
+        // (heap corruption raises SIGABRT while holding the arena lock -> deadlock, no output).
+        {
+            void* warm[2];
+            (void)backtrace(warm, 2);
+        }
+
+        // Dedicated signal stack: a stack-overflow SIGSEGV delivered on the exhausted stack
+        // would re-fault before printing anything (the exact case this handler exists for).
+        static char altstack[64 * 1024]; // SIGSTKSZ is not constexpr on glibc >= 2.34
+        stack_t ss{};
+        ss.ss_sp = altstack;
+        ss.ss_size = sizeof(altstack);
+        const bool haveAltstack = sigaltstack(&ss, nullptr) == 0;
+
         struct sigaction action
         {
         };
         action.sa_handler = &FatalSignalHandler;
         sigemptyset(&action.sa_mask);
         action.sa_flags = SA_RESETHAND; // a crash inside the handler falls through to default
+        if (haveAltstack)
+        {
+            action.sa_flags |= SA_ONSTACK;
+        }
         const int fatalSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT};
         for (const int sig : fatalSignals)
         {

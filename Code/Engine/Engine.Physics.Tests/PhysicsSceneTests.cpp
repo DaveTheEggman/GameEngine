@@ -572,6 +572,77 @@ TEST_CASE("physics.scene: applyImpulse before the body exists is queued + flushe
     CHECK(play.physics->World()->LinearVelocity(bodies->Get(box)->body).z > 0.0f); // the impulse landed
 }
 
+TEST_CASE("physics.scene: the impulse queue is RUN-scoped and cannot accumulate unbounded")
+{
+    // Pass-17 review: the queue survived Stop->Play (an unexplained kick at the next Play),
+    // survived deactivation (re-enable launched the accumulated sum), and grew forever on a
+    // body whose build fails. All three now clear.
+    PlayScene play;
+    (void)play.AddFloor();
+    const scene::EntityHandle box = play.AddBox(5.0f);
+    play.Start();
+    auto* bodies = play.scene.GetSystem<RigidBodyComponentManager>();
+    ScenePhysics physics{&play.scene};
+
+    // Stop clears a pending queue (queued in the last frame before Stop).
+    play.scene.SetActive(box, false);
+    play.Step(1); // reconcile destroys the body
+    physics.applyImpulse(foundation::script::WrapEntity(&play.scene, box), 0.0f, 0.0f, 500.0f);
+    play.scene.Stop();
+    CHECK(bodies->Get(box)->pendingImpulse.z == 0.0f);
+
+    // Deactivation: impulses queued while the entity is inactive are dropped by the reconcile,
+    // so re-activation does not launch an accumulated sum.
+    PlayScene play2;
+    (void)play2.AddFloor();
+    const scene::EntityHandle box2 = play2.AddBox(2.0f);
+    play2.Start();
+    play2.scene.SetActive(box2, false);
+    play2.Step(1); // body destroyed (+ queue cleared at the destroy site)
+    ScenePhysics physics2{&play2.scene};
+    for (int i = 0; i < 60; ++i) // a script spamming applyImpulse on a disabled entity
+    {
+        physics2.applyImpulse(foundation::script::WrapEntity(&play2.scene, box2), 0.0f, 0.0f,
+                              5000.0f);
+        play2.Step(1); // each reconcile drops the queue again (body invalid, no activation edge)
+    }
+    auto* bodies2 = play2.scene.GetSystem<RigidBodyComponentManager>();
+    CHECK(bodies2->Get(box2)->pendingImpulse.z == 0.0f);
+    play2.scene.SetActive(box2, true);
+    play2.Step(1); // activation edge: body builds; no accumulated launch
+    REQUIRE(bodies2->Get(box2)->body.IsValid());
+    CHECK(play2.physics->World()->LinearVelocity(bodies2->Get(box2)->body).z <
+          1.0f); // NOT the 60x5000 launch
+}
+
+TEST_CASE("physics.scene: shape queries reject non-positive sizes as a clean miss")
+{
+    // Pass-17 review: query dimensions come straight off the script surface; radius <= 0 (or NaN)
+    // must be a no-hit, not a Jolt debug assert / a garbage broadphase AABB.
+    PlayScene play;
+    play.AddFloor();
+    play.AddBox(0.5f);
+    play.Start();
+    play.Step(10);
+
+    ScenePhysics physics{&play.scene};
+    CHECK_FALSE(physics.sphereCast(0, 5, 0, 0, -1, 0, 20, 0.0f).hit);
+    CHECK_FALSE(physics.sphereCast(0, 5, 0, 0, -1, 0, 20, -1.0f).hit);
+    CHECK_FALSE(physics.nearestOverlap(0, 0.5f, 0, 0.0f, -1).hit);
+    CHECK(physics.overlapSphere(0, 0.5f, 0, -2.0f, -1).Size() == 0);
+
+    // Fill semantics: a reused output array never mixes results across queries.
+    Array<foundation::physics::BodyId> out;
+    QueryShape shape;
+    shape.kind = ShapeKind::Sphere;
+    shape.radius = 2.0f;
+    play.physics->World()->ShapeOverlap(shape, Float3{0, 0.5f, 0}, Quaternion::Identity, out);
+    const usize first = out.Size();
+    CHECK(first > 0u);
+    play.physics->World()->ShapeOverlap(shape, Float3{500, 500, 500}, Quaternion::Identity, out);
+    CHECK(out.Size() == 0u); // FILLED (cleared), not appended onto the first query's hits
+}
+
 TEST_CASE("physics.scene: ScenePhysics is in the BEHAVIOR-prelude facade-name list (not just main)")
 {
     RegisterPhysicsScriptFacade(); // registers the type AND its behavior-prelude facade name
