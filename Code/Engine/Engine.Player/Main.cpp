@@ -95,9 +95,22 @@ extern "C" const char* BuildStamp();
 
 int main(int argc, char** argv)
 {
+    // --version: report engine version + build identity and exit, before any startup work.
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::strcmp(argv[i], "--version") == 0)
+        {
+            std::printf("Player %.*s (build %s)\n",
+                        static_cast<int>(engine::project::kEngineVersionString.Size()),
+                        reinterpret_cast<const char*>(engine::project::kEngineVersionString.Data()),
+                        BuildStamp());
+            return 0;
+        }
+    }
+
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&consoleSink);
-    LOG_INFO(u8"Build", u8"Player build {}",
+    LOG_INFO(u8"Build", u8"Player {} (build {})", engine::project::kEngineVersionString,
                       reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Info);
 

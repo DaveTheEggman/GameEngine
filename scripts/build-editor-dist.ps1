@@ -33,6 +33,17 @@ $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $Root
 
+# Version stamp: the SINGLE source of truth is project(VERSION) in the root CMakeLists (the same
+# value the binary reports via --version). Folded into the dist folder + zip name so a download
+# self-identifies (Editor-0.1.0-Win64). $Out is the LABEL; the version goes before the platform.
+$cmake = Get-Content "CMakeLists.txt" -Raw
+$Version = if ($cmake -match 'project\(\s*GameEngine\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)') { $Matches[1] } else { "0.0.0" }
+$rawDir  = Split-Path -Parent $Out
+$rawName = Split-Path -Leaf   $Out           # e.g. Editor-Win64
+$prefix  = $rawName.Substring(0, $rawName.LastIndexOf('-'))
+$suffix  = $rawName.Substring($rawName.LastIndexOf('-') + 1)
+$Out     = Join-Path $rawDir "$prefix-$Version-$suffix"   # e.g. dist\Editor-0.1.0-Win64
+
 # Release: DXC/SDL3 staged beside the editor by util_copy_runtime_deps.
 $Build = "build\msvc-release"
 $Bin   = "Bin\Release\Win64-MSVC"   # verify the actual <Config>\<Platform>-<Compiler> layout

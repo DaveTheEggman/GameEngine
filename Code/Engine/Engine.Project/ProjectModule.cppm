@@ -22,12 +22,20 @@ namespace vfs = foundation::vfs;
 export namespace engine::project
 {
     // The ENGINE version (distinct from per-type data versions): stamped into every saved
-    // project manifest so tooling - the editor today, the launcher/project manager later -
-    // knows which engine authored a project and can route/migrate accordingly.
-    inline constexpr u32 kEngineVersionMajor = 0;
-    inline constexpr u32 kEngineVersionMinor = 1;
-    inline constexpr u32 kEngineVersionPatch = 0;
-    inline constexpr StringView kEngineVersionString = u8"0.1.0";
+    // project manifest so tooling - the editor today, the launcher/project manager later - knows
+    // which engine authored a project and can route/migrate accordingly. DERIVED from the CMake
+    // project(VERSION) via the ENGINE_VERSION_* defines (the single source of truth), so bumping
+    // the version is a one-line change in the root CMakeLists and never drifts from a copy here.
+#ifndef ENGINE_VERSION_STRING
+#define ENGINE_VERSION_MAJOR 0
+#define ENGINE_VERSION_MINOR 0
+#define ENGINE_VERSION_PATCH 0
+#define ENGINE_VERSION_STRING u8"0.0.0-dev" // built without the policy defines (should not happen)
+#endif
+    inline constexpr u32 kEngineVersionMajor = ENGINE_VERSION_MAJOR;
+    inline constexpr u32 kEngineVersionMinor = ENGINE_VERSION_MINOR;
+    inline constexpr u32 kEngineVersionPatch = ENGINE_VERSION_PATCH;
+    inline constexpr StringView kEngineVersionString = ENGINE_VERSION_STRING;
 
     inline constexpr StringView kProjectManifestFile = u8"Project.xml";
     inline constexpr StringView kProjectContentDir = u8"Content";

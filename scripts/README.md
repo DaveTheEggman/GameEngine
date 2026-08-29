@@ -64,9 +64,12 @@ scripts/build-editor-dist.sh
 #   FORMATS=".." shader-pack formats (default: spirv)
 ```
 
-Produces `<OUT>/` and `<OUT>.tar.gz`. Smoke test on the build machine:
-`( cd dist/Editor-Linux64 && ./Tools.Editor --exit-after 3 )`. The real test is B2:
-unzip on a machine with **no source tree and no dev toolchain** and confirm it launches.
+`OUT` is the LABEL; the version from `project(VERSION)` in the root CMakeLists is inserted before
+the platform suffix, so the default produces `dist/Editor-<version>-Linux64/` and its `.tar.gz`
+(e.g. `Editor-0.1.0-Linux64.tar.gz`) - the same version the binary reports via `--version`. Smoke
+test on the build machine: `( cd dist/Editor-<version>-Linux64 && ./Tools.Editor --exit-after 3 )`.
+The real test is B2: unzip on a machine with **no source tree and no dev toolchain** and confirm
+it launches.
 
 ### Windows (on a Windows agent)
 

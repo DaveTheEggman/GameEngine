@@ -28,7 +28,17 @@ JOBS="${JOBS:-4}"
 FORMATS="${FORMATS:-spirv}"
 BUILD="build/clang-release"                 # Release: $ORIGIN rpath + DXC staged beside the editor
 BIN="Bin/Release/Linux64-Clang"
-DIST="${OUT:-dist/Editor-Linux64}"
+
+# Version stamp: the SINGLE source of truth is project(VERSION) in the root CMakeLists (the same
+# value the binary reports via --version). Folded into the dist folder + archive name so a
+# download self-identifies (Editor-0.1.0-Linux64). Callers pass OUT as the LABEL (Editor-Linux64);
+# the version is inserted before the platform suffix.
+VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
+VERSION="${VERSION:-0.0.0}"
+RAW="${OUT:-dist/Editor-Linux64}"
+RAW_DIR="$(dirname "$RAW")"
+RAW_NAME="$(basename "$RAW")"                # e.g. Editor-Linux64
+DIST="$RAW_DIR/${RAW_NAME%-*}-${VERSION}-${RAW_NAME##*-}"  # e.g. dist/Editor-0.1.0-Linux64
 
 log() { printf '\n== %s ==\n' "$*"; }
 

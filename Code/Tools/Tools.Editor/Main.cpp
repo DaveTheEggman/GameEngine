@@ -25,6 +25,7 @@ import foundation.runtime.client;
 import foundation.runtime.desktop;
 import engine.scene;
 import engine.render;
+import engine.project; // kEngineVersionString (the CMake project(VERSION))
 import foundation.content;
 import foundation.animation.resource;
 import engine.animation;
@@ -315,13 +316,26 @@ extern "C" const char* BuildStamp();
 
 int main(int argc, char** argv)
 {
+    // --version: report engine version + build identity and exit, before any startup work.
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::strcmp(argv[i], "--version") == 0)
+        {
+            std::printf("Editor %.*s (build %s)\n",
+                        static_cast<int>(engine::project::kEngineVersionString.Size()),
+                        reinterpret_cast<const char*>(engine::project::kEngineVersionString.Data()),
+                        BuildStamp());
+            return 0;
+        }
+    }
+
     // Log capture FIRST: the editor buffer + console output go on the global
     // logger before shell/device creation, so early startup logs reach the Console panel.
     editor::EditorLogBuffer logBuffer;
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
-    LOG_INFO(u8"Build", u8"Editor build {}",
+    LOG_INFO(u8"Build", u8"Editor {} (build {})", engine::project::kEngineVersionString,
                       reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
