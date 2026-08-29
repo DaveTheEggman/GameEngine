@@ -45,13 +45,17 @@ jobs:
           cmake --version
 
       # OOM insurance for the memory-heavy modules build: a large swapfile means a
-      # spike gets paged instead of OOM-killed (slower, but the job survives).
+      # spike gets paged instead of OOM-killed (slower, but the job survives). The runner
+      # already ships an active /swapfile, so disable and remove it first (fallocate on the
+      # in-use file fails "Text file busy"), then create the larger one on the roomy /mnt disk.
       - name: Add swap headroom
         run: |
-          sudo fallocate -l 12G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
           free -h
 
       # ccache caches the many non-module ThirdParty TUs (ThirdParty is ~46% of a

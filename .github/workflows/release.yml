@@ -64,10 +64,14 @@ jobs:
             libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+      # The runner ships an active /swapfile; disable and remove it before creating a larger
+      # one on the roomy /mnt disk (fallocate on the in-use /swapfile fails "Text file busy").
       - name: Add swap headroom
         run: |
-          sudo fallocate -l 12G /swapfile && sudo chmod 600 /swapfile
-          sudo mkswap /swapfile && sudo swapon /swapfile
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile && sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
       # The AUTHORING TOOL (editor) - one downloadable package.
       - name: Build editor distribution
         run: OUT=dist/Editor-Linux64 scripts/build-editor-dist.sh
@@ -134,10 +138,14 @@ jobs:
             libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+      # The runner ships an active /swapfile; disable and remove it before creating a larger
+      # one on the roomy /mnt disk (fallocate on the in-use /swapfile fails "Text file busy").
       - name: Add swap headroom
         run: |
-          sudo fallocate -l 12G /swapfile && sudo chmod 600 /swapfile
-          sudo mkswap /swapfile && sudo swapon /swapfile
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile && sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
       - name: Set up emsdk (emscripten 6.0.5)
         uses: mymindstorm/setup-emsdk@v14
         with:
