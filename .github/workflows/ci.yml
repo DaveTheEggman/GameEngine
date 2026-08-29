@@ -31,6 +31,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The C++23-modules build writes a large volume of .pcm + object files and can exhaust the
+      # runner's root disk (the previous run died at ~87% with "No space left on device"). Reclaim
+      # the ~20-25 GB of preinstalled toolchains we do not use (Android SDK, .NET, GHC, CodeQL,
+      # Swift, PowerShell) before building. df prints before/after so the headroom is visible.
+      - name: Free up disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/powershell
+          sudo apt-get clean
+          df -h /
+
       # Build + runtime deps (mirrors README "Ubuntu / Debian"). mesa-vulkan-drivers
       # gives lavapipe (software Vulkan) so device-creating tests can run headless.
       - name: Install dependencies
