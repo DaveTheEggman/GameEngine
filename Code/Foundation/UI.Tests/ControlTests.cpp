@@ -1,7 +1,7 @@
-// Ported from Sedulous.UI.Tests/src/ControlTests.bf - the Button/RepeatButton/CheckBox subset (the
-// controls ported so far) + the Button/CheckBox OnActivate cases from DirectionalFocusTests. Other
-// controls (Label/ToggleButton/Slider/...) land in later batches. Text rendering is deferred in the
-// controls, but every tested behavior (state/events/toggle/measure fallback) is exercised here.
+// Ported from Sedulous.UI.Tests/src/ControlTests.bf - the Button/RepeatButton/CheckBox subset
+// + the Button/CheckBox OnActivate cases from DirectionalFocusTests. Text rendering is not
+// exercised in the controls, but every tested behavior (state/events/toggle/measure fallback)
+// is exercised here.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -114,9 +114,8 @@ TEST_CASE("control: Button_OnActivate_FiresClick")
 
 TEST_CASE("control: IconButton_MeasuresIconPlusChrome")
 {
-    // P2c golden change (ui-box-model.md): the size is the ICON (content); measure now adds
-    // the default {3,3} padding - the old flat-size measure was the audit's "padding shrinks
-    // the icon" bug (draw inset by padding that measure never reserved).
+    // The size is the ICON (content); measure adds the default {3,3} padding. A flat-size
+    // measure would inset the draw by padding that measure never reserved, shrinking the icon.
     auto btn = core::MakeRef<IconButton>(core::DefaultAllocator(), nullptr, 24.0f);
     btn->Measure(BoxConstraints(0, 100, 0, 100));
     CHECK(btn->MeasuredSize.x == doctest::Approx(30.0f)); // 24 + 3 + 3
@@ -604,8 +603,8 @@ TEST_CASE("control: Expander_CollapsedMeasure")
 
 TEST_CASE("control: Expander_HeaderBandGrowsForOversizedActions")
 {
-    // The inspector section-header finding: actions taller than HeaderHeight used to overflow
-    // the fixed band (and clip when collapsed). The structured band grows to fit them instead.
+    // Actions taller than HeaderHeight must not overflow the fixed band (and clip when
+    // collapsed). The structured band grows to fit them instead.
     auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Header"));
     auto actions = core::MakeRef<TestView>(core::DefaultAllocator(), 44.0f, 40.0f);
     expander->SetHeaderActions(actions.Get());

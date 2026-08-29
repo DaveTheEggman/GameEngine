@@ -1,7 +1,7 @@
 // Foundation::Fonts.Importer - the `foundation.fonts.importer` module.
 //
 // Editor/build-time baking: turns TTF/OTF/TTC bytes into pre-rasterized
-// BakedFont + BakedFontAtlas objects (the shipped game then loads those and
+// BakedFont + BakedFontAtlas objects (the packaged game then loads those and
 // never re-invokes the rasterizer). Ported from Sedulous.Fonts.Importer -
 // its own library, matching Sedulous.
 

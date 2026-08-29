@@ -246,7 +246,7 @@ TEST_CASE("theme: ThemeRegistry_ExtensionAppliedToBothThemes")
     ThemeRegistry::UnregisterExtension(&ext);
 }
 
-// === ThemeIconSet (P3-adjacent, shipped with the crisp-chrome fix) ===
+// === ThemeIconSet ===
 
 TEST_CASE("theme-icon-set: initialized set shares ONE instance per glyph; tints dedupe")
 {

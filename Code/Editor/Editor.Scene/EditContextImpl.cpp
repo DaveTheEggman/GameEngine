@@ -1,6 +1,6 @@
 // Editor::Scene - :edit partition.
 //
-// SceneEditContext: the per-page scene mutation mediator (design doc §3.4/§3.6 - the Lumix
+// SceneEditContext: the per-page scene mutation mediator (the Lumix
 // WorldEditor role, but PER PAGE, never global: multi-scene). Every mutation is an
 // IEditorCommand on the page's stack; nothing edits the scene directly. Commands reference
 // entities by persistent Guid (stable across destroy/undo - handles are generation-guarded

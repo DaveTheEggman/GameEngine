@@ -3,7 +3,6 @@
 // Kept OUT of the ImageAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ImageAsset::StaticType() gains its colorSpace property here;
 // the ImageColorSpace enum reflection lives in foundation.image (RegisterImageReflection).
-// Reflection track P1.
 
 module;
 #include "Core/Prelude.h"

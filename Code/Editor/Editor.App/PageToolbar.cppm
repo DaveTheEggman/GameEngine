@@ -4,7 +4,7 @@
 // for page-specific buttons. Wired to the page's editor::EditorPage interface (Save(), the per-page
 // command stack, and DiscardChanges()); Refresh() syncs the button enabled states to the page's
 // dirty + undo/redo availability. A page prepends this to the top of its ContentView and calls
-// Refresh() each frame (cheap). First adopted by the Sound Cue page (editor.md toolbar POC).
+// Refresh() each frame (cheap).
 
 module;
 #include "Core/Prelude.h"

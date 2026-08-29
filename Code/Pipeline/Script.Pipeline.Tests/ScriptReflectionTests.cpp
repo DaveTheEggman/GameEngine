@@ -1,4 +1,4 @@
-// Reflection track P1: ScriptClassAsset's reflected surface (its language string).
+// ScriptClassAsset's reflected surface (its language string).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

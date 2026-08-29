@@ -1,7 +1,7 @@
 // Editor::Core - :command partition.
 //
 // The editor undo/redo spine: IEditorCommand + EditorCommandStack. Lumix WorldEditor
-// semantics (the best-engineered of the surveyed editors), per docs/design/editor.md §3.4:
+// semantics:
 //   * every mutation is a command - a failed Execute() means the command is DROPPED, not pushed;
 //   * same-type merge against the stack top (a slider drag coalesces into one undo entry);
 //   * Begin/EndGroup transactions undo/redo atomically, consecutive same-type groups coalesce

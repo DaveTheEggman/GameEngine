@@ -1,4 +1,4 @@
-# Foundation::Mcp.Http - `foundation.mcp.http`: the MCP streamable-HTTP binding (P2). Hosts the
+# Foundation::Mcp.Http - `foundation.mcp.http`: the MCP streamable-HTTP binding. Hosts the
 # SAME McpServer registry the stdio host serves, over Foundation::Http - localhost + bearer
 # token, POST /mcp one message per request (Connection: close), GET /events = the SSE channel
 # for server-initiated traffic. A satellite of foundation.mcp (the Mcp.Reflection pattern), so

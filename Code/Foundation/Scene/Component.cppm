@@ -62,7 +62,7 @@ export namespace foundation::scene
         virtual void ReadComponent(ISerializer& /*ar*/, EntityHandle /*entity*/) {}
 
         // Bind every component's resource::Ref fields through the manager (the post-load
-        // resolve pass; asset-pipeline design §8). Default: nothing to resolve.
+        // resolve pass). Default: nothing to resolve.
         void ResolveResources(foundation::resource::ResourceManager& /*manager*/) override {}
 
         // Destroying an entity destroys its component in this manager.

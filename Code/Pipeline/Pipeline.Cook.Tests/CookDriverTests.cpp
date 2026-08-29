@@ -84,7 +84,7 @@ namespace
         }
     };
 
-    // An asset that READS one instance and REFERENCES another (design §3 dependency kinds).
+    // An asset that READS one instance and REFERENCES another (the two dependency kinds).
     class ChainAsset final : public Asset
     {
         RTTI_OBJECT(ChainAsset, Asset)
@@ -131,7 +131,7 @@ namespace
         }
     };
 
-    // A PLATFORM-VARIANT asset (asset-variants P2): its product depends on the export target, so it
+    // A PLATFORM-VARIANT asset: its product depends on the export target, so it
     // cooks per target and is salted in the recipe - never copied forward. The product's cookedValue
     // encodes the target (astc -> 999, else 100) + a data sidecar, so a test can see it recooked.
     class VariantAsset final : public Asset
@@ -572,7 +572,7 @@ TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
 
 TEST_CASE("cook variant axis: target cook recooks variant products + copies invariant ones forward")
 {
-    // asset-variants P2. Host cook (BC desktop) then a "web-astc" target cook into a SEPARATE DB:
+    // Host cook (BC desktop) then a "web-astc" target cook into a SEPARATE DB:
     // the platform-VARIANT product recooks with the target profile (100 -> 999); the INVARIANT
     // products are carried forward from the host DB, never rebuilt (the cook-stats assertion).
     Fixture fx(u8"scratch_cook_variant");

@@ -1,17 +1,16 @@
 /// Foundation::Render - the `:pipeline` partition.
 ///
 /// The frame driver + extension seam. A `Renderer` is a per-category drawer; subsystems
-/// (meshes here, particles/sprites/world-UI later) register one with the `RendererRegistry`
+/// (meshes here, particles/sprites/world-UI likewise) register one with the `RendererRegistry`
 /// and contribute draws with ZERO core changes - the keeper architecture validated by
 /// Sedulous's particles being a separate library. The core sorts a view's `DrawItem`s by
-/// category and dispatches each run to its registered `Renderer`. (§6.)
+/// category and dispatches each run to its registered `Renderer`.
 ///
 /// `RenderFrame` is the SINGLE per-frame driver (not a per-view god object - the explicit
 /// replacement for Sedulous's Pipeline/ShadowPipeline/ProbePipeline). Its lifecycle mirrors
 /// Sedulous's useful `ISceneRenderer` shape - Begin / AddView×N / End - so multiple scenes
 /// and views share per-frame state (the view pool, the renderers' transient buffers) without
-/// clobbering each other. Views are collected, then composed together at End. (§9.) Phase 1
-/// records directly into the command encoder via `ForwardPass`; phase 3 routes the same
+/// clobbering each other. Views are collected, then composed together at End. Recording routes the
 /// pass-group through foundation.rendergraph (MRT + automatic barriers + transient aliasing).
 
 module;
@@ -108,7 +107,7 @@ export namespace foundation::render
         Float4x4 viewMatrix = Float4x4::Identity(); // for view-space depth (clustered shading)
         Float3 cameraPos = Float3{0, 0, 0};
         Float3 ambient = Float3{0.03f, 0.03f, 0.03f}; // scene environment ambient
-        ShadowCascades cascades = {};                 // this view's CSM cascades (phase 5.2)
+        ShadowCascades cascades = {};                 // this view's CSM cascades
         u32 cascadeLayerBase = 0;                     // this view's first shadow-array layer
         u32 localShadowEntryBase = 0; // this view's scene's first GpuLocalShadow entry
         u32 probeBase = 0;            // this view's scene's first probe record
@@ -120,7 +119,7 @@ export namespace foundation::render
         u32 viewIndex = 0; // this view's index in the frame (per-view buffer slots)
         rhi::TextureFormat colorFormat = rhi::TextureFormat::BGRA8Unorm;
         rhi::TextureFormat depthFormat = rhi::TextureFormat::Depth32Float;
-        // Scene-pass MSAA sample count for the pass being recorded (msaa.md). The OPAQUE MSAA passes
+        // Scene-pass MSAA sample count for the pass being recorded. The OPAQUE MSAA passes
         // (prepass + forward opaque, and the mesh/sprite/particle renderers dispatched inside them)
         // set the view's count so their PSO + render-bundle sample state matches the MSAA attachments;
         // the TRANSPARENT pass and all post effects stay 1 (they run on the resolved 1x color). Every
@@ -564,7 +563,7 @@ export namespace foundation::render
         // Begin a frame against the caller's encoder (the caller owns the encoder + targets).
         void Begin(rhi::CommandEncoder& encoder, u32 frameIndex);
 
-        // Collect a view over `scene`. Builds its sorted draw list now (parallelizable later);
+        // Collect a view over `scene`. Builds its sorted draw list now (parallelizable);
         // the GPU recording is deferred to End so transient buffers are sized once per frame.
         // debugScene = the per-scene list (drawn in every view of the scene); debugView = the
         // per-view list (drawn ONLY in this view - editor chrome that must not leak into a
@@ -651,9 +650,9 @@ export namespace foundation::render
         // Re-emit a caster list as depth-only draws from a light's POV. `casters` is camera-independent for
         // local lights (the scene-global list) or the view's draw list for cascades. When cullRadius > 0,
         // casters whose world bounding sphere doesn't intersect the light sphere (cullCenter, cullRadius)
-        // are skipped - per-light shadow-caster culling (phase 5.4).
-        // `lodView`: the CAMERA view whose LOD selection the casters follow (mesh-lod.md P3 -
-        // cascades pass their owning view so shadow geometry matches what that view draws; the
+        // are skipped - per-light shadow-caster culling.
+        // `lodView`: the CAMERA view whose LOD selection the casters follow
+        // (cascades pass their owning view so shadow geometry matches what that view draws; the
         // camera-independent local-shadow tiles pass null, which selects each chain's COARSEST
         // level - shadows never render finer than any view shows).
         void RecordShadowCasters(rhi::RenderPassEncoder& rp, Span<const DrawItem> casters,

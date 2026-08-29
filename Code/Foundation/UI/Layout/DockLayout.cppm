@@ -72,7 +72,7 @@ export namespace foundation::ui
                 DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
                 const foundation::ui::Dock dock = lp != nullptr ? lp->Dock : foundation::ui::Dock::Left;
 
-                // Margin is base-handled (ui-box-model.md P2b): pass the remaining space as the
+                // Margin is base-handled: pass the remaining space as the
                 // child's margin-box availability; aggregate margin-box sizes.
                 const f32 remainW = Max(0.0f, constraints.MaxWidth - chrome.TotalHorizontal() -
                                                   usedLeft - usedRight);

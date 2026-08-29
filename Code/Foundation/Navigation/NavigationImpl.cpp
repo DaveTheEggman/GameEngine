@@ -356,7 +356,7 @@ namespace foundation::navigation
                 const dtPoly* poly = &tile->polys[i];
                 if (poly->getType() == DT_POLYTYPE_OFFMESH_CONNECTION)
                 {
-                    continue; // off-mesh links are lines, not surface (P2)
+                    continue; // off-mesh links are lines, not surface
                 }
                 const dtPolyDetail* detail = &tile->detailMeshes[i];
                 for (int j = 0; j < detail->triCount; ++j)

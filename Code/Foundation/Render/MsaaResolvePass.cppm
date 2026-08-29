@@ -1,12 +1,12 @@
 /// Foundation::Render - the `:msaa_resolve` partition.
 ///
-/// Scene-pass MSAA first-sample (sample 0) resolve (msaa.md Decision 3 + the aux-resolve note).
+/// Scene-pass MSAA first-sample (sample 0) resolve.
 /// Resolves the MSAA depth + G-buffer aux (normal / velocity / material) into single-sample 1x
 /// targets the 1x post consumers (GTAO / SSR / TAA / motion reprojection) read UNCHANGED. Depth is
-/// written via SV_Depth into a real depth-format target (Fable pin 1), so no consumer's binding
+/// written via SV_Depth into a real depth-format target, so no consumer's binding
 /// changes. The scene COLOR is resolved separately by the hardware resolve attachment (averaged - the
 /// real edge AA); this pass never touches color. Sample-0 (not averaged) keeps AO/SSR/TAA identical to
-/// today's single-sample quality.
+/// the single-sample quality.
 
 module;
 #include "Core/Prelude.h"

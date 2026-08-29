@@ -4,7 +4,7 @@
 // in-memory TerrainResource (no cooking - Ref<> sub-resources take a direct product), attaches a
 // TerrainComponent, and lets engine.terrain draw the chunked geo-mipmap terrain through its
 // dedicated TerrainRenderer. An ImGui HUD tweaks the sun / LOD bias / heightfield live. WASD/RMB
-// fly camera. See Documentation/Plans/terrain.md.
+// fly camera.
 #ifndef SAMPLES_TERRAINPLAYGROUND_APP_H
 #define SAMPLES_TERRAINPLAYGROUND_APP_H
 

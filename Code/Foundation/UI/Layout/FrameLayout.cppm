@@ -51,8 +51,8 @@ export namespace foundation::ui
 
         void OnMeasure(BoxConstraints constraints) override
         {
-            // Margin + Fixed live in the base Measure now (ui-box-model.md P2b); the parent's
-            // remaining spec decision is loose-vs-fill (AvailForChild). Chrome is the merged
+            // Margin + Fixed live in the base Measure; the parent's
+            // remaining decision is loose-vs-fill (AvailForChild). Chrome is the merged
             // metrics, so stylesheet padding/borders count.
             const Thickness chrome = ResolveBoxMetrics().Chrome();
             const BoxConstraints inner = constraints.Deflate(chrome);

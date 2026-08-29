@@ -1,5 +1,5 @@
 # Tools.Editor - the editor executable (assembly of editor.app + the
-# per-subsystem editor plugin modules; see docs/design/editor.md §3.1).
+# per-subsystem editor plugin modules).
 # The EMBEDDED fallback font: Roboto baked into the exe as a byte array, so a relocated
 # editor always has a face even when every disk path fails (settings path, dev-tree path).
 set(_embedded_font_src "${CMAKE_CURRENT_BINARY_DIR}/EmbeddedEditorFont.cpp")

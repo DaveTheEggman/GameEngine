@@ -23,9 +23,9 @@ namespace rhi = foundation::rhi;
 export namespace foundation::shaders
 {
 
-    /// The pull seam for shader SOURCE (shaders.md P1): instead of passes pushing
+    /// The pull seam for shader SOURCE: instead of passes pushing
     /// strings, the ShaderSystem asks a provider on a source miss. Dev: files under
-    /// the engine shader root (edit -> hot reload, zero C++ rebuild). Dist (P2):
+    /// the engine shader root (edit -> hot reload, zero C++ rebuild). Dist:
     /// cooked bytecode packs. Explicit RegisterSource still wins - modules with
     /// bespoke inline shaders (imgui) keep working unchanged.
     class IShaderSourceProvider

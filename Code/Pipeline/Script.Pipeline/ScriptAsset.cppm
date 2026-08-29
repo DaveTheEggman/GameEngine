@@ -1,9 +1,9 @@
 // Pipeline::Script - the `foundation.script.editor` module (tooling).
 //
-// Source-side script authoring + cook (docs/design/scripting.md §5 + §7.5 B3), fully
+// Source-side script authoring + cook, fully
 // BACKEND-NEUTRAL - no language syntax lives here:
 //   * ScriptClassAsset (pipeline::Asset): the copied script file + its LANGUAGE id
-//     (defaulted from the imported file's extension - backend neutrality B3). The asset
+//     (defaulted from the imported file's extension). The asset
 //     is just source bytes + a language id + cooked metadata; nothing language-specific.
 //   * IScriptLanguageCook: the per-language cook SERVICE. Each language library provides
 //     one (AngelScript: foundation.script.angelscript.editor)
@@ -249,7 +249,7 @@ export namespace pipeline{
         // Any method declared as `on<Upper>...(` is a dispatchable handler: the fixed
         // lifecycle set (onStart/onUpdate/...), the reserved event handlers
         // (onContactBegin, onTriggerEnter, ...), AND user message handlers reached by
-        // `entity.send("heal", ...)` -> `onHeal(...)` (P2). The runtime dispatch gate is
+        // `entity.send("heal", ...)` -> `onHeal(...)`. The runtime dispatch gate is
         // ScriptClass::HasHandler, so harvesting the whole convention here is what makes
         // custom messages and events cost nothing per frame. A leading lowercase after
         // `on` (e.g. `onlyOnce`) is NOT a handler; a getter (`onFoo {`, no parens) is not
@@ -519,7 +519,7 @@ export namespace pipeline{
         }
     }
 
-    // ---- the per-language cook service (backend neutrality §7.5) ----
+    // ---- the per-language cook service ----
 
     /// The scripting tier a New-Asset starter targets. The three contracts a script can
     /// implement: a per-entity Behavior (class named freely, `construct new(entity)`), a
@@ -624,7 +624,7 @@ export namespace pipeline{
     };
 
     // Cooks a ScriptClassAsset -> ScriptClassSource by delegating to the language cook the
-    // asset's LANGUAGE resolves to (B3). A THIN shell: it reads the source, resolves the
+    // asset's LANGUAGE resolves to. A THIN shell: it reads the source, resolves the
     // cook, and delegates - no language syntax, no VM handling.
     class ScriptClassAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
@@ -641,7 +641,7 @@ export namespace pipeline{
         {
             // Base cook-logic version (2: the cooked record gained a bytecode field) + every
             // language cook's compiler version, so a Luau (or other bytecode) vendor bump recooks
-            // every script pack automatically (luau-backend.md "Vendoring").
+            // every script pack automatically.
             return 2 + ScriptLanguageCookRegistry::Get().CombinedCookVersion();
         }
 
@@ -667,7 +667,7 @@ export namespace pipeline{
                                             ? StringView(u8"angelscript")
                                             : scriptAsset.language.AsView();
 
-            // B3: the cook comes from the registry, by LANGUAGE - never a named cook type.
+            // The cook comes from the registry, by LANGUAGE - never a named cook type.
             // No cook = a configuration error, surfaced as a cook error.
             IScriptLanguageCook* cook = ScriptLanguageCookRegistry::Get().FindByLanguage(language);
             if (cook == nullptr)
@@ -689,7 +689,7 @@ export namespace pipeline{
     };
 
     // OS-file importer (editor drag-drop): accepts any extension a REGISTERED script
-    // backend claims (B3 - language-clean), copies the file into Sources/, and creates
+    // backend claims (language-clean), copies the file into Sources/, and creates
     // a ScriptClassAsset whose language records the owning backend. No options dialog.
     class ScriptFileImporter final : public pipeline::IFileImporter
     {
@@ -745,7 +745,7 @@ export namespace pipeline{
         }
     };
 
-    // ---- ScriptPage editing model (scripting.md §5) ----
+    // ---- ScriptPage editing model ----
 
     /// The headless half of the in-editor ScriptPage: the edit buffer for one script asset's
     /// source file plus the save + compile-check loop, factored OUT of the UI so it is
@@ -878,6 +878,5 @@ export namespace pipeline{
         RegisterSerializable<ScriptClassAsset>();
     }
 
-    // ScriptClassAsset::StaticType() is defined WITH reflected properties in ScriptAssetImpl.cpp
-    // (reflection track P1).
+    // ScriptClassAsset::StaticType() is defined WITH reflected properties in ScriptAssetImpl.cpp.
 }

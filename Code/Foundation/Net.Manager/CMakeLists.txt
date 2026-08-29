@@ -1,6 +1,6 @@
 # Foundation::Net.Manager - `foundation.net.manager`: a networked endpoint owned per running game
 # (NetworkManager owns a live NetSession + RpcTable, driven each fixed step) + the `Net` script
-# facade (AngelScript + Luau). Over foundation.net + foundation.script. See docs/design/networking.md §6.
+# facade (AngelScript + Luau). Over foundation.net + foundation.script.
 
 add_library(Net.Manager STATIC)
 add_library(Foundation::Net.Manager ALIAS Net.Manager)

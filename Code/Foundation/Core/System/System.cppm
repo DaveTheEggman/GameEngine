@@ -284,7 +284,7 @@ export namespace foundation::core
     // per-platform in the backend - $XDG_DATA_HOME/~/.local/share on Linux, %LOCALAPPDATA% on Windows,
     // ~/Library/Application Support on macOS) with `appName` appended. Falls back to the bare app name
     // when the base can't be resolved. Where global editor settings live - and the default export
-    // templates root (docs/design/export.md §5).
+    // templates root.
     // The user-data folder name is baked in by CMake (USER_DATA_DIR_NAME_VALUE on the policy target).
     // Required - no in-source default, so the name value lives only in the build system.
 #ifndef USER_DATA_DIR_NAME
@@ -311,7 +311,7 @@ export namespace foundation::core
 
     // Build config the running tool was compiled with ("Debug" / "Release" / "RelWithDebInfo"),
     // matching the Bin/<Config>/... layout - the export host template stamps itself with this so a
-    // Debug editor synthesizes a Debug template (export-templates.md, the config axis).
+    // Debug editor synthesizes a Debug template (the config axis).
 #ifndef BUILD_CONFIG
 #define BUILD_CONFIG "Release"
 #endif

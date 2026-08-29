@@ -1,6 +1,6 @@
 // Foundation::Script.Facades - the `foundation.script.facades` module.
 //
-// The curated behavior facades (docs/design/scripting.md §3.5): the per-entity
+// The curated behavior facades: the per-entity
 // `Entity` handle behaviors receive as their constructor argument, plus Log/Time/
 // Random. A SEPARATE library (below the subsystem) so the COOK's harvest VM and the
 // RUNTIME register the SAME "main"-module surface - a facade-using behavior that
@@ -80,7 +80,7 @@ export namespace foundation::script
         f32 deltaSeconds = 0.0f; // last frame's dt
         core::Random random;     // the run's RNG (per-run determinism seam)
 
-        // Behavior-to-behavior messaging (P2): `entity.send("heal", amount)` routes here.
+        // Behavior-to-behavior messaging: `entity.send("heal", amount)` routes here.
         // The subsystem installs this; it invokes `on<Heal>(amount)` on every behavior of
         // the target entity that declares the handler. Args are already marshalled. Null
         // when no subsystem is driving the run (a bare cook VM) - send becomes a no-op.
@@ -88,7 +88,7 @@ export namespace foundation::script
                             core::Span<const core::Variant>)>
             dispatchMessage;
 
-        // Prefab spawning (P2): `scene.spawn(prefab, x, y, z)` on a BOUND Scene routes here. The
+        // Prefab spawning: `scene.spawn(prefab, x, y, z)` on a BOUND Scene routes here. The
         // host app installs `spawnPrefab` (it owns the content DB that resolves a prefab id to its
         // payload); the bound Scene passes its OWN scene ptr, so there is no ambient current-scene
         // state to keep correct. Null spawner (bare cook VM / no host) = safe no-op.
@@ -128,7 +128,7 @@ export namespace foundation::script
         }
 
         [[nodiscard]] bool isValid() const { return Live(); }
-        /// The entity's OWN active flag (entity-active-state.md P4).
+        /// The entity's OWN active flag.
         [[nodiscard]] bool active() const { return Live() && scene->IsActive(Handle()); }
         void setActive(bool value)
         {
@@ -209,12 +209,12 @@ export namespace foundation::script
         /// name is `scene`. Defined out-of-line (Scene is completed below).
         [[nodiscard]] Scene sceneHandle() const;
 
-        // ---- behavior messaging (P2 §3.4): entity.send(name[, payload]) invokes
+        // ---- behavior messaging: entity.send(name[, payload]) invokes
         // `on<Name>(payload)` on EVERY behavior of this entity that declares it (the target
         // is this handle's entity - typically self or a resolved sibling). ONE conceptual method,
         // an ARITY FAMILY on the script surface: the event bus is StringHash + Variant underneath,
         // so the payload is a single Variant that carries any script value (number/string/entity/
-        // ...) - the honest type, not the three the old typed overloads spelled out.
+        // ...) - the honest type, not the three a typed overload set would spell out.
         void send(String message) const { Dispatch(message.AsView(), {}); }
         void send(String message, Variant payload) const
         {
@@ -239,7 +239,7 @@ export namespace foundation::script
         }
     };
 
-    /// Log.info/warn/error -> the engine log, Script category (§6).
+    /// Log.info/warn/error -> the engine log, Script category.
     class Log final : public Object
     {
         RTTI_OBJECT(Log, Object)
@@ -327,7 +327,7 @@ export namespace foundation::script
     /// `on<Name>(payload)` through the engine's script event bridge. emit is overloaded by payload
     /// type - one reflected name, resolved by arg type, exactly like `entity.send`. A value type
     /// (the VM carries a copy); a null/stale scene makes emit a safe no-op. Grouping event ops under
-    /// `.events` leaves room for `subscribe`/`unsubscribe` to join it (a follow-up).
+    /// `.events` leaves room for `subscribe`/`unsubscribe` to join it.
     struct SceneEvents
     {
         scene::Scene* scene = nullptr;

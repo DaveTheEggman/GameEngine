@@ -321,8 +321,8 @@ TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity,
 TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (late binds heal)")
 {
     // The Sponza symptom: multi-materials that resolve AFTER the first frame (cook finishing
-    // in the background) used to stay null forever - the cache was a one-shot resolve-time
-    // snapshot. Extraction now re-reads the refs per frame.
+    // in the background) must not stay null - the cache is not a one-shot resolve-time
+    // snapshot. Extraction re-reads the refs per frame.
     scene::Scene scene(u8"world");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
@@ -596,7 +596,7 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
 TEST_CASE("components: reflected types carry authored displayName + category attributes")
 {
     // The inspector's add-component menu and section headers resolve these; an annotated
-    // type must expose BOTH (editor-polish.md P1 - authored intent, not name heuristics).
+    // type must expose BOTH (authored intent, not name heuristics).
     RegisterRenderComponentReflection();
 
     const struct
@@ -685,8 +685,8 @@ TEST_CASE("render: a view carries the scene AND view debug lists independently (
 
 TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling restores exactly")
 {
-    // entity-active-state.md P2: one gate per extraction loop, driven by the P1 effective
-    // cache - so an inactive PARENT hides a child's renderables without touching own flags.
+    // One gate per extraction loop, driven by the effective-active cache - so an inactive
+    // PARENT hides a child's renderables without touching own flags.
     scene::Scene scene(u8"active-gate");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
     auto* instanced = scene.AddSystem<InstancedMeshComponentManager>();

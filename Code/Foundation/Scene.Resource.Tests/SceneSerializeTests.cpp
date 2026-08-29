@@ -97,7 +97,7 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
 
 TEST_CASE("scene load: an entity saved INACTIVE (incl. inactive parent / active child) starts dark")
 {
-    // The scene-starts-inactive requirement (entity-active-state.md): the loader calls
+    // The scene-starts-inactive requirement: the loader calls
     // SetActive during the entities block and relinks parents AFTER - the reparent choke
     // point must settle effective state, so a child that is own-active under a saved-inactive
     // parent loads effectively inactive with its own flag intact.
@@ -204,7 +204,7 @@ TEST_CASE("scene-serialize: sibling order round-trips after reorders")
 
 // Regression (user-hit, corrupted a real save): the scene's guid RNG is deterministic and a
 // LOAD does not advance it, so entities created after a load reproduced loaded guids - and
-// since editor commands route BY GUID, edits landed on the wrong entity. CreateEntity now
+// since editor commands route BY GUID, edits landed on the wrong entity. CreateEntity
 // re-rolls on collision; loading a save that already contains duplicates recovers by
 // reassigning fresh ids (warning) instead of asserting.
 TEST_CASE("scene-serialize: fresh guids never collide with loaded entities")
@@ -498,7 +498,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     }
 }
 
-// ============================== Prefab P1 =====================================================
+// ============================== Prefabs =====================================================
 
 TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, baselines)")
 {
@@ -1011,7 +1011,7 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     CHECK(t.position.z == 3.0f);
 }
 
-// ============================== P4: nesting ==================================
+// ============================== nesting ==================================
 
 namespace
 {
@@ -1397,9 +1397,9 @@ TEST_CASE("prefab P4: rebuild preserves user entities under NESTED sub-instance 
         SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(cart.IsAssigned());
 
-    // The nested inner sub-instance's root (the Wheel) - a NESTED member: children
-    // parented here used to be skipped by the rescue (it only mapped the owner's own
-    // members) and died with the teardown.
+    // The nested inner sub-instance's root (the Wheel) - a NESTED member: a rescue that
+    // maps only the owner's own members skips children parented here, so they die with the
+    // teardown; this guards against that.
     Guid wheelLive{};
     level.ForEachPrefabInstance(
         [&](Scene::PrefabInstanceState& st)
@@ -1488,7 +1488,7 @@ TEST_CASE("prefab P4: nested instances keep their captured sibling order")
         SpawnPrefab(level, outerStream, outerId, EntityHandle::Invalid(), nullptr, &resolver);
     REQUIRE(body.IsAssigned());
 
-    // Spawn: the record used to APPEND after Cone; the captured order has Wheel first.
+    // Spawn: the captured order has Wheel first, not appended after Cone.
     Array<String> names = childNames(level, body);
     REQUIRE(names.Size() == 2);
     CHECK(names[0] == u8"Wheel");
@@ -1882,10 +1882,10 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
 TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simulate-stop hang "
           "regression)")
 {
-    // The writer emits owner/nestedSrcRoot unconditionally in the Expanded section; the
-    // reader used to gate them on a Referenced-only flag, so any snapshot of a scene
-    // holding a prefab instance misaligned on restore - the next count read was garbage
-    // in the billions and the member loop allocated until the OS killed the editor.
+    // The writer emits owner/nestedSrcRoot unconditionally in the Expanded section; a
+    // reader that gates them on a Referenced-only flag misaligns on any snapshot of a
+    // scene holding a prefab instance - the next count read is garbage in the billions and
+    // the member loop allocates until the OS kills the editor. This guards against that.
     Scene scene(u8"level");
     EntityHandle root = scene.CreateEntity(u8"outer-root");
     EntityHandle member = scene.CreateEntity(u8"outer-member");
@@ -1909,7 +1909,7 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
 
     UniquePtr<SceneSnapshot> snapshot = SceneSnapshot::Capture(scene);
     REQUIRE(snapshot);
-    REQUIRE(snapshot->Restore(scene).IsOk()); // used to spin here allocating gigabytes
+    REQUIRE(snapshot->Restore(scene).IsOk()); // must not spin here allocating gigabytes
 
     // The instance state round-tripped verbatim - including the nesting links.
     Scene::PrefabInstanceState* restored = scene.FindPrefabInstanceByRoot(rootId);

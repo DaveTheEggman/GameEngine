@@ -1,6 +1,6 @@
 /// Foundation::UI.Toolkit - the `:code_document` partition.
 ///
-/// The UI-free core of CodeEditView (docs/design/code-editor.md): a line-array text buffer with
+/// The UI-free core of CodeEditView: a line-array text buffer with
 /// (line, column) addressing, delta-based undo with typing coalescing, per-line markers
 /// (breakpoints, diagnostics, execution line) that track edits, and the identifier harvest that
 /// backs the document-word completion provider. Columns are CODEPOINT indices (the widget's
@@ -549,7 +549,7 @@ export namespace foundation::ui::toolkit
         }
 
         /// For a bracket at `bracketPos`, finds its partner (nesting-aware, whole document;
-        /// P3 is lexer-blind - brackets inside strings/comments count too). False when the
+        /// lexer-blind - brackets inside strings/comments count too). False when the
         /// character is not a bracket or the partner is missing.
         [[nodiscard]] bool FindMatchingBracket(CodePosition bracketPos,
                                                CodePosition& outMatch) const

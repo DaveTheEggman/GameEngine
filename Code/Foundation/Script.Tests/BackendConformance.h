@@ -1,4 +1,4 @@
-// The script-backend CONFORMANCE BATTERY (scripting.md B2): every registered backend
+// The script-backend CONFORMANCE BATTERY: every registered backend
 // must pass this against its own language dialect - a backend is DONE when this is
 // green, never "hopefully it works". Include from a doctest TU and call
 // RunScriptBackendConformance inside a TEST_CASE.

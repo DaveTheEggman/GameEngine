@@ -6,9 +6,8 @@
 // events (from InputSurface/InputRouter). It hit-tests via the root's OverFind, tracks
 // hover / press / focus, and calls the target Node's Handle* dispatch methods.
 //
-// Interaction refs (over/down/focus) are non-owning Node*; a full node-removal cleanup
-// hook is deferred (a removed hovered/focused node should clear these) - noted for the
-// lifecycle wiring.
+// Interaction refs (over/down/focus) are non-owning Node*; there is no node-removal
+// cleanup hook, so a removed hovered/focused node does not clear these refs.
 
 module;
 #include "Core/Prelude.h"

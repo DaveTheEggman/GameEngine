@@ -1,7 +1,7 @@
 // Editor::App - :asset_create_dialog partition.
 //
-// AssetCreateDialog: the NEW-ASSET twin of the AssetPickerDialog (property-animation-editor.md
-// workflow) - choose a GROUP (tree, same shape as the picker's) and an ASSET NAME, with live
+// AssetCreateDialog: the NEW-ASSET twin of the AssetPickerDialog - choose a GROUP (tree, same
+// shape as the picker's) and an ASSET NAME, with live
 // validation refusing an empty name or one that already exists in the chosen group. The dialog
 // is TYPE-AGNOSTIC: it never creates anything itself - Create fires OnCreate(group, name) and
 // the CALLER constructs its asset type there (then typically loads it by the new instance's

@@ -413,7 +413,7 @@ TEST_CASE("vg.pixels: fills, clip, colors, spreads and blends on real backends")
 // on-demand - the dev path) and through the BAKED wrappers (BakedFont + BakedFontAtlas, the
 // exact objects the cooked FontResource loads into) must produce near-identical pixels - the
 // bake IS a snapshot of the same rasterizer. Divergence = the baked draw path lies (wrong
-// regions/UVs/metrics), which shipped as jumbled game-UI text. PNGs of both strips are
+// regions/UVs/metrics), which manifests as jumbled game-UI text. PNGs of both strips are
 // written to the test scratch dir for eyes-on diagnosis on failure.
 // ============================================================================================
 

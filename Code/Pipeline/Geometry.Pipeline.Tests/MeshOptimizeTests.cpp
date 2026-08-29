@@ -1,4 +1,4 @@
-// mesh-lod.md P0: the cook-time optimization pass. Everything is a pure REORDER -
+// The cook-time optimization pass. Everything is a pure REORDER -
 // these tests pin the invariants (triangle set / vertex values / submesh ranges /
 // non-triangle index streams survive as sets or position-sequences), the wins (ACMR
 // improves on a cache-hostile fixture; unused vertices compact away), and the guards

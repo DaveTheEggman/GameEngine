@@ -474,7 +474,7 @@ TEST_CASE("cook: drift-lint sees through #include - the .hlsli holds the #ifdef"
 
 TEST_CASE("variants: drift-lint ignores comments that merely mention a flag")
 {
-    // "user-defined" + a whole-word flag name in a COMMENT used to trip the substring
+    // "user-defined" + a whole-word flag name in a COMMENT must NOT trip the substring
     // heuristic and fail the cook; only real #if/#ifdef/#ifndef/#elif lines count.
     const char8_t* src = u8"// GBUFFER is a user-defined marker, see docs\n"
                          u8"/* undefined behavior when SKINNED */\n"

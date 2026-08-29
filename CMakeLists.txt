@@ -155,7 +155,7 @@ if(OPTION_BUILD_TESTS)
 endif()
 
 # --- Engine-wide compile policy ----------------------------------------------
-# Exceptions and C++ RTTI are disabled engine-wide (see Documentation/Planning/Core.md §1).
+# Exceptions and C++ RTTI are disabled engine-wide.
 add_library(policy INTERFACE)
 add_library(Foundation::Policy ALIAS policy)
 
@@ -174,7 +174,7 @@ target_compile_definitions(policy INTERFACE
     # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
     $<$<CONFIG:Debug,RelWithDebInfo>:BUILD_PROFILING=1>
     # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export
-    # host template stamps itself with the config/compiler that built the running tool (export-templates.md).
+    # host template stamps itself with the config/compiler that built the running tool.
     BUILD_CONFIG=\"$<CONFIG>\"
     BUILD_COMPILER=\"${_dr_comp}\"
     # Optional-module presence flags (0/1) - guard usage in C++ with e.g.
@@ -323,7 +323,7 @@ add_subdirectory(Code/Foundation/Model)
     add_subdirectory(Code/Foundation/Model.FBX)
 add_subdirectory(Code/Foundation/Geometry)  # engine runtime mesh format (StaticMesh/SkinnedMesh + primitives)
 add_subdirectory(Code/Foundation/Geometry.Resource)
-add_subdirectory(Code/Foundation/Heightfield) # pure heightfield grid + sampling math (terrain track); shared by render/physics/nav
+add_subdirectory(Code/Foundation/Heightfield) # pure heightfield grid + sampling math; shared by render/physics/nav
 add_subdirectory(Code/Foundation/Heightfield.Resource) # heightfield as a cooked, referenceable resource (Ref<Heightfield>)
 add_subdirectory(Code/Foundation/Terrain) # terrain model over a heightfield: chunk grid + quadtree + LOD + splat (no RHI)
 add_subdirectory(Code/Foundation/Terrain.Resource) # cooked terrain resource: heightfield + splatmap + layer refs (Ref<Terrain>)
@@ -348,7 +348,7 @@ add_subdirectory(Code/Engine/Engine.Render)
 add_subdirectory(Code/Engine/Engine.Animation) # skeletal-animation scene integration (links RenderSubsystem; after Render)
 add_subdirectory(Code/Engine/Engine.Particles) # particle scene/render integration (renderer + provider seam; after Render)
 add_subdirectory(Code/Engine/Engine.Physics) # physics scene integration (components + per-scene Jolt world + interpolation; after Render)
-add_subdirectory(Code/Engine/Engine.Terrain) # terrain scene integration (TerrainComponent; renderer in a later phase)
+add_subdirectory(Code/Engine/Engine.Terrain) # terrain scene integration (TerrainComponent)
 add_subdirectory(Code/Engine/Engine.Navigation) # navmesh scene integration (zone/agent components + per-scene Detour crowd)
 add_subdirectory(Code/Engine/Engine.Audio)   # audio scene integration (components + per-scene voice group + listener sync; after Render)
 add_subdirectory(Code/Foundation/Fonts)     # font types/interfaces over Core + Image
@@ -384,7 +384,7 @@ if(NOT EMSCRIPTEN)
     add_subdirectory(Code/Foundation/UI.Application)
 endif()
 if(OPTION_EXPERIMENTAL_GUI)
-    add_subdirectory(Code/Experimental/GUI)   # fresh eepp-derived UI framework (docs/design/gui-port.md)
+    add_subdirectory(Code/Experimental/GUI)   # fresh eepp-derived UI framework
 endif()
 add_subdirectory(Code/Foundation/Script)
 # --- Script backends: independently switchable via OPTION_ENABLE_* (declared up top) -----------
@@ -716,7 +716,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Mcp.Script.Tests               Foundation::Mcp.Script)
     util_test_suite(Code/Foundation/Mcp.Http.Tests                 Foundation::Mcp.Http)
 
-    # Integration - cross-collection flow suites (Code/Integration/README.md). Tiered behind the
+    # Integration - cross-collection flow suites. Tiered behind the
     # Integration. prefix: the fast dev loop runs module suites only; review/pre-push include these.
     # JSON x scripting: the test file runs on angelscript + luau, so build it when either is on.
     if(OPTION_ENABLE_ANGELSCRIPT OR OPTION_ENABLE_LUAU)

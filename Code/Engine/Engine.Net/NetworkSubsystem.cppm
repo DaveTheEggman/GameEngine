@@ -30,7 +30,7 @@ export namespace engine::net
     namespace scene = foundation::scene;
     namespace net = foundation::net;
 
-    // The per-scene REPLICATION driver (networking-extraction.md P2): installed into every scene by the
+    // The per-scene REPLICATION driver: installed into every scene by the
     // net SceneModule and ticked on the scene's FIXED lane (deterministic, physics-lockstep). It holds
     // the endpoint that replicates THIS scene - null (inert) unless this scene is the endpoint's current
     // replicated scene. The per-instance NetworkController wires/clears the endpoint at the edges
@@ -72,8 +72,8 @@ export namespace engine::net
     // The once-per-context networking subsystem. It (a) registers the reflected components, (b) installs
     // the net scene managers + the fixed-lane replication driver via the SceneModule, and (c) OWNS THE
     // TRANSPORT PUMP: each frame it drives every live endpoint's UpdateTransport on the Context lane
-    // (networking-extraction.md P3), replacing the app's former OnFixedUpdate fan-out. Replication itself
-    // rides the per-scene fixed lane (NetworkSceneSystem, P2); this is the socket recv/send half.
+    // Replication itself
+    // rides the per-scene fixed lane (NetworkSceneSystem); this is the socket recv/send half.
     class NetworkSubsystem final : public foundation::runtime::Subsystem
     {
     public:
@@ -94,9 +94,9 @@ export namespace engine::net
         // replication sends - queued this frame by the per-scene fixed lane (SceneSubsystem::BeginFrame ->
         // NetworkSceneSystem) - flush the SAME frame, independent of subsystem sort order. Received deltas
         // are buffered here and applied by next frame's scene fixed lane (interpolation absorbs the lag).
-        // NOTE (networking-extraction.md P3): the spec's finer BeginFrame-recv / PostUpdate-send split is
+        // NOTE: the finer BeginFrame-recv / PostUpdate-send split is
         // NOT done - NetSession::Update recv+flushes in one call, and separating them is a transport-layer
-        // change out of this extraction's scope. A single UpdateTransport per frame is the pump for now.
+        // change. A single UpdateTransport per frame is the pump.
         void PostUpdate(f32 deltaTime) override
         {
             if (!m_endpoints)

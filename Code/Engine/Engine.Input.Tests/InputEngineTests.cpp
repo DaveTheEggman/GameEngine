@@ -111,7 +111,7 @@ TEST_CASE("input: the Input facade resolves PER-CONTEXT services (Luau)")
 
 TEST_CASE("input.subsystem: the per-surface scene binding rides the source override")
 {
-    // game-ui.md §9: SetSourceProvider carries the scene the source REPRESENTS (an
+    // SetSourceProvider carries the scene the source REPRESENTS (an
     // opaque key - the SceneOverlayView::sceneKey convention); the UI pump confines
     // routing/consumption to it. Un-bound sources follow the policy knob.
     InputSubsystem input(nullptr);

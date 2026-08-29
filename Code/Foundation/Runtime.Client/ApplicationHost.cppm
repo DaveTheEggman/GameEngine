@@ -109,10 +109,10 @@ export namespace foundation::runtime
                 // frame bookkeeping keep the raw dt.
                 const core::f32 scaledDelta = deltaTime * m_context.TimeScale();
                 // The fixed step is CONFIG on the context (the scene bridge seeds per-scene
-                // steppers from it); the context-level fixed EXECUTION lane is gone (FrameTime
-                // cutover - nothing overrode it). The host stepper survives for the APP-level
-                // fixed hook (OnFixedUpdate), available to any app that needs one - the default app
-                // no longer uses it (networking's pump moved to NetworkSubsystem::PostUpdate, P3).
+                // steppers from it); there is no context-level fixed EXECUTION lane. The host
+                // stepper serves the APP-level fixed hook (OnFixedUpdate), available to any app
+                // that needs one - the default app does not use it (networking's pump runs in
+                // NetworkSubsystem::PostUpdate).
                 m_context.SetFixedTimeStep(m_settings.fixedTimeStep);
                 m_stepper.step = m_settings.fixedTimeStep;
                 m_stepper.maxSteps = m_settings.maxFixedStepsPerFrame;

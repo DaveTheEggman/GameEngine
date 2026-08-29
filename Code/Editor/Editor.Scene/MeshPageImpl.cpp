@@ -342,7 +342,7 @@ namespace editor
             lines.PushBack(
                 Format(u8"  [{}] material {}  |  {} indices", i, sm.materialIndex, sm.indexCount));
         }
-        // The LOD chain (mesh-lod.md P1): per-level triangle totals + switch thresholds.
+        // The LOD chain: per-level triangle totals + switch thresholds.
         if (mesh.lodCount > 1)
         {
             lines.PushBack(Format(u8"LOD levels: {}", mesh.lodCount));

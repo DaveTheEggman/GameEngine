@@ -1,10 +1,10 @@
-// ClipEditorView seam tests (property-animation.md Phase H2). The shared editing view is extracted
+// ClipEditorView seam tests. The shared editing view lives
 // over the IClipEditorHost seam, so it drives edits through a HOST's clip + command stack rather than
 // owning them. These tests host it against a minimal fake (a clip + a real EditorCommandStack) and
 // verify: the view builds headlessly over a clip, discrete edits route through the host's undo stack
 // (add-track undo/redo round-trips the clip), and both render paths (scalar CurveCanvas + quaternion
-// key table) build without a window. This locks the extraction: the standalone page and the in-scene
-// tool panel (H3) both host the same view, so its behavior must be host-agnostic.
+// key table) build without a window. The standalone page and the in-scene
+// tool panel both host the same view, so its behavior must be host-agnostic.
 
 #include <doctest/doctest.h>
 

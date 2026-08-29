@@ -1,7 +1,7 @@
 // Foundation::Messaging - the `foundation.messaging` module.
 //
-// A native, name-keyed event bus, extracted out of foundation.scene into its own leaf module
-// (messaging.md P1) - it is a RUN-SCOPE facility (a scene's, or a whole run's), with NO scripting and
+// A native, name-keyed event bus in its own leaf module. It is a RUN-SCOPE facility (a scene's,
+// or a whole run's), with NO scripting and
 // NO scene dependency: C++ systems Publish/Subscribe directly with native callbacks, so a C++-only game
 // is a first-class participant. Script reaches it through a BRIDGE (the ScriptPhysicsContactBridge
 // pattern), never the reverse - the bus never delivers "to script".

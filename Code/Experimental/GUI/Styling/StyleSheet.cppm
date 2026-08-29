@@ -61,7 +61,7 @@ export namespace experimental::gui
         [[nodiscard]] const Array<StyleProperty>& Properties() const noexcept { return m_props; }
 
         // Substitute whole-value var(--name[, fallback]) references against the resolved
-        // custom properties (one level; nested/partial var() deferred).
+        // custom properties (one level; nested/partial var() not supported).
         void ResolveVariables()
         {
             for (StyleProperty& p : m_props)

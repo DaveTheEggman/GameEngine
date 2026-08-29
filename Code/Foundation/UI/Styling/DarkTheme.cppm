@@ -57,9 +57,9 @@ export namespace foundation::ui
     /// Factory for creating the default dark theme as a StyleSheet.
     ///
     /// The theme is AUTHORED as Styling/Themes/dark.sss (embedded at build - see
-    /// EmbeddedThemes) and parsed here; ui-theme-migration.md P1. The legacy C++ rule
+    /// EmbeddedThemes) and parsed here. The legacy C++ rule
     /// builder is kept ONLY as the parity oracle (ThemeParityTests diffs the two sheets
-    /// rule-for-rule) and dies once the consistency pass deliberately supersedes it.
+    /// rule-for-rule).
     struct DarkTheme
     {
         [[nodiscard]] static RefPtr<StyleSheet> Create()

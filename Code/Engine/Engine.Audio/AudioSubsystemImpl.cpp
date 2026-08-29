@@ -65,7 +65,7 @@ namespace engine::audio
         }
         PROFILE_SCOPE("Audio.Engine");
 
-        // Listeners (multi-listener, P3): every active listener COMPONENT across the
+        // Listeners (multi-listener): every active listener COMPONENT across the
         // started scenes fills an engine listener slot, in scene order, up to the
         // engine's configured count - spatial voices attenuate against the CLOSEST
         // enabled listener (split-screen ears). No component anywhere = the first

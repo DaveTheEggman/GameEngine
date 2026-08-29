@@ -451,9 +451,9 @@ namespace foundation::net
         mgr->ForEach(
             [&](NetworkedTransform& nt, scene::EntityHandle e)
             {
-                // entity-active-state.md P3 (net): an effectively-inactive entity's replicated
-                // state FREEZES (no capture) - it stays in snapshots (existence/identity are
-                // not simulation; replicating the flag itself is the networking track's call).
+                // An effectively-inactive entity's replicated state FREEZES (no capture) - it stays
+                // in snapshots (existence/identity are not simulation; the flag itself is not
+                // replicated).
                 if (!scene.IsEffectivelyActive(e))
                 {
                     return;

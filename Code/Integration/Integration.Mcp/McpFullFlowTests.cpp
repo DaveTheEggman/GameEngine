@@ -1,4 +1,4 @@
-// Integration.Mcp - the FULL agent-shaped sequence (mcp-agent-access.md P1 item 11): one
+// Integration.Mcp - the FULL agent-shaped sequence: one
 // golden that walks the whole workflow THROUGH THE TOOLS, in the order the skill teaches:
 // create -> open -> import a real script source -> cook -> author a scene -> validate ->
 // health -> host state. Every step is a tools/call; nothing touches the project behind the

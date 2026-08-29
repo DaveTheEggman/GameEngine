@@ -1,8 +1,8 @@
 // Cooked shader pack - the dist's compiler-free shader store.
 //
-// A shipped dist carries no DXC/naga: every (shader name, stage, variant, backend format) the
-// runtime can request is precompiled into this pack at export time (see the cook, D3) and looked up
-// by the dist provider (D4). The blob is backend bytecode/text: SPIR-V (Vulkan), DXIL (DX12), or
+// A dist carries no DXC/naga: every (shader name, stage, variant, backend format) the
+// runtime can request is precompiled into this pack at export time and looked up
+// by the dist provider. The blob is backend bytecode/text: SPIR-V (Vulkan), DXIL (DX12), or
 // WGSL text (WebGPU). Binary, versioned, self-describing (carries the name table so the provider can
 // still enumerate the built-ins for tooling).
 

@@ -13,7 +13,7 @@
 ///
 /// A `RenderData` carries no view-dependent state: the sort key (which depends on the
 /// camera) lives on a per-view `DrawItem`, computed during the view's cull+sort against the
-/// shared snapshot. (§5/§9 of docs/design/renderer.md.)
+/// shared snapshot.
 
 module;
 #include "Core/Prelude.h"

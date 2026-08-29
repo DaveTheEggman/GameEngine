@@ -1099,10 +1099,10 @@ TEST_CASE("rtti: type domains - default Runtime, open tags, widen-only")
 
 TEST_CASE("rtti: legacy 'draconic::' namespaces resolve to the current 'rtti::' registrations")
 {
-    // The 2026-08 debrand renamed every registration namespace (Foundation
-    // "draconic::X" -> "rtti::X", Engine "draconic::X" -> "rtti::engine::X") while
+    // Registration namespaces use the "rtti::" prefix (Foundation
+    // "draconic::X" -> "rtti::X", Engine "draconic::X" -> "rtti::engine::X"), while
     // serialized data (content envelopes, settings sections, scenes) still carries the
-    // old qualified names. FindByName's legacy fallback keeps that data loading.
+    // old qualified "draconic::" names. FindByName's legacy fallback keeps that data loading.
     TypeRegistry registry;
     registry.Register(Animal::StaticType()); // registered under its current rtti::* namespace
 
@@ -1135,10 +1135,10 @@ TEST_CASE("rtti: legacy 'draconic::' namespaces resolve to the current 'rtti::' 
 
 TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 'pipeline::'")
 {
-    // The asset-cook types moved from the Editor collection to the Pipeline collection, so a
-    // cooked type's identity went "rtti::editor::<lib>" -> "rtti::pipeline::<lib>" (and the
-    // pre-debrand spelling was "draconic::editor::<lib>"). Cooked products on disk still carry
-    // the old names until re-cooked, so both legacy spellings must resolve.
+    // The asset-cook types live in the Pipeline collection, not the Editor collection, so a
+    // cooked type's identity is "rtti::pipeline::<lib>" where older data used
+    // "rtti::editor::<lib>" or the legacy "draconic::editor::<lib>". Cooked products on disk
+    // still carry the old names until re-cooked, so both legacy spellings must resolve.
     TypeRegistry registry;
     static const TypeInfo pipelineShaped{ComputeTypeId("rtti::pipeline::geometry", "CookWidget"),
                                          "CookWidget",
@@ -1150,9 +1150,9 @@ TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 
 
     // Current name resolves.
     CHECK(registry.FindByName("rtti::pipeline::geometry", "CookWidget") == &pipelineShaped);
-    // Post-debrand, pre-move spelling.
+    // The "rtti::editor::<lib>" spelling (before the move to pipeline).
     CHECK(registry.FindByName("rtti::editor::geometry", "CookWidget") == &pipelineShaped);
-    // Pre-debrand, pre-move spelling.
+    // The legacy "draconic::editor::<lib>" spelling.
     CHECK(registry.FindByName("draconic::editor::geometry", "CookWidget") == &pipelineShaped);
 
     // A non-cook "editor::" that never moved stays a miss (no false positives).
@@ -1162,11 +1162,11 @@ TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 
 TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
           "'rtti::editor::editor' registration (still-editor types)")
 {
-    // Types that STAYED in the Editor collection gained the per-collection prefix in the
-    // debrand: "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]". Found live
-    // (2026-08-11): ~/.local/share/draconic/editor.settings.xml carries
-    // 'draconic::editor'::RecentProjectsSettings, which the settings loader could not
-    // resolve - the section was preserved-as-unknown instead of loading.
+    // Types in the Editor collection carry the per-collection prefix:
+    // "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]". For example,
+    // ~/.local/share/draconic/editor.settings.xml carries
+    // 'draconic::editor'::RecentProjectsSettings; without the fallback the settings loader
+    // cannot resolve it and preserves the section as unknown instead of loading it.
     TypeRegistry registry;
     static const TypeInfo editorShaped{ComputeTypeId("rtti::editor::editor",
                                                      "RecentProjectsSettings"),
@@ -1186,7 +1186,7 @@ TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
 
     // Current names resolve (fast path untouched).
     CHECK(registry.FindByName("rtti::editor::editor", "RecentProjectsSettings") == &editorShaped);
-    // The pre-debrand flat spelling - the live settings file's exact identity.
+    // The flat "draconic::editor" spelling - the settings file's exact identity.
     CHECK(registry.FindByName("draconic::editor", "RecentProjectsSettings") == &editorShaped);
     // Nested editor lib: "draconic::editor::app" -> "rtti::editor::editor::app".
     CHECK(registry.FindByName("draconic::editor::app", "LayoutSettings") == &appShaped);
@@ -1200,12 +1200,11 @@ TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
 TEST_CASE("rtti: legacy subsystem-flavored 'draconic::<lib>' asset identities resolve to "
           "'rtti::pipeline::<lib>'")
 {
-    // LIVE evidence (2026-08-12, user project envelopes): pre-debrand ASSET identities used
-    // the subsystem-flavored spelling - 'draconic::physics'::CollisionShapeAsset,
-    // 'draconic::script'::ScriptClassAsset - not the editor-collection spelling the first
-    // compat pass modeled. They now live under the Pipeline collection; without this mapping
-    // the cook reported "failed to deserialize (stale schema?)" and the editor showed
-    // "no editor registered for this asset type" for every pre-debrand source asset.
+    // Legacy ASSET identities use the subsystem-flavored spelling -
+    // 'draconic::physics'::CollisionShapeAsset, 'draconic::script'::ScriptClassAsset - rather
+    // than the editor-collection spelling. These types live under the Pipeline collection;
+    // without this mapping the cook reports "failed to deserialize (stale schema?)" and the
+    // editor shows "no editor registered for this asset type" for every such legacy source asset.
     TypeRegistry registry;
     static const TypeInfo collisionShaped{ComputeTypeId("rtti::pipeline::physics",
                                                         "CollisionShapeAsset"),

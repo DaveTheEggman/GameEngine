@@ -1,7 +1,7 @@
 // Foundation::PropertyAnimation - module `foundation.propertyanimation`.
 //
 // The data model + evaluation + reflection binding resolver for animating ANY reflected property on
-// ANY component with keyframe curves, as data (property-animation.md). Depends on foundation.core
+// ANY component with keyframe curves, as data. Depends on foundation.core
 // reflection ONLY - deliberately NOT part of foundation.animation (skeletal), so headless consumers
 // (editor page, tests, MCP hosts) evaluate a property clip without pulling bones/poses/skinning.
 //

@@ -2,7 +2,7 @@
 // Float4x4: 4x4 row-major matrix - transforms, projections (Perspective/Ortho/
 // LookAt RH), multiply, Transpose/Determinant/Inverse, point/direction xform.
 //
-// Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
+// Conventions: row-major storage m[row][col];
 // row vectors (v' = v * M); composition left-to-right; XNA-style right-handed
 // projections, NDC depth [0,1]; translation in the last row.
 

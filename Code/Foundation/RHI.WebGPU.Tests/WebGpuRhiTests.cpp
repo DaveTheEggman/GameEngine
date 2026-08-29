@@ -770,11 +770,11 @@ TEST_CASE("rhi.webgpu: persistent mapping - writes without Unmap reach the GPU")
 
 TEST_CASE("rhi.webgpu: persistent shadow flush skips byte-identical re-uploads")
 {
-    // The persistent-map coherence flush used to re-upload every open shadow on EVERY
-    // submit. On web each wgpuQueueWriteBuffer crosses the wasm->JS boundary, so that
-    // dominated the frame. The flush now skips when the shadow is byte-identical to the
-    // last upload. Assert the upload count only advances on real changes, and that the
-    // GPU still holds correct data across the skipped flushes.
+    // The persistent-map coherence flush skips re-upload when the shadow is byte-identical
+    // to the last upload. On web each wgpuQueueWriteBuffer crosses the wasm->JS boundary, so
+    // re-uploading every open shadow on EVERY submit would dominate the frame. Assert the
+    // upload count only advances on real changes, and that the GPU still holds correct data
+    // across the skipped flushes.
     Backend* backend = TryCreateBackend();
     if (backend == nullptr)
     {

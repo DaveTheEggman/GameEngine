@@ -691,7 +691,7 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
 TEST_CASE("replication: network components carry displayName + category attributes (add-component menu)")
 {
     // Without these the inspector's add-component menu drops the type in the "Other" bucket
-    // (editor-polish.md P1 - authored intent, not name heuristics). These predate the standing rule.
+    // (authored intent, not name heuristics).
     foundation::net::RegisterReplicationComponents();
 
     const struct
@@ -736,7 +736,7 @@ TEST_CASE("replication: an effectively-inactive entity's transform state FREEZES
     net::CaptureEntityTransforms(server);
 
     // Deactivate, then move the entity: the replicated component keeps the LAST captured
-    // value (frozen - entity-active-state.md P3; existence/identity stay on the wire).
+    // value (frozen; existence/identity stay on the wire).
     server.SetActive(e, false);
     t.position = Float3{9.0f, 0.0f, 0.0f};
     server.SetLocalTransform(e, t);

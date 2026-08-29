@@ -1,7 +1,7 @@
 /// Foundation::Scene - the `:manager` partition.
 ///
-/// SceneManager: a GROUP of scenes as a first-class scene-lib object (docs/design/game-instance.md
-/// §11). It owns its scenes + a current scene + the group's time scale, ticks its own group's variable
+/// SceneManager: a GROUP of scenes as a first-class scene-lib object.
+/// It owns its scenes + a current scene + the group's time scale, ticks its own group's variable
 /// + fixed lanes, and assembles/tears down each scene through type-erased install/uninstall hooks the
 /// driver (SceneSubsystem) wires: assembly instantiates from a declarative composition, teardown notifies
 /// observers. SceneManager itself stays composition- and runtime-agnostic.
@@ -18,7 +18,7 @@ module;
 export module foundation.scene:manager;
 
 import foundation.core;
-import foundation.messaging; // EventBus (the scope bus injected into every created scene, messaging.md P2)
+import foundation.messaging; // EventBus (the scope bus injected into every created scene)
 import :scene;
 import :frame_time;
 
@@ -49,18 +49,18 @@ export namespace foundation::scene
         void SetSceneUninstaller(SceneUninstaller uninstaller) { m_uninstaller = Move(uninstaller); }
         void ClearSceneUninstaller() { m_uninstaller.Reset(); }
 
-        /// The scope bus every scene this manager creates BORROWS (messaging.md P2): a GameInstance sets
+        /// The scope bus every scene this manager creates BORROWS: a GameInstance sets
         /// its run bus here so `scene.events` and the run bus are one object. Applied before assembly, so
-        /// the script systems bind to it. Null (default) leaves scenes on their owned fallback bus.
+        /// the script systems bind to it. Null (default) leaves scenes with no bus.
         void SetSceneEventBus(messaging::EventBus* bus) noexcept { m_sceneEventBus = bus; }
 
-        /// The GROUP time scale - the `instance` term of dt = host x context x GROUP x scene (§5). Default
-        /// 1.0, so the editor / default manager reproduces the previous two-level behaviour exactly.
+        /// The GROUP time scale - the `instance` term of dt = host x context x GROUP x scene. Default
+        /// 1.0, so the editor / default manager applies no group scaling.
         /// Clamped to >= 0 like every other term of the chain (a negative dt would run time backward).
         void SetTimeScale(f32 scale) noexcept { m_timeScale = Max(scale, 0.0f); }
         [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
 
-        /// The current scene of the group (the multi-scene model, §4.4) - what a game's script time-pairs
+        /// The current scene of the group (the multi-scene model) - what a game's script time-pairs
         /// with and what a scene transition repoints. First created scene becomes current by default.
         void SetCurrentScene(Scene* scene) noexcept { m_current = scene; }
         [[nodiscard]] Scene* CurrentScene() const noexcept { return m_current; }
@@ -85,7 +85,7 @@ export namespace foundation::scene
                     m_current = scene;
                 }
             }
-            // Inject the scope's shared bus (messaging.md P2, revised: NO owned fallback)
+            // Inject the scope's shared bus (no owned fallback)
             // BEFORE assembly, so systems binding at OnSceneCreate see the SAME bus emits
             // land on (a GameInstance sets this to its run bus; the editor page sets its
             // page bus). Null = a scope-less scratch scene: Events() stays null, nothing
@@ -184,7 +184,7 @@ export namespace foundation::scene
         // Fixed lane: seed each active scene's stepper from the lane's configured step, then
         // advance per-scene fixed time on the FULL chain. `time` carries host x context (built
         // by the driver); THIS manager contributes the group term, each scene its own term -
-        // the one place the chain is composed (FrameTime, scene-composition.md strain #4).
+        // the one place the chain is composed (FrameTime).
         void BeginFrame(const FrameTime& time)
         {
             for (Scene* s : m_active)
@@ -283,7 +283,7 @@ export namespace foundation::scene
 
         SceneInstaller m_installer;   // composition path (type-erased; owned, callable or empty)
         SceneUninstaller m_uninstaller; // teardown path (type-erased; owned, callable or empty)
-        messaging::EventBus* m_sceneEventBus = nullptr; // borrowed scope bus for created scenes (P2)
+        messaging::EventBus* m_sceneEventBus = nullptr; // borrowed scope bus for created scenes
         f32 m_timeScale = 1.0f;       // the group / instance term
         Scene* m_current = nullptr;   // the group's current scene
         Array<UniquePtr<Scene>> m_scenes; // ownership

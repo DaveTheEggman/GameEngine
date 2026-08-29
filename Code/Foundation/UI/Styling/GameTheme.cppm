@@ -33,7 +33,7 @@ export namespace foundation::ui
         [[nodiscard]] static RefPtr<StyleSheet> Create() { return DarkTheme::Create(Palette()); }
     };
 
-    // The built-in LIGHT variant (game-ui.md P3 theme variations): the LightTheme shape
+    // The built-in LIGHT variant: the LightTheme shape
     // with the same teal game accent - for games whose UI sits on bright scenes/menus.
     // Swap per context (UISubsystem's Context().SetStyleSheet(GameLightTheme::Create()))
     // or ship a cooked UITheme asset for full control.

@@ -1,4 +1,4 @@
-// Reflection track P1: TextureAsset's reflected surface + the enum reflection its properties
+// TextureAsset's reflected surface + the enum reflection its properties
 // reference. Verifies the authored fields enumerate with tooling attributes, round-trip through
 // get/set, and that the enum property types resolve named values (the generic asset page's
 // enum-by-name dropdowns + the script backends read exactly this).

@@ -180,7 +180,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK(instance->Name() == StringView(u8"brick"));
     CHECK(instance->TypeName() == StringView(u8"TextureAsset"));
 
-    // The source landed in Sources/ and the asset references it by mount-relative name.
+    // The source is in Sources/ and the asset references it by mount-relative name.
     CHECK(FileExists(PathJoin(dir, u8"Sources/brick.png").AsView()));
     RefPtr<ISerializable> object = instance->ReadObject();
     auto* asset = Cast<TextureAsset>(object.Get());
@@ -430,8 +430,8 @@ TEST_CASE("texture.pipeline: mip chain cook - counts, sizes, and sRGB-correct av
 
 TEST_CASE("texture.pipeline: block compression cook - format policy + exact cooked-DB size drop")
 {
-    // asset-variants P1: the cook now block-compresses the RGBA8 mip chain when the asset's authored
-    // usage/compression + the desktop (BC) profile select a BC format (Decision 5 policy). Pins:
+    // The cook block-compresses the RGBA8 mip chain when the asset's authored
+    // usage/compression + the desktop (BC) profile select a BC format. Pins:
     // (1) usage/compression -> the cooked resource.format; (2) the "data" payload is EXACTLY the sum
     // of per-level block bytes; (3) the size drop vs uncompressed is real (BC1 ~8x, BC7 ~4x).
     RegisterTextureResource();

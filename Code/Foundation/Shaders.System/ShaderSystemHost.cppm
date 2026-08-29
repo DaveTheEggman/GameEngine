@@ -6,14 +6,13 @@
 ///   - DEV mode: DXC + a FileShaderSourceProvider over the engine shader root => on-demand compile
 ///     with hot reload. The desktop dev path - PREFERRED whenever both a compiler and the source
 ///     root exist, so a stray cooked pack near the binaries can never silently freeze shaders
-///     (hot reload is the P1 payoff; losing it must be a choice, not an accident).
+///     (hot reload is the payoff; losing it must be a choice, not an accident).
 ///   - PACK mode: a cooked shaders.dpak beside the executable (or in the cwd) => no compiler,
 ///     prebuilt blobs in the device's backend format (WGSL in a browser). The dist / web path,
 ///     entered when dev mode is unavailable - or explicitly, via ShaderPackPolicy::ForcePack or
 ///     the OPTION_USE_SHADER_PACK environment variable (pack-on-desktop testing).
 ///
-/// This is the single implementation of "how do I get a ShaderSystem for this device"; before it,
-/// the renderer had its own copy and VG/UI/ImGui each DXC-compiled inline HLSL with no pack path.
+/// This is the single implementation of "how do I get a ShaderSystem for this device".
 
 module;
 #include "Core/Prelude.h"

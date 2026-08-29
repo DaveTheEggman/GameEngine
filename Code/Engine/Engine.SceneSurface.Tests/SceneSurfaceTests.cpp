@@ -1,12 +1,10 @@
 // Engine.SceneSurface.Tests - the scene-surface composition root.
 //
-// The full scene set is now ONE composition (scene-composition.md): a single per-domain module list
-// whose `install` entries ARE the domain Add<Domain>SceneManagers functions. The old count tripwire
-// (`kSceneSystemCount`) is gone because its failure mode - a manager added to a domain function but
-// forgotten from the parallel headless list - is structurally impossible now (there is one list, and
-// it delegates to the domain functions). What remains worth guarding: every DOMAIN is present (the
-// module count), and the historically-dropped managers resolve (each was missing from the export
-// tool's private copy of the list at some point - see Tools.Export history).
+// The full scene set is ONE composition: a single per-domain module list whose `install` entries
+// ARE the domain Add<Domain>SceneManagers functions. There is one list, and it delegates to the
+// domain functions, so a manager added to a domain function cannot be forgotten from a parallel
+// headless list. What this test guards: every DOMAIN is present (the module count), and the
+// managers that the export tool's private copy of the list has dropped in the past resolve.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 

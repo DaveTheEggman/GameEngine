@@ -1,6 +1,6 @@
 // Pipeline::Physics - the `foundation.physics.editor` module (tooling).
 //
-// Source-side physics authoring + cook (docs/design/physics.md §5):
+// Source-side physics authoring + cook:
 //   * CollisionShapeAsset (pipeline::Asset): references a source MESH asset by guid +
 //     cook settings (convex/trimesh, hull tolerance). The builder cooks via Jolt from
 //     the mesh's already-extracted StaticMeshSource (positions/indices/material slots) -
@@ -294,7 +294,7 @@ export namespace pipeline{
     };
 
     // Registers the CollisionCookKind enum reflection (idempotent). The asset TYPE reflection
-    // bodies are their StaticType(), defined in PhysicsAssetImpl.cpp. Reflection track P1.
+    // bodies are their StaticType(), defined in PhysicsAssetImpl.cpp.
     void RegisterPhysicsAssetReflection();
 
     // Registers the asset types for content-DB construction + deserialization.

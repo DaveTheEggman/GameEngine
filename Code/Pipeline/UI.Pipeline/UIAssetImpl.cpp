@@ -3,7 +3,7 @@
 // Kept OUT of the UIAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). UIDocumentAsset (markup) and UIThemeAsset (stylesheet) gain
 // their string properties here. No enums, so the reflection rides StaticType() with no registrar
-// change. Reflection track P1.
+// change.
 
 module;
 #include "Core/Prelude.h"

@@ -166,7 +166,7 @@ export namespace foundation::ui
         /// Parse a color argument inside a function call (for drawable factories).
         Color ParseColorArg() { return ParseColorValue(); }
 
-        /// Parse 1-4 numbers into per-corner radii (ui-theme-migration.md P0b): one value =
+        /// Parse 1-4 numbers into per-corner radii: one value =
         /// uniform; four = top-left, top-right, bottom-right, bottom-left (CSS order).
         vg::CornerRadii ParseCornerRadiiValue()
         {
@@ -609,8 +609,8 @@ export namespace foundation::ui
                 MatchComma();
                 result = ColorFunctions::Mix(a, b, ParseFloatValue());
             }
-            // State derivations (ui-theme-migration.md P0c): the SAME Palette::Compute* math
-            // the C++ themes used, so migrated sheets keep identical state colors - including
+            // State derivations: the SAME Palette::Compute* math
+            // the C++ themes use, so sheets keep identical state colors - including
             // disabled()'s luminance desaturation, which lighten/darken cannot express.
             else if (name == StringView(u8"hover"))
             {
@@ -1117,9 +1117,9 @@ export namespace foundation::ui
                      const Optional<StringView> svgText = parser.ResolveSvg(name);
                      if (!svgText.HasValue())
                      {
-                         // Builtin fallback (ui-theme-migration.md P0a): the 10 chrome glyph
+                         // Builtin fallback: the 10 chrome glyph
                          // names resolve through ThemeIconSet - so cooked/runtime themes work
-                         // WITHOUT a host-side name registration (they used to silently null
+                         // WITHOUT a host-side name registration (which would otherwise null
                          // here), and sheets share the pixel-snapped BAKED instances instead
                          // of fresh live-vector parses.
                          if (Optional<ThemeIcon> builtin = ThemeIconFromName(name);

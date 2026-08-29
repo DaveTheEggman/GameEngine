@@ -1,11 +1,10 @@
 // Foundation::Input - reflection implementation unit: the input-map LEAF value types + enums.
 //
-// Reflected in their owning module (foundation.input) so the input types stop being tooling-
-// invisible (reflection track P2). This unit covers the FLAT-SCALAR leaves - Binding,
+// Reflected in their owning module (foundation.input) so the input types are visible to
+// tooling. This unit covers the FLAT-SCALAR leaves - Binding,
 // Interaction, ActionProcessors - and the enums (BindingSource/ActionKind/InteractionKind).
 // The CONTAINER structs above them (Action/ActionSet/InputMap, nested Array<> lists) reach these
-// leaves via container reflection + a Nested member on the asset; that tree + its list-editor
-// rendering is a later step (see docs/design/reflection-track.md). REFLECT_* bodies live
+// leaves via container reflection + a Nested member on the asset. REFLECT_* bodies live
 // out of the interface (GCC module hygiene). RegisterInputTypeReflection() is idempotent.
 
 module;

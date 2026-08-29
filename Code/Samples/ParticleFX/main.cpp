@@ -1,8 +1,8 @@
 // ParticleFX - the particle-system showcase. Builds a ParticleEffect in code (an additive fountain),
 // attaches it to an entity via ParticleEffectComponent, and lets engine.particles tick the
 // CPU sim + draw the billboards through the dedicated ParticleRenderer. Phase 2 of the particle track
-// (docs/design/particles.md): CPU sim on the existing extract->resolve->draw pipeline. GPU-compute sim,
-// trails, mesh particles, and the cooked resource/editor land in later phases.
+// CPU sim on the existing extract->resolve->draw pipeline. GPU-compute sim,
+// trails, mesh particles, and the cooked resource/editor are not implemented.
 
 #include "Core/Prelude.h"
 #include "imgui.h"

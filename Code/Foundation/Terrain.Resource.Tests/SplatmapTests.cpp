@@ -1,4 +1,4 @@
-// SplatWeights (top-K splat model, terrain-splat-topk.md): the pure brush cores + migration.
+// SplatWeights (top-K splat model): the pure brush cores + migration.
 // Headless (no RHI): PaintTopK convexity (sum + base == 1 within quantum), slot selection
 // (existing -> free -> evict-min), full-paint one-hot convergence, EraseTopK reveals base,
 // dirty-rect bounds, version bumps, and the legacy-splatmap converter (renormalized - R2).

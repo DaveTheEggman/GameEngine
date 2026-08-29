@@ -49,7 +49,7 @@ export namespace editor
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
         // ---- brush parameters (the tool panel + the page's palette list drive these) ----
-        /// Select a PALETTE layer to paint (0..255; the palette is unbounded, terrain-splat-topk.md).
+        /// Select a PALETTE layer to paint (0..255; the palette is unbounded).
         void SetPaletteIndex(u32 index) noexcept
         {
             m_paletteIndex = Min(index, 255u);

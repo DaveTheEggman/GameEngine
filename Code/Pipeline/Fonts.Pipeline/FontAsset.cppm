@@ -385,7 +385,7 @@ export namespace pipeline{
     };
 
     // Registers the FontBakeMode enum reflection (idempotent). FontAsset's own reflection body is
-    // its StaticType(), defined in FontAssetImpl.cpp. Reflection track P1.
+    // its StaticType(), defined in FontAssetImpl.cpp.
     void RegisterFontAssetReflection();
 
     // Registers FontAsset for content-DB construction + deserialization.

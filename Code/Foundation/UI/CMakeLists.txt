@@ -7,8 +7,8 @@ add_library(Foundation::UI ALIAS UI)
 target_link_libraries(UI
     PUBLIC Foundation::Core Foundation::VG Foundation::VG.SVG Foundation::Fonts Foundation::Image Foundation::Policy Foundation::Xml)
 
-# Embed the built-in .sss themes as generated module partitions (ui-theme-migration.md:
-# edit the .sss, configure re-embeds; CONFIGURE_DEPENDS makes touching the .sss reconfigure).
+# Embed the built-in .sss themes as generated module partitions (edit the .sss,
+# configure re-embeds; CONFIGURE_DEPENDS makes touching the .sss reconfigure).
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Styling/Themes/dark.sss UI_DARK_THEME_SSS)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Styling/Themes/light.sss UI_LIGHT_THEME_SSS)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/Styling/Themes/rounded-dark.sss UI_ROUNDED_DARK_THEME_SSS)

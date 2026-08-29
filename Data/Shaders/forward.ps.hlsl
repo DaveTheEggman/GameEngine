@@ -30,14 +30,14 @@ StructuredBuffer<GpuLight> Lights : register(t0, space0);
 Texture2DArray         ShadowMap     : register(t1, space0);
 SamplerComparisonState ShadowSampler : register(s0, space0);
 
-// IBL (phase 6): SH9 diffuse irradiance coeffs (t5), prefiltered specular cube (t6), BRDF LUT (t7),
+// IBL: SH9 diffuse irradiance coeffs (t5), prefiltered specular cube (t6), BRDF LUT (t7),
 // + a linear env sampler (s1). Diffuse uses spherical harmonics (no irradiance cube). Active only
 // when IBLMaxLod >= 0 (else the neutral dummies are bound and the flat-ambient path runs).
 StructuredBuffer<float4> IblSH       : register(t5, space0);
 TextureCube              PrefilterMap : register(t6, space0);
 Texture2D                BRDFLut      : register(t7, space0);
 SamplerState             EnvSampler   : register(s1, space0);
-// Reflection probes (P2-P4): a cube-ARRAY of prefiltered probe radiance (t8) + a probe metadata buffer
+// Reflection probes: a cube-ARRAY of prefiltered probe radiance (t8) + a probe metadata buffer
 // (t9). ProbeCenter.w carries the probe COUNT; the forward loops Probes[0..count], box-tests + parallax-
 // projects + blends each by an influence weight (blendDistance falloff) over the global IBL.
 TextureCubeArray         ProbeArray   : register(t8, space0);
@@ -391,7 +391,7 @@ float4 main(PSInput input) : SV_Target0 {
         float3 diffuseIBL = kD * albedo * (EvalSH9(N) / PI);     // EvalSH9 -> irradiance E; Lambertian = albedo/pi * E
         float3 R     = reflect(-V, N);
         float3 prefiltered = PrefilterMap.SampleLevel(EnvSampler, R, roughness * IBLMaxLod).rgb;
-        // Reflection probes (P4): loop the active probes, and for each whose box contains the fragment,
+        // Reflection probes: loop the active probes, and for each whose box contains the fragment,
         // box-project the reflection ray (parallax) + sample its prefiltered cube at roughness*maxLod, then
         // blend all by an influence weight that fades to 0 over blendDistance near the box edge (soft seam).
         // The accumulated probe reflection blends over the global IBL by the total weight (parallax = Lagarde

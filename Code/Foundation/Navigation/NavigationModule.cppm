@@ -1,6 +1,6 @@
 // Foundation::Navigation - the `foundation.navigation` module.
 //
-// The navmesh core over vendored recastnavigation (Documentation/Plans/navigation.md):
+// The navmesh core over vendored recastnavigation:
 // the Recast BAKE (triangle soup + agent profile -> serialized single-tile navmesh) and
 // the Detour RUNTIME (navmesh load, path query, agent crowd + local avoidance). Recast
 // and Detour are the committed backends with NO abstraction layer, but rc*/dt* types

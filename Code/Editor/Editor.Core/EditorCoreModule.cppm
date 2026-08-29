@@ -1,6 +1,6 @@
 // Editor::Core - the `editor.core` module.
 //
-// The HEADLESS editor domain layer (docs/design/editor.md §3.1): EditorContext + registries,
+// The HEADLESS editor domain layer: EditorContext + registries,
 // the IEditorCommand/EditorCommandStack undo spine, the EditorPage document model, the
 // Selection sets, and the EditorProject (manifest + source/cooked content databases). No UI
 // imports - fully unit-testable; the UI shell lives in editor.app, and per-subsystem
@@ -17,7 +17,7 @@ export import :project_manager;
 export import :page;
 export import :context;
 export import :cook_service;
-export import pipeline.importer; // the import framework moved to Pipeline (MCP P1 opening step)
+export import pipeline.importer; // the import framework lives in Pipeline
 export import :log_buffer;
 export import :job_service;
 export import :thumbnail_service;

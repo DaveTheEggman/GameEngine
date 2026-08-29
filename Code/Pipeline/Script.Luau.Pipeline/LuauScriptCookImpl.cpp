@@ -225,7 +225,7 @@ namespace pipeline{
             }
 
             // Luau bytecode is version-locked: fold the vendored bytecode version into the cook
-            // fingerprint so a vendor bump recooks every Luau script pack (luau-backend.md).
+            // fingerprint so a vendor bump recooks every Luau script pack.
             [[nodiscard]] u32 CookVersion() const override { return LuauBytecodeVersion(); }
 
             [[nodiscard]] bool Cook(StringView source, StringView assetName,
@@ -235,7 +235,7 @@ namespace pipeline{
                 out.sourceName = String(assetName); // the source file identity (breakpoint key)
                 out.source = String(source);
 
-                // B3: the harvest VM comes from the registry, by LANGUAGE.
+                // The harvest VM comes from the registry, by LANGUAGE.
                 RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"luau");
                 if (manager.Get() == nullptr)
                 {
@@ -268,7 +268,7 @@ namespace pipeline{
                 out.handlers = ScanScriptHandlers(source);
                 out.usesCoroutines = ScriptReferencesCoroutineStart(source);
 
-                // Bytecode into the pack: the player loads bytecode only (no compiler shipped).
+                // Bytecode into the pack: the player loads bytecode only; it has no compiler.
                 // The source already compiled (Load above), so this succeeds; store the serialized
                 // blob so the runtime reconstructs it via IScriptManager::CreateBlob + LoadBlob.
                 // (The source stays on the record for dev-mode hot reload.)

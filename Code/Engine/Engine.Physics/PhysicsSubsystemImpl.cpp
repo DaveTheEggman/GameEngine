@@ -338,7 +338,7 @@ namespace engine::physics
     // THAT scene's world (the explicit-scene replacement for the retired static Physics facade).
     // Reflected with authored parameter names (A6). The `of` factory returns ScenePhysics by value
     // (concrete return type - cross-backend, no ReturnType-override needed).
-    // The explicit ray-hit result (script-surface-of.md P0): value handle carrying the whole
+    // The explicit ray-hit result: value handle carrying the whole
     // answer; entity()/impulse() resolve live state at call time.
     REFLECT_VALUE(RayCastHit, "rtti::engine::physics")
     {
@@ -393,7 +393,7 @@ namespace engine::physics
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<RayCastHit>());
         foundation::script::RegisterExtraFacadeName(u8"RayCastHit");
         // ScenePhysics.overlapSphere returns Array<Entity>, which crosses as a native array<Entity> /
-        // Lua table (script-array-returns.md). Patch the container TypeInfo so the backend renders it;
+        // Lua table. Patch the container TypeInfo so the backend renders it;
         // no script root / facade name - a native array is not a boxed handle type.
         core::RegisterArrayType<foundation::script::Entity>();
         RttiRegisterValue_ScenePhysics();

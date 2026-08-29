@@ -3,7 +3,7 @@
 // IScriptContext: an isolated script execution environment. Everything crossing
 // the boundary uses Core's reflection currency - Variant for values/objects,
 // TypeInfo for types - so the interface is VM-agnostic. Backends (Lua, ...) are
-// plugins implementing this; see Documentation/Planning.
+// plugins implementing this.
 
 module;
 #include "Core/Prelude.h"

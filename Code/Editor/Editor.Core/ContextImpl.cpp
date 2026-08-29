@@ -4,7 +4,7 @@
 // EditorContext, Traktor's IEditor). Holds the open project, the registries, the open pages +
 // active page, the global asset selection, and the status sink. Per-subsystem editor modules
 // register their factories here from RegisterEditor(EditorContext&);
-// the statically-assembled editor executable calls those entry points (design doc §3.1).
+// the statically-assembled editor executable calls those entry points.
 
 module;
 #include "Core/Prelude.h"

@@ -1,16 +1,15 @@
 /// Foundation::Render - the `:probes` partition.
 ///
-/// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections
-/// (docs/design/reflection-probes.md). This system owns the per-probe GPU resources and (in later
-/// sub-phases) drives capture + prefilter + froxel assignment:
+/// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections.
+/// This system owns the per-probe GPU resources and drives capture + prefilter + froxel assignment:
 ///   - captured cube-ARRAY (RGBA16F, [maxProbes×6] layers)   : the raw 6-face scene capture per probe.
 ///   - prefiltered specular cube-ARRAY (RGBA16F, mip chain)  : GGX split-sum per probe, sampled by the
 ///                                                             forward (set 0, t8) with parallax.
 ///   - probe-metadata StructuredBuffer (GpuProbe[])          : center/box/blend/slice, sampled per froxel.
 ///
 /// A stable ProbeKey (entity id) → slot map keeps a probe's array slice persistent across frames, so only
-/// dirty probes re-capture (static caching). This sub-phase (P1a) allocates the resources + the slot
-/// assignment; capture, prefilter, and the debug view land in P1b/P1c.
+/// dirty probes re-capture (static caching). This system allocates the resources + the slot
+/// assignment and drives capture, prefilter, and the debug view.
 
 module;
 #include "Core/Prelude.h"
@@ -130,7 +129,8 @@ export namespace foundation::render
         rendergraph::RGHandle ImportPrefiltered(rendergraph::RenderGraph& graph);
 
         // Bridge captured -> prefiltered for one slot's 6 faces (mip 0), correcting the RH-LookAt horizontal
-        // mirror via a flip blit (sharp for now; a GGX roughness convolution replaces this later). One render
+        // mirror via a flip blit (mip 0 stays sharp - roughness 0; DeclarePrefilter GGX-convolves the
+        // rougher mips). One render
         // pass per face samples the captured cube-array and writes the prefiltered layer; the graph orders
         // capture-write -> blit-read + blit-write -> forward-read.
         void DeclareBlit(rendergraph::RenderGraph& graph, rendergraph::RGHandle capturedH,
@@ -142,8 +142,8 @@ export namespace foundation::render
         void DeclarePrefilter(rendergraph::RenderGraph& graph, rendergraph::RGHandle prefilteredH,
                               u32 slot);
 
-        // Resources (consumed by the forward in P2, and by capture/prefilter in P1b/c).
-        // The captured cube-ARRAY as a sample view (set-0 t8; P2 samples this directly, sharp mip 0). Reuses
+        // Resources (consumed by the forward, and by capture/prefilter).
+        // The captured cube-ARRAY as a sample view (set-0 t8; the forward samples this directly, sharp mip 0). Reuses
         // the whole-array view used for the render-target import - a stable, single-allocation view.
         [[nodiscard]] rhi::TextureView* CapturedSampleView() const noexcept;
         [[nodiscard]] rhi::TextureView* PrefilterArrayView() const noexcept;

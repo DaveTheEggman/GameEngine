@@ -20,8 +20,8 @@ export namespace foundation::ui
     {
         /// Positions a child's MARGIN BOX of (boxW, boxH) inside a container of (containerW,
         /// containerH). Returns the margin-box (x, y, w, h) - View::Layout insets to the border
-        /// box, so gravity math no longer needs the margin itself (ui-box-model.md P2b; the old
-        /// margin-aware form produced identical border-box results, derivation in the spec).
+        /// box, so gravity math does not need the margin itself (a margin-aware form would
+        /// produce identical border-box results).
         [[nodiscard]] static Rectangle Apply(Gravity gravity, f32 containerW, f32 containerH,
                                              f32 boxW, f32 boxH) noexcept
         {

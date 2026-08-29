@@ -1,6 +1,6 @@
 // Pipeline::Script.Luau - the `script.luau.pipeline` module (tooling).
 //
-// The Luau cook service (scripting.md 5 + 7.5; luau-backend.md P3): compile-checks a Luau
+// The Luau cook service: compile-checks a Luau
 // behavior in a cooker-owned Luau VM (resolved through the backend registry by language),
 // harvests editor properties by CONSTRUCTING the class and walking the instance's fields
 // (the Luau harvest model - table-walk), compiles the

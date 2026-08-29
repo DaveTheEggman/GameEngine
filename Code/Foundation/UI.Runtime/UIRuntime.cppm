@@ -483,7 +483,7 @@ export namespace foundation::ui::runtime
 
             m_ctx.BeginFrame(deltaTime);
 
-            // === The damage gate (ui-core-audit P1b/P4) ===
+            // === The damage gate ===
             // One frame-scoped decision for ALL windows: when nothing invalidated (and no
             // window resized / changed scale), skip layout AND the draw-tree walk this frame -
             // RenderWindow re-encodes the RETAINED VG batch, so the present pipeline is

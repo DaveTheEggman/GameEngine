@@ -1,6 +1,6 @@
 // Editor::Audio - the `:bus_layout_page` partition.
 //
-// AudioBusLayoutPage (editor-pages-gap.md, bespoke pass #6): the mixer editor. A bus TREE on the
+// AudioBusLayoutPage: the mixer editor. A bus TREE on the
 // left (the four fixed buses - Master with Effects/Music/UI under it - plus the used custom-bus
 // slots parented by name) and a per-bus inspector on the right (volume/mute + the lowpass/
 // highpass/delay/reverb effect fields; custom buses also edit name + parent and can be removed).

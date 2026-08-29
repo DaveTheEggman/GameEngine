@@ -8,7 +8,7 @@
 //
 // This lives in its OWN library - separate from foundation.runtime.client - precisely
 // so the base client never pulls in the engine subsystem libraries. It registers ALL
-// standard gameplay subsystems (runtime-host.md v3: the editor embeds THIS same class
+// standard gameplay subsystems (the editor embeds THIS same class
 // against its runtime context, so subsystem registration lives here, not in entry
 // points) and owns the GAME-SCRIPT lifecycle (the `Game` class bracket) - the
 // player and the editor's Game tab both consume it instead of hand-rolling copies.
@@ -102,7 +102,7 @@ export namespace engine::runtime
         // Registers ALL standard engine subsystems. A game subclass overrides this,
         // calls DefaultApplication::Configure(host) first, then adds its own. Entry
         // points (player, editor) do NOT register gameplay subsystems - this is the
-        // one place (runtime-host.md v3).
+        // one place.
         void Configure(IApplicationHost& host) override;
 
         [[nodiscard]] engine::script::ScriptSubsystem* Scripts() const noexcept;
@@ -117,7 +117,7 @@ export namespace engine::runtime
         [[nodiscard]] foundation::scene::SceneManager& PrimaryScenes() noexcept;
 
         /// Create an ADDITIONAL running game (multi-instance PIE / an in-editor headless dedicated
-        /// server, game-instance.md §11 / networking.md). Wired like the primary - its scene group ticks
+        /// server). Wired like the primary - its scene group ticks
         /// on the Context lane and its run host gets the app services. Stable address (UniquePtr), so the
         /// SceneSubsystem's borrowed manager pointer stays valid. Returns null before Configure ran.
         [[nodiscard]] GameInstance* CreateInstance(bool headless = false);
@@ -138,9 +138,9 @@ export namespace engine::runtime
         /// The primary instance's live endpoint (null when offline / single-player).
         [[nodiscard]] net::NetworkManager* Net() const noexcept { return m_instance.NetEndpoint(); }
 
-        // Networking's per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate
-        // (networking-extraction.md P3); the app no longer overrides OnFixedUpdate for it (the base
-        // app-level fixed hook stays available for other apps).
+        // Networking's per-frame transport pump lives in engine::net::NetworkSubsystem::PostUpdate;
+        // the app does not override OnFixedUpdate for it (the base app-level fixed hook stays
+        // available for other apps).
         /// Preset BEFORE Configure: audio engine tuning (listener count for split-screen,
         /// voice pool sizes). Defaults suit a single-listener game.
         void SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings);
@@ -200,8 +200,8 @@ export namespace engine::runtime
         [[nodiscard]] bool GameScriptRunning() const noexcept { return m_instance.ScriptRunning(); }
 
         // Default render: draw every active scene into the window via the RenderSubsystem.
-        // A game overrides this for custom rendering. (Single-scene for now - multiple
-        // active scenes would each clear; compositing is a later concern.)
+        // A game overrides this for custom rendering. (Single-scene: multiple
+        // active scenes would each clear; compositing is not handled here.)
         void OnRenderWindow(IApplicationHost& host, FrameContext& frame) override;
 
     protected:
@@ -262,7 +262,7 @@ export namespace engine::runtime
         core::UniquePtr<foundation::resource::ResourceManager> m_ownedResources;
         engine::input::InputSubsystem* m_input = nullptr;
         engine::ui::UISubsystem* m_ui = nullptr;
-        // Backs the `ui` script facade (game-ui-kit P1): a binding pointing at the UISubsystem's
+        // Backs the `ui` script facade: a binding pointing at the UISubsystem's
         // screen-tier root + ScreenStack + a cooked-UIDocument instantiator, installed on every run
         // context by the context configurator. App-owned (the screen tier is app-wide).
         engine::uiscript::UiScreenScriptBinding m_uiScreenBinding;
@@ -290,7 +290,7 @@ export namespace engine::runtime
         }
 
         // The client-side prefab net-spawn resolver injected onto every GameInstance's NetworkController
-        // (networking-extraction.md P4): a replicated prefab id -> a live prefab from the content DB
+        // a replicated prefab id -> a live prefab from the content DB
         // (replication then applies the transform + fields on top). The server assigns ids; game rules
         // set relevancy. The controller applies it to each endpoint, so reconnect keeps it - the app just
         // hands it over once at wiring (it needs the content DB), no longer wiring the endpoint itself.

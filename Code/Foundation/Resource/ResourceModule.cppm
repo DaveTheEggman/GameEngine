@@ -113,7 +113,7 @@ export namespace foundation::resource
 
     // =======================================================================
     // Ref<T> - the SERIALIZABLE resource reference components hold (the asset
-    // pipeline's §8 layer). Identity is a Guid (written by Serialize); at runtime
+    // pipeline's layer). Identity is a Guid (written by Serialize); at runtime
     // Bind() attaches a Proxy so hot reload's handle Replace() is visible to every
     // holder. Code-created resources (samples, procedural) assign a RefPtr<T>
     // directly - the direct object wins over the proxy and is never serialized.

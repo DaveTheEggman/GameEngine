@@ -42,7 +42,7 @@ export namespace foundation::geometry
         Array<SubMesh> subMeshes;
         AABB bounds = AABB::Empty();
 
-        // LOD chain (mesh-lod.md P1). LOD 0 IS `subMeshes` (every pre-LOD consumer keeps
+        // LOD chain. LOD 0 IS `subMeshes` (every pre-LOD consumer keeps
         // working untouched). Coarser levels reuse the SHARED vertex buffer and store their
         // own index ranges inside the ONE index buffer (concatenated after LOD 0's);
         // `lodSubMeshes` holds levels 1..lodCount-1 flattened as

@@ -147,7 +147,7 @@ export namespace engine::navigation
 
                     if (a.moveEntity && a.hasTarget)
                     {
-                        // NOTE (P1): assumes an unparented agent (local transform == world). A
+                        // NOTE: assumes an unparented agent (local transform == world). A
                         // parented agent would need a world->parent-local conversion.
                         Transform t = m_scene->GetLocalTransform(entity);
                         t.position = worldPos;

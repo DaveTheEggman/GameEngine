@@ -167,7 +167,7 @@ TEST_CASE("tree-view: SetAdapter_Twice_RebuildsSafely")
     REQUIRE(tv->FlatAdapter() != nullptr);
 }
 
-// Regression (editor shutdown segfault): SetAdapter(nullptr) must DETACH - it used to build a
+// Regression (editor shutdown segfault): SetAdapter(nullptr) must DETACH - it must not build a
 // FlattenedTreeAdapter over the null source and dereference it. Owners call it from their
 // destructors so a view can't outlive an adapter it doesn't own.
 TEST_CASE("tree-view: SetAdapter_Null_Detaches")

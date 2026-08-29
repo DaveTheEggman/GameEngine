@@ -1,7 +1,7 @@
 // Foundation::Fonts.Baked - the `foundation.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:
-// shipped games get every glyph + region from disk (resource deserialization)
+// a packaged game gets every glyph + region from disk (resource deserialization)
 // and never touch stb_truetype. Ported from Sedulous.Fonts.Baked
 // (BakedFont.bf, BakedFontAtlas.bf) - its own library, matching Sedulous.
 
@@ -159,7 +159,7 @@ export namespace foundation::fonts
         }
 
         // Take ownership of a `width * height`-byte single-channel buffer,
-        // replacing any previously held one.
+        // replacing any buffer currently held.
         void SetPixels(u32 width, u32 height, Array<u8>&& takenPixels)
         {
             m_width = width;

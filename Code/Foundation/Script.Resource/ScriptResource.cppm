@@ -1,6 +1,6 @@
 // Foundation::Script.Resource - the `foundation.script.resource` module.
 //
-// Cooked script classes (docs/design/scripting.md §4): a ScriptClass is SOURCE TEXT +
+// Cooked script classes: a ScriptClass is SOURCE TEXT +
 // harvested metadata - never bytecode (source-only backends have no stable serialized form; compilation
 // is fast and happens per script CONTEXT on first use, cached there).
 //   * ScriptClassSource - the cooked record: language + class name + source + the
@@ -215,7 +215,7 @@ export namespace foundation::script
         String sourceName; // the source file identity ("Mover.as"): the AngelScript section
                            // name + the editor's breakpoint key - cook-stamped = asset fileName
         String source;     // full script source text (kept for dev-mode hot reload)
-        // Compiled bytecode for the pack (the player loads this, no compiler shipped), when the
+        // Compiled bytecode for the pack (the player loads this, it has no compiler), when the
         // language has a stable bytecode (ScriptCapabilities::Bytecode - Luau) and it cooked;
         // EMPTY for source-only backends or a cook that produced none. Version-locked:
         // the cook fingerprint carries the compiler version so a vendor bump recooks.

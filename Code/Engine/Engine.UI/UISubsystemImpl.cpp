@@ -915,13 +915,13 @@ namespace engine::ui
         foundation::shell::IMouse* mouse = devices.Mouse();
         InputManager& inputManager = *m_context.GetInputManager();
 
-        // Per-surface scene binding (game-ui.md §9 known edge): which scene roots may
+        // Per-surface scene binding: which scene roots may
         // this frame's input reach? A BOUND source (the editor's Game tab binds its
         // scene on Play) confines routing + consumption to ITS scene's root - two
-        // interactive scenes visible at once can no longer cross-route on overlapping
+        // interactive scenes visible at once cannot cross-route on overlapping
         // coordinates. An UN-BOUND source follows the input subsystem's policy:
-        // AllScenes in the player (the shell owns the whole window - the historical
-        // behavior), ScreenTierOnly in the editor's embedded runtime, where editing-
+        // AllScenes in the player (the shell owns the whole window),
+        // ScreenTierOnly in the editor's embedded runtime, where editing-
         // page HUDs render WYSIWYG but are deliberately NOT interactive (Simulate
         // included - the Game tab is the interactive-run surface). The scene-LESS
         // screen tier is never confined: global overlays sit above every scene and
@@ -1159,7 +1159,7 @@ namespace engine::ui
             }
         }
 
-        // ---- keyboard + text (game-ui.md P3): the tagged event stream off the SAME
+        // ---- keyboard + text: the tagged event stream off the SAME
         // provider seam - ordered key events and TextInput payloads that polling cannot
         // carry. The bridge applies the standard shell->UI key mapping (Return stays
         // dispatch-first) and reconciles the IME after every event; mouse/pad kinds are
@@ -1183,7 +1183,7 @@ namespace engine::ui
         // click (gamepad navigation onto/off an EditText).
         m_bridge.SyncTextInput();
 
-        // ---- gamepad focus navigation (game-ui.md P2): dpad/left stick move focus
+        // ---- gamepad focus navigation: dpad/left stick move focus
         // through the framework's geometric MoveFocus; South = Submit (synthesized
         // Return - the existing dispatch-first activation path), East = Cancel
         // (synthesized Escape). Hold-repeat: 0.4s initial, 0.12s after. The pad is
@@ -1313,7 +1313,7 @@ namespace engine::ui
                 {
                     if (c.root.Get() != nullptr)
                     {
-                        // Gone also removes it from hit-testing (entity-active-state.md P3).
+                        // Gone also removes it from hit-testing.
                         c.root->Visibility = (c.visible && scene.IsEffectivelyActive(e))
                                                  ? VisibilityValue::Visible
                                                  : VisibilityValue::Gone;
@@ -1490,7 +1490,7 @@ namespace engine::ui
         renderer->Render(encoder, viewportX, viewportY, width, height, frameIndex, slice);
     }
 
-    // RenderTexture canvases (game-ui.md P3): draw each RT canvas's standalone root into
+    // RenderTexture canvases: draw each RT canvas's standalone root into
     // its subsystem-owned offscreen texture. Runs on the HOST's encoder BEFORE the scene
     // render (the RenderCanvasTextures seam next to EnsureRenderReady/RenderOverlays),
     // so materials sampling the texture see this frame's UI. Targets are created and

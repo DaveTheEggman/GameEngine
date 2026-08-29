@@ -1,4 +1,4 @@
-// Integration.Mcp - script_validate (mcp-agent-access.md P1 item 7, compile-check form). The
+// Integration.Mcp - script_validate (compile-check form). The
 // strongest cheap proof: every enabled backend's OWN New-Asset starter must validate through
 // the tool with its metadata harvested (class name + handlers recognized), and broken source
 // must come back with real line-numbered compile errors.

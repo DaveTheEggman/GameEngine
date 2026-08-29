@@ -1,6 +1,6 @@
 // Editor::Core - :cook_service partition.
 //
-// EditorCookService: the in-editor face of the cook driver (asset-pipeline design §6). Owns the
+// EditorCookService: the in-editor face of the cook driver. Owns the
 // project's sources/.cache mounts + a CookDriver over the project DBs, and runs cooks on a
 // BACKGROUND thread (one at a time - Traktor's build lock): the UI stays live, progress
 // messages queue through a mutex and drain on the main thread via Update(). Cook badges give

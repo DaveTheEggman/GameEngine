@@ -439,7 +439,7 @@ namespace foundation::script::angelscript
 
     // Max arguments a reflected facade method / script call marshals (fixed-size temp arrays below).
     // 16, not 8: facade methods take flat scalar args and can exceed 8 (e.g. DebugDraw.line = 6
-    // coords + 3 color = 9); an over-cap call used to silently truncate its trailing args.
+    // coords + 3 color = 9); a smaller cap silently truncates an over-cap call's trailing args.
     inline constexpr int kMaxArgs = 16;
 
     // Every reflected instance held by script: a refcounted box around a Variant.
@@ -479,7 +479,7 @@ namespace foundation::script::angelscript
             // Container-member ops, registered as methods on the OWNER (`behaviors_at(uint)` etc.):
             // computed transiently on `self` each call, so an object element handle comes back OWNED
             // (a boxed dynamic-type Variant). `property` is the container member. Non-Object value
-            // elements (reached only by address) are not surfaced here - that is the borrow follow-up.
+            // TODO: surface non-Object value elements (reached only by address); not surfaced here.
             ContainerCount,
             ContainerAt,
             ContainerAdd,
@@ -563,7 +563,7 @@ namespace foundation::script::angelscript
             m_stringTypeId = m_engine->GetTypeIdByDecl("string");
             // The native `array<T>` type. `defaultArray=true` also enables the `T[]` sugar. A facade
             // that returns an engine Array<T> is rendered as a CScriptArray on the way out
-            // (SetGenericReturn / BuildScriptArray); see script-array-returns.md.
+            // (SetGenericReturn / BuildScriptArray).
             RegisterScriptArray(m_engine, true);
             RegisterCoroutineSurface();
             RegisterDelegateSurface();
@@ -838,7 +838,7 @@ namespace foundation::script::angelscript
         // The AngelScript behavior module: just the concatenated class sources. AngelScript
         // needs NO import prelude - reflected types and the coroutine surface (startCoroutine/
         // wait) are registered engine-globally, so every reflected type is already visible.
-        // This keeps the language framing in the backend, off the neutral libs (§7.5).
+        // This keeps the language framing in the backend, off the neutral libs.
         [[nodiscard]] core::String
         AssembleBehaviorModuleSource(core::Span<const core::StringView> classSources) const override
         {
@@ -1299,7 +1299,7 @@ namespace foundation::script::angelscript
         // Engine container Variant (Array<T>) -> a native CScriptArray of `arrType` (the declared
         // `array<Elem>` return). Each element is walked via reflection getAt: an object/handle element
         // is a refcounted box (SetValue AddRefs, the local ref is then dropped so the array owns the
-        // only one); a numeric element is copied width-matched. See script-array-returns.md.
+        // only one); a numeric element is copied width-matched.
         [[nodiscard]] CScriptArray* BuildScriptArray(asITypeInfo* arrType,
                                                      const core::TypeInfo& containerType,
                                                      const core::Variant& value) const
@@ -1914,9 +1914,9 @@ namespace foundation::script::angelscript
                 return true;
             }
             // A reflected container (Array<T>): the native `array<Elem>@`. The element reuses its own
-            // spelling (`Entity@`, `int`, `string`, ...). Only the RETURN position is wired today (a
-            // facade returning a set); a container is never a facade parameter yet, but the element
-            // must be spellable either way. See script-array-returns.md.
+            // spelling (`Entity@`, `int`, `string`, ...). Only the RETURN position is wired (a
+            // facade returning a set); a container is never a facade parameter, but the element
+            // must be spellable either way.
             if (core::IsContainer(*type))
             {
                 const core::TypeInfo* elem = type->container->elementType;
@@ -2811,7 +2811,7 @@ namespace foundation::script::angelscript
         // that kept its debug info + sourceName section, so breakpoints still line up). Classes
         // WITHOUT bytecode (freshly authored, not yet cooked) build together into one combined
         // module, each in its own section named by its sourceName - GetLineNumber then reports
-        // (sourceFile, sourceLine) (script-debugger.md P1.5). CreateInstance/FindFunction search
+        // (sourceFile, sourceLine). CreateInstance/FindFunction search
         // ALL owned modules newest-first, so the bytecode/source split is transparent to callers.
         core::Status LoadBehaviorModule(core::Span<const BehaviorModuleClass> classes,
                                         core::StringView moduleName) override

@@ -1,7 +1,7 @@
 // Editor::Scene - :inspector partition.
 //
 // SceneInspectorView: the reflection-driven property inspector INSIDE a scene page (per-page,
-// like everything scene-scoped; §3.5). A toolkit PropertyGrid rebuilt from the primary
+// like everything scene-scoped). A toolkit PropertyGrid rebuilt from the primary
 // selection: an Entity section (name / active), a Transform section (position / rotation-as-
 // euler-degrees / scale), and one category per component with rows auto-generated from the
 // component type's reflected properties (f32, ints, bool, String, Float3, Color, enums via the
@@ -55,8 +55,8 @@ export namespace editor
     namespace ui = foundation::ui;
     namespace scene = foundation::scene;
 
-    // A property row for resource::Ref fields, backed by the composite AssetPickerSlot
-    // (asset-picker-slot.md): [type icon | name (click = picker) | Edit | Clear]. Affordances
+    // A property row for resource::Ref fields, backed by the composite AssetPickerSlot:
+    // [type icon | name (click = picker) | Edit | Clear]. Affordances
     // render only when their callback is wired, so non-asset consumers (the entity-ref twin)
     // degrade to a plain name button. The value text refreshes from the ref's Guid each frame;
     // "(none)" (AssetNameFor's nil spelling) marks the slot empty.

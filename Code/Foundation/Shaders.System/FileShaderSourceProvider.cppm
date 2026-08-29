@@ -1,7 +1,7 @@
 /// Foundation::Shaders.System - the `:file_provider` partition.
 ///
 /// The DEV IShaderSourceProvider: engine built-in shaders as real files under the
-/// engine shader root (shaders.md P1). Naming convention: the shader NAME is the
+/// engine shader root. Naming convention: the shader NAME is the
 /// file stem, the stage is the double extension - `tonemap.ps.hlsl` serves
 /// GetVariant("tonemap", Fragment, ...). Shared code lives in `.hlsli` next to
 /// them (the root doubles as the DXC include path).
@@ -56,7 +56,7 @@ export namespace foundation::shaders
             {
                 if (entry.isDirectory)
                 {
-                    continue; // flat root for now; sub-trees can come with growth
+                    continue; // flat root; subdirectories are skipped
                 }
                 ShaderStage stage;
                 core::StringView stem;

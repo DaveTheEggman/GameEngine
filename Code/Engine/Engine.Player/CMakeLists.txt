@@ -1,5 +1,5 @@
 # Engine.Player - the generic game runner (engine + project content + game script; no native
-# game code required). See docs/design/roadmap.md "Milestone: MVP-to-Export".
+# game code required).
 #
 # One runner (PlayerApplication.h), two entry points: Main.cpp on desktop (SDL shell + a device +
 # the blocking runner + CLI args) and WebMain.cpp in the browser (web shell + WebGPU + the rAF

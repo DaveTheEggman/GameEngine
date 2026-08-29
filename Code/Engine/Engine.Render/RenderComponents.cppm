@@ -79,7 +79,7 @@ export namespace engine::render
             nullptr; // previous-frame matrices (motion vectors); null => reuse current
         u32 boneCount = 0;
 
-        // LOD knobs (mesh-lod.md P1, v4). lodBias > 0 switches coarser sooner (each unit
+        // LOD knobs (payload v4). lodBias > 0 switches coarser sooner (each unit
         // halves the effective screen coverage; negative holds detail longer). forceLod
         // pins one level for debug/cinematics (-1 = automatic; clamped to the chain).
         // Copied into MeshRenderData at extraction; selection is per view in the renderer.
@@ -93,8 +93,7 @@ export namespace engine::render
     // per pass (depth, forward, every shadow cascade all read the same buffer). Use it for static crowds /
     // scatter (foliage, props, debris); the per-entity MeshComponent stays for genuinely dynamic objects.
     // `instances` is the CPU source of truth; every mutator bumps `version`, and the renderer re-uploads the
-    // GPU buffer (and extraction recomputes the merged bounds) ONLY when the version changes. See
-    // docs/design/instanced-mesh.md.
+    // GPU buffer (and extraction recomputes the merged bounds) ONLY when the version changes.
     struct InstancedMeshComponent
     {
         foundation::resource::Ref<geometry::StaticMesh> mesh;
@@ -104,8 +103,8 @@ export namespace engine::render
         InstancedMeshComponent() { instances.PushBack(Float4x4::Identity()); }
         // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
         // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
-        // Runtime-only (RefPtr, not serialized) like MeshComponent's: per-submesh material REFS land
-        // with prefabs (phase 7), which owns the model->entity workflow.
+        // Runtime-only (RefPtr, not serialized) like MeshComponent's: per-submesh material REFS are
+        // owned by prefabs, which own the model->entity workflow.
         Array<RefPtr<materials::Material>> submeshMaterials;
         // Per-instance transforms, ENTITY-RELATIVE: instance i draws at instances[i] * entityWorld,
         // so moving the owning entity moves the whole set (extraction composes + caches the world
@@ -121,7 +120,7 @@ export namespace engine::render
         // set per frame by the InstancedSkinningComponent companion (engine.animation). When posePool is
         // non-null the set draws SKINNED, and instance i uses pose (i % poseCount) - so N animated instances
         // cost only M = poseCount palette computes, not N. Borrowed (valid for the frame it's set); null => the
-        // set draws static. The mesh must be a skinned mesh (has a skin stream). See docs/design/instanced-mesh.md SS7.
+        // set draws static. The mesh must be a skinned mesh (has a skin stream).
         const Float4x4* posePool = nullptr;
         const Float4x4* prevPosePool =
             nullptr;       // last frame's palettes (per-bone motion vectors); null => reuse current
@@ -209,7 +208,7 @@ export namespace engine::render
         Spot = 2
     };
 
-    // How a spot/point light's shadow updates (phase 5.4 static caching). Realtime = re-render every
+    // How a spot/point light's shadow updates. Realtime = re-render every
     // frame (default). Static = render once into the cached atlas layer; the caster geometry is assumed
     // not to move (the cache only refreshes if the LIGHT itself moves / changes). Cheap for static scenes.
     enum class ShadowUpdateMode : u32
@@ -227,9 +226,9 @@ export namespace engine::render
         f32 innerAngle = 0.5f; // spot cone inner half-angle (radians)
         f32 outerAngle = 0.6f; // spot cone outer half-angle (radians)
         ShadowUpdateMode shadowUpdate =
-            ShadowUpdateMode::Realtime; // spot/point shadow caching (5.4)
+            ShadowUpdateMode::Realtime; // spot/point shadow caching
         bool enabled = true;
-        bool castsShadows = false; // phase 5 shadow caster
+        bool castsShadows = false; // shadow caster
     };
 
     // A textured billboard on an entity - drawn at the entity's world position, sized in world units,
@@ -307,7 +306,7 @@ export namespace engine::render
             foundation::core::Serialize(ar, "visible", c.visible);
         }
         if (ar.Version() >= 4)
-        { // v4: LOD knobs (mesh-lod.md P1); older payloads keep the auto defaults
+        { // v4: LOD knobs; older payloads keep the auto defaults
             foundation::core::Serialize(ar, "lodBias", c.lodBias);
             foundation::core::Serialize(ar, "forceLod", c.forceLod);
         }
@@ -585,7 +584,7 @@ export namespace engine::render
     };
 
     // ============================================================================================
-    // Post-processing (docs/design/post-processing-config.md): the authored "look" of a scene -
+    // Post-processing: the authored "look" of a scene -
     // exposure/tonemap, bloom, AO, SSR, anti-aliasing. ONE per scene (like EnvironmentSettings),
     // reflected + serialized + inspector-surfaced with no bespoke UI, extracted per frame and
     // applied per view. Defaults MATCH today's RenderSubsystem values, so a scene looks identical
@@ -734,7 +733,7 @@ export namespace engine::render
             vp.taaEnabled = false;
             vp.fxaaEnabled = false;
         }
-        // MSAA is an INDEPENDENT toggle (msaa.md Decision 5): disablePost/disableAa do NOT touch it.
+        // MSAA is an INDEPENDENT toggle: disablePost/disableAa do NOT touch it.
         // The editor viewport forces its own off/2x/4x count here (0 = leave the resolved count).
         if (o.msaaOverride != 0)
         {

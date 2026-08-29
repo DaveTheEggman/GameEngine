@@ -124,7 +124,7 @@ export namespace foundation::content
         Instance* CreateInstance(StringView name, const TypeInfo& primaryType);
 
         // First free name from `base`: `base`, then `base.2`, `base.3`, ... The one
-        // general dedup for New-Asset creators (each used to hand-roll its own, or none).
+        // general dedup for New-Asset creators.
         [[nodiscard]] String UniqueInstanceName(StringView base) const;
         // Same convention for child-group names (probes GetGroup instead).
         [[nodiscard]] String UniqueGroupName(StringView base) const;
@@ -221,7 +221,7 @@ export namespace foundation::content
         // data-stream sidecar of the instance `srcId` in `src`, byte-for-byte. `dest` and the source
         // are expected to share a guid (the variant cook keeps product-guid == source-guid in both
         // DBs), so the re-serialized object is identical. Used to carry platform-INVARIANT cooked
-        // products from the host DB into a per-target DB without re-cooking (asset-variants P2).
+        // products from the host DB into a per-target DB without re-cooking (asset variants).
         // NotFound when `srcId` is unknown in `src`; other failures propagate from write.
         Status CopyContentForward(Instance& dest, ContentDatabase& src, const Guid& srcId);
 

@@ -1,5 +1,4 @@
-// Pipeline::Geometry - implementation unit for the P0 mesh optimization pass
-// (Documentation/Specs/mesh-lod.md).
+// Pipeline::Geometry - implementation unit for the mesh optimization pass.
 //
 // meshoptimizer is included HERE only - the interface stays clean of the vendored
 // header (the module-interface hygiene rule). The pass:

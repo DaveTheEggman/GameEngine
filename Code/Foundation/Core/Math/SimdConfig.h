@@ -5,8 +5,8 @@
 // unit includes this in its own GMF.
 //
 // Backends: SSE2 on x86/x64. Everything else (ARM/NEON, WASM) uses the scalar fallback, which is
-// correct and portable - NEON/WASM-SIMD specializations are a future perf pass, not a correctness
-// gap. The scalar path is also what the equivalence tests validate the SSE path against.
+// correct and portable - NEON/WASM-SIMD specializations are not implemented. The scalar path is
+// also what the equivalence tests validate the SSE path against.
 #pragma once
 
 #if defined(__SSE2__) || defined(_M_X64) || defined(__x86_64__) ||                                 \

@@ -5,7 +5,7 @@
 // retyped from u8) sees a proper enum - IsEnum + named values, so tooling can render a name
 // dropdown instead of a raw integer. REFLECT_ENUM bodies live out of the interface
 // (GCC module hygiene). RegisterMaterialsTypeReflection() is idempotent; wire it from a startup
-// registrar (RegisterMaterialAsset does). Reflection track P1 (the enum-retype payoff).
+// registrar (RegisterMaterialAsset does).
 
 module;
 #include "Core/Prelude.h"

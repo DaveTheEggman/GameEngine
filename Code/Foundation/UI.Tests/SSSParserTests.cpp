@@ -1,10 +1,8 @@
 // Ported from Sedulous.UI.Tests/src/SSSParserTests.bf.
 //
-// With the View cluster landed, the resolution-pipeline tests are now driven end-to-end through a real
+// The resolution-pipeline tests are driven end-to-end through a real
 // UIContext + RootView + TestView (registering "View"/element selectors explicitly, since
-// UITypeRegistry::RegisterBuiltins is deferred until controls exist). Cases that need control classes
-// (Button/CheckBox/ButtonBase: DrawableFactory_StateColors/StateRounded/Svg*, SubtypeMatching_*, Icon_*)
-// remain DEFERRED until those controls are ported.
+// UITypeRegistry::RegisterBuiltins is not implemented while controls are unported).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -482,7 +480,7 @@ TEST_CASE("sss: MultipleRules_SameType")
     CHECK(view->ResolveStyleColor(StyleProperty::TextColor).r == 1.0f);
 }
 
-// === Subtype matching + control-typed drawable factories (un-deferred: controls now exist) ===
+// === Subtype matching + control-typed drawable factories ===
 
 TEST_CASE("sss: SubtypeMatching_ButtonMatchesButtonBase")
 {
@@ -581,7 +579,7 @@ TEST_CASE("sss: TypeSelectors_DoNotLeakAcrossControls")
     CHECK(rr->FillColor.g == doctest::Approx(20 / 255.0f));
 }
 
-// === Ported from Sedulous.UI.Tests (previously deferred) ===
+// === Ported from Sedulous.UI.Tests ===
 
 TEST_CASE("sss: ColorFunction_Darken")
 {
@@ -882,11 +880,11 @@ TEST_CASE("sss: Image_WithTint")
     CHECK(id->Tint.g == 0);
 }
 
-// === P0 theme-migration capabilities (ui-theme-migration.md) ===
+// === Theme capabilities ===
 
 TEST_CASE("sss: svg builtin glyph resolves via ThemeIconSet WITHOUT any registration")
 {
-    // The live-bug fix: cooked/runtime themes used to get a silent null here because only
+    // Cooked/runtime themes must not get a silent null here: without this, only
     // hosts that pre-registered names could resolve svg(close).
     Fixture f(LoadSSS(u8"View { background: svg(close); }"));
     core::RefPtr<TestView> view = f.AddView();

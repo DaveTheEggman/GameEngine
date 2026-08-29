@@ -16,7 +16,7 @@ export namespace foundation::core
 {
     // =======================================================================
     // Object - polymorphic reflection root. Derives from RefCounted, so every
-    // Object is held via RefPtr<Object> (§4.10).
+    // Object is held via RefPtr<Object>.
     // =======================================================================
     class Object : public RefCounted
     {

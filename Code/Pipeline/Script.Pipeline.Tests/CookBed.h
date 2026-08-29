@@ -1,5 +1,5 @@
 // Shared cook harness for the neutral-builder pipeline tests. The ScriptClassAssetBuilder is
-// backend-neutral: it resolves a per-language cook through the registry (B3), so an
+// backend-neutral: it resolves a per-language cook through the registry, so an
 // AngelScript-source test (AngelScriptPipelineTests.cpp) and a Luau-source test
 // (LuauPipelineTests.cpp) drive the SAME source->builder->factory path, each in its own file (no
 // if-deffery). This bed registers every enabled backend's cook so a test of either language cooks;

@@ -1,6 +1,6 @@
 // Editor::Mcp - :scene_tools partition
 //
-// The scene/prefab MCP tools (mcp-agent-access.md P1 RESUME item 1): scene_read / scene_write /
+// The scene/prefab MCP tools: scene_read / scene_write /
 // scene_validate + prefab_read / prefab_write over the XML TEXT sources - files-are-truth, the
 // editor is NOT involved. This is what makes an agent scene-capable headlessly: structural
 // authoring through the same "scene" data stream the editor saves.
@@ -184,7 +184,7 @@ namespace editor::mcp::detail
 
 export namespace editor::mcp
 {
-    /// scene_read / scene_write / scene_validate + prefab_read / prefab_write (P1 item 1).
+    /// scene_read / scene_write / scene_validate + prefab_read / prefab_write.
     inline void RegisterSceneTools(foundation::mcp::McpServer& server, ProjectSession& session)
     {
         using foundation::mcp::SchemaBuilder;

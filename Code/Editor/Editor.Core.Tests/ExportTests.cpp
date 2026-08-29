@@ -1615,7 +1615,7 @@ TEST_CASE("export: TemplateEngineMatches flags a version mismatch, passes host +
     CHECK(editor::TemplateEngineMatches(blank));
 }
 
-// === Reachability Phase 2: the "Always Export" roots set (docs/design/export-reachability.md) ===
+// === Reachability: the "Always Export" roots set ===
 
 TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trips through XML")
 {
@@ -1881,7 +1881,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     CHECK(distFs.Exists(u8"Engine.Player.wasm"));
     CHECK(distFs.Exists(u8"serve.py"));
     // Web dist ships TWO variant content paks (BC for desktop browsers, ASTC for mobile), selected
-    // by the wasm boot from the adapter's compressed-family - NOT a single Content.pak (P3, Dec 4).
+    // by the wasm boot from the adapter's compressed-family - NOT a single Content.pak.
     CHECK(distFs.Exists(u8"Content-bc.pak"));
     CHECK(distFs.Exists(u8"Content-astc.pak"));
     CHECK_FALSE(distFs.Exists(u8"Content.pak"));

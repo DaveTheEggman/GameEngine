@@ -1,4 +1,4 @@
-// mesh-lod.md P1: the per-view LOD selection math (pure, no GPU). Coverage from a
+// The per-view LOD selection math (pure, no GPU). Coverage from a
 // camera (perspective divides by view depth; ortho is depth-free; bias halves per
 // unit), the descending-threshold pick walk, and the +-5% hysteresis band.
 #include <doctest/doctest.h>

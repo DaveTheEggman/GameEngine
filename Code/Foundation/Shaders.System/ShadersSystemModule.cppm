@@ -2,7 +2,7 @@
 ///
 /// The variant compile-on-demand cache (:shader_system) + the dev file-backed
 /// source provider (:file_provider) that serves engine built-in shaders from the
-/// engine shader root (shaders.md P1).
+/// engine shader root.
 
 export module foundation.shaders.system;
 

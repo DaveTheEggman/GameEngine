@@ -5,7 +5,6 @@
 // - the outer rect is region-space (the caller's coordinate space); it is NOT inherently
 // a window. The renderer places the image with DstRect/SrcRect; input remaps points with
 // ToContent/FromContent. One computation shared by both, so they can never drift.
-// (See docs/design/viewport-input.md §4.3.)
 
 module;
 #include "Core/Prelude.h"

@@ -1024,8 +1024,8 @@ namespace samples
         core::f32 m_time = 0.0f;
         core::f32 m_floorMetallic = 0.0f;  // floor material tweakables (SSR eye test)
         core::f32 m_floorRoughness = 0.12f;
-        // Game UI (documents keep the runtime markup alive; the badge keep-alive lets a
-        // later phase pop it).
+        // Game UI (documents keep the runtime markup alive; the badge keep-alive lets it
+        // be popped later).
         core::RefPtr<ui::UIDocument> m_hudDocument;
         core::RefPtr<ui::UIDocument> m_plateDocument;
         core::RefPtr<ui::UIDocument> m_badgeDocument;

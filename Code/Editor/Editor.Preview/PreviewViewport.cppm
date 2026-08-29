@@ -1,7 +1,7 @@
 // Editor::Preview - `editor.preview`: the shared 3D-preview substrate for bespoke asset
 // editor pages (mesh / clip / skeleton / material / particle / animgraph / collision).
 //
-// PreviewViewport owns the whole substrate that those pages used to each hand-roll: a
+// PreviewViewport owns the whole substrate each of those pages would otherwise hand-roll: a
 // ViewportView, a private preview Scene (simulation off) in its own SceneManager, an
 // EditorCamera, the InputRouter, and the EnsureViewportBound + camera-update + RenderScene
 // loop. A page CONTAINS one instead of re-implementing it: construct it, populate Scene()
@@ -15,8 +15,7 @@
 // render/scene/rhi/viewport/vg graph behind Impl in the .cpp. That is not just tidiness - GCC
 // 15 segfaults in its module merger when a heavy page TU (ScenePage, MaterialPage, ...)
 // imports an interface that transitively pulls engine.render + engine.scene, so those imports
-// MUST stay out of this interface (gcc-module-interface-hygiene). Never linked by the runtime.
-// See Documentation/Specs/editor-preview-viewport.md.
+// MUST stay out of this interface. Never linked by the runtime.
 
 module;
 #include "Core/Prelude.h"

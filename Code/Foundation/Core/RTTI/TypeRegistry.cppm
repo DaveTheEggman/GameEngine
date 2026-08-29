@@ -17,8 +17,8 @@ import :string_hash;
 export namespace foundation::core
 {
     // The availability domain a type was registered under - an OPEN set identified by
-    // name hash, not an enum: core owns only the DEFAULT domain "Runtime" (what a shipped
-    // player registers); other layers tag registrations with their own names (the editor
+    // name hash, not an enum: core owns only the DEFAULT domain "Runtime" (what the player
+    // runtime registers); other layers tag registrations with their own names (the editor
     // passes TypeDomain(u8"Editor")). A type's domain answers "which processes have this
     // type" - tooling reads it (e.g. the script API browser marks non-runtime bindings);
     // runtime behavior never depends on it.
@@ -88,15 +88,14 @@ export namespace foundation::core
             return FindByLegacyName(namespaceName, name);
         }
 
-        // LEGACY-NAME COMPATIBILITY (2026-08 debrand): serialized data (content envelopes,
-        // settings sections, scenes) stores qualified type names, and the debrand renamed
-        // every registration namespace: Foundation "draconic::X" -> "rtti::X" and Engine
-        // "draconic::X" -> "rtti::engine::X". Separately, the asset-cook types moved from the
-        // Editor collection to the Pipeline collection, so their identity went
-        // "rtti::editor::<lib>" -> "rtti::pipeline::<lib>" (and the pre-debrand spelling was
-        // "draconic::editor::<lib>"). Old files must keep resolving, so a miss on a legacy
-        // namespace retries the current spellings. Data converges to the new names on its next
-        // save; remove this once no pre-debrand / pre-move files matter.
+        // LEGACY-NAME COMPATIBILITY: serialized data (content envelopes, settings sections,
+        // scenes) stores qualified type names. Older files use legacy namespace spellings that
+        // remap to the current ones: Foundation "draconic::X" -> "rtti::X", Engine
+        // "draconic::X" -> "rtti::engine::X", and asset-cook types (which moved from the Editor
+        // collection to the Pipeline collection) "draconic::editor::<lib>" and
+        // "rtti::editor::<lib>" -> "rtti::pipeline::<lib>". Old files must keep resolving, so a
+        // miss on a legacy namespace retries the current spellings. Data converges to the new
+        // names on its next save; this mapping can be removed once no legacy files matter.
         [[nodiscard]] const TypeInfo* FindByLegacyName(const char* namespaceName,
                                                        const char* name) const noexcept
         {
@@ -105,8 +104,8 @@ export namespace foundation::core
                 return nullptr;
             }
             char remapped[256];
-            // "draconic[::rest]": pre-debrand root. -> "rtti[::rest]" (Foundation) or
-            // "rtti::engine[::rest]" (Engine subsystems - their C++ namespace moved too).
+            // Legacy "draconic[::rest]" root -> "rtti[::rest]" (Foundation) or
+            // "rtti::engine[::rest]" (Engine subsystems, whose C++ namespace differs too).
             if (StartsWith(namespaceName, "draconic"))
             {
                 const char* rest = namespaceName + 8; // "" or "::rest"
@@ -124,11 +123,10 @@ export namespace foundation::core
                 {
                     return found;
                 }
-                // "draconic::<lib>" asset/cook type -> "rtti::pipeline::<lib>". LIVE evidence
-                // (2026-08-12, user project envelopes): pre-debrand asset identities were the
-                // SUBSYSTEM-flavored spelling - 'draconic::physics'::CollisionShapeAsset,
-                // 'draconic::script'::ScriptClassAsset - not the editor-collection spelling the
-                // first compat pass assumed. They now live under the Pipeline collection.
+                // Legacy "draconic::<lib>" asset/cook type -> "rtti::pipeline::<lib>". These
+                // identities use the subsystem-flavored spelling ("draconic::physics"::
+                // CollisionShapeAsset, "draconic::script"::ScriptClassAsset), not an
+                // editor-collection spelling; the types live under the Pipeline collection.
                 if (const TypeInfo* found = FindById(
                         ComputeTypeId(ComposeNamespace(remapped, "rtti::pipeline", rest), name)))
                 {
@@ -143,18 +141,18 @@ export namespace foundation::core
                     {
                         return found;
                     }
-                    // Still-editor type: the debrand inserted the per-collection prefix, so
-                    // "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]" (e.g. the
-                    // RecentProjectsSettings settings section - found live 2026-08-11).
+                    // Still-editor type: the current spelling carries the per-collection prefix,
+                    // so "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]" (e.g. the
+                    // RecentProjectsSettings settings section).
                     return FindById(ComputeTypeId(
                         ComposeNamespace(remapped, "rtti::editor::editor", rest + 8), name));
                 }
                 return nullptr;
             }
-            // "rtti::editor::<lib>": post-debrand asset-cook type, before it moved to the
-            // Pipeline collection. -> "rtti::pipeline::<lib>". Then the still-editor respelling
-            // ("rtti::editor[::rest]" -> "rtti::editor::editor[::rest]") for files written in
-            // the pre-per-collection-prefix window.
+            // "rtti::editor::<lib>": an asset-cook type spelling from before it moved to the
+            // Pipeline collection -> "rtti::pipeline::<lib>". Then the still-editor respelling
+            // ("rtti::editor[::rest]" -> "rtti::editor::editor[::rest]") for files written before
+            // the per-collection prefix existed.
             if (StartsWith(namespaceName, "rtti::editor"))
             {
                 const char* rest = namespaceName + 12; /*"rtti::editor"*/

@@ -54,8 +54,7 @@ export namespace foundation::ui
                     continue;
                 }
 
-                // Fixed + margin are base-handled (ui-box-model.md P2b); the clone that
-                // re-interpreted them here is gone. Wrap children measure unbounded (absolute
+                // Fixed + margin are base-handled here. Wrap children measure unbounded (absolute
                 // placement has no natural box), Match fills the content area.
                 const f32 availW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal());
                 const f32 availH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical());

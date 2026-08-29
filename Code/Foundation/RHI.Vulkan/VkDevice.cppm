@@ -363,7 +363,7 @@ export namespace foundation::rhi::vk
 
         u32 MaxColorDepthSampleCount() const noexcept override
         {
-            // Scene-pass MSAA needs BOTH color and depth attachments at the same count (msaa.md).
+            // Scene-pass MSAA needs BOTH color and depth attachments at the same count.
             VkPhysicalDeviceProperties props{};
             vkGetPhysicalDeviceProperties(m_adapter->physicalDevice(), &props);
             const VkSampleCountFlags both = props.limits.framebufferColorSampleCounts &

@@ -1,16 +1,15 @@
 /// Foundation::Scene - the `:frame_time` partition.
 ///
 /// FrameTime: the ONE value type carrying the scene lane's time-scale chain
-/// (host x context x group x scene) plus the lane's configured fixed step
-/// (scene-composition.md strain #4: the chain used to be hand-multiplied in
-/// SceneManager, GameInstance::TickScript, and the subsystem bridge, drifting
-/// independently). The fixed-step ACCUMULATOR stays per-scene (each Scene owns
+/// (host x context x group x scene) plus the lane's configured fixed step.
+/// It centralizes the chain so it is not hand-multiplied independently in
+/// SceneManager, GameInstance::TickScript, and the subsystem bridge (which
+/// would drift). The fixed-step ACCUMULATOR stays per-scene (each Scene owns
 /// its FixedStepper); `fixedStep` is configuration published alongside the
-/// scales. Terminology: "context" is the app-level term of the documented
-/// chain (game-instance.md §5) - a plain float handed DOWN by the driver;
+/// scales. Terminology: "context" is the app-level term of the time-scale
+/// chain - a plain float handed DOWN by the driver;
 /// foundation.scene stays runtime-free and the runtime layer never sees this
-/// type (it is CONSTRUCTED at the engine bridge - the layering rules recorded
-/// in scene-composition.md, 2026-08-19).
+/// type (it is CONSTRUCTED at the engine bridge).
 ///
 /// Own partition (not :composition) because BOTH :manager and :composition
 /// consume it and :composition already imports :manager - a shared leaf

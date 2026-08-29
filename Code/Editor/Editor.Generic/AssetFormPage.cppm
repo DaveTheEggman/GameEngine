@@ -1,6 +1,6 @@
 // Editor::Generic - the `editor.generic` module.
 //
-// GenericAssetEditorPage (editor-pages-gap.md, the LAST page of the bespoke track): the fallback
+// GenericAssetEditorPage: the fallback
 // property-form editor for EVERY asset without a dedicated page. Registered against
 // ISerializable's TypeInfo, so the page registry's nearest-base dispatch routes every bespoke
 // page first (distance 0) and everything else lands here instead of the hard "No editor

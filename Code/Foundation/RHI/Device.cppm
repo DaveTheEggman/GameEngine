@@ -165,7 +165,7 @@ export namespace foundation::rhi
         /// Query hardware format support for a given texture format.
         [[nodiscard]] virtual FormatSupport GetFormatSupport(TextureFormat format) = 0;
         /// The maximum MSAA sample count supported for BOTH color and depth framebuffer attachments
-        /// (scene-pass MSAA - msaa.md Decision 1). Capped at 4 by the engine (8x is out of scope).
+        /// (scene-pass MSAA). Capped at 4 by the engine (8x is out of scope).
         /// Default 1 = a backend that has not implemented the query reports "no MSAA" (safe: views
         /// clamp to single-sample). Overridden by backends that support it.
         [[nodiscard]] virtual u32 MaxColorDepthSampleCount() const noexcept { return 1; }

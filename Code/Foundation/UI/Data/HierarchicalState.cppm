@@ -44,7 +44,7 @@ export namespace foundation::ui
             ScrollY = tree.InternalListView()->ScrollY();
         }
 
-        /// Apply previously-captured state to a TreeView.
+        /// Apply a captured state snapshot to a TreeView.
         void ApplyState(TreeView& tree)
         {
             if (FlattenedTreeAdapter* flat = tree.FlatAdapter())

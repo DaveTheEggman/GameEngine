@@ -1,6 +1,6 @@
 // Foundation::Physics - :world partition.
 //
-// PhysicsWorld: the Jolt-backed rigid-body world (docs/design/physics.md). Jolt is the
+// PhysicsWorld: the Jolt-backed rigid-body world. Jolt is the
 // COMMITTED backend - no abstraction layer - but JPH types never appear here AT ALL:
 // this interface unit is Jolt-free (all Jolt contact lives in WorldImpl.cpp, a module
 // IMPLEMENTATION unit) both for API hygiene and because GCC's C++20-modules serializer
@@ -9,7 +9,7 @@
 // carries the scene-entity reverse map. One world per SCENE; stepping is driven from the
 // engine's fixed-update lane.
 //
-// Layers (§3.3): a FIXED semantic table - Static / Dynamic / Kinematic / Trigger - with
+// Layers: a FIXED semantic table - Static / Dynamic / Kinematic / Trigger - with
 // a hard-coded collision matrix (ez-style named matrix; triggers are Jolt sensors:
 // overlap events, no response).
 
@@ -163,7 +163,7 @@ export namespace foundation::physics
         f32 speed = 0.0f;
     };
 
-    // ---- joints (P3) ----
+    // ---- joints ----
 
     enum class JointKind : u8
     {
@@ -201,7 +201,7 @@ export namespace foundation::physics
         friend bool operator==(JointId a, JointId b) noexcept { return a.value == b.value; }
     };
 
-    // ---- character controller (P3): Jolt CharacterVirtual ----
+    // ---- character controller: Jolt CharacterVirtual ----
     // Not a rigid body: a kinematic capsule swept by UpdateCharacter with slope/step
     // handling; pushes dynamic bodies up to maxStrength. The caller owns the velocity
     // policy (gravity/jump folded into SetCharacterVelocity each step - the component
@@ -299,7 +299,7 @@ export namespace foundation::physics
         // ---- transforms & motion ----
         void GetBodyTransform(BodyId id, Float3& outPosition, Quaternion& outRotation) const;
         /// Teleport: snaps the body (velocities untouched). Dynamic bodies mid-sim should
-        /// use this, never per-frame scene writes (transform ownership, §3.2).
+        /// use this, never per-frame scene writes (transform ownership).
         void SetBodyTransform(BodyId id, Float3 position, Quaternion rotation);
         /// Velocity-correct kinematic move over `deltaTime` (the fixed step).
         void MoveKinematic(BodyId id, Float3 position, Quaternion rotation, f32 deltaTime);

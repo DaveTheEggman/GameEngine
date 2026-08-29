@@ -1,8 +1,8 @@
 /// Foundation::Render - the `:resources` partition.
 ///
 /// GPU resource primitives shared by the renderers. `DynamicUniformRing` is a
-/// frames-in-flight ring of fixed-stride slots over one buffer (the §8 replacement for the
-/// slice's grow-the-buffer UBO). The buffer is partitioned into `framesInFlight` equal
+/// frames-in-flight ring of fixed-stride slots over one buffer (a fixed-stride ring, not a
+/// grow-the-buffer UBO). The buffer is partitioned into `framesInFlight` equal
 /// regions; each frame writes ONLY its own region (selected by the device ring index), so the
 /// CPU never overwrites data the GPU is still reading for a frame in flight.
 ///
@@ -180,7 +180,7 @@ export namespace foundation::render
 
 
     // A chunked GPU buffer sub-allocator: hands out (buffer, offset) ranges from large shared
-    // chunks instead of one buffer per allocation (§8 - "no per-mesh buffers"). Allocations are
+    // chunks instead of one buffer per allocation (no per-mesh buffers). Allocations are
     // bump-forward and persist until Clear(); the pool grows by adding a NEW chunk (existing
     // allocations keep their buffer, so growth never invalidates a live range). Used for mesh
     // vertex/index streams (uploaded once, kept for the resource's lifetime).

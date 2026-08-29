@@ -1,4 +1,4 @@
-// Scene-pass MSAA acceptance probes (msaa.md P1g). All on real Vulkan + WebGPU via the shared
+// Scene-pass MSAA acceptance probes. All on real Vulkan + WebGPU via the shared
 // RHI.TestSupport readback substrate; STRUCTURAL assertions (no golden images).
 //   1) 4x resolve produces silhouette edge coverage that 1x does not (the core acceptance property).
 //   2) MSAA composes with the post-effect stack (TAA/FXAA/AO/SSR) at 4x - each still renders a sane

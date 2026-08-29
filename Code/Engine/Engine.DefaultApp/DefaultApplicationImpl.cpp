@@ -125,10 +125,10 @@ namespace engine::runtime
     {
         m_host = &host; // stable for the app's lifetime; extra instances route run.requestExit through it
         m_scenes = host.Ctx().AddSubsystem<engine::scene::SceneSubsystem>();
-        // The scene-assembly blueprint (scene-composition.md): every registered manager's CreateScene
+        // The scene-assembly blueprint: every registered manager's CreateScene
         // assembles from the full composition (the single source of truth).
         m_scenes->SetComposition(engine::FullSceneComposition());
-        // The run's scene group lives on the GameInstance (game-instance.md §11): register it so it
+        // The run's scene group lives on the GameInstance: register it so it
         // ticks on the Context lane. WireInstance centralizes this so extra instances wire the same way.
         m_scenes->RegisterManager(&m_instance.Scenes());
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
@@ -147,8 +147,8 @@ namespace engine::runtime
         host.Ctx().AddSubsystem<engine::navigation::NavigationSubsystem>();
         // Networking scene integration: injects the NetworkComponentManager into every scene so
         // authored NetworkComponents work (the per-instance endpoint replicates over it). The subsystem
-        // also OWNS the per-frame transport pump (P3): give it the endpoint enumerator (we own the
-        // instance list; it owns the tick), replacing the old OnFixedUpdate DriveNetwork fan-out.
+        // also OWNS the per-frame transport pump: give it the endpoint enumerator (we own the
+        // instance list; it owns the tick).
         auto* netSubsystem = host.Ctx().AddSubsystem<engine::net::NetworkSubsystem>();
         netSubsystem->SetEndpointSource(
             [this](const core::Function<void(foundation::net::NetworkManager&)>& visit)
@@ -174,12 +174,12 @@ namespace engine::runtime
             m_ui->SetFontPath(m_uiFontPath.AsView());
         }
 
-        // Entity behaviors (scripting.md P1). Facade/backend registration is
+        // Entity behaviors. Facade/backend registration is
         // batteries-included here (idempotent - entry points may register more);
         // the run context itself is created lazily by the subsystem and SHARED
         // with the game script (one gameplay context per run, the locked rule).
         m_scripts = host.Ctx().AddSubsystem<engine::script::ScriptSubsystem>();
-        // The instance owns its run host (game-instance.md §11.10); wire it with the app's facades
+        // The instance owns its run host; wire it with the app's facades
         // + Scene.spawn + entity.send routing so its context has them when the game script starts.
         // (The subsystem's own default host - for editor scenes - is wired in its OnReady.)
         m_scripts->ConfigureRunHost(m_instance.RunHost());
@@ -199,7 +199,7 @@ namespace engine::runtime
 #ifdef OPTION_HAS_LUAU
         foundation::script::RegisterLuauScriptBackend();
 #endif
-        // Networking (net.md §6): the Net facade type came in with the surface root above; each
+        // Networking: the Net facade type is registered by the surface root above; each
         // GameInstance owns its OWN endpoint and goes online at RUNTIME via the facade
         // (Net.startServer/connect from the game's menu) - no app-owned socket. The primary
         // instance carries the online hook (the prefab net-spawn resolver) + the optional startup
@@ -649,7 +649,7 @@ namespace engine::runtime
             m_ui->RenderCanvasTextures(*frame.encoder, static_cast<core::i32>(frame.frameIndex));
         }
         render->BeginRendering(*frame.encoder, frame.frameIndex);
-        // Render every NON-headless instance's scenes (game-instance.md §11 - a headless dedicated
+        // Render every NON-headless instance's scenes (a headless dedicated
         // server simulates but isn't drawn) + the default group's loose scenes. Clear comes from
         // the scene's camera.
         ForEachInstance(
@@ -677,7 +677,7 @@ namespace engine::runtime
     {
         DefaultApplication* self = this;
         // The resolver itself (content DB -> a live prefab); the NetworkController applies it to each
-        // endpoint (networking-extraction.md P4). The app owns only the content-DB knowledge here.
+        // endpoint. The app owns only the content-DB knowledge here.
         return net::StateReplication::SpawnHandler{
             [self](foundation::scene::Scene& scene, const core::Guid& prefabId,
                    net::NetworkId) -> foundation::scene::EntityHandle

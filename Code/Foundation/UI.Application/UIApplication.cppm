@@ -41,7 +41,7 @@ export namespace foundation::ui::application
     using core::u32;
     using core::usize;
 
-    /// Platform default for dockable-window chrome (user ruling, docking-v2.md): Linux window
+    /// Platform default for dockable-window chrome: Linux window
     /// systems (X11/Wayland) get OS-chromed floats - Wayland punishes app-positioned borderless
     /// windows and XWayland blocks cross-monitor drags; no true-X11 special case (one platform
     /// default). Everything else keeps borderless floats with app-drawn chrome.
@@ -68,9 +68,9 @@ export namespace foundation::ui::application
         [[nodiscard]] bool SupportsOSWindows() override { return true; }
 
         /// Linux (X11/Wayland) floats default to OS-chromed windows; borderless (app-drawn
-        /// chrome + app-driven move) stays the default elsewhere (user ruling, docking-v2.md:
-        /// Wayland punishes app-positioned borderless windows, XWayland blocks cross-monitor
-        /// drags). Override via SetOSChromeOverride for tests or an explicit setting.
+        /// chrome + app-driven move) is the default elsewhere (Wayland punishes app-positioned
+        /// borderless windows, XWayland blocks cross-monitor drags). Override via
+        /// SetOSChromeOverride for tests or an explicit setting.
         [[nodiscard]] bool UsesOSChrome() override
         {
             if (m_osChromeOverride.HasValue())

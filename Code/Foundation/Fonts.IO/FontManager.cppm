@@ -34,7 +34,7 @@ export namespace foundation::fonts
         FontManager& operator=(const FontManager&) = delete;
 
         // Set a factory function for creating text shapers attached to loaded
-        // fonts. Replaces any previously set factory.
+        // fonts. Replaces any factory currently set.
         void SetShaperFactory(Function<ITextShaper*()> factory) { m_shaperFactory = Move(factory); }
 
         // Get or load a font at the given pixel height. Returns null on failure.

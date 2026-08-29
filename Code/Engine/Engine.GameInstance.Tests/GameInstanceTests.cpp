@@ -25,7 +25,7 @@ import foundation.shell;       // IKeyboard / KeyCode (a minimal fake device)
 using namespace foundation::core;
 namespace script = foundation::script; // raw manager/context for the run facade battery
 namespace scene = foundation::scene;
-namespace messaging = foundation::messaging; // EventBus (moved out of scene, messaging.md P1)
+namespace messaging = foundation::messaging; // EventBus
 namespace content = foundation::content;
 namespace resource = foundation::resource;
 namespace input = foundation::input;
@@ -180,7 +180,7 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 
     for (int i = 0; i < 400 && server.NetEndpoint()->Session().PeerCount() == 0u; ++i)
     {
-        // Transport pump is NetworkManager::UpdateTransport now (P3 moved DriveNetwork to the subsystem).
+        // Transport pump is NetworkManager::UpdateTransport.
         server.NetEndpoint()->UpdateTransport(16.0f);
         client.NetEndpoint()->UpdateTransport(16.0f);
         SleepMilliseconds(1);
@@ -194,8 +194,8 @@ TEST_CASE("game-instance: each instance owns an independent networked endpoint (
 
 TEST_CASE("network-controller: role lifecycle - start, stop, reconnect, and the online hook")
 {
-    // The extracted NetworkController (networking-extraction.md P1), tested directly: it owns the
-    // endpoint + INetworkController role. P4: the app-injected spawn resolver is applied to EVERY endpoint
+    // NetworkController, tested directly: it owns the
+    // endpoint + INetworkController role. The app-injected spawn resolver is applied to EVERY endpoint
     // the controller opens (reconnect too - not consumed), asserted via Replication().HasSpawnHandler().
     // The final destruct with a LIVE endpoint exercises the socket + session teardown path (ASAN).
     engine::runtime::NetworkController controller;
@@ -246,7 +246,7 @@ TEST_CASE("network-controller: a fresh endpoint replicates the cached scene")
 TEST_CASE("network-controller: the replicated scene's NetworkSceneSystem drives the endpoint; "
           "stop detaches; reconnect re-wires (P2)")
 {
-    // networking-extraction.md P2, Fable req 1+2+3: the endpoint is wired into ONLY the replicated
+    // The endpoint is wired into ONLY the replicated
     // scene's NetworkSceneSystem, at the controller's edges. endpoint-dies-before-scene: StopNetworking
     // detaches the system before the endpoint dies. stop-start-reconnect against a LIVE scene re-wires.
     // (ASAN covers the teardown - the controller + scene destruct here holding a live endpoint.)
@@ -273,7 +273,7 @@ TEST_CASE("network-controller: the replicated scene's NetworkSceneSystem drives 
 
 TEST_CASE("game-instance: destroying the replicated scene clears the endpoint's scene (no dangling) (P2)")
 {
-    // networking-extraction.md P2, Fable req 2: scene-dies-before-endpoint. DestroyScene of the CURRENT
+    // Scene-dies-before-endpoint. DestroyScene of the CURRENT
     // scene runs SetScene(nullptr) first, so the endpoint's replicated-scene pointer + the controller's
     // cache clear BEFORE the scene is freed. A later transport pump / reconnect never touches dead memory
     // (ASAN is the real assertion here).
@@ -1127,7 +1127,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     SUBCASE("script-load registry: a successful load is RETIRED on activation (bounded growth)")
     {
-        // Fable review finding: m_scriptLoads used to grow monotonically. After activation the
+        // m_scriptLoads must not grow monotonically. After activation the
         // entry is dropped, so re-destroying the (now active) scene is a safe no-op and the ticket
         // still reads terminal-safe - the externally observable contract is unchanged.
         engine::runtime::GameInstance gi;
@@ -1149,7 +1149,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
 TEST_CASE("game-instance: created scenes share the run bus - cross-scene delivery, single drain (no relay)")
 {
-    // messaging.md P2: every scene the instance creates borrows THE run bus, so scene.events and the run
+    // Every scene the instance creates borrows THE run bus, so scene.events and the run
     // bus are one object. A subscriber in scene A hears an emit from scene B (and the Game tier would too)
     // with NO relay, delivered exactly ONCE by the instance's drain - the borrowing scenes never drain it.
     engine::runtime::GameInstance gi;

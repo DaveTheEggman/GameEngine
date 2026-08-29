@@ -5,8 +5,8 @@
 /// the one-way seam - this layer depends on both foundation.scene and foundation.render; the renderer
 /// depends on neither. Run after the scene's transforms are current (the tick).
 ///
-/// These are the providers in the design's terms (§5): a MeshComponent provider and the
-/// camera reader. As more component types land (lights, probes), each gets its own provider
+/// These are the providers: a MeshComponent provider and the
+/// camera reader. Each additional component type (lights, probes) gets its own provider
 /// writing its own RenderData category into the snapshot.
 
 module;
@@ -108,7 +108,7 @@ namespace engine::render
             meshes->ForEach(
                 [&](MeshComponent& mc, scene::EntityHandle e)
                 {
-                    // Effectively-inactive entities render nothing (entity-active-state.md P2).
+                    // Effectively-inactive entities render nothing.
                     if (!scene.IsEffectivelyActive(e) || !mc.visible || mc.mesh.Get() == nullptr)
                     {
                         return;
@@ -384,7 +384,7 @@ namespace engine::render
                 [&](CameraComponent& cam, scene::EntityHandle e)
                 {
                     // An inactive primary camera is skipped so the pick falls through to the
-                    // next primary (entity-active-state.md P2).
+                    // next primary.
                     if (found || !cam.primary || !scene.IsEffectivelyActive(e))
                     {
                         return;

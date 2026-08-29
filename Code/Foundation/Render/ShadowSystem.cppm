@@ -1,11 +1,11 @@
 /// Foundation::Render - the `:shadows` partition.
 ///
-/// Shadow mapping (phase 5). 5.1 is the directional vertical slice: a single shadow map rendered
+/// Shadow mapping. The directional path: a single shadow map rendered
 /// from the scene's directional shadow caster's point of view, sampled with PCF in the forward
 /// shader. This partition OWNS the shadow depth texture(s) (one per frame-in-flight) and imports
 /// them into the frame graph; RenderFrame (:pipeline, which has the renderer registry) declares the
 /// depth pass that re-emits the casters and threads the binding into the forward pass. CSM cascades
-/// (5.2) + the rebuilt atlas/scheduler (5.3/5.4, modeled on PlayCanvas) extend this.
+/// and the atlas/scheduler (modeled on PlayCanvas) extend this.
 
 module;
 #include "Core/Prelude.h"
@@ -243,10 +243,10 @@ export namespace foundation::render
 
         [[nodiscard]] u32 CascadeCount() const noexcept { return kCascadeCount; }
 
-        // ---- local-light shadow atlas (5.3 / 5.4) ------------------------------------------------
+        // ---- local-light shadow atlas ------------------------------------------------
         // Spot/point shadows pack into a 2-LAYER depth atlas array (cascades stay in their own array).
         // Layer 0 = REALTIME (cleared + re-rendered every frame); layer 1 = STATIC (rendered only when the
-        // static caster set changes, then cached - phase 5.4). Each caster gets a fixed square tile in its
+        // static caster set changes, then cached). Each caster gets a fixed square tile in its
         // layer; the forward samples float3(uv_tile, layer).
         static constexpr u32 kAtlasResolution = 2048;
         static constexpr u32 kAtlasTile = 512; // 4x4 = 16 tiles per layer

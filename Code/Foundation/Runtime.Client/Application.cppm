@@ -39,23 +39,23 @@ export namespace foundation::runtime
     {
         core::f32 fixedTimeStep = 1.0f / 60.0f; // seconds per fixed update
         core::f32 maxFrameTime = 0.25f;         // clamp per frame (avoids the spiral of death)
-        core::u32 maxFixedStepsPerFrame = 4;    // catch-up cap at the ACCUMULATOR (physics P0):
+        core::u32 maxFixedStepsPerFrame = 4;    // catch-up cap at the ACCUMULATOR:
                                                 // excess time is DROPPED, so a hitch (debugger
                                                 // pause) never cascades into a step storm -
                                                 // independent of the runner's maxFrameTime clamp
     };
 
-    // The fixed-update accumulator (physics.md P0): pure step math, host-owned, unit-tested.
+    // The fixed-update accumulator: pure step math, host-owned, unit-tested.
     // Advance() returns how many fixed steps this frame runs (clamped; excess time dropped);
     // Alpha() is the leftover fraction of a step in [0,1) - the interpolation weight render
     // consumers (physics pose smoothing) blend prev->current poses with.
-    // The fixed-timestep accumulator moved to foundation.core (scenes own one each
-    // since per-scene time); re-exposed here for the host's app-level lane.
+    // The fixed-timestep accumulator lives in foundation.core (scenes own one each
+    // for per-scene time); re-exposed here for the host's app-level lane.
     using FixedStepper = core::FixedStepper;
 
     // The host as seen by the application: register subsystems via Ctx(), reach the
     // shell/graphics services, manage runtime windows, request exit. Implemented
-    // by ApplicationHost (and, later, by the editor for its embedded runtime).
+    // by ApplicationHost (and by the editor for its embedded runtime).
     class IApplicationHost
     {
     public:

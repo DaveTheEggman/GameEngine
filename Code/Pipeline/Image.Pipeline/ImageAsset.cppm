@@ -149,7 +149,7 @@ export namespace pipeline{
 
     // Registers ImageAsset for content-DB construction + deserialization. ImageAsset's own
     // reflection body (colorSpace property) is its StaticType(), in ImageAssetImpl.cpp; the
-    // ImageColorSpace enum reflection lives in foundation.image. Reflection track P1.
+    // ImageColorSpace enum reflection lives in foundation.image.
     inline void RegisterImageAsset()
     {
         RegisterImageReflection(); // ImageColorSpace names for the property grid

@@ -925,9 +925,9 @@ namespace foundation::scene
         Scene::PrefabInstanceState* ownState = state.Get();
         scene.AddPrefabInstance(static_cast<UniquePtr<Scene::PrefabInstanceState>&&>(state));
 
-        // ---- nested records (P4) ----
-        // Reach the trailing section: new payloads write an EMPTY settings section; a NON-empty
-        // one is a legacy Expanded save (members already spawned flat above - old behavior), and
+        // ---- nested records ----
+        // Reach the trailing section: current payloads write an EMPTY settings section; a NON-empty
+        // one is a legacy Expanded save (members already spawned flat above), and
         // a stream that simply ends here is a pre-nesting capture. Both skip cleanly.
         if (!spawnNested)
         {

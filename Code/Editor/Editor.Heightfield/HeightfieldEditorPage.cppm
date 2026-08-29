@@ -3,7 +3,7 @@
 // HeightfieldEditorPage: the inspect + author surface over a HeightfieldAsset. A heightfield IS an
 // image of heights, so the preview is a 2D grayscale height image (permanent, by asset identity -
 // the texture/image page precedent, NOT a placeholder awaiting 3D; the 3D preview belongs to the
-// terrain asset page in phase 2). The authored fields (grid size, world footprint, Y range) edit on
+// terrain asset page). The authored fields (grid size, world footprint, Y range) edit on
 // the right; sculpt brushes live in the scene viewport, not here. Save writes the object back and
 // requests a re-cook so bound heightfield products (colliders, later terrain) hot-swap.
 

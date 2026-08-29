@@ -2,7 +2,7 @@
 // Foundation::Navigation (Recast/Detour + Core), no render/physics/device. The bake is a pure
 // function; the runtime wrappers need only a serialized blob.
 //
-// Coverage (Documentation/Plans/navigation.md "Tests"):
+// Coverage:
 //   - bake determinism: same soup + params -> byte-identical; params change -> data change
 //   - query: a path across a fixture with a central box detours AROUND it; a disconnected
 //     destination is reported (complete=false), an off-mesh destination fails (not a crash)

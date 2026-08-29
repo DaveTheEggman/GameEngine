@@ -1,4 +1,4 @@
-/// Foundation::Net.Replication - the `foundation.net.replication` module (docs/design/networking.md §5, §7 P2).
+/// Foundation::Net.Replication - the `foundation.net.replication` module.
 ///
 /// The foundation of StateReplication: a stable per-entity NetworkId + authority, and - the central
 /// bet of the design - a REFLECTION-DRIVEN field codec. A component marks properties `Replicated`
@@ -44,7 +44,7 @@ export namespace foundation::net
         }
     };
 
-    // Who owns an entity's replicated state. Server-authoritative is the default (§5.6 anti-cheat);
+    // Who owns an entity's replicated state. Server-authoritative is the default (anti-cheat);
     // per-entity Client authority is the host-migration / client-owned-avatar escape hatch.
     enum class NetworkAuthority : u8
     {
@@ -231,8 +231,8 @@ export namespace foundation::net
 
     // ---- the replication model seam + StateReplication ------------------------------------------
 
-    // The seam a replication architecture implements (§5.1): StateReplication (server-authoritative
-    // property snapshots, here) vs the deferred CommandReplication (lockstep). A snapshot is written on
+    // The seam a replication architecture implements: StateReplication (server-authoritative
+    // property snapshots, here) vs CommandReplication (lockstep). A snapshot is written on
     // the server and applied on the client, both over the :wire stream.
     class IReplicationModel
     {
@@ -242,9 +242,9 @@ export namespace foundation::net
         virtual void ApplySnapshot(scene::Scene& scene, BitReader& in) = 0;
     };
 
-    // Server-authoritative state replication. This slice does the FULL snapshot (every networked
-    // entity's every replicated component) - the primitive that per-peer delta (next slice) and
-    // full-snapshot late-join build on. Per-peer baselines, interpolation and relevancy are later slices.
+    // Server-authoritative state replication. The FULL snapshot (every networked
+    // entity's every replicated component) is the primitive that per-peer delta and
+    // full-snapshot late-join build on. Per-peer baselines, interpolation and relevancy build on it too.
     //
     // A snapshot is: VarU32 entityCount, then per entity { U32 networkId, VarU32 componentCount, then
     // per component { string SerializationTypeId, VarU32 blobBytes, blob } }. The per-component
@@ -260,10 +260,10 @@ export namespace foundation::net
             core::Function<scene::EntityHandle(scene::Scene&, const Guid&, NetworkId)>;
         void SetSpawnHandler(SpawnHandler handler);
         // Whether a spawn handler is installed (the NetworkController re-applies its injected resolver to
-        // each fresh endpoint - networking-extraction.md P4; this lets that wiring be asserted).
+        // each fresh endpoint; this lets that wiring be asserted).
         [[nodiscard]] bool HasSpawnHandler() const noexcept { return static_cast<bool>(m_spawnHandler); }
 
-        // Per-peer RELEVANCY / interest (§5.6 - fog-of-war is SECURITY, not just bandwidth): return true
+        // Per-peer RELEVANCY / interest (fog-of-war is SECURITY, not just bandwidth): return true
         // if `id` should be replicated to `peerId`. Unset => everything is relevant to everyone. When an
         // entity LEAVES a peer's relevance, its next delta actively REMOVES it on that client (destroyed,
         // so hidden state can't be memory-read to cheat) - the server never sends what a peer may not see.
@@ -293,7 +293,7 @@ export namespace foundation::net
         // Server: write the DELTA for one peer - only the entities/components that changed since this
         // peer's last delta, plus removed entities. Returns the number of entries written (0 = nothing
         // changed). The baseline is "what was last sent this peer", so this rides RELIABLE-ORDERED
-        // delivery (§5.6): send the output reliably or the baseline diverges. Updates the peer baseline.
+        // delivery: send the output reliably or the baseline diverges. Updates the peer baseline.
         usize CaptureDelta(scene::Scene& scene, u32 peerId, BitWriter& out);
         // Client: apply a delta - changed components applied in place, removed entities destroyed.
         void ApplyDelta(scene::Scene& scene, BitReader& in);

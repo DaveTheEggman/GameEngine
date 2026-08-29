@@ -1,7 +1,7 @@
 # Editor::Preview - `editor.preview`: the shared 3D-preview substrate (EditorCamera +
 # PreviewViewport) that the bespoke asset editor pages CONTAIN instead of each hand-rolling
 # a viewport + preview scene + camera + render loop. Linked by editor page libs (Editor.Scene,
-# Editor.Physics, ...); never by the runtime. See Documentation/Specs/editor-preview-viewport.md.
+# Editor.Physics, ...); never by the runtime.
 
 add_library(Editor.Preview STATIC)
 add_library(Editor::Preview ALIAS Editor.Preview)

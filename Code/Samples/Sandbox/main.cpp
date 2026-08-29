@@ -331,7 +331,7 @@ namespace
                     }
                 }
 
-                // A bright spot light overhead, aimed down at the floor boxes/spheres - the phase 5.3
+                // A bright spot light overhead, aimed down at the floor boxes/spheres - the
                 // atlas spot-shadow demo. Its cone casts sharp shadows of the resting boxes onto the
                 // floor (distinct from the directional CSM), packed into the local-shadow atlas.
                 scene::EntityHandle spot = m_scene->CreateEntity(u8"spotLight");
@@ -349,11 +349,11 @@ namespace
                 sl.range = 30.0f;
                 sl.innerAngle = 0.55f;
                 sl.outerAngle = 0.75f;  // wide cone: cover both the box + sphere rows
-                sl.castsShadows = true; // spot atlas shadow caster (5.3a)
+                sl.castsShadows = true; // spot atlas shadow caster
                 sl.shadowUpdate =
-                    engine::render::ShadowUpdateMode::Static; // static scene -> cached atlas layer (5.4b)
+                    engine::render::ShadowUpdateMode::Static; // static scene -> cached atlas layer
 
-                // A shadow-casting POINT light hovering among the floor boxes/spheres - the phase 5.3b
+                // A shadow-casting POINT light hovering among the floor boxes/spheres - the
                 // cube-shadow demo. Its 6 atlas faces cast shadows radially (onto the floor + box sides).
                 scene::EntityHandle pt = m_scene->CreateEntity(u8"shadowPoint");
                 m_scene->SetLocalPosition(pt, core::Float3{4.0f, 5.0f, 13.0f});

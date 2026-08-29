@@ -12,9 +12,9 @@ using namespace foundation::core;
 
 // --- Threading -------------------------------------------------------------
 
-// Web v1 is single-threaded (no wasm-pthreads yet): every case here SPAWNS real
-// threads, so the suite sits out the web build. The P3 "JobSystem inline mode"
-// work item (web-platform.md) brings a web-runnable subset back.
+// The web build is single-threaded (no wasm-pthreads): every case here SPAWNS real
+// threads, so the suite sits out the web build.
+// TODO: a "JobSystem inline mode" would bring a web-runnable subset back.
 #if !PLATFORM_WEB
 
 TEST_CASE("threading: a thread runs and joins")

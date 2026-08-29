@@ -26,19 +26,19 @@ import foundation.script.resource;
 import engine.script;
 import foundation.physics;
 import engine.physics;
-import engine.integration; // ScriptPhysicsContactBridge (the extracted composition-root adapter)
-import engine.render;      // MeshComponent/LightComponent .of (Track A, render surface)
+import engine.integration; // ScriptPhysicsContactBridge (the composition-root adapter)
+import engine.render;      // MeshComponent/LightComponent .of (render surface)
 import foundation.render;             // debug::DebugDraw accessors (the DebugDraw real-effect test)
 import foundation.rhi;                // rhi::Device (base of the headless NullDevice)
 import foundation.rhi.null;           // NullDevice (headless RenderSubsystem, no GPU)
-import foundation.audio;              // AudioSourceComponent + its manager (Track A, audio surface)
-import engine.audio;       // AudioSourceComponent.of + SceneAudio (Track A, audio surface)
-import foundation.animation;          // animation components + managers (Track A, animation surface)
-import engine.animation;   // *.of + SceneAnimation (Track A, animation surface)
-import foundation.particles;          // ParticleEffectComponent + manager (Track A, particle surface)
-import engine.particles;   // *.of + SceneParticles (Track A, particle surface)
-import foundation.net.replication;    // NetworkComponent + manager + .of (Track A, net surface)
-import engine.ui;          // world-space UI components + managers + .of (Track A, UI surface)
+import foundation.audio;              // AudioSourceComponent + its manager (audio surface)
+import engine.audio;       // AudioSourceComponent.of + SceneAudio (audio surface)
+import foundation.animation;          // animation components + managers (animation surface)
+import engine.animation;   // *.of + SceneAnimation (animation surface)
+import foundation.particles;          // ParticleEffectComponent + manager (particle surface)
+import engine.particles;   // *.of + SceneParticles (particle surface)
+import foundation.net.replication;    // NetworkComponent + manager + .of (net surface)
+import engine.ui;          // world-space UI components + managers + .of (UI surface)
 
 using namespace foundation::core;
 using namespace engine::ui;
@@ -165,7 +165,7 @@ namespace
 
     struct ScriptedScene
     {
-        // The test fixture IS the run scope (messaging.md revised decision 2: scenes hold
+        // The test fixture IS the run scope (scenes hold
         // only a borrowed bus) - it owns the bus, injects it before systems bind, and
         // drains it at frame top exactly like GameInstance / the editor page do.
         foundation::messaging::EventBus bus;
@@ -1192,7 +1192,7 @@ TEST_CASE("script.scene: the Roll Call sample game - orbs EMIT OrbCollected, the
     CHECK(Near(bed.scene.GetLocalTransform(scoreboard).position.x, 0.0f));
 
     // Walk onto orb1: it collects itself and EMITS "OrbCollected". Delivery follows the RUN
-    // SCOPE cadence (messaging.md revised decision 3): the scope drains at the NEXT frame's
+    // SCOPE cadence: the scope drains at the NEXT frame's
     // top - events emitted in frame N arrive in frame N+1 (the same cadence GameInstance
     // ships; the old same-frame delivery was an owned-fallback artifact production never had).
     bed.scene.SetLocalPosition(player, Float3{0.0f, 0.0f, 0.0f});
@@ -1745,7 +1745,7 @@ TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the c
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"miss-ok"));
 }
 
-// ---- second backend, uniformly (scripting.md §7.5): a .as behavior runs the SAME neutral
+// ---- second backend, uniformly: a .as behavior runs the SAME neutral
 // runtime path as any backend - the RunHost resolves the backend by the class's language, assembles
 // the module through the backend (AngelScript needs no prelude), instantiates, and dispatches
 // lifecycle. Property harvest is deferred for AS, so this behavior carries no properties.
@@ -1781,7 +1781,7 @@ TEST_CASE("script.scene: an AngelScript behavior runs the neutral lifecycle path
     CHECK_FALSE(c->behaviors[0].faulted);
 }
 
-// ---- the step debugger through the subsystem (script-debugger.md P1): a breakpoint in a
+// ---- the step debugger through the subsystem: a breakpoint in a
 // behavior handler PAUSES the game (the world holds still - behaviors stop advancing) while
 // the debugger owns the suspended handler; Continue runs it to completion and ticking resumes.
 // The suspension is NOT a fault. Proves the game-pause wiring + the debug-suspend handling
@@ -1865,7 +1865,7 @@ TEST_CASE("script.scene: a breakpoint in a behavior handler pauses the game and 
     CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
 }
 
-// The SAME run-host debugger wiring, backend-neutral, on Luau (P6.4): a breakpoint in a Luau
+// The SAME run-host debugger wiring, backend-neutral, on Luau: a breakpoint in a Luau
 // behavior handler pauses the game, the world holds still, Continue resumes clean, no fault.
 TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game and resumes clean (P6.4)")
 {
@@ -1923,7 +1923,7 @@ TEST_CASE("script.scene: LUAU a breakpoint in a behavior handler pauses the game
     CHECK_FALSE(bed.components->Get(e)->behaviors[0].faulted);
 }
 
-// A breakpoint in a handler reached through a NESTED entity.send (P6.4): the sender's onUpdate is
+// A breakpoint in a handler reached through a NESTED entity.send: the sender's onUpdate is
 // mid-send (a C facade boundary) on its pooled thread when the receiver's onPing breaks on a
 // SECOND pooled thread (pool depth = nesting depth). The game pauses; Continue completes the
 // nested handler. Proves the executor + debugger survive re-entrant dispatch across the C boundary.
@@ -2201,7 +2201,7 @@ TEST_CASE("script.scene: an AngelScript harvested float property applies (defaul
     }
 }
 
-// ---- coroutines (scripting.md §3.3): the coroutine `Behavior` base + host scheduler wired
+// ---- coroutines: the coroutine `Behavior` base + host scheduler wired
 // through the subsystem tick (AdvanceCoroutines once per frame) + cancel on disable/destroy.
 
 TEST_CASE("script.scene: a coroutine wait(1.0) runs its body only after ~1s of ticks")
@@ -3058,7 +3058,7 @@ TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live
 }
 
 // OPTION 1 on a REAL engine component: RigidBodyComponent.of(entity).friction, on a live physics
-// scene. Same machinery as the Gadget proof, now wired to an actual shipped component.
+// scene. Same machinery as the Gadget proof, wired to an actual engine component.
 TEST_CASE("script.scene: OPTION 1 - RigidBodyComponent.of(entity).friction mutates the live "
           "physics component")
 {
@@ -3319,8 +3319,8 @@ TEST_CASE("script.scene: ScenePhysics.of(scene).applyImpulse(entity, ...) - scri
 
 // The FULL overlap set reaches script as a NATIVE array. ScenePhysics.overlapSphere returns
 // Array<Entity>, which crosses as a real AngelScript `array<Entity@>`; a behavior iterates it with
-// .length()/[] and acts on EVERY hit. This proves the container-return marshaling end to end
-// (script-array-returns.md). The scanner impulses each overlapped body upward; both dynamic targets
+// .length()/[] and acts on EVERY hit. This proves the container-return marshaling end to end.
+// The scanner impulses each overlapped body upward; both dynamic targets
 // end with positive Y velocity.
 TEST_CASE("script.scene: ScenePhysics.overlapSphere returns a native array - behavior acts on every hit")
 {
@@ -3650,7 +3650,7 @@ TEST_CASE("script.scene: scene.events.emit carries a reflected component handle 
     CHECK(gadgets->Get(consumerEntity)->power == doctest::Approx(7.0f));
 }
 
-// ---- Track A (render surface): MeshComponent.of / LightComponent.of - a behavior reaches the real
+// ---- render surface: MeshComponent.of / LightComponent.of - a behavior reaches the real
 //      render components by type and mutates them live, exactly like the physics components. Pure-data
 //      props (visible/intensity/range/enabled); resource-ref swaps (mesh/material) are Phase 1b. ----
 
@@ -3730,7 +3730,7 @@ TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render 
     CHECK(lights->Get(e)->range == doctest::Approx(25.0f));
 }
 
-// ---- Track A phase 1b: the resource-swap primitive. SceneRender.of(scene).setMesh(entity, id) /
+// ---- resource-swap primitive: SceneRender.of(scene).setMesh(entity, id) /
 //      setMaterial(entity, id) - a WORLD op keyed by entity (it needs the run's resource manager,
 //      which the component data cannot reach), so it lives on the scene-handle like ScenePhysics.
 //      The resource id (a Guid) reaches the behavior as an asset property (the "swap to the mesh I
@@ -3789,7 +3789,7 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
     CHECK(meshes->Get(e)->materials[0].id == matId);    // material slot-0 Ref id swapped
 }
 
-// ---- Track A phase 2 (audio surface): AudioSourceComponent.of (live volume/pitch/loop - DATA) +
+// ---- audio surface: AudioSourceComponent.of (live volume/pitch/loop - DATA) +
 //      SceneAudio.of(scene) (play/stop/pause/isPlaying/setClip - WORLD ops keyed by entity, reaching
 //      the scene's AudioEngine). No engine is wired here (the ops are null-safe), so this proves the
 //      script surface + forwarding + the data/resource paths cross-backend; actual voice playback is
@@ -4035,7 +4035,7 @@ TEST_CASE("script.scene: CameraComponent.of / SpriteComponent.of set live props"
     CHECK_FALSE(sprites->Get(e)->visible);
 }
 
-// ---- Track A phase 3 (animation surface): SkeletalAnimationComponent.of / AnimationGraphComponent.of
+// ---- animation surface: SkeletalAnimationComponent.of / AnimationGraphComponent.of
 //      (live speed/autoPlay/active - DATA) + SceneAnimation.of(scene) (play/stop/pause + graph params
 //      setFloat/setBool/setTrigger + setClip - WORLD ops keyed by entity, reaching the manager-owned
 //      runtime player). No skeleton/graph is bound here, so the players are never built and the world
@@ -4140,7 +4140,7 @@ TEST_CASE("script.scene: SkeletalAnimation::of + SceneAnimation ops are bound (A
     CHECK_FALSE(comp->behaviors[0].faulted);
 }
 
-// ---- Track A phase 4 (render scene-systems): EnvironmentSettings.of(scene) / PostProcessSettings.of(
+// ---- render scene-systems: EnvironmentSettings.of(scene) / PostProcessSettings.of(
 //      scene) - a re-resolving handle over the scene's ONE-PER-SCENE render settings (owned by the
 //      EnvironmentSystem / PostProcessSystem). A behavior edits the live sky/ambient + exposure/bloom.
 //      Scene-scoped analogue of a component's `.of`. (No active-camera handle - that design is the
@@ -4214,7 +4214,7 @@ TEST_CASE("script.scene: EnvironmentSettings::of / PostProcessSettings::of edit 
     CHECK(postSys->Post().exposureEV == doctest::Approx(1.5f));
 }
 
-// ---- Track A phase 5 (particle surface): ParticleEffectComponent.of (live visible/meshScale/light*
+// ---- particle surface: ParticleEffectComponent.of (live visible/meshScale/light*
 //      - DATA) + SceneParticles.of(scene) (play/stop/restart/pause/isPlaying + setEffect - WORLD ops
 //      keyed by entity, reaching the manager-owned runtime ParticleEffectInstance). No effect is
 //      attached here, so the instance is never built and the world ops are safe no-ops; this proves
@@ -4372,7 +4372,7 @@ TEST_CASE("script.scene: an enum component property reads/writes as a native enu
     CHECK(lights->Get(e)->type == engine::render::LightType::Spot); // named-enum read + write crossed
 }
 
-// ---- Track A (net surface): NetworkComponent.of - authority (an enum) for authority-gated gameplay.
+// ---- net surface: NetworkComponent.of - authority (an enum) for authority-gated gameplay.
 TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - AngelScript (named enum)")
 {
     foundation::script::angelscript::RegisterAngelScriptBackend();
@@ -4434,7 +4434,7 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")
     CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Client);
 }
 
-// ---- Track A (UI world-space surface): UICanvasComponent / UIBillboardComponent /
+// ---- UI world-space surface: UICanvasComponent / UIBillboardComponent /
 //      UIWorldPanelComponent get the mechanical .of (live data - order/visible/interactive/scale...).
 //      The app SCREEN tier (IScreenOverlay, loading screen) is deliberately NOT exposed here.
 TEST_CASE("script.scene: the world-space UI components reach script via .of")

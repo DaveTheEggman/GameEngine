@@ -1,15 +1,14 @@
 // Editor::Mcp - :script_validate partition
 //
-// script_validate (mcp-agent-access.md P1 item 7, the COMPILE-CHECK version per the split
-// ruling): compile a script source against a chosen backend WITHOUT saving anything, through
+// script_validate (the COMPILE-CHECK version): compile a script source against a chosen backend WITHOUT saving anything, through
 // the same per-language cook service the asset pipeline uses (ScriptLanguageCookRegistry) -
 // so what validates here is exactly what would cook. Returns the compile errors with
 // file/line, and on success the harvested metadata (class name, declared handlers, editor
 // properties, coroutine use) so the agent sees what the engine RECOGNIZED, not just "ok".
 //
 // Honesty: this is a compile check. Type errors against the bound engine API (a misspelled
-// method, wrong argument types) are NOT detected - that is the TYPED version, which lands
-// with the Luau analyzer toolchain (luau-backend.md P5). The description says so.
+// method, wrong argument types) are NOT detected - that requires the TYPED version, built
+// on the Luau analyzer toolchain. The description says so.
 
 module;
 #include "Core/Prelude.h"

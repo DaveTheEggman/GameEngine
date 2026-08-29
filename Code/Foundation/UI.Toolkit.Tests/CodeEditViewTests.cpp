@@ -303,7 +303,7 @@ TEST_CASE("toolkit-codeeditview: AutoScrollKeepsCaretLineFullyVisible")
 
 TEST_CASE("toolkit-codeeditview: CursorPerRegion")
 {
-    // Smoke finding (P2 pass): gutter + scrollbars showed the IBeam. The text area is IBeam;
+    // The gutter + scrollbars must not show the IBeam. The text area is IBeam;
     // the gutter and the scrollbar children resolve to the arrow.
     Harness h;
     h.view->SetText(u8"one\ntwo");
@@ -338,7 +338,7 @@ TEST_CASE("toolkit-codeeditview: ReadOnlyBlocksEdits")
     CHECK(h.view->Text().AsView() == StringView(u8"locked"));
 }
 
-// ---- P3: find/replace, comment toggle, brace indent, tooltip ----
+// ---- find/replace, comment toggle, brace indent, tooltip ----
 
 namespace
 {
@@ -508,7 +508,7 @@ TEST_CASE("toolkit-codeeditview: DiagnosticTooltip")
     CHECK(h.view->CreateTooltipContent().Get() == nullptr);
 }
 
-// ---- P4: trigger characters + markup completion ----
+// ---- trigger characters + markup completion ----
 
 namespace
 {

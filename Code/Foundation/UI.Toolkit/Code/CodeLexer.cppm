@@ -1,6 +1,6 @@
 // UI Toolkit - :code_lexer partition (interface).
 //
-// The lexing seam of CodeEditView (docs/design/code-editor.md P2), built on the line-state
+// The lexing seam of CodeEditView, built on the line-state
 // model: a lexer receives ONE line plus the entry state (e.g. "inside a block comment") and
 // returns styled token spans plus the exit state. CodeHighlighter caches per-line entry/exit
 // states and tokens; an edit re-lexes from the edited line downward only until exit states

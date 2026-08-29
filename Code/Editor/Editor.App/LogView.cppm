@@ -1,7 +1,7 @@
 // Editor::App - :log_view partition.
 //
-// LogView: the Console panel content (docs/design/editor.md §3.10) - Sedulous's LogView shape
-// on foundation.ui, plus category display (core logs carry categories; Sedulous had none). A
+// LogView: the Console panel content - a log view on foundation.ui, with category display
+// (core logs carry categories). A
 // filter/action toolbar (per-level CheckBoxes + Clear) over a recycled ListView of level-colored
 // rows; bounded entry count; auto-scroll to the newest entry. Fed once per frame by
 // EditorApplication draining the EditorLogBuffer.

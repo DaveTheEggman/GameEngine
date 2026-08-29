@@ -1,8 +1,8 @@
 /// Foundation::Net - `foundation.net:tcp_socket` partition.
 ///
-/// RAII TCP stream sockets over the Core/System TCP primitive (docs/design/networking.md §3.1), for
-/// the future foundation.http / WebSocket / script-debugger transports - NOT the UDP game transport.
-/// Each socket holds one WSA refcount (a no-op on POSIX), transferred on move. IPv4 for v1.
+/// RAII TCP stream sockets over the Core/System TCP primitive, for
+/// the foundation.http / WebSocket / script-debugger transports - NOT the UDP game transport.
+/// Each socket holds one WSA refcount (a no-op on POSIX), transferred on move. IPv4 only.
 
 module;
 #include "Core/Prelude.h"

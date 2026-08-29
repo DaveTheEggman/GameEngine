@@ -1,6 +1,6 @@
 // Foundation::Input - :model partition.
 //
-// The action-mapping DATA MODEL (docs/design/input.md §3.1): one InputMap = a whole game's
+// The action-mapping DATA MODEL: one InputMap = a whole game's
 // bindings - ActionSets (contexts with priority) of Actions (declared kinds, never inferred)
 // of Bindings (a tagged flat record covering every physical source; flat = trivially
 // serializable and editor-grid friendly). Per-action processors carry the Flax-style key-axis
@@ -82,8 +82,8 @@ export namespace foundation::input
         f32 stickRadius = 0.15f;
     };
 
-    // Button-action trigger shaping (P2; a small per-action state machine none of the
-    // surveyed engines had - the UE-style trio). None = plain press/release edges.
+    // Button-action trigger shaping (a small per-action state machine, the UE-style trio).
+    // None = plain press/release edges.
     //   Hold:      the pressed edge fires only once the press has been HELD `seconds`.
     //   Tap:       a one-frame pulse at RELEASE, only if the press lasted <= `seconds`.
     //   DoubleTap: a one-frame pulse on the second press within `seconds` of the first.
@@ -232,7 +232,7 @@ export namespace foundation::input
         ar.EndArray();
     }
 
-    // ---- user rebind overlay (docs/design/input.md §4) ----
+    // ---- user rebind overlay ----
     // NOT part of the asset: a settings SECTION persisted in the user file. Per-action
     // REPLACEMENT binding lists apply over a pristine asset copy at load and after each
     // rebind; reset-to-default = remove the override (the asset never mutates).

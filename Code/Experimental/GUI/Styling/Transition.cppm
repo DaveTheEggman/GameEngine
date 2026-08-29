@@ -3,12 +3,12 @@
 // CSS transitions wired to the Action system. Ported from eepp's css/TransitionDefinition:
 // parse the `transition` shorthand (`property duration [timing] [delay]`, comma-separated),
 // and ApplyStyleAnimated animates transitioned properties from their previous value instead
-// of snapping. This is where the CSS engine meets the Phase-3 ActionManager: a transitioned
+// of snapping. This is where the CSS engine meets the ActionManager: a transitioned
 // `opacity` change spawns a FadeAction on the node.
 //
-// v1 animates `opacity` (the common case + a clean showcase); size/position/color transitions
-// follow the same pattern and land as their animatable actions are needed. Timing functions
-// (easing) are parsed-but-ignored for now.
+// Animates `opacity`; size/position/color transitions
+// follow the same pattern and are added as their animatable actions are needed. Timing functions
+// (easing) are parsed but ignored.
 
 module;
 #include "Core/Prelude.h"

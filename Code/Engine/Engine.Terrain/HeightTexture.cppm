@@ -1,9 +1,9 @@
 // Engine::Terrain - the `:heighttexture` partition.
 //
-// PHASE B: the GPU height texture. The renderer's VS fetches per-vertex height via textureLoad, so
+// The GPU height texture. The renderer's VS fetches per-vertex height via textureLoad, so
 // each heightfield's u16 grid is uploaded to an R16Uint 2D texture (one texel per sample, exact).
 // CACHED by the heightfield resource id + version: two terrains referencing one heightfield share
-// ONE texture, and a version bump (a sculpt re-upload, phase 2) rebuilds it - the bind-group-cache
+// ONE texture, and a version bump (a sculpt re-upload) rebuilds it - the bind-group-cache
 // versioning rule. Foundation::Heightfield stays a CPU grid (nav/physics pay no GPU); the texture is
 // owned HERE.
 

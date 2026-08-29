@@ -8,8 +8,8 @@
 /// It implements ISceneRenderer (Begin/RenderScene×N/End): the app's render callback brackets
 /// the frame with BeginRendering/EndRendering and calls RenderScene per active scene. Each
 /// RenderScene extracts the scene into an ExtractedScene snapshot and collects a RenderView;
-/// EndRendering composes all views. (No MaterialSystem yet - the built-in forward shader binds
-/// no material set; that lands with material binding in phase 3.)
+/// EndRendering composes all views. (The built-in forward shader binds no material set on its
+/// own; material binding is handled separately.)
 
 module;
 #include "Core/Prelude.h"
@@ -411,7 +411,7 @@ namespace engine::render
         // Resolve this view's post-processing (exposure/bloom/AO). The programmatic global override
         // (samples' debug panels) wins once touched; otherwise the scene's authored PostProcessSettings
         // drive - exposure authored in EV/stops is resolved to the tonemap's linear multiplier here.
-        // (AA/SSR remain frame-global for now - phase 2a.)
+        // (AA/SSR remain frame-global.)
         if (m_globalPostActive)
         {
             settings.post.exposure = m_exposure;
@@ -447,7 +447,7 @@ namespace engine::render
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
             settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
-        // Scene-pass MSAA (msaa.md Decision 1): snap the AUTHORED intent to what the device supports.
+        // Scene-pass MSAA: snap the AUTHORED intent to what the device supports.
         // The valid set is NOT [1 .. ceiling]: WebGPU supports only {1, 4}, never 2. So clamp to the
         // ceiling, then snap DOWN to the nearest device-supported count (2x on WebGPU degrades to 1x;
         // 4x stays 4x). An unsupported count reaching texture/pipeline creation aborts the device, so
@@ -708,7 +708,7 @@ namespace engine::render
             m_tonemapPass.Reset();
         }
 
-        // Directional shadow map (phase 5). Optional - if it fails to init, the scene renders unshadowed.
+        // Directional shadow map. Optional - if it fails to init, the scene renders unshadowed.
         if (kEnableShadows)
         {
             m_shadowSystem =
@@ -723,7 +723,7 @@ namespace engine::render
             }
         }
 
-        // Image-based lighting (phase 6). Optional - if it fails to init, the scene uses flat ambient.
+        // Image-based lighting. Optional - if it fails to init, the scene uses flat ambient.
         m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_iblSystem->Initialize().IsOk())
         {
@@ -773,14 +773,14 @@ namespace engine::render
             m_ssrPass.Reset();
         }
 
-        // Scene-pass MSAA first-sample resolve (msaa.md). Optional - null leaves MSAA unavailable
+        // Scene-pass MSAA first-sample resolve. Optional - null leaves MSAA unavailable
         // (views clamp to 1x), so the engine still renders without it.
         m_msaaResolvePass = MakeUnique<MsaaResolvePass>(DefaultAllocator(), *m_device, *m_shaders);
         if (!m_msaaResolvePass->Initialize().IsOk())
         {
             m_msaaResolvePass.Reset();
         }
-        // Scene-pass MSAA device ceiling (msaa.md Decision 1): the max sample count the device supports
+        // Scene-pass MSAA device ceiling: the max sample count the device supports
         // for color+depth, capped at 4 by the query. Views clamp their authored intent to this. If the
         // resolve pass failed to init, MSAA is unavailable regardless, so force 1x.
         m_maxMsaaSamples =

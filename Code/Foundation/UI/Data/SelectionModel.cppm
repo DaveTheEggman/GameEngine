@@ -39,7 +39,7 @@ export namespace foundation::ui
 
         /// Select an index EXCLUSIVELY (a plain click): the previous selection clears in every
         /// mode - extending is what Toggle (Ctrl) and SelectRange (Shift) are for. (Multiple
-        /// mode used to accumulate here, so plain clicks grew the selection forever.)
+        /// mode must not accumulate here, or plain clicks would grow the selection forever.)
         void Select(i32 index)
         {
             if (Mode == SelectionMode::None)

@@ -6,7 +6,7 @@
 // layers - the background/skin reacts to the input-driven control state (UINode) and CSS can
 // target the default `button` tag - so Button just centers its text and fires a click
 // callback (and MouseClick event) when pressed and released on it. Icon + icon/text layout
-// are deferred (add via composition when needed).
+// are not built in (add via composition when needed).
 
 module;
 #include "Core/Prelude.h"

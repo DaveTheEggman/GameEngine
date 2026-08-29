@@ -149,7 +149,7 @@ TEST_CASE("shader system: cooked pack path - blob lookup + canonicalization, no 
         CHECK(ss.GetVariant(u8"nope", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
 
         // Dist boot: a COMPILER-FREE ShaderSystem (no DXC) serves the same pack. This is what a
-        // shipped player does when the DXC sidecar was dropped.
+        // dist player does when the DXC sidecar is absent.
         ShaderSystem packOnly(device); // no compiler
         packOnly.SetCookedPack(&pack);
         CHECK(packOnly.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None) != nullptr);

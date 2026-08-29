@@ -61,7 +61,7 @@ namespace texcomp
                                                rhi::TextureFormat uncompressed) noexcept
     {
         using F = rhi::TextureFormat;
-        // Escape hatches (Decision 5, last row): authored None, small/UI/pixel-art, HDR (no BC6H yet).
+        // Escape hatches: authored None, small/UI/pixel-art, HDR (no BC6H yet).
         if (choice == CompressionChoice::None)
         {
             return uncompressed;
@@ -72,7 +72,7 @@ namespace texcomp
         }
         if (usage == TextureUsage::HDR)
         {
-            return uncompressed; // BC6H not vendored in P1
+            return uncompressed; // TODO: BC6H not vendored - HDR stays uncompressed
         }
 
         if (profile.bc) // desktop + desktop browsers - prefer BC (checked first if a profile had both)
@@ -100,7 +100,7 @@ namespace texcomp
             // only meaningfully applies to color; Normal/Mask stay linear.
             return (sRGB && usage == TextureUsage::Color) ? F::ASTC4x4UnormSrgb : F::ASTC4x4Unorm;
         }
-        // ETC2 + any other family stay uncompressed for now.
+        // ETC2 + any other family stay uncompressed.
         return uncompressed;
     }
 

@@ -2,7 +2,7 @@
 // component + manager (which ticks the CPU sim and provides billboard render-data), the dedicated
 // ParticleRenderer, and the Context-level ParticleSubsystem that wires them into RenderSubsystem via
 // its generic register-renderer / register-provider seam. Depends on render.subsystem + scene +
-// foundation.particles; foundation.render stays ignorant of particles. See docs/design/particles.md.
+// foundation.particles; foundation.render stays ignorant of particles.
 
 export module engine.particles;
 

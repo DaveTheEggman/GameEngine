@@ -1,11 +1,11 @@
-// Tools.Cook - the command-line cooker (docs/design/asset-pipeline.md §6). Headless: opens the
+// Tools.Cook - the command-line cooker. Headless: opens the
 // project, registers every builder, plans + executes the incremental cook.
 //
 // Usage: Tools.Cook <projectDirectory> [--rebuild] [--dry-run] [--target <id>]
 //   --rebuild        force-cook every buildable asset (the "forgot the version bump" big hammer)
 //   --dry-run        print the plan (dirty set + orphans) without cooking
-//   --target <id>    cook a per-target DB under Cooked/<id>/ instead of the host DB (asset-variants
-//                    P2). Cooks the host first, then carries platform-invariant products forward and
+//   --target <id>    cook a per-target DB under Cooked/<id>/ instead of the host DB (asset-variants).
+//                    Cooks the host first, then carries platform-invariant products forward and
 //                    recooks only variant products (textures: BC vs ASTC) for the target. "web-astc"
 //                    is the ASTC mobile-web target; everything else is BC desktop. "host" = default.
 // Exit code = number of failed cooks (0 = success).

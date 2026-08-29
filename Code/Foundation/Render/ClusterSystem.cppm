@@ -1,6 +1,6 @@
 /// Foundation::Render - the `:cluster_system` partition.
 ///
-/// Clustered light culling (phase 4.3). Bins lights into a 3D froxel grid (screen tiles ×
+/// Clustered light culling. Bins lights into a 3D froxel grid (screen tiles ×
 /// logarithmic depth slices) once per frame via a compute pass, so the forward shader evaluates
 /// only the lights touching each fragment's cluster instead of all lights. This partition owns the
 /// build compute pipeline + the per-frame cluster buffers, and declares the build pass into the

@@ -211,12 +211,12 @@ export namespace foundation::rhi::dx12
         // DX12 has no format-agnostic "framebuffer sample counts" limit the way Vulkan does; the
         // only query is per-format via CheckFeatureSupport(MULTISAMPLE_QUALITY_LEVELS), where
         // NumQualityLevels == 0 means the count is unsupported. The engine's MSAA scene pass
-        // binds a whole MRT set at ONE count (msaa.md), so a count only counts as supported when
+        // binds a whole MRT set at ONE count, so a count only counts as supported when
         // every attachment format the pass uses supports it - the same "colour AND depth agree"
         // rule VkDevice applies to its two bitmasks.
         //
-        // Without these overrides the base Device returned 1 / count<=1, so DX12 silently never
-        // offered MSAA at all while Vulkan and WebGPU did.
+        // The base Device returns 1 / count<=1 (no MSAA); these overrides are what let DX12
+        // offer MSAA at parity with Vulkan and WebGPU.
         [[nodiscard]] bool sampleCountSupported(u32 count) const noexcept
         {
             if (count <= 1)
@@ -253,7 +253,7 @@ export namespace foundation::rhi::dx12
         u32 MaxColorDepthSampleCount() const noexcept override
         {
             if (sampleCountSupported(4))
-                return 4; // engine ceiling (msaa.md Decision 1); 8x is out of scope
+                return 4; // engine ceiling; 8x is out of scope
             if (sampleCountSupported(2))
                 return 2;
             return 1;
@@ -266,11 +266,11 @@ export namespace foundation::rhi::dx12
 
         FormatSupport GetFormatSupport(TextureFormat format) override
         {
-            // This used to ignore `format` and claim the same broad capability set for
-            // everything, which is not merely imprecise - it reports support for formats D3D12
+            // Query the driver per `format`. Claiming the same broad capability set for
+            // everything is not merely imprecise - it reports support for formats D3D12
             // cannot represent at all. ASTC is the concrete case: it has no DXGI equivalent, so
-            // callers were told "supported", uploaded, and sampled garbage, where Vulkan and
-            // WebGPU correctly skip. Ask the driver instead.
+            // callers told "supported" would upload and sample garbage, where Vulkan and
+            // WebGPU correctly skip.
             const DXGI_FORMAT dxgi = toDxgiFormat(format);
             if (dxgi == DXGI_FORMAT_UNKNOWN)
                 return FormatSupport::Unsupported; // no DXGI spelling (ASTC, ETC, ...)

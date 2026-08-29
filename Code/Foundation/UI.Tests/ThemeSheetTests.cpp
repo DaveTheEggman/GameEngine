@@ -1,9 +1,8 @@
-// Built-in theme sheet gates (ui-theme-migration.md consistency pass). The parity tests
-// retired when the sheets were RE-AUTHORED to the shared design system (the legacy C++
-// builders are superseded, kept only as the parse-failure belt until visual sign-off).
+// Built-in theme sheet gates. The sheets are authored against the shared design system; the
+// legacy C++ builders are kept only as a parse-failure belt.
 // These gates check what must stay true regardless of look: every sheet parses non-empty
 // under its palettes, the design-system ramps hold (16/14/12), and the icon vocabulary
-// resolves to real drawables (svg() must never silently null - the P0 finding).
+// resolves to real drawables (svg() must never silently null).
 #include <doctest/doctest.h>
 #include <cstdio>
 #include "Core/Prelude.h"

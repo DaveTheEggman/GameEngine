@@ -1,7 +1,7 @@
 // Editor::Script - the `editor.script` module.
 //
-// ScriptEditorPage (scripting.md §5, "ScriptPage - phase 2"): an in-editor code editor for a
-// ScriptClassAsset's behavior source, built on ui::toolkit::CodeEditView (code-editor.md P1):
+// ScriptEditorPage: an in-editor code editor for a
+// ScriptClassAsset's behavior source, built on ui::toolkit::CodeEditView:
 // monospace virtualized editing, a native gutter whose Breakpoint markers write through to the
 // shared EditorContext store (a Game run applies the same set to its debugger), and compile
 // errors mapped onto their lines as Error markers. Save writes the source back + nudges the
@@ -73,7 +73,7 @@ export namespace editor
 
     // True when a binding's reflected type was registered under a non-Runtime domain
     // (TypeRegistry::DomainOf) - callable wherever the editor runs (including
-    // play-in-editor), but ABSENT from a shipped player. Completion and the API browser
+    // play-in-editor), but ABSENT from a built player. Completion and the API browser
     // both mark such bindings " [editor]" so a player-bound script's author is warned.
     [[nodiscard]] inline bool IsEditorOnlyBinding(TypeId typeId)
     {
@@ -166,7 +166,7 @@ export namespace editor
             column->Spacing = 4.0f;
 
             // The source editor: CodeEditView owns the gutter, markers, undo, and completion
-            // (document-word provider; richer language providers arrive with code-editor P4).
+            // (document-word provider).
             m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
             // Lexer by language id from the registry the script plugin populated - the page
             // stays backend-neutral; an unregistered language just renders unstyled.

@@ -1,5 +1,5 @@
 # Tools.Export - packages a project into a shippable dist (cook -> stage scenes -> Content.pak
-# + player.xml + Engine.Player). See docs/design/roadmap.md "Milestone: MVP-to-Export".
+# + player.xml + Engine.Player).
 add_executable(Tools.Export Main.cpp)
 add_dependencies(Tools.Export Engine.Player)   # stages the player exe when present
 target_link_libraries(Tools.Export PRIVATE

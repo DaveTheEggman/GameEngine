@@ -192,8 +192,8 @@ TEST_CASE("FloatingPanel: negative X/Y clamps to the parent origin")
 
 TEST_CASE("FloatingPanel: the resize band lives in the border inset, plus a corner grab square")
 {
-    // Pass-17 polish: a 9px hit band used to claim the outer ~3px of hosted content (a
-    // PropertyGrid's scrollbar edge). Edges now claim only the 6px content inset; the
+    // A 9px hit band must not claim the outer ~3px of hosted content (a
+    // PropertyGrid's scrollbar edge). Edges claim only the 6px content inset; the
     // bottom-right corner keeps a 12px OS-style grip square. CursorAt is the observable seam.
     auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Band"));
     // A content child filling the body is the discriminator: a point the band does NOT claim

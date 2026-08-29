@@ -3,8 +3,8 @@
 // DrawContext: the renderer seam eepp's UI lacked. eepp widgets/drawables draw straight
 // through global Primitives / GlobalBatchRenderer / GLi; here every draw call routes
 // through a VGContext instead. Thin wrapper (mirrors foundation.ui's UIDrawContext) adding
-// clip / transform / opacity stacking and the DPI scale; the font service is added when
-// the text phase lands.
+// clip / transform / opacity stacking and the DPI scale; the font service is not wired
+// in here.
 
 module;
 #include "Core/Prelude.h"

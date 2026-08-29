@@ -1,11 +1,11 @@
 // Engine::Terrain - the `:splattexture` partition.
 //
-// The GPU splat textures for the top-K blend (terrain-splat-topk.md): the CPU SplatWeights (the
+// The GPU splat textures for the top-K blend: the CPU SplatWeights (the
 // painted source of truth) derives TWO textures per resource -
 //   - weights: RGBA8Unorm (the 4 slot weights; filterable, though the top-K PS Loads it for the
 //     manual bilinear),
 //   - indices: RGBA8Uint (the 4 palette indices; INTEGER + non-filterable BY DESIGN - filtering
-//     indices interpolates layer ids into garbage, ruling R1; Load-only in the shader).
+//     indices interpolates layer ids into garbage; Load-only in the shader).
 // CACHED by the resource UID + version, exactly like the height-texture cache: two terrains
 // sharing one weights raster share ONE texture pair, and a paint (a version bump) RETIRES the old
 // pair and re-uploads - the new view ids make the set-3 bind cache rebuild for free (the live-
@@ -401,7 +401,7 @@ export namespace engine::terrain
                                         const foundation::terrain::TerrainPaletteData& data,
                                         Span<const f32> paletteTileScales, Entry& out)
         {
-            // Albedo is sRGB (fixes the base-vs-palette brightness gap, terrain-layer-pbr.md R3);
+            // Albedo is sRGB (fixes the base-vs-palette brightness gap);
             // normal + ORM are linear and built ONLY when a layer supplied them (else the renderer
             // binds a 1x1 dummy).
             if (!BuildArray(device, rhi::TextureFormat::RGBA8UnormSrgb,

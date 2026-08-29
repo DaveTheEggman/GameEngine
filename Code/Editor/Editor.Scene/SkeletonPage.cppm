@@ -1,7 +1,7 @@
 // Editor::Scene - :skeleton_page partition.
 //
-// SkeletonEditorPage (editor-pages-gap.md, bespoke pass #5): a VIEWER for a SkeletonAsset - a bone
-// TREE (hierarchy by parent index) beside a bind-pose wireframe viewport (the pass-4
+// SkeletonEditorPage: a VIEWER for a SkeletonAsset - a bone
+// TREE (hierarchy by parent index) beside a bind-pose wireframe viewport (the
 // DrawSkeletonWireframe over the cooked product's local bind poses), plus a read-only info pane for
 // the selected bone (index / parent / bind TRS). Selecting a bone emphasizes it in the wireframe.
 // Skeletons are imported (model importer) and carry no re-authorable fields, so Save is a no-op and

@@ -559,7 +559,7 @@ export namespace foundation::vg::renderer
             m_textureCache.PushBack(Move(cached));
         }
 
-        /// Drop a previously-registered external texture. Tears down its per-frame
+        /// Drop a registered external texture. Tears down its per-frame
         /// bind groups (but never the caller-owned view/texture). Safe to call for
         /// an unknown key. Call before the underlying view is destroyed.
         void UnregisterExternalTexture(const image::ImageData* key)

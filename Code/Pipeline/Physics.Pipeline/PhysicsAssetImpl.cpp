@@ -3,7 +3,7 @@
 // Kept OUT of the PhysicsAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm
 // cluster; see gcc-module-interface-hygiene). The classes declare identity via RTTI_OBJECT in
 // the interface; this unit defines their StaticType() WITH properties + tooling attributes, plus
-// the CollisionCookKind enum reflection. Reflection track P1.
+// the CollisionCookKind enum reflection.
 
 module;
 #include "Core/Prelude.h"

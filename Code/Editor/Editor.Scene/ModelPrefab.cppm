@@ -1,6 +1,6 @@
 // Editor::Scene - :model_prefab partition.
 //
-// Model->prefab generation (prefabs P3): a model import's manifest (node hierarchy + cooked
+// Model->prefab generation: a model import's manifest (node hierarchy + cooked
 // leaf guids) becomes a spawnable PrefabDocument named "Prefab" inside the model's group. The
 // wiring mirrors the runtime model spawn (Sandbox): one entity per node, MeshComponents with
 // mesh/material refs by guid (per-submesh refs for multi-material models), and a

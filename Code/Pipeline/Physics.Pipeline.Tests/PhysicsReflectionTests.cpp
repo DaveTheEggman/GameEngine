@@ -1,4 +1,4 @@
-// Reflection track P1: CollisionShapeAsset + PhysicalMaterialAsset reflected surface, and the
+// CollisionShapeAsset + PhysicalMaterialAsset reflected surface, and the
 // CollisionCookKind enum. Verifies authored properties enumerate with attributes, round-trip
 // through get/set, and that the cook-mode enum resolves named values.
 #include <doctest/doctest.h>

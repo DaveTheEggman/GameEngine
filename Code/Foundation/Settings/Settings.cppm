@@ -1,6 +1,6 @@
 // Foundation::Settings - the `foundation.settings` module.
 //
-// A typed, versioned, backend-agnostic settings store (see docs/design/settings.md). A "section" is
+// A typed, versioned, backend-agnostic settings store. A "section" is
 // a reflected ISerializable struct; the store holds one instance per type, lazily created (so an
 // absent section reads as its struct defaults) and (de)serialized as a versioned payload keyed by the
 // type's namespace+name. Load/Save go through the ISerializer/SerializerFactory abstraction - the
@@ -22,7 +22,7 @@ using namespace foundation::core;
 export namespace foundation::settings
 {
     // A store of typed settings sections. One instance = one persisted file's worth (layering across
-    // user/project files composes multiple Settings; a later phase). Not copyable (owns live sections).
+    // user/project files composes multiple Settings). Not copyable (owns live sections).
     class Settings
     {
     public:
@@ -158,8 +158,8 @@ export namespace foundation::settings
         // Load sections from `in`. Each known+registered section type is instantiated and
         // deserialized; the store replaces any existing instance of that type. NOTE (Phase 1): a
         // section whose type is unknown to this build cannot be skipped on a positional backend, so
-        // it aborts the load (unknown-section passthrough is a later phase - docs/design/settings.md
-        // §3.4). Registered types must have called RegisterSerializable<T>().
+        // it aborts the load (unknown-section passthrough is not implemented). Registered types
+        // must have called RegisterSerializable<T>().
         [[nodiscard]] Status
         Load(IStream& in, SerializerFactory factory, TypeRegistry& types = GlobalTypeRegistry(),
              SerializableRegistry& serializables = GlobalSerializableRegistry())

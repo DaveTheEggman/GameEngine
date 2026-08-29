@@ -2,8 +2,8 @@
 // insert/delete/undo/redo logic, all of which run through TextEditingBehavior on CHARACTER indices and
 // need no glyph shaping). Beef `[Friend]mBehavior` -> the public Behavior() accessor; `edit.Filter =`
 // -> SetFilter(); Beef property setters -> Set*/.SetValue(). The pixel/caret-position cases (which need
-// the deferred Fonts service) are not ported. Undo/Redo coverage is added here (Sedulous had none - it
-// exercised undo only interactively).
+// the not-yet-wired Fonts service) are not ported. Undo/Redo coverage is included here (Sedulous had
+// none - it exercised undo only interactively).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;

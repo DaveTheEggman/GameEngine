@@ -9,7 +9,7 @@
 //   * Static opt - press B for a sin-wave bob that rewrites EVERY sphere's transform each
 //                  frame, so nothing can be cached as static (full extraction every frame).
 //
-// No HUD yet (UI/VG deferred): stats print to the console once per second (toggle H), and the
+// No HUD (UI/VG not used here): stats print to the console once per second (toggle H), and the
 // inherited P key dumps the CPU scope tree + per-pass GPU timings. Fly camera: WASD/QE move,
 // hold RMB (or Tab to capture) to look, Shift to move fast, Esc to exit.
 
@@ -123,7 +123,7 @@ namespace
                 sl.type = engine::render::LightType::Directional;
                 sl.color = core::Color{1.0f, 0.95f, 0.9f, 1.0f};
                 sl.intensity = 1.5f;
-                sl.castsShadows = true; // phase 5.1: the spheres cast shadows on the ground
+                sl.castsShadows = true; // the spheres cast shadows on the ground
                 m_sun = sun; // K toggles its shadows (for shadowed-vs-unshadowed benchmarking)
             }
 

@@ -4,7 +4,7 @@
 // see gcc-module-interface-hygiene). The class declares identity via RTTI_OBJECT in the
 // interface; this unit defines AudioClipAsset::StaticType() WITH properties + tooling attributes.
 // No enums here, so no registrar is needed - the type reflection rides StaticType(), registered by
-// the existing RegisterAudioAssets(). Reflection track P1.
+// the existing RegisterAudioAssets().
 
 module;
 #include "Core/Prelude.h"

@@ -5,7 +5,7 @@
 // in the interface; this unit defines TextureAsset::StaticType() WITH properties + tooling
 // attributes, so the generic asset page and the script backends see the authored surface.
 // The enum property types (TextureShape/Filter/Wrap, ImageColorSpace) are reflected in their
-// owning modules and registered by RegisterTextureAsset. Reflection track P1.
+// owning modules and registered by RegisterTextureAsset.
 
 module;
 #include "Core/Prelude.h"

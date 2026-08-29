@@ -1,4 +1,4 @@
-// Integration.Mcp - asset_uses (mcp-agent-access.md P1 item 3): the reverse dependency query an
+// Integration.Mcp - asset_uses: the reverse dependency query an
 // agent must read before any destructive change. Exercises three edge families against a real
 // project: an asset->asset edge (MaterialAsset -> texture via the builder's ScanDependencies), a
 // scene->asset edge (a MeshComponent Ref, collected through the full-manager LoadScene + factory-

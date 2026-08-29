@@ -8,8 +8,8 @@
 /// It implements ISceneRenderer (Begin/RenderScene×N/End): the app's render callback brackets
 /// the frame with BeginRendering/EndRendering and calls RenderScene per active scene. Each
 /// RenderScene extracts the scene into an ExtractedScene snapshot and collects a RenderView;
-/// EndRendering composes all views. (No MaterialSystem yet - the built-in forward shader binds
-/// no material set; that lands with material binding in phase 3.)
+/// EndRendering composes all views. (The built-in forward shader binds no material set on its
+/// own; material binding is handled separately.)
 
 module;
 #include "Core/Prelude.h"
@@ -175,7 +175,7 @@ export namespace engine::render
         void SetSsrEnabled(bool on) noexcept;
         [[nodiscard]] bool SsrEnabled() const noexcept { return m_ssrEnabled; }
         // Scene-pass MSAA sample count (1/2/4) for the global post path - capability-clamped per view
-        // (msaa.md). Samples/tools drive it directly (the editor uses the per-view override instead).
+        // Samples/tools drive it directly (the editor uses the per-view override instead).
         void SetMsaaSamples(u32 count) noexcept;
         [[nodiscard]] u32 MsaaSamples() const noexcept { return m_globalMsaaSamples; }
         // Whether this exact scene-pass MSAA count is usable on the active device (the valid set is not
@@ -282,13 +282,13 @@ export namespace engine::render
 
     private:
         // A per-frame snapshot pool: one ExtractedScene per RenderScene call, kept alive (and its
-        // arena chunks reused) until the next BeginRendering. (Phase 8 shares one snapshot across
-        // multiple cameras of the same scene; phase 1 takes one per call.)
+        // arena chunks reused) until the next BeginRendering. (One snapshot is taken per RenderScene
+        // call.)
         [[nodiscard]] ExtractedScene* AcquireScene();
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
-        u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init; msaa.md)
+        u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init)
         // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider
         // with hot reload otherwise). m_shaders caches its ShaderSystem for the passes to borrow.
         shaders::ShaderSystemHost m_shaderHost;
@@ -316,7 +316,7 @@ export namespace engine::render
         UniquePtr<TaaPass> m_taaPass;
         UniquePtr<AoPass> m_aoPass;
         UniquePtr<SsrPass> m_ssrPass;
-        UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve (msaa.md)
+        UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve
         UniquePtr<FxaaPass> m_fxaaPass;
         UniquePtr<DecalPass> m_decalPass;
         UniquePtr<DebugDrawPass> m_debugPass;

@@ -15,15 +15,15 @@ add_subdirectory(NetEcho)
 # the desktop shell + the Vulkan GPU factory.
 if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Graphics.Gpu)
     add_subdirectory(HelloWindow)
-    add_subdirectory(ScriptPlayground)   # script P1 consumer proof (Mover/Spinner behaviors on the ScriptSubsystem)
+    add_subdirectory(ScriptPlayground)   # script consumer proof (Mover/Spinner behaviors on the ScriptSubsystem)
     add_subdirectory(GameUiSandbox)      # game-UI-kit widgets on the UISubsystem screen tier (MenuList/Bar/Ticker/Toast/ButtonPrompt)
     add_subdirectory(MultiWindow)
     # Samples with an ImGui debug UI - honor the extension option, or an
     # -DOPTION_EXTENSION_IMGUI=OFF configure dies on a missing Extensions::Imgui target.
     if(OPTION_EXTENSION_IMGUI)
         add_subdirectory(InputActions)       # foundation.input consumer proof (named actions end-to-end)
-        add_subdirectory(PhysicsPlayground)  # physics P1 consumer proof (crates/trigger/raycast on Jolt)
-        add_subdirectory(AudioPlayground)    # audio P1 consumer proof (ambient loop + positional one-shots on miniaudio)
+        add_subdirectory(PhysicsPlayground)  # physics consumer proof (crates/trigger/raycast on Jolt)
+        add_subdirectory(AudioPlayground)    # audio consumer proof (ambient loop + positional one-shots on miniaudio)
         add_subdirectory(TerrainPlayground)  # terrain consumer proof (in-code heightfield -> engine.terrain renderer + HUD)
         add_subdirectory(RenderStressTest)   # worst-case benchmark to keep perf honest
     endif()

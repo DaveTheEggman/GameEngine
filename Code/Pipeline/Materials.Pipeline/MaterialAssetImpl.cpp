@@ -5,7 +5,7 @@
 // MaterialSource derives Object (RefCounted deletes its copy ctor) so it cannot marshal through a
 // Variant - it is exposed as a NESTED property (TypeBuilder::Nested): tooling reaches the member
 // in place via address and recurses into MaterialSource's own reflected properties. This is the
-// reflection-track "living proof" of the nested-member mechanism. Reflection track P1.
+// "living proof" of the nested-member mechanism.
 
 module;
 #include "Core/Prelude.h"

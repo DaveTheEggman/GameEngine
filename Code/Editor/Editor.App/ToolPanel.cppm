@@ -1,9 +1,9 @@
 // Editor::App - the `editor.app:tool_panel` partition.
 //
-// The viewport-tool PANEL seam (property-animation.md Phase H1). A viewport tool (editor.viewport-
+// The viewport-tool PANEL seam. A viewport tool (editor.viewport-
 // tools) is a UI-free modal interaction mode; some tools are also "modes" that want an on-screen
 // settings surface docked beside the viewport while they are active - property-animation authoring,
-// a future terrain-brush panel, a nav-mesh bake panel. That surface is UI (it builds ui::Views), so
+// a terrain-brush panel, a nav-mesh bake panel. That surface is UI (it builds ui::Views), so
 // it CANNOT live on IViewportTool (the tool framework is deliberately UI-free, headless hosts link
 // it). Instead this is a SECOND registry one layer up, in the editor-UI tier: UI-capable domain libs
 // register an IViewportToolPanelProvider keyed by their tool's Id(); the scene page reserves a dock

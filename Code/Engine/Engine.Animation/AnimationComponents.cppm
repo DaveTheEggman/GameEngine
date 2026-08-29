@@ -117,7 +117,7 @@ export namespace engine::animation
                 {
                     if (!m_scene->IsEffectivelyActive(owner))
                     {
-                        return; // frozen: time does not advance (entity-active-state.md P3)
+                        return; // frozen: time does not advance
                     }
                     animation::Skeleton* skeleton = a.skeleton.Get();
                     if (skeleton == nullptr)
@@ -226,7 +226,7 @@ export namespace engine::animation
 
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
-        // Simulation-gated like the clip manager (see its comment - user ruling 2026-08-18).
+        // Simulation-gated like the clip manager (see its comment).
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         // Run before the simple-clip manager (UpdateOrder 0) so the graph drives graph-backed entities.
@@ -250,7 +250,7 @@ export namespace engine::animation
                 {
                     if (!m_scene->IsEffectivelyActive(owner))
                     {
-                        return; // frozen (entity-active-state.md P3)
+                        return; // frozen
                     }
                     animation::Skeleton* skeleton = a.skeleton.Get();
                     animation::AnimationGraph* graph = a.graph.Get();
@@ -307,7 +307,6 @@ export namespace engine::animation
     // skinning palettes, and feeds the pool to the target InstancedMeshComponent - which draws instance i
     // with pose (i % M). So a 30k crowd costs M palette computes, not 30k. Put it on the same entity as the
     // InstancedMeshComponent (empty target) or point `target` at it. Borrowed skeleton/clip must outlive it.
-    // See docs/design/instanced-mesh.md SS7.
     struct InstancedSkinningComponent
     {
         animation::Skeleton* skeleton = nullptr;  // borrowed; shared across the crowd
@@ -332,7 +331,7 @@ export namespace engine::animation
     {
     public:
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
-        // Simulation-gated like the clip manager (see its comment - user ruling 2026-08-18).
+        // Simulation-gated like the clip manager (see its comment).
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
 
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
@@ -353,7 +352,7 @@ export namespace engine::animation
                 {
                     if (!m_scene->IsEffectivelyActive(owner))
                     {
-                        return; // frozen (entity-active-state.md P3)
+                        return; // frozen
                     }
                     if (s.skeleton == nullptr || s.clip == nullptr || s.poseCount == 0)
                     {

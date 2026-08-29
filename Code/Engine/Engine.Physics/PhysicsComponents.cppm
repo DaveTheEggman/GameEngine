@@ -1,6 +1,6 @@
 // Engine::Physics - :components partition.
 //
-// The authoring components (docs/design/physics.md §3.2): RigidBodyComponent carries the
+// The authoring components: RigidBodyComponent carries the
 // body's motion/layer/material properties plus its OWN primitive shape; ColliderComponent
 // on DESCENDANT entities adds extra shapes that fold into the nearest ancestor body's
 // compound (hierarchy compounding). Runtime fields (body handle, pose double-buffer for
@@ -59,7 +59,7 @@ export namespace engine::physics
         // and launches it the same frame - e.g. a thrown paper). Accumulated by ScenePhysics.applyImpulse
         // when `body` is invalid, then flushed once in CreateBodyForEntity. Runtime only, never serialized.
         Float3 pendingImpulse{0, 0, 0};
-        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // Entity-active latch: the effective-active state this
         // domain last reconciled against. Runtime only, never serialized.
         bool simActive = false;
         Float3 prevPosition{0, 0, 0};
@@ -184,7 +184,7 @@ export namespace engine::physics
 
         // Runtime (transient):
         CharacterId character;
-        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // Entity-active latch: the effective-active state this
         // domain last reconciled against. Runtime only, never serialized.
         bool simActive = false;
         CharacterGround ground = CharacterGround::InAir;
@@ -252,7 +252,7 @@ export namespace engine::physics
 
         // Runtime (transient):
         JointId joint;
-        // Entity-active latch (entity-active-state.md P3): the effective-active state this
+        // Entity-active latch: the effective-active state this
         // domain last reconciled against. Runtime only, never serialized.
         bool simActive = false;
     };

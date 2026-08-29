@@ -106,7 +106,7 @@ export namespace foundation::ui::viewport
         /// input surface is re-targeted so the router routes to the new window. The offscreen GPU targets
         /// themselves are unchanged. (This is the per-renderer undock path - it moves the RT between one
         /// renderer at a time; sampling ONE RT in TWO windows at once would need the shared external-
-        /// texture cache, still deferred.)
+        /// texture cache, which is not implemented.)
         void AttachToWindow(vg::renderer::VGRenderer* renderer, u32 windowId)
         {
             if (renderer != m_renderer)

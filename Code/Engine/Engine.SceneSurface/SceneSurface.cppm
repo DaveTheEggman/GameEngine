@@ -6,13 +6,13 @@
 // component manager and settings-bearing scene system present, or the scene reader silently skips
 // their records ("skipping records of unknown component type"). This module declares the FULL scene
 // composition (every domain's managers + reflection), built once from a single module list -
-// the single source of truth that replaces the old imperative `AddAllSceneManagers` list and its
-// `kSceneSystemCount` count tripwire (see scene-composition.md).
+// the single source of truth for the full scene composition and its
+// `kSceneSystemCount` count tripwire.
 //
 // Managers are plain value pools and the settings systems construct inert (no device, no engine,
 // no run host), so the aggregate is safe in a fully headless process. The RUNTIME assembles from
 // THIS SAME composition (DefaultApplication::SetComposition(FullSceneComposition()) - the sole
-// assembly path since the ISceneAware removal): every scene carries the full system set whether
+// assembly path): every scene carries the full system set whether
 // or not the matching subsystem exists, and absent subsystems simply leave their systems unwired
 // (inert value pools / no-op ticks). Per-configuration compositions (a minimal headless server, an
 // editor-only set) build from the same per-domain modules when a consumer wants a subset.
@@ -34,8 +34,8 @@ export namespace engine
 {
     /// The FULL scene-surface composition: every serializable component manager + settings-bearing
     /// scene system across all engine domains + net, in dependency order. `Instantiate(scratch)`
-    /// reproduces the old AddAllSceneManagers set; `RegisterReflection()` reproduces
-    /// RegisterAllSceneComponentReflection. A manager added to a domain's Add<Domain>SceneManagers
+    /// installs the full scene manager set; `RegisterReflection()` registers reflection for every
+    /// scene component. A manager added to a domain's Add<Domain>SceneManagers
     /// function is picked up automatically - there is no parallel list to forget.
     [[nodiscard]] const foundation::scene::SceneComposition& FullSceneComposition();
 

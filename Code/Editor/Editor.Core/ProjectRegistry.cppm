@@ -1,9 +1,9 @@
-// The per-user project registry - the headless core of the built-in project manager
-// (docs/design/settings.md's planned RecentProjects section, realized).
+// The per-user project registry - the headless core of the built-in project manager,
+// the RecentProjects section.
 //
 // The registry is a Settings SECTION in the user-level editor settings store
 // (<user-data>/editor.settings.xml), deliberately OUTSIDE any engine install or project
-// directory: every editor version on the machine lists the same projects, and a future
+// directory: every editor version on the machine lists the same projects, and a
 // separate launcher/hub can read the same file. Ordering IS recency (most recent first) -
 // no timestamps to go stale. Display data (name, engine version) is a cached snapshot,
 // refreshed every time the project is touched; ProbeProject reads the live manifest when

@@ -1,4 +1,4 @@
-// Engine.Player - the generic game runner (MVP-to-Export milestone, docs/design/roadmap.md).
+// Engine.Player - the generic game runner.
 //
 // Runs a project with ZERO native game code: engine subsystems + the project's content +
 // the default scene, simulating - and, when the manifest names one, the project's GAME SCRIPT
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        // No path given: behave like a SHIPPED game binary - the game is wherever we are.
+        // No path given: behave like a distributed game binary - the game is wherever we are.
         // Try the current directory, then the executable's own directory (double-click /
         // run-from-anywhere), then the dev default.
         namespace fs = std::filesystem;

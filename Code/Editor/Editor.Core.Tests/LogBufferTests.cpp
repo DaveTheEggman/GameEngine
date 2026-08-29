@@ -1,4 +1,4 @@
-// EditorLogBuffer tests (docs/design/editor.md §3.10): sink capture through the global logger,
+// EditorLogBuffer tests: sink capture through the global logger,
 // incremental CollectSince polling, bounded-ring overflow with drop counting, full-fidelity
 // (untruncated) messages, and cross-thread writes.
 

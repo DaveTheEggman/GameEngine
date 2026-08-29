@@ -3,8 +3,9 @@
 // Kept OUT of the FontAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). The class declares identity via RTTI_OBJECT in the
 // interface; this unit defines FontAsset::StaticType() WITH properties + tooling attributes, plus
-// the FontBakeMode enum reflection. The `sizes` ramp (Array<f32>) is left unreflected for now -
-// array container properties need editor support beyond P1's flat-field pass. Reflection track P1.
+// the FontBakeMode enum reflection.
+// TODO: the `sizes` ramp (Array<f32>) is unreflected - array container properties need editor
+// support beyond the flat-field pass.
 
 module;
 #include "Core/Prelude.h"

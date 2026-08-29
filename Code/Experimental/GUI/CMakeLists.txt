@@ -1,7 +1,7 @@
-# Experimental::GUI - `experimental.gui`, a fresh eepp-derived retained-mode UI framework,
-# progressively sliced onto the VG/Fonts stack (docs/design/gui-port.md).
-# Platform- and renderer-agnostic core; VG/Fonts/Image/Xml are linked as those phases
-# land, and the gui.shell input bridge is a separate library. Built bottom-up.
+# Experimental::GUI - `experimental.gui`, a fresh eepp-derived retained-mode UI framework
+# on the VG/Fonts stack.
+# Platform- and renderer-agnostic core; VG/Fonts/Image/Xml are linked in,
+# and the gui.shell input bridge is a separate library. Built bottom-up.
 add_library(GUI STATIC)
 add_library(Experimental::GUI ALIAS GUI)
 

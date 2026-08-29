@@ -1,6 +1,6 @@
 // Engine::Audio - :components partition.
 //
-// The authoring components (docs/design/audio.md §6): AudioSourceComponent carries the
+// The authoring components: AudioSourceComponent carries the
 // clip reference + playback/3D intent; AudioListenerComponent selects the listener
 // entity (first active wins; no listener = the subsystem falls back to the active
 // camera's transform, Godot behavior). Runtime fields (voice handle, previous-frame
@@ -65,7 +65,7 @@ export namespace engine::audio
 
         // Runtime (transient):
         VoiceHandle voice;
-        // Entity-active latch (entity-active-state.md P3): true while the voice is stopped
+        // Entity-active latch: true while the voice is stopped
         // BECAUSE the entity is effectively inactive - reactivation restarts autoplay
         // sources from it. Runtime only, never serialized.
         bool activeSuspended = false;
@@ -153,7 +153,7 @@ export namespace engine::audio
         foundation::core::Serialize(ar, "isActive", c.isActive);
     }
 
-    // ---- reverb zones (P3): environmental reverb follows the LISTENER ----
+    // ---- reverb zones: environmental reverb follows the LISTENER ----
     // A sphere volume; when the scene's listener is inside, the scene's Effects tier
     // reverberates - wet fades in across the edge band, the WETTEST zone wins.
     struct AudioReverbZoneComponent

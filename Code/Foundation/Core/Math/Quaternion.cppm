@@ -2,7 +2,7 @@
 // Quaternion: unit quaternion rotation - FromAxisAngle, Hamilton product,
 // Conjugate/Dot/Normalized/Slerp, RotateVector, and RotationMatrix (-> Float4x4).
 //
-// Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
+// Conventions: row-major storage m[row][col];
 // row vectors (v' = v * M); composition left-to-right; XNA-style right-handed
 // projections, NDC depth [0,1]; translation in the last row.
 

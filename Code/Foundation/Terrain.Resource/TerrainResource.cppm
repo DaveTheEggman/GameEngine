@@ -6,7 +6,7 @@
 /// pattern); TerrainFactory resolves each guid through the manager into the runtime
 /// TerrainResource. TerrainComponent (engine.terrain) references Ref<TerrainResource>. The
 /// heightfield is the shared source of truth - physics/nav resolve the SAME Ref<Heightfield>.
-/// The BASE layer is what shows wherever painted weights do not sum to 1 (terrain-splat-topk.md);
+/// The BASE layer is what shows wherever painted weights do not sum to 1;
 /// it is not part of the palette and is never painted directly.
 
 module;
@@ -30,11 +30,11 @@ export namespace foundation::terrain
 {
     /// The cooked terrain (serialized): the referenced resources by guid + per-layer tiling +
     /// cast-shadows. The factory resolves the guids; nothing here is bulk data.
-    /// DataVersion 5 = per-layer COVERAGE/opacity maps (terrain-coverage-mask.md; palette-only, nil ->
+    /// DataVersion 5 = per-layer COVERAGE/opacity maps (palette-only, nil ->
     /// fully opaque, so v4 payloads are visually unchanged).
-    /// DataVersion 4 = per-layer HEIGHT (displacement) maps + heightBlendContrast (terrain-height-blend.md;
-    /// all new ids default nil + contrast 0.25 -> the OFF path, so v3 payloads are visually unchanged).
-    /// DataVersion 3 = per-layer normal + ORM maps (terrain-layer-pbr.md; all new ids default nil ->
+    /// DataVersion 4 = per-layer HEIGHT (displacement) maps + heightBlendContrast (all new ids
+    /// default nil + contrast 0.25 -> the OFF path, so v3 payloads are visually unchanged).
+    /// DataVersion 3 = per-layer normal + ORM maps (all new ids default nil ->
     /// flat normal / default ORM, so v2 payloads are visually unchanged). DataVersion 2 = the top-K
     /// model (base + palette + weightsId). Version 1 (the fixed-4-layer model: splatmapId +
     /// layerAlbedoIds, where layer 0 was the de-facto base) upgrades on read: base = old layer 0,
@@ -57,7 +57,7 @@ export namespace foundation::terrain
         Array<Guid> paletteHeightIds; // per-palette-layer height map (nil allowed); DataVersion 4
         Array<Guid> paletteMaskIds;   // per-palette-layer coverage/opacity map (nil allowed); DV 5
         Array<f32> paletteTileScales;
-        // Height-blend soft-skirt width (terrain-height-blend.md; consulted only when height maps are
+        // Height-blend soft-skirt width (consulted only when height maps are
         // present). 0..1; small = sharp interlock, large = washes toward an equal mix. DataVersion 4.
         f32 heightBlendContrast = 0.25f;
         bool castShadows = true;
@@ -72,20 +72,20 @@ export namespace foundation::terrain
                 foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
                 foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
                 foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
-                if (ar.Version() >= 3) // per-layer normal + ORM maps (terrain-layer-pbr.md)
+                if (ar.Version() >= 3) // per-layer normal + ORM maps
                 {
                     foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
                     foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
                     foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
                     foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
                 }
-                if (ar.Version() >= 4) // per-layer height maps + contrast (terrain-height-blend.md)
+                if (ar.Version() >= 4) // per-layer height maps + contrast
                 {
                     foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
                     foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
                     foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
                 }
-                if (ar.Version() >= 5) // per-layer coverage/opacity maps (terrain-coverage-mask.md)
+                if (ar.Version() >= 5) // per-layer coverage/opacity maps
                 {
                     foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
                 }
@@ -129,16 +129,17 @@ export namespace foundation::terrain
         u32 mipCount = 0;   // mips per slice (down to 1x1)
         u32 sliceCount = 0; // == the palette layer count at cook time
         Array<u8> texels;   // ALBEDO array: RGBA8, slice-major, each slice = its full mip chain
-        // The NORMAL / ORM arrays (terrain-layer-pbr.md), built ON DEMAND: empty = absent (no palette
+        // The NORMAL / ORM arrays, built ON DEMAND: empty = absent (no palette
         // layer used that map -> the renderer binds a 1x1 dummy). Present arrays share the albedo's
-        // sliceSize/mipCount/sliceCount geometry. The renderer ignores these until the P1 shader lands.
+        // sliceSize/mipCount/sliceCount geometry. The renderer ignores these until the palette-PBR
+        // shader consumes them.
         Array<u8> normalTexels;
         Array<u8> ormTexels;
-        // The HEIGHT/displacement array (terrain-height-blend.md), built ON DEMAND: empty = absent (no
+        // The HEIGHT/displacement array, built ON DEMAND: empty = absent (no
         // palette layer used a height map -> the renderer binds a 1x1 mid-height dummy). Same geometry
         // as albedo; read via the red channel.
         Array<u8> heightTexels;
-        // The COVERAGE/opacity array (terrain-coverage-mask.md), built ON DEMAND: empty = absent (no
+        // The COVERAGE/opacity array, built ON DEMAND: empty = absent (no
         // palette layer used a mask -> a 1x1 OPAQUE dummy binds). Same geometry; read via red channel.
         Array<u8> maskTexels;
 
@@ -201,7 +202,7 @@ export namespace foundation::terrain
             // Ref (not Proxy): the cooked factory binds it as a proxy, but in-memory/procedural
             // terrain (playgrounds, tests, runtime generation) can assign a product directly.
             Ref<texture::Texture> albedo;
-            Ref<texture::Texture> normal; // tangent-space normal map (nil = flat); terrain-layer-pbr.md
+            Ref<texture::Texture> normal; // tangent-space normal map (nil = flat)
             Ref<texture::Texture> orm;    // R=AO G=roughness B=metallic (nil = 1,1,0 default)
             Ref<texture::Texture> height; // displacement map for height-blend (nil = dummy); .r used
             Ref<texture::Texture> mask;   // coverage/opacity (palette only; nil = opaque); .r used
@@ -215,7 +216,7 @@ export namespace foundation::terrain
         // The cook-built palette texel array (null = no palette or an in-memory terrain that
         // assigns it directly); engine.terrain uploads it as the Texture2DArray.
         RefPtr<TerrainPaletteData> paletteData;
-        // Height-blend soft-skirt width (terrain-height-blend.md), copied from the source; the renderer
+        // Height-blend soft-skirt width, copied from the source; the renderer
         // feeds it to the shader only when height maps are present.
         f32 heightBlendContrast = 0.25f;
         bool castShadows = true;
@@ -301,8 +302,8 @@ export namespace foundation::terrain
             }
             // The cook-built palette texel arrays: albedo (kPaletteStream) + optional normal / ORM
             // sidecars on this same cooked instance (each a {sliceSize, mipCount, sliceCount} header +
-            // texels; absent = no array, terrain-layer-pbr.md R4/R5). The renderer ignores normal/ORM
-            // until the P1 shader lands.
+            // texels; absent = no array). The renderer ignores normal/ORM
+            // until the palette-PBR shader consumes them.
             u32 hdr[3] = {0, 0, 0};
             Array<u8> texels;
             if (ReadArrayStream(instance, kPaletteStream, hdr, texels))

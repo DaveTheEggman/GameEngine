@@ -195,7 +195,7 @@ export namespace engine::terrain
                     rd->thresholdCount = n;
                     rd->lodBias = c.lodBias;
 
-                    // Top-K splat material (terrain-splat-topk.md): the CPU SplatWeights (the
+                    // Top-K splat material: the CPU SplatWeights (the
                     // painted source of truth) derives the weight+index texture pair, cached by
                     // uid+version - a paint's version bump re-uploads and the set-3 bind cache
                     // rebuilds on the new view ids (the live-repaint path).

@@ -1,13 +1,13 @@
 // Editor::PropertyAnimation - the `editor.propertyanimation:clip_editor_view` partition.
 //
-// ClipEditorView (property-animation.md Phase H2): the SHARED clip-editing surface - a scrollable
+// ClipEditorView: the SHARED clip-editing surface - a scrollable
 // track list (component + property + kind), a keyframe TABLE per quaternion track and an interactive
 // CurveCanvas per scalar track, plus a transport row (scrub + length + sampled-value readout). It is
-// the same view whether it is docked in the standalone clip PAGE or in the in-scene tool PANEL (H3);
+// the same view whether it is docked in the standalone clip PAGE or in the in-scene tool PANEL;
 // both host it over the IClipEditorHost seam. The view owns ZERO document policy - it reads and
 // writes the host's clip, pushes every edit through the host's command stack (one undo step per
 // discrete edit, one per curve-drag gesture), and tells the host when the scrub time moves so the
-// host can drive live preview (H4). Persistence, cooking and page chrome stay in the host.
+// host can drive live preview. Persistence, cooking and page chrome stay in the host.
 
 module;
 #include "Core/Prelude.h"

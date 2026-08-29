@@ -1,10 +1,10 @@
 /// Foundation::Scene - the `:composition` partition.
 ///
-/// The declarative assembly layer (scene-composition.md): separates "what systems a scene is made of"
+/// The declarative assembly layer: separates "what systems a scene is made of"
 /// (a static blueprint, `SceneModule` + `SceneComposition`) from "who reacts to a scene's lifecycle"
 /// (`ISceneObserver` + `SceneLifecycleStage`), and centralizes the per-scene time-scale chain in
-/// `FrameTime`. `SceneRegistry` is the pure, non-Subsystem state that a future thin `SceneSubsystem`
-/// will drive - the app-wide observer list + the registered `SceneManager` list + the cross-scene
+/// `FrameTime`. `SceneRegistry` is the pure, non-Subsystem state that a thin `SceneSubsystem`
+/// drives - the app-wide observer list + the registered `SceneManager` list + the cross-scene
 /// sweeps, testable with no `Context`.
 ///
 /// All types are runtime-free (foundation.scene never reaches up to the runtime layer) and are built

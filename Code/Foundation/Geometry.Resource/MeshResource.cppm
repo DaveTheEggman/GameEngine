@@ -39,7 +39,7 @@ export namespace foundation::geometry
         Array<i32> subMaterial;
         Array<u8> subPrim; // PrimitiveType
 
-        // LOD chain (v3, mesh-lod.md P1): levels 1..lodCount-1 as flattened per-submesh
+        // LOD chain (v3): levels 1..lodCount-1 as flattened per-submesh
         // index ranges ((lod-1) * submeshCount + submesh) into the SAME indexData, over
         // the SAME vertexBlob; lodCoverage carries lodCount switch thresholds. Legacy
         // (v<3) payloads load as 1-LOD chains (fields default). Materials/primitive
@@ -182,7 +182,7 @@ export namespace foundation::geometry
             foundation::core::Serialize(ar, "subCount", subCount);
             foundation::core::Serialize(ar, "subMaterial", subMaterial);
             foundation::core::Serialize(ar, "subPrim", subPrim);
-            // v4: the LOD chain (mesh-lod.md P1). Older payloads (v3 = pre-LOD, and below) stay 1-LOD
+            // v4: the LOD chain. Older payloads (v3 = pre-LOD, and below) stay 1-LOD
             // via the field defaults - strict versioning uses the gate, NOT optional keys. NOTE the
             // gate is >= 4, not >= 3: v3 was already the geometry-sidecar version, so gating LOD on
             // >= 3 wrongly required LOD keys from pre-LOD v3 sources and failed their deserialization.

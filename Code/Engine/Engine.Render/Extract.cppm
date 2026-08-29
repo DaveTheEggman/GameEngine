@@ -5,8 +5,8 @@
 /// the one-way seam - this layer depends on both foundation.scene and foundation.render; the renderer
 /// depends on neither. Run after the scene's transforms are current (the tick).
 ///
-/// These are the providers in the design's terms (§5): a MeshComponent provider and the
-/// camera reader. As more component types land (lights, probes), each gets its own provider
+/// These are the providers: a MeshComponent provider and the
+/// camera reader. Each additional component type (lights, probes) gets its own provider
 /// writing its own RenderData category into the snapshot.
 
 module;
@@ -44,7 +44,7 @@ export namespace engine::render
 
     // World-space bounding-sphere radius of a local AABB under a transform: the diagonal half-extent
     // scaled by the largest axis scale (basis-row length, row-vector convention) - conservative but
-    // cheap. Used for sphere-vs-light culling of shadow casters (phase 5.4).
+    // cheap. Used for sphere-vs-light culling of shadow casters.
     [[nodiscard]] f32 WorldBoundsRadius(const AABB& local, const Float4x4& world);
 
     // Fill one MeshRenderData from a component (a pure read of precomputed transforms + borrowed

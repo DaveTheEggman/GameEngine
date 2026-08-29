@@ -1,6 +1,6 @@
 // Editor::Mcp - :resources partition
 //
-// The open project's scene/prefab XML sources as MCP RESOURCES (mcp-agent-access.md P1 item 6):
+// The open project's scene/prefab XML sources as MCP RESOURCES:
 // `project://scene/<guid>` and `project://prefab/<guid>`, listed live from the source
 // database (a ResourceProvider, not static registrations - scenes appear and disappear as the
 // agent or the editor writes them) and read as the verbatim stored text. Read-only context:

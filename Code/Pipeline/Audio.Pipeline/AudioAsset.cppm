@@ -1,6 +1,6 @@
 // Pipeline::Audio - the `foundation.audio.editor` module (tooling).
 //
-// Source-side audio authoring + cook (docs/design/audio.md §5):
+// Source-side audio authoring + cook:
 //   * AudioClipAsset (pipeline::Asset): references the copied source file + import
 //     settings (stream / force-mono / loop+points / trim / normalize / gain).
 //   * AudioClipAssetBuilder: transcode-free write-through v1 - validate + probe via the
@@ -68,7 +68,7 @@ export namespace pipeline{
 
     // ---- pure import helpers (unit-testable without a project) ----
 
-    /// The Stream auto-default (§5): long or large sources stream, small SFX stay
+    /// The Stream auto-default: long or large sources stream, small SFX stay
     /// in-memory. Computed at import; the asset field stays editable afterwards.
     [[nodiscard]] inline bool ShouldStreamAudioByDefault(f32 durationSeconds, usize sizeBytes)
     {
@@ -421,8 +421,8 @@ export namespace pipeline{
         }
     };
 
-    // ---- bus layout asset (P2): the mixer edited in the inspector ----
-    // FLAT per-bus fields (v1) so the reflection inspector edits it without an array
+    // ---- bus layout asset: the mixer edited in the inspector ----
+    // FLAT per-bus fields so the reflection inspector edits it without an array
     // editor: per bus - volume, mute, and three effect slots (0 disables each). The
     // builder folds the flat fields into the generic wire chain (lowpass -> highpass ->
     // delay, in that order, when enabled). Asset data v2 adds a FIXED bank of custom-bus
@@ -663,7 +663,7 @@ export namespace pipeline{
         }
     };
 
-    // ---- sound cue asset (P3): weighted clip variants, edited via SoundCuePage ----
+    // ---- sound cue asset: weighted clip variants, edited via SoundCuePage ----
 
     inline constexpr usize kSoundCueSlotCount = 8;
 
@@ -710,8 +710,8 @@ export namespace pipeline{
         {
             return &SoundCueSource::StaticType();
         }
-        // v2: an empty cue cooks to a valid zero-variant product instead of failing (previously-
-        // failed draft cues re-cook into products). See Specs/audio-cue-empty-cook.md.
+        // v2: an empty cue cooks to a valid zero-variant product instead of failing, so
+        // draft cues re-cook into products.
         [[nodiscard]] u32 Version() const override { return 2; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
@@ -746,7 +746,7 @@ export namespace pipeline{
             // a freshly-created / draft cue must never poison Cook All / export, and the runtime is
             // built for it (ResolveSoundCue answers variantIndex = -1, every consumer guards it -> a
             // silent no-op). The draft state is surfaced in the editor (SoundCuePage status) and
-            // audited by project_health, NOT by failing the cook. See Specs/audio-cue-empty-cook.md.
+            // audited by project_health, NOT by failing the cook.
             source.mode = cueAsset.mode;
             source.pitchMin = Min(cueAsset.pitchMin, cueAsset.pitchMax);
             source.pitchMax = Max(cueAsset.pitchMin, cueAsset.pitchMax);
@@ -767,9 +767,9 @@ export namespace pipeline{
         RegisterSerializable<SoundCueAsset>();
     }
 
-    // AudioClipAsset's StaticType() is defined WITH reflected properties in AudioAssetImpl.cpp
-    // (reflection track P1). The remaining audio assets stay identity-only for now (bus layout /
-    // sound cue carry nested structure that a flat property pass doesn't cover).
+    // AudioClipAsset's StaticType() is defined WITH reflected properties in AudioAssetImpl.cpp.
+    // The remaining audio assets stay identity-only (bus layout / sound cue carry nested
+    // structure that a flat property pass doesn't cover).
     RTTI_DEFINE_OBJECT(AudioImportOptions, "rtti::pipeline::audio")
     // v2: the custom-bus slot bank (see Serialize) - v0/v1 sources read cleanly.
     RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)

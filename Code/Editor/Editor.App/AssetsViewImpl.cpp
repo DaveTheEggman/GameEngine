@@ -1,7 +1,7 @@
 // Editor::App - :assets_view partition.
 //
-// AssetsView: the Assets panel (asset-pipeline design §7) - source-DB-backed, the typed DB is
-// the truth (Traktor's DatabaseView model, not a directory scan). Left = group tree; right =
+// AssetsView: the Assets panel - source-DB-backed, the typed DB is
+// the truth (a database-view model, not a directory scan). Left = group tree; right =
 // [breadcrumb | list/grid toggle] over [filter] over the selected group's content. The content
 // area shows SUBGROUPS first (double-click descends; the breadcrumb climbs back up), then
 // instances; a non-empty filter searches instances across ALL groups. Rows show the name
@@ -301,9 +301,9 @@ namespace editor::app
         m_context->Notify(editor::NoticeKind::Success, message.AsView());
         m_context->NotifyImported(primary, options.Get());
         // Cook the imported assets explicitly (scoped to the primary's group; the plan
-        // skips anything clean). Auto-cook used to ride on the Sources/ watcher noticing
-        // the provenance copy - a re-import of identical bytes skips that copy, so the
-        // watcher never fires and the new instances sat uncooked until a manual cook.
+        // skips anything clean). The Sources/ watcher triggers auto-cook off the provenance
+        // copy, but a re-import of identical bytes skips that copy, so the watcher never fires
+        // and the new instances would stay uncooked without this explicit cook.
         Array<Guid> ids;
         CollectInstanceIds(&primary.OwningGroup(), ids);
         m_cook->RequestCookFor(Move(ids), false);

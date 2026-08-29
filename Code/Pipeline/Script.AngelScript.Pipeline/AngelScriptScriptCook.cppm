@@ -1,6 +1,6 @@
 // Pipeline::Script.AngelScript - the `foundation.script.angelscript.editor` module.
 //
-// The AngelScript cook service (scripting.md §5 + §7.5): compile-check in a cooker-owned
+// The AngelScript cook service: compile-check in a cooker-owned
 // AngelScript VM (resolved through the backend registry by language) + the shared
 // on<Upper>(...) handler scan + PROPERTY HARVEST + an AngelScript starter template.
 //
@@ -27,7 +27,7 @@ using namespace foundation::core;
 
 export namespace pipeline{
     // The New Asset starter for AngelScript: a behavior class whose constructor takes the
-    // entity handle, with the lifecycle handlers stubbed. No properties (harvest deferred).
+    // entity handle, with the lifecycle handlers stubbed. No properties.
     inline constexpr StringView kAngelScriptBehaviorStarter =
         u8"// Behavior class - attach via a ScriptComponent behavior slot.\n"
         u8"// Reflected engine facades are visible globally (no import). In AngelScript the\n"

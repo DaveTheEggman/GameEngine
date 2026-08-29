@@ -1,6 +1,6 @@
-// Ported from Sedulous.UI.Tests/src/UnitTests.bf, updated for P2b LOGICAL unit semantics
-// (ui-box-model.md): layout runs in logical space and the root applies DpiScale once at draw.
-// Dp is identity at resolve (the old value*scale DOUBLE-scaled), Px divides by the scale so it
+// Ported from Sedulous.UI.Tests/src/UnitTests.bf, for LOGICAL unit semantics:
+// layout runs in logical space and the root applies DpiScale once at draw.
+// Dp is identity at resolve (a value*scale here would DOUBLE-scale), Px divides by the scale so it
 // lands on exact device pixels, Pt is 96/72 logical.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

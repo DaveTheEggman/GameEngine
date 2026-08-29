@@ -694,7 +694,7 @@ namespace editor
         }
         m_clipId = instanceId;
         m_clipName = String(inst->Name());
-        // LoadClip owns the whole refresh (callers used to repeat it): rows, header, and the
+        // LoadClip owns the whole refresh (so callers do not repeat it): rows, header, and the
         // empty-state <-> editor swap.
         if (m_view)
         {
@@ -1154,7 +1154,7 @@ namespace editor
         }
         m_timeline->SetSelection(newSel);
 
-        // Size the timeline pane to the ruler + lanes (capped; row virtualization/scroll is A9-deferred).
+        // Size the timeline pane to the ruler + lanes (capped; no row virtualization/scroll).
         const f32 h = Clamp(kRulerBand + static_cast<f32>(m_clip.tracks.Size()) * kLaneHeight,
                             kTimelineMinHeight, kTimelineMaxHeight);
         if (m_timelineParams.Get() != nullptr)

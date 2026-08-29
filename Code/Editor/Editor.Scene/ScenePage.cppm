@@ -1,6 +1,6 @@
 // Editor::Scene - :page partition.
 //
-// SceneEditorPage: the scene document editor (design doc §3.6, phase 2). Each page owns its OWN
+// SceneEditorPage: the scene document editor. Each page owns its OWN
 // live Scene (multi-scene rule - several pages open at once; everything scene-scoped is
 // per-page): a ViewportView renders the scene through the REAL renderer via CameraOverride into
 // the viewport's offscreen color target, an EditorCamera flies on the viewport's gated devices
@@ -8,7 +8,7 @@
 // content DB through LoadScene/SaveScene. An empty scene shows a debug-draw ground grid + origin
 // axes so navigation reads immediately.
 //
-// RegisterSceneEditor is the module's RegisterEditor entry point (§3.1): the EXECUTABLE calls it
+// RegisterSceneEditor is the module's RegisterEditor entry point: the EXECUTABLE calls it
 // (editor core/app never link this module); it registers the SceneDocument type, the page
 // factory, and the "Scene" asset creator (File > New Scene).
 
@@ -92,8 +92,8 @@ export namespace editor
             if (m_scenes != nullptr)
             {
                 m_scenes->RegisterManager(&m_sceneManager);
-                // The page IS the run scope for edit-mode Simulate (messaging.md revised
-                // decision 2): it owns the bus and injects it BEFORE CreateScene so systems
+                // The page IS the run scope for edit-mode Simulate:
+                // it owns the bus and injects it BEFORE CreateScene so systems
                 // binding at assembly see it; OnUpdate drains it once per frame.
                 m_sceneManager.SetSceneEventBus(&m_pageEvents);
                 m_scene = m_sceneManager.CreateScene(instance.Name());
@@ -287,7 +287,7 @@ export namespace editor
                 DefaultAllocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
                 m_editContext->EntitySelection());
 
-            // Godot-style bottom dock (property-animation-editor.md A2 REVISED): a persistent tab bar
+            // Godot-style bottom dock: a persistent tab bar
             // under the viewport; the "Animation" tab expands the property-animation panel above it
             // (draggable splitter between the two) and collapses back to just the bar. The panel view
             // lives for the page's whole life either way (the F1 invariant). Per-scene-page - editor
@@ -339,7 +339,7 @@ export namespace editor
                     });
             }
 
-            // Clip-editing workflow wiring (property-animation-editor.md, 2026-08-17):
+            // Clip-editing workflow wiring:
             // 1) the panel's Bind... button opens THIS page's entity picker (the panel cannot
             //    depend on editor.scene, so the page injects it);
             // 2) opening a PropertyAnimationClipAsset while this page is on screen is CLAIMED
@@ -579,7 +579,7 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_gridToggle = nullptr;
         bool m_showGrid = true;
-        ui::toolkit::ToolbarToggle* m_lodToggle = nullptr; // mesh-lod.md P3 overlay
+        ui::toolkit::ToolbarToggle* m_lodToggle = nullptr; // LOD overlay
         bool m_showLodOverlay = false;
         ui::toolkit::ToolbarToggle* m_collidersToggle = nullptr; // edit-time physics collider gizmo
         bool m_showColliders = false;
@@ -642,7 +642,7 @@ export namespace editor
         bool m_renderedOnce = false; // first-frame debug log
     };
 
-    // === Factory + registration (the module's RegisterEditor entry point, §3.1) ===
+    // === Factory + registration (the module's RegisterEditor entry point) ===
 
     class SceneEditorPageFactory final : public IEditorPageFactory
     {
@@ -882,7 +882,7 @@ export namespace editor
             return true;
         };
 
-        // Export reachability seam (docs/design/export-reachability.md): collect the assets a
+        // Export reachability seam: collect the assets a
         // scene/prefab references so the export closure can chase the scene->asset edges the cook's
         // read-dep graph can't see. Same full-composition scratch pattern as the stager above (the full
         // manager set, so no component type is silently skipped); resolves the scene's Refs through a

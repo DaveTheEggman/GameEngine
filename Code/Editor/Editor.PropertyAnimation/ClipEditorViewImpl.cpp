@@ -705,7 +705,7 @@ namespace editor
         const f32 selTime = m_previewSelTime;
 
         // Del first: removes the selected key across every channel (and the quat list) at
-        // the selected time - quat tracks previously had NO delete path at all.
+        // the selected time - this is the delete path for quat-track keys.
         MakeButton(*m_inspectorRow, u8"Del", 36.0f,
                    [self, trackIndex, selTime]()
                    {
@@ -1133,9 +1133,9 @@ namespace editor
         const u32 channels = propanim::ChannelCount(track.kind);
         for (u32 ch = 0; ch < channels; ++ch)
         {
-            // The canvas carries ONE interpolation per channel (a P1 simplification), so write-back
+            // The canvas carries ONE interpolation per channel (a simplification), so write-back
             // FLATTENS it onto every key of the channel - authored per-KEY interpolation is not
-            // preserved through an edit. (Per-key interp is deferred canvas polish.)
+            // preserved through an edit.
             const CurveKeyInterpolation interp =
                 CanvasToClipInterp(canvas.GetChannelDescriptor(static_cast<i32>(ch)).Interpolation);
             const i32 n = canvas.GetKeyCount(static_cast<i32>(ch));

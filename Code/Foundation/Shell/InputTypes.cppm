@@ -274,8 +274,8 @@ export namespace foundation::shell
     //
     // Every input state change is emitted as an InputEvent, tagged with the source
     // window. The manager's polled device snapshot is a fold over the frame's events,
-    // and the (upcoming) viewport surfaces / UI dispatch consume the same stream - so
-    // poll and event views never disagree. See docs/design/viewport-input.md §4.2.
+    // and the viewport surfaces / UI dispatch consume the same stream - so
+    // poll and event views never disagree.
 
     enum class InputEventKind : core::u8
     {

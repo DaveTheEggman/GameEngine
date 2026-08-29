@@ -373,7 +373,7 @@ TEST_CASE("property animator: entity-active - starts-inactive never advances; to
     sceneObj.Update(0.5f); // midpoint of the 0..10 ramp
     CHECK(target.position.x == doctest::Approx(5.0f));
 
-    // Deactivate mid-clip: time FREEZES (entity-active-state.md P3).
+    // Deactivate mid-clip: time FREEZES.
     sceneObj.SetActive(e, false);
     sceneObj.Update(0.3f);
     CHECK(target.position.x == doctest::Approx(5.0f));

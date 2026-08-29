@@ -1,6 +1,6 @@
 // Editor::Mcp - :project_export partition
 //
-// project_export (mcp-agent-access.md P1 item 9): a thin wrapper over the ONE export entry
+// project_export: a thin wrapper over the ONE export entry
 // point (editor::ExportOne) - the same call the editor's Export menu and the export CLI make,
 // so an MCP export produces an identical dist. Presets come from the project's
 // export_presets.xml (else the synthesized host preset); the template registry resolves from

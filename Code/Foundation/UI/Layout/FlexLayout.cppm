@@ -120,10 +120,10 @@ export namespace foundation::ui
             return flp != nullptr ? flp->Grow : 0.0f;
         }
 
-        /// The SEMANTIC part of Flex's first measurement pass, kept parent-side by design
-        /// (ui-box-model.md P2b): Match fills the axis, but Match on the CROSS axis is demoted
+        /// The SEMANTIC part of Flex's first measurement pass, kept parent-side by design:
+        /// Match fills the axis, but Match on the CROSS axis is demoted
         /// to loose so it wraps naturally first (a base-side Match would defeat this). Fixed,
-        /// margin, and DPI are base-handled now - the old 60-line spec-interpreter clone died.
+        /// margin, and DPI are base-handled.
         static BoxConstraints MakeChildConstraintsLooseCross(BoxConstraints parent, View* child,
                                                              bool isHorizontal)
         {

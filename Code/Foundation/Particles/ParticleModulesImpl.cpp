@@ -1,6 +1,6 @@
 // Foundation::Particles - reflection implementation unit (batch 1): the range leaf value types +
-// the flat/range particle module classes, so the module types stop being tooling-invisible
-// (reflection track P2). The particle editor page stays bespoke - this reflection is for
+// the flat/range particle module classes, so the module types stop being tooling-invisible.
+// The particle editor page stays bespoke - this reflection is for
 // scriptability/tooling visibility, not a generated inspector.
 //
 // REFLECT_MEMBERS bodies live out of the ParticleModules.cppm interface (GCC module hygiene:

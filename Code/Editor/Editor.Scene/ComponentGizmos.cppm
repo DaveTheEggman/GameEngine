@@ -1,7 +1,7 @@
 // Editor::Scene - :component_gizmos partition.
 //
-// IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw
-// (design doc §8). Ported from Sedulous.Editor (IGizmoRenderer/GizmoContext + the light and
+// IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw.
+// Ported from Sedulous.Editor (IGizmoRenderer/GizmoContext + the light and
 // reflection-probe renderers) with fixes for our components:
 //   - the probe gizmo draws a wire BOX from halfExtents (our probes are boxes; Sedulous drew an
 //     influence sphere);
@@ -152,7 +152,7 @@ export namespace editor
         void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
     };
 
-    /// mesh-lod.md P3 debug overlay: with the toolbar toggle on, every mesh carrying a LOD
+    /// LOD debug overlay: with the toolbar toggle on, every mesh carrying a LOD
     /// chain draws its bounds tinted by the level THIS viewport's camera selects (green 0,
     /// yellow 1, orange 2, red 3+). Recomputes the RAW pick through the exported pure
     /// selection functions (no hysteresis - visualization, not the renderer's state).

@@ -1,6 +1,6 @@
 // Foundation::Physics.Resource - the `foundation.physics.resource` module.
 //
-// Cooked physics content (docs/design/physics.md §5), mirroring the mesh-resource split:
+// Cooked physics content, mirroring the mesh-resource split:
 //   * CollisionShapeSource  - the cooked record: a Jolt binary shape blob (from
 //     CookConvexHull/CookTriangleMesh) + cached debug-outline triangles (gizmos draw
 //     without restoring the shape).

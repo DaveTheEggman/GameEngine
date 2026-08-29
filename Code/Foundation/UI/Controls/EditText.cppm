@@ -58,7 +58,7 @@ export namespace foundation::ui
         Property<bool> Multiline{false};
         Property<i32> MaxLength{0};
 
-        /// Whether right-click shows the Cut/Copy/Paste context menu (menu itself deferred).
+        /// Whether right-click shows the Cut/Copy/Paste context menu (the menu itself is not yet implemented).
         bool ShowContextMenuOnRightClick = true;
 
         // === Events ===
@@ -376,9 +376,8 @@ export namespace foundation::ui
     protected:
         [[nodiscard]] Thickness DefaultStylePadding() const override { return Thickness{6, 4}; }
 
-        // Content-only measure (ui-box-model.md P2c) - the padding default that used to be
-        // repeated at SEVEN call sites is stated once in DefaultStylePadding; chrome is
-        // base-handled and every other site reads ContentInset().
+        // Content-only measure - the padding default is stated once in DefaultStylePadding;
+        // chrome is base-handled and every other site reads ContentInset().
         [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
         {
             const f32 fontSize = ResolveStyleFloat(StyleProperty::FontSize, 14.0f);

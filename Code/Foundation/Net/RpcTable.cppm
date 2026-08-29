@@ -1,10 +1,10 @@
 /// Foundation::Net - `foundation.net:rpc` partition.
 ///
-/// Remote procedure calls (docs/design/networking.md §3 `foundation.net.rpc`, P1). An RpcTable maps
+/// Remote procedure calls (`foundation.net.rpc`). An RpcTable maps
 /// RPC names to handlers; Call serializes (rpc-id + args) and sends it over a NetSession on a
 /// reserved channel; the receiver Dispatches it to the registered handler. Args are written/read
-/// through the bit-exact wire layer - the same primitives the (later) reflection auto-marshaling
-/// will emit, so a `Replicated`/reflected-arg convenience layers cleanly on top of this mechanism.
+/// through the bit-exact wire layer - the same primitives reflection auto-marshaling
+/// emits, so a `Replicated`/reflected-arg convenience layers cleanly on top of this mechanism.
 ///
 /// For the turn-based target this is the PRIMARY gameplay path: a client Calls an order RPC on the
 /// server; the server validates + resolves it and CallAlls the result back out.

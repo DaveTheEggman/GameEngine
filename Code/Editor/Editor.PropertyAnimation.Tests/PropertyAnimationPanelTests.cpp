@@ -1,9 +1,9 @@
-// PropertyAnimationPanel tests (property-animation.md editor redesign - the persistent in-scene
+// PropertyAnimationPanel tests (the persistent in-scene
 // editor). Covers the host-agnostic logic that does not need a live viewport: the reflected-type ->
 // TrackValueKind mapping, the animatable-property collector (against a reflected test component), the
 // panel acting as a clip-editor host (add-track routes through its command stack), the live-preview
-// snapshot/restore (including the #6 re-snapshot when the track set changes mid-preview and the
-// EDIT-only gate), and the collapse toggle (A2). The full add-from-selection scene walk + the on-screen
+// snapshot/restore (including the re-snapshot when the track set changes mid-preview and the
+// EDIT-only gate), and the collapse toggle. The full add-from-selection scene walk + the on-screen
 // docking are exercised by the build + manual UAT (they need a live scene / UI tree).
 
 #include <doctest/doctest.h>

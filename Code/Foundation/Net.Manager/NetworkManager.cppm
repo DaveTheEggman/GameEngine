@@ -1,4 +1,4 @@
-/// Foundation::Net.Manager - the `foundation.net.manager` module (docs/design/networking.md §6).
+/// Foundation::Net.Manager - the `foundation.net.manager` module.
 ///
 /// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live
 /// NetSession + RpcTable over an IDatagramSocket (real UDP or the sim), is driven each fixed step,
@@ -86,7 +86,7 @@ export namespace foundation::net
         // Runtime endpoint construction: open a real UDP socket and enter a role in one step. Returns
         // null if the socket fails to open (the caller logs + runs offline). HostServer binds `port`
         // (0 = OS-assigned; read BoundPort() after); JoinServer binds ephemeral and connects to
-        // host:port. These are how a running game goes online (the Net facade calls them - phase 3).
+        // host:port. These are how a running game goes online (the Net facade calls them).
         [[nodiscard]] static core::UniquePtr<NetworkManager>
         HostServer(u16 port, bool dedicated = false, const ReliableConfig& config = {});
         [[nodiscard]] static core::UniquePtr<NetworkManager>
@@ -103,7 +103,7 @@ export namespace foundation::net
         void StartServer(bool dedicated = false) { m_session.StartServer(dedicated); }
         PeerId ConnectTo(const DatagramEndpoint& server) { return m_session.Connect(server); }
 
-        // Transport HALF (per-frame; networking-extraction.md P2/P3): drive the session + route received
+        // Transport HALF (per-frame): drive the session + route received
         // messages by reserved channel: RPCs (254) to the table, replication deltas (253) buffered into
         // the scene's interpolation state, everything else to `onEvent` (e.g. Connected). No state
         // capture/send here - that is the replication half, on the scene fixed lane. Pumps regardless of
@@ -146,7 +146,7 @@ export namespace foundation::net
             }
         }
 
-        // Replication HALF (per-scene FIXED lane; networking-extraction.md P2): server captures the
+        // Replication HALF (per-scene FIXED lane): server captures the
         // scene's networked state + pushes a per-peer delta; client samples buffered interpolation into
         // the scene. Gated on the scene's fixed lane, so a paused/slow-mo scene replicates at its scaled
         // rate (a paused sim produces no deltas). Does not touch the socket - transport keeps that.

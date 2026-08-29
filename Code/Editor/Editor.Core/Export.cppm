@@ -44,7 +44,7 @@ export namespace editor
         usize filesPacked = 0;
     };
 
-    // === Reachability pruning (docs/design/export-reachability.md, Phase 1) ===
+    // === Reachability pruning ===
     //
     // Opt-in per preset (ExportPreset::pruneToReachable): a dist ships only the CLOSURE of its
     // entry points instead of the whole cooked dir. The closure reuses the cook's dependency graph
@@ -100,8 +100,8 @@ export namespace editor
     {
         bool pruned = false;
         Array<ExportRoot> roots; // the seed entry points + their reasons
-        usize keptCount = 0;     // scenes + cooked products shipped (closure size on disk)
-        Array<String> dropped;   // instance paths excluded from the dist (WIP/unreferenced)
+        usize keptCount = 0;     // scenes + cooked products included (closure size on disk)
+        Array<String> dropped;   // instance paths excluded from the dist (unreferenced or unfinished)
     };
 
     namespace detail
@@ -429,7 +429,7 @@ export namespace editor
     /// Render a pruning report as human-readable text (the on-disk export-report.txt + Console dump).
     [[nodiscard]] String FormatPruningReport(const PruningReport& report);
 
-    /// One packed content variant in the dist (asset-variants P3). Desktop dists have exactly one
+    /// One packed content variant in the dist. Desktop dists have exactly one
     /// with an EMPTY key + "Content.pak" packed from the host `Cooked/`; the web dist has "bc" and
     /// "astc", each a COMPLETE pak from its per-target cooked DB (Cooked-web-bc/ , Cooked-web-astc/).
     /// `key` is the CAPABILITY FAMILY the wasm boot matches an adapter feature against (never a
@@ -442,8 +442,8 @@ export namespace editor
     };
 
     /// The content variants a preset ships: desktop platforms -> the single host pak; "Web"/"Wasm" ->
-    /// the BC + ASTC variant paks (asset-variants P3, Decision 4). The cookedDir paths are siblings of
-    /// the host Cooked/ so the desktop pack never sees them (Fable ruling Q2).
+    /// the BC + ASTC variant paks. The cookedDir paths are siblings of
+    /// the host Cooked/ so the desktop pack never sees them.
     [[nodiscard]] Array<ContentVariant> VariantsForPlatform(EditorProject& project,
                                                             StringView platform);
 
@@ -454,7 +454,7 @@ export namespace editor
     // cooked products whose source guid is in the set - the whole cooked dir + every scene otherwise.
     // `roots` + `outReport` feed the pruning report (kept roots + reasons, dropped list), written
     // beside the dist as export-report.txt and returned to the caller.
-    // `variants`: the content variants to pack (asset-variants P3). Empty => today's single
+    // `variants`: the content variants to pack. Empty => a single
     // Content.pak from the host Cooked/, byte-for-byte. Reachability is scanned ONCE (host DB) and
     // applied to every variant pak (the closure guid-set is identical across variants).
     [[nodiscard]] Status ExportContent(EditorProject& project, StringView outDir,
@@ -465,7 +465,7 @@ export namespace editor
                                        PruningReport* outReport = nullptr,
                                        Span<const ContentVariant> variants = {});
 
-    /// Cook the per-target variant DBs (asset-variants P3): for each variant with a non-empty key,
+    /// Cook the per-target variant DBs: for each variant with a non-empty key,
     /// run CookForTarget into its cookedDir, carrying platform-invariant products forward from the
     /// already-cooked host DB (records loaded from the host .cache) and recooking only variant
     /// products (textures) for the target. Empty-key (desktop) variants are no-ops. Call AFTER the
@@ -476,8 +476,8 @@ export namespace editor
 
     /// Cook + ExportContent (the all-in-one; the CLI / one-shot path). The builder registry is the
     /// exe's full set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
-    /// `variants` (asset-variants P3): when non-empty (a web preset), the host cook is followed by
-    /// CookVariantTargets and ExportContent packs one pak per variant. Empty = today's single pak.
+    /// `variants`: when non-empty (a web preset), the host cook is followed by
+    /// CookVariantTargets and ExportContent packs one pak per variant. Empty = a single pak.
     [[nodiscard]] Status ExportProject(EditorProject& project, StringView outDir,
                                        BuilderRegistry& builders, bool rebuild,
                                        ExportStats* outStats = nullptr,
@@ -489,7 +489,7 @@ export namespace editor
     {
         ExportStats content;         // cook/stage/pack totals
         usize filesStaged = 0;       // player + template sidecars + preset additionalFiles copied
-        String outputDir;            // where the dist landed
+        String outputDir;            // where the dist was written
         String engineVersionWarning; // set when the resolved template was built against a different
                                      // engine version (soft mismatch); empty otherwise. The export
                                      // still runs; callers may surface this to the user.

@@ -1,6 +1,6 @@
 // Editor::Core - :cook_service partition.
 //
-// EditorCookService: the in-editor face of the cook driver (asset-pipeline design §6). Owns the
+// EditorCookService: the in-editor face of the cook driver. Owns the
 // project's sources/.cache mounts + a CookDriver over the project DBs, and runs cooks on a
 // BACKGROUND thread (one at a time - Traktor's build lock): the UI stays live, progress
 // messages queue through a mutex and drain on the main thread via Update(). Cook badges give
@@ -63,7 +63,7 @@ export namespace editor
 
         [[nodiscard]] bool IsReady() const noexcept { return m_driver.Get() != nullptr; }
         [[nodiscard]] bool IsCooking() const noexcept { return m_cooking.load(); }
-        /// The instance's cook recipe hash (the asset-thumbnails.md content key), or 0 when
+        /// The instance's cook recipe hash (the thumbnail content key), or 0 when
         /// unknown (mid-cook - the db belongs to the worker - or never cooked).
         [[nodiscard]] u64 RecipeHashFor(const Guid& id);
 
@@ -90,8 +90,8 @@ export namespace editor
         [[nodiscard]] u64 Revision() const noexcept { return m_revision; }
 
         /// Kick a background cook. A request while one is running is REMEMBERED and re-
-        /// issued when it finishes (previously it was silently dropped - a save-during-cook
-        /// lost its recook). `force` = rebuild all.
+        /// issued when it finishes - without this a save-during-cook would silently lose its
+        /// recook. `force` = rebuild all.
         void RequestCook(bool force = false);
 
         /// Scoped cook: the given source instances plus their dependency closure (a group's

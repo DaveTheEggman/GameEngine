@@ -141,7 +141,7 @@ TEST_CASE("font-service: DrawRootView pushes the context's CURRENT service into 
     // the VG exists (SetDefaultFont binding the cooked font once the project loads). If
     // DrawRootView does not re-assert the context's service, the VG asks the STALE service for
     // atlases of CachedFonts it never created - null, silent skip, invisible text in the
-    // shipped game (masked in the source tree, where the stale service is the working one).
+    // built game (masked in the source tree, where the stale service is the working one).
     UIContext ctx;
     auto root = MakeRoot();
     Init(ctx, root.Get());

@@ -1,9 +1,9 @@
 /// Foundation::Net - `foundation.net:udp_socket` partition.
 ///
-/// The REAL UDP IDatagramSocket backend: wraps the Core/System UDP primitives (docs/design/
-/// networking.md §3.1 - sockets live in Core/System) so ReliableTransport, proven against the
-/// deterministic sim, runs over an actual network with zero protocol changes. IPv4 for v1; a
-/// DatagramEndpoint packs (ip << 16) | port in host order.
+/// The real UDP IDatagramSocket backend: wraps the Core/System UDP primitives (sockets live in
+/// Core/System) so ReliableTransport, proven against the deterministic sim, runs over an actual
+/// network with zero protocol changes. IPv4 only; a DatagramEndpoint packs (ip << 16) | port in
+/// host order.
 
 module;
 #include "Core/Prelude.h"

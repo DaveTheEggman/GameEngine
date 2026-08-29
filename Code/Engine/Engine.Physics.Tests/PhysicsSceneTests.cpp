@@ -424,8 +424,8 @@ TEST_CASE("physics.scene: a tilted plane entity makes boxes slide downhill")
 
 TEST_CASE("physics.scene: ScenePhysics.rayCast returns an EXPLICIT RayCastHit (no stored state)")
 {
-    // script-surface-of.md P0: the old stored-lastHit + hit* accessor statefulness was a
-    // facade artifact - the result now travels by value from the cast that produced it.
+    // The RayCastHit result travels by value from the cast that produced it,
+    // with no stored-lastHit state on the facade.
     PlayScene play;
     play.AddFloor();
     scene::EntityHandle box = play.AddBox(0.5f); // resting on the floor, top at y=1.0
@@ -900,12 +900,11 @@ TEST_CASE("physics.scene: a strong character shoves a dynamic crate (maxStrength
     CHECK(play.scene.GetWorldPosition(crate).x > crateStartX + 0.3f);
 }
 
-// KNOWN GAP (docs/specs/game-ready-scripting.md section 17): a CharacterComponent walking into a
+// KNOWN GAP: a CharacterComponent walking into a
 // sensor does NOT yet raise a TriggerEnter event. The trigger stream comes from the world's
 // RIGID-BODY contact listener, and a CharacterVirtual is a swept capsule, not a body in that solver,
 // so its sensor overlaps never reach it. This guard asserts the CURRENT behavior (no event); when
-// character->sensor contacts are implemented it FLIPS - update it to assert the event fires + delete
-// spec section 17.
+// character->sensor contacts are implemented it FLIPS - update it to assert the event fires.
 TEST_CASE("physics.scene: a CharacterComponent walking into a trigger raises NO TriggerEnter (known gap)")
 {
     PlayScene play;
@@ -1018,7 +1017,7 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     ctx.Shutdown();
 }
 
-// === entity active state (entity-active-state.md P3 physics) ===
+// === entity active state (physics) ===
 
 TEST_CASE("physics.active: an entity saved/started INACTIVE never gets a body; activation builds it")
 {

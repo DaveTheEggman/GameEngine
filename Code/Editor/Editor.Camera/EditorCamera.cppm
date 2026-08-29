@@ -73,7 +73,7 @@ export namespace editor
         /// sphere of `radius` about `center` fits, looking at the center. The shared "frame the
         /// object" helper for preview viewports - each page supplies bounds for its own content
         /// (mesh bounds, collision-outline extents, skeleton reach, ...). Matches the framing the
-        /// mesh preview shipped with (a slightly high 3/4 view, distance ~2.8x the radius).
+        /// mesh preview uses (a slightly high 3/4 view, distance ~2.8x the radius).
         void FrameBounds(Float3 center, f32 radius)
         {
             radius = Max(0.25f, radius);

@@ -1,10 +1,8 @@
 /// foundation.rhi.webgpu:device - Device over WGPUDevice.
 ///
-/// BRING-UP STAGE: real device/queue lifecycle (creation, loss latch, WaitIdle,
-/// fences, destruction); every resource/pipeline/command factory is an HONEST
-/// NotSupported until its stage lands - callers get failures, never silent fakes.
-/// Build-out order (web-platform.md P1): resources -> pipelines/bind groups ->
-/// encoders + swapchain (triangle) -> transfer/queries/bundles (full renderer).
+/// Handles device/queue lifecycle (creation, loss latch, WaitIdle, fences,
+/// destruction). A resource/pipeline/command factory that WebGPU does not support
+/// returns an HONEST NotSupported - callers get failures, never silent fakes.
 
 module;
 #include "Core/Prelude.h"
@@ -141,7 +139,7 @@ export namespace foundation::rhi::webgpu
 
         u32 MaxColorDepthSampleCount() const noexcept override
         {
-            // WebGPU guarantees 4x for the color + depth formats the renderer uses (msaa.md Decision 1);
+            // WebGPU guarantees 4x for the color + depth formats the renderer uses;
             // 8x is not a WebGPU capability. So the engine ceiling (4) is always available on web.
             return 4;
         }

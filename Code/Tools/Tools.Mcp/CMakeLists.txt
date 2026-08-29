@@ -1,4 +1,4 @@
-# Tools.Mcp - headless MCP stdio server (P1 host). JSON-RPC over stdin/stdout; logs to stderr.
+# Tools.Mcp - headless MCP stdio server. JSON-RPC over stdin/stdout; logs to stderr.
 # v1 surface = the reflection tools (type_list/type_info); grows as modules contribute their tools.
 
 add_executable(Tools.Mcp Main.cpp)

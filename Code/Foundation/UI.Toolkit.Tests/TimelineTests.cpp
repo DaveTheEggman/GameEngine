@@ -1,6 +1,6 @@
-// Timeline widget tests (property-animation-editor.md A8, widget slice - headless). The Timeline is
+// Timeline widget tests (headless). The Timeline is
 // domain-agnostic (no clip), so these exercise the pure surface: the shared time<->pixel transform
-// (D1) round-trips through zoom + scroll, the ruler tick step follows {1,2,5}x10^n and never lets
+// round-trips through zoom + scroll, the ruler tick step follows {1,2,5}x10^n and never lets
 // labels collide, and the playhead clamps + fires OnPlayheadMoved only on a real change.
 
 #include <doctest/doctest.h>
@@ -109,7 +109,7 @@ TEST_CASE("timeline: playhead clamps to [0,duration] and fires only on change")
     CHECK(tl->PlayheadTime() == doctest::Approx(1.0f));
 }
 
-// === dopesheet (P2): lanes, selection, box-select, drag-is-visual ===
+// === dopesheet: lanes, selection, box-select, drag-is-visual ===
 // pps=100, scroll=0, labelCol=0 -> TimeToX(t)=t*100. kRulerHeight=24; lane height 22 -> lane0 cy=35.
 
 TEST_CASE("timeline dopesheet: click selects the nearest key on the lane + fires OnSelectionChanged")

@@ -333,7 +333,7 @@ namespace
     }
 }
 
-// A facade that returns an engine Array<T> renders as a native `array<T>` (script-array-returns.md):
+// A facade that returns an engine Array<T> renders as a native `array<T>`:
 // a numeric array (scalar element path) and a reflected-value array (Room boxes as a handle element,
 // the same flavor as Entity in the physics facades).
 namespace
@@ -1093,7 +1093,7 @@ TEST_CASE("angelscript: registry - both backends resolve side by side")
 }
 #endif // OPTION_HAS_LUAU
 
-// P1.5 regression: the behaviors module is loaded with each class in its OWN script section
+// Regression: the behaviors module is loaded with each class in its OWN script section
 // named by its sourceName (not one flat "behaviors#N"). This is what makes editor gutter
 // breakpoints - keyed on the source file - line up with what GetLineNumber reports. Proves a
 // breakpoint set on ("Mover.as", line) stops AND CaptureStackFrames()[0].file == "Mover.as".

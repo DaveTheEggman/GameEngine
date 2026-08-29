@@ -1,6 +1,6 @@
 // Pipeline::ModelImporter - :file_import partition.
 //
-// The SOURCE-side model importer for the editor pipeline (asset-pipeline design §4/§7): a
+// The SOURCE-side model importer for the editor pipeline: a
 // dropped model file fans out into REAL source instances in the content DB - textures
 // (embedded-pixels TextureAssets), materials (MaterialAssets), meshes (Static/SkinnedMeshAssets),
 // skeleton + clips (animation assets), and a ModelManifestAsset tying them together - so the
@@ -803,11 +803,11 @@ export namespace pipeline
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
 
-            // Authored LOD collapse (mesh-lod.md P1): "Foo_LOD1"/"Foo_LOD2" meshes become
+            // Authored LOD collapse: "Foo_LOD1"/"Foo_LOD2" meshes become
             // chain levels of the STATIC mesh named "Foo" instead of assets of their own.
             // lodOf[i] = the base mesh index a suffixed mesh folds into (or -1); levels are
             // gathered per base sorted by their suffix number. Skinned bases/levels never
-            // collapse (v1 static-only chains) - they import separately with a warning.
+            // collapse (chains are static-only) - they import separately with a warning.
             Array<i32> lodOf;
             lodOf.Resize(meshes.Size());
             Array<Array<usize>> lodLevels; // per mesh: consumed level indices, suffix order
@@ -960,7 +960,7 @@ export namespace pipeline
                         LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
                                  m.name(), asset->source.lodCount);
                     }
-                    // Auto-generation (mesh-lod.md P2): big static meshes with NO authored
+                    // Auto-generation: big static meshes with NO authored
                     // chain get a simplified ladder (GenerateLodChain no-ops on chains).
                     else if (generateLods &&
                              asset->source.indexData.Size() >= 3u * 10000u)

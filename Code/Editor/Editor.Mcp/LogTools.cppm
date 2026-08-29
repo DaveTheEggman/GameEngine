@@ -1,6 +1,6 @@
 // Editor::Mcp - :log_tools partition
 //
-// The diagnostics tools (mcp-agent-access.md P1 RESUME item 5): log_read / log_write /
+// The diagnostics tools: log_read / log_write /
 // known_issues. The host registers ONE EditorLogBuffer sink on the global logger first thing in
 // main, so every LOG_* line across the engine (cook warnings, scene-load errors, subsystem
 // output) is captured with a monotonic sequence; log_read polls it incrementally

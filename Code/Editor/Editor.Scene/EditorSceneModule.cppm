@@ -1,6 +1,6 @@
 // Editor::Scene - the `editor.scene` module.
 //
-// The scene subsystem's editor plugin (design doc §3.1): SceneEditorPage (per-page live Scene +
+// The scene subsystem's editor plugin: SceneEditorPage (per-page live Scene +
 // ViewportView through the real renderer + EditorCamera), its page factory, and the
 // RegisterSceneEditor entry point the editor EXECUTABLE calls - the editor core/app never link
 // this module.

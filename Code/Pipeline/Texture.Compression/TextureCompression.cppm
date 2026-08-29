@@ -1,12 +1,12 @@
 // Pipeline::Texture.Compression - `texture.compression`.
 //
-// The ONLY code that includes the block-compression encoder headers (bc7enc/rgbcx). Two jobs
-// (asset-variants.md Decisions 3 + 5):
+// The ONLY code that includes the block-compression encoder headers (bc7enc/rgbcx). Two jobs:
 //   - ResolveCompressedFormat: the format POLICY TABLE - given a source's authored semantics and the
 //     export target's capabilities, pick the cooked rhi::TextureFormat (or an uncompressed fallback).
 //   - EncodeBlockCompressed: encode one mip level of RGBA8 to a BC format's block bytes.
 // Cook/import-time only, UI-free (the Pipeline rule); the heavy encoder headers stay in the impl unit
-// (GCC module hygiene). BC only in P1; ASTC (P3) and BC6H/HDR are follow-ups.
+// (GCC module hygiene). BC and ASTC are implemented.
+// TODO: BC6H/HDR encoding is not implemented.
 
 module;
 #include "Core/Prelude.h"
@@ -29,7 +29,7 @@ export namespace texcomp
         Color,  // albedo / UI - sRGB (or linear) color
         Normal, // tangent-space normal map (linear RG)
         Mask,   // single-channel mask / height / roughness
-        HDR,    // RGBE / half-float (uncompressed until BC6H lands)
+        HDR,    // RGBE / half-float (uncompressed; BC6H not yet supported)
     };
 
     // Authored compression choice on the asset.
@@ -41,12 +41,12 @@ export namespace texcomp
     };
 
     // The compressed-texture FAMILIES the export target's devices support - a capability, not a
-    // platform (asset-variants.md: "what families does this target support", never "which platform").
+    // platform: keyed on "what families does this target support", never "which platform".
     struct TargetProfile
     {
         bool bc = false;   // BC1-BC7 (desktop + desktop browsers)
-        bool astc = false; // ASTC (mobile browsers) - P3
-        bool etc2 = false; // deferred
+        bool astc = false; // ASTC (mobile browsers)
+        bool etc2 = false; // ETC2 (encoding not implemented; selecting it falls back to uncompressed)
     };
 
     // The always-warm host desktop profile (BC-capable).

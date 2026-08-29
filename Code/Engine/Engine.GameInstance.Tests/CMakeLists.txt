@@ -1,5 +1,5 @@
 # GameInstanceTests.cpp interleaves AngelScript AND Luau cases (each drives its own real VM), so it
-# builds only when BOTH backends are on (per-backend file split, deferred, would lift this).
+# builds only when BOTH backends are on (a per-backend file split would lift this).
 if(OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
 add_executable(Engine.GameInstance.Tests TestsMain.cpp GameInstanceTests.cpp)
 target_link_libraries(Engine.GameInstance.Tests PRIVATE

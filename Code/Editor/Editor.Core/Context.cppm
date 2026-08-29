@@ -4,7 +4,7 @@
 // EditorContext, Traktor's IEditor). Holds the open project, the registries, the open pages +
 // active page, the global asset selection, and the status sink. Per-subsystem editor modules
 // register their factories here from RegisterEditor(EditorContext&);
-// the statically-assembled editor executable calls those entry points (design doc §3.1).
+// the statically-assembled editor executable calls those entry points.
 
 module;
 #include "Core/Prelude.h"
@@ -106,12 +106,12 @@ export namespace editor
         /// so pages can Notify unconditionally.
         Function<void(NoticeKind, StringView)> OnNotice;
 
-        /// Open the asset with this Guid for editing (asset-picker-slot.md ruling 2): the app
+        /// Open the asset with this Guid for editing: the app
         /// maps Guid -> content Instance -> the SAME page/panel path a browser double-click
         /// takes. Null-tolerant (callers guard).
         Function<void(const Guid&)> OpenAsset;
 
-        /// Asset-open INTERCEPTION (property-animation-editor.md workflow): a claimant (e.g.
+        /// Asset-open INTERCEPTION: a claimant (e.g.
         /// the scene page, for animation clips into its animation bar) sees an OpenAsset
         /// BEFORE it routes to a page; returning true claims it. Consulted newest-first, so
         /// the most recently opened claimant wins; claimants gate themselves on visibility.
@@ -281,7 +281,7 @@ export namespace editor
         // === Selection ===
 
         /// Global asset selection (asset browser / instance pickers). Entity selection is
-        /// per-scene-page (phase 3).
+        /// per-scene-page.
         [[nodiscard]] Selection<const foundation::content::Instance*>& AssetSelection() noexcept;
 
         // === Import notifications ===
@@ -296,7 +296,7 @@ export namespace editor
         /// Play-in-editor seam: creates the singleton Game page (the player behavior in a
         /// tab). Registered by the scene editor plugin; unset = the Game menu item notifies.
         // Creates a Game tab. `newInstance` = false reuses the app's primary GameInstance (the normal
-        // Play); true spins up an ADDITIONAL instance (multi-instance PIE, game-instance.md §11 step 5).
+        // Play); true spins up an ADDITIONAL instance (multi-instance PIE).
         Function<UniquePtr<EditorPage>(bool newInstance)> GamePageFactory;
         /// Stops the Game tab's live run, if any (the embedded app's RequestExit lands
         /// here, deferred to after the page-update loop). Set by the Game page.
@@ -310,7 +310,7 @@ export namespace editor
         Function<bool(foundation::content::Instance&, Array<byte>&)> SceneStreamStager;
 
         /// Export reachability seam: collects the assets a scene/prefab instance references, for the
-        /// export closure (docs/design/export-reachability.md). Loads the instance over the app's full
+        /// export closure. Loads the instance over the app's full
         /// manager set, appending its component resource Ref ids to `outResources` and its nested
         /// prefab-instance ids to `outPrefabs`; returns false for non-scene instances or on failure.
         /// Registered by the scene editor plugin (needs scene machinery). MAIN-THREAD only (loads a
@@ -322,7 +322,7 @@ export namespace editor
 
         void NotifyImported(foundation::content::Instance& instance, const pipeline::ImportOptions* options);
 
-        // === Script breakpoints (the debugger, script-debugger.md P1) ===
+        // === Script breakpoints (the debugger) ===
         // Shared editor state: the ScriptPage gutter toggles them per source file+line, and a
         // Game run applies them to its script debugger. Contract-neutral plain data (a future
         // remote debugger consumes the same set).

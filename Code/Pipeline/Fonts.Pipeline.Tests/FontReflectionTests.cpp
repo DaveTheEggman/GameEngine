@@ -1,4 +1,4 @@
-// Reflection track P1: FontAsset's reflected surface + the FontBakeMode enum. Verifies the
+// FontAsset's reflected surface + the FontBakeMode enum. Verifies the
 // authored scalar/enum/string fields enumerate with attributes, round-trip through get/set, and
 // that the bake-mode enum resolves named values. The `sizes` ramp is intentionally unreflected.
 #include <doctest/doctest.h>
@@ -38,14 +38,14 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
     const TypeInfo& type = pipeline::FontAsset::StaticType();
 
     CHECK(CEq(type.name, "FontAsset"));
-    // family + mode + dfSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes deferred).
+    // family + mode + dfSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes is unreflected).
     CHECK(PropertyCount(type) == 7u);
     for (const char* name : {"family", "mode", "dfSize", "firstCodepoint", "lastCodepoint",
                              "atlasWidth", "atlasHeight"})
     {
         CHECK_MESSAGE(FindProperty(type, name) != nullptr, name);
     }
-    CHECK(FindProperty(type, "sizes") == nullptr); // Array<f32> not reflected in P1
+    CHECK(FindProperty(type, "sizes") == nullptr); // Array<f32> not reflected
 
     // dfSize is DistanceField-only (a visibleWhen the generic page evaluates).
     const PropertyInfo* dfSize = FindProperty(type, "dfSize");

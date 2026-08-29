@@ -1,4 +1,4 @@
-// UI.Application tests: the dockable-window chrome policy (docking-v2.md user ruling).
+// UI.Application tests: the dockable-window chrome policy.
 // RuntimeDockableWindowHost itself needs a live GraphicsDevice + UIHost, so the unit under test
 // here is the pure platform-policy mapping the host resolves through; the host-side wiring
 // (HasOSChrome propagation, close routing, adorner behavior) is pinned headless in

@@ -1,4 +1,4 @@
-/// foundation.rhi.webgpu - WebGPU RHI backend (web-platform.md P1).
+/// foundation.rhi.webgpu - WebGPU RHI backend.
 ///
 /// Written against the STANDARD webgpu.h; on desktop the implementation is the
 /// wgpu-native runtime sidecar (dlopen'd, never linked), on web it is the browser's.

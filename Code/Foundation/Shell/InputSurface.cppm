@@ -1,7 +1,7 @@
 // Foundation::Shell - `:surface` partition.
 //
 // InputSurface + InputRouter: the viewport-input layer that sits above the raw
-// shell devices (see docs/design/viewport-input.md §4).
+// shell devices.
 //
 //   InputSurface  - a rectangular slice of a window (a `ContentFit`) that presents
 //                   the SAME device interfaces (IMouse/IKeyboard/IGamepad/ITouch)
@@ -17,7 +17,7 @@
 //                   the pointer while a button is held.
 //
 // Event-first: the raw device snapshots the surface reads are themselves a fold
-// over IInputManager::Events() (phase 1), so polling a surface is polling the
+// over IInputManager::Events(), so polling a surface is polling the
 // event stream through a transform. The router consults HoverWindow()/the event
 // stream for its routing decisions.
 

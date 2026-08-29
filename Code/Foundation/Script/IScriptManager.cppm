@@ -18,7 +18,7 @@ namespace core = foundation::core;
 
 export namespace foundation::script
 {
-    /// Optional backend features (scripting.md B4), declared per backend and consumed
+    /// Optional backend features, declared per backend and consumed
     /// contract-first: a consumer CHECKS the flag and degrades cleanly - a backend
     /// without Coroutines still runs behaviors, it just has no coroutine scheduler.
     enum class ScriptCapabilities : core::u32
@@ -136,7 +136,7 @@ export namespace foundation::script
         /// Assemble the ONE behavior module's source from the loaded class SOURCES. The
         /// run host owns the neutral generation/state bookkeeping and compiles the result;
         /// the LANGUAGE-SPECIFIC framing lives HERE, per backend, so no language syntax
-        /// leaks into the neutral libraries (scripting.md §7.5). A backend whose reflected
+        /// leaks into the neutral libraries. A backend whose reflected
         /// types live in a separate module prepends its own facade-import prelude + any
         /// coroutine base; a backend with globally-visible types needs none. The default
         /// is a plain newline-joined concatenation - the safe behavior for a backend that

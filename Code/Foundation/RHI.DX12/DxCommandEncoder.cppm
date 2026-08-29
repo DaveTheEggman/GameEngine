@@ -504,15 +504,15 @@ export namespace foundation::rhi::dx12
                 D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
             // Barrier from whatever the tracker says a subresource is ACTUALLY in, and record
-            // every transition. This used to hardcode COPY_SOURCE for both the before-state and
-            // the per-mip restore, and never told the tracker anything - so after a
-            // GenerateMipmaps the resource really sat in COPY_SOURCE while the tracker still
-            // believed COMMON (what the upload path leaves it in). The next barrier then declared
-            // StateBefore=COMMON and the debug layer rejected it, once per mip:
+            // every transition. Hardcoding COPY_SOURCE for both the before-state and
+            // the per-mip restore, and never telling the tracker, would leave the resource in
+            // COPY_SOURCE after a GenerateMipmaps while the tracker still
+            // believed COMMON (what the upload path leaves it in). The next barrier would then declare
+            // StateBefore=COMMON and the debug layer would reject it, once per mip:
             //   "Before state (0x0: COMMON|PRESENT) ... does not match with the state
             //    (0x800: COPY_SOURCE) specified in the previous call to ResourceBarrier"
             //
-            // NOTE: like the original, this walks layer 0 only - blitSubresource addresses a
+            // NOTE: this walks layer 0 only - blitSubresource addresses a
             // single mip, so array textures still get only their first slice's chain built.
             auto transition = [&](u32 mip, D3D12_RESOURCE_STATES after)
             {

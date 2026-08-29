@@ -1,6 +1,6 @@
-// Shader variant model - declared masks + canonicalization (docs/design/shaders.md).
+// Shader variant model - declared masks + canonicalization.
 //
-// A shipped dist has NO compiler, so every variant the runtime can request must exist in the cooked
+// A dist has NO compiler, so every variant the runtime can request must exist in the cooked
 // pack BY CONSTRUCTION. The mechanism:
 //
 //   - Authoring: one directive line per stage file, `// variants: SKINNED INSTANCED`, names

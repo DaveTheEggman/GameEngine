@@ -72,9 +72,9 @@ export namespace foundation::ui
         /// Load a StyleSheet from .sss text content.
         RefPtr<StyleSheet> Load(StringView source, StringView basePath = {})
         {
-            // Self-sufficient (ui-theme-migration.md P1 finding): hosts that skipped the
-            // InitializeGlobals startup call used to get TYPE selectors that silently resolved
-            // to null and matched nothing (the parser then ate the first declaration during
+            // Self-sufficient: hosts that skip the
+            // InitializeGlobals startup call would get TYPE selectors that silently resolve
+            // to null and match nothing (the parser then eats the first declaration during
             // recovery). Registration is idempotent - always ensure it here.
             InitializeGlobals();
 

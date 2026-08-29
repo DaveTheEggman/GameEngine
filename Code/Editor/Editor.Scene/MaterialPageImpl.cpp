@@ -11,9 +11,8 @@
 // and consecutive scrubs of the same field merge into one entry. Every apply rebuilds the
 // preview's runtime material in place, so scrubbing reads live on the sphere.
 //
-// RegisterMaterialEditor is the module's RegisterEditor entry point (§3.1): registers the
-// MaterialAsset page factory and the "PBR Material" / "Unlit Material" creators (presets;
-// custom shader-backed materials come later with the shader-asset story).
+// RegisterMaterialEditor is the module's RegisterEditor entry point: registers the
+// MaterialAsset page factory and the "PBR Material" / "Unlit Material" creators (presets).
 
 module;
 #include "Core/Prelude.h"

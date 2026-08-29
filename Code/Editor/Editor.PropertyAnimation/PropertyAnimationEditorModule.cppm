@@ -1,9 +1,9 @@
 // Editor::PropertyAnimation - the `editor.propertyanimation` primary module unit.
 //
-// Property animation is authored IN THE SCENE now (property-animation.md editor redesign): the
+// Property animation is authored in the scene: the
 // persistent PropertyAnimationPanel (`:panel`) docked below the viewport, over the shared
-// ClipEditorView (`:clip_editor_view`). There is no standalone clip PAGE and no viewport tool mode
-// anymore (both retired in P1b). This unit is just the plugin registrar: it ensures the clip asset /
+// ClipEditorView (`:clip_editor_view`). There is no standalone clip PAGE and no viewport tool mode.
+// This unit is just the plugin registrar: it ensures the clip asset /
 // source / resource types exist and contributes the "New Asset -> Property Animation Clip" creator.
 // The scene page constructs and owns the panel directly.
 

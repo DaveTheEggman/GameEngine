@@ -105,9 +105,9 @@ export namespace foundation::ui
                 GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
                 const i32 col = detail::ClampI(glp != nullptr ? glp->Column : 0, 0, cols - 1);
                 const i32 row = detail::ClampI(glp != nullptr ? glp->Row : 0, 0, rows - 1);
-                // BOUNDED loose constraints (was Expand() - fill-style leaves measured to
-                // kFloatMax and exploded auto tracks); tracks aggregate MARGIN boxes so cell
-                // placement + the base margin inset compose (ui-box-model.md P2b).
+                // BOUNDED loose constraints (unbounded fill-style leaves measured to
+                // kFloatMax would explode auto tracks); tracks aggregate MARGIN boxes so cell
+                // placement + the base margin inset compose.
                 child->Measure(BoxConstraints{
                     0, Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal()), 0,
                     Max(0.0f, constraints.MaxHeight - Padding.TotalVertical())});

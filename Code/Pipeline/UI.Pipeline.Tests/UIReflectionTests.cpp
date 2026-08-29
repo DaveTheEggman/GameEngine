@@ -1,4 +1,4 @@
-// Reflection track P1: UIDocumentAsset (markup) + UIThemeAsset (stylesheet) reflected surfaces.
+// UIDocumentAsset (markup) + UIThemeAsset (stylesheet) reflected surfaces.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

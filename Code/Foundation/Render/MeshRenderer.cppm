@@ -4,14 +4,14 @@
 /// owns the built-in forward shader (two permutations), the GPU rings, and the mesh cache,
 /// and records draws for the mesh `DrawItem`s it is handed.
 ///
-/// HYBRID instancing (§8): a run of consecutive draws sharing one mesh + material is issued as
+/// HYBRID instancing: a run of consecutive draws sharing one mesh + material is issued as
 /// a single INSTANCED draw; a lone draw takes the simpler per-object path. Both read the
 /// view-projection from a shared per-view UBO (set 0). The per-object path adds a per-object
 /// UBO (set 1, world + tint, dynamic offset); the instanced path adds a per-instance
 /// `StructuredBuffer<InstanceData>` (set 1) indexed by a uint4 DataOffsets vertex stream
 /// (location 5, instance-stepped) - the portable base+offset addressing (NOT SV_InstanceID,
 /// which differs between DX12 and Vulkan). Transparent draws are never instanced (back-to-front
-/// order must dominate). Material set-2 binding + real lighting are later phases.
+/// order must dominate).
 
 module;
 #include "Core/Prelude.h"
@@ -40,7 +40,7 @@ namespace rhi = foundation::rhi;
 export namespace foundation::render
 {
 
-    // ---- Pure LOD selection math (mesh-lod.md P1; unit-testable, no GPU) ----
+    // ---- Pure LOD selection math (unit-testable, no GPU) ----
     // Coverage: the fraction of the viewport half-height the item's bounding-sphere radius
     // spans in this camera. Perspective divides by view depth; ortho is depth-free (both read
     // projection[1][1]; m[3][3] discriminates). lodBias: each unit halves effective coverage.
@@ -105,7 +105,7 @@ export namespace foundation::render
         // Reflection-probe capture faces re-emit the draws (one forward pass each) - count them into the ring.
         void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
 
-        // This frame's active reflection probe (P2, single probe): the captured cube-ARRAY view (set-0 t8) +
+        // This frame's active reflection probe (single probe): the captured cube-ARRAY view (set-0 t8) +
         // the probe's box/slice/intensity/count for the forward's local-reflection path. null view => dummy
         // cube-array + count 0 (the forward keeps the global IBL reflection).
         void SetProbes(rhi::TextureView* cubeArray, rhi::Buffer* probeBuffer, u32 count) override;
@@ -251,7 +251,7 @@ export namespace foundation::render
         static constexpr u64 kViewSlot = 256; // dynamic UBO offset alignment (object/shadow-view)
         static constexpr u64 kViewDataSlot =
             1024;                              // view UBO slot (ViewData is 528B with CSM cascades)
-        static constexpr u32 kMaxLights = 256; // per-view light budget (phase 4.1; clustered later)
+        static constexpr u32 kMaxLights = 256; // per-view light budget (clustered)
         // shadow-view UBO slots per frame: one per (shadow pass × category run). Cascades (up to
         // kMaxShadowViews*kCount) + local-shadow atlas tiles (up to kMaxLocalShadows), each × a few
         // categories. Sized with headroom - a slot is tiny (256B).
@@ -266,7 +266,7 @@ export namespace foundation::render
                       // test doesn't overflow (the persistent-buffer
                       // rewrite uploads once, shared across passes).
 
-        // Per-view LOD selection (mesh-lod.md P1): projected-sphere coverage of the item's
+        // Per-view LOD selection: projected-sphere coverage of the item's
         // world bounds against THIS ctx's camera (perspective divides by view depth; ortho is
         // depth-free - both read projection[1][1]), biased by md.lodBias (each unit halves
         // effective coverage), pinned by md.forceLod, and stabilized by a +-5% hysteresis
@@ -558,7 +558,7 @@ export namespace foundation::render
         u32 m_captureFacePasses = 0;    // # probe-capture face passes (caster re-emits) this frame
         u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
-        // --- MultiMesh (instanced-mesh) persistent buffers (docs/design/instanced-mesh.md §5) ---
+        // --- MultiMesh (instanced-mesh) persistent buffers ---
         // Each InstancedMeshComponent (a "set") owns a PERSISTENT InstanceData storage buffer + a set-1 bind
         // group over it, keyed by the component's stable key. Uploaded only when the set's version changes -
         // a static set uploads once, then costs nothing per frame (the whole point). A single shared
@@ -597,7 +597,7 @@ export namespace foundation::render
         u32 m_rampCapacity = 0;
         u32 m_multiMeshFrame = 0; // bumped each UploadMultiMeshes (eviction clock)
 
-        // IBL (phase 6): SH9 diffuse buffer (t5) + prefiltered specular cube (t6) + BRDF LUT (t7) + a
+        // IBL: SH9 diffuse buffer (t5) + prefiltered specular cube (t6) + BRDF LUT (t7) + a
         // linear env sampler (s1), all set 0. Neutral 1x1 dummies are bound when no environment is active.
         static constexpr u64 kShBytes = sizeof(f32) * 4 * 9; // 9 RGB SH coeffs as float4
         rhi::Sampler* m_envSampler = nullptr;
@@ -607,7 +607,7 @@ export namespace foundation::render
         rhi::Texture* m_dummyBrdf = nullptr;
         rhi::TextureView* m_dummyBrdfView = nullptr;
 
-        // Reflection probes (P2-P4): prefiltered cube-ARRAY (t8) + probe-metadata SRV (t9) + probe count.
+        // Reflection probes: prefiltered cube-ARRAY (t8) + probe-metadata SRV (t9) + probe count.
         static constexpr u64 kProbeBufferBytes =
             64u * 16u; // sizeof(GpuProbe)=64 * kMaxReflectionProbes=16
         rhi::Texture* m_dummyProbeCube = nullptr;

@@ -2,8 +2,8 @@
 //
 // RelativeLayout: positions each child by an anchor relative to the parent's padding-inset
 // content box - pin to an edge, a corner, or center, horizontally and/or vertically. Modeled
-// on eepp's UIRelativeLayout (role, not a line-for-line port); this v1 covers parent-relative
-// anchoring only (sibling-relative rules like toRightOf/below are deferred). Children keep
+// on eepp's UIRelativeLayout (role, not a line-for-line port); covers parent-relative
+// anchoring only (sibling-relative rules like toRightOf/below are not implemented). Children keep
 // their own sizes. Anchors are stored per child (non-owning Node* keys); an un-anchored child
 // defaults to the top-left. Re-runs on size change and child add/remove.
 

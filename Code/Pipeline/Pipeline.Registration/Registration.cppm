@@ -1,13 +1,13 @@
 // Pipeline::Registration - the `pipeline.registration` module.
 //
-// The pipeline's COMPOSITION ROOT as a library (asset-pipeline design; MCP spec Fable ruling
-// 2026-08-09). Every host that cooks or imports - the CLI cooker, the export packager, the
-// editor, the headless MCP server - needs the SAME set of builders, importers, and product/
-// resource type registrations. That set used to live inline in each host's main(), duplicated
-// verbatim; a builder added to two of three copies is a silent gap (cook works in the editor,
-// missing from CLI export - the collision-cook class of bug). This library is the single source
-// of truth: it links every pipeline module (its entire job - the deliberate fan-in point) and
-// exposes three entry points the hosts call instead of restating the list.
+// The pipeline's COMPOSITION ROOT as a library. Every host that cooks or imports - the CLI
+// cooker, the export packager, the editor, the headless MCP server - needs the SAME set of
+// builders, importers, and product/resource type registrations. Registering that set inline in
+// each host's main() duplicates it verbatim; a builder added to two of three copies is a silent
+// gap (cook works in the editor, missing from CLI export - the collision-cook class of bug).
+// This library is the single source of truth: it links every pipeline module (its entire job -
+// the deliberate fan-in point) and exposes three entry points the hosts call instead of
+// restating the list.
 //
 // The wide imports live in the implementation unit, not here: this interface stays lean (three
 // declarations + the tripwire counts) so the four hosts that consume it do not each pull the

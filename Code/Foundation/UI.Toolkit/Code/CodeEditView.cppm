@@ -1,6 +1,6 @@
 // UI Toolkit - :code_edit_view partition
 //
-// CodeEditView (docs/design/code-editor.md): the purpose-built code editor widget over the
+// CodeEditView: the purpose-built code editor widget over the
 // :code_document core. Virtualized monospace rendering (only visible lines are drawn; column
 // geometry is column * advance), a line-number gutter with clickable markers (breakpoints,
 // diagnostics, execution line), full keyboard/mouse editing over CodeDocument's delta undo, and
@@ -127,7 +127,7 @@ export namespace foundation::ui::toolkit
     };
 
     /// State + key routing for the completion popup. The view feeds keys here FIRST while open
-    /// (this is why completion shapes the P1 input design); rendering stays in the view.
+    /// (this is why completion shapes the input design); rendering stays in the view.
     class CompletionModel
     {
     public:

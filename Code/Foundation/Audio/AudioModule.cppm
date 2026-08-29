@@ -1,6 +1,6 @@
 // Foundation::Audio - the `foundation.audio` module.
 //
-// The engine wrapper over the vendored miniaudio (docs/design/audio.md): AudioEngine
+// The engine wrapper over the vendored miniaudio: AudioEngine
 // (device + node graph + resource manager), the default Master<-{Effects,Music,UI} bus
 // groups, the fixed voice pool with generation-checked handles, priority stealing +
 // recent-play dedupe, always-fade stop/pause, the ma_vfs -> foundation.vfs stream bridge,

@@ -1,12 +1,12 @@
 // Editor::Terrain - the `editor.terrain` module.
 //
-// TerrainEditorPage (terrain.md phase 2, TerrainPage): the COMPOSITION + PREVIEW surface for a
+// TerrainEditorPage (TerrainPage): the COMPOSITION + PREVIEW surface for a
 // TerrainAsset. Left = a 3D orbit preview of the cooked terrain product (a TerrainComponent bound by
 // the asset guid, on the shared PreviewViewport substrate - mesh/material precedent). Right = the
 // authored fields: the heightfield + splatmap references (pickers), the layer list (albedo + normal +
 // ORM + height + mask refs + tile scale per layer), castShadows, the height-blend contrast, and stats. Editing rewrites the asset, pushes a merge-keyed undo
 // command, and Save writes it back + re-cooks so the bound TerrainResource hot-swaps. Brushes NEVER
-// live here (per the direction ruling): sculpt + splat paint are scene-viewport IViewportTools; this
+// live here: sculpt + splat paint are scene-viewport IViewportTools; this
 // page keeps ONE input-routing path by staying a composition + preview surface.
 //
 // GCC module hygiene: the heavy engine.terrain / engine.render / engine.scene imports stay in the

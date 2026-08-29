@@ -1,4 +1,4 @@
-// Scene-pass MSAA first-sample resolve - fullscreen triangle VS (msaa.md Decision 3 aux-resolve).
+// Scene-pass MSAA first-sample resolve - fullscreen triangle VS.
 // Standard SV_VertexID fullscreen triangle; the PS does the sample-0 loads.
 struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };
 VSOut main(uint vid : SV_VertexID) {

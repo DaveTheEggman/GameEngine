@@ -1,6 +1,6 @@
 // Editor::Audio - the `:sound_cue_page` partition.
 //
-// SoundCuePage (audio.md P3): the cue editor - eight variant slot rows (clip picker +
+// SoundCuePage: the cue editor - eight variant slot rows (clip picker +
 // weight), cue-level mode/jitter fields, and AUDITION that resolves through the REAL
 // ResolveSoundCue (same weights, no-repeat state, and jitter the game uses) and plays
 // through the runtime engine. Save writes the asset and nudges the validating recook.
@@ -61,8 +61,7 @@ export namespace editor
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
-            // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar
-            // (editor.md; first page to adopt it).
+            // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar.
             m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());

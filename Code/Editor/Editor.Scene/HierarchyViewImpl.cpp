@@ -1,7 +1,7 @@
 // Editor::Scene - :hierarchy partition.
 //
 // SceneHierarchyView: the entity tree INSIDE a scene page (multi-scene rule - one per page,
-// never a global panel; §3.6). A DraggableTreeView over a rebuilt snapshot of the live scene
+// never a global panel). A DraggableTreeView over a rebuilt snapshot of the live scene
 // (Scene::Revision() gates the rebuild, so command execute/undo/redo all refresh it for free),
 // wired to the page's SceneEditContext:
 //   - click selects (per-page Guid selection, synced both ways with the tree's SelectionModel);

@@ -68,10 +68,10 @@ namespace
 
 TEST_CASE("pipeline.registration: Pipeline-collection types carry the Pipeline domain, never Editor")
 {
-    // The P0 reorg moved asset/importer/cook types into the Pipeline collection, but their
-    // registrations still tagged TypeDomain("Editor") - false twice over (the headless CLI/MCP
-    // hosts have them WITHOUT the editor; the player has them not at all). After the sweep every
-    // rtti::pipeline authoring type must be Pipeline, never Editor and never defaulted to Runtime.
+    // Asset/importer/cook types live in the Pipeline collection. Tagging their registrations
+    // TypeDomain("Editor") is false twice over (the headless CLI/MCP hosts have them WITHOUT the
+    // editor; the player has them not at all). Every rtti::pipeline authoring type must be
+    // Pipeline, never Editor and never defaulted to Runtime.
     pipeline::RegisterPipelineTypes();
     const TypeRegistry& reg = GlobalTypeRegistry();
     const TypeDomain editor{StringView(u8"Editor")};
@@ -90,18 +90,18 @@ TEST_CASE("pipeline.registration: Pipeline-collection types carry the Pipeline d
             ++pipelineDomained;
         }
     }
-    // The swept asset types (one-plus per pipeline collection) landed on Pipeline - proving the
-    // sweep took effect and did not silently default them to Runtime.
+    // The asset types (one-plus per pipeline collection) carry the Pipeline domain - proving they
+    // are not silently defaulted to Runtime.
     CHECK(pipelineDomained >= 14);
 }
 
 TEST_CASE("pipeline.registration: every builder's ProductType is a registered serializable")
 {
-    // Pass-17 tripwire: the cook driver stamps builder->ProductType() into the product envelope
+    // Tripwire: the cook driver stamps builder->ProductType() into the product envelope
     // and the factory reconstructs it via ReadObject - so the product type MUST be a registered
-    // serializable (the cooked SERIALIZED form). Three builders (Terrain/Heightfield/SplatWeights)
-    // shipped returning their RUNTIME product type at once (1bb4b31d); this audits all of them,
-    // including builder N+1.
+    // serializable (the cooked SERIALIZED form). A builder returning its RUNTIME product type
+    // instead (the Terrain/Heightfield/SplatWeights class of bug) breaks this; the test audits
+    // all builders, including builder N+1.
     pipeline::RegisterPipelineTypes();
     pipeline::BuilderRegistry registry;
     pipeline::RegisterAllBuilders(registry);

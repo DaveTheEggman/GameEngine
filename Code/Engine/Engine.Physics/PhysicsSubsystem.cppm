@@ -1,6 +1,6 @@
 // Engine::Physics - the `engine.physics` module.
 //
-// Scene integration (docs/design/physics.md §3.2): a PhysicsSceneSystem per scene owns its
+// Scene integration: a PhysicsSceneSystem per scene owns its
 // PhysicsWorld; bodies build from RigidBodyComponents (+ descendant ColliderComponents
 // compounding) at OnSceneStarted and tear down at OnSceneStopped. Per fixed step:
 // kinematic bodies <- scene transforms (MoveKinematic, velocity-correct), the coalesced
@@ -527,7 +527,7 @@ export namespace engine::physics
             return tb != nullptr && tb->body.IsValid();
         }
 
-        // entity-active-state.md P3: reconcile the Jolt world against effective-active
+        // Reconcile the Jolt world against effective-active
         // EDGES (per-component latch - order-independent, self-healing, immune to the
         // load-before-components trap). Deactivation destroys the body/character/joint
         // (Jolt steps everything in its world - merely skipping the sync would NOT stop
@@ -699,8 +699,8 @@ export namespace engine::physics
                 [&](RigidBodyComponent& c, scene::EntityHandle e)
                 {
                     // Effectively-inactive entities enter the world with NO body: the
-                    // reconcile pass creates it on the activation edge (entity-active-state.md
-                    // P3 - a scene that STARTS with the entity inactive never simulates it).
+                    // reconcile pass creates it on the activation edge (a scene that
+                    // STARTS with the entity inactive never simulates it).
                     if (!scene.IsEffectivelyActive(e))
                     {
                         c.simActive = false;
@@ -1048,14 +1048,13 @@ export namespace engine::physics
     };
 
     // Scene-bound physics handle - the reflected, per-scene answer to the static `Physics` facade.
-    // OPTION 1 factory shape (spec Section 12, same ruling as RigidBody.of(entity)): `ScenePhysics.of(
+    // OPTION 1 factory shape (mirrors RigidBody.of(entity)): `ScenePhysics.of(
     // scene)` returns a handle whose ops act on THAT scene's world (its PhysicsSceneSystem), not the
     // first started scene. A plain value carrying the scene pointer (returned by value - concrete
     // type, cross-backend, no hook slot); a null scene / a scene with no physics system is a safe
-    // no-op. The hit-point accessors of the static facade are a follow-up (they need per-scene state).
-    // An EXPLICIT ray-hit result (script-surface-of.md P0 ruling: the old stored-lastHit +
-    // hit* accessor statefulness was a facade artifact - the result now travels BY VALUE from
-    // the rayCast that produced it, like every other bound value handle). Carries the scene so
+    // no-op. The static facade has no hit-point accessors (they would need per-scene state).
+    // An EXPLICIT ray-hit result: the result travels BY VALUE from
+    // the rayCast that produced it, like every other bound value handle. Carries the scene so
     // entity()/impulse() resolve live state at CALL time (never cached pointers).
     struct RayCastHit
     {
@@ -1241,7 +1240,7 @@ export namespace engine::physics
         // include collision group g; ~0 = all) -> a native array the script walks with `.length`/`[]`
         // (AngelScript) or `#`/`ipairs` (Luau). This is the full set (nearestOverlap is the convenience
         // for "just the closest"). RESOLVED Entities, not packed u64 words: a Lua table element is an
-        // f64 and a packed handle exceeds 2^53 (script-array-returns.md). Since-destroyed bodies are
+        // f64 and a packed handle exceeds 2^53. Since-destroyed bodies are
         // skipped, so every element is a live entity.
         [[nodiscard]] Array<foundation::script::Entity> overlapSphere(f32 x, f32 y, f32 z, f32 radius,
                                                                      i32 groupMask) const

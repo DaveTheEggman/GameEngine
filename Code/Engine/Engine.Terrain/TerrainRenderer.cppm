@@ -92,12 +92,11 @@ export namespace engine::terrain
                 return core::Status{core::ErrorCode::Unknown};
             }
 
-            // set 3: the top-K splat material (terrain-splat-topk.md + terrain-layer-pbr.md +
-            // terrain-height-blend.md) - integer index map (t0, Load-only: filtering palette indices is
-            // garbage, ruling R1) + weight map (t1) + base albedo (t2) + palette albedo array (t3) + the
+            // set 3: the top-K splat material - integer index map (t0, Load-only: filtering palette
+            // indices is garbage) + weight map (t1) + base albedo (t2) + palette albedo array (t3) + the
             // per-layer tileScale storage buffer (t4) + base normal (t5) + normal array (t6) + base ORM
             // (t7) + ORM array (t8) + base height (t9) + height array (t10) + coverage mask array
-            // (t11, terrain-coverage-mask.md) + the repeat/trilinear albedo sampler (s0, all arrays).
+            // (t11) + the repeat/trilinear albedo sampler (s0, all arrays).
             rhi::BindGroupLayoutEntry idxEntry =
                 rhi::BindGroupLayoutEntry::SampledTexture(0, rhi::ShaderStage::Fragment);
             idxEntry.textureSampleType = rhi::TextureSampleType::Uint; // integer data texture
@@ -326,7 +325,7 @@ export namespace engine::terrain
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
-            // PBR dummies (terrain-layer-pbr.md R4 + terrain-height-blend.md): flat-normal / default-ORM
+            // PBR dummies: flat-normal / default-ORM
             // / mid-height, as a 2D texture (base) and a 1-slice array (palette), bound when a terrain
             // supplies no normal / ORM / height map.
             struct DummyDesc
@@ -549,14 +548,14 @@ export namespace engine::terrain
                 ubo.splatParams =
                     Float4{static_cast<f32>(data->paletteCount), hasWeights ? 1.0f : 0.0f,
                            data->baseTileScale, data->baseAlbedoView != nullptr ? 1.0f : 0.0f};
-                // Height-blend (terrain-height-blend.md): ShadowParams.z = the soft-skirt contrast,
+                // Height-blend: ShadowParams.z = the soft-skirt contrast,
                 // .w = height maps bound (any base OR palette height map present). Off (w = 0) => the
                 // PS keeps the linear weighting, byte-identical.
                 const bool heightBound =
                     data->baseHeightView != nullptr || data->heightArrayView != nullptr;
                 ubo.shadowParams.z = data->heightBlendContrast;
                 ubo.shadowParams.w = heightBound ? 1.0f : 0.0f;
-                // Coverage mask (terrain-coverage-mask.md): SplatParams2.x = mask maps bound (a palette
+                // Coverage mask: SplatParams2.x = mask maps bound (a palette
                 // mask array is present). Off (0) => the PS skips the coverage multiply, byte-identical.
                 const bool maskBound = data->maskArrayView != nullptr;
                 ubo.splatParams2 = Float4{maskBound ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
@@ -826,7 +825,7 @@ export namespace engine::terrain
             Float4 shadowMeta;   // x = cascade count, y = layer base, z = normal bias, w = depth bias
             Float4 shadowParams; // x = far-fade width, y = uv.y sign, z = heightBlendContrast, w = height maps bound
             Float4 splatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
-            Float4 splatParams2; // x = mask maps bound (terrain-coverage-mask.md), yzw spare
+            Float4 splatParams2; // x = mask maps bound, yzw spare
         };
 
         struct LodMesh
@@ -1027,7 +1026,7 @@ export namespace engine::terrain
             rhi::Buffer* tiles =
                 (data.tileScaleBuffer != nullptr) ? data.tileScaleBuffer : m_dummyTileBuffer;
             const u64 tileGen = (data.tileScaleBuffer != nullptr) ? data.tileScaleGeneration : 0;
-            // PBR maps (terrain-layer-pbr.md): absent = the flat-normal / default-ORM dummies.
+            // PBR maps: absent = the flat-normal / default-ORM dummies.
             rhi::TextureView* baseNrm =
                 (data.baseNormalView != nullptr) ? data.baseNormalView : m_flatNormalView;
             rhi::TextureView* nrmArr =
@@ -1036,12 +1035,12 @@ export namespace engine::terrain
                 (data.baseOrmView != nullptr) ? data.baseOrmView : m_defaultOrmView;
             rhi::TextureView* ormArr =
                 (data.ormArrayView != nullptr) ? data.ormArrayView : m_defaultOrmArrayView;
-            // Height maps (terrain-height-blend.md): absent = the mid-height dummies.
+            // Height maps: absent = the mid-height dummies.
             rhi::TextureView* baseHgt =
                 (data.baseHeightView != nullptr) ? data.baseHeightView : m_midHeightView;
             rhi::TextureView* hgtArr =
                 (data.heightArrayView != nullptr) ? data.heightArrayView : m_midHeightArrayView;
-            // Coverage mask (terrain-coverage-mask.md): absent = the opaque dummy (no coverage cut).
+            // Coverage mask: absent = the opaque dummy (no coverage cut).
             rhi::TextureView* maskArr =
                 (data.maskArrayView != nullptr) ? data.maskArrayView : m_opaqueMaskArrayView;
 

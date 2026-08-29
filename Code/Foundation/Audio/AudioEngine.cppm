@@ -1,12 +1,12 @@
 // Foundation::Audio - :engine partition.
 //
-// AudioEngine: the engine wrapper over miniaudio (docs/design/audio.md §3). miniaudio is
+// AudioEngine: the engine wrapper over miniaudio. miniaudio is
 // the COMMITTED backend - no abstraction layer - but ma_* types never appear here AT ALL:
 // this interface unit is miniaudio-free (all miniaudio contact lives in EngineImpl.cpp, a
 // module IMPLEMENTATION unit) both for API hygiene and because GCC's C++20-modules
 // serializer must not digest the 4 MB header inside an interface unit's global fragment.
 //
-// What it fixes over the Sedulous audio stack it replaces (§2):
+// What it fixes over the Sedulous audio stack it replaces:
 //   * pitch actually resamples (ma_sound_set_pitch), doppler actually shifts
 //     (velocities feed ma_spatializer), instead of being stored-and-ignored;
 //   * streamed clips route through the SAME bus graph as everything else;
@@ -34,8 +34,8 @@ using namespace foundation::core;
 
 export namespace foundation::audio
 {
-    // The default bus layout: Master <- { Effects, Music, UI } (BusLayout-as-data is P2;
-    // the enum IS the P1 layout). Runtime mapping: one ma_sound_group per bus.
+    // The default bus layout: Master <- { Effects, Music, UI }. Data-driven bus layout is
+    // a separate path; this enum IS the fixed layout. Runtime mapping: one ma_sound_group per bus.
     enum class AudioBus : u8
     {
         Master = 0,
@@ -110,7 +110,7 @@ export namespace foundation::audio
     };
 
     // Introspection for tests/tools (the voice state machine is observable).
-    // ---- bus layout data (P2) ----
+    // ---- bus layout data ----
 
     enum class AudioBusEffectKind : u8
     {
@@ -298,9 +298,9 @@ export namespace foundation::audio
         /// are unaddressable and capacity-bounded (settings.dyingVoiceCapacity).
         [[nodiscard]] usize DyingVoiceCount() const;
 
-        // ---- listener (one active listener; multi-listener deferred) ----
+        // ---- listener (one default listener; indexed multi-listener below) ----
         void SetListenerTransform(Float3 position, Float3 forward, Float3 up, Float3 velocity);
-        /// Multi-listener (P3, split-screen): move listener `index` (< ListenerCount()).
+        /// Multi-listener (split-screen): move listener `index` (< ListenerCount()).
         /// Spatial voices attenuate/pan against the CLOSEST enabled listener.
         void SetListenerTransformIndexed(u32 index, Float3 position, Float3 forward, Float3 up,
                                          Float3 velocity);
@@ -320,10 +320,10 @@ export namespace foundation::audio
         void SetBusMuted(AudioBus bus, bool muted);
         [[nodiscard]] bool BusMuted(AudioBus bus) const;
 
-        // ---- bus layout (P2): per-bus tuning + effect chains as DATA ----
-        // v1 keeps the FIXED four-bus topology (the AudioBus enum is the addressing
-        // model across components/serialization; free-form named trees are a later
-        // migration) and makes everything ELSE data: per-bus volume, mute, and an
+        // ---- bus layout: per-bus tuning + effect chains as DATA ----
+        // The FIXED four-bus topology stays (the AudioBus enum is the addressing
+        // model across components/serialization; free-form named trees are not the
+        // addressing model) and everything ELSE is data: per-bus volume, mute, and an
         // ordered effect chain spliced between the bus group and its parent.
         void ApplyBusLayout(const AudioBusLayout& layout);
         /// Live effect-node count on a bus (tests/diagnostics).
@@ -343,7 +343,7 @@ export namespace foundation::audio
         [[nodiscard]] bool NamedBusMuted(StringView name) const;
         [[nodiscard]] u32 NamedBusEffectCount(StringView name) const;
 
-        // ---- music (P2): scene-less helpers on the Music bus with cross-fade ----
+        // ---- music: scene-less helpers on the Music bus with cross-fade ----
         // Music routes through the SAME graph as everything else (the Sedulous stream-
         // bypass is structurally impossible here); it carries no scene group, so it
         // survives scene swaps. PlayMusic fades the previous music voice out and the
@@ -364,7 +364,7 @@ export namespace foundation::audio
         /// Fade-stops every voice in the group (they reap as fades land).
         void StopSceneGroup(u64 sceneGroup);
 
-        // ---- per-scene reverb (P3 zones): a Freeverb node on the scene's Effects
+        // ---- per-scene reverb (zones): a Freeverb node on the scene's Effects
         // child group, wet driven by listener zone occupancy. wet 0 = bypass (the node
         // stays spliced once created; params update live). The same params' roomSize/
         // damping also retune the scene's SEND reverb (per-voice reverbSend), which is

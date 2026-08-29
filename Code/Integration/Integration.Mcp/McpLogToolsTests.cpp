@@ -1,9 +1,9 @@
-// Integration.Mcp - the diagnostics tools (mcp-agent-access.md P1 item 5): log_read / log_write /
+// Integration.Mcp - the diagnostics tools: log_read / log_write /
 // known_issues. The agent-shaped loop: drop a marker, make the engine talk, read incrementally
 // from the marker's sequence and see exactly what happened after it - plus the filters and the
 // known-issues register read.
 #include <doctest/doctest.h>
-// <cstdio> dropped: the known-issues fixture writes through Core::WriteFile now
+// the known-issues fixture writes through Core::WriteFile, not <cstdio>
 #include <cstring>
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"

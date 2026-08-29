@@ -2,7 +2,7 @@
 # SedulousEngine's Sedulous.Particles): SoA stream container + initializer/behavior
 # modules + effect/system/emitter/instance + CPU simulator. Pure logic over Core; the
 # cooked resource (.resource), the GPU-compute sim, the ECS/render integration, and the
-# authoring editor all layer on top. See docs/design/particles.md.
+# authoring editor all layer on top.
 add_library(Particles STATIC)
 add_library(Foundation::Particles ALIAS Particles)
 

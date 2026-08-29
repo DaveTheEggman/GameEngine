@@ -1,6 +1,6 @@
 // engine.animation:propertyanimator
 //
-// PropertyAnimatorComponent + its per-scene manager (property-animation.md Engine side). One animator
+// PropertyAnimatorComponent + its per-scene manager (Engine side). One animator
 // per entity plays ONE clip whose tracks drive reflected properties on the OWNING entity's components.
 // The manager ticks in PostUpdate (before render extraction, the skeletal phase): advance the play
 // clock (Once/Loop/PingPong), then for each track re-resolve the LIVE target component via the scene's
@@ -54,12 +54,12 @@ export namespace engine::animation
     // matrix dirty). Reserved: a real component may not take this name.
     inline constexpr StringView kTransformComponentName = u8"Transform";
 
-    // PHYSICS RULE (property-animation.md): the animator writes the transform like any other property.
+    // PHYSICS RULE: the animator writes the transform like any other property.
     // On an entity with a DYNAMIC rigid body, physics is authoritative - its per-frame pose sync
     // overwrites the animated transform (they run in different scene phases and the body integrates
     // independently). Animate the transform only of KINEMATIC (or non-physics) entities; a dynamic
     // body's non-transform properties animate fine. (The cross-subsystem test proving this rides the
-    // physics manager - a follow-up beyond this engine module's own suite.)
+    // physics manager, not this engine module's own suite.)
 
     // Plays one property-animation clip on the owning entity. Serialized fields = the clip ref +
     // playback tunables; the play clock, bindings, and cached clip are runtime-only.
@@ -77,9 +77,9 @@ export namespace engine::animation
         propanim::PropertyAnimationClipResource* boundClip = nullptr; // bindings built for this clip
         Array<PropertyTrackBinding> bindings;
 
-        // Reflected playback ops for scripting (property-animation.md: NO new facade lib - these reach
-        // scripts through the existing reflected-component `.of(entity)` surface, natural types per the
-        // facade-numerics rule). They mutate only the runtime clock/state; the manager tick applies it.
+        // Reflected playback ops for scripting (NO new facade lib - these reach
+        // scripts through the existing reflected-component `.of(entity)` surface, with natural
+        // numeric types). They mutate only the runtime clock/state; the manager tick applies it.
         void play()
         {
             playing = true;
@@ -144,7 +144,7 @@ export namespace engine::animation
                 {
                     if (!m_scene->IsEffectivelyActive(owner))
                     {
-                        return; // frozen: no advance, no writes (entity-active-state.md P3)
+                        return; // frozen: no advance, no writes
                     }
                     propanim::PropertyAnimationClipResource* clipRes = a.clip.Get();
                     if (clipRes == nullptr)

@@ -1,6 +1,5 @@
-// Toolkit fragment sheet gates (ui-theme-migration.md consistency pass). The parity tests
-// retired when the fragments were RE-AUTHORED to the shared design system; ApplyLegacyForParity
-// remains only as the parse-failure belt until visual sign-off. These gates check the invariants:
+// Toolkit fragment sheet gates. The fragments are authored against the shared design system;
+// ApplyLegacyForParity remains only as a parse-failure belt. These gates check the invariants:
 // both fragments parse non-empty, Apply merges the parsed rules (not the belt), the ramp holds
 // (dock tabs + status bar 12, menu bar 14), and ToastCard's background stays a raw COLOR (the
 // ResolveStyleColor contract behind the background-color property).

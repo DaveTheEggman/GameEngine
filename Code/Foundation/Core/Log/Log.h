@@ -2,7 +2,7 @@
 //
 // Convenience front-end over foundation::core::Logf. Include this and `import
 // foundation.core;`. The macros are stripped at LogLevel::Fatal+ granularity in
-// shipping builds (asserts/logging policy, §4.8).
+// shipping builds.
 //
 //   LOG(level, category, "fmt {} {}", a, b);
 //   LOG_INFO("Renderer", "loaded {} meshes", count);

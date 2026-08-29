@@ -1,6 +1,6 @@
 // Editor::Core - :export_roots partition.
 //
-// The project's explicit "Always Export" set (docs/design/export-reachability.md, Phase 2): the
+// The project's explicit "Always Export" set: the
 // entry points a user declares as export roots ON TOP of the automatic default-scene + startup-
 // script seeds. Two kinds:
 //   - instance GUIDs - a specific asset the game loads by code (rename/move-proof, like

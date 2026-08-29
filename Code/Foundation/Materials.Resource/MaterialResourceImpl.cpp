@@ -4,9 +4,9 @@
 // cluster; see gcc-module-interface-hygiene). The class declares its identity via RTTI_OBJECT
 // in the interface; this unit defines MaterialSource::StaticType() WITH properties + the data
 // version, so tooling that recurses into it (a MaterialAsset's nested `source`) sees the authored
-// scalar surface. The render-state fields stay u8 for now (their enum-name retype is a later step);
-// the parallel cooked arrays (propNames/... , textureSlots/...) are internal cook output, not
-// per-field authored, so they are intentionally not reflected. Reflection track P1.
+// scalar surface. The render-state fields are u8 (not yet retyped to named enums); the parallel
+// cooked arrays (propNames/... , textureSlots/...) are internal cook output, not per-field
+// authored, so they are intentionally not reflected.
 
 module;
 #include "Core/Prelude.h"

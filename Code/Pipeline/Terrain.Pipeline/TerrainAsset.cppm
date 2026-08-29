@@ -6,7 +6,7 @@
 // is Heightfield.Pipeline; a terrain REFERENCES an existing heightfield asset. The cook is a
 // reference pass-through (asset ids == cooked product ids). Never linked by the runtime.
 //
-// Splat model = top-K (terrain-splat-topk.md): SplatmapAsset carries TWO sidecars - "pixels"
+// Splat model = top-K: SplatmapAsset carries TWO sidecars - "pixels"
 // (the 4 x u8 slot weights) + "indices" (the 4 x u8 palette indices). A legacy asset with only a
 // "pixels" sidecar (the fixed-4-layer model) migrates through MigrateLegacySplatmap at cook.
 
@@ -57,7 +57,7 @@ export namespace pipeline
         Array<Guid> paletteMaskIds;   // per-palette-layer coverage/opacity map (nil allowed); DV 5
         Array<f32> paletteTileScales;
         i32 paletteTextureSize = 1024; // common Texture2DArray slice size (authoring setting)
-        f32 heightBlendContrast = 0.25f; // height-blend soft-skirt width (terrain-height-blend.md); DV4
+        f32 heightBlendContrast = 0.25f; // height-blend soft-skirt width; DataVersion 4
         bool castShadows = true;
 
         void Serialize(ISerializer& ar) override
@@ -72,20 +72,20 @@ export namespace pipeline
                 foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
                 foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
                 foundation::core::Serialize(ar, "paletteTextureSize", paletteTextureSize);
-                if (ar.Version() >= 3) // per-layer normal + ORM maps (terrain-layer-pbr.md)
+                if (ar.Version() >= 3) // per-layer normal + ORM maps
                 {
                     foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
                     foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
                     foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
                     foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
                 }
-                if (ar.Version() >= 4) // per-layer height maps + contrast (terrain-height-blend.md)
+                if (ar.Version() >= 4) // per-layer height maps + contrast
                 {
                     foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
                     foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
                     foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
                 }
-                if (ar.Version() >= 5) // per-layer coverage/opacity maps (terrain-coverage-mask.md)
+                if (ar.Version() >= 5) // per-layer coverage/opacity maps
                 {
                     foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
                 }
@@ -182,7 +182,7 @@ export namespace pipeline
     /// Box-halve an sRGB-ENCODED RGBA8 level averaging the colour channels in LINEAR space
     /// (decode -> average -> re-encode; alpha is linear and averages as-is). Averaging sRGB bytes
     /// directly darkens mips - a 50% black/white checker must average to sRGB ~188, not 128 (the
-    /// texture cook's rule; terrain-layer-pbr.md R3). Used for the ALBEDO palette array, which
+    /// texture cook's rule). Used for the ALBEDO palette array, which
     /// uploads as RGBA8UnormSrgb; the linear normal/ORM arrays keep the plain box filter.
     inline u32 BoxHalveRgba8SrgbAware(Span<const u8> src, u32 dim, Span<u8> dst)
     {
@@ -253,10 +253,10 @@ export namespace pipeline
         }
         // 3: the cooked payload moved to the top-K model (TerrainSource v2) - force a re-cook.
         // 4: palette albedos decode through ctx.sourceDb (v3 cooked every slice WHITE) - re-cook.
-        // 5: per-layer normal + ORM arrays (terrain-layer-pbr.md P0) - re-cook.
-        // 6: albedo-array mips average in linear space (R3; v5 averaged sRGB bytes) - re-cook.
-        // 7: per-layer height array + heightBlendContrast (terrain-height-blend.md P0) - re-cook.
-        // 8: per-layer coverage/opacity mask array (terrain-coverage-mask.md P0) - re-cook.
+        // 5: per-layer normal + ORM arrays - re-cook.
+        // 6: albedo-array mips average in linear space (v5 averaged sRGB bytes) - re-cook.
+        // 7: per-layer height array + heightBlendContrast - re-cook.
+        // 8: per-layer coverage/opacity mask array - re-cook.
         // 9: on-demand sidecars are DELETED when their map is removed (was: stale sidecar persisted
         //    and kept loading) - force a re-cook so existing terrains shed any stale arrays.
         [[nodiscard]] u32 Version() const override { return 9; }
@@ -400,7 +400,7 @@ export namespace pipeline
         // Build one slice-major mip-chained RGBA8 array (header + texels) for `sliceCount` layers.
         // `ids[i]` (nil / out-of-range / undecodable) -> a slice filled with `defaultRGBA`. Mips:
         // the ALBEDO array (`srgb`) averages in LINEAR space (it uploads as RGBA8UnormSrgb -
-        // averaging the encoded bytes darkens mips; terrain-layer-pbr.md R3), the linear
+        // averaging the encoded bytes darkens mips), the linear
         // normal/ORM arrays use the plain box filter.
         static void CookArray(pipeline::AssetBuildContext& ctx, const Array<Guid>& ids, u32 sliceCount,
                               u32 sliceSize, u32 mipCount, usize sliceBytes, const u8 defaultRGBA[4],
@@ -499,7 +499,7 @@ export namespace pipeline
                 foundation::terrain::TerrainPaletteData::SliceBytes(sliceSize, mipCount);
             const u32 sliceCount = static_cast<u32>(ta.paletteAlbedoIds.Size());
 
-            // Per-map default slices (terrain-layer-pbr.md / terrain-height-blend.md): white albedo,
+            // Per-map default slices: white albedo,
             // flat normal, default ORM, mid height (0.5 = neutral in the height-blend competition).
             static const u8 kWhite[4] = {255, 255, 255, 255};
             static const u8 kFlatNormal[4] = {128, 128, 255, 255};       // tangent-space +Z

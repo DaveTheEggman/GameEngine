@@ -4,7 +4,7 @@
 // a row fills. Columns are evenly spaced across the padding-inset content width; each row is
 // as tall as its tallest child. Modeled on eepp's UIGridLayout (role, not a line-for-line
 // port). Children keep their own sizes and are placed at their cell's top-left; stretch-to-
-// cell and weighted columns are deferred. Re-runs on size change and child add/remove.
+// cell and weighted columns are not implemented. Re-runs on size change and child add/remove.
 
 module;
 #include "Core/Prelude.h"

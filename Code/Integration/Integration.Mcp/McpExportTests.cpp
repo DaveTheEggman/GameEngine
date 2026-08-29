@@ -1,4 +1,4 @@
-// Integration.Mcp - project_export (mcp-agent-access.md P1 item 9): a REAL dist through the
+// Integration.Mcp - project_export: a REAL dist through the
 // tool - cook + scene staging + pack + player staging - against a scratch project with one
 // authored scene. The host template resolves from the directory of THIS test executable
 // (which sits next to Engine.Player in Bin, exactly the layout the MCP host and export CLI
@@ -106,5 +106,5 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
     const std::filesystem::path out(reinterpret_cast<const char*>(outputDir.CStr()));
     CHECK(std::filesystem::is_regular_file(out / "Content.pak", ec));
     CHECK(std::filesystem::is_regular_file(out / "player.xml", ec));
-    CHECK(exported.Get(u8"filesStaged").AsNumber() >= 1.0); // the player + sidecars landed
+    CHECK(exported.Get(u8"filesStaged").AsNumber() >= 1.0); // the player + sidecars are staged
 }

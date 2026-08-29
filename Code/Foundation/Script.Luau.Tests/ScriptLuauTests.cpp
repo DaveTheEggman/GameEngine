@@ -224,7 +224,7 @@ TEST_CASE("script.luau: Float3 maps to Luau's native vector (fast path - fields,
     CHECK(probe->Invoke(u8"dot", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(32.0));
 }
 
-// A facade Array<T> return renders as a native 1-indexed Lua table (script-array-returns.md): a numeric
+// A facade Array<T> return renders as a native 1-indexed Lua table: a numeric
 // array and a reflected-value array (LuauRoom boxes as a userdata element - the Entity flavor).
 namespace
 {
@@ -322,8 +322,8 @@ TEST_CASE("script.luau: a facade Array<T> return crosses as a native table (nume
 
 // Container MEMBERS bind as owner ops (`shelf:rooms_count()` / `:rooms_at(0)` / `:rooms_add()` /
 // `:rooms_removeAt(0)` / `:rooms_move(a, b)`) - the AngelScript RegisterContainerMethods twin,
-// ZERO-based, write-through (pass-17 ruling). The bare property is NOT exposed: it used to cross
-// as a detached copy-table whose mutations were silently lost.
+// ZERO-based, write-through. The bare property is NOT exposed: it would cross
+// as a detached copy-table whose mutations are silently lost.
 namespace
 {
     class LuauShelf : public Object
@@ -443,11 +443,11 @@ TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
 
 TEST_CASE("script.luau: resumable-thread call throughput (perf case - the executor cost, Fable P6)")
 {
-    // Every script CALL now runs on a POOLED lua thread via lua_resume (never lua_pcall on the
-    // main state) so the debugger's lua_break can suspend it and the shipped + debugged programs
-    // share ONE executor (Fable P6 Q1). This records the per-CALL cost of that executor - each
+    // Every script CALL runs on a POOLED lua thread via lua_resume (never lua_pcall on the
+    // main state) so the debugger's lua_break can suspend it and production runs share ONE
+    // executor with debugging. This records the per-CALL cost of that executor - each
     // Call is a full thread acquire (pooled, no alloc after warmup) + xmove + resume + xmove-back.
-    // The claim ("resume-vs-pcall entry, no allocation") is now a number, not a hope.
+    // The claim ("resume-vs-pcall entry, no allocation") is a number, not a hope.
     RefPtr<IScriptManager> manager = CreateLuauScriptManager();
     RefPtr<IScriptContext> context = manager->CreateContext();
     REQUIRE(context->Load(u8"function noop(x) return x + 1 end\n", u8"luau.callperf").IsOk());
@@ -505,7 +505,7 @@ TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (pe
 
     // Two classes; the SECOND has a syntax error on its OWN line 2. Loaded as separate chunks
     // (not concatenated), the error keys on "Bad.luau" (that class's sourceName) at its own line -
-    // the (file, line) identity an editor breakpoint needs (Fable P6 Q4), not a merged module.
+    // the (file, line) identity an editor breakpoint needs, not a merged module.
     const BehaviorModuleClass classes[] = {
         {u8"Good.luau", u8"Good = {}\nfunction Good.new() return setmetatable({}, Good) end\n", {}},
         {u8"Bad.luau", u8"Bad = {}\nlocal c = = =\n", {}},
@@ -600,7 +600,7 @@ TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and cont
     debugger->SetListener(nullptr);
 }
 
-// A minimal listener that just counts paused/running transitions (shared shape across the P6.3b
+// A minimal listener that just counts paused/running transitions (shared shape across the
 // step + coroutine tests).
 namespace
 {

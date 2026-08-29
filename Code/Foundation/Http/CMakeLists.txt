@@ -1,8 +1,8 @@
 # Foundation::Http - `foundation.http`: a deliberately small HTTP/1.1 layer over the Core/System
 # TCP sockets (via Foundation::Net's TcpSocket/TcpListener). Consumers: the MCP streamable-HTTP
-# host (P2), the WebSocket upgrade path (web networking - a WS connection begins as an HTTP
+# host, the WebSocket upgrade path (web networking - a WS connection begins as an HTTP
 # request), loopback tooling/tests. One request per connection (Connection: close) + SSE streams;
-# no TLS (localhost trust domain). See Documentation/Systems/networking.md.
+# no TLS (localhost trust domain).
 
 add_library(Http STATIC)
 add_library(Foundation::Http ALIAS Http)

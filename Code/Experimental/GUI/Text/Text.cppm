@@ -4,7 +4,7 @@
 // seam. Derived from eepp's Graphics::Text (the object UITextView/labels cache), adapted to
 // our needs: it holds a non-owning foundation.fonts CachedFont (owned by the font service),
 // measures via IFont metrics, and draws via VG's DrawText. Rich styling (per-range colors,
-// outline/shadow, wrap, bidi) is deferred to later text work.
+// outline/shadow, wrap, bidi) is not implemented.
 
 module;
 #include "Core/Prelude.h"

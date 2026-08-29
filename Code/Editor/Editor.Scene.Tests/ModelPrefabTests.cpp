@@ -1,4 +1,4 @@
-// Model->prefab generation (prefabs P3): a hand-authored model manifest becomes a spawnable
+// Model->prefab generation: a hand-authored model manifest becomes a spawnable
 // PrefabDocument whose hierarchy + mesh/material/animation refs mirror the manifest, and a
 // second generation REUSES the prefab instance (same guid - re-import propagates to placed
 // instances through the standard rebuild machinery).

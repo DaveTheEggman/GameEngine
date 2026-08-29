@@ -112,7 +112,7 @@ export namespace foundation::ui
             return Thickness{12.0f, 8.0f};
         }
 
-        // Content-only measure (ui-box-model.md P2c) - chrome is base-handled.
+        // Content-only measure - chrome is base-handled.
         [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
         {
             f32 cw = 0, ch = 0;

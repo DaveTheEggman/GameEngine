@@ -1,11 +1,8 @@
 // Core - :curve partition
 // A general scalar keyframe curve: an ordered set of {time, value, tangents, interpolation} keys
-// sampled at an arbitrary time. General math (property-animation.md math gap policy) - Sedulous has
-// only a fixed-8-key particle curve, so this is written from scratch, informed by that curve's
-// cubic-Hermite segment math + the existing :easings. Shared by any keyframe consumer (property
-// animation first; particles/skeletal can migrate later). Float3/Color tracks hold one Curve per
-// component; Quat tracks slerp quaternion keys directly and do NOT use this (never per-component
-// euler curves).
+// sampled at an arbitrary time, using cubic-Hermite segment math and the :easings partition. Shared
+// by any keyframe consumer. Float3/Color tracks hold one Curve per component; Quat tracks slerp
+// quaternion keys directly and do NOT use this (never per-component euler curves).
 
 module;
 #include "Core/Prelude.h"

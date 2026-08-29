@@ -11,9 +11,9 @@
 // AddView adds a ref, RemoveView drops it. This replaces Beef's raw-pointer-owned tree + manual
 // `delete`. LayoutParams (Object) is likewise RefPtr-held.
 //
-// DEFERRED (need not-yet-ported subsystems; documented seams, not bugs):
+// UNWIRED SEAMS (need not-yet-ported subsystems; documented seams, not bugs):
 //  - Input/Focus/DragDrop/Animation/Shortcut/Tooltip managers on UIContext (Input/Overlay/Animation
-//    subsystems). Kept as nullable seams; IsHovered/IsFocused therefore return false for now.
+//    subsystems). Kept as nullable seams; IsHovered/IsFocused therefore return false.
 //  - RootView's PopupLayer (Overlay subsystem) - omitted; RootView is a plain viewport ViewGroup.
 //  - Input-event virtuals (OnMouseDown/OnKeyDown/...), directional-focus + tooltip fields, font-family
 //    resolution via IFontService, ScrollIntoView (ScrollView), and UIContext::DrawRootView.
@@ -113,7 +113,7 @@ export namespace foundation::ui
     };
 
     // ===================================================================================
-    // BoxMetrics - the ONE resolved chrome of a view (ui-box-model.md). Padding is the
+    // BoxMetrics - the ONE resolved chrome of a view. Padding is the
     // component-wise max of the three historical channels (ViewGroup field, style property,
     // background DrawablePadding) so a padding declared through ANY of them takes effect.
     // Border is layout-participating chrome (border-box): MeasuredSize = content + padding +
@@ -278,13 +278,13 @@ export namespace foundation::ui
         }
 
         // === Layout ===
-        /// Measure this view (ui-box-model.md P2b). The BASE owns two things uniformly:
-        /// MARGIN (deflated from the incoming constraints - parents stopped doing it) and the
-        /// FIXED size spec (resolved HERE ONCE, in logical units - the Dp double-scale died in
-        /// this consolidation; Px means physical pixels). Match/Wrap remain parent-negotiated
+        /// Measure this view. The BASE owns two things uniformly:
+        /// MARGIN (deflated from the incoming constraints - parents do not) and the
+        /// FIXED size spec (resolved HERE ONCE, in logical units - no Dp double-scale;
+        /// Px means physical pixels). Match/Wrap remain parent-negotiated
         /// looseness: a base-side Match would defeat FlexLayout's deliberate cross-axis
-        /// demotion. Migrated controls implement OnMeasureContent (content-box in, content
-        /// size out); legacy OnMeasure overrides receive the post-margin post-spec box.
+        /// demotion. Controls implement OnMeasureContent (content-box in, content
+        /// size out); plain OnMeasure overrides receive the post-margin post-spec box.
         void Measure(BoxConstraints c); // impl unit (needs RootView complete for the dpi query)
 
         /// MeasuredSize plus this view's margins - what parents aggregate and place (parents
@@ -296,11 +296,11 @@ export namespace foundation::ui
                           MeasuredSize.y + m.TotalVertical()};
         }
 
-        /// Arrange this view. `(x, y, width, height)` is the MARGIN BOX (ui-box-model.md P2b):
-        /// the base insets by margin once, so every container honors margins identically -
-        /// containers deleted their per-site margin arithmetic. Views without margins are
-        /// byte-identical to the old border-box call. The final border box is ROUNDED to the
-        /// device grid (P2d) - fractional centering no longer lands content on half-pixels
+        /// Arrange this view. `(x, y, width, height)` is the MARGIN BOX:
+        /// the base insets by margin once, so every container honors margins identically without
+        /// per-site margin arithmetic. Views without margins resolve to the same
+        /// border box as a direct border-box call. The final border box is ROUNDED to the
+        /// device grid - fractional centering does not land content on half-pixels
         /// (the blurry-1px-border/soft-text class). Body in the impl unit (dpi query).
         void Layout(f32 x, f32 y, f32 width, f32 height);
 
@@ -309,7 +309,7 @@ export namespace foundation::ui
         virtual void OnDraw(UIDrawContext& ctx) { (void)ctx; }
 
         /// Current visual state for drawable/theme lookups. Focused/Hover need input managers
-        /// (deferred), so they contribute nothing yet.
+        /// (not yet wired), so they contribute nothing.
         [[nodiscard]] virtual ControlState GetControlState() const
         {
             ControlState state = ControlState::Normal;
@@ -612,7 +612,7 @@ export namespace foundation::ui
             return ResolveStyle(prop).AsDrawable();
         }
 
-        /// Resolve this view's chrome ONCE (ui-box-model.md): margin from LayoutParams; padding
+        /// Resolve this view's chrome ONCE: margin from LayoutParams; padding
         /// = max of the ViewGroup Padding field (via OwnPaddingField), the styled padding (or
         /// the control's DefaultStylePadding when no style sets one), and the background
         /// drawable's DrawablePadding; border from StyleProperty::BorderWidth. The single
@@ -700,17 +700,15 @@ export namespace foundation::ui
         /// with its Padding field; leaf views have none).
         [[nodiscard]] virtual Thickness OwnPaddingField() const { return Thickness{}; }
 
-        /// The control's FALLBACK padding when no style sets StyleProperty::Padding - the old
-        /// per-call-site inline defaults, stated once per control (P2c). A themed padding wins
-        /// outright (fallback, not max-merge). Subsumed by the P3 user-agent sheet when that
-        /// lands.
+        /// The control's FALLBACK padding when no style sets StyleProperty::Padding - stated
+        /// once per control. A themed padding wins outright (fallback, not max-merge).
         [[nodiscard]] virtual Thickness DefaultStylePadding() const { return Thickness{}; }
 
-        /// NEW measure seam (ui-box-model.md P2b): receives CONTENT-box constraints (margin,
+        /// Content-box measure seam: receives CONTENT-box constraints (margin,
         /// spec, padding, and border already deflated by the base Measure) and returns the
         /// content size; the base re-inflates by chrome and clamps. Return the {-1,-1} sentinel
-        /// (the default) to fall back to the legacy OnMeasure seam. Controls migrate here by
-        /// DELETING their hand-rolled padding math (P2c).
+        /// (the default) to fall back to the OnMeasure seam. Controls that implement this seam
+        /// carry no hand-rolled padding math.
         [[nodiscard]] virtual Float2 OnMeasureContent(BoxConstraints contentConstraints)
         {
             (void)contentConstraints;
@@ -887,10 +885,9 @@ export namespace foundation::ui
         }
 
         /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.
-        /// Loose-vs-fill child availability (ui-box-model.md P2b): Fixed and margin are handled
-        /// by the base Measure now; the parent's only spec decision left is whether a Match
-        /// child fills the available box. This 8-line helper replaced the three full
-        /// spec-interpreter clones (MakeChildConstraints + FlexLayout/AbsoluteLayout copies).
+        /// Loose-vs-fill child availability: Fixed and margin are handled
+        /// by the base Measure; the parent's only spec decision left is whether a Match
+        /// child fills the available box.
         [[nodiscard]] static BoxConstraints AvailForChild(f32 availW, f32 availH, View* child)
         {
             const LayoutParamsPtr& lp = child->LayoutParams;
@@ -926,8 +923,8 @@ export namespace foundation::ui
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override
         {
             // Default container arrange: each child's margin box at the content origin (the
-            // base ViewGroup used to measure children and then never position them - the
-            // measure/arrange asymmetry from the audit).
+            // base ViewGroup must position children it measures, not leave a measure/arrange
+            // asymmetry).
             (void)left;
             (void)top;
             (void)width;
@@ -1111,7 +1108,7 @@ export namespace foundation::ui
     };
 
     // ===================================================================================
-    // UIContext - central coordinator (managers deferred as nullable seams).
+    // UIContext - central coordinator (unwired managers held as nullable seams).
     // ===================================================================================
     class UIContext
     {
@@ -1160,7 +1157,7 @@ export namespace foundation::ui
 
         [[nodiscard]] MutationQueue& MutationQueueRef() noexcept { return m_mutationQueue; }
 
-        // Owned managers (Input/Focus/Shortcut/Tooltip). DragDrop/Animation stay deferred.
+        // Owned managers (Input/Focus/Shortcut/Tooltip). DragDrop/Animation are not yet wired.
         [[nodiscard]] InputManager* GetInputManager() noexcept { return &m_inputManager; }
         [[nodiscard]] const InputManager* GetInputManager() const noexcept
         {

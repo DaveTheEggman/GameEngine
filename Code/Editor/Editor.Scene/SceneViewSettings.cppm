@@ -3,8 +3,8 @@
 // PER-SCENE view state (not scene DATA): the scene page is the unit of editing context in the
 // multi-scene model, so everything a page toggles is per-page - and its persistence is per-scene
 // too. Kept in the per-project editor settings store (EditorContext::ProjectEditorSettings()) keyed
-// by the scene's guid, mirroring the mesh/material preview prefs. Grid on/off for now; future
-// page-scoped viewport toggles (gizmo visibility, snap, ...) become more fields on SceneViewPref.
+// by the scene's guid, mirroring the mesh/material preview prefs. Carries the grid on/off toggle;
+// additional page-scoped viewport toggles (gizmo visibility, snap, ...) are more fields on SceneViewPref.
 //
 // Lives in its own light partition (not the heavy ScenePage.cppm interface) so the RTTI body stays
 // out of that interface's gcm and the section is nameable from tests.

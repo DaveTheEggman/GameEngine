@@ -255,9 +255,9 @@ namespace engine::uiscript
             return Wrap<ViewGroup>(nullptr);
         }
         // The ScreenStack's attached root is the SOURCE OF TRUTH for where pushed screens live
-        // (Push adds to it). A separately-captured raw RootView* diverged in the embedded host
-        // (captured stale/null while the stack pointed at the live root) and dangled after a UI
-        // shutdown, so the binding no longer carries one - the stack is the only root source.
+        // (Push adds to it). A separately-captured raw RootView* can diverge in the embedded host
+        // (captured stale/null while the stack points at the live root) and dangle after a UI
+        // shutdown, so the binding carries none - the stack is the only root source.
         foundation::ui::RootView* root = b->stack != nullptr ? b->stack->Root() : nullptr;
         return Wrap<ViewGroup>(root);
     }

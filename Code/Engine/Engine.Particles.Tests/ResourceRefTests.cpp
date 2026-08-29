@@ -176,7 +176,7 @@ TEST_CASE("particles: entity-active - starts-inactive never attaches/emits; togg
         particles::RangeFloat{10.0f, 10.0f}; // long-lived so alive counts are stable
     c.effectAsset = res.Get();
 
-    // Starts inactive: the manager never attaches, nothing emits (entity-active-state.md P3).
+    // Starts inactive: the manager never attaches, nothing emits.
     sceneObj.SetActive(e, false);
     sceneObj.Update(0.1f);
     sceneObj.Update(0.1f);

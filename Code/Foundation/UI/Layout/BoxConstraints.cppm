@@ -63,8 +63,8 @@ export namespace foundation::ui
             return Max(MinHeight, Min(height, MaxHeight));
         }
 
-        /// THE unbounded test (ui-box-model.md P2c) - replaces the competing `< kFloatMax` /
-        /// `< 100000` checks scattered through layouts and controls.
+        /// THE unbounded test - the single check for `< kFloatMax` /
+        /// `< 100000` used across layouts and controls.
         [[nodiscard]] static constexpr bool IsBounded(f32 extent) noexcept
         {
             return extent < kFloatMax;

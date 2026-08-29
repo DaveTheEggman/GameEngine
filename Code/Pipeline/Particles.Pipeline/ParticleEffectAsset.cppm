@@ -3,8 +3,6 @@
 // external .png), a particle effect is AUTHORED - so the asset embeds the effect itself and Build()
 // cooks it into a ParticleEffectResource with no source-file load. Ref resolution + curve->LUT baking
 // are later transforms; v1 is a straight pass-through of the authored effect.
-//
-// See docs/design/particles-authoring.md.
 
 module;
 #include "Core/Prelude.h"

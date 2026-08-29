@@ -1,7 +1,7 @@
 // Editor Texture - :thumbnail_generator partition
 //
-// The texture-domain thumbnail generator (asset-thumbnails.md P1). Lives in the DOMAIN lib
-// (user ruling 2026-08-16): generators belong beside the asset type's editor surface, which
+// The texture-domain thumbnail generator. Lives in the DOMAIN lib:
+// generators belong beside the asset type's editor surface, which
 // already owns the pipeline knowledge - Editor.App links no pipeline libs for thumbnails, and
 // registration rides the domain's RegisterTextureEditor call from the Tools.Editor composition
 // root. TextureThumbnailGenerator:
@@ -9,7 +9,7 @@
 // fileName) or the embedded "pixels" stream from model imports; Generate (light worker) decodes,
 // aspect-fit box-downscales into a 128x128 RGBA8 tile, and composites a checkerboard behind
 // translucent texels (the Traktor touch: alpha reads as alpha, not as darkness). GPU-rendered
-// previews (mesh/material/prefab/scene) are the P2 preview-bake path, not generators here.
+// previews (mesh/material/prefab/scene) are the preview-bake path, not generators here.
 
 module;
 #include "Core/Prelude.h"

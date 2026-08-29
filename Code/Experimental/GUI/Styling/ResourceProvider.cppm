@@ -5,8 +5,7 @@
 // returns a raw, provider-owned image (not a framework Drawable), so the provider stays a pure
 // asset loader (VFS + foundation.image) with no dependency on the GUI's drawable types; the
 // StyleApplier wraps the image into an ImageDrawable. Font resolution is a separate seam
-// (IFontProvider). @import / SVG text loading (Sedulous's LoadText) is deferred until we load
-// stylesheets from files.
+// (IFontProvider). @import / SVG text loading (Sedulous's LoadText) is not implemented.
 
 module;
 #include "Core/Prelude.h"

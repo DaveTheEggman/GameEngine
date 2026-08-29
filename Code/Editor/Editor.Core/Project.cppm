@@ -1,6 +1,6 @@
 // Editor::Core - :project partition.
 //
-// The project model (docs/design/editor.md §3.9, decided 2026-07-11): a project is a
+// The project model: a project is a
 // self-contained directory with a fixed layout + an XML manifest:
 //
 //   <root>/Project.xml   shared manifest (committed) - ProjectSettings via the XML serializer
@@ -12,8 +12,8 @@
 //   <root>/.cache/       thumbnails + incremental-cook hash db - gitignored
 //
 // EditorProject::Open mounts Content/ + Cooked/ and opens both ContentDatabases (Traktor's
-// source-db / output-db split). The manifest reserves `nativeModule` for the tagged-for-later
-// optional per-project native game module (see design doc §5 deferred).
+// source-db / output-db split). The manifest reserves `nativeModule` for an optional
+// per-project native game module.
 
 module;
 #include "Core/Prelude.h"
@@ -170,7 +170,7 @@ export namespace editor
         }
 
         /// The project's explicit "Always Export" roots (export_roots.xml). Loaded on Open; the
-        /// export driver seeds these as Flag/Group roots (docs/design/export-reachability.md §2).
+        /// export driver seeds these as Flag/Group roots.
         [[nodiscard]] ExportRootsSet& ExportRoots() noexcept { return m_exportRoots; }
         [[nodiscard]] const ExportRootsSet& ExportRoots() const noexcept { return m_exportRoots; }
 

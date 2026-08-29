@@ -6,7 +6,7 @@
 // An INITIALIZER runs once per spawned particle; a BEHAVIOR runs every frame over all live
 // particles. Each declares the streams it needs (lazy allocation). Velocity integration + aging
 // are a hardcoded final step on ParticleSystem (not a module). Render "type" is an enum, not a
-// module. The GPU simulator is deferred (Phase 6) behind the same interfaces + BehaviorSupport.
+// module. A GPU simulator would sit behind the same interfaces + BehaviorSupport.
 
 module;
 #include "Core/Prelude.h"

@@ -81,7 +81,7 @@ namespace foundation::mcp::script_detail
                 typeObj.Set(u8"scriptName", JsonValue::MakeString(t.scriptName));
                 typeObj.Set(u8"isNamespace", JsonValue::MakeBool(t.isNamespace));
                 // Availability domain (reflected identity -> registry): agents need to know a type
-                // exists for authoring (e.g. an asset) but NOT in a shipped player. inPlayer is the
+                // exists for authoring (e.g. an asset) but NOT in a runtime player. inPlayer is the
                 // robust bit (Runtime domain); domain is the readable name when known.
                 if (t.typeId != 0)
                 {

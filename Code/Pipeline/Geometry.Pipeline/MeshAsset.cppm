@@ -157,7 +157,7 @@ export namespace pipeline{
         return detail::MeshSourceFromStream(*stream, asset.source);
     }
 
-    /// Cook-time mesh optimization stats (mesh-lod.md P0) - logged by the builder,
+    /// Cook-time mesh optimization stats - logged by the builder,
     /// asserted by the cook tests.
     struct MeshOptimizeStats
     {
@@ -168,7 +168,7 @@ export namespace pipeline{
         f32 acmrAfter = 0.0f;
     };
 
-    /// Auto-LOD generation (mesh-lod.md P2). Ratios are the spec's ladder {0.5, 0.25,
+    /// Auto-LOD generation. Ratios are the ladder {0.5, 0.25,
     /// 0.125}; a level is DROPPED (and the chain ends) when simplification cannot get
     /// near its target within the error bound - a chain is as long as quality allows,
     /// never padded. minTriangles floors the chain (no point simplifying tiny meshes
@@ -185,15 +185,14 @@ export namespace pipeline{
     /// Deterministic. Defined in MeshOptimizeImpl.cpp.
     u32 GenerateLodChain(StaticMeshSource& source, const LodGenerationSettings& settings = {});
 
-    /// mesh-lod.md P0: vertex-cache + overdraw reorder per triangle submesh, then one
+    /// Vertex-cache + overdraw reorder per triangle submesh, then one
     /// whole-mesh vertex-fetch remap (reorders the blob, rewrites every index, compacts
     /// unused vertices). Triangle SET, submesh ranges, and vertex VALUES are preserved -
     /// only order changes, so rendering is identical. Non-triangle submeshes keep their
     /// index order (the remap still rewrites their index VALUES). Deterministic
-    /// (meshoptimizer has no threading/RNG). Skinned meshes are NOT passed through this
-    /// (the parallel skin stream needs the same permutation - deferred with skinned LODs).
-    /// SKINNED sources included: the parallel skinning stream receives the identical
-    /// vertex permutation (a size-mismatched stream refuses the whole pass).
+    /// (meshoptimizer has no threading/RNG). Skinned sources included: the parallel
+    /// skinning stream receives the identical vertex permutation (a size-mismatched
+    /// stream refuses the whole pass).
     /// Defined in MeshOptimizeImpl.cpp (meshoptimizer stays out of this interface).
     void OptimizeStaticMeshSource(StaticMeshSource& source, MeshOptimizeStats* outStats = nullptr);
 
@@ -238,7 +237,7 @@ export namespace pipeline{
                     return loaded;
                 }
             }
-            // P0 optimization pass: same triangles, better order (+ dead-vertex compaction).
+            // Optimization pass: same triangles, better order (+ dead-vertex compaction).
             // In place on the per-cook source instance; idempotent on re-cooks.
             OptimizeStaticMeshSource(ma.source);
             return ctx.output->WriteObject(ma.source);
@@ -284,7 +283,7 @@ export namespace pipeline{
                     return loaded;
                 }
             }
-            // P0 pass, skinned included: the parallel skinning stream is permuted with
+            // Skinned included: the parallel skinning stream is permuted with
             // the identical remap (see MeshOptimizeImpl) so the streams cannot diverge.
             OptimizeStaticMeshSource(ma.source);
             return ctx.output->WriteObject(ma.source);
@@ -313,9 +312,9 @@ export namespace pipeline{
         RegisterSerializable<SkinnedMeshAsset>();
     }
 
-    // v4 = LOD chain (mesh-lod.md P1) - the LOD keys are gated on version >= 4 in
-    //      StaticMeshSource::SerializeStatic. The LOD wire ORIGINALLY reused v3, but v3 was already
-    //      taken by the geometry sidecar, so a pre-LOD v3 source (no LOD keys) failed strict
+    // v4 = LOD chain - the LOD keys are gated on version >= 4 in
+    //      StaticMeshSource::SerializeStatic. v3 is already taken by the geometry sidecar, so
+    //      reusing v3 for the LOD wire would make a pre-LOD v3 source (no LOD keys) fail strict
     //      deserialization. Bumping to 4 makes v3 unambiguously "pre-LOD, no keys": it loads as a
     //      1-LOD chain and the cook regenerates the chain. v3 = geometry sidecar; v2 = Float4
     //      tangent blobs.

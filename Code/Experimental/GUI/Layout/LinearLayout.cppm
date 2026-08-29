@@ -4,7 +4,7 @@
 // padding-inset content bounds. Modeled on eepp's UILinearLayout (role, not a line-for-line
 // port). Re-runs on size change and on child add/remove (via Node::OnChildrenChanged).
 // Children keep their own sizes here; measurement (wrap-content), weights/stretch, and
-// gravity are deferred.
+// gravity are not implemented.
 
 module;
 #include "Core/Prelude.h"

@@ -1,8 +1,7 @@
 // Foundation::Fonts.Resource - the `foundation.fonts.resource` module (runtime).
 //
-// The FONT as a runtime resource - the triad tier the original port skipped
-// ("Ported from Sedulous.Fonts (excluding Fonts.Resources)"; roadmap: "Fonts -> proper
-// triad"). Same model-A shape as foundation.texture.resource:
+// The FONT as a runtime resource - the runtime-resource tier of the font triad.
+// Same model-A shape as foundation.texture.resource:
 //
 //   * FontResource (ISerializable): the cooked *record* loaded from the output DB - the
 //     family, the atlas pixel mode (Alpha8 coverage or RGBA MSDF), and one ENTRY per baked
@@ -11,7 +10,7 @@
 //   * Font (Object): the runtime product - owns, per entry, a rasterizer-free BakedFont,
 //     its IFontAtlas (BakedFontAtlas for coverage, DFFontAtlas for MSDF), and the atlas as
 //     an image::OwnedImageData ready for a renderer to upload (the same RGBA expansion the
-//     TTF service performs). A shipped game loads THIS and never touches stb_truetype.
+//     TTF service performs). A packaged game loads THIS and never touches stb_truetype.
 //   * FontFactory (IResourceFactory): cooked record + stream -> Font. DEVICE-FREE - the VG
 //     layer uploads atlas images itself, so fonts bind headlessly.
 //
@@ -228,7 +227,7 @@ export namespace foundation::fonts
         [[nodiscard]] const Entry& EntryAt(usize index) const { return m_entries[index]; }
 
         // The entry whose pixelHeight is closest to `pixelHeight` (null when empty). The
-        // P3 font service maps (family, size) requests through this.
+        // font service maps (family, size) requests through this.
         [[nodiscard]] const Entry* ClosestEntry(f32 pixelHeight) const
         {
             const Entry* best = nullptr;
@@ -391,7 +390,7 @@ export namespace foundation::fonts
     };
 
     // IFontService over bound Font PRODUCTS - the GUID-addressable runtime font path
-    // (roadmap: "fonts are GUID-addressable through the content DB/ResourceManager").
+    // (fonts are GUID-addressable through the content DB/ResourceManager).
     // The host binds Font products by guid (the ResourceManager keeps them cached) and
     // registers them here; the UI resolves (family, size) against the products' entries.
     //

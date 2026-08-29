@@ -58,7 +58,7 @@ export namespace engine::input
         /// Overrides the device source (play-in-editor: the Game viewport's gated facades).
         /// Null restores the shell devices.
         ///
-        /// `boundSceneKey` is the PER-SURFACE SCENE BINDING (game-ui.md §9): the opaque
+        /// `boundSceneKey` is the PER-SURFACE SCENE BINDING: the opaque
         /// identity of the scene this source represents - a Scene* used only for
         /// comparison, the render layer's SceneOverlayView::sceneKey convention, which
         /// keeps this module scene-agnostic. When bound, the UI pump routes pointer

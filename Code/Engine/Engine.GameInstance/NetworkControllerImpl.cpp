@@ -1,5 +1,5 @@
-// Engine::GameInstance :networkcontroller - the role bodies moved verbatim off GameInstance
-// (networking-extraction.md P1). A second implementation unit of engine.gameinstance; it sees
+// Engine::GameInstance :networkcontroller - the networking role bodies.
+// A second implementation unit of engine.gameinstance; it sees
 // NetworkController through the primary interface's `export import :networkcontroller`.
 
 module;
@@ -63,5 +63,5 @@ namespace engine::runtime
         m_net = nullptr; // closes the session (drops peers) + the owned socket
     }
 
-    // The transport pump lives on engine::net::NetworkSubsystem::PostUpdate now (P3) - no DriveNetwork here.
+    // The transport pump lives on engine::net::NetworkSubsystem::PostUpdate - no DriveNetwork here.
 }

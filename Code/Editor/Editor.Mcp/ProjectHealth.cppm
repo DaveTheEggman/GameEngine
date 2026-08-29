@@ -1,6 +1,6 @@
 // Editor::Mcp - :project_health partition
 //
-// project_health (mcp-agent-access.md P1 RESUME item 4): one call = "is this project sound".
+// project_health: one call = "is this project sound".
 // Sweeps the whole source database with the SAME live machinery the other tools trust:
 //   - dangling references: every forward edge (builders' ScanDependencies reads/references;
 //     scene/prefab component Refs + prefab instances via the full-manager scan; the

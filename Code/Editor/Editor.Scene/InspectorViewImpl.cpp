@@ -1,7 +1,7 @@
 // Editor::Scene - :inspector partition.
 //
 // SceneInspectorView: the reflection-driven property inspector INSIDE a scene page (per-page,
-// like everything scene-scoped; §3.5). A toolkit PropertyGrid rebuilt from the primary
+// like everything scene-scoped). A toolkit PropertyGrid rebuilt from the primary
 // selection: an Entity section (name / active), a Transform section (position / rotation-as-
 // euler-degrees / scale), and one category per component with rows auto-generated from the
 // component type's reflected properties (f32, ints, bool, String, Float3, Color, enums via the
@@ -1042,7 +1042,7 @@ namespace editor
             }
         }
 
-        // NavMeshZoneComponent: a one-shot Bake button (navigation-editor-ui.md, Fable ruling B).
+        // NavMeshZoneComponent: a one-shot Bake button.
         // Collects the in-zone static-mesh geometry, bakes it via Recast, and writes the zone's
         // NavigationZoneAsset sidecar; the outcome is flashed (no silent success). The user then
         // saves + cooks to apply the new navmesh. Requires an assigned Navigation Zone asset.
@@ -1136,7 +1136,7 @@ namespace editor
         }
 
         // ScriptComponent: the ordered behavior list, each a script picker + the
-        // rows the cooked ScriptClass metadata drives (scripting.md P1 §5).
+        // rows the cooked ScriptClass metadata drives.
         if (mgr.SerializationTypeId() == StringView(u8"script"))
         {
             BuildScriptBehaviors(id, category);
@@ -2045,7 +2045,7 @@ namespace editor
             category);
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(enabled.Get()));
 
-        // Update interval (P3 throttling): seconds between onUpdate; 0 = every tick.
+        // Update interval (throttling): seconds between onUpdate; 0 = every tick.
         auto interval = MakeRef<ui::toolkit::FloatEditor>(
             DefaultAllocator(), StringView(u8"Update Interval"),
             static_cast<f64>(behavior.updateInterval), 0.0, 3600.0, 0.05, 3,
@@ -2740,7 +2740,7 @@ namespace editor
                                   });
             self->m_forceRebuild = true;
         };
-        // Pick opens the type-filtered asset picker for this slot (Material for now).
+        // Pick opens the type-filtered asset picker for this slot (Material).
         rawList->OnPickSlot = [self, id, type, propPtr](usize i)
         {
             if (self->Context == nullptr || self->m_editor->Project() == nullptr)
@@ -2817,8 +2817,8 @@ namespace editor
         SceneEditContext* edit = m_edit;
         auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
 
-        // Category submenus with authored display names (editor-polish.md P1) - not the
-        // flat raw-type-name dump this used to be. Categories and items sort
+        // Category submenus with authored display names - not a
+        // flat raw-type-name dump. Categories and items sort
         // alphabetically so placement is stable as subsystems register.
         struct Entry
         {

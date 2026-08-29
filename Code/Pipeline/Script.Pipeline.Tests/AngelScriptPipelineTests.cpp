@@ -1,13 +1,13 @@
 // The neutral-builder cook round-trip driven with ANGELSCRIPT sources: source -> the builder's
 // cooker VM -> cooked record -> factory -> runtime metadata, the compile-error path (cook FAILS,
-// last good record survives), B3 backend-neutrality (the builder resolves its cook through the
+// last good record survives), backend-neutrality (the builder resolves its cook through the
 // registry by the asset's LANGUAGE), and the ScriptPage save->recook seam. The Luau leg of the same
 // neutral path lives in LuauPipelineTests.cpp; the pure text scanners in ScriptPipelineTests.cpp.
 
 #include "CookBed.h"
 
 import editor.core;       // ScriptSourceDocument (the ScriptPage save->recook seam)
-import pipeline.importer; // ScriptFileImporter (B3 extension acceptance)
+import pipeline.importer; // ScriptFileImporter (extension acceptance)
 
 using namespace foundation::core;
 using namespace pipeline;

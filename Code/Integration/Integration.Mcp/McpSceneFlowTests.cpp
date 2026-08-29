@@ -1,4 +1,4 @@
-// Integration.Mcp - the scene/prefab tool flow (mcp-agent-access.md P1 item 1): an agent opens a
+// Integration.Mcp - the scene/prefab tool flow: an agent opens a
 // project, authors a scene THROUGH THE TOOLS (write validates first), validates it, reads it back
 // byte-identically, and gets real refusals with reasons (garbage XML, wrong-type guid redirects,
 // multi-root prefabs). The seed XML comes from a REAL SaveScene, so the tools are proven against

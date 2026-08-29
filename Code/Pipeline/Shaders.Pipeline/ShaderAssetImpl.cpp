@@ -3,7 +3,6 @@
 // Kept OUT of the ShaderAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ShaderAsset::StaticType() gains its authored string
 // properties here. No enums, so the type reflection rides StaticType() with no registrar change.
-// Reflection track P1.
 
 module;
 #include "Core/Prelude.h"

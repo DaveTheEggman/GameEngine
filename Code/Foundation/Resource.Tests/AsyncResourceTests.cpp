@@ -179,8 +179,7 @@ namespace
 
     // RECURSIVE clean: core RemoveDirectory is a bare rmdir (empty dirs only), so it silently
     // no-oped on a populated scratch dir and the test then read STALE envelopes from a prior
-    // run - which is how the 2026-08 debrand's type-namespace rename turned into phantom
-    // failures here (old-namespace envelopes stopped resolving).
+    // run (e.g. old type-namespace spellings that stopped resolving, causing phantom failures).
     void CleanDir(StringView dir) { (void)RemoveDirectoryRecursive(dir); }
 }
 

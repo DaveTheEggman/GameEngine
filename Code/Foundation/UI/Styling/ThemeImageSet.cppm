@@ -2,8 +2,8 @@
 //
 // Generic container for theme images, keyed by "styleClass:propertyName". Pass to a textured-theme
 // factory to build a fully image-skinned StyleSheet. Ported from the ThemeImageEntry/ThemeImageSet
-// portion of Sedulous.UI/src/Styling/TexturedTheme.bf (the TexturedTheme::Create factory is deferred
-// until the control style classes exist).
+// portion of Sedulous.UI/src/Styling/TexturedTheme.bf (the TexturedTheme::Create factory is not
+// ported; it requires the control style classes).
 //
 // Divergences (language): Beef Dictionary<String, ...> with manual key/value ~delete becomes
 // HashMap<String, ...> (RAII); the Beef tuple `(ControlState, String)` state entry becomes a struct;

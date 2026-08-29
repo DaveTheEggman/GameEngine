@@ -1,6 +1,6 @@
 // Editor::Scene - :game_page partition.
 //
-// GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
+// GameEditorPage: a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,
 // exactly what Engine.Player does, in-process. Distinct from the ScenePage's Simulate
 // (in-place snapshot -> run -> restore): nothing here is edited, so Play builds everything
@@ -59,7 +59,7 @@ export namespace editor
     namespace vg = foundation::vg;
     namespace script = foundation::script;
 
-    // The debugger panel (script-debugger.md P1): a Break/Continue/StepInto/StepOver toolbar, a
+    // The debugger panel: a Break/Continue/StepInto/StepOver toolbar, a
     // call-stack list, and a locals tree with one level of lazy object expansion. It consumes
     // ONLY the neutral IScriptDebugger + the snapshot types - no in-process assumptions - so the
     // same panel would drive a remote debugger. It never mutates views mid-event-dispatch: the
@@ -195,7 +195,7 @@ export namespace editor
         void OnDebuggerStateChanged(script::ScriptDebuggerState newState) override;
     };
 
-    // The play-in-editor device seam (input P3): keyboard/mouse come from the Game
+    // The play-in-editor device seam: keyboard/mouse come from the Game
     // viewport's GATED InputSurface facades (hover = mouse, focus = keyboard - click the
     // viewport to play), gamepads pass through from the shell only while the viewport has
     // focus. This is the by-construction fix for "the editor viewport forwards nothing".
@@ -320,7 +320,7 @@ export namespace editor
         [[nodiscard]] foundation::ui::View* ContentView() override { return m_content.Get(); }
 
         // The scene group this tab's game scene belongs to: the embedded app's GameInstance manager
-        // (game-instance.md §11), so the game scene groups + ticks + is bound to the instance's run
+        // so the game scene groups + ticks + is bound to the instance's run
         // host. Falls back to THIS page's own (unregistered) manager if there's no embedded app - a
         // defensive placeholder, since without a runtime there is no game to run anyway.
         [[nodiscard]] scene::SceneManager& SceneGroup() noexcept;

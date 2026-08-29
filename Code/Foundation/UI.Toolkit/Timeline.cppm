@@ -1,12 +1,13 @@
 // Foundation::UI.Toolkit - the `foundation.ui.toolkit:timeline` partition.
 //
-// Timeline: a time RULER + draggable PLAYHEAD scrubber over a SECONDS axis
-// (property-animation-editor.md D1/D5, Fable ruling 4). Domain-agnostic - it knows a duration, a
+// Timeline: a time RULER + draggable PLAYHEAD scrubber over a SECONDS axis.
+// Domain-agnostic - it knows a duration, a
 // playhead time, and the shared time<->pixel transform (pixelsPerSecond / scrollSeconds /
-// labelColumnWidth); it knows NOTHING about clips or keyframes (P2 adds lanes + keys + selection as
-// this widget grows, so consumers stay decoupled and it is headlessly testable). SECONDS are the
-// only currency (A3); the frame display is a label format only. Scrubbing fires OnPlayheadMoved.
-// All chrome resolves from the theme with fallbacks (A5); no hand-picked hex in draw code.
+// labelColumnWidth); the ruler itself knows NOTHING about clips or keyframes (lanes + keys +
+// selection layer on as this widget grows, so consumers stay decoupled and it is headlessly
+// testable). SECONDS are the only currency; the frame display is a label format only. Scrubbing
+// fires OnPlayheadMoved. All chrome resolves from the theme with fallbacks; no hand-picked hex in
+// draw code.
 
 module;
 #include <cmath>
@@ -73,8 +74,8 @@ export namespace foundation::ui::toolkit
             Invalidate();
         }
 
-        // The shared time<->pixel transform (D1). P2 lanes + the curve view READ these; none caches
-        // its own copy (Traktor's per-row cache was the bug).
+        // The shared time<->pixel transform. Lanes + the curve view READ these; none caches
+        // its own copy (a per-row cache here would be a bug).
         [[nodiscard]] f32 PixelsPerSecond() const noexcept { return m_pixelsPerSecond; }
         void SetPixelsPerSecond(f32 pps)
         {
@@ -98,7 +99,7 @@ export namespace foundation::ui::toolkit
             return (span > 0.0f && m_pixelsPerSecond > 0.0f) ? span / m_pixelsPerSecond : 0.0f;
         }
 
-        f32 LabelColumnWidth = 0.0f; // left gutter reserved for track labels (0 in P1)
+        f32 LabelColumnWidth = 0.0f; // left gutter reserved for track labels (0 when unused)
         i32 DisplayFps = 0;          // 0 = seconds labels; >0 = frame-number labels (display only, A3)
 
         [[nodiscard]] f32 TimeToX(f32 t) const noexcept
@@ -136,7 +137,7 @@ export namespace foundation::ui::toolkit
 
         Event<void(f32)> OnPlayheadMoved;
 
-        // === dopesheet lanes (P2) ===
+        // === dopesheet lanes ===
         // The host sets the lane model (rebuilt from the clip); the widget renders keys + handles
         // selection + drag. It NEVER mutates the model - a key drag is purely visual and, on release,
         // emits OnKeysMoved(deltaSeconds) for the host to apply + re-sort + re-select (D4/D5).

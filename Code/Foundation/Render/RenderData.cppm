@@ -13,7 +13,7 @@
 ///
 /// A `RenderData` carries no view-dependent state: the sort key (which depends on the
 /// camera) lives on a per-view `DrawItem`, computed during the view's cull+sort against the
-/// shared snapshot. (§5/§9 of docs/design/renderer.md.)
+/// shared snapshot.
 
 module;
 #include "Core/Prelude.h"
@@ -76,7 +76,7 @@ export namespace foundation::render
         BackToFront
     };
 
-    // Which forward pass emits a category - the split that used to be a hard-coded `cat >= Transparent`.
+    // Which forward pass emits a category.
     // Opaque = the MRT opaque pass; Blended = the color-only pass after TAA; None = not emitted by the
     // forward passes at all (Sky/Decal/Light have their own dedicated passes or are shading-only inputs).
     enum class PassAffinity : u8
@@ -187,7 +187,7 @@ export namespace foundation::render
         const Float4x4* prevBoneMatrices =
             nullptr; // previous-frame skinning matrices (motion vectors); null => reuse current
         u32 boneCount = 0;
-        // LOD knobs (mesh-lod.md P1), copied from the component at extraction. Selection is
+        // LOD knobs, copied from the component at extraction. Selection is
         // PER VIEW in the renderer (extraction is one snapshot shared by every view), from
         // projected-sphere coverage of worldCenter/worldRadius vs the mesh's chain.
         f32 lodBias = 0.0f;
@@ -204,8 +204,7 @@ export namespace foundation::render
     // uploaded only when `version` changes. Extraction emits ONE of these per InstancedMeshComponent (not
     // one per instance), so per-frame CPU is O(1) in the instance count. The base `MeshRenderData` carries
     // the shared mesh/material/color and the MERGED bounds (worldCenter/worldRadius) so the set culls as a
-    // single AABB; `world` is unused (each instance has its own transform in `transforms`). See
-    // docs/design/instanced-mesh.md.
+    // single AABB; `world` is unused (each instance has its own transform in `transforms`).
     // How a skinned MultiMesh instance picks its pose out of the M shared palettes. Hashed decorrelates
     // from any spatial layout (splitmix-scattered) - the natural default for an independent-agent crowd;
     // Sequential (i % M) makes a phase gradient/wave; Explicit lets the CALLER supply a per-instance pose
@@ -332,8 +331,8 @@ export namespace foundation::render
         f32 type = 0.0f; // xyz dir, w type
         f32 innerCos = 1.0f;
         f32 outerCos = 1.0f; // spot cone cosines
-        // shadowIndex: -1 = this light casts no shadow; else an index into the shadow data (phase 5.1
-        // has a single directional shadow map, so any >= 0 selects it). pad1 reserved (cascade count).
+        // shadowIndex: -1 = this light casts no shadow; else an index into the shadow data (a single
+        // directional shadow map, so any >= 0 selects it). pad1 reserved (cascade count).
         f32 shadowIndex = -1.0f;
         f32 pad1 = 0.0f;
     };
@@ -348,10 +347,10 @@ export namespace foundation::render
         bool valid = false;
     };
 
-    // Cascaded shadow map data for the directional caster (phase 5.2), computed per-frame from the
+    // Cascaded shadow map data for the directional caster, computed per-frame from the
     // primary view's frustum + the light direction. kCount cascades, each a world->light-clip matrix +
     // the view-space depth where it ends (cascade selection) + the world size of one shadow texel (for
-    // normal-offset bias). Shared by all views in 5.2 (fit to the primary camera).
+    // normal-offset bias). Shared by all views (fit to the primary camera).
     struct ShadowCascades
     {
         static constexpr u32 kCount = 4;
@@ -412,7 +411,7 @@ export namespace foundation::render
 
     // A reflection probe (extraction OUTPUT). The ReflectionProbeSystem captures the scene into a cubemap
     // from `center`, prefilters it, and the forward samples it with parallax correction against the box
-    // [center - halfExtents, center + halfExtents] (world-axis-aligned for now; OBB later). `blendDistance`
+    // [center - halfExtents, center + halfExtents] (world-axis-aligned box, not an OBB). `blendDistance`
     // softens the influence toward the box edge so overlapping probes blend without a seam. `key` is a
     // stable per-entity tag (PackEntity) so the system maps a probe to a persistent GPU slot across frames.
     struct ReflectionProbe
@@ -552,15 +551,15 @@ export namespace foundation::render
         Cubemap
     };
 
-    // Resolved per-view post-processing parameters (docs/design/post-processing-config.md). Lives in
+    // Resolved per-view post-processing parameters. Lives in
     // the snapshot layer as PRIMITIVES (no authoring/pass enums) so it embeds in ViewSettings without
     // pulling in the subsystem; the render subsystem resolves a scene's authored PostProcessSettings
-    // (or its legacy global override) into this per RenderScene, and the compose passes read it per
-    // view. Defaults MATCH the RenderSubsystem's historical globals, so a default view is unchanged.
+    // (or its global override) into this per RenderScene, and the compose passes read it per
+    // view. Defaults MATCH the RenderSubsystem's globals, so a default view is unchanged.
     struct ViewPostConfig
     {
         f32 exposure = 1.0f;    // LINEAR multiplier (a scene's EV is resolved via exp2 upstream)
-        bool agxTonemap = true; // true = AgX operator, false = clamp (CM1a)
+        bool agxTonemap = true; // true = AgX operator, false = clamp
         bool bloomEnabled = true;
         f32 bloomThreshold = 1.0f;
         f32 bloomKnee = 0.6f;
@@ -576,7 +575,7 @@ export namespace foundation::render
         bool fxaaEnabled = false;
         f32 fxaaSubpixel = 0.75f;
         // Screen-space reflections (enable + intensity per view; the detailed SsrPass::Params config
-        // stays frame-global for now).
+        // stays frame-global).
         bool ssrEnabled = false;
         f32 ssrIntensity = 1.0f;
         // Resolved by the subsystem: does this view need motion vectors? (taaEnabled || an SSR temporal
@@ -585,7 +584,7 @@ export namespace foundation::render
         bool needsMotion = false;
         // Scene-pass MSAA sample count for THIS view (1 = off, 2 or 4). Capability-clamped by the
         // subsystem before it lands here, so this is the count the pipeline actually renders at.
-        // 1 leaves the whole single-sample path byte-identical (msaa.md Decision 1/2).
+        // 1 leaves the whole single-sample path byte-identical.
         u8 msaaSamples = 1;
     };
 
@@ -617,7 +616,7 @@ export namespace foundation::render
     //
     // The per-scene, once-per-frame, immutable snapshot pushed to the renderer: world-space
     // render data for one scene. Views of the same scene share it read-only (N cameras = 1
-    // extraction). Lights + environment land in later phases; phase 1 carries renderables.
+    // extraction). Carries renderables, lights, and environment.
     class ExtractedScene
     {
     public:
@@ -688,7 +687,7 @@ export namespace foundation::render
         void SetSky(const SkySnapshot& s) noexcept { m_sky = s; }
         [[nodiscard]] const SkySnapshot& Sky() const noexcept { return m_sky; }
 
-        // The active directional shadow caster (phase 5.1). Set during light extraction.
+        // The active directional shadow caster. Set during light extraction.
         void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
         [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept;
 
@@ -704,7 +703,7 @@ export namespace foundation::render
         FrameArena m_arena;
         Array<RenderData*> m_items;
         Array<GpuLight> m_lights;
-        Array<LocalShadowCaster> m_localCasters; // spot/point shadow casters (phase 5.3)
+        Array<LocalShadowCaster> m_localCasters; // spot/point shadow casters
         Array<DecalInstance> m_decals;           // screen-space decals (consumed by DecalPass)
         Array<ReflectionProbe> m_probes; // reflection probes (consumed by ReflectionProbeSystem)
         Float3 m_ambient = Float3{0.03f, 0.03f, 0.03f}; // default dim ambient

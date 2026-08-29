@@ -1,6 +1,6 @@
 // Editor::Input - the `editor.input` module.
 //
-// InputMapPage (input P2): the editing surface for InputMapAsset - a scrollable
+// InputMapPage: the editing surface for InputMapAsset - a scrollable
 // sets > actions > bindings outline with add/remove, in-place renames, kind/interaction
 // cycling, priority nudges, and "Listen" rebind capture (CaptureBinding polled per frame,
 // filtered by the action's kind; Esc cancels). Every mutation is one UNDOABLE command via

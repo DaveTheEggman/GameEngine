@@ -1,16 +1,15 @@
 /// Foundation::Render - the `:probes` partition.
 ///
-/// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections
-/// (docs/design/reflection-probes.md). This system owns the per-probe GPU resources and (in later
-/// sub-phases) drives capture + prefilter + froxel assignment:
+/// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections.
+/// This system owns the per-probe GPU resources and drives capture + prefilter + froxel assignment:
 ///   - captured cube-ARRAY (RGBA16F, [maxProbes×6] layers)   : the raw 6-face scene capture per probe.
 ///   - prefiltered specular cube-ARRAY (RGBA16F, mip chain)  : GGX split-sum per probe, sampled by the
 ///                                                             forward (set 0, t8) with parallax.
 ///   - probe-metadata StructuredBuffer (GpuProbe[])          : center/box/blend/slice, sampled per froxel.
 ///
 /// A stable ProbeKey (entity id) → slot map keeps a probe's array slice persistent across frames, so only
-/// dirty probes re-capture (static caching). This sub-phase (P1a) allocates the resources + the slot
-/// assignment; capture, prefilter, and the debug view land in P1b/P1c.
+/// dirty probes re-capture (static caching). This system allocates the resources + the slot
+/// assignment and drives capture, prefilter, and the debug view.
 
 module;
 #include "Core/Prelude.h"

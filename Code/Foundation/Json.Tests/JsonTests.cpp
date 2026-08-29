@@ -1,6 +1,6 @@
 // Unit tests for the JSON DOM (parse / write / build) - foundation.json in isolation, no reflection
 // or scripting. The RTTI/script-usability flow is a cross-collection integration test and lives in
-// Code/Integration/Integration.Script (see Code/Integration/README.md).
+// Code/Integration/Integration.Script.
 #include <doctest/doctest.h>
 
 #include <initializer_list>

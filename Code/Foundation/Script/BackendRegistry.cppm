@@ -1,6 +1,6 @@
 // Foundation::Script - the `:backend_registry` partition.
 //
-// The backend registry (scripting.md B1): a language backend is a LIBRARY that
+// The backend registry: a language backend is a LIBRARY that
 // registers itself here - {languageId, extensions, factory} - and every consumer
 // resolves through the registry by language or by the script file's extension. No
 // consumer names a backend type: adding AngelScript = link its library + one

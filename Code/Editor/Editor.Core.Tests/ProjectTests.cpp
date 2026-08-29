@@ -1,5 +1,5 @@
-// EditorProject tests: create/open round-trip of the fixed project layout (docs/design/editor.md
-// §3.9) - manifest, subdirectories, source (XML) + cooked (binary) content databases.
+// EditorProject tests: create/open round-trip of the fixed project layout - manifest,
+// subdirectories, source (XML) + cooked (binary) content databases.
 
 #include <doctest/doctest.h>
 #include <string>
@@ -181,7 +181,7 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         CHECK(project->Settings().defaultUiThemeId == themeId); // v5 field round-trips
         Guid mapId;
         REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8", mapId));
-        // Open's per-field settings move used to DROP defaultInputMapId (silent data loss).
+        // Open's per-field settings move must not DROP defaultInputMapId (silent data loss).
         CHECK(project->Settings().defaultInputMapId == mapId);
         Guid fontId;
         REQUIRE(Guid::TryParse(u8"6ba7b813-9dad-11d1-80b4-00c04fd430c8", fontId));
@@ -221,7 +221,7 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
         REQUIRE(cooked->WriteObject(mat).IsOk());
     }
 
-    // Envelope extensions match the §3.9 split: source readable XML, cooked binary.
+    // Envelope extensions match the source/cooked split: source readable XML, cooked binary.
     CHECK(FileExists(PathJoin(dir, u8"Content/materials/steel.xasset")));
     CHECK(FileExists(PathJoin(dir, u8"Cooked/materials/steel.rasset")));
 

@@ -1,6 +1,6 @@
 // Editor::Texture - the `editor.texture` module.
 //
-// TextureEditorPage (editor-pages-gap.md, bespoke pass #1): the import-settings surface over
+// TextureEditorPage: the import-settings surface over
 // TextureAsset. A CPU preview of the source image on the left (decoded through the same
 // stb path the cook rides, so what you see is what gets cooked) and the GPU-texture intent
 // on the right - color space, shape, sampler filters/wraps, mipmaps, anisotropy - plus the
@@ -131,7 +131,7 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<TextureEditorPageFactory>(), DefaultAllocator()));
-        // The domain's thumbnail generator registers with its page (asset-thumbnails.md):
+        // The domain's thumbnail generator registers with its page:
         // one composition entry point per domain, no pipeline links in Editor.App.
         if (context.Thumbnails() != nullptr)
         {

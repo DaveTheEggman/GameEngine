@@ -367,7 +367,7 @@ namespace editor
         }
         else
         {
-            // Desktop: the single host pak from Cooked/ - byte-identical to pre-P2.
+            // Desktop: the single host pak from Cooked/.
             ContentVariant v;
             v.pakName = String(engine::project::kDistContentPak);
             v.cookedDir = PathJoin(project.Directory(), engine::project::kProjectCookedDir);
@@ -511,8 +511,8 @@ namespace editor
         {
             onProgress(u8"Packing content...", 0.78f);
         }
-        // The variants to pack: the caller's list, or - by default - the single host Content.pak
-        // (byte-identical to pre-P2). Each variant is a COMPLETE pak: its own cooked DB + the SAME
+        // The variants to pack: the caller's list, or - by default - the single host Content.pak.
+        // Each variant is a COMPLETE pak: its own cooked DB + the SAME
         // staged scenes + the SAME reachable set (the closure guid-set is variant-invariant).
         Array<ContentVariant> effectiveVariants;
         if (variants.IsEmpty())
@@ -570,9 +570,8 @@ namespace editor
             dist.startupScriptId = project.Settings().startupScriptId;
             dist.startupScript =
                 String(project.Settings().startupScript.AsView()); // display mirror
-            // The manifest defaults the player binds at startup (previously dropped from the
-            // dist manifest entirely - the theme/input-map/bus-layout bindings could never fire
-            // in a shipped build).
+            // The manifest defaults the player binds at startup - without them the
+            // theme/input-map/bus-layout bindings could never fire in an exported build.
             dist.defaultInputMapId = project.Settings().defaultInputMapId;
             dist.defaultBusLayoutId = project.Settings().defaultBusLayoutId;
             dist.defaultUiThemeId = project.Settings().defaultUiThemeId;
@@ -586,7 +585,7 @@ namespace editor
             }
         }
 
-        // --- 5. pruning report (loud + auditable: pruning can silently break a shipped game) ---
+        // --- 5. pruning report (loud + auditable: pruning can silently break an exported game) ---
         if (reachable != nullptr)
         {
             PruningReport report;
@@ -762,7 +761,7 @@ namespace editor
             prune = false;
         }
 
-        // The content variants this preset ships (asset-variants P3): desktop = the single host pak;
+        // The content variants this preset ships: desktop = the single host pak;
         // Web = BC + ASTC. Threaded into every content path so the pack produces one pak per variant.
         const Array<ContentVariant> variants =
             VariantsForPlatform(project, preset.platform.AsView());
@@ -899,7 +898,7 @@ namespace editor
         }
 
         // Symbols (PDB/DWARF) are stripped from the dist by default; stage them only when the preset
-        // opts in (export-templates.md symbols policy). sidecars[] always stage; symbols[] gate here.
+        // opts in. sidecars[] always stage; symbols[] gate here.
         if (preset.stageSymbols)
         {
             for (const String& symbol : tmpl->symbols)

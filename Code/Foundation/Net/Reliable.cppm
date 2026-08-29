@@ -1,13 +1,13 @@
 /// Foundation::Net - `foundation.net:reliable` partition.
 ///
-/// Reliable-UDP over the unreliable datagram substrate (docs/design/networking.md §4). A
+/// Reliable-UDP over the unreliable datagram substrate. A
 /// `ReliableTransport` (an INetTransport) manages per-remote connections over an IDatagramSocket and
 /// layers on: a packet header (protocol id + type + seq/ack/ackBits), ack-driven RTT, RELIABLE
 /// messages (re-included in every packet until an acked packet carried them, then delivered IN ORDER
 /// by message id), UNRELIABLE pass-through, a connect/accept handshake, and keepalive/timeout. The
 /// model (include-all-unacked-reliables-per-packet) is Fiedler-style and ideal for the turn-based
-/// target's low message rate. Fragmentation (messages > one datagram) + congestion control are
-/// deferred; a message that exceeds the per-packet budget is dropped with a warning.
+/// target's low message rate. Fragmentation (messages > one datagram) and congestion control are
+/// not implemented; a message that exceeds the per-packet budget is dropped with a warning.
 ///
 /// Tested headlessly against SimDatagramNetwork's loss/reorder - no OS sockets.
 

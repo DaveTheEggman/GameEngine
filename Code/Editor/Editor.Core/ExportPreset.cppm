@@ -46,8 +46,8 @@ export namespace editor
         bool stageSymbols =
             false; // stage the template's symbols[] into the dist (default: stripped)
         bool pruneToReachable = false; // ship only the closure of the entry points (default: pack
-                                       // everything - the escape hatch for teams not yet managing
-                                       // reachability). See docs/design/export-reachability.md.
+                                       // everything - the escape hatch for teams not managing
+                                       // reachability).
 
         void Serialize(ISerializer& ar)
         {

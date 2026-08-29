@@ -1,4 +1,4 @@
-// MsaaResolvePass implementation (msaa.md Decision 3 + the aux-resolve note). Fullscreen sample-0
+// MsaaResolvePass implementation. Fullscreen sample-0
 // resolve of the MSAA opaque depth + G-buffer aux into 1x targets. See MsaaResolvePass.cppm.
 
 module;

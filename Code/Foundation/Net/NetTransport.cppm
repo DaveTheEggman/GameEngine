@@ -1,9 +1,9 @@
 /// Foundation::Net - `foundation.net:transport` partition.
 ///
-/// The transport seam (docs/design/networking.md §4). `INetTransport` is the swappable-backend
+/// The transport seam. `INetTransport` is the swappable-backend
 /// abstraction the rest of the stack (session, reliability, RPC, replication) rides on - because
-/// browsers cannot open raw UDP, multiple backends are MANDATORY (reliable-UDP, loopback/sim, later
-/// websocket/webrtc). This slice ships the interface + the in-memory `LoopbackLink` sim, which is
+/// browsers cannot open raw UDP, multiple backends are MANDATORY (reliable-UDP, loopback/sim,
+/// websocket/webrtc). This provides the interface + the in-memory `LoopbackLink` sim, which is
 /// what makes rolling our own transport safe: injectable latency / jitter / loss / reorder /
 /// duplication with a SEEDED rng and a MANUAL logical clock, so reliability and replication become
 /// deterministic headless unit tests (no sockets, no flake).

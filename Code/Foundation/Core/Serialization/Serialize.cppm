@@ -4,7 +4,7 @@
 // type's data once, runs either direction and works for any backend (binary or
 // keyed/text). Aggregates use named fields / array scopes so text output stays
 // readable and binary output stays endianness-portable. (RTTI-driven
-// auto-walking lives in an external Serialization module, per §4.7.)
+// auto-walking lives in an external Serialization module.)
 
 module;
 #include "Core/Prelude.h"

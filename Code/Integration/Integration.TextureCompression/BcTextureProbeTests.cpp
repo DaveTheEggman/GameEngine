@@ -272,7 +272,7 @@ namespace
             const u32 dom = c.dominant == 0 ? pr : (c.dominant == 1 ? pg : pb);
             CHECK(dom > 120);
             // ...and the dominant channel really dominates - the BC decode preserved the hue, so the
-            // upload landed the right block bytes at the right pitch (a wrong pitch smears/garbles).
+            // upload placed the right block bytes at the right pitch (a wrong pitch smears/garbles).
             if (c.dominant != 0) CHECK(dom > pr);
             if (c.dominant != 1) CHECK(dom > pg);
             if (c.dominant != 2) CHECK(dom > pb);

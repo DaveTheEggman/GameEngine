@@ -1,16 +1,16 @@
 // Pipeline::Core - the `editor.core` module.
 //
-// The tooling/authoring base for the asset pipeline (docs/design/asset-pipeline.md): an `Asset`
+// The tooling/authoring base for the asset pipeline: an `Asset`
 // is the editor/source object (references an external source file + import settings) and an
 // `IAssetBuilder` cooks it into a runtime *resource* written to the output content database.
 // The runtime never links this module - it loads only cooked resources. (Asset = source/editor;
 // Resource = runtime/cooked.)
 //
-// Builder API v2 (pipeline phase 6a):
+// Builder API:
 //   - source files are read through the VFS (`AssetBuildContext::sources` mount), never raw
 //     paths - builders use ReadSourceBytes/ReadSourceText;
 //   - `Version()`: bump when cook logic changes so exactly this builder's products re-cook
-//     (folded into the recipe hash - see the design doc; forgetting the bump is the known
+//     (folded into the recipe hash; forgetting the bump is the known
 //     failure mode, Build > Rebuild All is the big hammer);
 //   - `ScanDependencies()`: declares what a build consumes beyond the implicit Asset::fileName -
 //     extra FILES, content READS of other instances (hash-chained: editing them re-cooks this),
@@ -57,7 +57,7 @@ export namespace pipeline
         }
     };
 
-    // The export target a cook is producing for (asset-variants P2). `id` names the target - it is
+    // The export target a cook is producing for. `id` names the target - it is
     // BOTH the per-target cooked-DB directory name AND the recipe platform salt (so a variant
     // product recooks when the target changes). The capability booleans describe the compressed-
     // texture families the target's devices support; a variant builder maps them to its encoder
@@ -68,7 +68,7 @@ export namespace pipeline
         String id;         // "host", "web-bc", "web-astc", ... (DB dir + recipe salt)
         bool bc = true;    // BC1-BC7 (desktop + desktop browsers)
         bool astc = false; // ASTC (mobile browsers)
-        bool etc2 = false; // deferred
+        bool etc2 = false; // ETC2 (not supported)
     };
 
     // The default always-warm target the editor dev loop cooks against (BC-capable desktop).
@@ -77,10 +77,10 @@ export namespace pipeline
         return CookTarget{String(u8"host"), true, false, false};
     }
 
-    // Resolve a target id to its capability profile (asset-variants P2/P3). The web export splits into
+    // Resolve a target id to its capability profile. The web export splits into
     // two variant targets: "web-bc" (desktop browsers) and "web-astc" (mobile browsers). Everything
-    // else - "host", desktop platforms, unknown ids - is BC-capable desktop. Extend as new targets
-    // (consoles, ETC2 budget mobiles) land; the resolver keys on capability, never on platform.
+    // else - "host", desktop platforms, unknown ids - is BC-capable desktop. New targets
+    // (consoles, ETC2 budget mobiles) extend this; the resolver keys on capability, never on platform.
     [[nodiscard]] inline CookTarget CookTargetFor(StringView id)
     {
         if (id == StringView(u8"web-astc"))
@@ -105,13 +105,13 @@ export namespace pipeline
         // envelope's fileName, embedded pixels, ...) must read through THIS - Cast'ing a cooked
         // product to its Asset envelope fails (the terrain palette-cook lesson).
         foundation::content::IContentDatabase* sourceDb = nullptr;
-        // The export target being produced (asset-variants P2). Null = the host target (a variant
-        // builder falls back to the desktop/BC profile - today's behavior).
+        // The export target being produced. Null = the host target (a variant
+        // builder falls back to the desktop/BC profile).
         const CookTarget* target = nullptr;
     };
 
     // What one build consumes beyond the implicit Asset::fileName. The cook driver hashes files
-    // and chains `reads`; `references` only order the cook (see the design doc, §3).
+    // and chains `reads`; `references` only order the cook.
     struct AssetDependencies
     {
         Array<foundation::vfs::SourcePath> files; // extra source files read (mount-relative)
@@ -273,7 +273,6 @@ export namespace pipeline
 
     // Reflects the Asset base (its fileName property) + SourcePath, so EVERY concrete asset
     // surfaces its source file through the base chain (FindProperty walks bases). Idempotent.
-    // Asset::StaticType() itself is defined WITH the fileName property in AssetImpl.cpp
-    // (reflection track P1).
+    // Asset::StaticType() itself is defined WITH the fileName property in AssetImpl.cpp.
     void RegisterAssetReflection();
 }

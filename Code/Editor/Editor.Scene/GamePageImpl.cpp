@@ -1,6 +1,6 @@
 // Editor::Scene - :game_page partition.
 //
-// GameEditorPage (play-in-editor phase 8b, docs/design/roadmap.md MVP item 4): a singleton
+// GameEditorPage: a singleton
 // "Game" dock tab hosting the PLAYER behavior - a FRESH run of the project's default scene,
 // exactly what Engine.Player does, in-process. Distinct from the ScenePage's Simulate
 // (in-place snapshot -> run -> restore): nothing here is edited, so Play builds everything
@@ -247,7 +247,7 @@ namespace editor
         {
             return;
         }
-        // PIE waits for the cook (weekly 2026-08-22): kick an incremental cook NOW and
+        // PIE waits for the cook: kick an incremental cook NOW and
         // defer the actual start to OnUpdate once the service is idle - a run that starts
         // mid-cook binds stale or missing products (fonts, scripts, input maps) and the
         // "heal via hot reload" path never covered a script that did not exist yet.
@@ -297,10 +297,10 @@ namespace editor
 
         // The cook was requested at Play() and has finished by the time OnUpdate routes here
         // (the m_pendingPlay gate) - products bound below are fresh, not healed-later.
-        // The play bracket + game script run on THIS tab's GameInstance (game-instance.md §11): its
+        // The play bracket + game script run on THIS tab's GameInstance: its
         // own scene pairing, run host, error sink - so multiple tabs are isolated. Launch the game
-        // script FIRST (task #123 boot reorder, matching Engine.Player): launch()/update(dt)
-        // run before any scene, so a script tested here boots exactly like the shipped player. The
+        // script FIRST (matching Engine.Player): launch()/update(dt)
+        // run before any scene, so a script tested here boots exactly like the player. The
         // page only resolves the script SOURCE (editor project layout) and surfaces notices.
         if (m_gameInstance != nullptr)
         {
@@ -608,7 +608,7 @@ namespace editor
         m_viewport->SetHostedTextInputWanted(m_app != nullptr && m_app->UI() != nullptr &&
                                              m_app->UI()->Context().WantsTextInput());
         // The embedded app's OnUpdate (ticking EVERY instance's game script) is driven ONCE by
-        // the editor app now (game-instance.md §11 step 5) - not per game tab, or N tabs would
+        // the editor app - not per game tab, or N tabs would
         // tick every instance N times. This tab only drains its own debugger state.
         (void)host;
         (void)dt;
@@ -666,7 +666,7 @@ namespace editor
     void GameEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
                                             foundation::graphics::FrameContext& frame)
     {
-        // Scene-tier UI (HUD canvases/billboards) already landed in the viewport
+        // Scene-tier UI (HUD canvases/billboards) is already drawn in the viewport
         // inside the compose. This composites the game's WINDOW-SPACE overlays
         // (screen-tier UI, diagnostics) onto the viewport through the generic
         // registry - the tab shows the same full output as the player's window.
@@ -763,7 +763,7 @@ namespace editor
         }
         m_viewportSource.viewport = m_viewport.Get();
         m_viewportSource.shellInput = m_shellInput;
-        // Per-surface scene binding (game-ui.md §9): the viewport source represents
+        // Per-surface scene binding: the viewport source represents
         // THIS run's scene, so game-UI routing + consumption confine to it - open
         // editing pages' HUDs can no longer catch the run's clicks/keys, and the
         // run's UI never reacts to another scene's coordinates.

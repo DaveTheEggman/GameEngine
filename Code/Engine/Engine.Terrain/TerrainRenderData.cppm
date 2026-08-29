@@ -5,7 +5,7 @@
 // foundation.terrain's ExtractVisibleChunkDraws over these fields - so the whole terrain draws as
 // one snapshot item with per-view chunk selection.
 //
-// Splat = the top-K model (terrain-splat-topk.md): the index/weight texture pair (from the CPU
+// Splat = the top-K model: the index/weight texture pair (from the CPU
 // SplatWeights), an explicit BASE albedo, the palette Texture2DArray, and the per-palette-layer
 // tileScale buffer. paletteCount == 0 or a missing weight pair -> the PS renders pure base;
 // no base either -> the height-ramp fallback.
@@ -58,11 +58,11 @@ export namespace engine::terrain
 
         // --- Top-K splat material (set 3) ------------------------------------------------------
         // The SplatWeights texture pair (weights RGBA8Unorm + indices RGBA8Uint, Load-only - a
-        // filtered index sample interpolates layer ids into garbage, ruling R1).
+        // filtered index sample interpolates layer ids into garbage).
         rhi::TextureView* weightView = nullptr;
         rhi::TextureView* indexView = nullptr;
         // The BASE layer: shows wherever painted weights don't sum to 1. Null = dummy (white albedo /
-        // flat normal / default ORM), per terrain-layer-pbr.md.
+        // flat normal / default ORM).
         rhi::TextureView* baseAlbedoView = nullptr;
         rhi::TextureView* baseNormalView = nullptr; // null = flat-normal dummy
         rhi::TextureView* baseOrmView = nullptr;    // null = default-ORM dummy
@@ -79,7 +79,7 @@ export namespace engine::terrain
         rhi::Buffer* tileScaleBuffer = nullptr;
         u64 tileScaleGeneration = 0; // part of the set-3 cache key (never raw pointers)
         u32 paletteCount = 0;
-        // Height-blend soft-skirt width (terrain-height-blend.md); the renderer packs it into the view
+        // Height-blend soft-skirt width; the renderer packs it into the view
         // UBO only when a base or palette height map is present (else the OFF linear path runs).
         f32 heightBlendContrast = 0.25f;
     };

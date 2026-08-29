@@ -1,10 +1,10 @@
 // Editor::App - :shell partition.
 //
-// EditorShell: the editor chrome (docs/design/editor.md §3.2) - a RootView holding
-// [MenuBar / DockManager (grow) / StatusBar]. GLOBAL panels are Assets + Console only
-// (Sedulous's split): everything scene-scoped (viewport, hierarchy, inspector, selection,
+// EditorShell: the editor chrome - a RootView holding
+// [MenuBar / DockManager (grow) / StatusBar]. GLOBAL panels are Assets + Console only:
+// everything scene-scoped (viewport, hierarchy, inspector, selection,
 // camera) lives INSIDE each editor page, because multi-scene editing means several scene
-// pages can be open at once - per-page views, never global panels (§3.6). The dock CENTER is
+// pages can be open at once - per-page views, never global panels. The dock CENTER is
 // the document area: each open page docks there as a closable tab via AddPagePanel; a
 // non-closable Welcome panel holds the center until the first page opens (and keeps the
 // center tab group alive when all pages close).

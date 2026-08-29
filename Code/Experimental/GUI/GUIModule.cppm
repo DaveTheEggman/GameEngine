@@ -1,14 +1,14 @@
 // GUI - primary module interface unit for `experimental.gui`.
 //
 // A fresh, eepp-derived retained-mode UI framework built bottom-up on the our
-// VG/Fonts stack (see docs/design/gui-port.md). Distinct from the parked Sedulous port
-// foundation.ui: eepp is progressively SLICED onto our infra, not lifted wholesale.
-// Platform-agnostic core; a separate experimental.gui.shell bridge will feed its abstract
+// VG/Fonts stack. Distinct from the Sedulous-derived foundation.ui port:
+// eepp is progressively sliced onto our infra, not lifted wholesale.
+// Platform-agnostic core; a separate experimental.gui.shell bridge feeds its abstract
 // input/clipboard seams.
 //
 // One named module composed of partitions (one per subsystem), re-exported here so
 // consumers write a single `import experimental.gui;`. Add `export import :partition;`
-// lines as the port progresses (Phase 0: geometry primitives -> Phase 1: Node ...).
+// lines per subsystem partition.
 
 export module experimental.gui;
 

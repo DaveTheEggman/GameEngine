@@ -101,9 +101,9 @@ export namespace foundation::runtime
 
         // The app's configured fixed step - plain CONFIG (a float), not an execution lane.
         // The scene bridge reads it to seed per-scene fixed steppers; fixed-rate interpolation
-        // is PER SCENE (Scene::FixedAlpha). The old context-level fixed lane (FixedUpdate fan +
-        // FixedAlpha) was deleted in the FrameTime cutover: zero subsystems overrode FixedUpdate
-        // and zero readers consumed the context alpha (scene-composition.md, 2026-08-19).
+        // is PER SCENE (Scene::FixedAlpha). There is no context-level fixed lane (no FixedUpdate
+        // fan, no context-level FixedAlpha): no subsystem overrides FixedUpdate and no reader
+        // consumes a context alpha.
         void SetFixedTimeStep(core::f32 step) noexcept { m_fixedStep = step; }
         [[nodiscard]] core::f32 FixedTimeStep() const noexcept { return m_fixedStep; }
 

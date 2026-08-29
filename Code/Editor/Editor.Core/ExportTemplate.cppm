@@ -1,7 +1,7 @@
 // Editor::Core - :export_template partition.
 //
 // Export templates: portable, per-platform prebuilt bundles (a player binary + its runtime sidecars +
-// a template.xml manifest) that presets reference by id/platform (docs/design/export.md §2). They live
+// a template.xml manifest) that presets reference by id/platform. They live
 // in a machine-local templates root (not committed), are importable/downloadable, and are decoupled
 // from any one machine's paths. The HOST implicit template is synthesized from the running tool's own
 // directory (Bin/...), so a dev export for the current platform needs zero setup.
@@ -242,7 +242,7 @@ export namespace editor
     // Synthesize the host implicit template from the running tool's own directory (Bin/...), so a dev
     // export for the current platform works with no import. Sidecars come from the build-emitted
     // "<player>.runtime-libs" in that directory (config-driven; empty on rpath platforms). The host
-    // template carries the config/compiler that built the running tool (export-templates.md): a Debug
+    // template carries the config/compiler that built the running tool: a Debug
     // editor synthesizes a Debug host template - so its id is "host-<platform>-<config>".
     inline void SynthesizeHostTemplate(StringView hostToolDir, vfs::IFileSystem* hostToolFs,
                                        ExportTemplate& out)
@@ -338,8 +338,8 @@ export namespace editor
         ExportFolder, // directly into <destRoot> (a self-contained bundle to zip/distribute)
     };
 
-    // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir
-    // (export-templates.md "Create"). Reuses SynthesizeHostTemplate to read the platform + the
+    // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir.
+    // Reuses SynthesizeHostTemplate to read the platform + the
     // build-emitted "<player>.runtime-libs", then stamps config + compiler (parsed from the dir path)
     // and engineVersion, and gives it a canonical id "<prefix>-<platform>-<config>-<engineVersion>".
     // Copies the player binary + each sidecar (FileCopyPreserving, keeping +x) and writes template.xml.
@@ -459,7 +459,7 @@ export namespace editor
     }
 
     // The installed export templates (imported bundles under a templates root) plus the synthesized
-    // host template. Resolves a preset to the template that will produce its dist (export.md §6).
+    // host template. Resolves a preset to the template that will produce its dist.
     class TemplateRegistry
     {
     public:
@@ -523,7 +523,7 @@ export namespace editor
             return nullptr;
         }
 
-        // The template for `(platform, config)` (export-templates.md), preferring a real imported
+        // The template for `(platform, config)`, preferring a real imported
         // bundle over the synthesized host template. Resolution order:
         //   1. exact (platform, config) - imported bundle, else the host template for that config.
         //   2. platform-only fallback (config mismatch/absent): the nearest config, preferring Release,
@@ -531,7 +531,7 @@ export namespace editor
         // An empty `config` means Release (the product default).
         [[nodiscard]] const ExportTemplate* FindBy(StringView platform, StringView config) const;
 
-        // export.md §6: an explicit templateId wins; otherwise the installed template for the preset's
+        // An explicit templateId wins; otherwise the installed template for the preset's
         // (platform, config) - the preset's config defaults to Release when blank. Null when nothing
         // matches (caller: "import a template").
         [[nodiscard]] const ExportTemplate* Resolve(const ExportPreset& preset) const;

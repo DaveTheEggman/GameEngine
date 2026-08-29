@@ -1,4 +1,4 @@
-// Engine::UI - the `engine.ui` module (game-ui.md P1).
+// Engine::UI - the `engine.ui` module.
 //
 // The game screen tier: UICanvasComponents reference cooked UIDocuments; the subsystem
 // owns ONE UIContext (GameTheme default stylesheet; core controls only - never the
@@ -35,7 +35,7 @@ import engine.input;
 import foundation.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
 import foundation.ui;
 import foundation.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
-import foundation.ui.gamekit; // ScreenStack over the screen-tier RootView (game-ui-kit P1)
+import foundation.ui.gamekit; // ScreenStack over the screen-tier RootView
 import foundation.ui.resource;
 import foundation.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
 import foundation.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
@@ -69,7 +69,7 @@ export namespace engine::ui
     };
 
     // A screen-space UI canvas on an entity: menus/HUD ride in scenes and prefabs
-    // (spawn/despawn = open/close). renderMode is implicitly ScreenOverlay in P1.
+    // (spawn/despawn = open/close). renderMode is implicitly ScreenOverlay.
     struct UICanvasComponent
     {
         // Authored:
@@ -133,7 +133,7 @@ export namespace engine::ui
         }
     };
 
-    // ---- billboards (P2: nameplates/health bars) - the Sedulous reference's
+    // ---- billboards (nameplates/health bars) - the Sedulous reference's
     // best-behaved tier, ported as-is: ONE shared layer under the canvases, one VG
     // batch; world position -> clip -> screen px; behind-camera anchors park off-screen
     // (clipped + unhit, no tree churn); distance scaling as a 2D view-transform. ----
@@ -198,8 +198,7 @@ export namespace engine::ui
         }
     };
 
-    // ---- world tier (game-ui.md, decided 2026-07-19: RT-quad panels; direct-draw
-    // becomes a later per-panel mode) ----
+    // ---- world tier (RT-quad panels) ----
     // A UI document ON A SURFACE IN THE WORLD: the panel renders its tree into an
     // offscreen target sized by PIXELS-PER-METER (uniform density) and drives a
     // sibling SpriteComponent (EntityOriented - the entity's plane) with it, so the
@@ -327,8 +326,8 @@ export namespace engine::ui
     // Register the WORLD-space UI components' script `.of` facades (UICanvasComponent /
     // UIBillboardComponent / UIWorldPanelComponent) - reflection + registry + prelude names. Distinct
     // from the screen-tier `ui` facade (engine.ui.script): these are per-entity component surfaces.
-    // Idempotent; the ScriptSurface root + the app both call it. (Was folded into the removed
-    // RegisterUiScriptFacade; extracted when the screen-tier facade moved to engine.ui.script.)
+    // Idempotent; the ScriptSurface root + the app both call it. Distinct from the screen-tier
+    // facade in engine.ui.script.
     void RegisterUiComponentScriptFacades();
 
     // THE game-UI manager set for a scene - injected by the subsystem at runtime AND by headless
@@ -387,7 +386,7 @@ export namespace engine::ui
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
-        /// The screen-tier ScreenStack (game-ui-kit P1): push/pop/replace of UIScreens over the screen
+        /// The screen-tier ScreenStack: push/pop/replace of UIScreens over the screen
         /// root. Tier-owned so its lifetime matches the root. Backs the `ui` script facade's screen
         /// management (engine.ui.script installs a service pointing at this + ScreenRoot()).
         [[nodiscard]] foundation::ui::gamekit::ScreenStack& Screens() noexcept { return m_screenStack; }

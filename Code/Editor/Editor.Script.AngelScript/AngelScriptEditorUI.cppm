@@ -4,8 +4,8 @@
 // depends on ui.toolkit and therefore cannot live in the cook target (the cook links into
 // Tools.Cook/Tools.Export, which must stay UI-free). Today that is the AngelScript syntax
 // tables for CodeEditView highlighting, registered into the toolkit's CodeLexerRegistry by
-// language id; the rich completion provider (ICompletionProvider over the engine's
-// AngelScript introspection seam) joins here with code-editor P4.
+// language id. A rich completion provider (ICompletionProvider over the engine's
+// AngelScript introspection seam) belongs here as well.
 
 module;
 #include "Core/Prelude.h"

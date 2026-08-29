@@ -6,7 +6,7 @@
 //              * object mode - owns a RefPtr<Object> and reports the object's
 //                dynamic GetType() (so scripting can wrap it as the right type).
 // Instance - a borrowed { void*, TypeInfo* } target for member access. Variant
-//            ALWAYS owns its value (no reference mode); see §4.10.
+//            ALWAYS owns its value (no reference mode).
 
 module;
 #include "Core/Prelude.h"

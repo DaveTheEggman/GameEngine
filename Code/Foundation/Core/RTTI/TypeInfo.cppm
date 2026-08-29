@@ -2,7 +2,7 @@
 //
 // The type-system foundation: stable type identity (TypeId / TypeInfo),
 // ComputeTypeId, and TypeOf<T>. Registry, Object, casting, and the reflection
-// runtime build on this (Documentation/Planning/Core.md §4.10).
+// runtime build on this.
 
 module;
 #include "Core/Prelude.h"
@@ -81,7 +81,7 @@ export namespace foundation::core
     // Lazily-created TypeInfo for any value type. Identity is the returned
     // object's address (process-stable); used by Variant/Instance for type
     // checks. Object-derived types should prefer their StaticType() instead.
-    // (A nice name / stable hashed id for value types comes in a later phase.)
+    // Value types have no stable name or hashed id here - only the address identity above.
     template <typename T>
     [[nodiscard]] const TypeInfo& TypeOf() noexcept
     {

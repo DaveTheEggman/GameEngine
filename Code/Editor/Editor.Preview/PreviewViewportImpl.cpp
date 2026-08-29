@@ -1,5 +1,5 @@
 // PreviewViewport implementation (see PreviewViewport.cppm). The bodies here are the
-// substrate the bespoke pages used to each hand-roll verbatim: build a private preview
+// substrate each bespoke page would otherwise hand-roll verbatim: build a private preview
 // scene, bind the ViewportView to its host window on first frame, drive the EditorCamera
 // from the gated viewport devices, and render the scene through the real renderer with a
 // CameraOverride into the viewport's color target.

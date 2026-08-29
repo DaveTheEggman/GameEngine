@@ -374,7 +374,7 @@ TEST_CASE("physics: shape cast sweeps a sphere onto the nearest body (earlier th
                                 Float3{0.0f, 1.0f, 0.0f}, 10.0f, miss));
 }
 
-// ---- cooked shapes (P2: builder-cooked convex hulls + triangle meshes) ----
+// ---- cooked shapes (builder-cooked convex hulls + triangle meshes) ----
 
 namespace
 {
@@ -539,7 +539,7 @@ TEST_CASE("physics: an infinite plane catches bodies anywhere within its half ex
     CHECK(hit.normal.y == doctest::Approx(1.0f).epsilon(0.01));
 }
 
-// ---- joints (P3) ----
+// ---- joints ----
 
 TEST_CASE("physics: a fixed joint to the world holds a body against gravity")
 {
@@ -669,7 +669,7 @@ TEST_CASE("physics: a slider joint constrains travel to its axis and limits")
     CHECK(position.z == doctest::Approx(0.0f).epsilon(0.01).scale(1.0));
 }
 
-// ---- character controller (P3) ----
+// ---- character controller ----
 
 TEST_CASE("physics: the character walks, climbs steps, and pushes light bodies")
 {

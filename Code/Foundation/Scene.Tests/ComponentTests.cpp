@@ -1,4 +1,4 @@
-// Phase 3a - the value-pool component manager (sparse set): add/get/has/remove by
+// The value-pool component manager (sparse set): add/get/has/remove by
 // entity, dense contiguous iteration, swap-remove keeping the pack dense, generation
 // staleness, the one-per-entity invariant, and manager-driven deferred lifecycle.
 #include <doctest/doctest.h>

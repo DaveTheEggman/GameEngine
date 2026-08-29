@@ -17,7 +17,7 @@ export namespace foundation::particles
 {
     // ---- Simulation / space / render mode enums (ParticleTypes.bf) ----------------------------
 
-    // Where a system's particle update runs. GPU is stubbed for now (Phase 6); Auto resolves
+    // Where a system's particle update runs. GPU is a stub; Auto resolves
     // to GPU only when every behavior supports it and the system is large.
     enum class SimulationMode : u8
     {

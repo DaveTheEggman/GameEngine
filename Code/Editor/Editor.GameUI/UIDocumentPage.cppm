@@ -1,12 +1,12 @@
 // Editor::GameUI - the `editor.gameui` module.
 //
-// UIDocumentPage (game-ui.md P2): text editing + LIVE PREVIEW for UIDocumentAssets.
+// UIDocumentPage: text editing + LIVE PREVIEW for UIDocumentAssets.
 // The preview renders through the RUNTIME CONTEXT's UISubsystem - the GAME's context,
 // fonts, GameTheme, and VG path - into this page's offscreen target (a dedicated
 // preview RootView; it can never leak into game targets). What you see IS the game's
 // renderer looking at your document; drift is impossible by construction. The text
-// pane is ui::toolkit::CodeEditView (monospace, virtualized, document-word completion;
-// the XML lexer + structured line diagnostics arrive with code-editor P2/P3); edits
+// pane is ui::toolkit::CodeEditView (monospace, virtualized, document-word completion);
+// edits
 // rebuild the preview after a short debounce, parse failures keep the last good
 // preview with inline status, Save writes the asset + nudges the validating recook.
 

@@ -10,7 +10,8 @@
 //     image file with a sensible preset (2D / equirectangular sky).
 //
 // Never linked by the runtime (an authoring/cook-seam helper). Cubemap import loads + validates +
-// combines 6 face files; cooking a cubemap TextureResource through the builder is still deferred.
+// combines 6 face files.
+// TODO: cooking a cubemap TextureResource through the builder is not implemented.
 
 module;
 #include "Core/Prelude.h"
@@ -56,7 +57,7 @@ export namespace pipeline{
         TextureWrap wrapW = TextureWrap::Repeat;
         bool generateMipmaps = true;
         f32 anisotropy = 1.0f;
-        // Block-compression authoring (asset-variants P1). Editor-data only: the builder feeds these
+        // Block-compression authoring. Editor-data only: the builder feeds these
         // to the policy table to pick the cooked rhi::TextureFormat; the runtime never sees them.
         texcomp::TextureUsage usage = texcomp::TextureUsage::Color;
         texcomp::CompressionChoice compression = texcomp::CompressionChoice::Default;
@@ -298,13 +299,13 @@ export namespace pipeline{
     public:
         // v2 (2026-08-12): the "data" payload may carry a FULL MIP CHAIN (levels
         // concatenated, mipLevels in the record) instead of always level 0 only.
-        // v3 (2026-08-15): the "data" payload may now be BLOCK-COMPRESSED (BCn) when the asset's
-        // usage/compression + target profile select it (asset-variants P1); resource.format then
+        // v3 (2026-08-15): the "data" payload may be BLOCK-COMPRESSED (BCn) when the asset's
+        // usage/compression + target profile select it; resource.format then
         // carries a BC format. Same-input output changed -> bump forces the re-cook.
         [[nodiscard]] u32 Version() const override { return 3; }
 
         // Textures are THE platform-variant producer: BC on desktop, ASTC on mobile-web from the same
-        // source (asset-variants P2). The cook salts this builder's recipe by target + cooks per DB.
+        // source. The cook salts this builder's recipe by target + cooks per DB.
         [[nodiscard]] pipeline::BuildVariance Variance() const override
         {
             return pipeline::BuildVariance::PlatformVariant;
@@ -435,14 +436,14 @@ export namespace pipeline{
         }
 
     private:
-        // === Block compression (asset-variants P1) ==============================================
+        // === Block compression ==================================================================
         // Resolve the cooked format from the asset's authored usage/compression + this cook's target
-        // profile (P1 = the always-BC desktop host), then, when the policy picks a BC format, encode
+        // profile (the always-BC desktop host), then, when the policy picks a BC format, encode
         // every RGBA8 mip level in `pixels` to block bytes IN PLACE. `format` is updated to the chosen
         // format (unchanged when policy declines - small/None/HDR/no-BC-family). `pixels` holds the
         // level-0..N-1 RGBA8 chain tightly concatenated; the compressed chain replaces it 1:1.
-        // The compressed-family profile for a cook: the target's capabilities (asset-variants P2), or
-        // the always-BC desktop host when no target is set (the editor dev loop + today's behavior).
+        // The compressed-family profile for a cook: the target's capabilities, or
+        // the always-BC desktop host when no target is set (the editor dev loop).
         [[nodiscard]] static texcomp::TargetProfile ProfileFor(const pipeline::AssetBuildContext& ctx)
         {
             if (ctx.target == nullptr)

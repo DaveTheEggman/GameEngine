@@ -38,11 +38,9 @@ export namespace engine
     /// Tripwire count (Engine.ScriptSurface.Tests asserts against this): the number of EXTRA facade
     /// names RegisterAllScriptFacades installs beyond the base behavior facades - i.e. the subsystem
     /// facades. A new subsystem facade bumps this deliberately; a lost registration fails loudly.
-    // 33 = +RayCastHit (2026-08-22, script-surface-of P0: ScenePhysics.rayCast returns the
-    // explicit hit-result value handle; the stored lastHit + hit* accessors are deleted).
-    // (OverlapHits was briefly +1 here on 2026-08-26; retired same day - overlapSphere now returns a
-    // native Array<Entity>, which is not a boxed facade type, so it adds no surface name. See
-    // script-array-returns.md.)
-    // 34 = +DebugDraw (2026-08-28: DebugDraw.of(scene) immediate-mode debug draw facade).
+    // 33 = +RayCastHit: ScenePhysics.rayCast returns the explicit hit-result value handle.
+    // (overlapSphere returns a native Array<Entity>, which is not a boxed facade type, so it adds
+    // no surface name.)
+    // 34 = +DebugDraw: DebugDraw.of(scene) immediate-mode debug draw facade.
     inline constexpr usize kSubsystemFacadeNameCount = 34;
 }

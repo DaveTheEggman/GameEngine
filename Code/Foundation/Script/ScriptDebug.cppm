@@ -1,15 +1,15 @@
 // Script - :script_debug partition
 //
-// COMMITTED SEAMS (not yet implemented on any backend): the neutral interfaces for a
+// The neutral interfaces, implemented by no backend, for a
 // step debugger, a VM profiler, and a cook-to-bytecode blob. Each backend declares the
 // matching ScriptCapabilities flag ABSENT and its factory returns null; the conformance
-// battery has a skipped-when-absent skeleton for each, so turning a capability on later
+// battery has a skipped-when-absent skeleton for each, so turning a capability on
 // has an immediate certification target. Modelled (trimmed) on Traktor's script debug
-// stack - full impl + editor UI + remote transport is a later dedicated track.
+// stack.
 //
 // The debugger SNAPSHOT value types (ScriptStackFrame / ScriptVariable /
 // ScriptValueObject) are plain data and WIRE-SYMMETRIC: they carry a Serialize() that
-// runs identically in both directions, because a future remote debug transport must move
+// runs identically in both directions, because a remote debug transport must move
 // them across a socket. Every one has a round-trip test in the Script test suite.
 
 module;

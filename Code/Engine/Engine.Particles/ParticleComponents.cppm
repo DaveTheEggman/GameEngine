@@ -168,8 +168,7 @@ export namespace engine::particles
                 {
                     if (!m_scene->IsEffectivelyActive(owner))
                     {
-                        return; // no sim, no emission; live particles FREEZE (v1,
-                                // entity-active-state.md P3)
+                        return; // no sim, no emission; live particles FREEZE
                     }
                     // Attach/re-attach when the ref's resolved product changed (a pick, a scene load's
                     // resolve pass, or a hot reload swapping the product behind the proxy).
@@ -189,7 +188,7 @@ export namespace engine::particles
 
         // render::IRenderDataProvider: pack each visible billboard system's live particles into a
         // ParticleBillboardRenderData batch and add it to the snapshot. Called during render extraction
-        // (this scene's turn). Mesh-mode systems are handled elsewhere (instanced-mesh, later).
+        // (this scene's turn). Mesh-mode systems are handled elsewhere (instanced-mesh).
         void ExtractRenderData(render::ExtractedScene& snapshot) override
         {
             PROFILE_SCOPE("Particles.Extract");

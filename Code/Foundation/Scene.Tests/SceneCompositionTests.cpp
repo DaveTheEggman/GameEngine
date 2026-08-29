@@ -1,6 +1,6 @@
 // foundation.scene :composition - declarative assembly (SceneModule/SceneComposition), ordered
 // observation (ISceneObserver/SceneLifecycleStage), the FrameTime time-scale chain, and the pure
-// SceneRegistry (scene-composition.md). No Context needed anywhere here - the registry is testable
+// SceneRegistry. No Context needed anywhere here - the registry is testable
 // standalone, which is the point of the design.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

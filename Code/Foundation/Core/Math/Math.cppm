@@ -3,7 +3,7 @@
 // Scalar math foundation: constants (kPi, kEpsilon, ...) and f32 functions
 // (Abs/Sqrt/Sin/.../Lerp/NearlyEqual). Packed vector/matrix types live in
 // :float2/:float3/:float4/:float3x3/:float4x4; SIMD (aligned) types in
-// :simd_vector/:simd_matrix. Conventions (Documentation/Planning/Core.md §7):
+// :simd_vector/:simd_matrix. Conventions:
 // row-major matrices, row vectors, XNA-style.
 
 module;

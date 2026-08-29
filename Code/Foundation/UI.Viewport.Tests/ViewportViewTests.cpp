@@ -240,7 +240,7 @@ TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiSc
     // The content resolution stays the RT's own size (MakeMouseRay divides by RenderWidth).
     const ContentFit& fit = view->Surface()->Fit();
     CHECK(fit.region.width == doctest::Approx(200.0f * 1.25f)); // 250 - already integral
-    // P2d golden change (ui-box-model.md): Layout rounds the border box to the DEVICE grid, so
+    // Layout rounds the border box to the DEVICE grid, so
     // 150 logical x 1.25 = 187.5 snaps to 188 integral device pixels (a render target cannot be
     // half a pixel tall; picking aligns to real pixels). The logical bounds become 150.4.
     CHECK(fit.region.height == doctest::Approx(188.0f));

@@ -517,7 +517,7 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                // Margin is base-handled (ui-box-model.md P2b); aggregate margin boxes.
+                // Margin is base-handled; aggregate margin boxes.
                 child->Measure(childConstraints);
                 const Float2 mb = child->MarginBoxSize();
                 maxW = core::Max(maxW, mb.x);

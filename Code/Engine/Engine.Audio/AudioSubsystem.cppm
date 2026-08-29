@@ -1,8 +1,8 @@
 // Engine::Audio - the `engine.audio` module.
 //
-// Scene integration (docs/design/audio.md §6): an AudioSceneSystem per scene owns a
-// per-scene voice group (open question 1: YES - pause/stop-all per scene falls out of
-// the engine's group graph naturally, which play-in-editor needs). The PostTransform
+// Scene integration: an AudioSceneSystem per scene owns a
+// per-scene voice group - pause/stop-all per scene falls out of
+// the engine's group graph naturally, which play-in-editor needs. The PostTransform
 // tick resolves clip refs, autoplays on simulation start, syncs position + velocity
 // (previous-frame delta - the doppler feed) to live voices, reaps finished one-shots,
 // and computes the scene's listener pose from the first active AudioListenerComponent.
@@ -68,7 +68,7 @@ export namespace engine::audio
         Float3 velocity{0.0f, 0.0f, 0.0f};
     };
 
-    // ---- persisted user volumes (P2): a foundation.settings SECTION ----
+    // ---- persisted user volumes: a foundation.settings SECTION ----
     // Bus volumes/mutes as the USER's mixer state (options-menu sliders). Applied AFTER
     // any project bus layout - the layout is the artistic baseline, the user's setting
     // is absolute (the way options menus behave). Hosts load it at startup and capture
@@ -158,7 +158,7 @@ export namespace engine::audio
                             else
                             {
                                 // Starts-inactive: arm the latch so the ACTIVATION edge
-                                // plays it (entity-active-state.md P3).
+                                // plays it.
                                 c.activeSuspended = true;
                             }
                         }
@@ -352,7 +352,7 @@ export namespace engine::audio
             }
             if (m_scene != nullptr && !m_scene->IsEffectivelyActive(e))
             {
-                return {}; // inactive entities make no sound (entity-active-state.md P3)
+                return {}; // inactive entities make no sound
             }
             // The sourceType discriminant decides: Cue resolves one weighted variant + this
             // trigger's jitter; Clip plays the single clip. (An empty Cue stays a silent no-op -
@@ -423,7 +423,7 @@ export namespace engine::audio
             return c.voice;
         }
 
-        // Environmental reverb (P3 zones): the WETTEST zone containing the listener
+        // Environmental reverb zones: the WETTEST zone containing the listener
         // drives the scene's Effects reverb; wet fades across each zone's edge band.
         // No listener / no zone = wet 0 (the node bypasses; the tail decays naturally).
         void UpdateReverbZones()
@@ -470,7 +470,7 @@ export namespace engine::audio
 
         void UpdateListenerPose(f32 deltaTime)
         {
-            // ALL active listeners collect (multi-listener, P3: split-screen ears);
+            // ALL active listeners collect (multi-listener: split-screen ears);
             // the FIRST one stays the scene's primary (zones + legacy accessors).
             m_listenerValid = false;
             m_listenerPoses.Clear();
@@ -601,7 +601,7 @@ export namespace engine::audio
 
     // The runtime subsystem: owns the ONE AudioEngine, injects the managers + system
     // into every scene (via the composition), pushes the winning listener, and exposes the
-    // engine-global one-shot API (docs/design/audio.md §6).
+    // engine-global one-shot API.
     // THE audio manager set for a scene - injected by the subsystem at runtime AND by headless
     // scene consumers (Engine.SceneSurface). Runtime-only wiring (SetEngine) stays with the
     // subsystem; the AudioSceneSystem is engine-less (silent) until it. Add a manager => bump
@@ -650,7 +650,7 @@ export namespace engine::audio
         // dep) + the engine tick.
         void Update(f32 deltaTime) override;
 
-        // ---- engine-global one-shots (docs/design/audio.md §6) ----
+        // ---- engine-global one-shots ----
 
         [[nodiscard]] VoiceHandle PlayOneShot(const RefPtr<AudioClip>& clip,
                                               AudioBus bus = AudioBus::Effects, f32 volume = 1.0f,
@@ -797,7 +797,7 @@ export namespace engine::audio
             return PlayMusic(clip, crossFadeSeconds);
         }
 
-        // ---- music (scene-less, survives scene swaps; audio.md P2) ----
+        // ---- music (scene-less, survives scene swaps) ----
         VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
                               f32 volume = 1.0f)
         {

@@ -1,6 +1,6 @@
 // Pipeline::Cook - the `editor.cook` module.
 //
-// The incremental cook driver (docs/design/asset-pipeline.md §3/§5). One rule decides
+// The incremental cook driver. One rule decides
 // everything: an asset's RECIPE HASH = H(source envelope bytes, each source file's content,
 // builder version, recipe of each content-READ dependency), folded ORDERED into a single u64 -
 // dirty <=> product missing or hash mismatch. Deterministic across machines/checkouts (content
@@ -328,7 +328,7 @@ namespace pipeline
         {
             item.product = EnsureProduct(item);
             item.sourceInstance = m_sourceDb->GetInstance(item.source);
-            // Platform-invariant copy-forward (P2): carry the product from the host DB when its
+            // Platform-invariant copy-forward: carry the product from the host DB when its
             // recipe matches, so only genuinely variant bytes (textures) cook per target.
             item.copiedForward = TryCopyForward(item);
         }
@@ -552,7 +552,7 @@ namespace pipeline
         // 3. Builder version.
         h = detail::FoldHash(h, 'V', builder.Version());
 
-        // 3b. Platform salt (asset-variants P2): ONLY variant builders are salted by the target, so
+        // 3b. Platform salt: ONLY variant builders are salted by the target, so
         // the SAME source produces a distinct product per target (BC vs ASTC) while invariant
         // products keep a target-independent recipe and copy forward unchanged.
         if (builder.Variance() == BuildVariance::PlatformVariant)
@@ -730,7 +730,7 @@ namespace pipeline
         ctx.output = product;
         ctx.db = m_cookedDb;      // cross-refs resolve against already-cooked products
         ctx.sourceDb = m_sourceDb; // cross-asset SOURCE reads (envelopes + raw sidecars)
-        ctx.target = &m_target;   // the export target being produced (P2)
+        ctx.target = &m_target;   // the export target being produced
         const Status built = item.builder->Build(*asset, ctx);
 
         // Record: recipe + memoized file hashes + deps; failures keep the last good
@@ -749,9 +749,9 @@ namespace pipeline
         {
             LOG_ERROR(u8"Cook", u8"'{}' failed to cook", item.path);
         }
-        // Release the deserialized source NOW: plans previously kept every item's object
-        // (full mesh vertex blobs, texture tables) alive until the whole cook finished -
-        // large scenes (Sponza) ran the process out of memory.
+        // Release the deserialized source NOW: keeping every item's object (full mesh vertex
+        // blobs, texture tables) alive until the whole cook finished runs large scenes
+        // (Sponza) out of memory.
         item.asset = RefPtr<ISerializable>{};
         return built.IsOk();
     }

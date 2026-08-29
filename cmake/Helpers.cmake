@@ -43,7 +43,7 @@ function(util_copy_runtime_deps target)
     # <target>, one per line, written to "<target>.runtime-libs". The export host-template reads this
     # for its sidecar list instead of hard-coding it, so it tracks dep changes (a shell swap changes
     # the DLLs -> the list follows). On rpath platforms TARGET_RUNTIME_DLLS is empty, so this lists
-    # only EXTRA; on Windows it lists both. See docs/design/export.md.
+    # only EXTRA; on Windows it lists both.
     set(_dr_libs "$<TARGET_RUNTIME_DLLS:${target}>")
     if(ARG_EXTRA)
         list(APPEND _dr_libs ${ARG_EXTRA})   # configure-time paths (e.g. the vendored SDL3 DLL)

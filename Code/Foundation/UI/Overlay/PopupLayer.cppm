@@ -333,7 +333,7 @@ export namespace foundation::ui
             entry.Y = y;
 
             // Tooltips (takesFocus=false) must never disturb focus - a tooltip appearing
-            // mid-typing used to clear the editor's focus and kill its completion popup.
+            // mid-typing would otherwise clear the editor's focus and kill its completion popup.
             if (takesFocus && Context != nullptr)
             {
                 entry.SavedFocusEntry = Context->GetFocusManager()->SaveAndClearFocus();

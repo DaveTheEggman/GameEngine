@@ -1,6 +1,6 @@
 // Foundation::Audio - the `:cue` partition.
 //
-// SoundCue (audio.md P3): the container primitive - ONE trigger, one of N clip variants,
+// SoundCue: the container primitive - ONE trigger, one of N clip variants,
 // weighted, with cue-level pitch/volume randomization (Godot's AudioStreamRandomizer
 // shape; Traktor's grain banks stay the long-term north star). The cue itself is pure
 // DATA + a pure resolution function: the caller owns the play state (last pick /

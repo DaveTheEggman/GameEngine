@@ -1,11 +1,10 @@
 // Editor::Mcp - :asset_uses partition
 //
-// asset_uses (mcp-agent-access.md P1 RESUME item 3): the REVERSE dependency query - "what uses
+// asset_uses: the REVERSE dependency query - "what uses
 // this asset". Required reading before any destructive change (delete/rename/move): the agent
 // sees every direct user and the kind of each edge before it breaks one.
 //
-// Edges come from the SAME sources the engine itself uses, computed LIVE (never a cached graph -
-// the truth-tool rule):
+// Edges come from the SAME sources the engine itself uses, computed LIVE (never a cached graph):
 //   - buildable assets: the builder's ScanDependencies (exactly what the cook driver hashes) -
 //     `reads` (content consumed at cook time) and `references` (the product's runtime refs);
 //   - scenes/prefabs: LoadScene over the FULL manager set (Engine.SceneSurface) + a factory-less

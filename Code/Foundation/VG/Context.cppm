@@ -556,7 +556,7 @@ export namespace foundation::vg
 
         void StrokeRoundedRect(Rectangle rect, CornerRadii radii, Color color, f32 width = 1.0f)
         {
-            // Crisp path (ui-box-model.md P2d): under an axis-aligned transform, snap the rect
+            // Crisp path: under an axis-aligned transform, snap the rect
             // so each edge's stroke centerline lands where StrokeRect's pixel-snapped bars
             // would - a 1px themed rounded border renders as a crisp 1-device-pixel line
             // instead of a 2px blur. Corners keep the analytic path stroke; only placement and

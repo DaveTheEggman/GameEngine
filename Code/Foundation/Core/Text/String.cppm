@@ -5,7 +5,7 @@
 // allocator-backed BasicString<CharT>, each with a matching view.
 //
 // NOTE: cross-encoding transcoding (UTF-16 <-> UTF-8) and small-string
-// optimization are deferred; see Documentation/Planning/Core.md §4.5.
+// optimization are not implemented.
 
 module;
 #include "Core/Prelude.h"

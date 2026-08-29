@@ -1,6 +1,6 @@
 // Pipeline::Cook - the `editor.cook` module.
 //
-// The incremental cook driver (docs/design/asset-pipeline.md §3/§5). One rule decides
+// The incremental cook driver. One rule decides
 // everything: an asset's RECIPE HASH = H(source envelope bytes, each source file's content,
 // builder version, recipe of each content-READ dependency), folded ORDERED into a single u64 -
 // dirty <=> product missing or hash mismatch. Deterministic across machines/checkouts (content
@@ -163,7 +163,7 @@ export namespace pipeline
     {
         usize cooked = 0;
         usize failed = 0;
-        usize copiedForward = 0;    // invariant products carried from the host DB (variant cook, P2)
+        usize copiedForward = 0;    // invariant products carried from the host DB (variant cook)
         usize orphansSwept = 0;     // (CookPlan carries the swept count from PrepareProducts)
         Array<Guid> cookedProducts; // successfully (re)built OR copied products - hot-reload input
     };
@@ -185,13 +185,13 @@ export namespace pipeline
 
         [[nodiscard]] CookDb& Db() noexcept { return m_db; }
 
-        /// The export target this driver cooks for (asset-variants P2). Default = HostTarget().
+        /// The export target this driver cooks for. Default = HostTarget().
         /// Salts the recipe of VARIANT builders (so a texture recooks per target) and is handed to
         /// every Build() via AssetBuildContext::target. Set before Plan()/Execute().
         void SetTarget(const CookTarget& target) { m_target = target; }
         [[nodiscard]] const CookTarget& Target() const noexcept { return m_target; }
 
-        /// Enable platform-invariant copy-forward (asset-variants P2): when cooking a per-target DB,
+        /// Enable platform-invariant copy-forward: when cooking a per-target DB,
         /// an INVARIANT product whose recipe matches the host DB's record is copied from `hostCookedDb`
         /// instead of being recooked. `hostRecords` is the host DB's already-loaded cook.db (its
         /// recipe hashes gate the copy). Leave unset (the default) for a normal single-DB cook.
@@ -245,7 +245,7 @@ export namespace pipeline
         [[nodiscard]] u64 HashSourceFile(StringView path, const CookRecord* previous,
                                          Array<CookFileMemo>& outMemos);
 
-        // The recipe hash (design §3): envelope bytes + file contents + builder version +
+        // The recipe hash: envelope bytes + file contents + builder version +
         // read-dep recipes, folded ordered. Guarded against read-dep cycles.
         [[nodiscard]] u64 ComputeRecipe(content::Instance& instance, const Asset& asset,
                                         IAssetBuilder& builder, const AssetDependencies& deps,
@@ -269,7 +269,7 @@ export namespace pipeline
 
         // Copy-forward (main thread, in PrepareProducts): if `item` is an INVARIANT product whose
         // host record recipe matches, copy the host product into item.product and stamp the target
-        // record. Returns true when carried forward (the item then skips the build). P2.
+        // record. Returns true when carried forward (the item then skips the build).
         [[nodiscard]] bool TryCopyForward(CookItem& item);
 
         // The cooked-DB group mirroring the source instance's group path.
@@ -282,8 +282,8 @@ export namespace pipeline
         vfs::IFileSystem* m_cache;   // nullable: no persistence (tests / one-shot cooks)
         JobSystem* m_jobs;           // nullable: serial execution
 
-        CookTarget m_target = HostTarget(); // the export target this driver cooks for (P2)
-        content::ContentDatabase* m_hostCookedDb = nullptr; // copy-forward source (P2); null = off
+        CookTarget m_target = HostTarget(); // the export target this driver cooks for
+        content::ContentDatabase* m_hostCookedDb = nullptr; // copy-forward source; null = off
         CookDb* m_hostRecords = nullptr;                    // host cook.db - gates the copy by recipe
 
         CookDb m_db;
@@ -292,7 +292,7 @@ export namespace pipeline
         Mutex m_recordMutex;                               // record updates from worker threads
     };
 
-    // The reusable per-target cook step (asset-variants P2): cook `sourceDb` for `target` into
+    // The reusable per-target cook step: cook `sourceDb` for `target` into
     // `targetCookedDb`, carrying platform-invariant products forward from an already-cooked
     // `hostCookedDb` (gated by `hostRecords`) instead of recooking them. `targetCache` is the target's
     // own cook.db mount. Both Tools.Cook --target and the web export drive this. `force` re-cooks all.

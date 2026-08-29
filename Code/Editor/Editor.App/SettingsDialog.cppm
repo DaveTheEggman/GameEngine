@@ -329,7 +329,7 @@ export namespace editor::app
                 }
             }
 
-            // Scene-pass MSAA (msaa.md P2): Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
+            // Scene-pass MSAA: Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
             // player and play-in-editor apply it; the render subsystem capability-clamps at runtime
             // (2x degrades to 1x on WebGPU).
             {

@@ -3,8 +3,7 @@
 // SUBJECT is the cross-collection flow foundation.json x foundation.script.angelscript: a script
 // parses, queries, builds, and stringifies JSON through the reflected value type - the user
 // requirement that made JsonValue RTTI-reflected. This needs the script VMs (a "weird dependency"
-// for the JSON module), so it lives here, not in Json.Tests (which stays pure DOM). See
-// Code/Integration/README.md.
+// for the JSON module), so it lives here, not in Json.Tests (which stays pure DOM).
 
 #include <doctest/doctest.h>
 

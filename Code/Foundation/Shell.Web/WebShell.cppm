@@ -54,7 +54,7 @@ export namespace foundation::shell
         }
         void RequestExit() override { m_running = false; }
 
-        // In-memory clipboard for now; the async navigator.clipboard bridge is a later pass.
+        // In-memory clipboard; the async navigator.clipboard bridge is not wired.
         void SetClipboardText(core::StringView text) override { m_clipboard = core::String(text); }
         [[nodiscard]] core::String GetClipboardText() const override { return m_clipboard; }
         [[nodiscard]] bool HasClipboardText() const noexcept override

@@ -93,7 +93,7 @@ export namespace foundation::scene
 
         // The scene stream's on-disk encoding. Sources are TEXT (XML - diffable, mergeable);
         // staged/cooked products and in-memory snapshots are BINARY. One SerializeScene path
-        // feeds both encoders (docs/design/text-scenes.md).
+        // feeds both encoders.
         enum class SceneStreamEncoding : u8
         {
             Binary,
@@ -504,8 +504,8 @@ export namespace foundation::scene
         }
 
         // One nested-instance record, serialized (the ref+delta shape shared by scene files'
-        // prefab sections and prefab payloads' trailing records). `wireNested` gates the P4
-        // link fields for pre-nesting saves.
+        // prefab sections and prefab payloads' trailing records). `wireNested` gates the
+        // nesting link fields for pre-nesting saves.
         // `scene` supplies the component managers the TEXT encoding needs: an op's blob
         // deserializes into a transient scratch entity so its FIELDS serialize inline
         // (diffable), then the scratch is removed. Binary keeps the blob wire. An op whose
@@ -830,7 +830,7 @@ export namespace foundation::scene
     // `scene` should be freshly created with its component managers + systems already present
     // (so records route into their pools / settings blocks).
     //
-    // `legacyProbe`: the settings section was appended AFTER the format shipped; streams saved
+    // `legacyProbe`: the settings section was added to the format after the fact; streams saved
     // before it simply END at the component array. Readers that have the underlying stream
     // pass it here - at the settings boundary, exhausted stream = legacy save, settings keep
     // their defaults (the next save upgrades). Null = the section is expected (fresh writes,
@@ -848,14 +848,14 @@ export namespace foundation::scene
         Expanded = 1
     };
 
-    // Wire values of the prefab-section mode tag. 0/1 = the P1..P3 formats (no nesting links);
+    // Wire values of the prefab-section mode tag. 0/1 = the pre-nesting formats (no nesting links);
     // 2/3 = the same sections plus per-record nesting links (rootLive/owner/nestedSrcRoot).
     // Writers emit 2/3; readers accept all four (older saves upgrade on the next write).
     namespace detail
     {
-        constexpr u8 kPrefabWireReferenced = 0; // pre-P4 (no nesting links) - still read
+        constexpr u8 kPrefabWireReferenced = 0; // pre-nesting (no nesting links) - still read
         constexpr u8 kPrefabWireExpanded = 1;
-        constexpr u8 kPrefabWireReferenced2 = 2; // RETIRED P4 layout: readers REFUSE it (a
+        constexpr u8 kPrefabWireReferenced2 = 2; // RETIRED layout: readers REFUSE it (a
                                                  // misparse turns array counts into garbage
                                                  // -> OOM); the section skips with a warning
         constexpr u8 kPrefabWireExpanded2 = 3;
@@ -872,12 +872,12 @@ export namespace foundation::scene
 
     // Loads a cooked scene's "scene" data stream into `scene` (which must already have its
     // component managers). Returns NotFound if the stream is missing.
-    // Post-load resolve pass (asset-pipeline design §8): bind every component's resource::Ref
+    // Post-load resolve pass: bind every component's resource::Ref
     // through the manager. Run after LoadScene once a ResourceManager over the cooked DB exists;
     // idempotent (re-binding an already-bound ref is a cache hit).
     void ResolveSceneResources(Scene& scene, foundation::resource::ResourceManager& resources);
 
-    // ============================== Prefabs (P1: ref + deltas) ==================================
+    // ============================== Prefabs (ref + deltas) ==================================
     //
     // A prefab is a content-DB instance whose "scene" data stream is a LoadScene-compatible
     // capture of an entity subtree (PrefabDocument primary carries the name - a DISTINCT type so
@@ -886,7 +886,7 @@ export namespace foundation::scene
     // scene with fresh (or preassigned) guids and records a PrefabInstanceState (member guid map +
     // spawn-time BASELINES). Scenes persist instances as ref + deltas: overrides are DERIVED at
     // save time by comparing live state against the baselines, so nothing tracks edits and
-    // undo/redo can never desynchronize the override set (docs/design/prefabs.md).
+    // undo/redo can never desynchronize the override set.
 
     class PrefabDocument final : public ISerializable
     {
@@ -996,8 +996,8 @@ export namespace foundation::scene
             ar.BeginArray(settingsCount);
             ar.EndArray();
 
-            // Nested-instance records (P4): contained instances as ref + current deltas, in the
-            // payload's namespace (live guids ARE the namespace ids here; a previously-nested
+            // Nested-instance records: contained instances as ref + current deltas, in the
+            // payload's namespace (live guids ARE the namespace ids here; an already-nested
             // instance keeps its stable identity so existing spawns keep matching).
             u8 sectionMode = detail::kPrefabWireReferenced3;
             foundation::core::Serialize(ar, "prefabMode", sectionMode);
@@ -1030,7 +1030,7 @@ export namespace foundation::scene
     /// scene root), and registers a PrefabInstanceState with spawn-time baselines. Returns the
     /// instance root (the FIRST payload root), or invalid on a malformed payload.
     ///
-    /// NESTING (P4): payloads written since nesting carry a trailing record section - the FLAT
+    /// NESTING: payloads written with nesting carry a trailing record section - the FLAT
     /// FOREST of every instance the template contains at any depth (each relative to its OWN
     /// template, so spawning never recurses and reference cycles cannot loop). With a `resolver`
     /// each record's template spawns as a linked nested instance: the record's deltas (the
@@ -1287,7 +1287,7 @@ export namespace foundation::scene
     /// template via `resolver`. Owned nested instances rebuild with their owner (scene-level
     /// deltas + member guids preserved); a user-spawned instance INSIDE a rebuilt one respawns
     /// standalone afterwards, and plain user entities parented under members are detached before
-    /// the teardown and re-attached after (they used to be silently destroyed). Returns the
+    /// the teardown and re-attached after (otherwise they would be silently destroyed). Returns the
     /// number of instances rebuilt.
     u32 RebuildPrefabInstances(Scene& scene, const Guid& prefabId, Span<const byte> payload,
                                const PrefabPayloadResolver* resolver = nullptr);
@@ -1317,7 +1317,7 @@ export namespace foundation::scene
             return wrote;
         }
 
-        // Sources are TEXT (docs/design/text-scenes.md): diffable, mergeable, hand-editable.
+        // Sources are TEXT: diffable, mergeable, hand-editable.
         // Export staging transcodes to the binary wire for the player.
         foundation::xml::XmlSerializer ser;
         SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, true,
@@ -1333,7 +1333,7 @@ export namespace foundation::scene
     }
 
     // The prefab twin: PrefabDocument primary + the world serialized EXPANDED - any nested
-    // prefab instances flatten into plain entities (nesting is P4; expansion degrades it to
+    // prefab instances flatten into plain entities (expansion degrades nesting to
     // baked members instead of silently dropping them), and the stream doubles as the spawn
     // payload AND the edit page's load stream (both read plain entity records).
     inline Status SavePrefab(Scene& scene, foundation::content::Instance& instance)
@@ -1374,7 +1374,7 @@ export namespace foundation::scene
             return wrote;
         }
 
-        // Referenced + no settings (P4): nested instances persist as ref+delta RECORDS - the
+        // Referenced + no settings: nested instances persist as ref+delta RECORDS - the
         // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
         // like scene saves (export transcodes).
         foundation::xml::XmlSerializer ser;

@@ -3,8 +3,8 @@
 // Collapsible container with a clickable header and expandable body. Ported from
 // Sedulous.UI/src/Controls/Expander.bf; the header is now a STRUCTURED band (ExpanderHeader child
 // view) instead of ad hoc draw + a manually-placed actions view: the band grows to fit oversized
-// action widgets (they used to overflow the fixed HeaderHeight and clip when collapsed - the
-// inspector section-header finding), the title reserves width so it cannot run under the actions,
+// action widgets so they do not overflow the fixed HeaderHeight and clip when collapsed, the
+// title reserves width so it cannot run under the actions,
 // and header hover is the band's own hover, not the whole expander's.
 
 module;

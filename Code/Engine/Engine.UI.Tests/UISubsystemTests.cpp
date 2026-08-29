@@ -131,7 +131,7 @@ TEST_CASE("ui.subsystem: an effectively-inactive entity's canvas goes Gone (and 
     REQUIRE(canvas.root.Get() != nullptr);
     CHECK(canvas.root->Visibility == VisibilityValue::Visible);
 
-    scene->SetActive(parent, false); // entity-active-state.md P3: the game UI does not show
+    scene->SetActive(parent, false); // inactive entity: the game UI does not show
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(canvas.root->Visibility == VisibilityValue::Gone);
 
@@ -1568,7 +1568,7 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
     CHECK(ui->PointerOverUI());
 
     // Pointer over truly empty space (no panel behind): NOT consumed - gameplay
-    // clicks (crate shoves) pass through. The P3 host stretch had broken this.
+    // clicks (crate shoves) pass through.
     panel.visible = false;
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK_FALSE(ui->PointerOverUI());

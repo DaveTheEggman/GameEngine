@@ -1,6 +1,6 @@
 // Pipeline::UI - the `foundation.ui.editor` module (tooling).
 //
-// Source-side game-UI authoring + cook (docs/design/game-ui.md §5):
+// Source-side game-UI authoring + cook:
 //   * UIDocumentAsset / UIThemeAsset: a LINKED source file (.sml view-tree / .sss
 //     stylesheet). The authored text lives in the project's Sources/ tree and the asset
 //     references it through Asset::fileName - exactly like a script asset - so by-hand
@@ -279,5 +279,5 @@ export namespace pipeline{
     }
 
     // UIDocumentAsset/UIThemeAsset StaticType() are defined WITH reflected properties in
-    // UIAssetImpl.cpp (reflection track P1).
+    // UIAssetImpl.cpp.
 }

@@ -6,7 +6,7 @@
 // the export code, RecentProjectsSettings with the project registry) - but they are
 // all REGISTERED here, in one place, because a section registered without its
 // serializable factory makes Settings::Load abort the whole store at that section
-// (phase-1 semantics) and silently drop everything after it. One list, both calls,
+// and silently drop everything after it. One list, both calls,
 // every type - see RegisterEditorSettingsTypes.
 
 module;

@@ -2,7 +2,7 @@
 // Float3x3: 3x3 row-major matrix (rotation / normal matrices) - multiply,
 // Transpose/Determinant/Inverse, and FromMat4 (upper-left 3x3).
 //
-// Conventions (Documentation/Planning/Core.md §7): row-major storage m[row][col];
+// Conventions: row-major storage m[row][col];
 // row vectors (v' = v * M); composition left-to-right; XNA-style right-handed
 // projections, NDC depth [0,1]; translation in the last row.
 

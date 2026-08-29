@@ -1,6 +1,6 @@
 // Editor Core - :thumbnail_service partition
 //
-// Asset thumbnails (asset-thumbnails.md P1): an editor-only service that resolves a content
+// Asset thumbnails: an editor-only service that resolves a content
 // instance's Guid to a small preview drawable. Icon-first display is the CONSUMER's job - Get()
 // returns empty until a thumbnail exists and OnThumbnailReady fires the swap-in; nothing here
 // ever blocks the UI.
@@ -15,7 +15,7 @@
 //
 // Threading: Get/Invalidate/OnThumbnailReady are MAIN-thread; generation + PNG IO run on the
 // light worker; completion fires on the main thread from EditorJobService::Update. In-flight
-// jobs use the heap-slot lifetime pattern (editor-jobs.md) so project close or service reset
+// jobs use the heap-slot lifetime pattern so project close or service reset
 // mid-flight is safe.
 
 module;
@@ -57,11 +57,11 @@ export namespace editor
 
     RTTI_DEFINE_OBJECT(OwnedThumbnailDrawable, "rtti::editor")
 
-    /// One per-asset-type thumbnail producer (asset-thumbnails.md). Split across threads:
+    /// One per-asset-type thumbnail producer. Split across threads:
     /// Prepare runs on the MAIN thread and gathers everything the worker needs (content
     /// Instance/DB access is main-thread-only - a cook or delete can run concurrently with the
     /// light lane); Generate runs on the LIGHT worker over that payload: CPU only, no UI, no
-    /// GPU (offscreen renders are the P2 preview-bake path). The output image should already
+    /// GPU (offscreen renders are the preview-bake path). The output image should already
     /// be thumbnail-sized (the service saves it verbatim).
     class IThumbnailGenerator
     {
@@ -79,7 +79,7 @@ export namespace editor
         [[nodiscard]] virtual Status Generate(Span<const byte> payload, image::Image& out) = 0;
     };
 
-    /// The thumbnail service (asset-thumbnails.md P1). One per open project - the app Configures
+    /// The thumbnail service. One per open project - the app Configures
     /// it on project open and Resets it on close.
     class ThumbnailService
     {
@@ -168,7 +168,7 @@ export namespace editor
             RefPtr<OwnedThumbnailDrawable> drawable;
         };
 
-        // The heap slot both closures own (editor-jobs.md lifetime rule): the service dtor /
+        // The heap slot both closures own (lifetime rule): the service dtor /
         // Reset clears serviceAlive; the completion always deletes the slot. All flags are
         // main-thread; the worker only touches `pixels` + `ok`.
         struct JobSlot

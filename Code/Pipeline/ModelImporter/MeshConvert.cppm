@@ -252,7 +252,7 @@ namespace pipeline
         }
 
         // Fill a StaticMeshSource from a model mesh's static streams (pos/normal/uv/color/tangent).
-        // mesh-lod.md P1 authored chains: "Foo_LOD1" / "Foo_lod2" attach as chain levels of
+        // Authored chains: "Foo_LOD1" / "Foo_lod2" attach as chain levels of
         // "Foo". Returns the level (>= 1) and writes the stripped base name; 0 = a plain
         // name (including "_LOD0" - the base spells itself plainly, never with a suffix).
         [[nodiscard]] inline u32 ParseLodSuffix(StringView name, String& outBase)

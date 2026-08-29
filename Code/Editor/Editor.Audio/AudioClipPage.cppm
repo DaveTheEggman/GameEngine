@@ -1,6 +1,6 @@
 // Editor::Audio - the `editor.audio` module.
 //
-// AudioClipPage (audio.md P2): the audition page. Opens an AudioClipAsset with a peak
+// AudioClipPage: the audition page. Opens an AudioClipAsset with a peak
 // waveform (decoded from the copied source file - the same container bytes the cook
 // writes through) and Play/Stop that audition through the RUNTIME CONTEXT's
 // AudioSubsystem - the GAME's engine, buses, and voice pool, so what you hear IS what

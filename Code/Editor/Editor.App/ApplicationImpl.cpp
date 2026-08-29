@@ -1,11 +1,11 @@
 // Editor::App - :application partition.
 //
-// EditorApplication: the editor as a runtime IApplication (docs/design/editor.md §3.2) - the
+// EditorApplication: the editor as a runtime IApplication - the
 // UISandbox wiring, assembled for real: TrueType font service + UIHost + RuntimeDockableWindowHost
 // (floating panels = borderless OS windows, drag-follow Tick) + the EditorShell chrome on the main
 // window, with the EditorContext + EditorProject from editor.core underneath. Opens (or
 // scaffolds) the project directory on startup, restores the per-user dock layout, saves it on
-// shutdown. Phase 1: chrome + project only; pages/panels grow in later phases.
+// shutdown.
 
 module;
 #define _CRT_SECURE_NO_WARNINGS
@@ -168,7 +168,7 @@ namespace editor::app
             }
         }
 
-        // Load one family across `sizes`; returns true when every size landed. Falls back
+        // Load one family across `sizes`; returns true when every size loaded. Falls back
         // to the embedded face (when given) if the path fails outright.
         const auto loadFamily = [this](StringView family, StringView path,
                                        Span<const f32> sizes, fonts::FontLoadOptions options,
@@ -333,7 +333,7 @@ namespace editor::app
             m_context.SetStatus(message);
         };
 
-        // ---- the EMBEDDED RUNTIME (runtime-host.md v3) ----
+        // ---- the EMBEDDED RUNTIME ----
         // The editor owns a second, persistent runtime Context populated by the SAME
         // DefaultApplication the player runs: gameplay subsystems live THERE, and every
         // scene (editing pages, Simulate, previews, the Game tab) is hosted there. The
@@ -359,7 +359,7 @@ namespace editor::app
             m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
         }
         m_embeddedApp->Configure(*m_embeddedHost);
-        // Embedded-runtime input policy (game-ui.md §9): UN-BOUND input must never
+        // Embedded-runtime input policy: UN-BOUND input must never
         // reach scene-tier game UI here. The player's shell source owns its whole
         // window, so its un-bound input reaches every scene (the AllScenes default);
         // in the editor the same rule would let raw shell keystrokes and editor-pane
@@ -533,7 +533,7 @@ namespace editor::app
             uiPage->InstanceId().ToChars(guidChars);
             panel->SetPersistenceId(StringView(guidChars));
         }
-        // (Docking activates the new tab - toolkit behavior since the dock-activates change.)
+        // (Docking activates the new tab - toolkit behavior.)
         // The DockManager's own close handling (wired in AddPanel) destroys the panel through
         // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
         // UI mutation queue, since destroying views mid-event-dispatch is unsafe.
@@ -670,7 +670,7 @@ namespace editor::app
                 if (page->IsDirty())
                 {
                     m_context.SetStatus(
-                        u8"Closed page had unsaved changes."); // save-prompt = later phase
+                        u8"Closed page had unsaved changes."); // no save prompt here
                 }
                 page->OnClose(); // release GPU/scene resources while device + window live
                 m_pagePanels.RemoveAt(i);
@@ -719,13 +719,12 @@ namespace editor::app
         {
             const f32 scaled = dt * m_runtimeContext.TimeScale();
             m_runtimeContext.BeginFrame(dt);
-            // Networking's per-frame transport pump now rides NetworkSubsystem::PostUpdate
-            // (networking-extraction.md P3), driven by m_runtimeContext.PostUpdate below - so the editor
-            // no longer mirrors the app's former OnFixedUpdate net fan-out (that override is gone).
+            // Networking's per-frame transport pump rides NetworkSubsystem::PostUpdate,
+            // driven by m_runtimeContext.PostUpdate below.
             m_runtimeContext.Update(scaled);
             m_runtimeContext.PostUpdate(scaled);
-            // Tick EVERY game instance's script ONCE per frame (game-instance.md §11 step 5) -
-            // moved here from the Game page so N game tabs don't tick every instance N times.
+            // Tick EVERY game instance's script ONCE per frame here -
+            // so N game tabs don't tick every instance N times.
             m_embeddedApp->OnUpdate(*m_embeddedHost, dt);
         }
 
@@ -1207,7 +1206,7 @@ namespace editor::app
             }
         }
 
-        // MAIN-THREAD reachability pre-scan (docs/design/export-reachability.md): pruning needs
+        // MAIN-THREAD reachability pre-scan: pruning needs
         // the scene->asset edges, which means LOADING scenes - unsafe off the main thread. So when
         // a preset in this run prunes and the scene editor supplied a scanner, expand the reachable
         // closure NOW and hand the guid set to the background job (which then only cooks + packs
@@ -2155,7 +2154,7 @@ namespace editor::app
 
         m_context.SetProject(m_project.Get());
         {
-            // Thumbnail cache under the project's gitignored .cache (asset-pipeline.md).
+            // Thumbnail cache under the project's gitignored .cache.
             String thumbsDir = Format(u8"{}/{}/thumbs", directory,
                                       engine::project::kProjectCacheDir);
             (void)foundation::core::CreateDirectory(thumbsDir.AsView());
@@ -2284,7 +2283,7 @@ namespace editor::app
         // exactly like during a cook. The cook service folds this into MutationLocked.
         m_cookService.ExternalMutationLock = [this]() { return m_jobService.IsBusy(); };
         m_context.SetJobs(&m_jobService); // pages submit light work (preview bakes) here
-        // Thumbnails (asset-thumbnails.md P1): the app owns the SERVICE + lifecycle only
+        // Thumbnails: the app owns the SERVICE + lifecycle only
         // (SetThumbnails happens in the CONSTRUCTOR - the composition root registers
         // generators before this UI-boot phase runs); ready thumbnails rebind the browser,
         // inspector slots re-query per refresh.
@@ -2300,9 +2299,9 @@ namespace editor::app
         AssetsView* assets = m_assetsView.Get();
         m_assetsView->OnOpenInstance = [this](foundation::content::Instance& instance)
         { (void)OpenInstancePage(instance); };
-        // The asset-slot Edit affordance (asset-picker-slot.md ruling 2): Guid -> instance ->
+        // The asset-slot Edit affordance: Guid -> instance ->
         // the same page path the browser double-click takes. Grows a type branch (e.g.
-        // property-animation clips -> the in-scene panel) when panel editing surfaces land.
+        // property-animation clips -> the in-scene panel) for panel editing surfaces.
         m_context.RevealAsset = [assets](const Guid& id) { assets->Reveal(id); };
         m_context.OpenAsset = [this](const Guid& id)
         {
@@ -2846,7 +2845,7 @@ namespace editor::app
     void EditorApplication::BuildMenus()
     {
         ui::toolkit::MenuBar* bar = m_shell.Menus();
-        // Conventional order (editor-polish.md P2): File holds document/app essentials
+        // Conventional order: File holds document/app essentials
         // only; per-user prefs live under Edit; project-scoped concerns (settings,
         // export, templates) get their own Project menu; Build stays cook-only.
         foundation::ui::ContextMenu* file = bar->AddMenu(u8"File");

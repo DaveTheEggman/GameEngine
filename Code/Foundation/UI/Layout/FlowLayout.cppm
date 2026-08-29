@@ -63,9 +63,9 @@ export namespace foundation::ui
             const f32 maxWidth = (constraints.MaxWidth < kFloatMax)
                                      ? constraints.MaxWidth - Padding.TotalHorizontal()
                                      : kFloatMax;
-            // Children get BOUNDED loose constraints (was Expand() - a fill-style leaf measured
-            // to kFloatMax and exploded the flow); margins are base-handled, rows use margin
-            // boxes (ui-box-model.md P2b).
+            // Children get BOUNDED loose constraints (an unbounded fill-style leaf measured
+            // to kFloatMax would explode the flow); margins are base-handled, rows use margin
+            // boxes.
             const f32 crossMax = (constraints.MaxHeight < kFloatMax)
                                      ? Max(0.0f, constraints.MaxHeight - Padding.TotalVertical())
                                      : kFloatMax;

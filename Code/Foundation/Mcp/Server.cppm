@@ -391,8 +391,8 @@ export namespace foundation::mcp
         }
     };
 
-    /// host_info - the ops-hygiene tool EVERY host registers (mcp-agent-access.md P1 item 2,
-    /// from ezEngine's app_info): pid (a hung host is killed by pid), the build stamp
+    /// host_info - the ops-hygiene tool EVERY host registers (from ezEngine's app_info):
+    /// pid (a hung host is killed by pid), the build stamp
     /// (stale-binary detection), server + protocol versions, and whatever host-specific state
     /// the host supplies (the stdio host reports its open project). `buildStamp` is the host
     /// executable's BuildStamp() text; `hostState` may be empty.

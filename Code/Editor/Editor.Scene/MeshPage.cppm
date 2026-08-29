@@ -1,6 +1,6 @@
 // Editor::Scene - :mesh_page partition.
 //
-// MeshEditorPage (editor-pages-gap.md, bespoke pass #2): the mesh viewer. Opens a
+// MeshEditorPage: the mesh viewer. Opens a
 // StaticMeshAsset or SkinnedMeshAsset with a GPU orbit preview of the COOKED mesh product on
 // the left (bound by the asset's guid through the editor's cooked-DB resources, lit by a
 // default sun + procedural sky, shown under a neutral PBR material) and a stats readout on the
@@ -12,7 +12,7 @@
 // MeshComponent, not on the asset), so Save is a no-op. The preview watches the bound product
 // and re-frames + refreshes stats on cook / hot-reload.
 //
-// TODO(editor-pages-gap #2): a page-local preview-material picker per submesh slot (persisted
+// TODO: a page-local preview-material picker per submesh slot (persisted
 // like MaterialPage's preview-mesh pref) + a "create entity / save-as-prefab" action.
 
 module;

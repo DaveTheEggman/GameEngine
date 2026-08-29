@@ -6,7 +6,7 @@
 // relative, and dot-segment-free - so Windows-authored "Fonts\Roboto.ttf" heals into
 // "Fonts/Roboto.ttf" instead of breaking every non-Windows VFS lookup.
 //
-// NOT a general OS path (see docs/design/path-type.md): no volumes, no macros, no
+// NOT a general OS path: no volumes, no macros, no
 // absolute form. Strings that violate the contract (absolute, ".." escapes, a ':' scheme/
 // volume) normalize to EMPTY - a missing reference, never a wrong one. Comparison is
 // case-SENSITIVE on every platform (one rule everywhere; a lint catches Windows-authored
@@ -191,6 +191,6 @@ export namespace foundation::vfs
     // Reflects SourcePath as a value type (read accessors + a StringView constructor) for tooling
     // + scripting. The stored string is private, so there are no member properties - the accessors
     // ARE the surface (the accessor-gated-state convention). Idempotent; body in the impl unit
-    // (gcc module-interface hygiene). Reflection track P1.
+    // (gcc module-interface hygiene).
     void RegisterVFSReflection();
 }

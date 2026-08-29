@@ -21,8 +21,7 @@ using namespace foundation::core;
 export namespace foundation::image
 {
 
-    // Pixel access uses the engine's packed byte color, core::Color32 (the image
-    // library previously defined its own duplicate `Color` - unified away).
+    // Pixel access uses the engine's packed byte color, core::Color32.
 
     /// Image that owns a pixel buffer. Inherits ImageData for polymorphic use.
     /// Supports pixel access, flips, format conversion, and procedural factories.

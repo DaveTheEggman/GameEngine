@@ -2,7 +2,7 @@
 // port of SedulousEngine's Sedulous.Particles (CPU side): the SoA stream container, the
 // initializer/behavior module taxonomy, the effect/system/emitter/instance object model,
 // and the CPU simulator. The cooked resource, GPU-compute simulator, ECS/render
-// integration, and editor authoring are separate layers on top. See docs/design/particles.md.
+// integration, and editor authoring are separate layers on top.
 
 export module foundation.particles;
 

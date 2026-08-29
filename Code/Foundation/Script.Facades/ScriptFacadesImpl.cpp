@@ -34,7 +34,7 @@ namespace foundation::script
         // A computed property (parens-less): `entity.scene` reads its bound Scene. Not a
         // method, so scripts write `entity.scene.find(...)` without call parens.
         builder.ComputedProperty<&Entity::sceneHandle>("scene");
-        // send (P2 messaging) - ONE conceptual method as an ARITY FAMILY: send(name) and
+        // send - ONE conceptual method as an ARITY FAMILY: send(name) and
         // send(name, payload:Variant), dispatched by argument count. The Variant carries any script
         // value onto the StringHash+Variant bus (the honest payload type).
         builder.Method<static_cast<void (Entity::*)(String) const>(&Entity::send)>("send");
@@ -141,7 +141,7 @@ namespace foundation::script
         // orchestrator is class `Game` (StartScript does CreateInstance("Game")), and the scene
         // tier is class `Level` (instantiated once per scene). A facade sharing either name would
         // clash (AngelScript "Name conflict") and the user's class
-        // could not compile. Refuse the registration. See docs/design/adding-facades.md.
+        // could not compile. Refuse the registration.
         const StringView kReservedNames[] = {StringView(u8"Game"), StringView(u8"Level")};
         for (StringView reserved : kReservedNames)
         {

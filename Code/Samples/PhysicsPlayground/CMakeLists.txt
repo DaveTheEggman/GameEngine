@@ -1,4 +1,4 @@
-# PhysicsPlayground - physics P1 consumer proof: crates/trigger/sweeper/raycast shove on
+# PhysicsPlayground - physics consumer proof: crates/trigger/sweeper/raycast shove on
 # the Jolt-backed subsystem, drawn via the physics debug wireframes.
 add_executable(PhysicsPlayground main.cpp)
 

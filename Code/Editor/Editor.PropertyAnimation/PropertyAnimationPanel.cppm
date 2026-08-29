@@ -1,11 +1,11 @@
 // Editor::PropertyAnimation - the `editor.propertyanimation:panel` partition.
 //
-// PropertyAnimationPanel is the PERSISTENT in-scene property-animation editor (property-animation.md
-// editor redesign, P1b): a docked View - NOT a viewport tool mode - that the scene page owns for its
-// whole lifetime and rests in a resizable splitter BELOW THE VIEWPORT. Being persistent is the fix for
-// the two review-pass-10 defects the tool-mode had: the editing view is never recreated mid-edit, so an
-// undo command can never outlive it (the #5 UAF), and the preview snapshot is re-taken whenever the
-// track set changes (the #6 stale snapshot). The panel IS the IClipEditorHost: it owns the editing clip
+// PropertyAnimationPanel is the PERSISTENT in-scene property-animation editor: a docked View - NOT a
+// viewport tool mode - that the scene page owns for its
+// whole lifetime and rests in a resizable splitter BELOW THE VIEWPORT. Being persistent avoids
+// two defects a tool-mode would have: the editing view is never recreated mid-edit, so an
+// undo command can never outlive it (a UAF), and the preview snapshot is re-taken whenever the
+// track set changes (avoiding a stale snapshot). The panel IS the IClipEditorHost: it owns the editing clip
 // (durable), routes edits through the scene page's command stack, loads / creates / saves the clip
 // ASSET, owns the live-preview state, and hosts the Timeline scrubber above the shared ClipEditorView.
 // The scene page calls Tick() / DrawOverlay() each frame (there is no IViewportTool seam anymore).
@@ -261,8 +261,8 @@ export namespace editor
         bool m_haveReselect = false;
 
         // Transport (editor-local; D6 Editing|Playing). The loop toggle defaults to Loop, matching a
-        // fresh PropertyAnimatorComponent; seeding it from a specific bound animator instance is a
-        // deferred nicety (would couple the clip editor to engine.animation).
+        // fresh PropertyAnimatorComponent; it is not seeded from a specific bound animator instance
+        // (that would couple the clip editor to engine.animation).
         bool m_playing = false;
         bool m_paused = false;
         bool m_loop = true;

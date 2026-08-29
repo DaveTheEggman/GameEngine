@@ -208,7 +208,7 @@ namespace foundation::ui
 
     f32 ViewGroup::RootDpiScale(RootView* root) { return root != nullptr ? root->DpiScale : 1.0f; }
 
-    // The base measure template method (ui-box-model.md P2b). Lives here because the dpi query
+    // The base measure template method. Lives here because the dpi query
     // needs RootView complete. See the declaration comment in View.cppm for the contract.
     void View::Measure(BoxConstraints c)
     {
@@ -246,7 +246,7 @@ namespace foundation::ui
         OnMeasure(box); // legacy seam - the control handles its own chrome
     }
 
-    // The base arrange (ui-box-model.md P2b margin inset + P2d device-grid rounding). Rounds
+    // The base arrange (margin inset + device-grid rounding). Rounds
     // EDGES independently (x and x+w each snap, width = snapped difference) so adjacent
     // rounded boxes stay gapless; local-grid rounding composes to the global grid because
     // every ancestor rounds too (integer sums stay integers, at fractional scales multiples

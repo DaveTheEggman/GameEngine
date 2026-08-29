@@ -61,9 +61,9 @@ extern "C" const char* BuildStamp();
 
 #else
 
-// The body is the same on all desktop OSes for now. A windowed Win32 build will
-// later want wWinMain (no console); main is correct for console/CI builds and is
-// a fine starting point. Android targets provide their own entry.
+// The body is the same on all desktop OSes. A windowed Win32 build wants wWinMain
+// (no console); main is correct for console/CI builds. Android targets provide
+// their own entry.
 // If GPU device creation fails (no Vulkan), the app still runs windowless-headless.
 #define APP_MAIN(AppType)                                                                 \
     int main(int argc, char** argv)                                                                \

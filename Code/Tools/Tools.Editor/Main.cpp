@@ -1,4 +1,4 @@
-// Editor - the editor executable (docs/design/editor.md §3.1: the ASSEMBLY point).
+// Editor - the editor executable (the ASSEMBLY point).
 // Creates the OS shell + graphics device and runs EditorApplication. Per-subsystem editor
 // modules get linked HERE and their RegisterEditor(EditorContext&)
 // called on the app's context - the editor core/app libraries never link engine subsystems.
@@ -302,7 +302,7 @@ extern "C" const char* BuildStamp();
 
 int main(int argc, char** argv)
 {
-    // Log capture FIRST (design doc §3.10): the editor buffer + console output go on the global
+    // Log capture FIRST: the editor buffer + console output go on the global
     // logger before shell/device creation, so early startup logs reach the Console panel.
     editor::EditorLogBuffer logBuffer;
     ConsoleSink consoleSink;
@@ -345,11 +345,11 @@ int main(int argc, char** argv)
     config.embeddedFontSize = static_cast<usize>(g_embeddedEditorFontSize);
     config.logBuffer = &logBuffer;
 
-    // Assembly (design doc §3.1): THIS is where the engine subsystems and per-subsystem editor
+    // Assembly: THIS is where the engine subsystems and per-subsystem editor
     // plugins are chosen - the editor core/app libraries never link engine modules; the app
     // drives scene rendering only through the ISceneRenderer interface injected below.
     // Gameplay subsystems are registered by the embedded DefaultApplication against the
-    // editor's runtime context (runtime-host.md v3) - the editor registers NONE itself.
+    // editor's runtime context - the editor registers NONE itself.
     config.seedNewProject = [](editor::EditorContext& ctx, editor::EditorProject& project)
     { SeedNewProject(ctx, project); };
     config.registerEditors = [](editor::app::EditorApplication& app,
@@ -382,13 +382,13 @@ int main(int argc, char** argv)
         // bespoke page first; anything else lands on the generic serialize-driven form
         // instead of the hard "No editor registered" failure.
         editor::RegisterGenericAssetEditor(app.Context());
-        // Thumbnail-generator tripwire (asset-thumbnails.md): each domain's Register<X>Editor
+        // Thumbnail-generator tripwire: each domain's Register<X>Editor
         // above also registers its thumbnail generator - bump the expected count when a domain
         // gains one, so a silently-unregistered generator fails loudly here, not as icons.
         DIAGNOSTIC_ASSERT(app.Context().Thumbnails() != nullptr &&
                           app.Context().Thumbnails()->GeneratorCount() == 1);
-        // Script behavior page + per-backend "New Asset > <Lang> Script" creators (scripting.md
-        // §5). RegisterScriptEditor fans creators over backends that have a registered COOK, so the
+        // Script behavior page + per-backend "New Asset > <Lang> Script" creators.
+        // RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
         // cook service, but that runs later, so register them here too (idempotent by languageId).
 #ifdef OPTION_HAS_ANGELSCRIPT
@@ -401,7 +401,7 @@ int main(int argc, char** argv)
         RegisterPrimitiveMeshCreators(app.Context());
         {
             // New Asset > Input Map: seeded with the conventional Gameplay starter set.
-            // (The dedicated editing page is input P2; the asset cooks + binds today.)
+            // (The dedicated editing page is not implemented; the asset cooks + binds.)
             editor::EditorContext::AssetCreator inputCreator;
             inputCreator.label = String(u8"Input Map");
             inputCreator.create =

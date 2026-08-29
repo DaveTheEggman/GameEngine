@@ -1,8 +1,8 @@
 // GUI - :control_state partition
 //
 // ControlState: the visual state a stateful drawable (skins, StateListDrawable) selects
-// on. Derived from eepp's UI skin states (uistate.hpp); a flat enum for now - the eepp
-// bitmask best-match machinery lands with the skin/UINode phase.
+// on. Derived from eepp's UI skin states (uistate.hpp); a flat enum - the eepp
+// bitmask best-match machinery is not implemented.
 
 module;
 #include "Core/Prelude.h"

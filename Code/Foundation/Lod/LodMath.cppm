@@ -1,8 +1,8 @@
 // Foundation::Lod - the `foundation.lod` module.
 //
 // Level-of-detail selection math, shared by every LOD system in the engine: mesh chains
-// (foundation.render's per-view selection - mesh-lod.md) and terrain chunk geo-mipmapping
-// (foundation.terrain - terrain.md) both delegate HERE, so there is exactly one coverage
+// (foundation.render's per-view selection) and terrain chunk geo-mipmapping
+// (foundation.terrain) both delegate HERE, so there is exactly one coverage
 // formula, one threshold walk, and one hysteresis rule. Pure functions over Core math -
 // no RHI, no render types (cameras arrive as plain matrices), unit-testable headless.
 //

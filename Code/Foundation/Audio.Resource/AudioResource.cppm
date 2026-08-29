@@ -1,6 +1,6 @@
 // Foundation::Audio.Resource - the `foundation.audio.resource` module.
 //
-// Cooked audio content (docs/design/audio.md §4):
+// Cooked audio content:
 //   * AudioClipSource - the cooked record: probed metadata + import intent, with the
 //     ORIGINAL compressed container bytes in the instance's "data" stream (Traktor's
 //     compressed-cook model - never PCM sidecars; miniaudio records/sniffs the decoder).
@@ -9,9 +9,9 @@
 //     clips get a ContentInstanceStreamSource so miniaudio pages the bytes on demand
 //     straight out of the content mount (pak included - Instance::ReadData seeks).
 //
-// AudioBusLayoutSource/Resource (P2): the mixer as data - per-bus volume/mute/effect
+// AudioBusLayoutSource/Resource: the mixer as data - per-bus volume/mute/effect
 // chains over the FIXED four-bus topology (the AudioBus enum stays the addressing
-// model; free-form named trees are a later migration).
+// model; free-form named trees are not the addressing model).
 
 module;
 #include "Core/Prelude.h"
@@ -164,7 +164,7 @@ export namespace foundation::audio
         }
     };
 
-    // ---- bus layout (P2): cooked mixer data ----
+    // ---- bus layout: cooked mixer data ----
 
     // Wire shape stays GENERIC (per-bus effect arrays) even though the editor asset is
     // flat v1 - a richer chain editor later needs no wire change. Data v2 appends the
@@ -262,7 +262,7 @@ export namespace foundation::audio
         }
     };
 
-    // ---- sound cue (P3): weighted-variant container, cooked ----
+    // ---- sound cue: weighted-variant container, cooked ----
 
     class SoundCueSource : public ISerializable
     {

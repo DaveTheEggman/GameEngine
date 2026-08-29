@@ -4,7 +4,7 @@
 // bindings). It is exposed as a NESTED property (TypeBuilder::Nested) so tooling/scripting can
 // traverse the whole tree in place via container reflection, without marshalling it by value. The
 // input EDITOR page stays bespoke - this reflection is for scriptability, not a generated inspector.
-// REFLECT_MEMBERS out of the interface (GCC module hygiene). Reflection track P2.
+// REFLECT_MEMBERS out of the interface (GCC module hygiene).
 
 module;
 #include "Core/Prelude.h"

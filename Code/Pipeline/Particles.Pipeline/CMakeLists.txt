@@ -1,6 +1,5 @@
 # Pipeline::Particles - `particles.pipeline`: the edit-time ParticleEffectAsset + its
-# builder (the bake). Tooling only - the runtime/app never links this. See
-# docs/design/particles-authoring.md.
+# builder (the bake). Tooling only - the runtime/app never links this.
 add_library(Particles.Pipeline STATIC)
 add_library(Pipeline::Particles ALIAS Particles.Pipeline)
 

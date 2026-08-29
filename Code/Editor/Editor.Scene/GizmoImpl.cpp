@@ -1,6 +1,6 @@
 // Editor::Scene - :gizmo partition.
 //
-// TransformGizmo + GizmoController: viewport transform manipulation (design doc §8). The
+// TransformGizmo + GizmoController: viewport transform manipulation. The
 // Sedulous gizmo skeleton (debug-draw ribbons/rings, plane-projected drag math, atan2 rotation
 // on a drag-start-captured basis) improved with the PlayCanvas interaction model:
 //   - translate adds plane quads (flipped into the camera-facing quadrant) + a center free-move

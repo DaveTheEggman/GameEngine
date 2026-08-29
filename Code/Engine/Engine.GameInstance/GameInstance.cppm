@@ -1,14 +1,13 @@
 // Engine::GameInstance - the `engine.gameinstance` module.
 //
-// A single RUNNING GAME as a first-class object (docs/design/game-instance.md): its scene pairing,
+// A single RUNNING GAME as a first-class object: its scene pairing,
 // its script run context + `Game` object + error sink, and its instance time scale. The player owns
-// ONE (N=1); the editor will own an Array<GameInstance> (multi-instance play-in-editor + an in-editor
-// headless dedicated server for networking.md). This extracts the run bracket the player and the
-// editor's Game tab hand-roll identically today.
+// ONE (N=1); the editor owns an Array<GameInstance> (multi-instance play-in-editor + an in-editor
+// headless dedicated server). This is the run bracket the player and the
+// editor's Game tab would otherwise hand-roll identically.
 //
-// Phase 1: owns the SCRIPT run state + bracket + the instance time-scale term; the scene is still
-// created by the caller and paired in via SetScene (scene ownership + the create/load/Start/Stop/
-// destroy sequence move here in a later phase). BORROWS the ScriptSubsystem and the app's subsystems
+// Owns the SCRIPT run state + bracket + the instance time-scale term; the scene is
+// created by the caller and paired in via SetScene. BORROWS the ScriptSubsystem and the app's subsystems
 // (never owns them).
 
 module;
@@ -17,7 +16,7 @@ module;
 
 export module engine.gameinstance;
 
-export import :networkcontroller; // the run's networking, composed off this god object (P1)
+export import :networkcontroller; // the run's networking, composed off this god object
 
 import foundation.core;
 import foundation.scene;
@@ -49,11 +48,11 @@ export namespace engine::runtime
     namespace script = foundation::script;
     namespace net = foundation::net;
     namespace input = foundation::input;
-    namespace messaging = foundation::messaging; // EventBus (moved out of scene, messaging.md P1)
+    namespace messaging = foundation::messaging; // EventBus
 
     // NetworkController + its SpawnResolver live in the :networkcontroller partition (re-exported above).
 
-    // ---- run.* script facade (task #123 + game-ready-scripting2 P2-2): the run/app tier surfaced to
+    // ---- run.* script facade: the run/app tier surfaced to
     // scripts, including the running instance's LEVEL-LOAD control. Owned HERE (the project that owns
     // load orchestration), NOT the neutral Foundation facade lib - the out-of-tree pattern
     // foundation.net's Net facade uses. A RunScriptBinding is installed as a per-context service; the
@@ -81,8 +80,8 @@ export namespace engine::runtime
                                                                // real time); the Game orchestrator keeps
                                                                // running so it can resume.
         core::Function<f32()> timeScale;                       // the run's current scene-group time scale
-        // This run's event bus (game-ready-scripting2 P2-2): ONE service carries load + run-bus (Fable
-        // ruling). run.events() publishes here. The GameInstance fills it with &RunEvents().
+        // This run's event bus: ONE service carries load + run-bus.
+        // run.events() publishes here. The GameInstance fills it with &RunEvents().
         messaging::EventBus* runEvents = nullptr;
     };
 
@@ -95,7 +94,7 @@ export namespace engine::runtime
         context.SetService(kRunScriptService, nullptr);
     }
 
-    // ---- run.* script facade (game-ready-scripting2 P2-2): the run/app tier surfaced to scripts. A
+    // ---- run.* script facade: the run/app tier surfaced to scripts. A
     // STATIC facade bound to scripts LOWERCASE as `run` (the ScriptName alias). run.events() -> the
     // run-bus handle (publish to the run tier); the load methods control this instance's level loads.
     // Nothing else may bind the name `run` (the FinalizeTypes collision trap enforces it).
@@ -265,14 +264,14 @@ export namespace engine::runtime
     };
 
     // A running game COMPOSES its networking: GameInstance holds a NetworkController (which IS the
-    // INetworkController the Net facade drives) and forwards to it (networking-extraction.md P1). The
+    // INetworkController the Net facade drives) and forwards to it. The
     // controller is a stable member, so its binding never dangles; the endpoint inside it comes and goes.
     class GameInstance final
     {
     public:
         GameInstance()
         {
-            // Every scene this run creates BORROWS the run bus (messaging.md P2): set it on the group so
+            // Every scene this run creates BORROWS the run bus: set it on the group so
             // CreateScene injects it BEFORE the script systems bind (OnSceneCreate), not after.
             m_sceneManager.SetSceneEventBus(&m_runEvents);
         }
@@ -283,7 +282,7 @@ export namespace engine::runtime
             m_network.SetReplicatedScene(scene); // keep replication on the current scene across loads
             if (scene != nullptr)
             {
-                scene->SetEventBus(&m_runEvents); // adopt path shares THIS run's bus (messaging.md P2)
+                scene->SetEventBus(&m_runEvents); // adopt path shares THIS run's bus
             }
         }
         [[nodiscard]] scene::Scene* GetScene() const noexcept { return m_scene; }
@@ -298,7 +297,7 @@ export namespace engine::runtime
         }
 
         /// Headless: simulate + run scripts, but the host does NOT render this instance (no camera/
-        /// swapchain needed) - the in-editor dedicated server (game-instance.md §11 / networking.md).
+        /// swapchain needed) - the in-editor dedicated server.
         void SetHeadless(bool headless) noexcept { m_headless = headless; }
         [[nodiscard]] bool IsHeadless() const noexcept { return m_headless; }
 
@@ -309,7 +308,7 @@ export namespace engine::runtime
         [[nodiscard]] f32 InstanceTimeScale() const noexcept { return m_instanceTimeScale; }
 
         /// Compile + launch the `Game` script (a class with launch()/update(dt)/exit()) on THIS instance's
-        /// run host (game-instance.md §11.10). The host must be configured first (the app's
+        /// run host. The host must be configured first (the app's
         /// ScriptSubsystem::ConfigureRunHost exposes the facades + routing); a bare test just needs a
         /// backend registered. Idempotent start (stops a prior run first). false on compile / no-`Game`.
         bool StartScript(core::StringView source, core::StringView name)
@@ -318,7 +317,7 @@ export namespace engine::runtime
         }
 
         /// As above, plus the Game class's declared handler names (from the cooked ScriptClass) so the
-        /// Game tier's on<Event> inbox can subscribe to the run bus (game-ready-scripting2 §1a). A caller
+        /// Game tier's on<Event> inbox can subscribe to the run bus. A caller
         /// with no handler list (raw-source tests) gets a Game with no inbox - the rest is unchanged.
         bool StartScript(core::StringView source, core::StringView name,
                          core::Span<const core::String> gameHandlers);
@@ -328,7 +327,7 @@ export namespace engine::runtime
         void StopScript();
 
         /// Create a scene in this instance's group AND bind its behaviors to this instance's run host
-        /// (game-instance.md §11.10). Use this instead of Scenes().CreateScene so the re-bind happens.
+        /// Use this instead of Scenes().CreateScene so the re-bind happens.
         /// `activate` (default true) matches the classic behavior; false creates it inactive for an
         /// async load (see LoadSceneAsync).
         scene::Scene* CreateScene(core::StringView name, bool activate = true);
@@ -345,7 +344,7 @@ export namespace engine::runtime
                     m_scriptLoads.RemoveAt(i - 1);
                 }
             }
-            // Scene-dies-before-endpoint (networking-extraction.md P2, Fable req 2): if this IS the
+            // Scene-dies-before-endpoint: if this IS the
             // replicated scene, clear the cache + detach its NetworkSceneSystem BEFORE it is freed, so a
             // later Start/Connect never wires a dead scene and the live endpoint stops replicating it.
             if (scene == m_scene)
@@ -462,17 +461,17 @@ export namespace engine::runtime
         }
 
         /// This run's script host - the gameplay context shared by the game script AND this instance's
-        /// scenes' behaviors ("one gameplay context per instance", game-instance.md §11). Owned HERE now;
-        /// the ScriptSubsystem borrows it (a later step has the instance drive it directly). Moving the
-        /// storage onto the instance is the prerequisite for per-instance runs (Array<GameInstance>).
+        /// scenes' behaviors (one gameplay context per instance). Owned HERE;
+        /// the ScriptSubsystem borrows it. Storing the
+        /// context on the instance is the prerequisite for per-instance runs (Array<GameInstance>).
         [[nodiscard]] engine::script::ScriptRunHost& RunHost() noexcept { return m_runHost; }
 
-        /// This run's scene group (game-instance.md §11.2 / §4.4): the set of scenes the run manages + its
+        /// This run's scene group: the set of scenes the run manages + its
         /// current scene, ticked on the Context lane once registered with the SceneSubsystem. Wire its
         /// aware-registry (from the SceneSubsystem) before creating scenes in it.
         [[nodiscard]] scene::SceneManager& Scenes() noexcept { return m_sceneManager; }
 
-        /// This run's ONE event bus (messaging.md P2): app-owned, injected into every scene this instance
+        /// This run's ONE event bus: app-owned, injected into every scene this instance
         /// creates/adopts (Scene::SetEventBus), so `scene.events` and the run bus are the SAME object.
         /// The Game tier's on<Event> inbox subscribes here, and a behavior in any of the run's scenes
         /// emits straight onto it - there is NO relay to cross (a Level may still re-emit as a deliberate
@@ -485,7 +484,7 @@ export namespace engine::runtime
         /// scene bus; safe with no game script (native run-bus subscribers still fire).
         void DrainRunEvents() { m_runEvents.Drain(); }
 
-        // ---- input (this instance's OWN action runtime; game-instance.md - the input analog of the
+        // ---- input (this instance's OWN action runtime - the input analog of the
         // per-instance scene group + net endpoint) ----
 
         /// This run's input source (the editor Game tab's gated viewport, or the player's shell devices).
@@ -512,15 +511,15 @@ export namespace engine::runtime
 
         /// This instance's networking controller (the endpoint owner + INetworkController). Exposed so
         /// the app can reach it directly as the extraction proceeds; GameInstance's own net methods below
-        /// are thin forwards preserved so existing callers/tests are churn-free (P1).
+        /// are thin forwards so existing callers/tests stay churn-free.
         [[nodiscard]] NetworkController& Network() noexcept { return m_network; }
 
-        // The prefab net-spawn resolver factory is injected once via Network().SetSpawnResolverFactory(...)
-        // (P4); the controller makes one per endpoint. GameInstance no longer carries an online hook.
+        // The prefab net-spawn resolver factory is injected once via Network().SetSpawnResolverFactory(...);
+        // the controller makes one per endpoint. GameInstance carries no online hook.
 
-        // The per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate (P3): the
+        // The per-frame transport pump lives on engine::net::NetworkSubsystem::PostUpdate: the
         // subsystem enumerates live endpoints (via an app-provided source) and drives UpdateTransport.
-        // GameInstance no longer forwards a DriveNetwork.
+        // GameInstance does not forward a DriveNetwork.
 
         // Net facade role controls - forwards to the composed controller. StartServer/Connect open a
         // real UDP socket and enter the role (false if it fails); StopNetworking drops the endpoint.
@@ -535,8 +534,8 @@ export namespace engine::runtime
         /// (m_game = nullptr) exactly like a faulting update(), and a debugger suspension is not a fault.
         void DispatchGameEvent(core::StringView eventName, const core::Variant& payload);
 
-        engine::script::ScriptRunHost m_runHost;    // owned: the game's script context (§11.10)
-        messaging::EventBus m_runEvents; // the run-scoped event bus (game-ready-scripting2 §1a; app-owned)
+        engine::script::ScriptRunHost m_runHost;    // owned: the game's script context
+        messaging::EventBus m_runEvents; // the run-scoped event bus (app-owned)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;
         script::IScriptErrorHandler* m_errorHandler = nullptr;
@@ -547,7 +546,7 @@ export namespace engine::runtime
         core::RefPtr<script::ScriptObject> m_game;
         engine::script::ScriptEventSubscriptions m_gameEventSubs; // Game tier's run-bus on<Event> inbox
 
-        NetworkController m_network; // this run's networking (endpoint + INetworkController), composed (P1)
+        NetworkController m_network; // this run's networking (endpoint + INetworkController), composed
         RunScriptBinding
             m_runBinding; // stable; app fills its pointers, installed per context (StartScript)
 

@@ -404,7 +404,6 @@ namespace pipeline{
                 // lifecycle and lazily reconstructs it, discarding the applied value (see the
                 // AngelScript backend's WriteTypedAddress). So require a handle here, at cook, with the
                 // exact fix - the runtime warning is defense-in-depth for non-cooked paths.
-                // (game-ready-scripting.md Section 16: Fable's option-1+3 ruling.)
                 const bool reflectedRef = desc.type == ScriptPropertyType::Color ||
                                           desc.type == ScriptPropertyType::Vec3 ||
                                           desc.type == ScriptPropertyType::Entity ||

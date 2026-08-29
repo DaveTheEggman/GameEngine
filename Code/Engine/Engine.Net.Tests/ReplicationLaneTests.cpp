@@ -1,4 +1,4 @@
-// engine.net - replication now rides the per-scene FIXED lane (networking-extraction.md P2):
+// engine.net - replication rides the per-scene FIXED lane:
 // NetworkSceneSystem::OnFixedUpdate drives the endpoint's UpdateReplication, while the transport half
 // (UpdateTransport) pumps the socket per-frame. These tests prove the round-trip works when driven by
 // Scene::FixedUpdate, and that a scene whose fixed lane does not run produces no deltas even though the

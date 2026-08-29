@@ -207,9 +207,9 @@ namespace
 
 TEST_CASE("xml.serialize: array of keyed structs round-trips each element distinctly")
 {
-    // Regression: keyed lookup used to restart at FirstChild for every field, so every
+    // Regression guard: a keyed lookup that restarts at FirstChild for every field makes every
     // element of a flat keyed-struct array read as a copy of the FIRST one (the Fox model
-    // manifest lost every node's meshIndex - and with it, its prefab's components).
+    // manifest then loses every node's meshIndex - and with it, its prefab's components).
     Array<FlatNode> nodes;
     for (i32 i = 0; i < 3; ++i)
     {

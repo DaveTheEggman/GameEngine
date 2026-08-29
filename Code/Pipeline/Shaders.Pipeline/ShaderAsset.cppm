@@ -125,6 +125,5 @@ export namespace pipeline{
         RegisterSerializable<foundation::shaders::ShaderSource>();
     }
 
-    // ShaderAsset::StaticType() is defined WITH reflected properties in ShaderAssetImpl.cpp
-    // (reflection track P1).
+    // ShaderAsset::StaticType() is defined WITH reflected properties in ShaderAssetImpl.cpp.
 }

@@ -323,8 +323,8 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     CHECK(edit.EntitySelection().Contains(b));
     CHECK(selectedPos() == 1); // rows: C=0, B (child)=1
 
-    // Undo the reparent: still selected AND back in its exact old slot (before C) - the
-    // undo used to append to the end of the root list, visually teleporting the row.
+    // Undo the reparent: still selected AND back in its exact old slot (before C). The
+    // undo must not append to the end of the root list, which would visually teleport the row.
     commands.Undo();
     hierarchy.Refresh();
     CHECK(edit.EntitySelection().Contains(b));
@@ -438,7 +438,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(loaded.Find<SceneViewSettings>()->prefs.Size() == 2u);
 
     // v3 field (showColliders): round-trips through XML per scene, and the versioned gate means a
-    // default-false pref stays false after reload (pass-17: the field shipped without this pin).
+    // default-false pref stays false after reload.
     CHECK(SaveSceneViewPref(&loaded, SceneViewPref{sceneA, true, true, true}));
     CHECK(SaveSceneViewPref(&loaded, SceneViewPref{sceneB, true, false, false}));
     MemoryStream buf3;

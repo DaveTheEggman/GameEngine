@@ -1,4 +1,4 @@
-// Core - :reflection partition (RTTI phases c-f)
+// Core - :reflection partition
 //
 // Reflection runtime built on Variant/Instance: properties, methods, enums'
 // attributes, container reflection, and the TypeBuilder used by REFLECT_MEMBERS.
@@ -23,12 +23,12 @@ import :ref_counted;
 import :unique_ptr;    // Array<UniquePtr<T>> homogeneous container flavor (RegisterUniquePtrArrayType)
 import :type_registry; // GlobalTypeRegistry().All() - the derived-type query (RTTI layer)
 import :string;        // String attribute values (category/displayName) for the sort
-// NB: reflection imports RTTI/base partitions ONLY (CONVENTIONS.md). Capability like create-by-type
+// NB: reflection imports RTTI/base partitions ONLY. Capability like create-by-type
 // flows IN through registration-time function pointers (createElement/canCreateElement), never a
 // serialization import - that would half-close a partition cycle (serialization consumes reflection).
 
 // ---------------------------------------------------------------------------
-// Properties (RTTI phase c)
+// Properties
 // ---------------------------------------------------------------------------
 namespace foundation::core::detail
 {
@@ -280,7 +280,7 @@ export namespace foundation::core
     }
 
     // =======================================================================
-    // Methods (RTTI phase d) - instance, const, and static, via Variant args.
+    // Methods - instance, const, and static, via Variant args.
     // =======================================================================
     struct ParamInfo
     {
@@ -474,7 +474,7 @@ export namespace foundation::core
     }
 
     // =======================================================================
-    // Attributes (phase e) - freeform key -> Variant metadata on a type.
+    // Attributes - freeform key -> Variant metadata on a type.
     // =======================================================================
     struct Attribute
     {
@@ -568,7 +568,7 @@ export namespace foundation::core
     }
 
     // =======================================================================
-    // Container reflection (phase f) - generic indexed access to Array<T>, so
+    // Container reflection - generic indexed access to Array<T>, so
     // tools/scripting can iterate without knowing the element type statically.
     // =======================================================================
     enum class ContainerFlags : u32

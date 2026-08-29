@@ -1,6 +1,6 @@
 // Foundation::Runtime.Client - :embedded_host partition.
 //
-// EmbeddedApplicationHost: the editor-embedding adapter (runtime-host.md v3, Sedulous
+// EmbeddedApplicationHost: the editor-embedding adapter (Sedulous
 // EditorApplicationHost lineage). An IApplication programs against IApplicationHost and
 // runs UNCHANGED whether hosted standalone or inside the editor: this adapter routes
 // Ctx() to an EMBEDDED runtime Context (owned by the embedder, distinct from the outer

@@ -1,7 +1,7 @@
 // Editor::App - :assets_view partition.
 //
-// AssetsView: the Assets panel (asset-pipeline design §7) - source-DB-backed, the typed DB is
-// the truth (Traktor's DatabaseView model, not a directory scan). Left = group tree; right =
+// AssetsView: the Assets panel - source-DB-backed, the typed DB is
+// the truth (a database-view model, not a directory scan). Left = group tree; right =
 // [breadcrumb | list/grid toggle] over [filter] over the selected group's content. The content
 // area shows SUBGROUPS first (double-click descends; the breadcrumb climbs back up), then
 // instances; a non-empty filter searches instances across ALL groups. Rows show the name
@@ -265,7 +265,7 @@ export namespace editor::app
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
-        /// Reveal an instance in the browser (asset-picker-slot.md P3): navigate to its owning
+        /// Reveal an instance in the browser: navigate to its owning
         /// group, select its row, and scroll it into view. Unknown Guids no-op.
         void Reveal(const Guid& id);
 
@@ -594,7 +594,7 @@ export namespace editor::app
                 {
                     return;
                 }
-                // Thumbnail wins; the type icon shows until one exists (asset-thumbnails.md).
+                // Thumbnail wins; the type icon shows until one exists.
                 RefPtr<ui::Drawable> thumbnail;
                 if (row->group == nullptr && m_owner->m_context->Thumbnails() != nullptr)
                 {
@@ -674,7 +674,7 @@ export namespace editor::app
 
         void ShowBackgroundMenu(ui::View* anchor, f32 x, f32 y);
 
-        // === "Always Export" roots (docs/design/export-reachability.md §2) ===
+        // === "Always Export" roots ===
         // A user flags an asset (or a whole group subtree) as an export root; its dependency
         // closure then ships even with reachability pruning on. Stored centrally on the project
         // (export_roots.xml, committed) and saved immediately on toggle - deliberate, rare, and
@@ -710,7 +710,7 @@ export namespace editor::app
         void ApplyRenameGroup(content::Group* group, StringView name);
 
         // Begin the in-place edit of a content-area row (menu Rename path is DOUBLE-deferred
-        // through the mutation queue - Sedulous lesson: BeginEdit's SetFocus must land AFTER
+        // through the mutation queue - BeginEdit's SetFocus must land AFTER
         // the menu's ClosePopup/PopFocus restored focus, one queue drain is not enough).
         void StartRename(i32 position);
 

@@ -115,7 +115,7 @@ TEST_CASE("integration.mcp: an agent creates, opens, and inspects a project via 
     CHECK(info.Get(u8"directory").AsString().Size() > 0u);
     CHECK(info.Get(u8"sourcesRoot").AsString().Size() > 0u);
 
-    // The manifest really landed on disk.
+    // The manifest is written to disk.
     CHECK(std::filesystem::exists("mcp_fixture_project/Project.xml"));
 
     // Opening a nonexistent project is a TOOL error (real text), not a protocol fault.
@@ -225,7 +225,7 @@ namespace
         CHECK(imported.Get(u8"importer").AsString() == StringView(u8"Script"));
         const String guid = imported.Get(u8"guid").AsString();
 
-        // It landed in the source DB, in the requested group.
+        // It is written to the source DB, in the requested group.
         JsonValue list = CallOk(server, u8"asset_list", Obj());
         CHECK(list.Get(u8"count").AsInt() == 1);
         CHECK(list.Get(u8"assets").At(0).Get(u8"group").AsString() == StringView(u8"scripts"));

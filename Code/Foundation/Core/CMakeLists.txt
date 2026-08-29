@@ -1,7 +1,7 @@
 # Foundation::Core - the foundation module (`foundation.core`).
 #
 # One named module composed of partitions (one per subsystem), re-exported by
-# CoreModule.cppm. Built as a static library for now.
+# CoreModule.cppm. Built as a static library.
 
 add_library(Core STATIC)
 add_library(Foundation::Core ALIAS Core)

@@ -3,7 +3,7 @@
 // Use inside an Object-derived class to wire up type identity, then define the
 // type once in a .cpp. Registration stays explicit - call
 // GlobalTypeRegistry().Register(Type::StaticType()) from a RegisterTypes()
-// function (see Documentation/Planning/Core.md §4.10).
+// function.
 //
 //   // header
 //   class Entity : public Object { RTTI_OBJECT(Entity, Object) public: ... };
@@ -68,7 +68,7 @@ public:                                                                         
 //       builder.Value("Red", Color::Red);
 //       builder.Value("Green", Color::Green);
 //   }
-//   // later: RttiRegisterEnum_Color();
+//   // then: RttiRegisterEnum_Color();
 #define REFLECT_ENUM(EnumType, Namespace)                                                 \
     static void RttiEnumBody_##EnumType(::foundation::core::EnumBuilder<EnumType>&);             \
     void RttiRegisterEnum_##EnumType()                                                         \
@@ -89,7 +89,7 @@ public:                                                                         
 //   {
 //       builder.Property<&Float3::x>("x").Property<&Float3::y>("y").Property<&Float3::z>("z");
 //   }
-//   // later: RttiRegisterValue_Float3();
+//   // then: RttiRegisterValue_Float3();
 #define REFLECT_VALUE(Type, Namespace)                                                    \
     static void RttiReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
     void RttiRegisterValue_##Type()                                                            \

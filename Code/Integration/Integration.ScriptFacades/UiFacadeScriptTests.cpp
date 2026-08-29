@@ -1,5 +1,4 @@
-// engine.ui.script - the `ui` script facade PROVEN end-to-end on both backends (game-ui-kit P1,
-// replacing the old id-addressed Ui facade + its parity suite).
+// engine.ui.script - the `ui` script facade exercised end-to-end on both backends.
 //
 // This drives a real AngelScript / Luau VM against a real screen tier: a UIContext + RootView + a
 // gamekit ScreenStack, with an `instantiate` that returns a document tree carrying named controls
@@ -77,7 +76,7 @@ namespace
         CHECK(ctx.GetGlobal(u8"t").template Get<String>() == StringView(u8"Loading"));
         // Loud-null: "status" is a Label, so findButton("status") is a null-but-valid handle.
         CHECK(ctx.GetGlobal(u8"wrong").template Get<bool>() == false);
-        // The pop landed (C++ side): the stack is empty and the popped screen's controls are gone.
+        // The pop happened (C++ side): the stack is empty and the popped screen's controls are gone.
         CHECK(bed.stack.Count() == 0);
         CHECK(bed.StatusLabel() == nullptr);
     }

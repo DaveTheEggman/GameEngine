@@ -1,6 +1,6 @@
 // Foundation::Input - :runtime partition.
 //
-// ActionRuntime (docs/design/input.md §3.2): per-frame evaluation of an InputMap against
+// ActionRuntime: per-frame evaluation of an InputMap against
 // polled shell device facades. Godot's value model (per-device OR/MAX folding, [0,1]
 // strength, frame-counter-exact edges, circular dead zones) on ez's set model (all enabled
 // sets evaluate; queries resolve flat by priority; exclusive-set push with HELD-SUPPRESSION
@@ -352,7 +352,7 @@ export namespace foundation::input
         void SetTimeScale(f32 scale) noexcept { m_timeScale = scale < 0.0f ? 0.0f : scale; }
         [[nodiscard]] f32 TimeScale() const noexcept { return m_timeScale; }
 
-        /// UI consumption (game-ui.md §3.3): device CLASSES the UI consumed this frame -
+        /// UI consumption: device CLASSES the UI consumed this frame -
         /// bindings on those classes read RELEASED through actions (raw facades stay
         /// unfiltered). Separate classes so a menu eating the mouse doesn't mute gamepad
         /// movement. Republished every frame by the UI subsystem; sticky until changed.

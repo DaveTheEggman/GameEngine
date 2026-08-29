@@ -1,7 +1,7 @@
-// BoxMetrics / border-box P2a coverage (Documentation/Specs/ui-box-model.md): the three padding
+// BoxMetrics / border-box coverage: the three padding
 // channels max-merge in View::ResolveBoxMetrics, borders are layout-participating chrome
 // (RoundedRectDrawable reports its border via DrawablePadding), and Panel's content box honors
-// all of it - including stylesheet `padding:` on a CONTAINER, which used to silently no-op.
+// all of it - including stylesheet `padding:` on a CONTAINER, which must not silently no-op.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -100,7 +100,7 @@ TEST_CASE("box-metrics: a bordered background reserves content space in a Panel 
     CHECK(bordered->MeasuredSize.y == plain->MeasuredSize.y + 4.0f);
 }
 
-// === P2b acceptance (ui-box-model.md): Fixed + margin work in EVERY container ===
+// === Acceptance: Fixed + margin work in EVERY container ===
 
 TEST_CASE("box-model: Fixed(100) child is 100 in Dock, Flow, Grid, and Panel (was Frame-only)")
 {

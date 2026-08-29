@@ -28,7 +28,7 @@ namespace core = foundation::core;
 // ============================================================================================
 // Reflection (tooling: the editor inspector auto-generates property grids from these).
 // Pointer/RefPtr/array fields (mesh, material, textures, bone matrices) are deliberately not
-// reflected yet - they need resource-picker editors (editor phase 6). NON-export namespace:
+// reflected - they need resource-picker editors. NON-export namespace:
 // the macros expand static helpers (internal linkage), per the CoreReflection.cppm pattern.
 // ============================================================================================
 namespace engine::render

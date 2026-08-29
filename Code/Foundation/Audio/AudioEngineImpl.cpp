@@ -7,10 +7,10 @@
 //
 // Layout of the miniaudio object graph:
 //   ma_engine (device or headless mixer + resource manager with our ma_vfs bridge)
-//     Master group <- Effects / Music / UI groups (the fixed P1 bus layout)
+//     Master group <- Effects / Music / UI groups (the fixed bus layout)
 //       per-scene child groups under each bus (lazy; scene pause stops the group node)
 //         ma_sound voices from the fixed pool
-//           [P2: an ma_lpf node per 3D voice for distance low-pass - the slot is
+//           [an ma_lpf node per 3D voice for distance low-pass - the slot is
 //            reserved on VoiceSlot (`lowpassNode`) and in the attach path below]
 
 module;
@@ -93,7 +93,7 @@ namespace foundation::audio
                           static_cast<unsigned long long>(reinterpret_cast<uptr>(key)));
         }
 
-        // ---- the Freeverb ma_node wrapper (P3): pure DSP lives in :reverb ----
+        // ---- the Freeverb ma_node wrapper: pure DSP lives in :reverb ----
         // CONTINUOUS processing so the tail keeps ringing after inputs stop.
         struct ReverbNode
         {
@@ -167,7 +167,7 @@ namespace foundation::audio
         void* node = nullptr;
     };
 
-    // A named custom bus (audio.md: the additive topology freedom): one extra
+    // A named custom bus (additive topology): one extra
     // ma_sound_group, parented to a fixed bus or another custom bus per the layout.
     struct CustomBusData
     {
@@ -206,7 +206,7 @@ namespace foundation::audio
         // wet-only SEND reverb in parallel. nullptr = played with reverbSend 0.
         ma_splitter_node* splitterNode = nullptr;
         f32 reverbSend = 0.0f;
-        // Distance low-pass (P2): an ma_lpf node between the sound and its group; the
+        // Distance low-pass: an ma_lpf node between the sound and its group; the
         // cutoff glides open->floor across [min, max] distance every Update.
         ma_lpf_node* lowpassNode = nullptr;
         f32 lowpassFloorHz = 0.0f;
@@ -262,7 +262,7 @@ namespace foundation::audio
         Array<ma_sound> soundArena;
         Array<u32> freeSounds;
 
-        // Faded steal (audio.md parked item): the victim's ma_sound fades here (~30 ms)
+        // Faded steal: the victim's ma_sound fades here (~30 ms)
         // while its slot is reused at once. Capacity-bounded; oldest hard-cuts on
         // overflow. Entries keep the clip alive until the fade lands.
         struct DyingVoice
@@ -869,7 +869,7 @@ namespace foundation::audio
 
         void InitializeBusGroups()
         {
-            // Master first; the leaf buses parent to it (the fixed P1 layout).
+            // Master first; the leaf buses parent to it (the fixed layout).
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 ma_sound_group* parent = bus == static_cast<usize>(AudioBus::Master)
@@ -1361,7 +1361,7 @@ namespace foundation::audio
             }
         }
 
-        // Dying voices (faded steal): reap the ones whose fade landed.
+        // Dying voices (faded steal): reap the ones whose fade completed.
         for (usize i = impl.dyingVoices.Size(); i > 0; --i)
         {
             if (ma_sound_is_playing(impl.dyingVoices[i - 1].sound) == MA_FALSE)
@@ -1370,7 +1370,7 @@ namespace foundation::audio
             }
         }
 
-        // Reap: fades that landed, one-shots that reached their end. The same walk
+        // Reap: fades that completed, one-shots that reached their end. The same walk
         // glides every filtered voice's distance low-pass (covers one-shots and a
         // moving listener - voices the scene sync never repositions).
         for (VoiceSlot& slot : impl.voices)
@@ -1674,7 +1674,7 @@ namespace foundation::audio
         }
     }
 
-    // ---- music (P2): one tracked voice on the Music bus, cross-faded ----
+    // ---- music: one tracked voice on the Music bus, cross-faded ----
 
     VoiceHandle AudioEngine::PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds,
                                        f32 volume)
@@ -1724,7 +1724,7 @@ namespace foundation::audio
 
     VoiceHandle AudioEngine::MusicVoice() const { return m_impl->musicVoice; }
 
-    // ---- bus layout (P2) ----
+    // ---- bus layout ----
 
     void AudioEngine::ApplyBusLayout(const AudioBusLayout& layout)
     {
@@ -2317,7 +2317,7 @@ namespace foundation::audio
         pushBytes(interleavedSamples.Data(), dataBytes);
         return true;
     }
-    // ---- editor waveform (P2): pure decode -> per-bucket peaks ----
+    // ---- editor waveform: pure decode -> per-bucket peaks ----
 
     bool BuildWaveformPeaks(Span<const byte> encoded, u32 buckets, Array<f32>& outPeaks)
     {

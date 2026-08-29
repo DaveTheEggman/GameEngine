@@ -1,7 +1,7 @@
 // Engine-shader cook - enumerate the built-in HLSL corpus and precompile it into a CookedShaderPack.
 //
-// The EXPORT-time step that retires the runtime compiler for shipped dists (docs/design/shaders.md,
-// "Cook split"). For each stage file under the shader dir it: parses the variant directive, drift-
+// The EXPORT-time step that removes the runtime compiler from dists. For each stage file under
+// the shader dir it: parses the variant directive, drift-
 // lints (fails on a #ifdef'd-but-undeclared flag), enumerates the power set of the declared mask, and
 // for every (variant x requested backend format) emits a blob into the pack - SPIR-V / DXIL via DXC,
 // WGSL via the WgslTranslator. Runs on the dev/CI host only; the dist just reads the pack.

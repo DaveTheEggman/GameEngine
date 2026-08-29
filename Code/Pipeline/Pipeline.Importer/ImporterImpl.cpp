@@ -1,6 +1,6 @@
 // Pipeline::Importer - implementation unit.
 //
-// The file-import seam (asset-pipeline design §7): an OS file (drag-dropped onto the editor)
+// The file-import seam: an OS file (drag-dropped onto the editor)
 // becomes a SOURCE - the raw bytes copied into the project's Sources/ tree - plus a typed Asset
 // instance in the content DB whose import settings point at it. Cooking then owns the
 // source -> product path like any other asset (the imported file's content is part of the

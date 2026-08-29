@@ -1,6 +1,6 @@
 /// Foundation::Terrain.Resource - :splatmap partition.
 ///
-/// The editable terrain SPLAT WEIGHTS: the top-K (K = 4) blend model (terrain-splat-topk.md).
+/// The editable terrain SPLAT WEIGHTS: the top-K (K = 4) blend model.
 /// Per texel, TWO equal-size rasters hold up to four (paletteIndex, weight) pairs:
 ///   - indices: 4 x u8 palette indices (0..255); a slot is "unused" iff its weight is 0.
 ///   - weights: 4 x u8 quantized weights (0..255 -> 0..1), sum <= 255.

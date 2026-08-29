@@ -1,7 +1,7 @@
 // Editor::Scene - :component_gizmos partition.
 //
-// IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw
-// (design doc §8). Ported from Sedulous.Editor (IGizmoRenderer/GizmoContext + the light and
+// IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw.
+// Ported from Sedulous.Editor (IGizmoRenderer/GizmoContext + the light and
 // reflection-probe renderers) with fixes for our components:
 //   - the probe gizmo draws a wire BOX from halfExtents (our probes are boxes; Sedulous drew an
 //     influence sphere);

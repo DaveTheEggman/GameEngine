@@ -1,6 +1,6 @@
 // Pipeline::Navigation - the `navigation.pipeline` module (tooling).
 //
-// Source-side navmesh authoring + cook (Documentation/Plans/navigation.md):
+// Source-side navmesh authoring + cook:
 //   * NavigationZoneAsset (pipeline::Asset): carries the baked navmesh blob the editor's "Bake
 //     Navigation" action produced. The blob is machine-generated bulk, so it rides a SIDECAR
 //     stream (bulk-data-sidecar rule) rather than inline in the text envelope.

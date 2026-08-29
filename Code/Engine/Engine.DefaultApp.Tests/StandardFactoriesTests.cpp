@@ -67,13 +67,13 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
 
     // COUNT TRIPWIRE: the standard headless set (no graphics device -> no texture factory).
     // A new standard factory bumps this constant DELIBERATELY; a lost registration fails
-    // loudly here instead of as a silent null Bind in a shipped game.
-    // 19 = +PropertyAnimationClipFactory (2026-08-17: the editor's clip picker bind warned
+    // loudly here instead of as a silent null Bind in a production game.
+    // 19 = +PropertyAnimationClipFactory (the editor's clip picker bind warned
     // "host is missing an AddFactory" - the factory existed but no host registered it).
-    // 20 = +NavigationZoneFactory (navigation P3b; the bump was MISSED in that commit and
-    // caught by this tripwire at the 2026-08-18 review gate - run the FULL battery, not
+    // 20 = +NavigationZoneFactory (the bump was MISSED in that change and
+    // caught by this tripwire - run the FULL battery, not
     // just the touched targets).
-    // 23 = +Heightfield/Terrain/Splatmap factories (terrain 2026-08-24: creating a Terrain in the
+    // 23 = +Heightfield/Terrain/Splatmap factories (creating a Terrain in the
     // editor warned "host is missing an AddFactory for TerrainResource" - the factories existed +
     // were pipeline-tested, but no host registered them; the SAME incident class as the font one).
     constexpr usize kStandardHeadlessFactoryCount = 23;

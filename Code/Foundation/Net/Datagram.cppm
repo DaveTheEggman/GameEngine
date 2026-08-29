@@ -1,8 +1,8 @@
 /// Foundation::Net - `foundation.net:datagram` partition.
 ///
-/// The UNRELIABLE datagram substrate the reliability layer is built on (docs/design/networking.md
-/// §4). `IDatagramSocket` is a connectionless send/recv over an opaque `DatagramEndpoint`; its
-/// backends are a real UDP socket (Core/System, a later slice) and the in-memory `SimDatagramNetwork`
+/// The UNRELIABLE datagram substrate the reliability layer is built on.
+/// `IDatagramSocket` is a connectionless send/recv over an opaque `DatagramEndpoint`; its
+/// backends are a real UDP socket (Core/System) and the in-memory `SimDatagramNetwork`
 /// here. Splitting reliability from the socket is what lets the reliable-UDP protocol be tested
 /// against deterministic packet loss/reorder with no OS sockets.
 

@@ -407,8 +407,8 @@ export namespace foundation::ui::toolkit
         [[nodiscard]] bool InResizeBand(Float2 p, bool& right, bool& bottom) const
         {
             // The EDGE bands live in the content inset (the border area OUTSIDE the hosted
-            // content), so they never eat the content's own edge - a 9px band used to claim the
-            // outer ~3px of a hosted PropertyGrid's scrollbar (pass-17 polish). The bottom-right
+            // content), so they never eat the content's own edge - otherwise a 9px band would claim
+            // the outer ~3px of a hosted PropertyGrid's scrollbar. The bottom-right
             // CORNER keeps a larger grab square (the OS-window resize-grip convention; the
             // corner of a scrollable area is dead space).
             const bool inCorner =

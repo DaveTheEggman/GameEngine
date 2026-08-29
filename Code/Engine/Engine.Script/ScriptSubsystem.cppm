@@ -1,6 +1,6 @@
 // Engine::Script - the `engine.script` module.
 //
-// Entity behaviors (docs/design/scripting.md §3 + §7 P1): a ScriptSceneSystem per scene
+// Entity behaviors: a ScriptSceneSystem per scene
 // instantiates each behavior's cooked ScriptClass in the run's ONE gameplay script
 // context, applies harvested defaults + hash-keyed overrides, and dispatches the
 // declared lifecycle handlers (onStart via deferred start, onUpdate(dt), onEnable/
@@ -259,8 +259,8 @@ export namespace engine::script
             m_errorSink.external = sink;
         }
 
-        // The game-script hold (game-instance.md §11.10): true while a game script is loaded into THIS
-        // host, so teardown accounting keeps the context alive. Per-host now (was ScriptSubsystem-wide).
+        // The game-script hold: true while a game script is loaded into THIS
+        // host, so teardown accounting keeps the context alive. Per-host.
         void SetGameScriptHold(bool held) noexcept { m_gameScriptHold = held; }
         [[nodiscard]] bool HasGameScriptHold() const noexcept { return m_gameScriptHold; }
 
@@ -439,9 +439,9 @@ export namespace engine::script
             // Rebuild: fresh generation module, each class carrying its OWN section identity
             // (sourceName). The structured LoadBehaviorModule preserves per-class sections so a
             // debug-capable backend reports (sourceFile, sourceLine) from GetLineNumber and
-            // editor breakpoints line up (script-debugger.md P1.5). The LANGUAGE framing (any
+            // editor breakpoints line up. The LANGUAGE framing (any
             // prelude/base a backend needs) stays the backend's job - the run host only supplies
-            // the ordered {sourceName, source} pairs, no language syntax here (scripting.md §7.5).
+            // the ordered {sourceName, source} pairs, no language syntax here.
             m_classSourceScratch.Clear();
             m_classSourceScratch.Reserve(m_loadedClasses.Size());
             for (const RefPtr<ScriptClass>& loaded : m_loadedClasses)
@@ -746,7 +746,7 @@ export namespace engine::script
             }
         }
 
-        /// Behavior messaging (P2 §3.4): QUEUE `on<Message>(args)` for EVERY enabled
+        /// Behavior messaging: QUEUE `on<Message>(args)` for EVERY enabled
         /// behavior of `target` that declares the handler. Reached from the `Entity::send`
         /// facade via the run binding's route. Delivery is DEFERRED (drained at the tick's
         /// top level) because a send happens INSIDE a running script call and re-entrant
@@ -769,7 +769,7 @@ export namespace engine::script
             m_messages.PushBack(Move(pending));
         }
 
-        /// Physics contacts (§ contact events): QUEUE a contact handler call (the handler name
+        /// Physics contacts: QUEUE a contact handler call (the handler name
         /// is already the final `on<Event>` - e.g. "onContactBegin" - not a message to convert)
         /// with pre-marshalled args. Reuses the SAME deferred queue as entity.send so it drains
         /// at the tick's top level: the physics tick pushes contacts (never nested in a script
@@ -973,7 +973,7 @@ export namespace engine::script
 
         void TickBehavior(ScriptBehavior& behavior, scene::EntityHandle entity, f32 deltaTime)
         {
-            // entity-active-state.md P3: an effectively-inactive entity's behaviors FREEZE -
+            // An effectively-inactive entity's behaviors FREEZE -
             // no lifecycle events fire, onStart waits for the first ACTIVE tick (so an entity
             // that loads inactive behaves like spawn-disabled), and updates stop. Pending
             // coroutines are cancelled once on the edge - the existing disabled-behavior
@@ -1053,7 +1053,7 @@ export namespace engine::script
                     return;
                 }
             }
-            // updateInterval throttling (P3): 0 = every tick with the raw dt; otherwise
+            // updateInterval throttling: 0 = every tick with the raw dt; otherwise
             // bank time and deliver once the interval elapses, passing the ACCUMULATED dt
             // (so movement integrates correctly at a lower call rate).
             if (behavior.updateInterval > 0.0f)
@@ -1504,14 +1504,14 @@ export namespace engine::script
     class ScriptSubsystem final : public foundation::runtime::Subsystem, public scene::ISceneObserver
     {
     public:
-        /// The DEFAULT run host - the one for the editor's editing/loose scenes (game-instance.md
-        /// §11.10). A GameInstance owns its OWN run host for its game scenes + game script; this is not
+        /// The DEFAULT run host - the one for the editor's editing/loose scenes.
+        /// A GameInstance owns its OWN run host for its game scenes + game script; this is not
         /// that. Editing-scene Simulate runs its behaviors on this host.
         [[nodiscard]] ScriptRunHost& RunHost() noexcept { return m_ownedRunHost; }
 
         /// Wire a run host (this default OR a GameInstance's) with the app services + routing so its
         /// context, once created, has the facades, the Scene.spawn spawner, and entity.send routing
-        /// (game-instance.md §11.10). The wrappers read the stored configurator/spawner + m_systems
+        /// The wrappers read the stored configurator/spawner + m_systems
         /// LIVE, so one call per host suffices and the same message route serves every host. Call
         /// once per run host before its first context is created.
         void ConfigureRunHost(ScriptRunHost& host)
@@ -1533,7 +1533,7 @@ export namespace engine::script
                         return self->m_spawner ? self->m_spawner(scene, prefab, position)
                                                : scene::EntityHandle::Invalid();
                     }};
-            // Resource-swap seam (Track A): forward to the app's getter at call time, so a manager
+            // Resource-swap seam: forward to the app's getter at call time, so a manager
             // created AFTER this host was configured is still seen (like m_spawner's live wrapper).
             host.Binding().resolveResources = Function<resource::ResourceManager*()>{
                 [self]() -> resource::ResourceManager*
@@ -1555,7 +1555,7 @@ export namespace engine::script
         }
 
         /// Tear down `host` if nothing pins it: no game-script hold, no scene BOUND TO IT simulating,
-        /// no live behavior instances in those scenes (game-instance.md §11.10). Per-host, so an
+        /// no live behavior instances in those scenes. Per-host, so an
         /// instance's host and the editor's host tear down independently. Called by the scene-stop
         /// observer, OnSceneDestroyed, and a GameInstance on its own host.
         void MaybeTeardownRunHost(ScriptRunHost& host)
@@ -1638,7 +1638,7 @@ export namespace engine::script
         {
             m_spawner = Move(spawner);
         }
-        /// Host-app wiring: a GETTER for the run's resource manager, behind the Track A resource-swap
+        /// Host-app wiring: a GETTER for the run's resource manager, behind the resource-swap
         /// ops (SceneRender.setMesh, ...). A getter (not a ptr) because the app's manager is created
         /// AFTER Configure runs - resolveResources reads it per call, so it sees the manager once the
         /// app has one, whatever the wiring order. The app owns the manager; this borrows it.
@@ -1646,7 +1646,7 @@ export namespace engine::script
         {
             m_resourcesGetter = Move(getter);
         }
-        // The game-script run context is no longer acquired here (game-instance.md §11.10): a
+        // The game-script run context is not acquired here: a
         // GameInstance owns its run host and drives its own game script through it. This subsystem is
         // machinery (routing + ISceneObserver + reflection + Configure/MaybeTeardownRunHost).
 
@@ -1655,8 +1655,8 @@ export namespace engine::script
         void OnSystemsReady(scene::Scene& scene) override
         {
             ScriptSceneSystem* system = scene.GetSystem<ScriptSceneSystem>();
-            // Bind to the DEFAULT run host; a GameInstance re-binds ITS scenes to its own host on adopt
-            // (game-instance.md §11.10). The teardown observer checks the system's CURRENT host.
+            // Bind to the DEFAULT run host; a GameInstance re-binds ITS scenes to its own host on adopt.
+            // The teardown observer checks the system's CURRENT host.
             system->SetRunHost(&m_ownedRunHost);
             ScriptSubsystem* self = this;
             system->SetRunObserver(Function<void()>{[self, system]()
@@ -1790,13 +1790,13 @@ export namespace engine::script
         }
 
         ScriptRunHost
-            m_ownedRunHost; // the DEFAULT run host (editor/editing scenes; game-instance §11.10)
+            m_ownedRunHost; // the DEFAULT run host (editor/editing scenes)
         Array<SceneEntry> m_systems;
         Function<void(IScriptContext&)>
             m_configurator; // app services, applied to every host via ConfigureRunHost
         Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>
             m_spawner; // Scene.spawn
         Function<resource::ResourceManager*()>
-            m_resourcesGetter; // Track A resource swaps (late-bound; app owns the manager)
+            m_resourcesGetter; // resource swaps (late-bound; app owns the manager)
     };
 }

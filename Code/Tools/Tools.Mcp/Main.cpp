@@ -1,4 +1,4 @@
-// Tools.Mcp - headless MCP stdio server (the P1 host).
+// Tools.Mcp - headless MCP stdio server.
 //
 // Speaks newline-delimited JSON-RPC over stdin/stdout so an agent (e.g. Claude Code, one command
 // line) gets the engine's introspection surface with the editor CLOSED. STDOUT IS THE WIRE - every
@@ -54,7 +54,7 @@ namespace
 
     // The CURATED, distribution-facing register (Documentation/Shipping/KnownIssues.md) - never
     // the repo-root development tracker, which is internal triage state and is not distributed.
-    // Resolution walks up from the executable (then the cwd) checking the SHIPPED layout first
+    // Resolution walks up from the executable (then the cwd) checking the distribution layout first
     // (KnownIssues.md staged next to the tool) and the repo layout second. "" = not found - the
     // known_issues tool then errs with guidance instead of being silently absent.
     [[nodiscard]] String FindKnownIssues(const char* argv0)
@@ -68,7 +68,7 @@ namespace
         {
             for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
             {
-                const fs::path candidates[] = {dir / "KnownIssues.md", // shipped: staged sidecar
+                const fs::path candidates[] = {dir / "KnownIssues.md", // distribution: staged sidecar
                                                dir / "Documentation" / "Shipping" /
                                                    "KnownIssues.md"}; // engine checkout
                 for (const fs::path& candidate : candidates)
@@ -226,7 +226,7 @@ int main(int /*argc*/, char** argv)
         RegisterShippingDocResources(server, shippingDocs.AsView());
     }
     editor::mcp::RegisterProjectResources(server, session);
-    // script_validate: compile-check-only (typed checks land with the Luau analyzer, P5); the
+    // script_validate: compile-check-only (no typed checks); the
     // language cooks were registered by Pipeline::Registration above.
     editor::mcp::RegisterScriptValidateTool(server);
     editor::mcp::RegisterScriptCreateTool(server, session); // starter-seeded script assets

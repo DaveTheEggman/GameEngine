@@ -246,7 +246,7 @@ TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) 
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(project);
         project->Settings().defaultUiFontId = fontId;
-        project->Settings().defaultBusLayoutId = busId; // the per-field move used to DROP this
+        project->Settings().defaultBusLayoutId = busId; // the per-field move must not DROP this
         REQUIRE(project->SaveSettings().IsOk());
     }
     {

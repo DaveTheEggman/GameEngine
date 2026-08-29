@@ -1,6 +1,6 @@
 // Foundation::Audio - :clip partition.
 //
-// AudioClip: the RUNTIME clip object (docs/design/audio.md §4) - metadata plus the
+// AudioClip: the RUNTIME clip object - metadata plus the
 // ORIGINAL compressed container bytes (wav/ogg/mp3/flac; Traktor's compressed-in-memory
 // model, never PCM sidecars). Streamed clips carry a re-openable byte source instead of
 // bytes, so the engine can page-decode them straight out of the cooked content mount

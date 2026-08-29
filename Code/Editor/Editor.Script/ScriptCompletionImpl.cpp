@@ -70,7 +70,7 @@ namespace editor
 
         // Top level: the bound type/namespace names. Editor-only bindings carry a label
         // marker (insert text stays the bare name) - they work in-editor/PIE but are
-        // absent from a shipped player.
+        // absent from a built player.
         for (const script::ScriptApiType& type : types)
         {
             String label(type.scriptName.AsView());

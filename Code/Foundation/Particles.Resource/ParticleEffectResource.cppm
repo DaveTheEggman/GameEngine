@@ -3,8 +3,6 @@
 // runtime ParticleEffect; the cook (foundation.particles.editor) writes one into the content DB, the
 // factory reconstructs it at Bind. Polymorphic modules round-trip via the reflection/serializable
 // registry (Serializables().Create by type-id) - the same machinery TextureResource uses.
-//
-// See docs/design/particles-authoring.md.
 
 module;
 #include "Core/Prelude.h"

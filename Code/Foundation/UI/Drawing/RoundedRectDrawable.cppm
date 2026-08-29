@@ -50,9 +50,9 @@ export namespace foundation::ui
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override
         {
             // Border strokes are INSET (stroke center pulled in by half the width) so the whole
-            // border lies INSIDE bounds - border-box painting (ui-box-model.md). VG strokes are
-            // centered on the path, so an un-inset stroke used to hang half outside the view,
-            // where ClipsContent amputated it and adjacent siblings' borders overlapped.
+            // border lies INSIDE bounds - border-box painting. VG strokes are
+            // centered on the path, so an un-inset stroke would hang half outside the view,
+            // where ClipsContent would amputate it and adjacent siblings' borders would overlap.
             const f32 inset = BorderWidth * 0.5f;
             const Rectangle borderRect{bounds.x + inset, bounds.y + inset,
                                        Max(0.0f, bounds.width - BorderWidth),
@@ -87,7 +87,7 @@ export namespace foundation::ui
             }
         }
 
-        /// Border-box: the border is chrome that content must clear (ui-box-model.md). Merged
+        /// Border-box: the border is chrome that content must clear. Merged
         /// into padding by View::ResolveBoxMetrics / Panel::EffectivePadding.
         [[nodiscard]] Thickness DrawablePadding() const override
         {

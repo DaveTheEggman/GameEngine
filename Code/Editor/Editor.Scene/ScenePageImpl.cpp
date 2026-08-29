@@ -1,6 +1,6 @@
 // Editor::Scene - :page partition.
 //
-// SceneEditorPage: the scene document editor (design doc §3.6, phase 2). Each page owns its OWN
+// SceneEditorPage: the scene document editor. Each page owns its OWN
 // live Scene (multi-scene rule - several pages open at once; everything scene-scoped is
 // per-page): a ViewportView renders the scene through the REAL renderer via CameraOverride into
 // the viewport's offscreen color target, an EditorCamera flies on the viewport's gated devices
@@ -8,7 +8,7 @@
 // content DB through LoadScene/SaveScene. An empty scene shows a debug-draw ground grid + origin
 // axes so navigation reads immediately.
 //
-// RegisterSceneEditor is the module's RegisterEditor entry point (§3.1): the EXECUTABLE calls it
+// RegisterSceneEditor is the module's RegisterEditor entry point: the EXECUTABLE calls it
 // (editor core/app never link this module); it registers the SceneDocument type, the page
 // factory, and the "Scene" asset creator (File > New Scene).
 
@@ -929,9 +929,9 @@ namespace editor
         add(u8"No AO", &render::ViewPostOverride::disableAo);
         add(u8"No SSR", &render::ViewPostOverride::disableSsr);
         add(u8"No AA (crisp)", &render::ViewPostOverride::disableAa);
-        // Scene-pass MSAA (msaa.md): an INDEPENDENT off/2x/4x tri-state (not a bool - it forces the
+        // Scene-pass MSAA: an INDEPENDENT off/2x/4x tri-state (not a bool - it forces the
         // view's sample count). The count is capability-clamped by the render subsystem, so a 4x pick
-        // on a 2x device renders 2x. MSAA and TAA are independent (Decision 5); both can be on.
+        // on a 2x device renders 2x. MSAA and TAA are independent; both can be on.
         menu->AddSeparator();
         const auto msaaItem = [&](StringView label, u8 count)
         {
@@ -1207,7 +1207,7 @@ namespace editor
                                                self->m_showGrid = value;
                                                self->SaveViewPrefs(); // persist per-scene
                                            });
-        // LOD overlay (mesh-lod.md P3): tint every chained mesh's bounds by the level this
+        // LOD overlay: tint every chained mesh's bounds by the level this
         // viewport's camera selects. Off by default - a debug lens, not an editing mode.
         m_lodToggle = m_toolbar->AddToggle(u8"LOD");
         m_lodToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)

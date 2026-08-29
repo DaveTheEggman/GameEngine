@@ -62,7 +62,7 @@ export namespace foundation::render
     };
 
     // Ephemeral per-view post-processing overrides for a RenderScene call - the editor viewport's
-    // "show flags" (docs/design/post-processing-config.md). Applied ON TOP of the view's resolved
+    // "show flags". Applied ON TOP of the view's resolved
     // post config; NEVER touches the scene asset. Lets an editor viewport strip effects for editing
     // clarity (crisp unjittered image for pixel inspection, raw lit image without bloom/AO/SSR)
     // without changing the authored look the game ships.
@@ -76,8 +76,8 @@ export namespace foundation::render
         bool disableAa = false; // TAA + FXAA off (crisp + unjittered)
         // Scene-pass MSAA for this view (the editor viewport's off/2x/4x toggle). 0 = no override
         // (leave the resolved count as-is); 1/2/4 = force that sample count. The editor viewport is
-        // the source of its own MSAA count (the scene authors none until the P2 project setting), so
-        // it forces the count here. Capability-clamped downstream (msaa.md Decision 1/2).
+        // the source of its own MSAA count (the scene authors none), so
+        // it forces the count here. Capability-clamped downstream.
         u8 msaaOverride = 0;
     };
 

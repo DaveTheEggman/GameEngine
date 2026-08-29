@@ -301,7 +301,7 @@ export namespace foundation::ui
                 }
 
                 // Unknown attribute: ignored at runtime, but SURFACED to the cook - a
-                // camelCase typo (fontSize vs font-size) once shipped an invisible HUD.
+                // camelCase typo (fontSize vs font-size) can silently produce an invisible HUD.
                 if (warnings != nullptr)
                 {
                     String w(u8"unknown attribute '");

@@ -2,8 +2,8 @@
 ///
 /// The HDR resolve: the forward pass renders linear HDR into a transient (RGBA16F); this fullscreen
 /// pass reads it, applies exposure + a tonemap operator + the display OETF, and writes the LDR
-/// target. Keeps the renderer in a strict linear working space (docs/design/renderer.md §12) - the
-/// foundation IBL/post are designed against. CM1a uses a trivial clamp; CM1b swaps in AgX.
+/// target. Keeps the renderer in a strict linear working space that the IBL/post stack is
+/// designed against. The operator is selectable: a trivial clamp or AgX.
 
 module;
 #include "Core/Prelude.h"

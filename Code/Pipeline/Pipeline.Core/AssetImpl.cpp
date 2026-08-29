@@ -1,9 +1,9 @@
 // Pipeline::Core - reflection implementation unit: the Asset base's reflected surface.
 //
-// Kept OUT of the Asset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster; see
-// gcc-module-interface-hygiene). Asset::StaticType() gains its fileName property here, so every
-// concrete asset inherits it through the base chain (FindProperty walks bases). RegisterAssetReflection
-// also registers SourcePath's reflection (fileName's type). Reflection track P1.
+// Kept OUT of the Asset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster).
+// Asset::StaticType() gains its fileName property here, so every concrete asset inherits it
+// through the base chain (FindProperty walks bases). RegisterAssetReflection also registers
+// SourcePath's reflection (fileName's type).
 
 module;
 #include "Core/Prelude.h"

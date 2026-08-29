@@ -1,6 +1,6 @@
 // Foundation::Navigation.Resource - the `foundation.navigation.resource` module.
 //
-// Cooked navigation content (Documentation/Plans/navigation.md), mirroring the collision-shape
+// Cooked navigation content, mirroring the collision-shape
 // split:
 //   * NavigationZoneSource - the cooked record: the serialized single-tile navmesh blob a bake
 //     action produced (NavigationMeshBuilder::Build output).

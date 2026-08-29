@@ -1,4 +1,4 @@
-// Editor Core - ThumbnailService implementation (asset-thumbnails.md P1).
+// Editor Core - ThumbnailService implementation.
 //
 // ScheduleLoad gathers everything on the MAIN thread (instance resolve, generator lookup, the
 // Prepare payload, the content-hash cache path), the light worker does disk-load-or-generate +
@@ -150,7 +150,7 @@ namespace editor
             }
             else
             {
-                // Generate failures were previously SILENT - the negative cache hid them.
+                // Warn on generate failure: the negative cache would otherwise hide it.
                 LOG_WARNING(u8"Thumbnails", u8"generate failed for {} (cached negative)",
                             slot->id);
                 m_entries.InsertOrAssign(slot->id, Entry{}); // negative: stop rescheduling

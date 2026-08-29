@@ -1,6 +1,6 @@
 // Animation editor: cook a SkeletonAsset through its builder into the content DB, then load it back
 // through the resource factory and verify the runtime skeleton. Exercises the authoring -> cook ->
-// product path (the model importer that fills the source is deferred).
+// product path.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

@@ -182,7 +182,7 @@ export namespace foundation::ui
             // Draw-side results cache against the ARRANGED width (which can differ from the
             // measure constraint) - a separate entry from m_measureCache so alternating
             // measure/draw widths never ping-pong one slot. (DrawTextWrapped still shapes
-            // internally in VG - the shared shaped-text cache is the P4 structural item.)
+            // internally in VG; there is no shared shaped-text cache.)
             const String family = ResolveStyleFontFamily(FontFamily.Value());
             const f32 fontSize = ResolveFontSize();
 

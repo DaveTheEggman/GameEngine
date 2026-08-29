@@ -1,6 +1,6 @@
-// AssetPickerSlot tests (asset-picker-slot.md P1). The composite slot is pure widget logic and
-// exercises headlessly: affordances render only when their callback is WIRED (correction C1 -
-// the entity-ref twin degrades to a plain name button), Edit/Clear/preview disable while the
+// AssetPickerSlot tests. The composite slot is pure widget logic and
+// exercises headlessly: affordances render only when their callback is WIRED (the
+// entity-ref twin degrades to a plain name button), Edit/Clear/preview disable while the
 // slot is empty, and each affordance fires its callback exactly once per click.
 
 #include <doctest/doctest.h>

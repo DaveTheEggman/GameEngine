@@ -2,11 +2,11 @@
 // chunk render-data), the GPU height-texture cache, the render-data payload, the chunked geo-mipmap
 // TerrainRenderer, and the Context-level TerrainSubsystem that wires them into RenderSubsystem via its
 // generic register-renderer / register-provider seam. Engine.Render stays terrain-free. Physics is a
-// SEPARATE ShapeKind::Heightfield collider over the same shared heightfield. See docs Plans/terrain.md.
+// SEPARATE ShapeKind::Heightfield collider over the same shared heightfield.
 
 export module engine.terrain;
 
-export import :heighttexture; // Phase B: the GPU height-texture cache
+export import :heighttexture; // the GPU height-texture cache
 export import :splattexture;  // the GPU splat-texture cache (RGBA8, paint re-upload)
 export import :renderdata;    // TerrainRenderData (the per-terrain draw-list payload)
 export import :components;    // TerrainComponent + manager (IRenderDataProvider)

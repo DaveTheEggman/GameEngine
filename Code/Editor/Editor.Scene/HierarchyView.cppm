@@ -1,7 +1,7 @@
 // Editor::Scene - :hierarchy partition.
 //
 // SceneHierarchyView: the entity tree INSIDE a scene page (multi-scene rule - one per page,
-// never a global panel; §3.6). A DraggableTreeView over a rebuilt snapshot of the live scene
+// never a global panel). A DraggableTreeView over a rebuilt snapshot of the live scene
 // (Scene::Revision() gates the rebuild, so command execute/undo/redo all refresh it for free),
 // wired to the page's SceneEditContext:
 //   - click selects (per-page Guid selection, synced both ways with the tree's SelectionModel);
@@ -133,7 +133,7 @@ export namespace editor
                 TextOffsetX.SetValue(textInset);
                 // Every prefab-instance member reads distinctly (the Unity-blue convention);
                 // the text itself stays clean so in-place renames never absorb a marker.
-                // Effectively-inactive entities DIM (entity-active-state.md P4) - alpha over
+                // Effectively-inactive entities DIM - alpha over
                 // whichever color the row would otherwise have, so prefab-blue dims too.
                 Optional<Color> color;
                 if (prefabMember)

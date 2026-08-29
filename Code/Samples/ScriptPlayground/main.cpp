@@ -1,4 +1,4 @@
-// ScriptPlayground - the foundation.script entity-behaviors P1 consumer proof: a scene of
+// ScriptPlayground - the foundation.script entity-behaviors consumer proof: a scene of
 // cubes carrying SCRIPT BEHAVIORS (AngelScript or Luau, chosen with --script=<lang>) ticked by
 // the ScriptSubsystem under simulation. Both behaviors ship a source in EACH language; the run
 // resolves the context by the ScriptClass language, proving the model is backend-neutral. Two

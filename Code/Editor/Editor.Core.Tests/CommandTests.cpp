@@ -1,4 +1,4 @@
-// EditorCommandStack tests: Lumix semantics per docs/design/editor.md §3.4 - execute/undo/redo,
+// EditorCommandStack tests: Lumix semantics - execute/undo/redo,
 // failed-execute drop, redo-tail truncation, same-type merge (slider drags), group transactions
 // (atomic undo/redo, same-type coalescing, LockGroup).
 

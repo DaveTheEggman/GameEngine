@@ -479,7 +479,7 @@ TEST_CASE("content: the open scan reports envelope count + bytes opened (I4b ins
     const StringView dir = u8"scratch_content_scanstats";
     // The suite's RemoveTree only knows the round-trip test's fixed paths; this test writes
     // its own instances, so clean recursively or the previous run's envelopes pollute the
-    // construction scan (found live: envelopes==3 on the authoring db).
+    // construction scan (otherwise envelopes==3 on the authoring db).
     (void)RemoveDirectoryRecursive(dir);
     NativeFileSystem mount(dir);
     {

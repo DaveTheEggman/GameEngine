@@ -1,7 +1,7 @@
-// Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf, updated for the P2b margin-box
-// contract (ui-box-model.md): Apply positions the MARGIN BOX (no margin parameter); View::Layout
+// Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf, for the margin-box
+// contract: Apply positions the MARGIN BOX (no margin parameter); View::Layout
 // insets to the border box. The margin cases below assert the margin-box rect and note the final
-// border box, which equals the pre-P2b values exactly.
+// border box.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;

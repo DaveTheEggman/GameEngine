@@ -1,7 +1,7 @@
 // Editor::Core - :export_template partition.
 //
 // Export templates: portable, per-platform prebuilt bundles (a player binary + its runtime sidecars +
-// a template.xml manifest) that presets reference by id/platform (docs/design/export.md §2). They live
+// a template.xml manifest) that presets reference by id/platform. They live
 // in a machine-local templates root (not committed), are importable/downloadable, and are decoupled
 // from any one machine's paths. The HOST implicit template is synthesized from the running tool's own
 // directory (Bin/...), so a dev export for the current platform needs zero setup.

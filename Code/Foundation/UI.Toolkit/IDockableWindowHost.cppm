@@ -35,7 +35,7 @@ export namespace foundation::ui::toolkit
         /// resize / close, so the docking layer suppresses its close button and inner resize
         /// edges, and a drag from the panel header re-docks WITHOUT the window chasing the
         /// cursor. Linux hosts default to chromed (Wayland punishes app-positioned borderless
-        /// windows; XWayland blocks cross-monitor drags - user ruling, docking-v2.md).
+        /// windows; XWayland blocks cross-monitor drags).
         [[nodiscard]] virtual bool UsesOSChrome() { return false; }
 
         /// Create a real OS window to host the given dockable window view. `onCloseRequested` is called

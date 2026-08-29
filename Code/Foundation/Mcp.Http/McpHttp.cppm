@@ -1,7 +1,7 @@
 // Foundation::Mcp.Http - the `foundation.mcp.http` module.
 //
-// The MCP streamable-HTTP binding (mcp-agent-access.md P2): the SAME McpServer registry the
-// stdio host serves, over foundation.http - localhost + bearer token (the P2 trust decision).
+// The MCP streamable-HTTP binding: the SAME McpServer registry the
+// stdio host serves, over foundation.http - localhost + bearer token (the trust decision).
 // A satellite of foundation.mcp (the Mcp.Reflection/Mcp.Script pattern), so the protocol
 // core stays transport-free.
 //

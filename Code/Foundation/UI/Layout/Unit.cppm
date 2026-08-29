@@ -37,9 +37,9 @@ export namespace foundation::ui
         /// PHYSICAL device pixels (divided out of the root draw scale).
         [[nodiscard]] static constexpr Unit Px(f32 v) noexcept { return {Kind::Px, v}; }
 
-        /// Resolves to LOGICAL units (ui-box-model.md P2b). Layout runs entirely in logical
-        /// space and the root applies DpiScale once at draw - so Dp is identity here (the old
-        /// `value * dpiScale` double-scaled: once at resolve, again at draw), and Px divides by
+        /// Resolves to LOGICAL units. Layout runs entirely in logical
+        /// space and the root applies DpiScale once at draw - so Dp is identity here (a
+        /// `value * dpiScale` here would double-scale: once at resolve, again at draw), and Px divides by
         /// the scale so it lands on exact device pixels after the draw scale.
         [[nodiscard]] constexpr f32 Resolve(f32 dpiScale) const noexcept
         {

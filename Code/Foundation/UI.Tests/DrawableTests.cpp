@@ -1,6 +1,6 @@
 // Ported from Sedulous.UI.Tests/src/DrawableTests.bf (faithful; Beef `new X()/defer ReleaseRef` ->
 // stack values / MakeRef children, `===` reference-equality -> pointer ==).
-// NOTE: the two NineSlice_* tests are deferred until NineSliceDrawable is ported.
+// NOTE: the two NineSlice_* tests are not ported; they require NineSliceDrawable.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;

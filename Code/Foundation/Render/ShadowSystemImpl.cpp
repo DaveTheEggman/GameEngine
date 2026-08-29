@@ -1,11 +1,11 @@
 /// Foundation::Render - the `:shadows` partition.
 ///
-/// Shadow mapping (phase 5). 5.1 is the directional vertical slice: a single shadow map rendered
+/// Shadow mapping. The directional path: a single shadow map rendered
 /// from the scene's directional shadow caster's point of view, sampled with PCF in the forward
 /// shader. This partition OWNS the shadow depth texture(s) (one per frame-in-flight) and imports
 /// them into the frame graph; RenderFrame (:pipeline, which has the renderer registry) declares the
 /// depth pass that re-emits the casters and threads the binding into the forward pass. CSM cascades
-/// (5.2) + the rebuilt atlas/scheduler (5.3/5.4, modeled on PlayCanvas) extend this.
+/// and the atlas/scheduler (modeled on PlayCanvas) extend this.
 
 module;
 #include "Core/Prelude.h"

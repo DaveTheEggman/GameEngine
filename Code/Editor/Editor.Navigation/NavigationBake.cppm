@@ -1,6 +1,6 @@
 // Editor::Navigation - the `editor.navigation` module (interface).
 //
-// The "Bake Navigation" flow (Documentation/Plans/navigation.md, editor section): collect every
+// The "Bake Navigation" flow: collect every
 // static mesh whose world AABB intersects a zone's box, transform its triangles into ZONE-LOCAL
 // space (so the baked navmesh rides the zone entity's transform to any placement without a
 // rebake), run the Recast bake, and write the result into the zone's NavigationZoneAsset sidecar.

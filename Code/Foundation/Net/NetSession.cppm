@@ -1,6 +1,6 @@
 /// Foundation::Net - `foundation.net:session` partition.
 ///
-/// The session layer (docs/design/networking.md §3 `foundation.net.session`, P1): roles, a peer
+/// The session layer (`foundation.net.session`): roles, a peer
 /// registry, and the connect/disconnect lifecycle over the reliable-UDP transport. A NetSession is
 /// the API the game (and the replication/RPC layers) talk to - the server tracks its connected
 /// clients, the client tracks its one server, and Broadcast fans a message out to every peer.
@@ -22,7 +22,7 @@ export namespace foundation::net
 {
 
     // A session's role. A listen-server is also a local player; a dedicated server has no local player
-    // (the headless `Server` runtime config, docs/design/networking.md §6).
+    // (the headless `Server` runtime config).
     enum class NetRole : u8
     {
         None,

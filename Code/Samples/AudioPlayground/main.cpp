@@ -1,4 +1,4 @@
-// AudioPlayground - the audio P1 consumer proof: an ambient chord loop on the Music bus
+// AudioPlayground - the audio consumer proof: an ambient chord loop on the Music bus
 // plus four looping 3D emitters around the origin (distinct pitches of the same clip -
 // REAL pitch resampling), all authored as AudioSource COMPONENTS with autoplay on a
 // scene, the LISTENER driven by an AudioListenerComponent on the fly-camera entity, and
@@ -149,7 +149,7 @@ namespace
                 m_emitters.PushBack(e);
             }
 
-            // Reverb zone (P3): stand near the origin to hear the 'cave' - the tail
+            // Reverb zone: stand near the origin to hear the 'cave' - the tail
             // fades in across the zone's edge band and dries out as you fly away.
             {
                 scene::EntityHandle zone = m_scene->CreateEntity(u8"cave-zone");
@@ -162,7 +162,7 @@ namespace
                 reverb.wetLevel = 0.6f;
             }
 
-            // LMB one-shots fire through a CUE (P3): three weighted variants with
+            // LMB one-shots fire through a CUE: three weighted variants with
             // pitch jitter - no two consecutive shots pick the same clip.
             m_shotCue = core::MakeRef<audio::SoundCue>(core::DefaultAllocator());
             m_shotCue->variants.PushBack(audio::SoundCueVariant{m_beepHigh, 3.0f});

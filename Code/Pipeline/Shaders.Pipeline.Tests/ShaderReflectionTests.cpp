@@ -1,4 +1,4 @@
-// Reflection track P1: ShaderAsset's reflected surface (name + fragmentFile strings).
+// ShaderAsset's reflected surface (name + fragmentFile strings).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

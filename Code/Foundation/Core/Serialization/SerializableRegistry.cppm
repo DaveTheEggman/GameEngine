@@ -64,7 +64,7 @@ export namespace foundation::core
     // The standard create-by-type adapter for a polymorphic reflected container of `Base` elements:
     // wraps this registry so reflection's RegisterPolymorphicArrayType<Base> can create + eligibility-
     // check by type WITHOUT importing serialization (capability flows into reflection as function
-    // pointers - CONVENTIONS.md). Registrants pass &CreateSerializableElement<Base> +
+    // pointers). Registrants pass &CreateSerializableElement<Base> +
     // &CanCreateSerializableElement<Base>. Create returns null when `concrete` is unregistered or not
     // a `Base` (the reflection side then reports a clean failure).
     template <typename Base>

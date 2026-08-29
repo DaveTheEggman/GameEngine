@@ -1,11 +1,11 @@
 // Editor::App - :application partition.
 //
-// EditorApplication: the editor as a runtime IApplication (docs/design/editor.md §3.2) - the
+// EditorApplication: the editor as a runtime IApplication - the
 // UISandbox wiring, assembled for real: TrueType font service + UIHost + RuntimeDockableWindowHost
 // (floating panels = borderless OS windows, drag-follow Tick) + the EditorShell chrome on the main
 // window, with the EditorContext + EditorProject from editor.core underneath. Opens (or
 // scaffolds) the project directory on startup, restores the per-user dock layout, saves it on
-// shutdown. Phase 1: chrome + project only; pages/panels grow in later phases.
+// shutdown.
 
 module;
 #define _CRT_SECURE_NO_WARNINGS
@@ -86,7 +86,7 @@ export namespace editor::app
         // Exercises the hot-reload cascade exactly like the menu click.
         f32 autoRebuildSeconds = 0.0f;
 
-        // The assembly seams (design doc §3.1) - editor.app never links engine modules or the
+        // The assembly seams - editor.app never links engine modules or the
         // editor plugin modules; the EXECUTABLE composes them here:
         /// Called from IApplication::Configure - register engine subsystems (scene/render/...).
         Function<void(runtime::IApplicationHost&)> configureEngine;
@@ -151,7 +151,7 @@ export namespace editor::app
         /// editor plugin's factory seam - editor.app never links scene modules.
         // `newInstance` = false: the normal Play (focus the existing tab or open one on the primary
         // instance). true: "Play New Instance" - an ADDITIONAL Game tab driving its own GameInstance
-        // (multi-instance PIE, game-instance.md §11 step 5).
+        // (multi-instance PIE).
         void OpenGamePage(bool newInstance = false);
 
         /// Open (or focus) a page for `instance` and dock its content as a center tab.
@@ -345,7 +345,7 @@ export namespace editor::app
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
         runtime::Context m_runtimeContext;
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
-        // (the embedded net fixed-stepper is gone - transport pumps on NetworkSubsystem::PostUpdate, P3)
+        // (the transport pumps on NetworkSubsystem::PostUpdate)
         UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
         bool m_stopGameRequested = false; // borrowed (exe injects)
 
@@ -363,7 +363,7 @@ export namespace editor::app
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
-        editor::ThumbnailService m_thumbnailService; // asset-thumbnails.md P1 (per-project state)
+        editor::ThumbnailService m_thumbnailService; // per-project state
         editor::EditorJobService m_jobService; // generic background jobs (export, ...)
         foundation::settings::Settings
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)

@@ -84,7 +84,7 @@ namespace foundation::mcp::detail
 
     // Emit {domain, inPlayer} for a type: `domain` is the availability domain's readable name;
     // `inPlayer` is true iff it ships in a runtime player (Runtime domain) - the agent-facing point
-    // (a TextureAsset exists for authoring but NOT in a shipped player). Non-Runtime = authoring-only.
+    // (a TextureAsset exists for authoring but NOT in a runtime player). Non-Runtime = authoring-only.
     inline void SetDomain(JsonValue& out, const TypeRegistry& reg, TypeId id)
     {
         const TypeDomain domain = reg.DomainOf(id);

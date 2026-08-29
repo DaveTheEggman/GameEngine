@@ -1,6 +1,6 @@
 // Editor::Image - the `editor.image` module.
 //
-// ImageEditorPage (editor-pages-gap.md, the Texture page's source-side sibling): the inspect +
+// ImageEditorPage (the Texture page's source-side sibling): the inspect +
 // intent surface over an ImageAsset - the raw source image that Texture assets (and future
 // consumers) build on. A CPU preview of the decoded file on the left (the same decode the cook
 // rides, converted to RGBA8 for display) and the small authored surface on the right: the

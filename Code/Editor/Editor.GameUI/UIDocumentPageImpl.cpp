@@ -1,6 +1,6 @@
 // Editor::GameUI - the `editor.gameui` module.
 //
-// UIDocumentPage (game-ui.md P2): text editing + LIVE PREVIEW for UIDocumentAssets.
+// UIDocumentPage: text editing + LIVE PREVIEW for UIDocumentAssets.
 // The preview renders through the RUNTIME CONTEXT's UISubsystem - the GAME's context,
 // fonts, GameTheme, and VG path - into this page's offscreen target (a dedicated
 // preview RootView; it can never leak into game targets). What you see IS the game's
@@ -182,7 +182,7 @@ namespace editor
     {
         // Validation pass for the inline status (warnings + parse result). A direct
         // XmlDocument parse first: MarkupLoader swallows the error position, and the code
-        // editor wants the failing LINE as an Error marker (P3 diagnostics).
+        // editor wants the failing LINE as an Error marker.
         ui::MarkupLoader::Initialize();
         {
             foundation::xml::XmlDocument probe;

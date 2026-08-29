@@ -833,7 +833,7 @@ export namespace foundation::rhi::vk
                                   maxDrawCount, stride > 0 ? stride : 12);
     }
 
-    // ---- CommandPool deferred implementations ----
+    // ---- CommandPool out-of-line implementations ----
 
     Status VkCommandPoolImpl::CreateEncoder(CommandEncoder*& out)
     {

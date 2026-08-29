@@ -6,9 +6,9 @@
 // Sedulous.UI/src/Styling/Parser/UITypeRegistry.bf.
 //
 // Divergences (language): Beef `Type` -> const core::TypeInfo*; the static Dictionary lives in a
-// function-local static HashMap (avoids C++ static-init-order issues). RegisterBuiltins() is DEFERRED
-// until the control classes land (it references View subclasses not yet ported); the parser and its
-// tests register the types they need explicitly for now.
+// function-local static HashMap (avoids C++ static-init-order issues). RegisterBuiltins() is not
+// implemented while the control classes are unported (it references View subclasses not yet
+// present); the parser and its tests register the types they need explicitly.
 
 module;
 #include "Core/Prelude.h"

@@ -1,6 +1,6 @@
 // Engine::Navigation - :components partition.
 //
-// The authoring components (Documentation/Plans/navigation.md):
+// The authoring components:
 //   * NavMeshZoneComponent - a navmesh zone: AABB half-extents (the bake region), the bake
 //     params (used by the editor's Bake action; the runtime ignores them), and a Ref to the
 //     cooked NavigationZoneResource the subsystem loads.

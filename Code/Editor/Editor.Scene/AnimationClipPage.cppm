@@ -1,6 +1,6 @@
 // Editor::Scene - :animation_clip_page partition.
 //
-// AnimationClipEditorPage (editor-pages-gap.md, bespoke pass #4's lighter half): preview + light
+// AnimationClipEditorPage: preview + light
 // authoring for an AnimationClipAsset. A skeleton-wireframe viewport plays the COOKED clip product
 // (pick a Skeleton, scrub or play the timeline); the inspector edits the source's loop flag and
 // its animation EVENTS (time + name rows, add/remove) with blob-snapshot undo, and reads out the

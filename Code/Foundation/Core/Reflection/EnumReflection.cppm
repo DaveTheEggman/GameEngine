@@ -17,7 +17,7 @@ import :span;
 export namespace foundation::core
 {
     // =======================================================================
-    // Enum reflection (phase e). EnumBuilder patches the enum's TypeOf<E>()
+    // Enum reflection. EnumBuilder patches the enum's TypeOf<E>()
     // TypeInfo in place (adding enumerators + a qualified name/id), so property
     // types that point at it gain the enumerator list regardless of order.
     // =======================================================================

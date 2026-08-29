@@ -2,8 +2,8 @@
 // editor.preview (LookAt solves yaw/pitch with a level horizon; the free-fly/orbit Update maps
 // gated devices to motion). PreviewViewport itself is glue over a live IApplicationHost + UIHost
 // + render/scene subsystems - not unit-constructible with the codebase's headless precedents (the
-// editor pages are not unit-constructed either); it is proven by the six migrated pages + on-screen
-// verify. See Documentation/Specs/editor-preview-viewport.md.
+// editor pages are not unit-constructed either); it is proven by the six pages built on it + on-screen
+// verify.
 #include "Core/Prelude.h"
 #include <doctest/doctest.h>
 

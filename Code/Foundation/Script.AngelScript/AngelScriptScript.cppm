@@ -38,7 +38,7 @@ export namespace foundation::script::angelscript
 {
     [[nodiscard]] core::RefPtr<IScriptManager> CreateScriptManager();
 
-    /// Registers AngelScript with the backend registry (scripting.md B1) - the ONE
+    /// Registers AngelScript with the backend registry - the ONE
     /// line that makes the language available; consumers resolve by extension
     /// (u8"as") or language id (u8"angelscript"), never by backend type. A game/project
     /// opts in by calling this from its entry point (exactly like registering extra

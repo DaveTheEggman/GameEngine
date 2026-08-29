@@ -409,7 +409,7 @@ namespace editor
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(cs.Get()));
         }
         {
-            // Height-blend soft-skirt width (terrain-height-blend.md): only bites when a layer has a
+            // Height-blend soft-skirt width: only bites when a layer has a
             // height map; smaller = crisper interlocked seams, larger = a wider skirt.
             auto hb = MakeRef<ui::toolkit::FloatEditor>(
                 DefaultAllocator(), StringView(u8"Height blend"),

@@ -1,6 +1,6 @@
 // Editor App - :asset_drag_data partition
 //
-// The typed drag payload for asset-browser drags (asset-picker-slot.md ruling 3): the dragged
+// The typed drag payload for asset-browser drags: the dragged
 // instance's Guid + its asset-type NAME (what drop targets filter on) + the display name (for
 // reject messages and drag visuals). Format "asset/instance"; recover the subtype with
 // core::Cast<AssetDragData>.

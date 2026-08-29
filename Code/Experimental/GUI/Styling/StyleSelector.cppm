@@ -149,7 +149,7 @@ export namespace experimental::gui
                 m_pseudo |= PseudoActive;
             else if (name == core::StringView(u8"disabled"))
                 m_pseudo |= PseudoDisabled;
-            // unknown pseudo-classes are ignored (deferred)
+            // unknown pseudo-classes are ignored
         }
 
         void ComputeSpecificity() noexcept

@@ -30,8 +30,8 @@ namespace script = foundation::script;
 
 namespace engine::runtime
 {
-    // ---- run.* facade (task #123 + game-ready-scripting2 P2-2): reflection bodies + registration (kept
-    // out of the interface unit per the GCC gcm-cluster rule). Bound to scripts LOWERCASE as `run` via
+    // ---- run.* facade: reflection bodies + registration (kept
+    // out of the interface unit to keep GCC's gcm cluster small). Bound to scripts LOWERCASE as `run` via
     // ScriptName; includes the running instance's level-load control.
     void RunEvents::emit(core::String name) const
     {
@@ -93,7 +93,7 @@ namespace engine::runtime
                                    core::Span<const core::String> gameHandlers)
     {
         StopScript();
-        // THIS instance's run host is the game's context (game-instance.md §11.10). The host was
+        // THIS instance's run host is the game's context. The host was
         // configured by the app (ConfigureRunHost) with the facades + Scene.spawn + entity.send routing.
         m_runHost.SetExternalErrorSink(m_errorHandler); // before the context is created
         script::IScriptContext* context = m_runHost.EnsureContextForFile(name);
@@ -106,7 +106,7 @@ namespace engine::runtime
         m_runHost.SetGameScriptHold(true);
         // The game script (its menu) can now call Net.startServer()/connect() - resolve the controller.
         m_network.InstallScriptBinding(m_scriptContext.Get());
-        m_runBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus (P2-2, §1a/§1c)
+        m_runBinding.runEvents = &m_runEvents; // run.events() -> THIS run's bus
         InstallRunScriptService(
             *m_scriptContext, m_runBinding); // run.* -> this instance's registry
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
@@ -130,7 +130,7 @@ namespace engine::runtime
             StopScript();
             return false;
         }
-        // Wire the Game tier's on<Event> inbox to THIS run's bus (game-ready-scripting2 §1a): the shared
+        // Wire the Game tier's on<Event> inbox to THIS run's bus: the shared
         // bridge subscribes the run bus to the Game class's declared handlers (threaded in from the cooked
         // ScriptClass), fanning each to DispatchGameEvent -> the Game object. No implicit scene->run relay.
         m_gameEventSubs.Bind(&m_runEvents,
@@ -161,7 +161,7 @@ namespace engine::runtime
     }
 
     // Networking role bodies (StartServer/Connect/StopNetworking/DriveNetwork) + the script binding
-    // live on NetworkController now (NetworkControllerImpl.cpp); GameInstance forwards inline (P1).
+    // live on NetworkController (NetworkControllerImpl.cpp); GameInstance forwards inline.
 
     void GameInstance::DriveInput(f32 deltaTime, f32 contextTimeScale)
     {
@@ -188,7 +188,7 @@ namespace engine::runtime
             {
                 level->SetRunHost(&m_runHost);
             }
-            // (The run bus is already injected by m_sceneManager before assembly - messaging.md P2 - so
+            // (The run bus is already injected by m_sceneManager before assembly, so
             // scene.events and the run bus are one object and the script systems bound to the right bus.)
         }
         return scene;

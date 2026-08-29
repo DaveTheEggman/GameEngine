@@ -40,7 +40,7 @@ export namespace foundation::fonts
         [[nodiscard]] virtual Result<IFont*, FontLoadResult>
         ParseFromMemory(Span<const u8> data, FontLoadOptions options) = 0;
 
-        // Parse from a file on disk. Engine/shipped-game callers should prefer
+        // Parse from a file on disk. Engine and packaged-game callers should prefer
         // the VFS-aware stream path.
         [[nodiscard]] virtual Result<IFont*, FontLoadResult>
         ParseFromFile(StringView filePath, FontLoadOptions options) = 0;

@@ -117,7 +117,7 @@ namespace foundation::scene
         // Settle the effective cache BEFORE notifying, so a listener that queries
         // IsEffectivelyActive from the hook sees the new truth. The hook itself remains an
         // own-flag change notification only (it is NOT the gating mechanism - consumers poll
-        // IsEffectivelyActive in their own loops; entity-active-state.md).
+        // IsEffectivelyActive in their own loops).
         RefreshEffectiveActive(entity);
         ++m_revision;
         for (SceneSystem* s : m_sortedSystems)
@@ -644,9 +644,8 @@ namespace foundation::scene
         RunPhase(ScenePhase::Update, deltaTime);
         RunPhase(ScenePhase::AsyncUpdate, deltaTime);
         RunPhase(ScenePhase::PostUpdate, deltaTime);
-        // NOTE: the scene does NOT drain any event bus (messaging.md revised decision 3:
-        // only the owning RUN SCOPE drains - GameInstance / the editor page / a test
-        // fixture; Scene has no owned bus at all).
+        // NOTE: the scene does NOT drain any event bus: only the owning RUN SCOPE drains
+        // - GameInstance / the editor page / a test fixture; Scene has no owned bus at all.
         UpdateTransforms(); // ScenePhase::TransformUpdate (internal)
         RunPhase(ScenePhase::PostTransform, deltaTime);
         m_isUpdating = false;

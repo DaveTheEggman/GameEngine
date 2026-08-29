@@ -1,16 +1,16 @@
 // Editor App - :asset_picker_slot partition
 //
-// The asset reference "slot" (asset-picker-slot.md): a horizontal composite
+// The asset reference "slot": a horizontal composite
 //   [ asset name (grows, click = pick) ][ preview/reveal ][ Edit ][ Clear ]
-// Refined per user feedback 2026-08-16: the name button IS the picker affordance (no separate
+// The name button IS the picker affordance (no separate
 // Pick button), the preview/reveal button sits after it, and all three trailing buttons share
 // ONE chrome (ContentButton hosting a 14px drawable - IconButton's tighter padding read as
 // horizontally squished next to it).
 // used by every resource-ref inspector row and the material list-slot rows. Affordances render
-// only when their callback is WIRED (correction C1: the entity-ref twin wires OnPick alone and
+// only when their callback is WIRED (the entity-ref twin wires OnPick alone and
 // degrades to a plain name button), and Edit/Clear/preview disable while the slot is empty.
-// P2 makes it a type-filtered drop target for asset-browser drags; the preview icon is the
-// asset TYPE glyph until real thumbnails land (asset-thumbnails.md).
+// It is a type-filtered drop target for asset-browser drags; the preview icon is the
+// asset TYPE glyph until a real thumbnail exists.
 //
 // Wiring order: set the callbacks first, then call SetValue - SetValue synchronizes the
 // affordances (visibility from wiring, enabled-state from has-value).
@@ -76,7 +76,7 @@ export namespace editor::app
             }
 
             // Preview/reveal = a clickable drawable host: the asset TYPE glyph now, swapped
-            // for the real thumbnail once one exists (asset-thumbnails.md) - the icon stays
+            // for the real thumbnail once one exists - the icon stays
             // the fallback while no thumbnail is generated.
             ui::DrawableView* previewContent = nullptr;
             m_preview = MakeActionButton(ui::DrawablePtr{}, u8"Reveal in asset browser",
@@ -132,7 +132,7 @@ export namespace editor::app
             SyncAffordances(m_hasValue);
         }
 
-        /// A generated thumbnail (any drawable - image once asset-thumbnails.md lands). Wins
+        /// A generated thumbnail (any drawable). Wins
         /// over the type icon while set; pass empty to fall back to the icon.
         void SetPreviewThumbnail(ui::DrawablePtr thumbnail)
         {
@@ -148,7 +148,7 @@ export namespace editor::app
         /// the slot a drop target for asset-browser drags.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
 
-        // === IDropTarget (asset-browser drags; asset-picker-slot.md P2) ===
+        // === IDropTarget (asset-browser drags) ===
         // Any asset drag is ACCEPTED at hover level so OnDrop can warn on a type mismatch
         // (the manager never calls OnDrop for a None effect); the hover cue distinguishes
         // match (accent ring) from mismatch (error ring).

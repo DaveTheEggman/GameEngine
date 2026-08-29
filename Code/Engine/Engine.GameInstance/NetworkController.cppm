@@ -1,12 +1,12 @@
-// Engine::GameInstance :networkcontroller partition - a running game's networking, extracted off the
-// GameInstance god object (networking-extraction.md P1). It OWNS what GameInstance used to BE: the
+// Engine::GameInstance :networkcontroller partition - a running game's networking, held off the
+// GameInstance object. It OWNS: the
 // endpoint, the INetworkController implementation, the role lifecycle (StartServer/Connect/Stop), the
-// net script binding, and the replicated-scene selection. GameInstance now COMPOSES one and forwards;
-// it no longer inherits net::INetworkController.
+// net script binding, and the replicated-scene selection. GameInstance COMPOSES one and forwards;
+// it does not inherit net::INetworkController.
 //
-// This is a pure ROLE extraction (P1): the wire protocol, the replication model, and the endpoint
-// factories are unchanged - the bodies moved here verbatim. Lives in engine.gameinstance (beside its
-// owner); it can migrate to engine.net later if the script surface wants NetworkController.of(context).
+// A pure ROLE separation: the wire protocol, the replication model, and the endpoint
+// factories live here. Lives in engine.gameinstance (beside its
+// owner); it could move to engine.net if the script surface wants NetworkController.of(context).
 
 export module engine.gameinstance:networkcontroller;
 
@@ -28,10 +28,10 @@ export namespace engine::runtime
 
     // The prefab net-spawn resolver FACTORY: injected once by the app at wiring (it needs app state - the
     // content DB) and invoked by the controller to make a fresh resolver for EVERY endpoint it opens, so
-    // reconnect keeps it (networking-extraction.md P4). A factory (not the resolver itself) because
+    // reconnect keeps it. A factory (not the resolver itself) because
     // StateReplication::SpawnHandler is move-only - the controller must produce one per endpoint, not copy
-    // one. Replaces the former general EndpointOnlineHook (whose only use this was): the app no longer
-    // wires the endpoint per go-online; it hands over the factory and the controller owns the wiring.
+    // one. The app does not wire the endpoint per go-online; it hands over the factory and the controller
+    // owns the wiring.
     using SpawnResolverFactory = Function<net::StateReplication::SpawnHandler()>;
 
     // A running game's networking. Owns the endpoint (null = offline), implements INetworkController for
@@ -43,7 +43,7 @@ export namespace engine::runtime
     public:
         /// The scene this run replicates. Cached so StartServer/Connect can set it on a fresh endpoint;
         /// applied live when the endpoint already exists (GameInstance::SetScene calls this on change).
-        /// Edge-driven wiring (networking-extraction.md P2): the OLD replicated scene's NetworkSceneSystem
+        /// Edge-driven wiring: the OLD replicated scene's NetworkSceneSystem
         /// is detached (endpoint -> null) and the NEW one attached (endpoint -> live/offline), so ONLY the
         /// replicated scene's fixed lane ever drives this endpoint's replication.
         void SetReplicatedScene(scene::Scene* scene)
@@ -79,9 +79,9 @@ export namespace engine::runtime
             }
         }
 
-        // The per-frame transport pump moved to engine::net::NetworkSubsystem::PostUpdate
-        // (networking-extraction.md P3); the subsystem drives each live endpoint's UpdateTransport, so
-        // the controller no longer has a DriveNetwork.
+        // The per-frame transport pump lives on engine::net::NetworkSubsystem::PostUpdate;
+        // the subsystem drives each live endpoint's UpdateTransport, so
+        // the controller has no DriveNetwork.
 
         // INetworkController - the Net facade calls these. StartServer/Connect open a real UDP socket and
         // enter the role (returning false if it fails); StopNetworking drops the endpoint. The live

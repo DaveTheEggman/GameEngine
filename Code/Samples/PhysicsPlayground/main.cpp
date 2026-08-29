@@ -1,4 +1,4 @@
-// PhysicsPlayground - the physics P1 consumer proof: a stack of falling crates, a
+// PhysicsPlayground - the physics consumer proof: a stack of falling crates, a
 // kinematic sweeper, a trigger volume, and crosshair raycast shoving - all authored as
 // RigidBody/Collider COMPONENTS on a scene, simulated by the Jolt-backed subsystem on the
 // engine's fixed lane with render interpolation, and drawn via the physics DEBUG
@@ -308,7 +308,7 @@ namespace
         {
             auto* bodies = m_scene->GetSystem<engine::physics::RigidBodyComponentManager>();
 
-            // Ground: an infinite plane (P2) - crates land anywhere, not just on a slab.
+            // Ground: an infinite plane - crates land anywhere, not just on a slab.
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"ground");
                 engine::physics::RigidBodyComponent& body = bodies->Add(e);
@@ -317,7 +317,7 @@ namespace
                 body.shape = physics::ShapeKind::Plane;
                 body.planeHalfExtent = 200.0f;
             }
-            // A cooked TRIANGLE-MESH ramp (P2): two panels, two material slots - the
+            // A cooked TRIANGLE-MESH ramp: two panels, two material slots - the
             // crosshair ray reports which slot it hit (HUD "surface").
             {
                 const core::Float3 positions[] = {
@@ -350,7 +350,7 @@ namespace
                     body.collisionShape = m_rampShape;
                 }
             }
-            // A cooked CONVEX boulder (P2) dropped onto the ramp - hulls may be dynamic.
+            // A cooked CONVEX boulder dropped onto the ramp - hulls may be dynamic.
             {
                 core::Array<core::Float3> points;
                 const core::f32 axes[3][3] = {{0.9f, 0, 0}, {0, 0.7f, 0}, {0, 0, 0.8f}};
@@ -397,7 +397,7 @@ namespace
                     m_crates.PushBack(e);
                 }
             }
-            // The character (P3): arrow keys drive it, Space jumps; it climbs the ramp
+            // The character: arrow keys drive it, Space jumps; it climbs the ramp
             // (stairs + slopes) and shoves crates. The crates are ~1 tonne (1 m^3 at Jolt's
             // default density), so the default 500N barely nudges them - give the hero real
             // strength so the shove reads on screen (maxStrength is applied live each step).
@@ -409,7 +409,7 @@ namespace
                         m_hero);
                 hero.maxStrength = 6000.0f;
 
-                // Billboard proof (UI P2): a nameplate riding the character, distance-scaled.
+                // Billboard proof: a nameplate riding the character, distance-scaled.
                 m_nameplateDocument =
                     core::MakeRef<foundation::ui::UIDocument>(core::DefaultAllocator());
                 m_nameplateDocument->markup = core::String(
@@ -453,7 +453,7 @@ namespace
                 }
             }
 
-            // A motorized hinge spinner (P3 joints): a blade welded to the world pivot,
+            // A motorized hinge spinner (joints): a blade welded to the world pivot,
             // spinning at 2 rad/s - walk the character into it to get batted away.
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"spinner");
@@ -467,7 +467,7 @@ namespace
                 joint.motorEnabled = true;
                 joint.motorTargetVelocity = 2.0f;
             }
-            // Game-UI P1 proof: a screen-tier HUD canvas (runtime document - the cooked
+            // Game-UI proof: a screen-tier HUD canvas (runtime document - the cooked
             // asset path is exercised by the editor flow). The button proves CONSUMPTION:
             // clicking it must NOT fire the crosshair shove.
             {

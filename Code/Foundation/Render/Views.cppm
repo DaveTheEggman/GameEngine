@@ -2,11 +2,11 @@
 ///
 /// `RenderView` is the renderer's unit of work *and* its isolation boundary: render one
 /// scene's extracted data, from one camera, into one target. A frame renders a SET of
-/// views - primary cameras, plus (later) derived shadow/probe views - and `RenderView`
-/// owning all per-frame-mutable state (the culled+sorted draw list, and later the view
+/// views - primary cameras, plus derived shadow/probe views - and `RenderView`
+/// owning all per-frame-mutable state (the culled+sorted draw list, the view
 /// UBO, cluster grid, shadow slots, HDR/depth targets) is what guarantees views don't
 /// trash each other. The only state shared across views is the immutable `ExtractedScene`
-/// and shared GPU resources. (§9 of docs/design/renderer.md.)
+/// and shared GPU resources.
 ///
 /// Views are pooled per frame from a `RenderViewPool` (reset, not freed, each frame).
 
@@ -15,7 +15,7 @@ module;
 
 export module foundation.render:views;
 
-// ViewCamera + ViewportRect moved to the light `foundation.render.api` module (with
+// ViewCamera + ViewportRect live in the light `foundation.render.api` module (with
 // ISceneRenderer); re-exported here so foundation.render importers see them unchanged.
 export import foundation.render.api;
 
@@ -29,7 +29,7 @@ namespace rhi = foundation::rhi;
 export namespace foundation::render
 {
 
-    // Per-view settings (grows with post config, layer mask, etc. in later phases).
+    // Per-view settings (post config, layer mask, etc.).
     struct ViewSettings
     {
         rhi::ClearColor clear = rhi::ClearColor::CornflowerBlue();

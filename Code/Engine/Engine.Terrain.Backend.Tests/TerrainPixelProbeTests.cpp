@@ -904,7 +904,7 @@ TEST_CASE("terrain probe: SIX palette layers render distinct stripes (R5 - the 4
         forward = forward && (bandClass(v, b) == expected[b]);
         mirrored = mirrored && (bandClass(v, b) == expected[kBands - 1 - b]);
     }
-    CHECK((forward || mirrored)); // all six DISTINCT layers landed, in palette order
+    CHECK((forward || mirrored)); // all six DISTINCT layers appear, in palette order
 
     const Probe w = run(webgpu);
     if (w.valid)
@@ -1034,7 +1034,7 @@ TEST_CASE("terrain probe: a base normal map perturbs the flat-ground shading (R5
     // A FLAT terrain has ONE geometric normal, so a directional sun shades it uniformly. A base
     // normal map tilted toward world +X must make the ground respond to sun direction: a +X sun
     // brightens it (vs the flat-normal control) and a -X sun darkens it. Proves the analytic tangent
-    // frame (terrain-layer-pbr.md R2) + the blend perturb the normal in the correct direction, and
+    // frame + the blend perturb the normal in the correct direction, and
     // that the SampleGrad-on-array normal tap matches across Vulkan and WebGPU.
     auto run = [](rhi::Backend* backend, const Float3& toLight, bool withNormal) -> Probe
     {
@@ -1461,7 +1461,7 @@ TEST_CASE("terrain probe: a coverage mask cuts a layer to reveal the base (Vk + 
     // SPLIT: the two screen halves DIFFER - one shows the layer (blue), the other the base (red).
     const bool aLeftBlue = splitA.leftB > splitA.leftR;
     const bool aRightBlue = splitA.rightB > splitA.rightR;
-    CHECK(aLeftBlue != aRightBlue); // a real spatial split landed on screen
+    CHECK(aLeftBlue != aRightBlue); // a real spatial split is present on screen
     // FLIP: swapping the mask swaps which half shows the layer.
     const bool bLeftBlue = splitB.leftB > splitB.leftR;
     CHECK(bLeftBlue != aLeftBlue);

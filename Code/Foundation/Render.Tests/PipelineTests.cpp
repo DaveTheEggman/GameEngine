@@ -27,7 +27,7 @@ namespace shaders = foundation::shaders;
 namespace
 {
 
-    // Engine built-in shaders live as files under the engine shader root (shaders.md P1);
+    // Engine built-in shaders live as files under the engine shader root;
     // tests wire the same dev file provider the RenderSubsystem does.
     shaders::FileShaderSourceProvider& EngineShaderProvider()
     {
@@ -413,8 +413,8 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
 TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frames)")
 {
     // Frames can render several scenes; each scene's probes Assign() into ONE record buffer as
-    // a contiguous range, and views read their scene's range (regression: Assign used to RESET
-    // per call - the last extracted scene's probes were the only ones anyone saw).
+    // a contiguous range, and views read their scene's range. Assign must not RESET
+    // per call, or only the last extracted scene's probes would be visible.
     RenderHarness h;
     if (!h.Init(64, 64))
     {

@@ -1,4 +1,4 @@
-// Phase 3b - systems wired into the Scene: ownership + lookup, the phase-ordered update
+// Systems wired into the Scene: ownership + lookup, the phase-ordered update
 // loop, deferred destroy during update, entity-destroy freeing components, active-change
 // + start/stop notification, UpdateOrder, and simulation gating.
 #include <doctest/doctest.h>
@@ -190,10 +190,9 @@ TEST_CASE("systems run within a phase in UpdateOrder")
 
 TEST_CASE("scene: Events() is the BORROWED scope bus - null unwired, never drained by the scene")
 {
-    // messaging.md REVISED decision 2 (no owned fallback): a scene holds only the scope's
-    // borrowed bus; unwired scenes have a null Events() and never emit; the scene NEVER
-    // drains (only the owning scope does) - fixtures inject a bus, exercising the exact
-    // shipping topology.
+    // No owned fallback: a scene holds only the scope's borrowed bus; unwired scenes have a
+    // null Events() and never emit; the scene NEVER drains (only the owning scope does) -
+    // fixtures inject a bus, exercising the exact runtime topology.
     namespace messaging = foundation::messaging;
 
     Scene scene;

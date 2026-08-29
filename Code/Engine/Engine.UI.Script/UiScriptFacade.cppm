@@ -7,8 +7,8 @@
 // per-context service (kUiScreenScriptService), filled by the app with the live screen root + stack +
 // a cooked-document instantiator; unwired -> safe no-ops (null handles, no-op pushes).
 //
-// Scene-tier UI is intentionally NOT here (a run has many live scenes - see game-ui-kit.md): scene UI
-// rides a UICanvasComponent for now; a scene.ui script root is a later, scene-scoped decision.
+// Scene-tier UI is intentionally NOT here (a run has many live scenes): scene UI
+// rides a UICanvasComponent. There is no scene.ui script root.
 
 module;
 #include "Core/Prelude.h"

@@ -79,7 +79,7 @@ export namespace pipeline
             const model::ModelTexture& t = *textures[i];
             const u8* data = t.getData();
             const i32 size = t.getDataSize();
-            // The loaders decode to RGBA8 (4 bpp); guard against any other layout for now.
+            // The loaders decode to RGBA8 (4 bpp); guard against any other layout.
             const bool rgba8 =
                 (data != nullptr && t.width > 0 && t.height > 0 && size == t.width * t.height * 4);
             if (!rgba8)
@@ -289,7 +289,7 @@ export namespace pipeline
         CookMaterials(model, root, namePrefix, textureGuids, manifest.materialGuids,
                       manifest.materialAlbedo);
 
-        // Skeleton + animations (skin 0 only for now). The skeleton's bone order = the skin's joint order;
+        // Skeleton + animations (skin 0 only). The skeleton's bone order = the skin's joint order;
         // animation channels + bone parents are remapped from model bone indices into joint indices.
         HashMap<i32, i32> boneToJoint;
         const bool hasSkin = model.skins().Size() > 0;
@@ -383,7 +383,7 @@ export namespace pipeline
 
             manifest.meshGuids.PushBack(inst->Id());
             manifest.meshSkinned.PushBack(skinned ? u8{1} : u8{0});
-            // One material per mesh for now: the first submesh's material (single-material models).
+            // One material per mesh: the first submesh's material (single-material models).
             const Span<const model::ModelMeshPart> parts = m.parts();
             manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
         }

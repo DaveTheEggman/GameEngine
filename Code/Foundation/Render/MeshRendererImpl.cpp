@@ -59,7 +59,7 @@ namespace foundation::render
         rhi::BindGroupLayoutEntry boneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
             4, rhi::ShaderStage::Vertex, /*readOnly*/ true,
             /*stride*/ sizeof(Float4x4)); // StructuredBuffer<BoneMatrix> (4x float4)
-        // IBL (phase 6) folds into set 0 too: SH9 diffuse coeffs (t5, SRV), prefiltered specular cube
+        // IBL folds into set 0 too: SH9 diffuse coeffs (t5, SRV), prefiltered specular cube
         // (t6), BRDF LUT (t7), + a linear-clamp env sampler (s1, distinct from the comparison sampler s0).
         rhi::BindGroupLayoutEntry iblShEntry = rhi::BindGroupLayoutEntry::StorageBuffer(
             5, rhi::ShaderStage::Fragment, /*readOnly*/ true,
@@ -130,7 +130,7 @@ namespace foundation::render
         // Forward pipeline layouts (view + object/instance + material set-2 + cluster) are built
         // on demand per material set-2 layout and cached in GetOrCreatePipelineLayout.
 
-        // Shadow depth-only path (phase 5): a vertex-only shader + a 2-set pipeline layout
+        // Shadow depth-only path: a vertex-only shader + a 2-set pipeline layout
         // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
         // object/instance bind groups are reused). No material/cluster sets.
         rhi::BindGroupLayoutEntry shadowViewEntry =
@@ -369,7 +369,7 @@ namespace foundation::render
             total += md->boneCount * 2u;
         }
         // Skinned-MultiMesh POSE POOLS: M palettes (poseCount * boneCount matrices) per crowd, uploaded once
-        // (no prev slab - crowd motion vectors are v1-deferred). Each set's per-instance bone base is filled
+        // (no prev slab - crowd motion vectors are not produced). Each set's per-instance bone base is filled
         // into its DataOffsets buffer in FillSkinnedMultiMeshOffsets once the pool base is known.
         for (RenderData* data : scene.Items())
         {
@@ -1253,7 +1253,7 @@ namespace foundation::render
 
         // Multi-material: one instanced draw per submesh (its own material + index range); else
         // one draw. A LOD chain selects ONE level for the whole batch from the head's bounds
-        // (spec v1: per-set/per-batch selection; per-instance LOD is the deferred v2).
+        // (per-set/per-batch selection, not per-instance LOD).
         const bool hasChain = head.mesh != nullptr && head.mesh->lodCount > 1;
         if (head.mesh != nullptr && !head.mesh->subMeshes.IsEmpty() &&
             (head.submeshMaterialCount > 0 || hasChain))
@@ -1715,9 +1715,9 @@ namespace foundation::render
             c.shaderFlags |= shaders::ShaderFlags::AlphaTest;
         }
         c.depthFormat = ctx.depthFormat;
-        // Scene-pass MSAA (msaa.md): ONLY the camera depth prepass is multisampled (its depth must
+        // Scene-pass MSAA: ONLY the camera depth prepass is multisampled (its depth must
         // match the MSAA forward for early-Z). Shadow-map passes (ctx.depthPrepass == false) stay
-        // single-sample - the track does not touch shadows.
+        // single-sample - shadows are not multisampled.
         c.sampleCount = ctx.depthPrepass ? ctx.sampleCount : static_cast<u8>(1);
         c.depthMode = materials::DepthMode::ReadWrite;
         c.depthCompare = rhi::CompareFunction::Less;
@@ -1748,7 +1748,7 @@ namespace foundation::render
             (md.material != nullptr) ? md.material->pipeline
                                      : materials::PipelineConfig::ForOpaqueMesh(u8"forward");
         config.depthFormat = ctx.depthFormat;
-        // Scene-pass MSAA (msaa.md): the opaque pass records at the view's count (ctx set it), the
+        // Scene-pass MSAA: the opaque pass records at the view's count (ctx set it), the
         // transparent pass at 1 - so the forward mesh PSO matches its pass's MSAA attachments. Shadow
         // PSOs use ShadowConfigFor (unaffected - shadows stay single-sample).
         config.sampleCount = ctx.sampleCount;
@@ -2663,7 +2663,7 @@ namespace foundation::render
         if (ctx.view == nullptr)
         {
             // Camera-independent pass (local-shadow tiles): the COARSEST level - shadows
-            // never render finer than any view shows (mesh-lod.md P3). Cascades pass their
+            // never render finer than any view shows. Cascades pass their
             // owning view instead and share that view's selection memory.
             return maxLod;
         }

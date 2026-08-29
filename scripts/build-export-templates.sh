@@ -5,7 +5,7 @@
 #
 # A template = the Engine.Player runtime for one (platform, config) + its runtime sidecars +
 # a template.xml manifest. It is NOT game content and NOT a toolchain - it is the prebuilt
-# runtime you ship against. See Documentation/Systems/export-templates.md.
+# runtime you ship against.
 #
 # What this does per platform: build Engine.Player (+ the native Tools.Export once), then run
 #   Tools.Export --template create <Bin/<Config>/<Platform>-<Compiler>>
@@ -28,7 +28,7 @@ JOBS="${JOBS:-4}"
 OUT="${OUT:-}"
 WHICH="${1:-all}"
 
-# Release is the product default for templates (export-templates.md: ships stripped Release).
+# Release is the product default for templates (ships stripped Release).
 LINUX_BUILD="build/clang-release"
 LINUX_BIN="Bin/Release/Linux64-Clang"
 WEB_BUILD="build/wasm-shipping"        # emscripten, Release (no output suffix -> Emscripten-Clang)

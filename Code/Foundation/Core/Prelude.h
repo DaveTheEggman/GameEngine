@@ -130,8 +130,8 @@
 #define CORE_IMPORT
 #endif
 
-// Core builds as a static library for now; CORE_API is a no-op until we ship
-// shared libraries. Plugins (see Library module) will flip this per target.
+// Core builds as a static library, so CORE_API is a no-op. The Library module's
+// plugin targets define it per target when building shared libraries.
 #define CORE_API
 
 // Expression-form branch hints are pass-throughs: Clang miscompiles

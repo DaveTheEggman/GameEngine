@@ -1,4 +1,4 @@
-// Reflection track P1: ImageAsset's reflected surface (its colorSpace enum property).
+// ImageAsset's reflected surface (its colorSpace enum property).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"

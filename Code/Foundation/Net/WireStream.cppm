@@ -1,6 +1,6 @@
 /// Foundation::Net - `foundation.net:wire` partition.
 ///
-/// Bit-level wire serialization (docs/design/networking.md §3, `foundation.net.wire`): a BitWriter /
+/// Bit-level wire serialization (`foundation.net.wire`): a BitWriter /
 /// BitReader pair that packs values to the BIT rather than the byte, plus varints and ranged-float
 /// quantization. This is the foundation the reliability layer, RPC, and replication delta all encode
 /// through - bandwidth is the scarce resource, so the primitives are bit-exact and overflow-safe

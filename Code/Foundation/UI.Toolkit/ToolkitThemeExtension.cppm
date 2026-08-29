@@ -45,7 +45,7 @@ export namespace foundation::ui::toolkit
     /// matches nothing).
     inline constexpr core::usize kToolkitStyleTypeCount = 17;
 
-    /// Make the toolkit controls selectable from .sss (ui-theme-migration.md P0d) - the
+    /// Make the toolkit controls selectable from .sss - the
     /// prerequisite for expressing this extension's rules as a toolkit.sss fragment. Idempotent;
     /// called by ToolkitThemeExtension construction, and callable directly by hosts that parse
     /// toolkit-styling sheets without the extension.
@@ -85,7 +85,7 @@ export namespace foundation::ui::toolkit
 
         void Apply(StyleSheet& sheet, ThemePalette p) override
         {
-            // The toolkit styling is authored as .sss (ui-theme-migration.md P3): two fragments
+            // The toolkit styling is authored as .sss: two fragments
             // because dark and light chrome derive in DIFFERENT directions per control (a variable
             // swap cannot express "darken here on dark, lighten here on light").
             const bool isDark = p.Background.r < 0.5f;

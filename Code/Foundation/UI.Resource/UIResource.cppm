@@ -1,9 +1,8 @@
 // Foundation::UI.Resource - the `foundation.ui.resource` module.
 //
-// Cooked game-UI content (docs/design/game-ui.md §4). v1 payloads are VALIDATED TEXT:
+// Cooked game-UI content. v1 payloads are VALIDATED TEXT:
 // the cook parses (markup / SSS) and FAILS on errors, but ships the source text - the
-// runtime re-parses at bind (v2 upgrades the payload to a pre-parsed binary tree behind
-// the same records). Documents are TEMPLATES: every canvas instantiates its own view
+// runtime re-parses at bind. Documents are TEMPLATES: every canvas instantiates its own view
 // tree from UIDocument::markup; themes parse once per bind and are shared.
 //
 // Deliberately FREE of the foundation.ui framework: validation lives in the editor

@@ -1,7 +1,7 @@
-// mesh-lod.md P1 wire: the LOD chain through StaticMeshSource v4 -> StaticMesh.
+// The LOD chain wire through StaticMeshSource v4 -> StaticMesh.
 // Covers the serialize round-trip (sidecar write/read), the FillStatic validation
 // (malformed tables collapse to 1 LOD - render at LOD 0, never crash), the
-// SubMeshesForLod slicing contract, and the P0 optimizer staying set-preserving
+// SubMeshesForLod slicing contract, and the optimizer staying set-preserving
 // on EVERY level of a chain.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

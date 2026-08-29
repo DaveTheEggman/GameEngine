@@ -224,7 +224,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     REQUIRE(manifestInst != nullptr);
     CHECK(manifestInst->TypeName() == StringView(u8"ModelManifestAsset"));
 
-    // The fan-out landed in a subgroup: meshes + a manifest at minimum.
+    // The fan-out produces a subgroup: meshes + a manifest at minimum.
     foundation::content::Group* modelGroup =
         project->SourceDb().RootGroup()->GetGroup(u8"character-oozi");
     REQUIRE(modelGroup != nullptr);
@@ -259,7 +259,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(stats.cooked == plan.dirty.Size());
     CHECK(driver.Plan().dirty.IsEmpty()); // incremental: everything clean now
 
-    // Products landed under the source guids: the manifest product + a bindable mesh.
+    // Products land under the source guids: the manifest product + a bindable mesh.
     CHECK(project->CookedDb().GetInstance(manifestInst->Id()) != nullptr);
     const Guid meshGuid = manifestAsset->manifest.meshGuids[0];
     RefPtr<ISerializable> meshProduct = project->CookedDb().ReadObject(meshGuid);
@@ -519,7 +519,7 @@ TEST_CASE("importer: FBX separate metal/rough maps bake into one packed MR textu
 TEST_CASE("mesh convert: missing tangent stream generates tangents (DamagedHelmet class)")
 {
     // A quad in the XY plane, normal +Z, with U mapped along +Y - so the generated tangent
-    // must be ~(0,1,0), NOT the {1,0,0} default a missing stream used to leave behind.
+    // must be ~(0,1,0), NOT the {1,0,0} default a missing stream would otherwise leave behind.
     struct SrcVertex
     {
         Float3 pos;
@@ -959,7 +959,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     CHECK_FALSE(options->generateScene); // opt-in
     CHECK_FALSE(options->generateCollision); // opt-in
     CHECK_FALSE(options->collisionConvex);
-    CHECK(options->Toggles().Size() == 8u); // +Generate LODs (mesh-lod.md P2)
+    CHECK(options->Toggles().Size() == 8u); // +Generate LODs
 
     // Geometry-only import: no textures, no materials, no skeleton/clips in the fan-out.
     options->importTextures = false;

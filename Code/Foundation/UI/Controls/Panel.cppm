@@ -41,7 +41,7 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
-            // Margin is base-handled now (ui-box-model.md P2b) - children get the loose content
+            // Margin is base-handled - children get the loose content
             // box and aggregate by margin-box size.
             const Thickness pad = EffectivePadding();
             const BoxConstraints inner = constraints.Deflate(pad).Loosen();

@@ -1,6 +1,6 @@
 // Engine::Script - :components partition.
 //
-// The attachment model (docs/design/scripting.md §3.1): ONE ScriptComponent per entity
+// The attachment model: ONE ScriptComponent per entity
 // holding an ORDERED array of behaviors - each a cooked ScriptClass reference, an
 // enabled flag, and hash-keyed property OVERRIDES (values differing from the class's
 // harvested defaults; Godot's default-diff semantics with Lumix's rename-safe hashes).
@@ -41,8 +41,8 @@ export namespace engine::script
         // Authored:
         foundation::resource::Ref<ScriptClass> script;
         bool enabled = true;
-        f32 updateInterval = 0.0f; // seconds between onUpdate calls; <=0 = every tick (P3
-                                   // throttling). The delivered dt is the ACCUMULATED time.
+        f32 updateInterval = 0.0f; // seconds between onUpdate calls; <=0 = every tick.
+                                   // The delivered dt is the ACCUMULATED time.
         Array<ScriptPropertyOverride> overrides;
 
         // Runtime (transient):
@@ -52,7 +52,7 @@ export namespace engine::script
         bool started = false;                    // onStart delivered
         bool active = false;          // last delivered enable state (onEnable/onDisable edges)
         bool entitySuspended = false; // entity-active latch: frozen by an inactive entity
-                                      // (entity-active-state.md P3; runtime only)
+                                      // (runtime only)
         bool faulted = false;         // a fault disables the one behavior (cleared by reload)
         f32 updateAccumulator = 0.0f; // time banked toward the next throttled onUpdate
 

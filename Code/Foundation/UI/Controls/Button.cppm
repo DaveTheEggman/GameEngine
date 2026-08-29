@@ -56,8 +56,8 @@ export namespace foundation::ui
             return Thickness{12.0f, 8.0f};
         }
 
-        // Content-only measure (ui-box-model.md P2c): the base handles chrome - the hand-rolled
-        // Deflate/re-inflate padding math is gone.
+        // Content-only measure: the base handles chrome, so padding is not deflated and
+        // re-inflated here.
         [[nodiscard]] Float2 OnMeasureContent(BoxConstraints contentConstraints) override
         {
             const f32 fontSize = FontSize.Value().HasValue()

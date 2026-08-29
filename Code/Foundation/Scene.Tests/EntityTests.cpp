@@ -258,7 +258,7 @@ TEST_CASE("entity find: by name (first match) and by hierarchy path")
     CHECK_FALSE(scene.FindChildByName(player, u8"Muzzle").IsAssigned()); // grandchild
 }
 
-// === effective active (entity-active-state.md P1): own flag AND every ancestor's flag,
+// === effective active: own flag AND every ancestor's flag,
 // cached O(1), resettled at the SetActive / reparent / creation choke points ===
 
 TEST_CASE("effective active: deep chain - a mid-ancestor's flag darks the whole subtree")

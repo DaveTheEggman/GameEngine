@@ -8,8 +8,8 @@
 ///     doubly-linked parent/child/sibling tree with O(1) splice (head+tail+back
 ///     pointers), a dirty-flag cascade, and a two-pass UpdateTransforms that snapshots
 ///     the previous world matrix (for motion vectors) and recomputes only dirty
-///     subtrees. Destruction is recursive (children first) and immediate for now;
-///     deferred-during-update destroy lands with the update loop in a later phase.
+///     subtrees. Destruction is recursive (children first); a destroy triggered
+///     during Update is deferred to the frame's Cleanup so iteration stays stable.
 
 module;
 #include "Core/Prelude.h"
@@ -22,7 +22,7 @@ import :entity;
 import :phase;
 import :system;
 import :component;
-import foundation.messaging; // EventBus (moved out to its own leaf module, messaging.md P1)
+import foundation.messaging; // EventBus (its own leaf module)
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -70,7 +70,7 @@ export namespace foundation::scene
         [[nodiscard]] bool IsActive(EntityHandle entity) const noexcept;
         void SetActive(EntityHandle entity, bool active);
         /// EFFECTIVE active state: this entity's own flag AND every ancestor's own flag
-        /// (entity-active-state.md). O(1) - the bit is cached on the slot and recomputed by
+        /// O(1) - the bit is cached on the slot and recomputed by
         /// subtree walk at the only choke points that can change it (SetActive / reparent /
         /// creation). ALL runtime gating (render extraction + every sim system) reads THIS,
         /// never IsActive: deactivating a parent must dark the whole subtree without touching
@@ -116,7 +116,7 @@ export namespace foundation::scene
                 baselineTransforms; // parallel to sourceIds (template local transforms)
             Array<PrefabComponentBaseline> componentBaselines;
 
-            // NESTING (P4): an instance spawned BY another instance's payload record links to its
+            // NESTING: an instance spawned BY another instance's payload record links to its
             // owner; nestedRootSourceId is this instance's stable identity in the owner's
             // namespace (the payload record's root id) - rebuilds match on it. Nil = top-level.
             Guid ownerRootEntityId{};
@@ -184,7 +184,7 @@ export namespace foundation::scene
             Array<Guid> overrideTransformIds; // source ids with transform overrides
             Array<Transform> overrideTransforms;
             Array<PendingPrefabComponentOp> componentOps;
-            // NESTING (P4): mirror of PrefabInstanceState's links (see there). rootLiveId is the
+            // NESTING: mirror of PrefabInstanceState's links (see there). rootLiveId is the
             // instance root's live id (in a PAYLOAD record: the owner-namespace id nested scene
             // records match against).
             Guid rootLiveId{};
@@ -366,19 +366,17 @@ export namespace foundation::scene
         // This scene's native event bus: C++ systems Publish/Subscribe directly (a C++-only game is
         // first-class); script reaches it through a bridge. Drained at the scene tick's top level
         // (Scene::Update), so a handler runs with no VM call active. See foundation.messaging.
-        /// This scene's event bus (messaging.md P2): the BORROWED scope bus when a run scope injected one
-        /// (a GameInstance's run bus, or an editor page's), else this scene's OWNED fallback. So
-        /// `scene.events.emit` and the run bus are the SAME object in an instance - no relay to cross.
-        /// The RUN SCOPE's event bus, BORROWED (messaging.md revised decision 2: there is
-        /// NO owned fallback - the scope injects before assembly, so systems binding at
-        /// OnSceneCreate see the same bus emits land on). Null on scenes with no scope
-        /// (headless scratch: transcode/validate) - those never emit; script handles
-        /// no-op safely on null, native emitters treat null as a contract violation.
+        /// This scene's event bus: the BORROWED scope bus a run scope injected (a GameInstance's
+        /// run bus, or an editor page's), so `scene.events.emit` and the run bus are the SAME
+        /// object in an instance - no relay to cross. There is NO owned fallback: the scope injects
+        /// before assembly, so systems binding at OnSceneCreate see the bus their emits land on.
+        /// Null on scenes with no scope (headless scratch: transcode/validate) - those never emit;
+        /// script handles no-op safely on null, native emitters treat null as a contract violation.
         [[nodiscard]] messaging::EventBus* Events() noexcept { return m_eventBus; }
 
-        /// Borrow a scope's bus (messaging.md P2): the owning scope (GameInstance / editor page) injects
+        /// Borrow a scope's bus: the owning scope (GameInstance / editor page) injects
         /// THE bus for its run and drains it itself; this scene then stops draining (see Scene::Update).
-        /// Null reverts to the owned fallback (a scene is its own scope). Set before the scene ticks.
+        /// Null clears the borrowed bus - the scene has no bus of its own. Set before the scene ticks.
         void SetEventBus(messaging::EventBus* bus) noexcept { m_eventBus = bus; }
 
         // ---- play / edit state ----
@@ -508,7 +506,7 @@ export namespace foundation::scene
         u64 m_revision = 0;
 
         // per-scene systems
-        messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (messaging.md P2); null = use owned
+        messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (injected by the run scope); null = none
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted

@@ -6,9 +6,9 @@
 // Re-applying after a state change (e.g. :hover) therefore drives CSS transitions live.
 //
 // The per-widget cache lives here (not on UIWidget) to avoid a :ui_widget <-> :style_sheet
-// partition cycle. v1 re-resolves the whole subtree on ApplyTree; dirty-tracking (only
-// re-resolve invalidated widgets) is a later optimization. Cache entries are keyed by raw
-// Node* - call Forget()/Clear() when widgets are destroyed (lifecycle wiring deferred).
+// partition cycle. Re-resolves the whole subtree on ApplyTree; dirty-tracking (only
+// re-resolve invalidated widgets) is not implemented. Cache entries are keyed by raw
+// Node* - call Forget()/Clear() when widgets are destroyed (no automatic lifecycle wiring).
 
 module;
 #include "Core/Prelude.h"

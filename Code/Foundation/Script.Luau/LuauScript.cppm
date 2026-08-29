@@ -154,10 +154,10 @@ namespace foundation::script
     // =====================================================================
     // Bytecode blob: a compiled Luau chunk (the Bytecode capability).
     // IScriptManager::CompileToBlob produces one at COOK; IScriptContext::LoadBlob
-    // feeds it back to luau_load in the PLAYER, so the shipped pack carries bytecode
+    // feeds it back to luau_load in the PLAYER, so the cooked pack carries bytecode
     // and no compiler runs at load (the sandbox win). Bytecode is version-locked: the
-    // cook fingerprint carries the vendored Luau version so a vendor bump recooks
-    // (luau-backend.md "Vendoring"). Opaque per IScriptBlob's contract - only this
+    // cook fingerprint carries the vendored Luau version so a vendor bump recooks.
+    // Opaque per IScriptBlob's contract - only this
     // backend produces/consumes it, so LoadBlob downcasts by static_cast.
     // =====================================================================
     class LuauScriptBlob final : public IScriptBlob
@@ -262,7 +262,7 @@ namespace foundation::script
         [[nodiscard]] lua_State* State() noexcept { return m_state; }
         [[nodiscard]] LuauScriptManager* Manager() noexcept { return m_manager.Get(); }
 
-        // The debugger installs the VM-global debugstep callback here (Fable P6): it fires per
+        // The debugger installs the VM-global debugstep callback here: it fires per
         // Lua line while a thread has singlestep armed. Singlestep itself is armed per-thread at
         // resume time (RunCallable / ResumeCoroutine) only while a debugger is attached.
         void InstallDebugHooks(LuauDebugger* debugger);
@@ -303,9 +303,9 @@ namespace foundation::script
         // the enum). Use at every native call/setter site where the expected type is known.
         [[nodiscard]] Variant ToVariantForParam(lua_State* state, int index, const TypeInfo* expected);
 
-        // ---- the resumable-thread executor (Fable P6 Q1) ----
+        // ---- the resumable-thread executor ----
         // Every script CALL (Call / CreateInstance / ScriptObject::Invoke) runs on a POOLED lua
-        // thread via lua_resume, NOT lua_pcall on the main state - one executor for the shipped
+        // thread via lua_resume, NOT lua_pcall on the main state - one executor for the production
         // AND the debugged program (no divergence), and the only shape lua_break (the debugger's
         // suspend) can suspend + resume. AcquireThread reuses a recycled thread or makes one
         // (registry-pinned for GC); a nested call (a facade that dispatches script) takes a
@@ -380,7 +380,7 @@ namespace foundation::script
                    ScriptCapabilities::Bytecode | ScriptCapabilities::Debugger;
         }
 
-        // A step debugger over this VM's contexts (Fable P6): singlestep + (short_src,line) break
+        // A step debugger over this VM's contexts: singlestep + (short_src,line) break
         // on the pooled resumable threads, held via lua_break. One at a time; it registers as the
         // active debugger on construction (RunCallable/AdvanceCoroutines consult it) and
         // unregisters on destruction. Defined after the context class.
@@ -501,7 +501,7 @@ namespace foundation::script
     };
 
     // =====================================================================
-    // Step debugger (Fable P6): singlestep + (short_src, line) breakpoints on the pooled
+    // Step debugger: singlestep + (short_src, line) breakpoints on the pooled
     // resumable threads. The debugstep callback lua_break()s the running thread on a hit; the
     // resume returns LUA_BREAK, the debugger HOLDS that thread, fires the paused state (the run
     // host freezes the game), and Continue/Step re-resume it. lua_break cannot cross a C-call
@@ -994,7 +994,7 @@ namespace foundation::script
         int m_brokenLine = -1; // the pause point line (frame-0 line; the callhook off-by-one target)
         int m_resumeLine = -1; // the line Continue/Step resumed from - skip its breakpoint until we leave it
         int m_resumeDepth = 0;
-        bool m_pending = false; // a break deferred past a C-call boundary (Fable Q3)
+        bool m_pending = false; // a break deferred past a C-call boundary
         Cause m_pendingCause = Cause::Breakpoint;
         Cause m_cause = Cause::Breakpoint;
         Array<CapturedObject> m_objects;
@@ -1083,8 +1083,8 @@ namespace foundation::script
         }
         // A reflected container (Array<T>) crosses as a native 1-indexed Lua table (script gets `#t`
         // and ipairs); each element is pushed recursively - numbers, strings, boxed reflected handles.
-        // GC-managed, no manual refcount. The facade returns an engine Array<T>; see
-        // script-array-returns.md. Must precede the boxed-Variant fallthrough.
+        // GC-managed, no manual refcount. The facade returns an engine Array<T>.
+        // Must precede the boxed-Variant fallthrough.
         if (const TypeInfo* containerType = value.Type();
             containerType != nullptr && IsContainer(*containerType))
         {
@@ -1412,8 +1412,8 @@ namespace foundation::script
 
         // Container-member ops on the OWNER (`shelf:rooms_count()`, `shelf:rooms_at(0)`, ...),
         // mirroring AngelScript's RegisterContainerMethods surface so both backends share ONE
-        // write-through contract for reflected container members (pass-17 ruling: the bare
-        // property used to cross as a detached copy-table whose mutations were silently lost).
+        // write-through contract for reflected container members (the bare
+        // property would cross as a detached copy-table whose mutations are silently lost).
         // Indices are ZERO-based on both backends - this is an engine accessor, not a Lua table.
         // Elements come back like AS's ContainerDispatch: Object / copyable values via getAt
         // (owned; Object handles write through by refcount), non-copyable values as
@@ -1557,8 +1557,8 @@ namespace foundation::script
             {
                 // A container MEMBER is not a plain value: it binds as owner ops
                 // (`<name>_count/_at/_add/_removeAt/_move` - the AS-parity write-through
-                // surface). A bare read used to hand script a detached copy-table whose
-                // mutations were silently lost; nil is the honest answer (same as AS, where
+                // surface). A bare read would hand script a detached copy-table whose
+                // mutations are silently lost; nil is the honest answer (same as AS, where
                 // the bare property does not exist).
                 if (IsNested(*property) && property->type != nullptr &&
                     property->type->container != nullptr)
@@ -1946,7 +1946,7 @@ namespace foundation::script
         {
         case ResumeDisposition::Broke:
             // A breakpoint/step landed inside the coroutine body: the debugger holds THIS coroutine
-            // thread (AdvanceCoroutines skips LUA_BREAK threads, Fable Q5); Continue re-resumes it.
+            // thread (AdvanceCoroutines skips LUA_BREAK threads); Continue re-resumes it.
             // A break can only occur with a debugger attached (it alone arms singlestep); guard so a
             // stray status never leaks a scheduled-but-never-resumed thread.
             if (m_debugger != nullptr)
@@ -2244,7 +2244,7 @@ namespace foundation::script
         // Each Luau class is a GLOBAL table, so loading each source as its OWN chunk (chunkName =
         // the class sourceName) is both valid AND better than the default concatenation: a
         // compile/runtime error and a debugger breakpoint key on the authored (file, line),
-        // matching AngelScript per-class section identity (Fable P6 Q4), and it is the same
+        // matching AngelScript per-class section identity, and it is the same
         // per-class load path the bytecode blobs use. A reload redefines the class global in
         // place - the natural Luau hot-reload.
         (void)moduleName;
@@ -2722,24 +2722,24 @@ export namespace foundation::script
 
     /// The vendored Luau bytecode-format version (LBC_VERSION_TARGET). Bytecode is NOT stable
     /// across Luau versions, so the cook folds this into its fingerprint: a vendor bump changes
-    /// the number and every Luau script pack recooks automatically (luau-backend.md "Vendoring").
+    /// the number and every Luau script pack recooks automatically.
     [[nodiscard]] inline core::u32 LuauBytecodeVersion() noexcept
     {
         return static_cast<core::u32>(LBC_VERSION_TARGET);
     }
 
-    /// Emits `.d.luau` TYPE DECLARATIONS for the bound engine surface (P5, the agent payoff):
+    /// Emits `.d.luau` TYPE DECLARATIONS for the bound engine surface (the agent payoff):
     /// reflection -> Luau declarations (classes with typed instance methods + properties, static
     /// tables with `new` + statics, enums as number tables) so luau-analyze / an editor / an agent
     /// type-checks a script against the REAL API. The object set is the same bounded reachability
     /// closure the emitter binds, so declarations match the runtime surface exactly. A cook-time
     /// artifact - regenerate when reflection changes; never committed. Arity families (one script
-    /// name, several arities) collapse to their first overload (a first-pass limit; luau-analyze
-    /// overload types are a later refinement).
+    /// name, several arities) collapse to their first overload (luau-analyze overload types are
+    /// not emitted).
     [[nodiscard]] core::String
     EmitLuauDeclarations(core::Span<const core::TypeInfo* const> registeredTypes);
 
-    /// Registers Luau with the backend registry (scripting.md B1) - the ONE line that makes the
+    /// Registers Luau with the backend registry - the ONE line that makes the
     /// language available; consumers resolve by extension/language, never by type.
     inline void RegisterLuauScriptBackend()
     {

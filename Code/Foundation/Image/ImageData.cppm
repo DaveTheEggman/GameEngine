@@ -30,7 +30,7 @@ export namespace foundation::image
 
     // Reflects ImageColorSpace for tooling (enum-by-name dropdowns) + scripting. Idempotent;
     // called by consumers that need the enum names (texture/image asset registration). Body
-    // lives in the impl unit (gcc module-interface hygiene). Reflection track P1.
+    // lives in the impl unit (gcc module-interface hygiene).
     void RegisterImageReflection();
 
     /// Abstract interface for image data. Implemented by OwnedImageData (owning)

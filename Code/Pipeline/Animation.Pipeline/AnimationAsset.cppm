@@ -2,8 +2,8 @@
 ///
 /// Authoring/cook side: a SkeletonAsset / AnimationClipAsset wraps the cooked source + the source
 /// file reference; the builders cook them into the content DB (Source -> product at load). Mirrors
-/// foundation.geometry.editor. (The model importer - foundation.model IR -> these sources - lands later;
-/// for now sources are populated round-trip from the runtime types via the resource layer.)
+/// foundation.geometry.editor. (Sources are populated round-trip from the runtime types via the
+/// resource layer; the model importer - foundation.model IR -> these sources - is a later transform.)
 
 module;
 #include "Core/Prelude.h"

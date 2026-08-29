@@ -100,7 +100,7 @@ namespace engine::player
             }
 
             // The app builds the resource manager + standard factories over this DB
-            // (product types registered there too - runtime-host.md v3 infra preset).
+            // (product types registered there too - the infra preset).
             SetContentDatabase(m_contentDb.Get());
             engine::runtime::DefaultApplication::OnStartup(host);
 
@@ -172,7 +172,7 @@ namespace engine::player
                 }
             }
 
-            // The project's scene-pass MSAA sample count (msaa.md P2): drive the render subsystem's
+            // The project's scene-pass MSAA sample count: drive the render subsystem's
             // global path. The subsystem capability-clamps per view (an unsupported count degrades,
             // e.g. 2x -> 1x on WebGPU), so we pass the authored value straight through. Only when > 1
             // (1 = off = the default, which also avoids forcing the global-post path on).
@@ -231,7 +231,7 @@ namespace engine::player
 
             // The project's default UI font: cooked FontResource -> the game context's
             // font service (nil/unresolved = the dev TTF fallback, which does not exist
-            // in a dist - a shipped game NEEDS this binding for any text at all).
+            // in a dist - a distributed game NEEDS this binding for any text at all).
             if (UI() != nullptr && !m_settings.defaultUiFontId.IsNil())
             {
                 auto fontProxy =
@@ -248,7 +248,7 @@ namespace engine::player
             }
             else if (UI() != nullptr)
             {
-                // A shipped game with no default font renders no text (the dev fallback is gone).
+                // A distributed game with no default font renders no text (no dev fallback here).
                 LOG_WARNING(u8"Player",
                                      u8"no default UI font set in project settings - game UI text "
                                      u8"will not render (set Project Settings > Default UI font)");
@@ -506,7 +506,7 @@ namespace engine::player
             }
         }
 
-        // The built-in default splash (bare-bones - a status label + progress bar). A shipped game
+        // The built-in default splash (bare-bones - a status label + progress bar). A distributed game
         // authors its own UIDocument and sets loadingDocumentId; this just proves the flow works with
         // zero authoring. The `status`/`progress` ids are the app<->document contract.
         [[nodiscard]] static RefPtr<foundation::ui::UIDocument> DefaultSplashDocument()

@@ -60,7 +60,7 @@ export namespace foundation::ui
         }
         [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette)
         {
-            // Authored as Styling/Themes/light.sss (embedded at build; ui-theme-migration.md P2).
+            // Authored as Styling/Themes/light.sss (embedded at build).
             StyleSheetLoader loader;
             loader.SetPalette(palette);
             RefPtr<StyleSheet> sheet = loader.Load(EmbeddedThemes::Light());

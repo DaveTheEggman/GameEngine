@@ -1,6 +1,6 @@
 // Editor::Mcp - :script_create partition
 //
-// script_create (mcp-agent-access.md P1 item 8): seed a fresh script asset from the chosen
+// script_create: seed a fresh script asset from the chosen
 // backend's own starter (the language cook's NewAssetTemplate - never hardcoded text), the
 // same recipe as the editor's New Asset menu: starter source written to
 // Sources/<name>.<ext>, plus a ScriptClassAsset envelope recording {fileName, language} in

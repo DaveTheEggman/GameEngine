@@ -3,7 +3,7 @@
 // StateListDrawable: maps a ControlState to a child Drawable and dispatches Draw to it,
 // falling back to Normal when a state has no entry. Derived from eepp's StateListDrawable
 // (used by UISkinState); the eepp bitmask best-match is simplified to keyed lookup +
-// Normal fallback for now (grows with the skin phase).
+// Normal fallback.
 
 module;
 #include "Core/Prelude.h"

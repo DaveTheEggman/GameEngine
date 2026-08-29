@@ -1,6 +1,6 @@
 # Foundation::Mcp - `foundation.mcp` (JSON-RPC 2.0 + MCP lifecycle + tool/resource registry).
-# The protocol layer of the MCP track: transport-abstract (stdio + in-memory), implements the v1
-# subset from docs/specs/mcp-agent-access.md. Depends on Json (the wire codec) + Core.
+# The MCP protocol layer: transport-abstract (stdio + in-memory), implements the v1
+# subset. Depends on Json (the wire codec) + Core.
 
 add_library(Mcp STATIC)
 add_library(Foundation::Mcp ALIAS Mcp)

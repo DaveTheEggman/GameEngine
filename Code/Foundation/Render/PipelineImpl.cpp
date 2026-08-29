@@ -341,7 +341,7 @@ namespace foundation::render
         ctx.viewIndex = viewIndex;
         ctx.colorFormat = colorFormat;
         ctx.depthFormat = m_depthFormat;
-        // Scene-pass MSAA (msaa.md): only the OPAQUE pass renders into the MSAA scene target - it and
+        // Scene-pass MSAA: only the OPAQUE pass renders into the MSAA scene target - it and
         // the mesh/sprite/particle renderers it dispatches build MSAA PSOs + bundle. Transparent
         // (Blended) and world UI (PostTonemap) run on the resolved 1x color, so they stay single-sample.
         // Derived from the view (already capability-clamped upstream), so MSAA-off leaves this 1 =
@@ -661,8 +661,8 @@ namespace foundation::render
         ctx.viewMatrix = view.Camera().view;
         ctx.depthFormat = m_pass.DepthFormat();
         ctx.depthPrepass = true;
-        // Scene-pass MSAA (msaa.md Decision 3): the depth prepass runs at the view's sample count so
-        // early-Z matches the MSAA forward exactly. 1 (off) = today's single-sample prepass.
+        // Scene-pass MSAA: the depth prepass runs at the view's sample count so
+        // early-Z matches the MSAA forward exactly. 1 (off) = the single-sample prepass.
         ctx.sampleCount = (view.Settings().post.msaaSamples > 1) ? view.Settings().post.msaaSamples
                                                                  : static_cast<u8>(1);
         ctx.frameIndex = m_frameIndex;
@@ -1158,7 +1158,7 @@ namespace foundation::render
             {
                 r->SetCaptureFacePasses(captureFaces);
             }
-            // Reflection probes (P4, multi-probe): upload this frame's records + bind the prefiltered cube-
+            // Reflection probes (multi-probe): upload this frame's records + bind the prefiltered cube-
             // array (t8) + the probe-metadata SRV (t9) + count. The forward loops + blends them. 0 -> no probe.
             if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0)
             {
@@ -1214,7 +1214,7 @@ namespace foundation::render
         }
 
         // Declare every view's forward pass into the one frame graph, then let the graph compile
-        // (barriers + transient depth allocation/aliasing) + execute. (§9: one graph, all views.)
+        // (barriers + transient depth allocation/aliasing) + execute. (One graph, all views.)
         {
             PROFILE_SCOPE(
                 "Compose.Declare"); // build the frame graph (pass/resource declarations)
@@ -1381,8 +1381,8 @@ namespace foundation::render
                                                                        sctx->casters.Size()};
                                     const Span<const Float4> bounds{sctx->casterBounds.Data(),
                                                                     sctx->casterBounds.Size()};
-                                    // Cascades follow their OWNING view's LOD selection
-                                    // (mesh-lod.md P3): shadow matches what the view draws.
+                                    // Cascades follow their OWNING view's LOD selection:
+                                    // shadow matches what the view draws.
                                     RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f,
                                                         /*frustumCull*/ true, bounds, v);
                                 });
@@ -1395,7 +1395,7 @@ namespace foundation::render
                 m_viewShadowDebug[i].directional = true;
             }
 
-            // Reflection probe (P2): init the captured-cube layout once (so uncaptured slices are ShaderRead, not
+            // Reflection probe: init the captured-cube layout once (so uncaptured slices are ShaderRead, not
             // UNDEFINED, under the whole-array SRV) + import it ONCE so both the capture passes AND the main
             // forward's ReadTexture share one imported resource (which orders capture->forward + barriers it).
             rendergraph::RGHandle probeCapturedH, probePrefilteredH;
@@ -1616,10 +1616,10 @@ namespace foundation::render
                     ibl.valid = true;
                 }
 
-                // Scene-pass MSAA (msaa.md): the opaque G-buffer (depth + aux + hdr) renders
+                // Scene-pass MSAA: the opaque G-buffer (depth + aux + hdr) renders
                 // multisampled at the view's count, then resolves to 1x after opaque/sky/decals for the
                 // 1x post stack. msaaSamples == 1 (off, or no resolve pass) leaves every desc single-
-                // sample = byte-identical to today.
+                // sample = byte-identical to the single-sample path.
                 // MSAA engages only in the HDR (tonemap) path: it resolves into a 1x HDR the post stack
                 // consumes. The no-tonemap fallback renders forward straight into the 1x target, where an
                 // MSAA depth/aux would mismatch - so it stays single-sample.
@@ -1748,7 +1748,7 @@ namespace foundation::render
                         hdr, velocityT,
                         m_tonemap
                             ->HdrFormat()); // sky into HDR (+ camera-motion velocity), before TAA
-                    // Scene-pass MSAA resolve (msaa.md Decision 4 corrected + the aux-resolve note):
+                    // Scene-pass MSAA resolve:
                     // opaque + sky wrote the MSAA G-buffer; resolve the scene COLOR (hardware
                     // averaged resolve attachment) and the DEPTH + AUX (first-sample shader resolve) to
                     // 1x here, so the whole post stack (SSR/AO/TAA) and transparent run on 1x exactly as
@@ -1854,10 +1854,10 @@ namespace foundation::render
                     }
                     // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                     // color-only, depth read-only against the opaque depth, back-to-front. Under MSAA it
-                    // tests against the SAMPLE-0-resolved 1x depth (msaa.md ordering ruling, Fable pin 1):
+                    // tests against the SAMPLE-0-resolved 1x depth:
                     // along an opaque silhouette the averaged color says "edge" where sample-0 depth may
-                    // say "empty", so a transparent crossing an opaque edge can show <=1px acne/halo -
-                    // accepted for P1; the transparent-MSAA follow-up fixes edge AA + this together.
+                    // say "empty", so a transparent crossing an opaque edge can show <=1px acne/halo.
+                    // A transparent-MSAA path that resolves edge AA would fix this.
                     m_pass.DeclareTransparent(
                         *v, *m_registry, m_graph, m_frameIndex, viewIndex, sceneColor, postDepth,
                         m_tonemap->HdrFormat(), unjitteredVP, prevViewProj, jitter, prevJitter,

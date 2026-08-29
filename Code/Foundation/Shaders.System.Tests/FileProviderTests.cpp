@@ -1,4 +1,4 @@
-// Tests for the FileShaderSourceProvider (engine shader root, shaders.md P1) and the
+// Tests for the FileShaderSourceProvider (engine shader root) and the
 // ShaderSystem provider seam: manifest scan + stem/stage mapping, lazy fetch, pull-on-miss
 // through GetVariant with .hlsli include resolution, explicit-registration precedence, and
 // PumpReloads hot reload (including the .hlsli -> reload-everything fallback). File shaders
