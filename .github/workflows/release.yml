@@ -150,10 +150,11 @@ jobs:
             libvulkan-dev vulkan-tools mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
-      # SDL3 is a system dependency on Linux (only Windows uses the vendored ThirdParty/SDL3
-      # prebuilt). Ubuntu 24.04's apt has no libsdl3-dev, so build the matching release (3.4.10)
-      # and install to /usr/local; without it Foundation::Shell.Desktop is skipped and the native
-      # Engine.Player + Tools.Export the templates build against fail to link.
+      # The wasm Engine.Player uses the browser shell, not SDL3 - but build-export-templates.sh
+      # web builds the NATIVE Tools.Export + Engine.Player first (it packages the web template),
+      # and that native configure needs find_package(SDL3) or Foundation::Shell.Desktop is skipped
+      # and it fails to link. Ubuntu 24.04's apt has no libsdl3-dev, so build the matching release
+      # (3.4.10, the version the vendored Windows libs ship) and install to /usr/local.
       - name: Build and install SDL3 (release-3.4.10)
         run: |
           git clone --depth 1 --branch release-3.4.10 https://github.com/libsdl-org/SDL.git /tmp/SDL3-src
