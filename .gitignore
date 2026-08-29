@@ -23,3 +23,6 @@ Thumbs.db
 
 Dist/
 Documentation/Parity/
+
+# Editor/game distribution output (scripts/build-editor-dist.sh, build-export-templates)
+/dist/

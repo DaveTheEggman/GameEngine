@@ -43,3 +43,36 @@ so `cl`/`clang-cl` + `ninja` are on PATH, and verify the Windows runtime sidecar
 ```sh
 Bin/Release/Linux64-Clang/Tools.Export --template list
 ```
+
+## build-editor-dist.{sh,ps1} - package the editor for download
+
+Assemble a portable, unzip-and-run **editor** distribution: `Tools.Editor` + its runtime
+sidecars (DXC - the editor cooks/recompiles shaders) + a cooked `shaders.dpak` (pack mode, no
+`.hlsl` source shipped) + the `Data` root (`Assets` + the `.dataroot` marker) beside the exe.
+`FindDataRoot()` discovers `Data/` beside the executable and `$ORIGIN` on the RUNPATH finds the
+sidecars, so the folder relocates to any machine. This is distinct from the export TEMPLATES
+above: those package the game RUNTIME (`Engine.Player`); this packages the AUTHORING TOOL.
+
+Not bundled: the Vulkan/GPU system runtime (the target machine's drivers + loader).
+
+### Linux (from a Linux host)
+
+```sh
+scripts/build-editor-dist.sh
+#   JOBS=N       build parallelism (default 4; higher OOMs the modules build)
+#   OUT=<dir>    the dist folder (default: dist/Editor-Linux64)
+#   FORMATS=".." shader-pack formats (default: spirv)
+```
+
+Produces `<OUT>/` and `<OUT>.tar.gz`. Smoke test on the build machine:
+`( cd dist/Editor-Linux64 && ./Tools.Editor --exit-after 3 )`. The real test is B2:
+unzip on a machine with **no source tree and no dev toolchain** and confirm it launches.
+
+### Windows (on a Windows agent)
+
+```powershell
+pwsh scripts/build-editor-dist.ps1 [-Out <dir>] [-Jobs <n>] [-Formats "dxil spirv"]
+```
+
+Best-effort scaffold (authored from Linux). Run from a Developer PowerShell so `cl`/`clang-cl`
++ `ninja` are on PATH; verify the Bin layout tag and that `dxcompiler.dll`/`SDL3.dll` stage.

@@ -38,7 +38,15 @@ target_compile_definitions(Tools.Editor PRIVATE
     BUILTIN_EDITOR_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"
     BUILTIN_EDITOR_BASELINE_ASSETS="${CMAKE_SOURCE_DIR}/Data/Assets"
     BUILTIN_EDITOR_MONO_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")
-# Copy SDL3.dll next to the executable on Windows (same as the samples' helper, which is
-# defined in Code/Samples/ and not visible here).
-util_copy_runtime_deps(Tools.Editor EXTRA ${BUILDSYSTEM_SDL3_DLL})
+# Stage the editor's runtime deps beside it + emit Tools.Editor.runtime-libs (the editor packaging
+# script reads that list for its sidecars). SDL3 rides in as EXTRA (a no-op when unset, e.g. Linux).
+# DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by the shader COOK: the editor
+# authors and recompiles shaders, so unlike a shipped game player it needs DXC present, and it is not
+# a link dependency so it must be staged explicitly. On Linux, $ORIGIN on the RUNPATH lets a relocated
+# dist find DXC beside the exe (Windows searches the exe dir for a bare DLL by default).
+util_copy_runtime_deps(Tools.Editor EXTRA ${BUILDSYSTEM_SDL3_DLL} ${BUILDSYSTEM_DXC_LIB})
+if(UNIX AND NOT APPLE)
+    set_property(TARGET Tools.Editor APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+    set_property(TARGET Tools.Editor PROPERTY INSTALL_RPATH "$ORIGIN")
+endif()
 
