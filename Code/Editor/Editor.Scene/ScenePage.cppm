@@ -57,6 +57,8 @@ import :inspector;
 import :entity_picker_dialog; // the animation panel's Bind... target
 
 using namespace foundation::core;
+
+namespace core = foundation::core;
 namespace rhi = foundation::rhi;
 
 export namespace editor

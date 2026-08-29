@@ -37,6 +37,7 @@ import foundation.heightfield;
 using namespace foundation::core;
 using namespace foundation::physics;
 using namespace engine::scene;
+using foundation::heightfield::Heightfield;
 
 export namespace engine::physics
 {

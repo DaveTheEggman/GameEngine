@@ -354,9 +354,9 @@ namespace
         {
             Array<Room> out;
             Room a;
-            a.size = 3.0;
+            a.size = 3;
             Room b;
-            b.size = 4.0;
+            b.size = 4;
             out.PushBack(a);
             out.PushBack(b);
             return out;

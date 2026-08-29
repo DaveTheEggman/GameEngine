@@ -227,12 +227,12 @@ export namespace engine::terrain
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
-            rhi::TextureViewDesc dvd{};
-            dvd.format = rhi::TextureFormat::Depth32Float;
-            dvd.aspect = rhi::TextureAspect::DepthOnly;
-            dvd.dimension = rhi::TextureViewDimension::Texture2DArray;
-            dvd.arrayLayerCount = 1;
-            if (!m_device->CreateTextureView(m_dummyShadowTex, dvd, m_dummyShadowView).IsOk())
+            rhi::TextureViewDesc dsvd{};
+            dsvd.format = rhi::TextureFormat::Depth32Float;
+            dsvd.aspect = rhi::TextureAspect::DepthOnly;
+            dsvd.dimension = rhi::TextureViewDimension::Texture2DArray;
+            dsvd.arrayLayerCount = 1;
+            if (!m_device->CreateTextureView(m_dummyShadowTex, dsvd, m_dummyShadowView).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
             }

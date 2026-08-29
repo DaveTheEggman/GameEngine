@@ -28,6 +28,7 @@ import foundation.script.facades; // RegisterExtraFacadeName (Physics into the b
 using namespace foundation::core;
 using namespace foundation::physics;
 namespace core = foundation::core;
+using foundation::heightfield::Heightfield;
 
 namespace engine::physics
 {
