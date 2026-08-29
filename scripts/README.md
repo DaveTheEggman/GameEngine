@@ -34,9 +34,10 @@ scripts/build-export-templates.sh [linux|web|all]     # default: all
 pwsh scripts/build-export-templates.ps1 [-Out <dir>] [-Jobs <n>] [-Compiler MSVC|Clang]
 ```
 
-Best-effort scaffold (written from Linux). Run it from a Developer PowerShell / VS dev environment
-so `cl`/`clang-cl` + `ninja` are on PATH, and verify the Windows runtime sidecars (the DXC runtime
-`dxcompiler.dll`, wgpu-native) actually stage - the script's header lists the finish-here checks.
+The Windows script was written on Linux and has not been run on Windows. Run it from a Developer
+PowerShell / VS dev environment so `cl`/`clang-cl` + `ninja` are on PATH, and confirm the Windows
+runtime sidecars (the DXC runtime `dxcompiler.dll`, wgpu-native) stage into the output; the
+script's header lists the specific things to confirm on Windows.
 
 ### Verify
 
@@ -68,8 +69,8 @@ scripts/build-editor-dist.sh
 the platform suffix, so the default produces `dist/Editor-<version>-Linux64/` and its `.tar.gz`
 (e.g. `Editor-0.1.0-Linux64.tar.gz`) - the same version the binary reports via `--version`. Smoke
 test on the build machine: `( cd dist/Editor-<version>-Linux64 && ./Tools.Editor --exit-after 3 )`.
-The real test is B2: unzip on a machine with **no source tree and no dev toolchain** and confirm
-it launches.
+The conclusive check is to unzip on a machine with **no source tree and no dev toolchain** and
+confirm it launches.
 
 ### Windows (on a Windows agent)
 
@@ -77,5 +78,5 @@ it launches.
 pwsh scripts/build-editor-dist.ps1 [-Out <dir>] [-Jobs <n>] [-Formats "dxil spirv"]
 ```
 
-Best-effort scaffold (authored from Linux). Run from a Developer PowerShell so `cl`/`clang-cl`
-+ `ninja` are on PATH; verify the Bin layout tag and that `dxcompiler.dll`/`SDL3.dll` stage.
+Written on Linux and not yet run on Windows. Run from a Developer PowerShell so `cl`/`clang-cl`
++ `ninja` are on PATH; confirm the Bin layout path and that `dxcompiler.dll`/`SDL3.dll` stage.

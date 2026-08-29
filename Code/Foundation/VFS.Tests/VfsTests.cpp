@@ -361,7 +361,7 @@ TEST_CASE("vfs: data-root discovery via the .dataroot marker")
           PathJoin(dataDir.AsView(), u8"Assets/x.ttf"));
     CHECK(DataPath(u8"", u8"Assets/x.ttf") == String(u8"Assets/x.ttf"));
 
-    // Best-effort cleanup.
+    // Remove the scratch files; ignore failure (the temp dir is discarded regardless).
     NativeFileSystem scratch(base);
     if (IWritableFileSystem* w = scratch.AsWritable())
     {

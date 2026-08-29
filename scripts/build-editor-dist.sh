@@ -66,7 +66,7 @@ if [[ -f "$BIN/Tools.Editor.runtime-libs" ]]; then
         fi
     done < "$BIN/Tools.Editor.runtime-libs"
 fi
-# DXC belt-and-suspenders (the editor cooks shaders; the manifest should already list it).
+# Copy DXC directly as well, in case the manifest omits it (the editor cooks shaders, so it needs it).
 [[ -f "$BIN/libdxcompiler.so" && ! -f "$DIST/libdxcompiler.so" ]] && cp "$BIN/libdxcompiler.so" "$DIST/"
 strip "$DIST/Tools.Editor" 2>/dev/null || true
 

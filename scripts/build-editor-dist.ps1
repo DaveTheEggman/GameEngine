@@ -12,10 +12,10 @@
 
   NOT bundled: the Vulkan/DX12 system runtime (the target machine's GPU drivers).
 
-  BEST-EFFORT SCAFFOLD (authored from Linux). Run from a Developer PowerShell / VS dev
-  environment so cl/clang-cl + ninja are on PATH. FINISH-HERE checks: confirm the shader
-  pack cooks for the Windows backend (dxil - DX12; add spirv if the editor runs on Vulkan),
-  and that dxcompiler.dll + SDL3.dll actually land in the dist (verify Tools.Editor.runtime-libs).
+  Written on Linux and not yet run on Windows. Run from a Developer PowerShell / VS dev
+  environment so cl/clang-cl + ninja are on PATH. On Windows, confirm: the shader pack cooks
+  for the Windows backend (dxil - DX12; add spirv if the editor runs on Vulkan), and that
+  dxcompiler.dll + SDL3.dll land in the dist (check Tools.Editor.runtime-libs).
 
 .PARAMETER Out
   The dist folder (default: dist\Editor-Win64).

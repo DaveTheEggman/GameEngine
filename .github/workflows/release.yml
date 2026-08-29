@@ -90,11 +90,11 @@ jobs:
             dist/DeploymentTemplate-*-Linux64.tar.gz
           fail_on_unmatched_files: true
 
-  # Experimental until validated on a real Windows agent: the .ps1 Bin-tag and the MSVC modules
-  # build in CI are unverified. Independent of the Linux job, so a Windows failure does not block
-  # the Linux release (both attach to the same tag's Release).
+  # The .ps1 Bin path and the MSVC modules build have not yet run on a Windows agent. This job is
+  # independent of the Linux job, so a Windows failure does not block the Linux release (both
+  # attach to the same tag's Release).
   windows:
-    name: Editor dist (Windows x64) [experimental]
+    name: Editor dist (Windows x64)
     needs: guard
     runs-on: windows-latest
     timeout-minutes: 180
@@ -112,13 +112,13 @@ jobs:
           fail_on_unmatched_files: true
 
   # Web deployment template (Emscripten/WebGPU game runtime: Engine.Player .js/.wasm + serve.py).
-  # Experimental until validated in CI: the emsdk version and the wasm build on a hosted runner are
-  # unverified. The response-file patch is WINDOWS-ONLY (a CreateProcess arg-length limit), so a
-  # Linux runner does not apply it. build-export-templates.sh web also builds the NATIVE exporter
-  # first (Engine.Player + Tools.Export), hence the full build deps here. Independent job, so a
-  # failure does not block the native releases.
+  # The emsdk version and the wasm build have not yet run on a hosted runner. The response-file
+  # patch is WINDOWS-ONLY (a CreateProcess arg-length limit), so a Linux runner does not apply it.
+  # build-export-templates.sh web also builds the NATIVE exporter first (Engine.Player +
+  # Tools.Export), hence the full build deps here. This job is independent, so a failure does not
+  # block the native releases.
   web:
-    name: Deployment template (Web/Emscripten) [experimental]
+    name: Deployment template (Web/Emscripten)
     needs: guard
     runs-on: ubuntu-24.04
     timeout-minutes: 180
