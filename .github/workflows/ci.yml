@@ -1,0 +1,80 @@
+name: CI
+
+# First CI pass: configure, build, and test the Linux/clang Debug preset on a
+# GitHub-hosted runner. This is a STARTING POINT tuned to be measured on the real
+# runner - watch the first run for two things: peak memory during the C++23-modules
+# build (a single module TU can need several GB; the swapfile below is OOM insurance)
+# and any GPU tests that misbehave under software Vulkan (lavapipe). Widen to gcc +
+# Windows (matrix) and add a release/dist job once this is green and the timings are known.
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ['**/*.md', 'Documentation/**', 'comments-cleanup.md']
+  pull_request:
+    branches: [master]
+    paths-ignore: ['**/*.md', 'Documentation/**', 'comments-cleanup.md']
+  workflow_dispatch: {}
+
+# Supersede an in-flight run for the same ref (saves minutes on a private repo).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-clang:
+    name: Linux / clang / Debug
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180 # a cold modules build is slow; the cache warms subsequent runs
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 (or 1) if the modules build OOMs
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build + runtime deps (mirrors README "Ubuntu / Debian"). mesa-vulkan-drivers
+      # gives lavapipe (software Vulkan) so device-creating tests can run headless.
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang pkg-config ccache xvfb \
+            libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+          clang++ --version
+          cmake --version
+
+      # OOM insurance for the memory-heavy modules build: a large swapfile means a
+      # spike gets paged instead of OOM-killed (slower, but the job survives).
+      - name: Add swap headroom
+        run: |
+          sudo fallocate -l 12G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      # ccache caches the many non-module ThirdParty TUs (ThirdParty is ~46% of a
+      # clean build). Module units may not cache, but this still cuts the biggest cost.
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-clang-debug
+          max-size: 2G
+
+      - name: Configure
+        run: cmake --preset clang -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset clang
+
+      # Run the doctest suites under a virtual X server; VK_ICD points the loader at
+      # lavapipe so any test that creates a real Vulkan device works without a GPU.
+      - name: Test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: xvfb-run -a ctest --preset clang --output-on-failure
+
+      - name: ccache stats
+        if: always()
+        run: ccache -s

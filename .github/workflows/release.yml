@@ -1,0 +1,157 @@
+name: Release
+
+# Editor distribution is cut ONLY from the 'release' branch. Flow: land release-ready code on
+# 'release', then push a version tag (e.g. v0.1.0) that points at a commit on 'release'. This
+# builds the editor dist per platform and publishes a GitHub Release with the archives attached.
+# A tag that is NOT on 'release' is rejected by the guard job. The master/PR CI (ci.yml) never
+# builds a dist - build+test there, release here.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub Release + upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Enforce "releases only from the release branch": the tagged commit must be on origin/release.
+  guard:
+    name: Verify the tag is on 'release'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject a tag that is not on 'release'
+        run: |
+          git fetch --no-tags origin release
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/release; then
+            echo "ok: ${GITHUB_REF_NAME} ($GITHUB_SHA) is on origin/release"
+          else
+            echo "::error::Refusing to release: ${GITHUB_REF_NAME} is not on the 'release' branch. Cut the tag on 'release'."
+            exit 1
+          fi
+      # The tag must match project(VERSION) in CMakeLists - the single source of truth the binary
+      # reports and the dist archives are named with. Catches a tag pushed without the version bump.
+      - name: Reject a tag that does not match project(VERSION)
+        run: |
+          VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
+          if [ "${GITHUB_REF_NAME}" = "v${VERSION}" ]; then
+            echo "ok: tag ${GITHUB_REF_NAME} matches project(VERSION) ${VERSION}"
+          else
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match project(VERSION) v${VERSION}. Bump project(VERSION) in CMakeLists and tag v${VERSION}."
+            exit 1
+          fi
+
+  linux:
+    name: Editor dist (Linux x64)
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180 # a cold release build is slow (no cache; releases are infrequent)
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower if the modules build OOMs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang pkg-config \
+            libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+      - name: Add swap headroom
+        run: |
+          sudo fallocate -l 12G /swapfile && sudo chmod 600 /swapfile
+          sudo mkswap /swapfile && sudo swapon /swapfile
+      # The AUTHORING TOOL (editor) - one downloadable package.
+      - name: Build editor distribution
+        run: OUT=dist/Editor-Linux64 scripts/build-editor-dist.sh
+      # The DEPLOYMENT TEMPLATE (game runtime: Engine.Player + sidecars + template.xml) - a SEPARATE
+      # downloadable package a developer exports their game against. Reuses build/clang-release from
+      # the editor build above (adds Engine.Player + Tools.Export). The Web template is a separate
+      # job below (needs emsdk).
+      - name: Build deployment template (Linux runtime)
+        run: |
+          VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
+          OUT=dist/templates scripts/build-export-templates.sh linux
+          tar -czf "dist/DeploymentTemplate-${VERSION}-Linux64.tar.gz" -C dist/templates linux64-release
+      - name: Publish to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Version-stamped names from build-editor-dist.sh + the template step (e.g.
+          # Editor-0.1.0-Linux64.tar.gz); glob so the workflow tracks the version automatically.
+          files: |
+            dist/Editor-*-Linux64.tar.gz
+            dist/DeploymentTemplate-*-Linux64.tar.gz
+          fail_on_unmatched_files: true
+
+  # Experimental until validated on a real Windows agent: the .ps1 Bin-tag and the MSVC modules
+  # build in CI are unverified. Independent of the Linux job, so a Windows failure does not block
+  # the Linux release (both attach to the same tag's Release).
+  windows:
+    name: Editor dist (Windows x64) [experimental]
+    needs: guard
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1 # cl / clang-cl + ninja on PATH
+      - name: Build editor distribution
+        run: pwsh scripts/build-editor-dist.ps1 -Out dist/Editor-Win64
+      - name: Publish to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Editor-*-Win64.zip
+          fail_on_unmatched_files: true
+
+  # Web deployment template (Emscripten/WebGPU game runtime: Engine.Player .js/.wasm + serve.py).
+  # Experimental until validated in CI: the emsdk version and the wasm build on a hosted runner are
+  # unverified. The response-file patch is WINDOWS-ONLY (a CreateProcess arg-length limit), so a
+  # Linux runner does not apply it. build-export-templates.sh web also builds the NATIVE exporter
+  # first (Engine.Player + Tools.Export), hence the full build deps here. Independent job, so a
+  # failure does not block the native releases.
+  web:
+    name: Deployment template (Web/Emscripten) [experimental]
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang pkg-config \
+            libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+      - name: Add swap headroom
+        run: |
+          sudo fallocate -l 12G /swapfile && sudo chmod 600 /swapfile
+          sudo mkswap /swapfile && sudo swapon /swapfile
+      - name: Set up emsdk (emscripten 6.0.5)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.5
+          actions-cache-folder: emsdk-cache
+      - name: Configure the wasm build (Release)
+        run: emcmake cmake -S . -B build/wasm-shipping -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build web deployment template
+        run: |
+          VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
+          OUT=dist/templates scripts/build-export-templates.sh web
+          tar -czf "dist/DeploymentTemplate-${VERSION}-Web.tar.gz" -C dist/templates web-release
+      - name: Publish to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DeploymentTemplate-*-Web.tar.gz
+          fail_on_unmatched_files: true
