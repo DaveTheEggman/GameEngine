@@ -44,6 +44,20 @@ jobs:
           clang++ --version
           cmake --version
 
+      # SDL3 is a system dependency on Linux (only Windows uses the vendored prebuilt in
+      # ThirdParty/SDL3). Ubuntu 24.04's apt has no libsdl3-dev, so build it from the same
+      # release the Windows libs ship (3.4.10) and install to /usr/local, where find_package(SDL3)
+      # picks it up. Without it, Foundation::Shell.Desktop is skipped and the editor/player fail
+      # to link. Its X11/Wayland build deps are installed above.
+      - name: Build and install SDL3 (release-3.4.10)
+        run: |
+          git clone --depth 1 --branch release-3.4.10 https://github.com/libsdl-org/SDL.git /tmp/SDL3-src
+          cmake -S /tmp/SDL3-src -B /tmp/SDL3-src/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF
+          cmake --build /tmp/SDL3-src/build
+          sudo cmake --install /tmp/SDL3-src/build
+          sudo ldconfig
+
       # OOM insurance for the memory-heavy modules build: a large swapfile means a
       # spike gets paged instead of OOM-killed (slower, but the job survives). The runner
       # already ships an active /swapfile, so disable and remove it first (fallocate on the
