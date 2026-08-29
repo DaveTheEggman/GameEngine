@@ -382,7 +382,11 @@ TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
     {
         factory.gates[i].store(false, std::memory_order_relaxed); // hold all three decodes
     }
-    JobSystem jobs;
+    // Three decodes are held closed and must run concurrently (each spins on its gate until the
+    // main thread opens it), so the pool needs at least three workers. A default JobSystem sizes
+    // to (cores - 1), which is 1 on a 2-core CI runner - too few, and the decodes deadlock. Pin
+    // the worker count so the test does not depend on the host's core count.
+    JobSystem jobs(3);
     ResourceManager manager(db, &jobs);
     manager.AddFactory(&factory);
 
@@ -514,7 +518,10 @@ TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
     {
         factory.gates[i].store(false, std::memory_order_relaxed); // hold all decodes
     }
-    JobSystem jobs;
+    // Three concurrent gated decodes: pin the pool to three workers so it does not deadlock on a
+    // low-core host (a default JobSystem is (cores - 1), i.e. 1 on a 2-core CI runner). See the
+    // FIFO-order test above for the same reasoning.
+    JobSystem jobs(3);
     ResourceManager manager(db, &jobs);
     manager.AddFactory(&factory);
 

@@ -135,10 +135,12 @@ jobs:
 
       # Run the doctest suites under a virtual X server; VK_ICD points the loader at
       # lavapipe so any test that creates a real Vulkan device works without a GPU.
+      # --timeout bounds any single suite (all run in seconds) so a hang fails that test fast
+      # instead of blocking the whole job until the 180-minute job timeout.
       - name: Test
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-        run: xvfb-run -a ctest --preset clang --output-on-failure
+        run: xvfb-run -a ctest --preset clang --output-on-failure --timeout 300
 
       - name: ccache stats
         if: always()
