@@ -15,4 +15,4 @@ target_sources(Editor.Heightfield
         HeightfieldEditorPageImpl.cpp
     PUBLIC
         FILE_SET editorheightfield_modules TYPE CXX_MODULES FILES
-            HeightfieldEditorPage.cppm)
+            HeightfieldEditorPage.cppm HeightfieldThumbnailGenerator.cppm)

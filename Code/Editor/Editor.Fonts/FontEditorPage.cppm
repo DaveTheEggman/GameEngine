@@ -17,6 +17,8 @@ module;
 
 export module editor.fonts;
 
+export import :thumbnail_generator;
+
 import foundation.core;
 import foundation.content;
 import foundation.image;
@@ -177,5 +179,9 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<FontEditorPageFactory>(), DefaultAllocator()));
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterFontThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

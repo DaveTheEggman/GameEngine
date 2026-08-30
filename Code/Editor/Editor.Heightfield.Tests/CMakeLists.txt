@@ -1,4 +1,4 @@
-add_executable(Editor.Heightfield.Tests TestsMain.cpp HeightfieldEditorPageTests.cpp)
+add_executable(Editor.Heightfield.Tests TestsMain.cpp HeightfieldEditorPageTests.cpp HeightfieldThumbnailTests.cpp)
 target_link_libraries(Editor.Heightfield.Tests PRIVATE
     Editor::Heightfield Editor::Core
     Pipeline::Heightfield Foundation::VFS Foundation::Content doctest::doctest)

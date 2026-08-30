@@ -1,4 +1,4 @@
-add_executable(Editor.Audio.Tests TestsMain.cpp BusLayoutPageTests.cpp)
+add_executable(Editor.Audio.Tests TestsMain.cpp BusLayoutPageTests.cpp AudioThumbnailTests.cpp)
 target_link_libraries(Editor.Audio.Tests PRIVATE
     Editor::Audio Editor::Core
     Foundation::Audio Pipeline::Audio Foundation::Content doctest::doctest)

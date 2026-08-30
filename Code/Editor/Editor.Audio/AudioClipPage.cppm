@@ -18,6 +18,7 @@ export module editor.audio;
 
 export import :sound_cue_page;
 export import :bus_layout_page;
+export import :thumbnail_generator;
 
 import foundation.core;
 import foundation.content;
@@ -185,5 +186,9 @@ export namespace editor
             DefaultAllocator().New<AudioClipPageFactory>(host), DefaultAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<SoundCuePageFactory>(host), DefaultAllocator()));
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterAudioThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

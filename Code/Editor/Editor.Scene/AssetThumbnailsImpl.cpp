@@ -17,6 +17,8 @@ import foundation.geometry;
 import foundation.materials;
 import engine.render;
 import engine.particles;
+import foundation.animation;
+import modelimporter;
 import editor.core;
 
 using namespace foundation::core;
@@ -425,6 +427,269 @@ namespace editor
             bool m_loaded = false;
         };
 
+        // Skeletons: the bind pose as one mesh of flat-shaded bone octahedrons (the stage
+        // renders scenes, not debug lines). Each parent->child segment becomes an octahedron:
+        // two apexes at the joints, a four-vertex girdle near the parent end; a lone root
+        // renders as a small marker so a single-bone skeleton still frames.
+        class SkeletonThumbnailGenerator final : public ISceneThumbnailGenerator
+        {
+        public:
+            [[nodiscard]] Span<const StringView> AssetTypeNames() const override
+            {
+                static constexpr StringView kNames[] = {u8"SkeletonAsset"};
+                return Span<const StringView>(kNames, 1);
+            }
+
+            [[nodiscard]] ThumbnailStageStep Stage(const Guid& id, scene::Scene& stage,
+                                                   resource::ResourceManager& resources,
+                                                   ThumbnailFraming& outFraming) override
+            {
+                engine::render::MeshComponent* component =
+                    m_entities.Ensure(stage, u8"ThumbSkeleton");
+                if (component == nullptr)
+                {
+                    return ThumbnailStageStep::Failed;
+                }
+                m_proxy = resources.Bind<foundation::animation::Skeleton>(id);
+                foundation::animation::Skeleton* skeleton = m_proxy ? m_proxy.Get() : nullptr;
+                if (skeleton == nullptr)
+                {
+                    return StepForPending(m_proxy);
+                }
+                const i32 boneCount = skeleton->BoneCount();
+                if (boneCount <= 0)
+                {
+                    return ThumbnailStageStep::Failed;
+                }
+                m_world.Resize(static_cast<usize>(boneCount));
+                skeleton->ComputeWorldPoses(
+                    Span<const foundation::animation::BoneTransform>{},
+                    Span<Float4x4>{m_world.Data(), m_world.Size()}); // empty = bind pose
+
+                // Collect non-degenerate segments first: IndexBuffer appends through a
+                // cursor bounded by Resize, so the final index count must be known up front.
+                Array<Float3> segments; // (head, tip) pairs
+                for (i32 b = 0; b < boneCount; ++b)
+                {
+                    const foundation::animation::Bone* bone = skeleton->GetBone(b);
+                    if (bone == nullptr || bone->parentIndex < 0)
+                    {
+                        continue;
+                    }
+                    const Float3 head =
+                        TranslationOf(m_world[static_cast<usize>(bone->parentIndex)]);
+                    const Float3 tip = TranslationOf(m_world[static_cast<usize>(b)]);
+                    if (Length(tip - head) >= 0.0005f)
+                    {
+                        segments.PushBack(head);
+                        segments.PushBack(tip);
+                    }
+                }
+                if (segments.IsEmpty())
+                {
+                    // Root-only (or fully degenerate) skeleton: a marker at the root.
+                    segments.PushBack(TranslationOf(m_world[0]) - Float3{0, 0.05f, 0});
+                    segments.PushBack(TranslationOf(m_world[0]) + Float3{0, 0.05f, 0});
+                }
+
+                if (!m_mesh)
+                {
+                    m_mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
+                }
+                m_mesh->ClearForReload();
+                const u32 indexCount = static_cast<u32>(segments.Size() / 2) * 24u;
+                m_mesh->vertices.Reserve(indexCount);
+                m_mesh->indices.Resize(indexCount);
+                for (usize i = 0; i + 1 < segments.Size(); i += 2)
+                {
+                    AppendBoneOctahedron(*m_mesh, segments[i], segments[i + 1]);
+                }
+                m_mesh->GenerateNormals();
+                m_mesh->GenerateTangents();
+                m_mesh->CalculateBounds();
+                m_mesh->subMeshes.PushBack(
+                    geometry::SubMesh{0, static_cast<i32>(m_mesh->IndexCount()), 0,
+                                      geometry::PrimitiveType::Triangles});
+
+                component->mesh.SetId(Guid{});
+                component->mesh = m_mesh.Get();
+                if (!m_material)
+                {
+                    m_material = materials::CreatePBR(u8"ThumbSkeletonDefault");
+                }
+                component->SetMaterial(m_material);
+
+                Transform t;
+                t.position = Float3{} - m_mesh->bounds.Center();
+                stage.SetLocalTransform(m_entities.display, t);
+                outFraming.radius = Max(Length(m_mesh->bounds.Extents()), 0.05f);
+                return ThumbnailStageStep::Ready;
+            }
+
+            void Unstage(scene::Scene& stage) override
+            {
+                if (auto* meshes = stage.GetSystem<engine::render::MeshComponentManager>())
+                {
+                    if (engine::render::MeshComponent* component =
+                            meshes->Get(m_entities.display))
+                    {
+                        component->mesh.SetId(Guid{});
+                        component->mesh.SetDirect(RefPtr<geometry::StaticMesh>{});
+                    }
+                }
+                m_proxy = {};
+                m_entities.Deactivate(stage);
+            }
+
+        private:
+            [[nodiscard]] static Float3 TranslationOf(const Float4x4& world)
+            {
+                return Float3{world.m[3][0], world.m[3][1], world.m[3][2]};
+            }
+
+            // Unwelded 8-facet octahedron along head->tip (24 verts, flat normals from
+            // GenerateNormals). Returns false on a degenerate segment.
+            static bool AppendBoneOctahedron(geometry::StaticMesh& mesh, const Float3& head,
+                                             const Float3& tip)
+            {
+                const Float3 axis = tip - head;
+                const f32 length = Length(axis);
+                if (length < 0.0005f)
+                {
+                    return false;
+                }
+                const Float3 direction = axis * (1.0f / length);
+                Float3 up = Abs(direction.y) < 0.95f ? Float3{0, 1, 0} : Float3{1, 0, 0};
+                const Float3 side = Normalized(Cross(direction, up));
+                const Float3 binormal = Cross(direction, side);
+                const f32 radius = Clamp(length * 0.12f, 0.002f, 0.08f);
+                const Float3 girdleCenter = head + axis * 0.2f;
+                const Float3 girdle[4] = {
+                    girdleCenter + side * radius, girdleCenter + binormal * radius,
+                    girdleCenter - side * radius, girdleCenter - binormal * radius};
+                const auto emit = [&mesh](const Float3& a, const Float3& b, const Float3& c)
+                {
+                    const u32 base = static_cast<u32>(mesh.VertexCount());
+                    const Float3 corners[3] = {a, b, c};
+                    for (const Float3& p : corners)
+                    {
+                        mesh.vertices.PushBack(geometry::StaticMeshVertex{
+                            p, Float3{0, 1, 0}, Float2{}, 0xFFFFFFFFu, Float4{1, 0, 0, 1}});
+                    }
+                    mesh.indices.AddTriangle(base, base + 1, base + 2);
+                };
+                for (u32 i = 0; i < 4; ++i)
+                {
+                    const Float3& a = girdle[i];
+                    const Float3& b = girdle[(i + 1) % 4];
+                    emit(head, b, a); // cap toward the parent joint
+                    emit(tip, a, b);  // long facet toward the child joint
+                }
+                return true;
+            }
+
+            StageEntities m_entities;
+            resource::Proxy<foundation::animation::Skeleton> m_proxy;
+            Array<Float4x4> m_world;
+            RefPtr<geometry::StaticMesh> m_mesh;
+            RefPtr<materials::Material> m_material;
+        };
+
+        // Model manifests: the imported node hierarchy rebuilt in the job's private scene
+        // (meshes + materials only - a thumbnail needs no physics or animation), framed by
+        // the combined world mesh bounds. Mirrors BuildModelScene's mesh loop but through
+        // GetSystem - the private scene already carries the app's full manager set, and
+        // AddSystem is not idempotent.
+        class ModelManifestThumbnailGenerator final : public ISceneThumbnailGenerator
+        {
+        public:
+            explicit ModelManifestThumbnailGenerator(EditorContext& context)
+                : m_context(&context)
+            {
+            }
+
+            [[nodiscard]] Span<const StringView> AssetTypeNames() const override
+            {
+                static constexpr StringView kNames[] = {u8"ModelManifestAsset"};
+                return Span<const StringView>(kNames, 1);
+            }
+
+            [[nodiscard]] bool NeedsPrivateScene() const override { return true; }
+
+            [[nodiscard]] ThumbnailStageStep Stage(const Guid& id, scene::Scene& stage,
+                                                   resource::ResourceManager& resources,
+                                                   ThumbnailFraming& outFraming) override
+            {
+                if (!m_spawned)
+                {
+                    foundation::content::Instance* instance = SourceInstance(m_context, id);
+                    if (instance == nullptr)
+                    {
+                        return ThumbnailStageStep::Failed;
+                    }
+                    RefPtr<ISerializable> object = instance->ReadObject();
+                    auto* asset = Cast<pipeline::ModelManifestAsset>(object.Get());
+                    auto* meshes = stage.GetSystem<engine::render::MeshComponentManager>();
+                    if (asset == nullptr || meshes == nullptr)
+                    {
+                        return ThumbnailStageStep::Failed;
+                    }
+                    const foundation::model::ModelManifestSource& manifest = asset->manifest;
+                    const scene::EntityHandle root = stage.CreateEntity(instance->Name());
+                    Array<scene::EntityHandle> entities;
+                    entities.Reserve(manifest.nodes.Size());
+                    for (const foundation::model::ModelNode& node : manifest.nodes)
+                    {
+                        const scene::EntityHandle entity = stage.CreateEntity(node.name.AsView());
+                        stage.SetLocalTransform(entity, node.localTransform);
+                        entities.PushBack(entity);
+                    }
+                    for (usize i = 0; i < manifest.nodes.Size(); ++i)
+                    {
+                        const foundation::model::ModelNode& node = manifest.nodes[i];
+                        const bool hasParent =
+                            node.parentIndex >= 0 &&
+                            static_cast<usize>(node.parentIndex) < entities.Size();
+                        stage.SetParent(entities[i],
+                                        hasParent
+                                            ? entities[static_cast<usize>(node.parentIndex)]
+                                            : root,
+                                        false);
+                        if (node.meshIndex < 0 ||
+                            static_cast<usize>(node.meshIndex) >= manifest.meshGuids.Size())
+                        {
+                            continue;
+                        }
+                        engine::render::MeshComponent& component = meshes->Add(entities[i]);
+                        component.mesh.SetId(
+                            manifest.meshGuids[static_cast<usize>(node.meshIndex)]);
+                        for (const Guid& materialId : manifest.materialGuids)
+                        {
+                            resource::Ref<materials::Material> ref;
+                            ref.SetId(materialId);
+                            component.materials.PushBack(ref);
+                        }
+                    }
+                    scene::ResolveSceneResources(stage, resources);
+                    AddSun(stage);
+                    m_spawned = true;
+                }
+                if (!MeshRefsSettled(stage))
+                {
+                    return ThumbnailStageStep::Pending;
+                }
+                stage.UpdateTransforms();
+                FrameFromBounds(WorldMeshBounds(stage), outFraming);
+                return ThumbnailStageStep::Ready;
+            }
+
+            void Unstage(scene::Scene&) override { m_spawned = false; } // scene is per-job
+
+        private:
+            EditorContext* m_context;
+            bool m_spawned = false;
+        };
+
         // Particle effects: an emitter in the job's private scene, prewarmed by the stage so
         // the one rendered frame shows a developed burst (everything is empty at t=0). The
         // framing radius is fixed - particle extents are simulation-dependent and unknown
@@ -502,5 +767,9 @@ namespace editor
             MakeUnique<SceneThumbnailGenerator>(DefaultAllocator(), context));
         service.RegisterSceneGenerator(
             MakeUnique<ParticleThumbnailGenerator>(DefaultAllocator()));
+        service.RegisterSceneGenerator(
+            MakeUnique<SkeletonThumbnailGenerator>(DefaultAllocator()));
+        service.RegisterSceneGenerator(
+            MakeUnique<ModelManifestThumbnailGenerator>(DefaultAllocator(), context));
     }
 }

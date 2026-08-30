@@ -789,5 +789,9 @@ namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<TerrainEditorPageFactory>(host, uiHost), DefaultAllocator()));
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterSplatmapThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

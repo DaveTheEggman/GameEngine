@@ -83,8 +83,17 @@ Phased coverage:
   established preview-bake path, NOT on job threads.
 - **Font** (P3): glyph sample ("Ag") via the fonts stack. **AudioClip** (P3):
   min/max waveform strip rendered on the CPU.
+- **P3 coverage ruling (2026-08-31, user)** - the type set grew after this spec was
+  written; reconciled: CollisionShape renders its shape geometry, Skeleton renders
+  the identity pose (bone visualization), SkinnedMesh keeps the bind-pose render it
+  already gets from the mesh generator, ModelManifest renders the imported model,
+  and the image-like terrain types (Heightfield grayscale, Splatmap channels) ride
+  the CPU lane like textures.
 - Everything else: no generator - the type icon simply remains (that is the
-  designed fallback, not an error).
+  designed fallback, not an error). That now includes the post-spec types with no
+  natural visual: PropertyAnimationClip, Shader, PhysicalMaterial, NavigationZone,
+  UIDocument/UITheme, AudioBusLayout, SoundCue, and Terrain (its heightfield
+  carries the visual identity).
 
 ## Display wiring
 
@@ -160,6 +169,24 @@ particle effects stage an emitter and ask for `prewarmSteps` sim ticks (the stag
 simulation on the private scene only for the burst) with a FIXED framing radius (extents are
 sim-dependent). The Stage seam now reports a `ThumbnailFraming` (center/radius/camera-
 preference/prewarm) instead of a bare radius. Composition-root tripwire = 5.
+
+P3 + coverage-ruling status (2026-08-31): ALL BUILT. CPU lane (each in its domain lib,
+registered from the domain's Register*Editor, worker halves pinned headlessly in the
+domain's test suite): font glyph sample "Ag" (Editor.Fonts; raster-bake 'A'..'g' at 72px,
+oversample 1 so regions blit 1:1, ink over the tile ground), audio waveform
+(Editor.Audio; BuildWaveformPeaks - the engine-free chunked decode - one bucket per
+column, teal bars, 1px survival midline), heightfield grayscale (Editor.Heightfield;
+imported 16-bit image or the authored "heights" sidecar, min/max normalized so
+low-relief maps still read), splatmap false-color (Editor.Terrain; four fixed slot hues
+blended by weight - the painted SHAPE is the identity, layer meaning is per-texel).
+GPU lane: collision shapes (Editor.Physics :collision_thumbnail; the cooked product's
+outline soup rebuilt unwelded as a flat-facet mesh - data-only, never Jolt), skeletons
+(Editor.Scene; bind pose via ComputeWorldPoses with an EMPTY pose span, one mesh of
+8-facet bone octahedrons - the stage renders scenes, not debug lines; NOTE
+IndexBuffer::Add silently drops past Resize, so the index count is computed up front),
+and model manifests (Editor.Scene; the manifest's node hierarchy rebuilt in the job's
+private scene through GetSystem - never BuildModelScene, whose AddSystem calls are not
+idempotent against the composed scene). CPU tripwire = 5, scene tripwire = 8.
 
 KNOWN GAP (the honest one): the stage itself has NO on-device pixel probe yet - the spec's
 P2 calls for one, and it needs an editor-host harness (RenderSubsystem + SceneSubsystem +

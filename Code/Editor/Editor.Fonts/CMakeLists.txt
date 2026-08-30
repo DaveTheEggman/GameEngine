@@ -16,4 +16,4 @@ target_sources(Editor.Fonts
         FontEditorPageImpl.cpp
     PUBLIC
         FILE_SET editor_fonts_modules TYPE CXX_MODULES FILES
-            FontEditorPage.cppm)
+            FontEditorPage.cppm FontThumbnailGenerator.cppm)

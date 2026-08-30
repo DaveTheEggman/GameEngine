@@ -16,6 +16,8 @@ module;
 
 export module editor.heightfield;
 
+export import :thumbnail_generator;
+
 import foundation.core;
 import foundation.content;
 import foundation.image;
@@ -115,5 +117,9 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<HeightfieldEditorPageFactory>(), DefaultAllocator()));
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterHeightfieldThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

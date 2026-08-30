@@ -15,6 +15,8 @@ module;
 
 export module editor.physics;
 
+export import :collision_thumbnail;
+
 import foundation.core;
 import foundation.content;
 import foundation.runtime;
@@ -116,5 +118,9 @@ export namespace editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<CollisionShapeEditorPageFactory>(host, uiHost),
             DefaultAllocator()));
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterCollisionThumbnailGenerator(*context.Thumbnails());
+        }
     }
 }

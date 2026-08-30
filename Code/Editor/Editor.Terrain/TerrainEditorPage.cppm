@@ -20,6 +20,8 @@ module;
 
 export module editor.terrain;
 
+export import :splatmap_thumbnail;
+
 import foundation.core;
 import foundation.content;
 import foundation.graphics;
