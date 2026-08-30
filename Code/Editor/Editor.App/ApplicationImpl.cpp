@@ -2179,12 +2179,6 @@ namespace editor::app
                 Function<foundation::core::u64(const Guid&)>{
                     [this](const Guid& id) { return m_cookService.RecipeHashFor(id); }},
                 m_project->SourcesRoot().AsView());
-
-            // The GPU half: the stage renders queued mesh/material jobs offscreen. Created per
-            // project (needs the runtime context's resource manager); destroyed in CloseProject
-            // BEFORE the service resets so an in-flight job unstages cleanly.
-            m_thumbnailStage = MakeUnique<editor::ThumbnailStage>(
-                DefaultAllocator(), *m_host, m_thumbnailService, m_context.Resources());
         }
 
         // I4b instrumentation: what the open-time header scans actually cost. The XML
@@ -2261,6 +2255,11 @@ namespace editor::app
         }
         m_context.SetResources(m_resources.Get());
         m_embeddedApp->AttachResourceManager(m_resources.Get(), *m_embeddedHost);
+        // The GPU half of thumbnails: constructed HERE, after the resource manager exists -
+        // the stage captures it, and a null capture would silently stall every queued job.
+        // Destroyed in CloseProject BEFORE the service resets so an in-flight job unstages.
+        m_thumbnailStage = MakeUnique<editor::ThumbnailStage>(
+            DefaultAllocator(), *m_host, m_thumbnailService, m_resources.Get());
         // Scripted scene loads (run.loadScene/loadSceneAsync) resolve scene + prefab content
         // out of the project's SOURCE db - the same db the Game tab's default-scene boot reads
         // (products still bind from the cooked-backed manager above). Wired here at project open

@@ -102,6 +102,7 @@ namespace editor
         u32 stagingFrames = 0;
         u32 submittedIndex = 0;
         bool sawOtherIndex = false; // the ring must LEAVE the submitted slot before it retires
+        bool warnedDisabled = false; // one-shot wiring-bug warning (see Update)
 
         [[nodiscard]] bool EnsureGpuObjects()
         {
@@ -196,6 +197,17 @@ namespace editor
         Impl& impl = *m_impl;
         if (impl.scene == nullptr || impl.render == nullptr || impl.resources == nullptr)
         {
+            // A disabled stage with queued work is a wiring bug (a null resource manager at
+            // construction stalled every job, silently, once) - say so exactly once.
+            if (!impl.warnedDisabled && impl.service->QueuedSceneJobs() > 0)
+            {
+                impl.warnedDisabled = true;
+                LOG_WARNING(u8"Thumbnails",
+                            u8"stage disabled (scene {} / renderer {} / resources {}) with {} "
+                            u8"queued jobs - GPU thumbnails will not generate",
+                            impl.scene != nullptr, impl.render != nullptr,
+                            impl.resources != nullptr, impl.service->QueuedSceneJobs());
+            }
             return;
         }
 
