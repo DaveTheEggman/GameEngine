@@ -1,4 +1,7 @@
-# Fix Draconic.GUI.Tests keyframes failures (task #115)
+# Fix Draconic.GUI.Tests keyframes failures (task #115)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Size: S. Module: `Code/Draconic/Experimental/Draconic.GUI/` (parked eepp-derived
 GUI; Experimental role) + `Code/Draconic/Experimental/Draconic.GUI.Tests/`.
@@ -53,3 +56,12 @@ feature task - keep the diff minimal.
 
 **NOT STARTED.** No commits. GUI is parked (Experimental role), so this is low
 priority; self-contained whenever the keyframes suite is revisited.
+
+## State (updated 2026-08-30)
+
+**DONE.** All 6 keyframes cases pass, including the former background-color SIGSEGV
+(KeyframesTests.cpp:121); the full GUI.Tests suite is green (349 cases) and
+ASAN-clean on clang. No dedicated fix commit landed against the test file - the
+crash was resolved by UI-core work (the keyframes SIGSEGV was the same heap-use-
+after-free class fixed in ~ViewGroup). Verified by running the suite on current
+master (clang Debug + the ASAN build).

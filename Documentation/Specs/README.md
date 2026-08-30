@@ -21,7 +21,6 @@ implementing agent's work).
 | [async-resource-loading.md](async-resource-loading.md) | #123 | L |
 | [web-remainder.md](web-remainder.md) | #112 | L |
 | [reflection-track.md](reflection-track.md) | #110 | L |
-| [gui-tests-keyframes.md](gui-tests-keyframes.md) | #115 | S |
 | [editor-polish.md](editor-polish.md) | - | M |
 | [source-path-p3-p4.md](source-path-p3-p4.md) | - | S |
 | [vg-quality-leftovers.md](vg-quality-leftovers.md) | #121 leftovers | M |
