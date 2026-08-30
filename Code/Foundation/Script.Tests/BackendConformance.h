@@ -104,7 +104,7 @@ namespace foundation::script::conformance
         builder.Method<static_cast<f64 (Colliding::*)(String) const>(&Colliding::clash)>("clash");
     }
 
-    // Container-member contract fixtures (pass-17 ruling): a reflected Array member binds as
+    // Container-member contract fixtures: a reflected Array member binds as
     // owner ops (`items_count/_at/_add/_removeAt/_move`) with ZERO-based indices and
     // WRITE-THROUGH element handles on every backend - one contract, no per-backend container
     // semantics. Registered on demand, like DelegateSignal.

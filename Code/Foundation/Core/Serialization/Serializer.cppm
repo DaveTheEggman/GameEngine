@@ -165,7 +165,7 @@ export namespace foundation::core
     };
 
     // =======================================================================
-    // SerializerContext — owns a Serializer and any intermediate state
+    // SerializerContext - owns a Serializer and any intermediate state
     // (e.g., an XmlDocument) that must outlive it. The factory returns one
     // of these; the caller uses `serializer` and then destroys the context.
     // =======================================================================

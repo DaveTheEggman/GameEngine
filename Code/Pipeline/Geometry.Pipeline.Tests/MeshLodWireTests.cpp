@@ -150,7 +150,7 @@ TEST_CASE("mesh lod wire: malformed chains collapse to 1 LOD (render at LOD 0, n
     CHECK(mesh3.SubMeshesForLod(1).Size() == 1); // LOD 0 view
 }
 
-// Pass-17 regression: the same v3-with-LOD migration shape for a SKINNED source is NOT harmless -
+// The v3-with-LOD migration shape for a SKINNED source is NOT harmless -
 // binary reads are positional, so the skinning fields (which follow the static section) consume the
 // unread LOD bytes: an empty/garbage skin stream with ar.IsOk() still true. The Serialize body now
 // validates the parallel-stream invariant (one 24B VertexSkinning per vertex) and FAILS the payload,

@@ -516,7 +516,7 @@ TEST_CASE("math: yaw/pitch/roll round-trips through quaternion")
           doctest::Approx(1.0f).epsilon(0.001f));
 }
 
-TEST_CASE("math: RigidPart strips scale, keeps translation + rotation (pass-17)")
+TEST_CASE("math: RigidPart strips scale, keeps translation + rotation")
 {
     // The nav-zone placement frame: a matrix must PLACE world-unit-sized data without warping it.
     Transform t;

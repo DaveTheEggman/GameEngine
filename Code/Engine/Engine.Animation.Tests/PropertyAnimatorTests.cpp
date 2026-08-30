@@ -92,7 +92,7 @@ TEST_CASE("property animator: the script surface is REFLECTED (methods on the ty
 
     // These are the Phase G script surface (animator.of(entity).play()/stop()/...). Asserting the
     // REFLECTED methods (not calling C++ directly) is what fails if a `.Method<>` line is dropped or
-    // the type is never registered - the gap review pass 10 caught.
+    // the type is never registered.
     const TypeInfo& type = TypeOf<PropertyAnimatorComponent>();
     const char* expected[] = {"of",     "play", "stop",      "pause",
                               "resume", "time", "isPlaying", "setTime"};

@@ -3,6 +3,15 @@
 # BC texture through the Foundation render chain (Vulkan + WebGPU). Cross-collection flow (Pipeline
 # encoder x Foundation render), so it lives in Code/Integration, not a Foundation-tier test. Skips
 # cleanly when no GPU backend is available.
+# With ZERO GPU backends configured the probe would compile into a vacuously-PASSING test
+# (every #ifdef block empty, one MESSAGE, ctest green with zero assertions - mistaken for
+# coverage). Skip the target entirely instead, like Samples::Framework does.
+if(NOT TARGET Foundation::RHI.Vulkan AND NOT TARGET Foundation::RHI.WebGPU
+   AND NOT TARGET Foundation::RHI.DX12)
+    message(STATUS "Integration.TextureCompression: no GPU backend configured - skipped")
+    return()
+endif()
+
 add_executable(Integration.TextureCompression TestsMain.cpp BcTextureProbeTests.cpp)
 
 target_link_libraries(Integration.TextureCompression PRIVATE

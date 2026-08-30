@@ -577,9 +577,9 @@ TEST_CASE("physics.scene: applyImpulse before the body exists is queued + flushe
 
 TEST_CASE("physics.scene: the impulse queue is RUN-scoped and cannot accumulate unbounded")
 {
-    // Pass-17 review: the queue survived Stop->Play (an unexplained kick at the next Play),
-    // survived deactivation (re-enable launched the accumulated sum), and grew forever on a
-    // body whose build fails. All three now clear.
+    // The queue must not survive Stop->Play (an unexplained kick at the next Play), must not
+    // survive deactivation (re-enable would launch the accumulated sum), and must not grow
+    // forever on a body whose build fails. All three clear.
     PlayScene play;
     (void)play.AddFloor();
     const scene::EntityHandle box = play.AddBox(5.0f);
@@ -620,7 +620,7 @@ TEST_CASE("physics.scene: the impulse queue is RUN-scoped and cannot accumulate 
 
 TEST_CASE("physics.scene: shape queries reject non-positive sizes as a clean miss")
 {
-    // Pass-17 review: query dimensions come straight off the script surface; radius <= 0 (or NaN)
+    // Query dimensions come straight off the script surface; radius <= 0 (or NaN)
     // must be a no-hit, not a Jolt debug assert / a garbage broadphase AABB.
     PlayScene play;
     play.AddFloor();

@@ -172,7 +172,7 @@ namespace
         pipeline::MeshImporter::Import(*mesh, asset);
         // WriteMeshAsset, never a raw WriteObject: the geometry goes to the binary sidecar
         // stream (the bulk-data rule) - a raw write inlines the whole vertex soup into the
-        // text envelope (review pass 12 finding: 492K Sphere.xasset in seeded projects).
+        // text envelope (a seeded project once carried a 492K text Sphere.xasset).
         if (!pipeline::WriteMeshAsset(*instance, asset).IsOk())
         {
             return nullptr;
@@ -430,7 +430,7 @@ int main(int argc, char** argv)
                           app.Context().Thumbnails()->GeneratorCount() == 1);
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators.
         // RegisterScriptEditor fans creators over backends that have a registered COOK, so the
-        // cooks must be registered FIRST — RegisterAllBuilders (below) also registers them for the
+        // cooks must be registered FIRST - RegisterAllBuilders (below) also registers them for the
         // cook service, but that runs later, so register them here too (idempotent by languageId).
 #ifdef OPTION_HAS_ANGELSCRIPT
         pipeline::RegisterAngelScriptScriptCook();

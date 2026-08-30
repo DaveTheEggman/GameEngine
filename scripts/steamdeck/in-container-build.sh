@@ -12,7 +12,9 @@ set -euo pipefail
 
 JOBS="${JOBS:-4}"
 BUILD="build/steamdeck"                 # separate binary dir so it never mixes with a host build
-BIN="Bin/Release/Linux64-Clang"         # output tag (config + platform + compiler)
+# The Bin/ deliverables get their OWN suffix too: without it the container build clobbers (and
+# is clobbered by) the host clang-release binaries in Bin/Release/Linux64-Clang.
+BIN="Bin/Release/Linux64-Clang-SteamDeck"
 GCC14="/usr/lib/gcc/x86_64-linux-gnu/14" # the libstdc++ Clang should use (std::print)
 DIST="dist/SteamDeck"
 FORMATS="${FORMATS:-spirv}"             # the Deck renders via wgpu-native -> Vulkan
@@ -34,7 +36,8 @@ cmake -S . -B "$BUILD" -G Ninja \
     -DCMAKE_ASM_COMPILER=clang++-21 \
     -DCMAKE_CXX_FLAGS="--gcc-install-dir=$GCC14" \
     -DCMAKE_EXE_LINKER_FLAGS="--gcc-install-dir=$GCC14 -static-libstdc++ -static-libgcc" \
-    -DCMAKE_SHARED_LINKER_FLAGS="--gcc-install-dir=$GCC14 -static-libstdc++ -static-libgcc"
+    -DCMAKE_SHARED_LINKER_FLAGS="--gcc-install-dir=$GCC14 -static-libstdc++ -static-libgcc" \
+    -DBUILDSYSTEM_OUTPUT_SUFFIX=-SteamDeck
 
 # --- 2. build everything ---------------------------------------------------------------------
 log "Build all targets (-j$JOBS)"

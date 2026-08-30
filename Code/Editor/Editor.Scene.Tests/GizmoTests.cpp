@@ -588,7 +588,7 @@ TEST_CASE("component-gizmo: child collider draws its wireframe only when Show Co
     CHECK(dd.LineVertices().Size() > 0);
 }
 
-// Pass-17 polish: an EFFECTIVELY-inactive entity's physics gizmos draw DIMMED (uniform gray),
+// An EFFECTIVELY-inactive entity's physics gizmos draw DIMMED (uniform gray),
 // never skipped - "the sim will ignore this" is the interesting information. The registry's
 // DrawEntity sets ctx.entityEffectivelyActive from the scene.
 TEST_CASE("component-gizmo: an inactive entity's collider draws dimmed gray, not skipped")
@@ -628,7 +628,7 @@ TEST_CASE("component-gizmo: an inactive entity's collider draws dimmed gray, not
     CHECK(((active & 0xFFu) != ((active >> 8) & 0xFFu))); // green: R != G
 }
 
-// Pass-17 polish: the capsule gizmo reads as a CAPSULE (two cap spheres + four side lines), not
+// The capsule gizmo reads as a CAPSULE (two cap spheres + four side lines), not
 // a sphere inside a bounding box.
 TEST_CASE("component-gizmo: the capsule collider draws cap spheres + side lines, not a box")
 {

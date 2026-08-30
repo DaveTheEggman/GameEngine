@@ -16,6 +16,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h" // the no-data-root warning (a silent miss = unexplained missing assets)
 
 export module foundation.vfs:data_root;
 
@@ -61,7 +62,18 @@ export namespace foundation::vfs
         {
             return r;
         }
-        return FindDataRootFrom(GetCurrentDirectory().AsView());
+        String fromCwd = FindDataRootFrom(GetCurrentDirectory().AsView());
+        if (fromCwd.IsEmpty())
+        {
+            // Loud, not silent: the caller falls back to compile-time paths that only exist on
+            // the build machine, so a user with a botched extraction gets missing assets with no
+            // clue. Name what was searched so the fix is self-service (put Data/ beside the exe).
+            LOG_WARNING(u8"VFS",
+                        u8"no data root found (searched up from exe dir '{}' and cwd '{}' for a "
+                        u8"Data/.dataroot marker) - falling back to built-in paths",
+                        GetExecutableDirectory(), GetCurrentDirectory());
+        }
+        return fromCwd;
     }
 
     // Joins a data-root-relative path onto `dataRoot`. An empty root returns `relative`

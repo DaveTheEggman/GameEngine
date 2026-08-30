@@ -1,11 +1,13 @@
 name: CI
 
-# First CI pass: configure, build, and test the Linux/clang Debug preset on a
-# GitHub-hosted runner. This is a STARTING POINT tuned to be measured on the real
-# runner - watch the first run for two things: peak memory during the C++23-modules
-# build (a single module TU can need several GB; the swapfile below is OOM insurance)
-# and any GPU tests that misbehave under software Vulkan (lavapipe). Widen to gcc +
-# Windows (matrix) and add a release/dist job once this is green and the timings are known.
+# Build + test on every master push / PR: Linux clang Debug, Linux gcc Debug (the
+# house battery is BOTH compilers), and Windows MSVC Debug (D3D12 + WebGPU coverage).
+# Release distribution lives in release.yml. Peak-memory notes: a single modules TU
+# can need several GB; the swapfile step is OOM insurance, and lavapipe (software
+# Vulkan) lets device-creating tests run headless.
+
+permissions:
+  contents: read # build + test only; nothing here publishes
 
 on:
   push:
@@ -113,8 +115,68 @@ jobs:
       - name: Test
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-        run: xvfb-run -a ctest --preset clang --output-on-failure --timeout 300
+        run: xvfb-run -a ctest --preset clang --output-on-failure --timeout 300 --no-tests=error
 
+      - name: ccache stats
+        if: always()
+        run: ccache -s
+
+  linux-gcc:
+    name: Linux / gcc / Debug
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free up disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/powershell
+          sudo apt-get clean
+          df -h /
+      # A change is done only when BOTH compilers build and test green - a GCC-only
+      # diagnostic or libstdc++ divergence must fail CI, not the human's local run. The dev
+      # toolchain is GCC 15; the toolchain-r PPA carries it for noble - fall back to g++-14
+      # if the PPA lags (the fallback may be below the modules floor; the job will say so
+      # loudly rather than silently skipping gcc coverage).
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          if apt-cache show g++-15 >/dev/null 2>&1; then GXX_VER=15; else GXX_VER=14; fi
+          echo "GXX_VER=$GXX_VER" >> "$GITHUB_ENV"
+          echo "Using g++-$GXX_VER"
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++-$GXX_VER pkg-config ccache xvfb \
+            libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+      - name: Add swap headroom
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile && sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
+          free -h
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-gcc-debug
+          max-size: 2G
+      - name: Configure
+        run: >
+          cmake --preset gcc
+          -DCMAKE_C_COMPILER=gcc-${{ env.GXX_VER }}
+          -DCMAKE_CXX_COMPILER=g++-${{ env.GXX_VER }}
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Build
+        run: cmake --build --preset gcc
+      - name: Test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: xvfb-run -a ctest --preset gcc --output-on-failure --timeout 300 --no-tests=error
       - name: ccache stats
         if: always()
         run: ccache -s
@@ -143,4 +205,4 @@ jobs:
       # Device-creating suites run against whatever headless adapter Windows provides (D3D12 WARP);
       # ones with no software path skip themselves. --timeout bounds any hang.
       - name: Test
-        run: ctest --preset msvc --output-on-failure --timeout 300
+        run: ctest --preset msvc --output-on-failure --timeout 300 --no-tests=error

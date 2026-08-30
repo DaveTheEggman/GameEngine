@@ -235,7 +235,7 @@ export namespace foundation::rhi
         virtual ~CommandPool() = default;
 
         /// Create a new command encoder for recording. Every encoder MUST call
-        /// Finish() before this pool's next Reset() — DX12 cannot reset a
+        /// Finish() before this pool's next Reset() - DX12 cannot reset a
         /// command allocator while one of its command lists is still recording.
         virtual Status CreateEncoder(CommandEncoder*& out) = 0;
         /// Destroy a command encoder.
@@ -245,7 +245,7 @@ export namespace foundation::rhi
         /// finished the pool's last submission (fence-guarded).
         virtual void Reset() = 0;
 
-        /// Begin recording a render bundle from this pool — no open command
+        /// Begin recording a render bundle from this pool - no open command
         /// encoder required, so per-thread bundle pools need only a pool.
         /// The returned encoder and its Finish()ed bundle are OWNED BY THE POOL
         /// and stay valid until the pool's next Reset(). Returns null if the

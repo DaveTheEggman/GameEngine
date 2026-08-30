@@ -91,7 +91,7 @@ export namespace editor
 
         /// Apply a whole-clip state (an undo/redo step) to the host's clip and refresh the editing
         /// surface. The ClipEditCommand routes through THIS seam - never a view pointer - so it depends
-        /// only on the DURABLE host, not a recreatable view (pass-10 #5 / Fable F1). The default sets the
+        /// only on the DURABLE host, not a recreatable view. The default sets the
         /// clip only; a host owning a live view overrides to also rebuild it.
         virtual void ApplyClipState(const propanim::PropertyAnimationClip& state, bool rebuild)
         {
@@ -183,7 +183,7 @@ export namespace editor
             [[nodiscard]] StringView TypeId() const override { return u8"propanim-clip-edit"; }
 
         private:
-            IClipEditorHost* m_host; // the DURABLE seam, never the recreatable view (pass-10 #5 / F1)
+            IClipEditorHost* m_host; // the DURABLE seam, never the recreatable view
             propanim::PropertyAnimationClip m_before;
             propanim::PropertyAnimationClip m_after;
             bool m_liveApplied;

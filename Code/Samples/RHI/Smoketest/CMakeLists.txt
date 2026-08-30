@@ -27,4 +27,4 @@ target_compile_options(Smoketest PRIVATE
     "$<$<CXX_COMPILER_ID:Clang,GNU>:-Wno-error=unused-parameter;-Wno-error=unused-variable;-Wno-error=missing-field-initializers;-Wno-error=misleading-indentation>")
 
 # Copy SDL3.dll next to the executable on Windows.
-util_copy_runtime_deps(Smoketest EXTRA ${BUILDSYSTEM_SDL3_DLL})
+util_copy_runtime_deps(Smoketest) # SDL3 is vendored static now; no DLL to stage

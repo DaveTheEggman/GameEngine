@@ -116,9 +116,9 @@ export namespace pipeline{
         RegisterSerializable<SkeletonAsset>();
         RegisterSerializable<AnimationClipAsset>();
         RegisterSerializable<AnimationGraphAsset>();
-        // The graph's cooked PRODUCT: ReadObject constructs it by type name in cook hosts, so it
-        // must be registered here too (pass-17 tripwire - the clip/skeleton products ride
-        // RegisterModelResourceTypes, but the graph source registered nowhere).
+        // The graph's cooked PRODUCT: ReadObject constructs it by type name in cook hosts, so
+        // it must be registered here too (the clip/skeleton products ride
+        // RegisterModelResourceTypes; the graph source has no other registration site).
         GlobalTypeRegistry().Register(foundation::animation::AnimationGraphSource::StaticType());
         RegisterSerializable<foundation::animation::AnimationGraphSource>();
     }

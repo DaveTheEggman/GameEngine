@@ -50,7 +50,7 @@ export namespace editor
         // Set by DrawEntity per entity: false when the entity is EFFECTIVELY inactive (itself or
         // an ancestor disabled). The simulation never builds bodies/joints/characters for such an
         // entity, so the physics renderers draw DIMMED - "the sim ignores this" is the
-        // interesting information (pass-17 polish).
+        // interesting information.
         bool entityEffectivelyActive = true;
     };
 

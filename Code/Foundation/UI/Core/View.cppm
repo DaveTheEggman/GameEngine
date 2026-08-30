@@ -759,21 +759,10 @@ export namespace foundation::ui
 
         ViewGroup() = default;
 
-        ~ViewGroup() override
-        {
-            // A destroyed group must not leave a child pointing back at it. RemoveView clears the
-            // back-pointer for children it detaches, but on destruction the children array is simply
-            // released - so a child still held elsewhere (e.g. a persistent editor view reused
-            // across PropertyGrid rebuilds) would keep a dangling Parent, and the next AddView would
-            // dereference freed memory when it tries to detach from the old parent. Null it here.
-            for (const RefPtr<View>& child : m_children)
-            {
-                if (child && child->Parent == this)
-                {
-                    child->Parent = nullptr;
-                }
-            }
-        }
+        // Defined in UIClusterImpl.cpp (needs the complete UIContext for DetachView): clears
+        // child back-pointers and detaches the subtree from the context so nothing keeps a
+        // pointer into a destroyed group.
+        ~ViewGroup() override;
 
     protected:
         [[nodiscard]] Thickness OwnPaddingField() const override { return Padding; }

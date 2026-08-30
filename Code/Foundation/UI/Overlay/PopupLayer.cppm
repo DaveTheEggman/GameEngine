@@ -35,6 +35,31 @@ export namespace foundation::ui
     {
         RTTI_OBJECT(PopupLayer, ViewGroup)
     public:
+        ~PopupLayer() override
+        {
+            // Popups live in m_entries, NOT m_children - so ~ViewGroup's back-pointer clearing
+            // never sees them. A popup view held elsewhere (a MenuBar's persistent menu, a
+            // ComboBox dropdown) would keep a dangling Parent into this freed layer, and the
+            // next ShowPopup would dereference it. No OnPopupClosed / focus-restore here: the
+            // whole layer is dying with its root.
+            for (PopupEntry& entry : m_entries)
+            {
+                View* popup = entry.Popup.Get();
+                if (popup == nullptr)
+                {
+                    continue;
+                }
+                if (popup->Context != nullptr)
+                {
+                    popup->Context->DetachView(popup);
+                }
+                if (popup->Parent == this)
+                {
+                    popup->Parent = nullptr;
+                }
+            }
+        }
+
         [[nodiscard]] bool HasModalPopup() const
         {
             for (const PopupEntry& e : m_entries)

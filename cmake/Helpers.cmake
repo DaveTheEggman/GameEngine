@@ -6,13 +6,13 @@
 # POST_BUILD, stage everything <target> needs to run next to its executable:
 #
 #  * On Windows, every runtime DLL CMake can resolve from the target's link graph
-#    (`$<TARGET_RUNTIME_DLLS>` - e.g. SDL3.dll via the imported SDL3::SDL3 target).
+#    (`$<TARGET_RUNTIME_DLLS>`; often empty now that SDL3 links statically).
 #    On ELF / Mach-O platforms shared libraries resolve through rpath, so this part
 #    is a no-op there.
 #  * `EXTRA` copies loose files that are NOT link dependencies and so are invisible
 #    to TARGET_RUNTIME_DLLS - e.g. a library loaded at runtime via dlopen/LoadLibrary
-#    (dxcompiler.dll), or a known vendored DLL path. Empty entries are skipped, so
-#    passing an unset variable (e.g. ${BUILDSYSTEM_SDL3_DLL} on Linux) is harmless.
+#    (dxcompiler.dll, wgpu-native), or a known vendored DLL path. Empty entries are
+#    skipped, so passing an unset variable is harmless.
 #
 # copy_if_different keeps the copy incremental; a file staged twice is harmless.
 #

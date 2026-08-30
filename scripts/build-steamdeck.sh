@@ -36,14 +36,21 @@ fi
 echo "== container runtime: $RT =="
 
 # Build the portable image (layers cache across runs; only re-runs on Dockerfile change).
-echo "== building image $IMAGE (first run compiles SDL3 + installs Clang 21 + GCC 14) =="
+echo "== building image $IMAGE (first run installs Clang 21 + GCC 14; SDL3 is vendored source) =="
 "$RT" build -t "$IMAGE" -f scripts/steamdeck/Dockerfile scripts/steamdeck
 
 # Run the build inside the container with the repo bind-mounted at /work.
 # :Z relabels for SELinux hosts (Fedora/RHEL); harmless elsewhere. Rootless podman maps the
-# current user, so files written under dist/ and build/ stay owned by you.
+# current user automatically; DOCKER does not, and would leave build/steamdeck, dist/ and Bin/
+# root-owned in the host tree (the next host cmake then fails with EACCES) - so pass the host
+# uid:gid explicitly there.
 echo "== building the engine inside the container =="
+USER_ARGS=()
+if [[ "$RT" == "docker" ]]; then
+    USER_ARGS=(--user "$(id -u):$(id -g)")
+fi
 "$RT" run --rm \
+    "${USER_ARGS[@]}" \
     -v "$ROOT":/work:Z \
     -w /work \
     -e JOBS="$JOBS" \

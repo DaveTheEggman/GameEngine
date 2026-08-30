@@ -277,7 +277,7 @@ TEST_CASE("script.scene: lifecycle - onStart once (deferred to the first simulat
 }
 
 TEST_CASE("script.scene: entity-active - starts-inactive never instantiates; activation "
-          "delivers onStart on the first ACTIVE tick (entity-active-state.md P3)")
+          "delivers onStart on the first ACTIVE tick")
 {
     ScriptedScene bed;
     RefPtr<ScriptClass> mover =
@@ -350,8 +350,7 @@ TEST_CASE("script.scene: entity-active - deactivation freezes updates with NO li
     CHECK(bed.scripts->InstanceCount() == 1u);
 }
 
-TEST_CASE("script.scene: the entity facade exposes active/setActive/activeInHierarchy "
-          "(entity-active-state.md P4)")
+TEST_CASE("script.scene: the entity facade exposes active/setActive/activeInHierarchy")
 {
     ScriptedScene bed;
     RefPtr<ScriptClass> toggler =
@@ -1292,7 +1291,7 @@ TEST_CASE("script.scene: the Roll Call sample game runs on a LUAU Level")
 }
 
 TEST_CASE("script.scene: bus token teardown - a destroyed subscriber is never touched, "
-          "survivors still fire (messaging.md P3)")
+          "survivors still fire")
 {
     // The owner-held-token discipline: the script system owns the bus subscriptions and
     // dispatch resolves LIVE components at drain time - a behavior whose entity died

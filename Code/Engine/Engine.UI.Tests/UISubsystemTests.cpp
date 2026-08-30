@@ -1088,8 +1088,7 @@ namespace
     };
 }
 
-TEST_CASE(
-    "ui.subsystem: a bound source confines routing + consumption to ITS scene (game-ui.md §9)")
+TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS scene")
 {
     runtime::Context ctx;
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();

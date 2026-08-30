@@ -14,7 +14,11 @@ in-browser. Backend and clip-space fixes: [[web-render-fixes-and-flip]].
   `Code/Foundation/RHI.WebGPU`) is written against the standard `webgpu.h` C header and validated ON
   DESKTOP by loading wgpu-native (a prebuilt shared library, the DXC runtime-sidecar pattern - see
   [[dxc-runtime-sidecar]]), giving a full gdb/RenderDoc dev loop; it doubles as a bonus desktop backend.
-  The Emscripten build is a relink against the browser's WebGPU, not a port.
+  The Emscripten build is a relink against the browser's WebGPU, not a port. The backend's
+  bring-up order was: device/queue/fence lifecycle -> resources -> pipelines/bind groups ->
+  encoders + swapchain (first triangle) -> transfer/queries/bundles (full renderer). Every stage
+  has shipped; a NotSupported in the backend today is a genuine WebGPU API limit, never a
+  missing stage.
 - **Single-threaded web v1.** wasm pthreads need SharedArrayBuffer, which needs COOP/COEP host headers
   (rules out plain static hosts); the JobSystem has an inline mode (0 workers, jobs execute at submit).
 - **WGSL from the shaders track.** The browser accepts WGSL only (no dlopen, no DXC), supplied by the

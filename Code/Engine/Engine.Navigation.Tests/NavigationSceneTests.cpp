@@ -144,7 +144,7 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
 
 TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no double-scale)")
 {
-    // Pass-17: the bake and the runtime both use the scale-free RigidPart frame, so a zone on a
+    // The bake and the runtime both use the scale-free RigidPart frame, so a zone on a
     // scaled entity behaves exactly like the unscaled one - the navmesh's world-unit geometry is
     // PLACED, never warped. The rigid-baked stamp (bakedFrame) marks the artifact.
     RegisterNavigationResource();
@@ -212,7 +212,7 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
 
 TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, on unit scale loads")
 {
-    // Pass-17: a pre-rigid-frame bake (bakedFrame 0) on a SCALED entity would desync silently
+    // A pre-rigid-frame bake (bakedFrame 0) on a SCALED entity would desync silently
     // (agents path off the floor); the subsystem now refuses it with a warning. On a unit-scale
     // entity the two conventions agree exactly, so legacy zones keep working.
     RegisterNavigationResource();

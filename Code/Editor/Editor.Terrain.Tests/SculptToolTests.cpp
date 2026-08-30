@@ -173,7 +173,7 @@ TEST_CASE("terrain sculpt: unavailable with no terrain, and refuses edits while 
     CHECK_FALSE(commands.CanUndo());
 }
 
-// Pass-16 fix: the persist closure must write the SOURCE HeightfieldAsset envelope (never the
+// The persist closure must write the SOURCE HeightfieldAsset envelope (never the
 // cooked HeightfieldSource type - that clobbered the source asset), clear fileName (the authored
 // "heights" sidecar becomes the truth), and the sculpt must SURVIVE a re-cook through the builder's
 // embedded path.

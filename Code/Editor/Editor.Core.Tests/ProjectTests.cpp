@@ -277,6 +277,10 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         UniquePtr<EditorProject> project = EditorProject::Open(dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
+        // Comparing settings against the constant cannot catch the ENGINE_VERSION_* defines
+        // silently not reaching the target - the fallback value can. A build stamped
+        // 0.0.0-dev means project(VERSION) never landed.
+        CHECK(engine::project::kEngineVersionString != StringView(u8"0.0.0-dev"));
     }
 
     // MIGRATION IN ANGER: a manifest written by the v1 ProjectSettings layout (no

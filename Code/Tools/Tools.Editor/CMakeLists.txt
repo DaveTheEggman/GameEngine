@@ -44,7 +44,10 @@ target_compile_definitions(Tools.Editor PRIVATE
 # authors and recompiles shaders, so unlike a shipped game player it needs DXC present, and it is not
 # a link dependency so it must be staged explicitly. On Linux, $ORIGIN on the RUNPATH lets a relocated
 # dist find DXC beside the exe (Windows searches the exe dir for a bare DLL by default).
-util_copy_runtime_deps(Tools.Editor EXTRA ${BUILDSYSTEM_SDL3_DLL} ${BUILDSYSTEM_DXC_LIB})
+# wgpu-native is a dlopen dependency with the SAME shape as DXC: the --webgpu backend resolves
+# the bare soname via $ORIGIN in a relocated dist, so it must be staged too - without it a dist
+# launched with --webgpu renders nothing.
+util_copy_runtime_deps(Tools.Editor EXTRA ${BUILDSYSTEM_DXC_LIB} ${BUILDSYSTEM_WGPU_LIB})
 if(UNIX AND NOT APPLE)
     set_property(TARGET Tools.Editor APPEND PROPERTY BUILD_RPATH "$ORIGIN")
     set_property(TARGET Tools.Editor PROPERTY INSTALL_RPATH "$ORIGIN")

@@ -874,3 +874,100 @@ tripwire catching two additional latent ProductType bugs on its first run is
 the pass's best argument for audit-shaped tests.
 
 Baseline for pass 18: this pass's commit.
+
+## Review pass 18 (2026-08-30, Fable): CI + dist + licensing + Windows enablement arc - PASS (1 CRITICAL + 5 HIGH findings, all fixed in-pass)
+
+Scope: 32 commits since pass 17 (9913ba8b..9919cc1b): the license adoption
+(MIT + SPDX headers), GitHub Actions CI + release distribution, relocatable
+editor packaging + data-root discovery, version stamping, SDL3 vendored as
+static source, naga musl re-vendor, Steam Deck container build, the
+Windows/MSVC build enablement chain, an engine-wide comment cleanup, and two
+runtime fixes (ViewGroup UAF, Resource.Tests deadlock). Method: three review
+agents (CI/dist, build/vendoring/Windows, comment-cleanup proof) + mechanical
+verification of the bulk commits; clang+gcc batteries + WGSL cook as the gate.
+
+**Mechanically verified (not file-by-file):**
+- License commit a38e9767: all 1859 files carry exactly the same +3-line
+  header (zero deletions), zero ThirdParty files touched, comment syntax
+  correct per file type (shebangs preserved), all 940 .cppm covered with none
+  missed, no data/markup files touched, LICENSE is standard MIT. WGSL cook
+  clean with the licensed shaders.
+- Comment cleanup f218f3ea: comment-stripped token streams byte-identical for
+  all 531 files (independently reproduced, string-literal-aware); 31fc15af
+  (PaperKid) and d35b2005 (test names: 3574 cases before and after, zero
+  duplicate names, zero dangling references) likewise proved; e685770e
+  carried all 11 open week items (8 verbatim + 3 verified done).
+
+**CRITICAL (fixed):** the release pipeline could never have produced a Linux
+or Web release: the dist scripts configured with the DEFAULT compiler while
+reading a Linux64-Clang output dir (fresh-machine configure lands in
+Linux64-GCC; every cp fails), invisible locally because a preconfigured
+build dir skips the configure - and release.yml installed stock clang 18,
+which the build rejects under -Werror. Fixed: both scripts pin clang
+explicitly (env-overridable), release.yml installs Clang 21 like ci.yml and
+routes it into the scripts, plus the disk-space reclamation step the CI job
+learned it needs.
+
+**HIGH (fixed):**
+- wgpu-native was not staged in the dist: same dlopen shape as DXC, resolved
+  via $ORIGIN in a relocated dist, never copied - a packaged editor/player
+  run with --webgpu rendered nothing. Both staging sites now carry it.
+- CI ran clang only; the battery convention is both compilers. A linux-gcc
+  job now mirrors the clang job (toolchain-r PPA, gcc-15 with gcc-14
+  fallback probe).
+- ~ViewGroup UAF fix was incomplete twice over: PopupLayer popups live in
+  m_entries (not m_children), so a persistent menu/dropdown kept a dangling
+  Parent into a freed layer; and the destructor did not detach children from
+  the UIContext, leaving the registry + focus/hover/animation tables holding
+  freed View* for any still-attached subtree destroyed by RefPtr drop. Both
+  closed (PopupLayer dtor; ~ViewGroup mirrors RemoveView's DetachView) and
+  the whole family regression-tested (the original fix had shipped with no
+  test - the suite passed with it reverted).
+- The stamp regeneration wiring (always-run custom target with the compiled
+  BuildStamp.cpp as BYPRODUCTS) destabilized incremental ninja module
+  builds; combined with mid-flight-killed builds it produced a reproducible
+  Plan::RefreshDyndepDependents abort. Redesigned as a normal build edge
+  keyed on .git/HEAD + .git/index (stamp refreshes on commit/checkout/stage,
+  never mid-build), stamp TUs excluded from module scanning. Recovery recipe
+  for the corrupted-state abort recorded in Process notes: wipe the named
+  target's CMakeFiles dir + reconfigure.
+- Release jobs drifted from CI (windows-latest vs 2022, no Ninja install, no
+  disk reclamation) - aligned.
+
+**MEDIUM (fixed):** ctest --no-tests=error on all CI test steps (a
+zero-tests run reported green); permissions scoped (ci.yml contents:read;
+release.yml default read with per-job write on the three publishers); Steam
+Deck build isolated its Bin output (-SteamDeck suffix - it was clobbering the
+host clang-release binaries) and passes host uid:gid under docker (root-owned
+tree otherwise); data-root discovery failure now logs what it searched
+(silent fallback to build-machine paths = unexplained missing assets); naga
+PROVENANCE corrected (musl static-pie + rebuild recipe - the file described
+the old glibc build); SDL3 gained README.vendored.md (pin, prune set, escape
+hatch - there was no vendoring record at all); stale ENGINE_SDL_TARGET cache
+unset on reconfigure; dead BUILDSYSTEM_SDL3_DLL references removed;
+zero-GPU-backend configure now skips Integration.TextureCompression instead
+of building a vacuously-passing test; version define wiring got a tripwire
+(a 0.0.0-dev stamp fails); JsonValue::Parse got direct coverage; the
+WebGpuModule/WebGpuDevice comment contradiction resolved to the true state
+(backend complete; NotSupported = genuine API limits) with the bring-up
+order preserved in the web-platform Systems doc.
+
+**Policy handed to the user (not actioned):** the comment cleanup severed
+~484 code->doc citations pointing at still-existing specs (66 of 68 cited
+docs live; the 130 dead docs/-path citations were rightly removed) - and a
+NEW convention landed this pass: no doc/pass/phase references in code or
+commit messages at all. Applied both ways: this pass's own additions were
+swept clean, and the ~29 surviving pass-N references from earlier reviews
+were stripped tree-wide. The citations stay severed by policy.
+
+**Also noted:** SHA-pinning the third-party actions
+(gh-release/msvc-dev-cmd/ccache-action/setup-emsdk) needs network to resolve
+digests - left for a follow-up; the guard job's tag-ancestry check and one
+real release run remain unverified until the first tag push. b830a2a2
+verified test-only and correct (JobSystem 0-worker + caller-participating
+Wait make the product path deadlock-free; the tests spun on raw atomics).
+
+Verdict: PASS. Full clang battery 147/147 green with the new tests; gcc
+battery green; WGSL cook clean.
+
+Baseline for pass 19: this pass's commit.

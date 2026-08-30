@@ -615,7 +615,7 @@ export namespace foundation::ui
 
             // Clamp the scroll offset to the overflow, then bring the selected tab into view when a
             // selection change requested it (mirrors the dock tab strip). Both run on the measured
-            // extents, so the drawn rects — reused for hit-testing — stay aligned with what's on screen.
+            // extents, so the drawn rects - reused for hit-testing - stay aligned with what's on screen.
             const f32 available = horizontal ? Width() : Height();
             const f32 maxScroll = core::Max(0.0f, total - available);
             m_tabScroll = core::Clamp(m_tabScroll, 0.0f, maxScroll);

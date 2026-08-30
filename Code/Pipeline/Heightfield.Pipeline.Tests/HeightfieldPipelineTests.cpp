@@ -185,7 +185,7 @@ TEST_CASE("heightfield.pipeline: a heightmap image cooks into the grid (16-bit p
     RemoveTree();
 }
 
-TEST_CASE("heightfield cook: degenerate extents snap to legal values (pass-13 finding)")
+TEST_CASE("heightfield cook: degenerate extents snap to legal values")
 {
     // A hand-edited asset with a zero footprint / inverted Y range must still cook a grid
     // whose math is finite - the same defensive posture the size snap established.
@@ -218,7 +218,7 @@ TEST_CASE("heightfield cook: degenerate extents snap to legal values (pass-13 fi
     RemoveTree();
 }
 
-// The editable-source convention (pass-16 fix): an EMBEDDED asset (fileName empty) cooks from the
+// The editable-source convention: an EMBEDDED asset (fileName empty) cooks from the
 // authored "heights" sidecar - the sculpt save writes exactly that - and the builder declares the
 // sidecar as a source stream so painting it re-cooks. A fileName-backed asset ignores the sidecar
 // (the file is the truth; re-import resets).

@@ -111,7 +111,7 @@ TEST_CASE("engine.terrain: the GPU height-texture cache keys by heightfield + ve
     CHECK(cache.Size() == 0u);
 }
 
-TEST_CASE("engine.terrain: the cache keys by UID, never pointer (address-reuse aliasing, pass 14)")
+TEST_CASE("engine.terrain: the cache keys by UID, never pointer (address-reuse aliasing)")
 {
     // The bind-group-cache rule's failure mode: heightfield A dies, a FRESH grid B lands on
     // (potentially) the same address at the same version - the cache must never serve A's

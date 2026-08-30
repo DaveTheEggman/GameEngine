@@ -133,6 +133,10 @@ TEST_CASE("json.write: compact + round-trip")
     CHECK(JsonValue::MakeString(u8"a\"b\n").ToString() == StringView(u8"\"a\\\"b\\n\""));
 
     const StringView src = u8"{\"a\":1,\"b\":[true,null,\"x\"],\"c\":{}}";
+    // The reflected STATIC JsonValue::Parse (the script-facing entry, address-taken by the
+    // reflection registration - the MSVC link-fix commit's subject) parses identically to the
+    // free function.
+    CHECK(JsonValue::Parse(String(src)).ToString() == src);
     ParseResult r = Parse(src);
     REQUIRE(r.ok);
     CHECK(r.value.ToString() == src); // compact write is byte-stable for this input

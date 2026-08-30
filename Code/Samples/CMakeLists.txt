@@ -5,7 +5,7 @@
 # sites need no change; the vendored SDL3 DLL rides in as EXTRA (a no-op when
 # BUILDSYSTEM_SDL3_DLL is unset, e.g. on Linux).
 function(util_copy_sdl3_dll target)
-    util_copy_runtime_deps(${target} EXTRA ${BUILDSYSTEM_SDL3_DLL})
+    util_copy_runtime_deps(${target}) # SDL3 is vendored static now; no DLL to stage
 endfunction()
 
 # NetEcho - console proof of foundation.net (no graphics); builds + runs anywhere.

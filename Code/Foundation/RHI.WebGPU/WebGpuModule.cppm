@@ -5,8 +5,9 @@
 ///
 /// Written against the STANDARD webgpu.h; on desktop the implementation is the
 /// wgpu-native runtime sidecar (dlopen'd, never linked), on web it is the browser's.
-/// Bring-up is staged: device/queue/fence lifecycle is real, resource + command +
-/// swapchain factories return honest NotSupported until their stage lands.
+/// The backend is fully built out; a NotSupported here is a genuine WebGPU API limit
+/// (no binding arrays / polygon modes / 1D arrays / pipeline statistics in core WebGPU),
+/// never an unimplemented stage.
 
 export module foundation.rhi.webgpu;
 

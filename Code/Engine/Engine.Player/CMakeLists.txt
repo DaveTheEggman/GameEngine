@@ -75,13 +75,14 @@ else()
         Engine::Project Foundation::VFS.Pak Foundation::Content Foundation::VFS Foundation::Xml.Serialization)
 
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
-    # host-template reads that list for its sidecars). SDL3 rides in as EXTRA (no-op when
-    # BUILDSYSTEM_SDL3_DLL is unset); DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
+    # host-template reads that list for its sidecars). SDL3 links statically (no DLL to stage);
+    # DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
     # the renderer's shader compiler and is NOT a link dependency, so it must be staged explicitly -
     # without it a copied dist finds no DXC and the renderer stays inert. On Linux, $ORIGIN on the
     # player's RUNPATH lets the loader find the staged copy beside the exe (Windows searches the exe
     # dir for a bare DLL by default).
-    util_copy_runtime_deps(Engine.Player EXTRA ${BUILDSYSTEM_SDL3_DLL} ${BUILDSYSTEM_DXC_LIB})
+    # wgpu-native rides along for the same reason (dlopen dependency; --webgpu in a dist).
+    util_copy_runtime_deps(Engine.Player EXTRA ${BUILDSYSTEM_DXC_LIB} ${BUILDSYSTEM_WGPU_LIB})
     if(UNIX AND NOT APPLE)
         set_property(TARGET Engine.Player APPEND PROPERTY BUILD_RPATH "$ORIGIN")
         set_property(TARGET Engine.Player PROPERTY INSTALL_RPATH "$ORIGIN")

@@ -310,7 +310,7 @@ namespace editor
 
         // A capsule wireframe that READS as a capsule: cap spheres at +-halfHeight plus four
         // side lines. (The old sphere-inside-a-bounding-box drawing read as a box collider with
-        // a sphere in it - pass-17 polish.)
+        // a sphere in it.)
         void DrawWireCapsule(render::debug::DebugDraw& dd, const Float4x4& frame, f32 radius,
                              f32 halfHeight, const Color& color)
         {

@@ -65,7 +65,12 @@ build_linux() {
     log "Linux (Release) template"
     if [[ ! -f "$LINUX_BUILD/CMakeCache.txt" ]]; then
         echo ">> configuring $LINUX_BUILD (Release)"
-        cmake -S . -B "$LINUX_BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release
+        # Pin clang explicitly - see build-editor-dist.sh (the Bin/ dir is compiler-derived).
+        CXX_BIN="${CXX_COMPILER:-clang++}"
+        C_BIN="${C_COMPILER:-clang}"
+        cmake -S . -B "$LINUX_BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$C_BIN" -DCMAKE_CXX_COMPILER="$CXX_BIN" \
+            -DCMAKE_ASM_COMPILER="$CXX_BIN"
     fi
     cmake --build "$LINUX_BUILD" --target Engine.Player Tools.Export -j"$JOBS"
     create_template "$LINUX_BIN" "linux64-release"

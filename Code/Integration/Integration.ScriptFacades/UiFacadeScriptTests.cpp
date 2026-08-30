@@ -45,7 +45,7 @@ namespace
             root = MakeRef<ui::RootView>(DefaultAllocator());
             context.AddRootView(root.Get());
             stack.Attach(root.Get());
-            binding.stack = &stack; // the stack's attached root IS the root source (pass 17)
+            binding.stack = &stack; // the stack's attached root IS the root source
             binding.instantiate = Function<RefPtr<ui::View>(const Guid&)>{
                 [](const Guid&) -> RefPtr<ui::View>
                 {

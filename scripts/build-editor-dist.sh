@@ -48,7 +48,15 @@ log() { printf '\n== %s ==\n' "$*"; }
 # 1. Build the editor + the shader-pack cooker (Release).
 log "Building Tools.Editor + Tools.ShaderPack ($BUILD)"
 if [[ ! -f "$BUILD/CMakeCache.txt" ]]; then
-    cmake -S . -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release
+    # Pin clang EXPLICITLY: the Bin/ output dir is derived from CMAKE_CXX_COMPILER_ID, and $BIN
+    # above hardcodes Linux64-Clang - a default-compiler (GCC) configure on a fresh machine (CI!)
+    # would build into Linux64-GCC and every cp below would fail. CXX_COMPILER env overrides for
+    # runners that install a versioned clang (clang++-21).
+    CXX_BIN="${CXX_COMPILER:-clang++}"
+    C_BIN="${C_COMPILER:-clang}"
+    cmake -S . -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER="$C_BIN" -DCMAKE_CXX_COMPILER="$CXX_BIN" \
+        -DCMAKE_ASM_COMPILER="$CXX_BIN"
 fi
 cmake --build "$BUILD" --target Tools.Editor Tools.ShaderPack -j"$JOBS"
 

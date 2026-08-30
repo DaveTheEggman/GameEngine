@@ -456,3 +456,60 @@ TEST_CASE("viewgroup: MoveView_ReordersWithoutDetach")
     CHECK(group->ChildCount() == 3u);
     CHECK(group->GetChildAt(0) == b.Get());
 }
+
+// Destruction lifetime guarantees: destroying a group must not leave externally-held children
+// with dangling back-pointers, and a still-ATTACHED subtree destroyed by dropping its owning
+// RefPtr must leave no freed View* behind in the UIContext registry.
+TEST_CASE("viewgroup: destruction clears child Parent back-pointers")
+{
+    auto child = MakeTestView();
+    {
+        auto group = MakeTestGroup();
+        group->AddView(child.Get());
+        CHECK(child->Parent == group.Get());
+    }
+    CHECK(child->Parent == nullptr); // group died; the held child must not point at freed memory
+
+    // The child is reusable: adding it to a NEW group must not touch the dead parent.
+    auto second = MakeTestGroup();
+    second->AddView(child.Get());
+    CHECK(child->Parent == second.Get());
+}
+
+TEST_CASE("viewgroup: destroying an ATTACHED subtree detaches it from the context")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    ctx.AddRootView(root.Get());
+
+    auto child = MakeTestView();
+    ViewId childId{};
+    {
+        auto group = MakeTestGroup();
+        root->AddView(group.Get());
+        group->AddView(child.Get());
+        childId = child->Id;
+        REQUIRE(ctx.GetViewById(childId) == child.Get()); // attached + registered
+        // Destroy the subtree by dropping the owning refs WITHOUT RemoveView - the dtor path.
+        root->RemoveView(group.Get());
+    }
+    // RemoveView detached the group; the group dtor must have detached the child too - the
+    // registry may not keep a freed (or stale) pointer for it.
+    CHECK(ctx.GetViewById(childId) == nullptr);
+    CHECK(child->Parent == nullptr);
+}
+
+TEST_CASE("popup-layer: destruction clears entry popups' Parent (the non-child popups)")
+{
+    // Popups live in PopupLayer::m_entries, not m_children - a persistent menu view (MenuBar,
+    // ComboBox dropdown) survives its layer and must not keep a dangling Parent into it.
+    auto popup = MakeTestView();
+    {
+        auto layer = core::MakeRef<PopupLayer>(core::DefaultAllocator());
+        layer->ShowPopup(popup.Get(), nullptr, 10.0f, 10.0f,
+                         /*closeOnClickOutside*/ false, /*isModal*/ false, /*ownsView*/ false,
+                         /*takesFocus*/ false);
+        CHECK(popup->Parent == layer.Get());
+    }
+    CHECK(popup->Parent == nullptr); // the layer died with the popup still open
+}

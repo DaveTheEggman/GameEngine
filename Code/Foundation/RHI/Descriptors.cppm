@@ -175,7 +175,7 @@ export namespace foundation::rhi
         }
 
         /// Factory: storage buffer binding. `stride` is the HLSL element size when the
-        /// shader declares (RW)StructuredBuffer<T> — REQUIRED on DX12, where the SRV/UAV
+        /// shader declares (RW)StructuredBuffer<T> - REQUIRED on DX12, where the SRV/UAV
         /// descriptor is built structured (stride) or raw (0, ByteAddressBuffer). A raw
         /// descriptor bound to a StructuredBuffer<T> shader is undefined behavior on DX12
         /// (garbage reads). Vulkan ignores it (SSBOs are unstructured).

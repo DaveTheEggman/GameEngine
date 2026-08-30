@@ -46,7 +46,7 @@ export namespace engine::terrain
         /// The R16Uint height texture view for `hf` at `version`. Keyed by the heightfield's
         /// UID (never its pointer - a freed grid's address can be reused by a fresh one at an
         /// equal version, and pointer keying would serve the dead grid's texture; the
-        /// bind-group-cache versioning rule, pass-14 finding). Two terrains referencing one
+        /// bind-group-cache versioning rule). Two terrains referencing one
         /// heightfield share ONE texture, and in-memory heightfields with no resource guid
         /// work (the uid is per-object, not per-resource). Creates + uploads + caches on a
         /// miss; a stale version for the same heightfield rebuilds in place (the sculpt

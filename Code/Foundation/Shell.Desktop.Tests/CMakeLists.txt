@@ -19,4 +19,4 @@ target_compile_options(Shell.Desktop.Tests PRIVATE
 add_test(NAME Shell.Desktop.Tests COMMAND Shell.Desktop.Tests)
 
 # Copy SDL3.dll next to the test executable on Windows.
-util_copy_runtime_deps(Shell.Desktop.Tests EXTRA ${BUILDSYSTEM_SDL3_DLL})
+util_copy_runtime_deps(Shell.Desktop.Tests) # SDL3 is vendored static now; no DLL to stage

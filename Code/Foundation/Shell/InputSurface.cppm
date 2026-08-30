@@ -489,11 +489,9 @@ export namespace foundation::shell
                 m_captured = m_hovered;
             }
 
-            // I2 instrumentation (issues-triage: "scene view mouse capture never released", one
-            // hard-to-repro occurrence). The per-transition LOG_DEBUG narration was removed as
-            // noise (pass 17); what remains is the loud one-shot watchdog below, which trips if
-            // capture ever persists with no mouse button down (the leak signature) - that is the
-            // permanent tripwire.
+            // Capture-leak watchdog ("scene view mouse capture never released" was a real,
+            // hard-to-repro occurrence): the one-shot check below trips loudly if capture ever
+            // persists with no mouse button down - the leak signature.
             if (m_captured != capturedBefore)
             {
                 m_captureNoButtonFrames = 0;

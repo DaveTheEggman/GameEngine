@@ -11,7 +11,7 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write # create the GitHub Release + upload assets
+  contents: read # default; the publishing jobs escalate to write individually
 
 concurrency:
   group: release-${{ github.ref }}
@@ -51,6 +51,8 @@ jobs:
     name: Editor dist (Linux x64)
     needs: guard
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # publishes release assets
     timeout-minutes: 180 # a cold release build is slow (no cache; releases are infrequent)
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower if the modules build OOMs
@@ -66,6 +68,19 @@ jobs:
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
       # SDL3 is vendored as source and built statically in-tree (nothing to install here); the
       # X11/Wayland/audio -dev packages above are its build deps.
+      - name: Free up disk space
+        # The modules build fills the runner disk, and a release build writes even more
+        # (Release config + editor + player + exporter). Reclaim unused preinstalled toolchains.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+      - name: Install Clang 21 (match the dev toolchain)
+        # Stock Ubuntu 24.04 clang is 18: it lacks -Wno-c2y-extensions (passed under
+        # -Werror) and its C++23-modules support is weaker. Install the dev toolchain's Clang.
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 21
       # The runner ships an active /swapfile; disable and remove it before creating a larger
       # one on the roomy /mnt disk (fallocate on the in-use /swapfile fails "Text file busy").
       - name: Add swap headroom
@@ -76,7 +91,7 @@ jobs:
           sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
       # The AUTHORING TOOL (editor) - one downloadable package.
       - name: Build editor distribution
-        run: OUT=dist/Editor-Linux64 scripts/build-editor-dist.sh
+        run: CXX_COMPILER=clang++-21 C_COMPILER=clang-21 OUT=dist/Editor-Linux64 scripts/build-editor-dist.sh
       # The DEPLOYMENT TEMPLATE (game runtime: Engine.Player + sidecars + template.xml) - a SEPARATE
       # downloadable package a developer exports their game against. Reuses build/clang-release from
       # the editor build above (adds Engine.Player + Tools.Export). The Web template is a separate
@@ -84,7 +99,7 @@ jobs:
       - name: Build deployment template (Linux runtime)
         run: |
           VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
-          OUT=dist/templates scripts/build-export-templates.sh linux
+          CXX_COMPILER=clang++-21 C_COMPILER=clang-21 OUT=dist/templates scripts/build-export-templates.sh linux
           tar -czf "dist/DeploymentTemplate-${VERSION}-Linux64.tar.gz" -C dist/templates linux64-release
       - name: Publish to the GitHub Release
         uses: softprops/action-gh-release@v2
@@ -103,13 +118,18 @@ jobs:
   windows:
     name: Editor dist + template (Windows x64)
     needs: guard
-    runs-on: windows-latest
+    runs-on: windows-2022 # pinned so releases run on the same image CI exercises
+    permissions:
+      contents: write # publishes release assets
     timeout-minutes: 180
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4'
     steps:
       - uses: actions/checkout@v4
-      - uses: ilammy/msvc-dev-cmd@v1 # cl / clang-cl + ninja on PATH
+      - uses: ilammy/msvc-dev-cmd@v1 # cl / clang-cl on PATH
+      - name: Install Ninja
+        # msvc-dev-cmd does not guarantee ninja on PATH; the configure below needs it.
+        run: choco install ninja -y
       # The AUTHORING TOOL (editor) - one downloadable package.
       - name: Build editor distribution
         run: pwsh scripts/build-editor-dist.ps1 -Out dist/Editor-Win64
@@ -142,6 +162,8 @@ jobs:
     name: Deployment template (Web/Emscripten)
     needs: guard
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # publishes release assets
     timeout-minutes: 180
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4'
@@ -158,6 +180,19 @@ jobs:
       # SDL3 is vendored as source and built statically in-tree by the native build that
       # build-export-templates.sh web runs first (Tools.Export + Engine.Player) - nothing to install
       # here; the X11/Wayland/audio -dev packages above are its build deps.
+      - name: Free up disk space
+        # The modules build fills the runner disk, and a release build writes even more
+        # (Release config + editor + player + exporter). Reclaim unused preinstalled toolchains.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+      - name: Install Clang 21 (match the dev toolchain)
+        # Stock Ubuntu 24.04 clang is 18: it lacks -Wno-c2y-extensions (passed under
+        # -Werror) and its C++23-modules support is weaker. Install the dev toolchain's Clang.
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 21
       # The runner ships an active /swapfile; disable and remove it before creating a larger
       # one on the roomy /mnt disk (fallocate on the in-use /swapfile fails "Text file busy").
       - name: Add swap headroom
@@ -176,7 +211,7 @@ jobs:
       - name: Build web deployment template
         run: |
           VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
-          OUT=dist/templates scripts/build-export-templates.sh web
+          OUT=dist/templates CXX_COMPILER=clang++-21 C_COMPILER=clang-21 scripts/build-export-templates.sh web
           tar -czf "dist/DeploymentTemplate-${VERSION}-Web.tar.gz" -C dist/templates web-release
       - name: Publish to the GitHub Release
         uses: softprops/action-gh-release@v2

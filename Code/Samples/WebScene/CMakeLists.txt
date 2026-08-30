@@ -90,6 +90,6 @@ else()
     if(OPTION_EXTENSION_IMGUI)
         target_link_libraries(WebScene PRIVATE Extensions::Imgui)
     endif()
-    util_copy_runtime_deps(WebScene EXTRA ${BUILDSYSTEM_SDL3_DLL})
+    util_copy_runtime_deps(WebScene) # SDL3 is vendored static now; no DLL to stage
 
 endif()

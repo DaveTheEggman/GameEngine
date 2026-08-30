@@ -233,7 +233,7 @@ namespace
                 rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
                 queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
                 REQUIRE(fence->Wait(i + 1, ~0ull));
-                pool->DestroyEncoder(encoder); // fence waited: safe (ASAN pass-16 finding)
+                pool->DestroyEncoder(encoder); // fence waited: safe to destroy
             }
 
             const testsupport::CapturedImage img =
@@ -273,7 +273,7 @@ namespace
             probe.valid = true;
 
             device.WaitIdle();
-            heightCache.Clear(device); // owns the height texture/view (ASAN pass-16 finding)
+            heightCache.Clear(device); // owns the height texture/view; must release before the device
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(targetView);
@@ -598,7 +598,7 @@ namespace
                 rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
                 queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
                 REQUIRE(fence->Wait(i + 1, ~0ull));
-                pool->DestroyEncoder(encoder); // fence waited: safe (ASAN pass-16 finding)
+                pool->DestroyEncoder(encoder); // fence waited: safe to destroy
             }
 
             const testsupport::CapturedImage img =
@@ -625,7 +625,7 @@ namespace
             probe.valid = true;
 
             device.WaitIdle();
-            heightCache.Clear(device); // owns the height texture/view (ASAN pass-16 finding)
+            heightCache.Clear(device); // owns the height texture/view; must release before the device
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(targetView);

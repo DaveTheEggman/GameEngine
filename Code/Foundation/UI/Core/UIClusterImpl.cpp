@@ -337,6 +337,33 @@ namespace foundation::ui
         return this;
     }
 
+    ViewGroup::~ViewGroup()
+    {
+        // A destroyed group must not leave a child pointing back at it. RemoveView clears the
+        // back-pointer for children it detaches, but on destruction the children array is simply
+        // released - so a child still held elsewhere (e.g. a persistent editor view reused
+        // across PropertyGrid rebuilds) would keep a dangling Parent, and the next AddView would
+        // dereference freed memory when it tries to detach from the old parent. Null it here.
+        // ALSO detach from the context, mirroring RemoveView/RemoveAllViews: a still-attached
+        // subtree destroyed by dropping its owning RefPtr would otherwise leave the UIContext
+        // registry and the focus/hover/animation tables holding freed View*.
+        for (const RefPtr<View>& child : m_children)
+        {
+            if (!child)
+            {
+                continue;
+            }
+            if (child->Context != nullptr)
+            {
+                child->Context->DetachView(child.Get());
+            }
+            if (child->Parent == this)
+            {
+                child->Parent = nullptr;
+            }
+        }
+    }
+
     void ViewGroup::RemoveView(View* child, bool deleteChild)
     {
         (void)deleteChild; // RefPtr ownership makes this advisory: dropping the tree ref frees it.

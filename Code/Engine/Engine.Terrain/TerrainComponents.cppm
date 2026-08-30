@@ -272,7 +272,7 @@ export namespace engine::terrain
         };
 
         // Chunk model per heightfield (shared by every terrain referencing it). Keyed by the
-        // heightfield's UID - never its pointer (pass-14 finding, same class as the height-
+        // heightfield's UID - never its pointer (same class as the height-
         // texture cache: a dead grid's address reused by a fresh one at an equal version
         // would serve the dead grid's chunk bounds). A hot-reload swap (new object = new
         // uid) OR a sculpt/regen (version bump) rebuilds - the chunk Y bounds move with the
