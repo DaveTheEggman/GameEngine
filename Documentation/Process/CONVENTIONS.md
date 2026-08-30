@@ -20,10 +20,10 @@ violating them fails review even if the feature works.
 
 - EVERY addition lands with adequate doctest tests in the module's `Tests/`
   target. Nothing is "done" without them. Tests write scratch files only under
-  the gitignored `.test-scratch/` (via DraconicTestMain.h helpers).
+  the gitignored `.test-scratch/` (via the shared `TestMain.h` helpers), using
+  relative paths - never an absolute POSIX path like `/tmp`.
 - For GPU-visible behavior, prefer semantic pixel probes on real devices
-  (model: `Code/Draconic/Foundation/Draconic.VG.Backend.Tests/`) over stored
-  image goldens.
+  (model: `Code/Foundation/VG.Backend.Tests/`) over stored image goldens.
 
 ## Code style
 
@@ -40,14 +40,59 @@ violating them fails review even if the feature works.
   ASCII hyphen only.
 - String currency is UTF-8 (`char8_t` String/StringView). WideString (UTF-16)
   only at the Win32/DXGI/DXC edge.
-- Heavy third-party headers and DRACONIC_REFLECT_* bodies go in module
-  IMPLEMENTATION units, never interface units (GCC gcm-cluster blowup).
+- Heavy third-party headers and REFLECT_* bodies go in module IMPLEMENTATION
+  units, never interface units (GCC gcm-cluster blowup).
 - Core reflection partitions import RTTI/base partitions only - never
   serialization, never consumers. Capability flows INTO reflection through
   registration-time function pointers (ContainerInfo slots, factories passed
   as parameters), not imports.
 - Missing math: port from Sedulous math first; only write from scratch if
   Sedulous lacks it too.
+- Namespaces: one level per module (`foundation::core`, `engine::scene`); nest
+  deeper only for a genuine sub-layer (`ui::toolkit`, `vg::renderer`). The one
+  canonical alias for a module is its leaf name verbatim - no abbreviations or
+  initials; reach sub-namespaces through the parent alias (`ui::toolkit::Button`).
+  Never alias `std`. `using namespace` is banned in interface units and normal
+  `.cpp`s, with one exception: `using namespace foundation::core` (the de-facto
+  prelude). App entry points (`Tools/*/Main.cpp`, sample `Main.cpp`) may use it
+  freely - they are leaves, not library surface.
+- One primary type per file, named for it (`class NetworkManager` ->
+  `NetworkManager.cppm`); generic names (`Manager`/`Types`/`Common`/`Impl`) are
+  banned when one named type is the file's reason to exist. Pair a serialized
+  descriptor with its runtime object as `XxxData`/`Xxx`, each in its own file.
+  Each module has one `<Module>Module.cppm` aggregator re-exporting its
+  partitions. Interface units carry declarations + trivial inline bodies only;
+  non-trivial bodies (loops, branching, anything substantial) move to a `.cpp`
+  implementation unit. Trivial `constexpr` math value types stay header-only.
+- Includes/imports: global-module-fragment `#include`s are minimal (only what the
+  interface needs). Order imports `foundation.core` first, then other engine
+  modules alphabetically, then third-party; one per line. In a `.cpp` the matching
+  own header/partition comes first. Project includes use full paths from `Code/`
+  (`"Core/Prelude.h"`), never relative (`"../..."`).
+
+## Comments and docs
+
+- Every `.cppm`/`.cpp` opens with a brief `//` file-header describing its
+  contents, directly below the two-line SPDX MIT header (see the license rule).
+  Public types and non-obvious public methods carry a one-line `///` doc comment
+  in the interface unit; member/enum-value trailing docs use `///<`. Trivial
+  accessors need none.
+- Comments describe what the code does NOW and why - the test is "is it true right
+  now?". A comment stating a real current limitation is correct and stays. NO
+  phased-work, track, or status narration in comments or commit messages (no "P2
+  will...", "as part of the X track", "for now"); write plain, present-tense.
+- Unfinished work stays visible as `// TODO(area): what is missing[, and why]` -
+  area-tagged so it is greppable (`grep -rn "TODO(" Code/`). Normalize informal
+  markers (`XXX`, `FIXME`, "not yet ported") to this form; never delete a TODO
+  unless the referenced work is actually done.
+
+## Accepted deviations (do NOT "fix" these)
+
+- UI structs use PascalCase fields (`view.Bounds`, `.Parent`), not `m_`-camelCase
+  members - user-accepted; new UI code follows it for local consistency, the rest
+  of the codebase uses `m_`-camelCase.
+- `using namespace foundation::core` is the single sanctioned whole-namespace
+  using (see Code style).
 
 ## Architecture rules that recur
 

@@ -215,8 +215,8 @@ Documentation/
   Systems/             THE reference: one doc per shipped subsystem.
   Specs/               Feature specs - what is being built and why; specs are
                        stamped BUILT when they ship and carry review rulings.
-  Process/             CONVENTIONS.md (binding rules), HANDOFF.md (review pass
-                       records), code-standard.md.
+  Process/             CONVENTIONS.md (binding rules incl. code style),
+                       HANDOFF.md (review pass records).
   Guides/              How-tos (terrain authoring, adding a script facade, Emscripten setup).
   Plans/               Roadmaps and design plans (roadmap.md, weekly plans).
   Backlog/             Audits and improvement backlogs.
