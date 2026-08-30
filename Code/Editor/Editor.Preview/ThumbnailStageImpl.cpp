@@ -122,7 +122,10 @@ namespace editor
         {
             Idle,          // no job; Update polls the service
             Staging,       // generator populating the scene (Pending until resources resolve)
-            RenderPending, // staged + framed; the next Render draws + encodes the readback
+            RenderPending, // staged + framed; the next Render declares the scene view
+            CopyPending,   // view declared; the graph renders at EndRendering, AFTER the frame
+                           // encoder's commands - so the readback copy must wait for the NEXT
+                           // frame's encoder to be ordered behind the render
             AwaitReadback, // copy submitted on frame `submittedIndex`; retire on ring re-visit
         };
 
@@ -337,6 +340,21 @@ namespace editor
             return;
         }
 
+        if (impl.state == Impl::State::CopyPending)
+        {
+            // Last frame's EndRendering executed the graph and left the target in CopySrc;
+            // this frame's encoder is ordered after that submission, so the copy sees the
+            // finished render.
+            rhi::BufferTextureCopyRegion region;
+            region.bytesPerRow = kRenderSize * 8u;
+            region.rowsPerImage = kRenderSize;
+            region.textureExtent = rhi::Extent3D{kRenderSize, kRenderSize, 1};
+            frame.encoder->CopyTextureToBuffer(impl.target, impl.readback, region);
+            impl.submittedIndex = frame.frameIndex;
+            impl.sawOtherIndex = false;
+            impl.state = Impl::State::AwaitReadback;
+            return;
+        }
         if (impl.state != Impl::State::RenderPending)
         {
             return;
@@ -376,17 +394,7 @@ namespace editor
                                  render::ViewportRect{0, 0, kRenderSize, kRenderSize},
                                  &cameraOverride, targetState);
         impl.targetState = rhi::ResourceState::CopySrc;
-
-        // The copy rides the FRAME encoder, so it is ordered after the scene's passes.
-        rhi::BufferTextureCopyRegion region;
-        region.bytesPerRow = kRenderSize * 8u;
-        region.rowsPerImage = kRenderSize;
-        region.textureExtent = rhi::Extent3D{kRenderSize, kRenderSize, 1};
-        frame.encoder->CopyTextureToBuffer(impl.target, impl.readback, region);
-
-        impl.submittedIndex = frame.frameIndex;
-        impl.sawOtherIndex = false;
-        impl.state = Impl::State::AwaitReadback;
+        impl.state = Impl::State::CopyPending;
     }
 
     void ThumbnailStage::Shutdown()
