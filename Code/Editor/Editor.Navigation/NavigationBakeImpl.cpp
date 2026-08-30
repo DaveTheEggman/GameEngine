@@ -17,7 +17,10 @@ import foundation.core;
 import foundation.scene;
 import foundation.content;
 import foundation.geometry;
+import foundation.heightfield;
+import foundation.terrain.resource;
 import engine.render;
+import engine.terrain;
 import engine.navigation;
 import foundation.navigation;
 import foundation.navigation.resource; // kNavigationZoneFrameRigid (the bake stamp)
@@ -48,16 +51,11 @@ namespace editor::navigation
     }
 
     usize CollectNavigationGeometry(scene::Scene& scene, scene::EntityHandle zoneEntity,
-                                    Float3 zoneExtents, Array<Float3>& outVertices,
+                                    Float3 zoneExtents, f32 cellSize, Array<Float3>& outVertices,
                                     Array<u32>& outIndices)
     {
         outVertices.Clear();
         outIndices.Clear();
-        auto* meshes = scene.GetSystem<engine::render::MeshComponentManager>();
-        if (meshes == nullptr)
-        {
-            return 0;
-        }
         // Rigid (no scale): the navmesh is baked in world units, so a zone entity's scale must
         // not warp the geometry Recast sees. A zone sharing a scaled entity with its ground would
         // otherwise un-scale that ground to unit size and erode the navmesh to nothing. The
@@ -67,6 +65,8 @@ namespace editor::navigation
         const AABB zoneBox =
             AABB::FromCenterExtents(scene.GetWorldPosition(zoneEntity), zoneExtents);
 
+        auto* meshes = scene.GetSystem<engine::render::MeshComponentManager>();
+        if (meshes != nullptr)
         meshes->ForEach(
             [&](engine::render::MeshComponent& c, scene::EntityHandle entity)
             {
@@ -92,6 +92,98 @@ namespace editor::navigation
                     outIndices.PushBack(base + mesh->indices.Get(i));
                 }
             });
+
+        // Terrain: triangulate the shared heightfield surface (the same grid physics collides
+        // against) inside the zone box, so agents can walk on terrain. Sampled no finer than
+        // the zone's cell size - Recast re-voxelizes anyway.
+        auto* terrains = scene.GetSystem<engine::terrain::TerrainComponentManager>();
+        if (terrains != nullptr)
+        {
+            terrains->ForEach(
+                [&](engine::terrain::TerrainComponent& c, scene::EntityHandle entity)
+                {
+                    foundation::terrain::TerrainResource* terrain = c.terrain.Get();
+                    foundation::heightfield::Heightfield* field =
+                        (terrain != nullptr) ? terrain->heightfield.Get() : nullptr;
+                    if (field == nullptr || field->Size() < 2)
+                    {
+                        return;
+                    }
+                    const Float4x4 terrainWorld = scene.GetWorldMatrix(entity);
+                    const Float2 footprint = field->WorldSize();
+                    const AABB localBox{
+                        Float3{-footprint.x * 0.5f, field->MinY(), -footprint.y * 0.5f},
+                        Float3{footprint.x * 0.5f, field->MaxY(), footprint.y * 0.5f}};
+                    if (!WorldBounds(localBox, terrainWorld).Intersects(zoneBox))
+                    {
+                        return;
+                    }
+
+                    // The zone box in terrain-local space bounds the grid range to triangulate.
+                    const AABB zoneLocal = WorldBounds(zoneBox, Inverse(terrainWorld));
+                    const i32 last = field->Size() - 1;
+                    const Float2 g0 = field->WorldToGrid(zoneLocal.min.x, zoneLocal.min.z);
+                    const Float2 g1 = field->WorldToGrid(zoneLocal.max.x, zoneLocal.max.z);
+                    const i32 x0 = Clamp(static_cast<i32>(Floor(g0.x)), 0, last);
+                    const i32 z0 = Clamp(static_cast<i32>(Floor(g0.y)), 0, last);
+                    const i32 x1 = Clamp(static_cast<i32>(Ceil(g1.x)), 0, last);
+                    const i32 z1 = Clamp(static_cast<i32>(Ceil(g1.y)), 0, last);
+                    if (x1 <= x0 || z1 <= z0)
+                    {
+                        return;
+                    }
+
+                    const f32 spacing = footprint.x / static_cast<f32>(last);
+                    const i32 stride =
+                        Max(1, static_cast<i32>(cellSize / Max(spacing, 0.0001f)));
+
+                    // Sample coordinates along each axis (stride steps, last row/column always
+                    // included so the surface reaches the zone edge).
+                    Array<i32> xs;
+                    Array<i32> zs;
+                    for (i32 gx = x0; gx < x1; gx += stride)
+                    {
+                        xs.PushBack(gx);
+                    }
+                    xs.PushBack(x1);
+                    for (i32 gz = z0; gz < z1; gz += stride)
+                    {
+                        zs.PushBack(gz);
+                    }
+                    zs.PushBack(z1);
+
+                    const u32 base = static_cast<u32>(outVertices.Size());
+                    for (i32 gz : zs)
+                    {
+                        for (i32 gx : xs)
+                        {
+                            const Float2 xz =
+                                field->GridToWorld(static_cast<f32>(gx), static_cast<f32>(gz));
+                            const Float3 local{xz.x, field->GetHeightAtGrid(gx, gz), xz.y};
+                            const Float3 world = TransformPoint(local, terrainWorld);
+                            outVertices.PushBack(TransformPoint(world, zoneInv));
+                        }
+                    }
+                    const u32 columns = static_cast<u32>(xs.Size());
+                    for (u32 row = 0; row + 1 < static_cast<u32>(zs.Size()); ++row)
+                    {
+                        for (u32 col = 0; col + 1 < columns; ++col)
+                        {
+                            const u32 v00 = base + row * columns + col;
+                            const u32 v10 = v00 + 1;
+                            const u32 v01 = v00 + columns;
+                            const u32 v11 = v01 + 1;
+                            // +Y face normals (Recast's walkable filter keys on them).
+                            outIndices.PushBack(v00);
+                            outIndices.PushBack(v01);
+                            outIndices.PushBack(v11);
+                            outIndices.PushBack(v00);
+                            outIndices.PushBack(v11);
+                            outIndices.PushBack(v10);
+                        }
+                    }
+                });
+        }
         return outIndices.Size() / 3u;
     }
 
@@ -112,8 +204,8 @@ namespace editor::navigation
 
         Array<Float3> verts;
         Array<u32> indices;
-        result.triangleCount =
-            CollectNavigationGeometry(scene, zoneEntity, zone->extents, verts, indices);
+        result.triangleCount = CollectNavigationGeometry(scene, zoneEntity, zone->extents,
+                                                         zone->cellSize, verts, indices);
 
         pipeline::NavigationZoneAsset asset;
         if (result.triangleCount > 0)

@@ -8,6 +8,7 @@ target_link_libraries(Editor.Navigation PUBLIC
     Foundation::Core Foundation::Scene Foundation::Content
     Foundation::Geometry Engine::Render
     Foundation::Navigation Foundation::Navigation.Resource
+    Foundation::Heightfield Foundation::Terrain.Resource Engine::Terrain
     Engine::Navigation Pipeline::Navigation Foundation::Policy)
 target_sources(Editor.Navigation
     PRIVATE

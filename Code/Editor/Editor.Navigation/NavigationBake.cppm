@@ -29,10 +29,13 @@ export namespace editor::navigation
     namespace scene = foundation::scene;
 
     // Collect the triangle soup (in the zone entity's LOCAL space) for a bake: every MeshComponent
-    // whose world bounds intersect the zone box contributes its triangles. Returns the triangle
-    // count (0 = nothing to bake).
+    // whose world bounds intersect the zone box contributes its triangles, and every terrain's
+    // heightfield surface inside the box triangulates in (sampled no finer than `cellSize` -
+    // Recast re-voxelizes to its own cells, so feeding denser grids is pure waste). Returns the
+    // triangle count (0 = nothing to bake).
     [[nodiscard]] usize CollectNavigationGeometry(scene::Scene& scene, scene::EntityHandle zoneEntity,
-                                                  Float3 zoneExtents, Array<Float3>& outVertices,
+                                                  Float3 zoneExtents, f32 cellSize,
+                                                  Array<Float3>& outVertices,
                                                   Array<u32>& outIndices);
 
     struct BakeResult

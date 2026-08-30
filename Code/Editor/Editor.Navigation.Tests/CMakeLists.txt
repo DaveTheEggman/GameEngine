@@ -1,6 +1,7 @@
 add_executable(Editor.Navigation.Tests TestsMain.cpp NavigationBakeTests.cpp)
 target_link_libraries(Editor.Navigation.Tests PRIVATE
     Editor::Navigation Engine::Navigation Engine::Render Foundation::Geometry
+    Engine::Terrain Foundation::Terrain.Resource Foundation::Heightfield
     Foundation::Navigation Foundation::Navigation.Resource Pipeline::Navigation
     Foundation::Scene Foundation::Content Foundation::Resource Foundation::VFS
     Foundation::Core doctest::doctest)
