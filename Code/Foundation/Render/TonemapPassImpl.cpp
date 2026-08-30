@@ -134,10 +134,23 @@ namespace foundation::render
     rhi::RenderPipeline* TonemapPass::EnsurePipeline(rhi::TextureFormat fmt)
     {
         const u64 shaderVersion = m_shaders->Version(u8"tonemap"); // hot reload rebuilds
-        if (m_pipeline != nullptr && m_pipelineFormat == fmt &&
-            m_pipelineShaderVersion == shaderVersion)
+        // Per-format cache: NEVER destroy on a format mismatch - a frame can hold views with
+        // different target formats, and the earlier view's commands still reference their
+        // pipeline. A stale-shader-version entry rebuilds in place (hot reload is a dev-loop
+        // event, the pre-existing trade); an unknown format takes a free slot, or evicts slot
+        // 0 when all are taken (more distinct formats per run than slots is not a real case).
+        PipelineEntry* entry = nullptr;
+        for (PipelineEntry& candidate : m_pipelines)
         {
-            return m_pipeline;
+            if (candidate.pipeline != nullptr && candidate.format == fmt)
+            {
+                entry = &candidate;
+                break;
+            }
+        }
+        if (entry != nullptr && entry->shaderVersion == shaderVersion)
+        {
+            return entry->pipeline;
         }
         rhi::ShaderModule* vs = m_shaders->GetVariant(u8"tonemap", shaders::ShaderStage::Vertex,
                                                       shaders::ShaderFlags::None);
@@ -147,10 +160,25 @@ namespace foundation::render
         {
             return nullptr;
         }
-        if (m_pipeline != nullptr)
+        if (entry == nullptr)
         {
-            m_device->DestroyRenderPipeline(m_pipeline);
-            m_pipeline = nullptr;
+            for (PipelineEntry& candidate : m_pipelines)
+            {
+                if (candidate.pipeline == nullptr)
+                {
+                    entry = &candidate;
+                    break;
+                }
+            }
+        }
+        if (entry == nullptr)
+        {
+            entry = &m_pipelines[0];
+        }
+        if (entry->pipeline != nullptr)
+        {
+            m_device->DestroyRenderPipeline(entry->pipeline);
+            entry->pipeline = nullptr;
         }
 
         rhi::ColorTargetState color{};
@@ -166,14 +194,14 @@ namespace foundation::render
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;
         pd.label = u8"tonemap";
-        if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
+        if (!m_device->CreateRenderPipeline(pd, entry->pipeline).IsOk())
         {
-            m_pipeline = nullptr;
+            entry->pipeline = nullptr;
             return nullptr;
         }
-        m_pipelineFormat = fmt;
-        m_pipelineShaderVersion = shaderVersion;
-        return m_pipeline;
+        entry->format = fmt;
+        entry->shaderVersion = shaderVersion;
+        return entry->pipeline;
     }
 
     rhi::BindGroup* TonemapPass::EnsureBindGroup(u32 slot, rhi::TextureView* hdrView,
@@ -225,10 +253,13 @@ namespace foundation::render
                 m_bindGroups[i] = nullptr;
             }
         }
-        if (m_pipeline != nullptr)
+        for (PipelineEntry& entry : m_pipelines)
         {
-            m_device->DestroyRenderPipeline(m_pipeline);
-            m_pipeline = nullptr;
+            if (entry.pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(entry.pipeline);
+                entry.pipeline = nullptr;
+            }
         }
         if (m_pipelineLayout != nullptr)
         {

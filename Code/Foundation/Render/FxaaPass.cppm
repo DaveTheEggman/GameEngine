@@ -134,13 +134,32 @@ export namespace foundation::render
         static constexpr u32 kMaxFramesInFlight = 8;
         static constexpr u32 kMaxSlots = kMaxViews * kMaxFramesInFlight;
 
+        // Per-format entries: a frame can hold views with different target formats, and a
+        // destroy-on-mismatch single slot would destroy a pipeline the same encoder's earlier
+        // view still references (the tonemap pass shipped that crash first).
+        static constexpr usize kMaxPipelineFormats = 4;
+        struct PipelineEntry
+        {
+            rhi::RenderPipeline* pipeline = nullptr;
+            rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0;
+        };
+
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat fmt)
         {
             const u64 shaderVersion = m_shaders->Version(u8"fxaa"); // hot reload rebuilds
-            if (m_pipeline != nullptr && m_pipelineFormat == fmt &&
-                m_pipelineShaderVersion == shaderVersion)
+            PipelineEntry* entry = nullptr;
+            for (PipelineEntry& candidate : m_pipelines)
             {
-                return m_pipeline;
+                if (candidate.pipeline != nullptr && candidate.format == fmt)
+                {
+                    entry = &candidate;
+                    break;
+                }
+            }
+            if (entry != nullptr && entry->shaderVersion == shaderVersion)
+            {
+                return entry->pipeline;
             }
             rhi::ShaderModule* vs = m_shaders->GetVariant(u8"fxaa", shaders::ShaderStage::Vertex,
                                                           shaders::ShaderFlags::None);
@@ -150,10 +169,25 @@ export namespace foundation::render
             {
                 return nullptr;
             }
-            if (m_pipeline != nullptr)
+            if (entry == nullptr)
             {
-                m_device->DestroyRenderPipeline(m_pipeline);
-                m_pipeline = nullptr;
+                for (PipelineEntry& candidate : m_pipelines)
+                {
+                    if (candidate.pipeline == nullptr)
+                    {
+                        entry = &candidate;
+                        break;
+                    }
+                }
+            }
+            if (entry == nullptr)
+            {
+                entry = &m_pipelines[0];
+            }
+            if (entry->pipeline != nullptr)
+            {
+                m_device->DestroyRenderPipeline(entry->pipeline);
+                entry->pipeline = nullptr;
             }
             rhi::ColorTargetState color{};
             color.format = fmt;
@@ -167,14 +201,14 @@ export namespace foundation::render
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             pd.primitive.cullMode = rhi::CullMode::None;
             pd.label = u8"fxaa";
-            if (!m_device->CreateRenderPipeline(pd, m_pipeline).IsOk())
+            if (!m_device->CreateRenderPipeline(pd, entry->pipeline).IsOk())
             {
-                m_pipeline = nullptr;
+                entry->pipeline = nullptr;
                 return nullptr;
             }
-            m_pipelineFormat = fmt;
-            m_pipelineShaderVersion = shaderVersion;
-            return m_pipeline;
+            entry->format = fmt;
+            entry->shaderVersion = shaderVersion;
+            return entry->pipeline;
         }
 
         rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* srcView, u64 generation)
@@ -220,10 +254,13 @@ export namespace foundation::render
                     m_bindGroups[i] = nullptr;
                 }
             }
-            if (m_pipeline != nullptr)
+            for (PipelineEntry& entry : m_pipelines)
             {
-                m_device->DestroyRenderPipeline(m_pipeline);
-                m_pipeline = nullptr;
+                if (entry.pipeline != nullptr)
+                {
+                    m_device->DestroyRenderPipeline(entry.pipeline);
+                    entry.pipeline = nullptr;
+                }
             }
             if (m_pipelineLayout != nullptr)
             {
@@ -247,9 +284,7 @@ export namespace foundation::render
         u32 m_framesInFlight = 2;
         rhi::BindGroupLayout* m_layout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
-        rhi::RenderPipeline* m_pipeline = nullptr;
-        rhi::TextureFormat m_pipelineFormat = rhi::TextureFormat::Undefined;
-        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
+        PipelineEntry m_pipelines[kMaxPipelineFormats] = {};
         rhi::Sampler* m_sampler = nullptr;
         rhi::BindGroup* m_bindGroups[kMaxSlots] = {};
         rhi::TextureView* m_bgViews[kMaxSlots] = {};

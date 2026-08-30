@@ -407,29 +407,55 @@ namespace foundation::render
                                                              rhi::TextureFormat depthFmt)
     {
         const u64 shaderVersion = m_shaders->Version(u8"debug_geom"); // hot reload rebuilds
-        if (m_geom.color == colorFmt && m_geom.depth == depthFmt && m_geom.lineDepth != nullptr &&
-            m_geom.shaderVersion == shaderVersion)
+        Pipelines* entry = nullptr;
+        for (Pipelines& candidate : m_geom)
         {
-            return &m_geom;
+            if (candidate.lineDepth != nullptr && candidate.color == colorFmt &&
+                candidate.depth == depthFmt)
+            {
+                entry = &candidate;
+                break;
+            }
         }
-        DestroyGeomPipelines();
-        m_geom.lineDepth = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
-                                            rhi::CompareFunction::LessEqual);
-        m_geom.lineOverlay = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
-                                              rhi::CompareFunction::Always);
-        m_geom.triDepth = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::TriangleList,
-                                           rhi::CompareFunction::LessEqual);
-        m_geom.triOverlay = MakeGeomPipeline(
-            colorFmt, depthFmt, rhi::PrimitiveTopology::TriangleList, rhi::CompareFunction::Always);
-        if (m_geom.lineDepth == nullptr || m_geom.lineOverlay == nullptr ||
-            m_geom.triDepth == nullptr || m_geom.triOverlay == nullptr)
+        if (entry != nullptr && entry->shaderVersion == shaderVersion)
         {
+            return entry;
+        }
+        if (entry == nullptr)
+        {
+            for (Pipelines& candidate : m_geom)
+            {
+                if (candidate.lineDepth == nullptr)
+                {
+                    entry = &candidate;
+                    break;
+                }
+            }
+        }
+        if (entry == nullptr)
+        {
+            entry = &m_geom[0];
+        }
+        DestroyGeomPipelines(*entry);
+        entry->lineDepth = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
+                                            rhi::CompareFunction::LessEqual);
+        entry->lineOverlay = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
+                                              rhi::CompareFunction::Always);
+        entry->triDepth = MakeGeomPipeline(colorFmt, depthFmt,
+                                           rhi::PrimitiveTopology::TriangleList,
+                                           rhi::CompareFunction::LessEqual);
+        entry->triOverlay = MakeGeomPipeline(
+            colorFmt, depthFmt, rhi::PrimitiveTopology::TriangleList, rhi::CompareFunction::Always);
+        if (entry->lineDepth == nullptr || entry->lineOverlay == nullptr ||
+            entry->triDepth == nullptr || entry->triOverlay == nullptr)
+        {
+            DestroyGeomPipelines(*entry);
             return nullptr;
         }
-        m_geom.color = colorFmt;
-        m_geom.depth = depthFmt;
-        m_geom.shaderVersion = shaderVersion;
-        return &m_geom;
+        entry->color = colorFmt;
+        entry->depth = depthFmt;
+        entry->shaderVersion = shaderVersion;
+        return entry;
     }
 
     rhi::RenderPipeline* DebugDrawPass::MakeGeomPipeline(rhi::TextureFormat colorFmt,
@@ -584,27 +610,27 @@ namespace foundation::render
         return Status{};
     }
 
-    void DebugDrawPass::DestroyGeomPipelines()
+    void DebugDrawPass::DestroyGeomPipelines(Pipelines& entry)
     {
-        if (m_geom.lineDepth != nullptr)
+        rhi::RenderPipeline** slots[] = {&entry.lineDepth, &entry.lineOverlay, &entry.triDepth,
+                                         &entry.triOverlay};
+        for (rhi::RenderPipeline** slot : slots)
         {
-            m_device->DestroyRenderPipeline(m_geom.lineDepth);
-            m_geom.lineDepth = nullptr;
+            if (*slot != nullptr)
+            {
+                m_device->DestroyRenderPipeline(*slot);
+                *slot = nullptr;
+            }
         }
-        if (m_geom.lineOverlay != nullptr)
+        entry.color = rhi::TextureFormat::Undefined;
+        entry.depth = rhi::TextureFormat::Undefined;
+    }
+
+    void DebugDrawPass::DestroyAllGeomPipelines()
+    {
+        for (Pipelines& entry : m_geom)
         {
-            m_device->DestroyRenderPipeline(m_geom.lineOverlay);
-            m_geom.lineOverlay = nullptr;
-        }
-        if (m_geom.triDepth != nullptr)
-        {
-            m_device->DestroyRenderPipeline(m_geom.triDepth);
-            m_geom.triDepth = nullptr;
-        }
-        if (m_geom.triOverlay != nullptr)
-        {
-            m_device->DestroyRenderPipeline(m_geom.triOverlay);
-            m_geom.triOverlay = nullptr;
+            DestroyGeomPipelines(entry);
         }
     }
 
@@ -623,7 +649,7 @@ namespace foundation::render
                 m_screenBuf[i] = nullptr;
             }
         }
-        DestroyGeomPipelines();
+        DestroyAllGeomPipelines();
         if (m_screenPipe != nullptr)
         {
             m_device->DestroyRenderPipeline(m_screenPipe);

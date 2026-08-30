@@ -85,9 +85,19 @@ export namespace foundation::render
 
         rhi::BindGroupLayout* m_layout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
-        rhi::RenderPipeline* m_pipeline = nullptr;
-        rhi::TextureFormat m_pipelineFormat = rhi::TextureFormat::Undefined;
-        u64 m_pipelineShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
+        // Per-FORMAT pipeline cache: one frame can hold views with different target formats
+        // (the HDR viewports + the thumbnail stage's readback target), and a destroy-on-format-
+        // mismatch single slot destroyed a pipeline the same encoder's earlier view still
+        // referenced (a validation error, then a crash). Small fixed set; entries rebuild only
+        // on shader hot reload.
+        static constexpr usize kMaxPipelineFormats = 4;
+        struct PipelineEntry
+        {
+            rhi::RenderPipeline* pipeline = nullptr;
+            rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0; // ShaderSystem::Version at build (hot reload)
+        };
+        PipelineEntry m_pipelines[kMaxPipelineFormats] = {};
 
         rhi::Sampler* m_sampler = nullptr; // linear-clamp, for the bloom composite
         rhi::BindGroup* m_bindGroups[kMaxSlots] = {};

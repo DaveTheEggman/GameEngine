@@ -37,7 +37,50 @@ namespace editor
         constexpr u32 kTileSize = ThumbnailService::kThumbnailSize;
         constexpr u32 kRenderSize = kTileSize * ThumbnailStage::kSupersample;
 
-        // Exact integer box downscale (kSupersample x kSupersample average per output texel).
+        // IEEE half -> float (the render target is RGBA16Float, matching every viewport view
+        // so no pass rebuilds pipelines per format).
+        [[nodiscard]] f32 HalfToFloat(u16 h)
+        {
+            const u32 sign = static_cast<u32>(h >> 15) & 1u;
+            const u32 exponent = static_cast<u32>(h >> 10) & 0x1Fu;
+            const u32 mantissa = static_cast<u32>(h) & 0x3FFu;
+            u32 bits;
+            if (exponent == 0)
+            {
+                if (mantissa == 0)
+                {
+                    bits = sign << 31; // signed zero
+                }
+                else
+                {
+                    // Subnormal half: normalize into a float exponent.
+                    u32 e = 127 - 15 + 1;
+                    u32 m = mantissa;
+                    while ((m & 0x400u) == 0)
+                    {
+                        m <<= 1;
+                        --e;
+                    }
+                    bits = (sign << 31) | (e << 23) | ((m & 0x3FFu) << 13);
+                }
+            }
+            else if (exponent == 0x1F)
+            {
+                bits = (sign << 31) | 0x7F800000u | (mantissa << 13); // inf / nan
+            }
+            else
+            {
+                bits = (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
+            }
+            f32 value;
+            static_assert(sizeof(value) == sizeof(bits));
+            __builtin_memcpy(&value, &bits, sizeof(value));
+            return value;
+        }
+
+        // Exact integer box downscale (kSupersample x kSupersample average per output texel)
+        // over RGBA16Float source rows. The tonemap pass already applied the sRGB OETF, so the
+        // values quantize to bytes directly - encoding again would double-gamma the image.
         void Downscale(const u8* src, u32 srcRowBytes, image::Image& out)
         {
             constexpr u32 kFactor = ThumbnailStage::kSupersample;
@@ -47,25 +90,27 @@ namespace editor
             {
                 for (u32 x = 0; x < kTileSize; ++x)
                 {
-                    u32 sum[4] = {0, 0, 0, 0};
+                    f32 sum[4] = {0, 0, 0, 0};
                     for (u32 sy = 0; sy < kFactor; ++sy)
                     {
                         const u8* row = src + static_cast<usize>(y * kFactor + sy) * srcRowBytes +
-                                        static_cast<usize>(x) * kFactor * 4u;
+                                        static_cast<usize>(x) * kFactor * 8u;
                         for (u32 sx = 0; sx < kFactor; ++sx)
                         {
-                            sum[0] += row[sx * 4 + 0];
-                            sum[1] += row[sx * 4 + 1];
-                            sum[2] += row[sx * 4 + 2];
-                            sum[3] += row[sx * 4 + 3];
+                            const u16* texel = reinterpret_cast<const u16*>(row + sx * 8u);
+                            sum[0] += HalfToFloat(texel[0]);
+                            sum[1] += HalfToFloat(texel[1]);
+                            sum[2] += HalfToFloat(texel[2]);
+                            sum[3] += HalfToFloat(texel[3]);
                         }
                     }
-                    constexpr u32 kSamples = kFactor * kFactor;
+                    constexpr f32 kInvSamples = 1.0f / (kFactor * kFactor);
                     u8* texel = dst + (static_cast<usize>(y) * kTileSize + x) * 4u;
-                    texel[0] = static_cast<u8>(sum[0] / kSamples);
-                    texel[1] = static_cast<u8>(sum[1] / kSamples);
-                    texel[2] = static_cast<u8>(sum[2] / kSamples);
-                    texel[3] = static_cast<u8>(sum[3] / kSamples);
+                    for (u32 c = 0; c < 4; ++c)
+                    {
+                        texel[c] = static_cast<u8>(
+                            Clamp(sum[c] * kInvSamples, 0.0f, 1.0f) * 255.0f + 0.5f);
+                    }
                 }
             }
         }
@@ -122,7 +167,7 @@ namespace editor
             rhi::TextureDesc desc;
             desc.width = kRenderSize;
             desc.height = kRenderSize;
-            desc.format = rhi::TextureFormat::RGBA8Unorm;
+            desc.format = rhi::TextureFormat::RGBA16Float;
             desc.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
             if (!device->CreateTexture(desc, target).IsOk() || target == nullptr)
             {
@@ -137,7 +182,7 @@ namespace editor
                 return false;
             }
             rhi::BufferDesc bufferDesc;
-            bufferDesc.size = static_cast<u64>(kRenderSize) * kRenderSize * 4u;
+            bufferDesc.size = static_cast<u64>(kRenderSize) * kRenderSize * 8u;
             bufferDesc.usage = rhi::BufferUsage::CopyDst;
             bufferDesc.memory = rhi::MemoryLocation::GpuToCpu;
             if (!device->CreateBuffer(bufferDesc, readback).IsOk() || readback == nullptr)
@@ -275,7 +320,7 @@ namespace editor
             image::Image pixels;
             if (const u8* mapped = static_cast<const u8*>(impl.readback->Map()))
             {
-                Downscale(mapped, kRenderSize * 4u, pixels);
+                Downscale(mapped, kRenderSize * 8u, pixels);
                 impl.readback->Unmap();
                 if (impl.job.generator != nullptr)
                 {
@@ -326,7 +371,7 @@ namespace editor
         targetState.currentState = impl.targetState;
         targetState.finalState = rhi::ResourceState::CopySrc;
 
-        impl.render->RenderScene(*impl.scene, impl.targetView, rhi::TextureFormat::RGBA8Unorm,
+        impl.render->RenderScene(*impl.scene, impl.targetView, rhi::TextureFormat::RGBA16Float,
                                  kRenderSize, kRenderSize,
                                  render::ViewportRect{0, 0, kRenderSize, kRenderSize},
                                  &cameraOverride, targetState);
@@ -334,7 +379,7 @@ namespace editor
 
         // The copy rides the FRAME encoder, so it is ordered after the scene's passes.
         rhi::BufferTextureCopyRegion region;
-        region.bytesPerRow = kRenderSize * 4u;
+        region.bytesPerRow = kRenderSize * 8u;
         region.rowsPerImage = kRenderSize;
         region.textureExtent = rhi::Extent3D{kRenderSize, kRenderSize, 1};
         frame.encoder->CopyTextureToBuffer(impl.target, impl.readback, region);

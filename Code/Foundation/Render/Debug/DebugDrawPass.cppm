@@ -106,7 +106,8 @@ export namespace foundation::render
 
         Status CreateFontAtlas();
 
-        void DestroyGeomPipelines();
+        void DestroyGeomPipelines(Pipelines& entry);
+        void DestroyAllGeomPipelines();
         void Shutdown();
 
         rhi::Device* m_device;
@@ -119,7 +120,11 @@ export namespace foundation::render
         rhi::Texture* m_fontTex = nullptr;
         rhi::TextureView* m_fontView = nullptr;
         rhi::BindGroup* m_fontBg = nullptr;
-        Pipelines m_geom{};
+        // Per-(color, depth) entries: a frame can hold views with different target formats,
+        // and destroying on mismatch would free pipelines an earlier view's recorded commands
+        // still reference (the tonemap pass shipped that crash first).
+        static constexpr usize kMaxGeomFormats = 4;
+        Pipelines m_geom[kMaxGeomFormats] = {};
         rhi::RenderPipeline* m_screenPipe = nullptr;
         rhi::TextureFormat m_screenFmt = rhi::TextureFormat::Undefined;
         u64 m_screenShaderVersion = 0; // ShaderSystem::Version at build (hot reload)
