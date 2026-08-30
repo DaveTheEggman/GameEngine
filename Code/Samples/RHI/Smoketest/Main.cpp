@@ -66,7 +66,9 @@ int main(int /*argc*/, char** /*argv*/)
 
     const shell::NativeWindow nw = window->Native();
     void* native = nw.window;
-    void* display = nw.display;
+#ifdef OPTION_HAS_VULKAN
+    void* display = nw.display; // only the Vulkan surface path uses the X11/Wayland display handle
+#endif
     if (!native)
     {
         std::fprintf(stderr, "no native handle on shell window\n");
