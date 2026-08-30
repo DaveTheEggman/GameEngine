@@ -16,15 +16,17 @@
 #
 # copy_if_different keeps the copy incremental; a file staged twice is harmless.
 #
-# NOTE: on Windows a bare call (no EXTRA) needs the target to link >=1 shared
-# dependency - copy_if_different requires at least one source. All our apps link
-# SDL3, so in practice pass `EXTRA ${BUILDSYSTEM_SDL3_DLL}` and it is always covered.
+# copy_if_different requires >=1 source, but a target may link ZERO runtime DLLs (e.g. since SDL3
+# is linked statically, an app with no other shared deps has an empty TARGET_RUNTIME_DLLS). The
+# WIN32 copy below switches to a no-op ('cmake -E true') in that case so the POST_BUILD step does
+# not fail on a sourceless copy_if_different.
 function(util_copy_runtime_deps target)
     cmake_parse_arguments(ARG "" "" "EXTRA" ${ARGN})
 
     if(WIN32)
         add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            COMMAND ${CMAKE_COMMAND} -E
+                    $<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:${target}>>,copy_if_different,true>
                     $<TARGET_RUNTIME_DLLS:${target}> $<TARGET_FILE_DIR:${target}>
             COMMAND_EXPAND_LISTS VERBATIM
             COMMENT "Staging linked runtime DLLs next to ${target}")
