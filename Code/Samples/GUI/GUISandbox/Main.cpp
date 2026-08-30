@@ -11,7 +11,6 @@
 
 import foundation.core;
 import foundation.rhi;
-import foundation.rhi.vulkan;
 import foundation.shaders;
 import foundation.shaders.system; // ShaderSystemHost
 import samples.framework;

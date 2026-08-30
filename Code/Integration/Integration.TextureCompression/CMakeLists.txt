@@ -7,10 +7,19 @@ add_executable(Integration.TextureCompression TestsMain.cpp BcTextureProbeTests.
 
 target_link_libraries(Integration.TextureCompression PRIVATE
     Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport
-    Foundation::RHI.Vulkan Foundation::RHI.WebGPU Pipeline::Texture.Compression doctest::doctest)
+    Pipeline::Texture.Compression doctest::doctest)
 
-# DX12 backend - Windows only. The BC probe covered Vulkan + WebGPU only, so the compressed-
-# texture upload/sample path had no DX12 coverage.
+# Link each GPU backend that is present and flag it (OPTION_HAS_*); the probe iterates whichever
+# are compiled in. None is hardcoded, so this builds on any platform (Vulkan+WebGPU on Linux,
+# DX12+WebGPU on Windows).
+if(TARGET Foundation::RHI.Vulkan)
+    target_link_libraries(Integration.TextureCompression PRIVATE Foundation::RHI.Vulkan)
+    target_compile_definitions(Integration.TextureCompression PRIVATE OPTION_HAS_VULKAN)
+endif()
+if(TARGET Foundation::RHI.WebGPU)
+    target_link_libraries(Integration.TextureCompression PRIVATE Foundation::RHI.WebGPU)
+    target_compile_definitions(Integration.TextureCompression PRIVATE OPTION_HAS_WEBGPU)
+endif()
 if(TARGET Foundation::RHI.DX12)
     target_link_libraries(Integration.TextureCompression PRIVATE Foundation::RHI.DX12)
     target_compile_definitions(Integration.TextureCompression PRIVATE OPTION_HAS_DX12)

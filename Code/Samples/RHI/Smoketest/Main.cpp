@@ -11,7 +11,9 @@
 
 import foundation.core;
 import foundation.rhi;
+#ifdef OPTION_HAS_VULKAN
 import foundation.rhi.vulkan;
+#endif
 import foundation.rhi.null;
 import foundation.rhi.validation;
 import foundation.shell;
@@ -72,6 +74,7 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     // ---- VK backend (wrapped in validation layer) ----
+#ifdef OPTION_HAS_VULKAN
     rhi::vk::VkBackendDesc vkDesc{.enableValidation = true};
     Backend* rawBackend = nullptr;
     if (rhi::vk::CreateBackend(vkDesc, rawBackend) != foundation::core::ErrorCode::Ok)
@@ -383,6 +386,7 @@ int main(int /*argc*/, char** /*argv*/)
     device->DestroySurface(surface);
     device->Destroy();
     backend->Destroy();
+#endif // OPTION_HAS_VULKAN
 
     // ---- Null backend exercise ----
     std::printf("\n=== Null Backend ===\n");

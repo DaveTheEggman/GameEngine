@@ -1,8 +1,11 @@
 # Samples::Framework - `samples.framework` (RHI sample base + helpers).
-# Needs the Vulkan backend, the desktop shell, and the shader compiler.
+# Needs at least one GPU backend, the desktop shell, and the shader compiler. Backend-agnostic: it
+# links whichever backends are present (OPTION_HAS_*) and picks an available one by default, so it
+# builds on Vulkan (Linux) or DX12 (Windows) alike.
 
-if(NOT (TARGET Foundation::RHI.Vulkan AND TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Shaders))
-    message(STATUS "Skipping Samples::Framework - needs Vulkan + Desktop shell + Shaders")
+if(NOT ((TARGET Foundation::RHI.Vulkan OR TARGET Foundation::RHI.DX12 OR TARGET Foundation::RHI.WebGPU)
+        AND TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND TARGET Foundation::Shaders))
+    message(STATUS "Skipping Samples::Framework - needs a GPU backend + Desktop shell + Shaders")
     return()
 endif()
 
@@ -12,14 +15,18 @@ add_library(Samples::Framework ALIAS SamplesFramework)
 target_link_libraries(SamplesFramework PUBLIC
     Foundation::Core
     Foundation::RHI
-    Foundation::RHI.Vulkan
     Foundation::RHI.Validation
     Foundation::Shell
     Foundation::Shell.Desktop Foundation::Runtime.Desktop
     Foundation::Shaders
     Foundation::Policy)
 
-# DX12 backend - Windows only.
+# Link each present backend and flag it; the framework selects among the compiled-in ones.
+if(TARGET Foundation::RHI.Vulkan)
+    target_link_libraries(SamplesFramework PUBLIC Foundation::RHI.Vulkan)
+    target_compile_definitions(SamplesFramework PUBLIC OPTION_HAS_VULKAN)
+endif()
+
 if(TARGET Foundation::RHI.DX12)
     target_link_libraries(SamplesFramework PUBLIC Foundation::RHI.DX12)
     target_compile_definitions(SamplesFramework PUBLIC OPTION_HAS_DX12)

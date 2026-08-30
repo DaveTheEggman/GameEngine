@@ -39,10 +39,10 @@ else()
     message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop shell + Vulkan GPU factory)")
 endif()
 
-# RHI sample framework + RHI samples (need Vulkan + Shaders too).
+# RHI sample framework + the higher-level sample groups (backend-agnostic via Samples::Framework).
 add_subdirectory(Framework)
 if(TARGET Samples::Framework)
-    add_subdirectory(RHI)
+    add_subdirectory(RHI)  # backend-agnostic via the framework (Smoketest gates itself on Vulkan)
     add_subdirectory(WebScene) # full-renderer exercise scene (desktop build; also the web sample)
     add_subdirectory(VG)  # VG sandbox - end-to-end VG stack demo
     if(OPTION_EXPERIMENTAL_GUI)

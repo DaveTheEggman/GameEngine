@@ -1,7 +1,7 @@
 # VG Sandbox - end-to-end VG stack demo (window + VGRenderer).
 add_executable(VGSandbox Main.cpp)
 target_link_libraries(VGSandbox PRIVATE
-    Foundation::Core Foundation::RHI Foundation::RHI.Vulkan Foundation::Shaders Foundation::Shaders.System
+    Foundation::Core Foundation::RHI Foundation::Shaders Foundation::Shaders.System
     Samples::Framework
     Foundation::Image Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.DistanceField Foundation::Fonts.DistanceField.Baker
     Foundation::VG Foundation::VG.Renderer Foundation::VG.SVG)

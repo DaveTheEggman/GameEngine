@@ -12,7 +12,6 @@ import foundation.core;
 import foundation.rhi;
 import foundation.shaders;
 import samples.framework;
-import foundation.rhi.vulkan;
 
 namespace rhi = foundation::rhi;
 namespace shaders = foundation::shaders;

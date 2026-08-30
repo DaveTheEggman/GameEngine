@@ -17,8 +17,12 @@
 
 import foundation.core;
 import foundation.rhi;
+#ifdef OPTION_HAS_VULKAN
 import foundation.rhi.vulkan;
+#endif
+#ifdef OPTION_HAS_WEBGPU
 import foundation.rhi.webgpu;
+#endif
 #ifdef OPTION_HAS_DX12
 import foundation.rhi.dx12;
 #endif
@@ -287,16 +291,10 @@ namespace
 
     void ForEachBackend(void (*probe)(rhi::Device&, const char*))
     {
+        bool any = false;
+#ifdef OPTION_HAS_VULKAN
         rhi::Backend* vulkan = nullptr;
         (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
-        rhi::Backend* webgpu = nullptr;
-        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
-#ifdef OPTION_HAS_DX12
-        rhi::Backend* dx12 = nullptr;
-        (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);
-#endif
-
-        bool any = false;
         if (rhi::Device* device = testsupport::MakeTestDevice(vulkan))
         {
             probe(*device, "vulkan");
@@ -307,6 +305,10 @@ namespace
         {
             MESSAGE("Vulkan unavailable - skipped");
         }
+#endif
+#ifdef OPTION_HAS_WEBGPU
+        rhi::Backend* webgpu = nullptr;
+        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
         if (rhi::Device* device = testsupport::MakeTestDevice(webgpu))
         {
             probe(*device, "webgpu");
@@ -317,6 +319,7 @@ namespace
         {
             MESSAGE("WebGPU unavailable - skipped");
         }
+#endif
 #ifdef OPTION_HAS_DX12
         if (rhi::Device* device = testsupport::MakeTestDevice(dx12))
         {

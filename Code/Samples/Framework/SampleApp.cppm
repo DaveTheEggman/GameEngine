@@ -16,7 +16,9 @@ export module samples.framework:sample_app;
 
 import foundation.core;
 import foundation.rhi;
+#ifdef OPTION_HAS_VULKAN
 import foundation.rhi.vulkan;
+#endif
 #ifdef OPTION_HAS_DX12
 import foundation.rhi.dx12;
 #endif
@@ -42,10 +44,20 @@ export namespace samples::framework
         WebGPU
     };
 
+    // The default backend is whichever is compiled in - Vulkan on Linux, DX12 on Windows, WebGPU as
+    // a fallback - so a sample run with no --backend flag works on any platform.
+#if defined(OPTION_HAS_VULKAN)
+    inline constexpr BackendType kDefaultBackend = BackendType::Vulkan;
+#elif defined(OPTION_HAS_DX12)
+    inline constexpr BackendType kDefaultBackend = BackendType::DX12;
+#else
+    inline constexpr BackendType kDefaultBackend = BackendType::WebGPU;
+#endif
+
     class SampleApp
     {
     public:
-        explicit SampleApp(BackendType backend = BackendType::Vulkan, bool validation = true)
+        explicit SampleApp(BackendType backend = kDefaultBackend, bool validation = true)
             : m_backendType(backend), m_validationEnabled(validation)
         {
         }
@@ -225,6 +237,7 @@ export namespace samples::framework
         {
         case BackendType::Vulkan:
         {
+#ifdef OPTION_HAS_VULKAN
             rhi::vk::VkBackendDesc desc{};
             desc.enableValidation = m_validationEnabled;
             if (!rhi::vk::CreateBackend(desc, raw).IsOk())
@@ -232,6 +245,10 @@ export namespace samples::framework
                 rhi::LogError("SampleApp: rhi::vk::CreateBackend failed");
                 return ErrorCode::Unknown;
             }
+#else
+            rhi::LogError("SampleApp: Vulkan backend not available in this build");
+            return ErrorCode::Unknown;
+#endif
             break;
         }
         case BackendType::DX12:
