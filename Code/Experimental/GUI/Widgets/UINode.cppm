@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :ui_node partition
 //
 // UINode: a Node with UI chrome. Ported from eepp's UI::UINode - adds padding (a content

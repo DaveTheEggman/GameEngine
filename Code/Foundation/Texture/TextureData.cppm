@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Texture - :data partition
 //
 // TextureData: a CPU-side descriptor of pixel data staged for GPU upload (it

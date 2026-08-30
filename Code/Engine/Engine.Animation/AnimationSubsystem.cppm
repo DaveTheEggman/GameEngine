@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Animation - the `:subsystem` partition.
 ///
 /// AnimationSubsystem: a Context-level subsystem that registers the animation component reflection and

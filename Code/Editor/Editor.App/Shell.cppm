@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :shell partition.
 //
 // EditorShell: the editor chrome - a RootView holding

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Game-UI asset pipeline: author document/theme -> VALIDATING cook -> load the products
 // through the factories. Bad payloads must FAIL the cook (validation is the point).
 #include <doctest/doctest.h>

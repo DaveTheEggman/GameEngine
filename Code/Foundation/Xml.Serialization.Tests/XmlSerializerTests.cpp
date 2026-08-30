@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for the XML serialization backend: round-trips through Core's
 // Serialize() driver in both directions, plus a look at the emitted XML.
 #include <doctest/doctest.h>

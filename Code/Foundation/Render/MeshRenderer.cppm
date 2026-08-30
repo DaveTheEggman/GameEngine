@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:mesh_renderer` partition.
 ///
 /// `MeshRenderer` is the `Renderer` for the mesh categories (Opaque/Masked/Transparent). It

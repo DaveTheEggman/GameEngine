@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // BoxMetrics / border-box coverage: the three padding
 // channels max-merge in View::ResolveBoxMetrics, borders are layout-participating chrome
 // (RoundedRectDrawable reports its border via DrawablePadding), and Panel's content box honors

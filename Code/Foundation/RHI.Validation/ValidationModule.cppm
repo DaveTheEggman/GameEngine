@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Validation layer module surface.
 /// Provides CreateValidatedBackend() as the entry point.
 

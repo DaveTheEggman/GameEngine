@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Shader feature flags + variant key. Flags are compile-time permutation bits:
 /// each set flag becomes a `#define` prepended before compilation, so shaders
 /// #ifdef-gate features into specialized, branch-free permutations. Render state

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script - the `editor.script` module.
 //
 // ScriptApiSurface implementation: the ONE bound-API build for a page. Replays the

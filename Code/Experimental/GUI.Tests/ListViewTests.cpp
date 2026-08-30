@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - ListView tests: virtualization (only visible rows realized), single selection
 // via mouse + keyboard, wheel/scroll-into-view, and reacting to model updates.
 #include <doctest/doctest.h>

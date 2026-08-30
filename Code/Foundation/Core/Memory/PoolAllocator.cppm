@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :pool_allocator partition
 //
 // PoolAllocator: fixed-size block allocator over a caller buffer; O(1)

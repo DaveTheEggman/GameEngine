@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :linear_gradient_drawable partition
 //
 // LinearGradientDrawable: a multi-stop linear gradient across the destination rect at a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :toggle_switch partition
 //
 // iOS-style toggle switch (track + knob). Ported from Sedulous.UI/src/Controls/ToggleSwitch.bf (a View).

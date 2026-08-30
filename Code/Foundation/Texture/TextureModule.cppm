@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Texture - the `foundation.texture` module.
 //
 // Logical texture types + a CPU-side upload descriptor (TextureData) and

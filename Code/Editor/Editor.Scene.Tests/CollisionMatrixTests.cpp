@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The collision-groups matrix editor (physics scene settings) must REBUILD its grid when the group
 // list is mutated - the smoke-test bug was "UI doesn't update when a group is added". The rebuild is
 // mutation-queue-deferred in the live editor; a bare editor (no UIContext attached) rebuilds inline,

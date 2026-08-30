@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Geometry - the `:types` partition.
 ///
 /// Value-type vocabulary for the engine's runtime mesh format (distinct from

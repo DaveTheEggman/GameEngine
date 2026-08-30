@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Phase 2 - the transform hierarchy: parent/child/sibling links, world-matrix
 // composition, the dirty-flag cascade + two-pass UpdateTransforms, motion-vector
 // previous-matrix snapshotting, recursive destroy, and the reparent cycle guard.

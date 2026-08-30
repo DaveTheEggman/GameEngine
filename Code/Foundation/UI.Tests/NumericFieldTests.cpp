@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/NumericFieldTests.bf (faithful). Beef get/set properties -> methods
 // (nf->SetMin/SetValue/Value()); [Friend]mText -> Text(); [Friend]mBehavior -> Behavior(). The formatting
 // test needs no font (UpdateText uses core::FormatFixed).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :rectangle_drawable partition
 //
 // RectangleDrawable: solid-color fill, sharp or rounded. The widget background primitive.

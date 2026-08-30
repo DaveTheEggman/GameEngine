@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - Ticker behavior (native, backend-neutral).
 //
 // A Ticker is a Label showing an integer that animates to new values. These cover the instant

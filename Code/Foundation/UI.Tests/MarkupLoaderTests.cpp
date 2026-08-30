@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/MarkupLoaderTests.bf (faithful). Beef `as X` -> Cast<X>; `scope`/
 // `new`+delete -> RefPtr (RAII); property .Value -> .Value(); Color byte-literal -> float(/255). The
 // static ctor (MarkupLoader.Initialize + StyleSheetLoader.InitializeGlobals) -> an idempotent EnsureInit()

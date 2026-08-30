@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :absolute_layout partition
 //
 // Positions children at explicit X/Y coordinates. Ported from Sedulous.UI/src/Layout/AbsoluteLayout.bf.

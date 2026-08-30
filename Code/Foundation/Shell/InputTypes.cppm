@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell - `:input_types` partition.
 //
 // Input-related enums and POD structs: keyboard codes/modifiers, mouse buttons

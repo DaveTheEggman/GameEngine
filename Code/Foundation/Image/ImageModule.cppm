@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Primary module for foundation.image. Re-exports all partitions.
 
 export module foundation.image;

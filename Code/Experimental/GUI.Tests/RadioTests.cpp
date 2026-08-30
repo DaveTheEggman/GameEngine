@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - RadioButton + RadioGroup tests: mutual exclusion, click-to-select, group
 // callback, and standalone (no-group) behavior.
 #include <doctest/doctest.h>

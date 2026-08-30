@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :itree_adapter partition
 //
 // Tree-shaped data source contract (+ its observer). Ported from Sedulous.UI/src/Data/ITreeAdapter.bf.

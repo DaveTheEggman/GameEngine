@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.RenderGraph.Tests/DescriptorTests.bf
 #include <doctest/doctest.h>
 

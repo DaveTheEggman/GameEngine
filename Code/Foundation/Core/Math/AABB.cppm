@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :aabb partition
 //
 // AABB: axis-aligned bounding box (Min/Max corners) with Contains/

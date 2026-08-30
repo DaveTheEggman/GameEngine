@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Navigation - implementation unit.
 //
 // The component reflection (REFLECT_VALUE bodies) lives here, out of the interface units (GCC

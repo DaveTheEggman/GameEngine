@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Integration - the `engine.integration` module.
 //
 // Cross-subsystem composition helpers: the small adapters that let two otherwise-independent

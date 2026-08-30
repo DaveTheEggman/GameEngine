@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample002 - Textured Quad. Ported from Sedulous Sample002_Textures.
 /// Renders a checkerboard-textured quad using texture, sampler, bind group.

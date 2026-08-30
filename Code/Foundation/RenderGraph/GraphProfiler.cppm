@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :profiler partition
 //
 // Optional GPU profiler: per-pass timing via timestamp queries. BeginPass/EndPass

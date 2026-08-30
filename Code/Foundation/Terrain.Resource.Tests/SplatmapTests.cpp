@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // SplatWeights (top-K splat model): the pure brush cores + migration.
 // Headless (no RHI): PaintTopK convexity (sum + base == 1 within quantum), slot selection
 // (existing -> free -> evict-min), full-paint one-hot convergence, EraseTopK reveals base,

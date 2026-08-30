@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :selection_model partition
 //
 // Decoupled selection state: tracks selected indices independently of the data view (multiple views can

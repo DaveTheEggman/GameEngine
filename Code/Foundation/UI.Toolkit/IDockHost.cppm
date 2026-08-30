@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :idock_host partition
 //
 // Interface for the docking system host that manages floating panels. Implemented by DockManager.

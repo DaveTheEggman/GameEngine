@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Audio - AudioEngine implementation (module IMPLEMENTATION unit).
 //
 // ALL miniaudio contact lives here: the interface stays ma_*-free (API hygiene + GCC's

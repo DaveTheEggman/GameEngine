@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :easings partition
 // Standard easing functions, ported faithfully from Sedulous.Core.Mathematics.Easings. Each maps an
 // interpolation factor t in [0,1] to an eased value (also ~[0,1]). Consumed by animation (EasingType)

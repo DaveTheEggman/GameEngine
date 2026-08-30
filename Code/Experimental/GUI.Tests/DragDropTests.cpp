@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - drag-and-drop tests: a source begins a drag, the dispatcher delivers
 // enter/over/leave to the nearest accepting target under the cursor, and Drop on release;
 // non-accepting targets are skipped; cancel/removal clean up.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Curve (foundation.core:curve) - the scalar keyframe sampler: exact key hits, per-segment
 // interpolation (Constant/Linear/Cubic), end clamping, key ordering, and the Hermite tangent math.
 

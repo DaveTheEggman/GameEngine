@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Physics - :components partition.
 //
 // The authoring components: RigidBodyComponent carries the

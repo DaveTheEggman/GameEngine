@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Resource-reference layer: ParticleEffectComponent's effectAsset resource::Ref round-trips
 // through scene serialization by Guid, resolves through the ResourceManager's proxy handles,
 // and the manager clones the cooked effect into a live instance on the next tick.

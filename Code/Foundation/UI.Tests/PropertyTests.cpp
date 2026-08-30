@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/PropertyTests.bf (faithful; Beef `Value` property -> Value()/
 // SetValue(), Beef delegate -> core::Function, scope Property -> stack Property).
 #include <doctest/doctest.h>

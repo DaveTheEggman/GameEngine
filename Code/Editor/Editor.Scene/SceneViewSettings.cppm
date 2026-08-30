@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :view_settings partition.
 //
 // PER-SCENE view state (not scene DATA): the scene page is the unit of editing context in the

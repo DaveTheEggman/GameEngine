@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Source-side material cook: author a Material in code, capture it into a MaterialAsset
 // referencing a shader id, cook through MaterialAssetBuilder into an output content DB,
 // and verify the cooked MaterialSource carries the shader id, declared properties, and

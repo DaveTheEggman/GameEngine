@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for WantsTextInput - our addition (Sedulous shell never finished text input): text controls
 // return true when focused-and-editable, and UIContext::WantsTextInput() reflects the focused view, so the
 // ui.shell bridge can drive the window's IME from focus. Not a port - covered here per the additions rule.

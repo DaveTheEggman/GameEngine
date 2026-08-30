@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Input - reflection implementation unit: InputMapAsset's reflected surface.
 //
 // InputMapAsset wraps an InputMap by value; InputMap is a nested list-of-lists (sets -> actions ->

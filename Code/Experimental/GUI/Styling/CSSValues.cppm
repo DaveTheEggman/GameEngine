@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :css_values partition
 //
 // CSS value parsers: turn declaration value strings into typed values (color / length /

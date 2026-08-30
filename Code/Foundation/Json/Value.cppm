@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - :value partition
 //
 // JsonValue: a hand-rolled JSON DOM value (null / bool / number / string / array / object), the

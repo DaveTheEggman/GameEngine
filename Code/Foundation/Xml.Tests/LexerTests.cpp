@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Xml.Tests/LexerTests.bf
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

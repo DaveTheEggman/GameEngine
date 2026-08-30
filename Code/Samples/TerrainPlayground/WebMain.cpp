@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebMain.cpp - the BROWSER entry for TerrainPlayground (see TerrainPlaygroundApp.h - the shared
 // terrain showcase). Web platform trio: WebShell + WebGPU + the requestAnimationFrame runner via
 // APP_MAIN's web body. The cooked WGSL shaders.dpak + this sample's preload wiring live in

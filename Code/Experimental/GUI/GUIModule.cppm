@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - primary module interface unit for `experimental.gui`.
 //
 // A fresh, eepp-derived retained-mode UI framework built bottom-up on the our

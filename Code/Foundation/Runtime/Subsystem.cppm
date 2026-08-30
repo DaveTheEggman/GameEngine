@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Runtime - :subsystem partition
 //
 // Subsystem: the unit of engine functionality the Context owns and drives.

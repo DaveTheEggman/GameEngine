@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Image widget tests: the scale modes compute the right destination rect
 // (aspect-preserving Fit/Fill, centered Center, natural None, box Stretch) from a drawable's
 // intrinsic size.

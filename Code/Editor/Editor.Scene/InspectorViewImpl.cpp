@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :inspector partition.
 //
 // SceneInspectorView: the reflection-driven property inspector INSIDE a scene page (per-page,

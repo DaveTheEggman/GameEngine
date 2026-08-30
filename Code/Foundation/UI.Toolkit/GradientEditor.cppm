@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :gradient_editor partition
 //
 // Interactive color-ramp editor. Stops along a normalized [0,1] time axis carry RGBA (HDR-allowed Float4);

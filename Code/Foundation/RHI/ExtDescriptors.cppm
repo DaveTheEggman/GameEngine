@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Descriptor structs for mesh shader and ray tracing extensions.
 
 module;

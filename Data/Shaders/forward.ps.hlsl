@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // variants: ALPHA_TEST GBUFFER
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)

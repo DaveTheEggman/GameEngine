@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AnimationEvent + AnimationClip event storage + FireEvents. Ported from the applicable parts of
 // Sedulous.Animation.Tests.AnimationEventTests (Player/ClipStateNode/BlendTree parts land later).
 #include <doctest/doctest.h>

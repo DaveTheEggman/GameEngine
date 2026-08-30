@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tools.Export - packages a project into shippable dist(s). A thin CLI over the export DRIVER in
 // editor (the editor's Export menu calls the same ExportOne/ExportAll; tests drive it
 // headlessly). The whole dist - content (Content.pak + player.xml) AND the player + its runtime

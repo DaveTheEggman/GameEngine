@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full CPU-image asset pipeline: author an ImageAsset (image file) -> cook with
 // ImageAssetBuilder into an output content DB -> load the cooked ImageResource
 // through the ResourceManager (device-free, model B). PNG round-trips RGBA8.

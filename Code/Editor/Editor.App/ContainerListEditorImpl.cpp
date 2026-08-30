@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :container_list_editor partition (implementation).
 //
 // The header add-icon + a slot row (AssetPickerSlot + move-up / move-down / remove icon buttons) per

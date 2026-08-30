@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Converts ResourceState to Vulkan synchronization2 stage/access/layout.
 /// Ported from Sedulous.RHI.Vulkan/VulkanBarrierHelper.bf.
 

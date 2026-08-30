@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Script.Luau - the `script.luau.pipeline` module (tooling).
 //
 // The Luau cook service: compile-checks a Luau

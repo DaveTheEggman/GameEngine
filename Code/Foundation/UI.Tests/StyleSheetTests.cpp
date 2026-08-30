@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/StyleSheetTests.bf (faithful, full file). Pure-data cases (StyleValue
 // accessors, StyleRule fluent + string lifecycle, StyleSelector specificity, ForAll empty-selector) plus
 // the integration cases (Resolve_*/Specificity cascade/Inheritance_*/RefCounted_*/TypeMatch/ForAll rules)

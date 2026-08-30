@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Subscriber - a house that wants the paper (delivery marking, ZERO native).
 //
 // The locked marking decision: a subscriber house is simply an entity CARRYING this behavior - its

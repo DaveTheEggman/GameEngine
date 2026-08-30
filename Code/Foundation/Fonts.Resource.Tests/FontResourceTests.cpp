@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Model-A font runtime load: author a cooked FontResource (record + "data" atlas stream)
 // into a content DB, then load it through the ResourceManager with the device-free
 // FontFactory and verify the rasterizer-free product (glyphs, kerning, atlas regions,

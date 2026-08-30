@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI Sandbox - the first on-screen test of experimental.gui. Builds a small widget tree
 // (panel + labels + buttons in a LinearLayout), styles it with CSS via a StyleManager, and
 // renders it through the same VG -> VGRenderer -> RHI path as VGSandbox. Input is driven by

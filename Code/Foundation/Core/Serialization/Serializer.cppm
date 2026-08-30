@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :serializer partition
 //
 // Serializer: the concrete base over ISerializer that holds the mode, version,

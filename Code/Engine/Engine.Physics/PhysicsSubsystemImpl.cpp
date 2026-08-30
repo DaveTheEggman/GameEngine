@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Physics - implementation unit: the render-frame drive (interpolation
 // + debug wireframes) and the component reflection bodies. Both live OUTSIDE the interface
 // for GCC: heavy render imports stay out of the interface's module graph, and the

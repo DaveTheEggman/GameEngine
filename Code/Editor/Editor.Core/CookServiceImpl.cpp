@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :cook_service partition.
 //
 // EditorCookService: the in-editor face of the cook driver. Owns the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.navigation battery. Everything here is HEADLESS: the target links only
 // Foundation::Navigation (Recast/Detour + Core), no render/physics/device. The bake is a pure
 // function; the runtime wrappers need only a serialized blob.

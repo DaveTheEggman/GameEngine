@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // HelloWindow - the minimal app: opens a window and runs the frame loop
 // until the window is closed. Demonstrates the full path Core -> Runtime
 // (Context/Subsystem) -> Shell (SDL3) -> ApplicationHost driving an

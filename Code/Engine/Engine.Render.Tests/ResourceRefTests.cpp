@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Resource-reference layer (asset-pipeline 6b): MeshComponent's resource::Ref fields
 // round-trip through scene serialization by Guid and resolve through the ResourceManager's
 // PROXY HANDLES - so a Reload swaps the product behind every holder without a re-resolve.

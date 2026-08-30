@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Navigation - implementation unit.
 //
 // ALL Recast/Detour contact lives here: the interface stays rc*/dt*-free (API hygiene + GCC's

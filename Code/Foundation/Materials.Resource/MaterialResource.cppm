@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials.Resource - the `foundation.materials.resource` module.
 ///
 /// Materials as resources: a `MaterialSource` (authored content - references a shader

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.VG.Tests/StyleTests.bf. Our IVGFill uses the engine's
 // float Color (Sedulous used Color32), so fills take float Color inputs and we
 // convert outputs via ToColor32 for the byte-channel assertions - keeping the

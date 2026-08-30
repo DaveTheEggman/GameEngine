@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - ListBox tests: add/clear items, click + keyboard selection, the selection
 // callback, and scroll-into-view for an off-screen selection.
 #include <doctest/doctest.h>

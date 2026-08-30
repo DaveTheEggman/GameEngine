@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Materials - reflection implementation unit: MaterialAsset's reflected surface.
 //
 // Kept OUT of the MaterialAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm

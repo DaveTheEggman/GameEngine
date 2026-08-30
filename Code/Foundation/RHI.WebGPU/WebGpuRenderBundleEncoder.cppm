@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:render_bundle_encoder - RenderBundle(+Encoder) over WGPU.
 ///
 /// Bundles are a native WebGPU concept (the RHI's bundle-safe command subset is

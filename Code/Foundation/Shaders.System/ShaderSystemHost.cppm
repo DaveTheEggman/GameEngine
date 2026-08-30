@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Shaders.System - the `:host` partition.
 ///
 /// ShaderSystemHost builds and owns a ready-to-use ShaderSystem for a device, encapsulating the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - System backend (classic header).
 //
 // Platform-specific OS services are implemented in per-platform .cpp files

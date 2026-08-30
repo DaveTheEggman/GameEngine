@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Content - foundation.content implementation unit.
 //
 // Out-of-line definitions for Instance/Group/ContentDatabase (sec 3.2 / sec 10.6).

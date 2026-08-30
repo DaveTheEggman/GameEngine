@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :editable_label partition
 //
 // Displays as a plain text label and switches to an editable field on BeginEdit() (double-click or

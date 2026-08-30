@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Geometry - the `foundation.geometry.editor` module (tooling).
 //
 // Source-side mesh authoring + cook:

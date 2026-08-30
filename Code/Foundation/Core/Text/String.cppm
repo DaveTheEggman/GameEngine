@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :string partition
 //
 // String types. `String` is the primary type (UTF-8 / char8_t);

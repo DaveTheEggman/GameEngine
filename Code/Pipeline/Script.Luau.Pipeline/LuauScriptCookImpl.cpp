@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Script.Luau - implementation unit for the Luau cook service.
 //
 // The Luau-specific cook: the compile check (Load the raw source - Luau classes are plain

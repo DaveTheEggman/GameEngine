@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 Texture2D<float4> HdrTex    : register(t0, space0);
 Texture2D<float4> AoTex     : register(t1, space0);

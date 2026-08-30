@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :state_list_drawable partition
 //
 // Maps ControlState flags -> Drawable with fallback lookup (tries the exact flag

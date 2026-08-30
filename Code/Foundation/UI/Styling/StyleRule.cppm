@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_rule partition
 //
 // A single style rule: a selector plus a set of property assignments. Ported from

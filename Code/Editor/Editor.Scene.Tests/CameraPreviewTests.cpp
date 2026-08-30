@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // editor.scene: the UI-free core of the scene-editor camera preview (task #118) - the
 // CameraOverride built from a CameraComponent + world matrix, and the visibility/pin decision.
 #include <doctest/doctest.h>

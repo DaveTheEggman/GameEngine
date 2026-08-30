@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - :reflection partition
 //
 // Declares the reflection entry point. Call RegisterJsonTypes() once at startup: it patches

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG - :tessellation partition.
 //
 // Converts paths/polylines into triangle meshes:

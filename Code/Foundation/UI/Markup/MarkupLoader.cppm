@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :markup_loader partition
 //
 // Loads a View tree from an XML (.sml) string using MarkupRegistry for element/property resolution.

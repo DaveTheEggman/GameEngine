@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:debug_font` partition (Debug layer).
 ///
 /// Embedded 8x8 bitmap font for debug text rendering, ported faithfully from SedulousEngine's

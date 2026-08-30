@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles.editor - the edit-time ParticleEffectAsset + its builder (the bake). Tooling
 // only; the runtime/app never links this. Unlike an imported asset (e.g. a texture importing an
 // external .png), a particle effect is AUTHORED - so the asset embeds the effect itself and Build()

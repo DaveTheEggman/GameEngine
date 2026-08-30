@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - `foundation.render`, the renderer (scene-agnostic).
 ///
 /// The renderer consumes a per-scene `ExtractedScene` (world-space `RenderData`) and draws

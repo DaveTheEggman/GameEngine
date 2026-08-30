@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :string_hash partition
 //
 // StringHash: a string's identity as a 64-bit FNV-1a hash - cheap to store, compare, and

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Window tests: title-bar drag moves the window, the grip resizes it (clamped
 // to the minimum), title clicks fall through to the draggable bar, and a press raises the
 // window to the front.

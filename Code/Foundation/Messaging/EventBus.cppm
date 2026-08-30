@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Messaging - the `foundation.messaging` module.
 //
 // A native, name-keyed event bus in its own leaf module. It is a RUN-SCOPE facility (a scene's,

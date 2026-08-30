@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:bind_group_layout - BindGroupLayout over WGPUBindGroupLayout.
 ///
 /// Bindings are declared SHIFTED (ShiftedBinding - the compact WebGPU profile,

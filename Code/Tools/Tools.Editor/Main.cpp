@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor - the editor executable (the ASSEMBLY point).
 // Creates the OS shell + graphics device and runs EditorApplication. Per-subsystem editor
 // modules get linked HERE and their RegisterEditor(EditorContext&)

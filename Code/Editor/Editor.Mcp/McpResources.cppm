@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :resources partition
 //
 // The open project's scene/prefab XML sources as MCP RESOURCES:

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :range_editor partition
 //
 // Range/slider property editor - a Slider + NumericField side by side (both synced). Ported from

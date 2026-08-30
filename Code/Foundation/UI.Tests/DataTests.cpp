@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/DataTests.bf - ViewRecycler + SelectionModel + FlattenedTreeAdapter.
 // Beef `SimpleListAdapter : ListAdapterBase` with CreateView returning a raw owned View -> CreateView
 // returns RefPtr<View>; recycle/acquire move refs (RAII, no `delete`); `===` ref-equality -> pointer ==.

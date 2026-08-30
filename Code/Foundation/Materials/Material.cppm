@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:material` partition.
 ///
 /// Material: the shared, immutable template - a shader name + variant flags, a list

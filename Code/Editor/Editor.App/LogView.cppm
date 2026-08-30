@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :log_view partition.
 //
 // LogView: the Console panel content - a log view on foundation.ui, with category display

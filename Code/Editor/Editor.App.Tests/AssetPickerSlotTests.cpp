@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AssetPickerSlot tests. The composite slot is pure widget logic and
 // exercises headlessly: affordances render only when their callback is WIRED (the
 // entity-ref twin degrades to a plain name button), Edit/Clear/preview disable while the

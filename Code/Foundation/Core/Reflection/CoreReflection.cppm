@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :core_reflection partition
 //
 // Reflects Core's value types (vectors, color, quaternion, transform, geometry

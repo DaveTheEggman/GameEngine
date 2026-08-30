@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:types` partition.
 ///
 /// Value-type vocabulary for the data-driven material model: property kinds (the

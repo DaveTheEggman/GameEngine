@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Content - the `foundation.content` module.
 //
 // A content database: a hierarchical store of serializable objects, addressed by

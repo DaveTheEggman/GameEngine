@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :clipboard partition
 //
 // IClipboard: the GUI core's abstract system-clipboard seam. Text widgets (TextField)

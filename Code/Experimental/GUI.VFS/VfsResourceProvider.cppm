@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - `experimental.gui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The concrete image loader for the GUI's CSS resource seam: background-image: url(path) resolves

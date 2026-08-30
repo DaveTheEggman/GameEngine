@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine-shader cook - enumerate the built-in HLSL corpus and precompile it into a CookedShaderPack.
 //
 // The EXPORT-time step that removes the runtime compiler from dists. For each stage file under

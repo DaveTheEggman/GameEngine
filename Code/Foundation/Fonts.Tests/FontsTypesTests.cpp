@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Fonts.Tests: Rectangle/AtlasRegion/GlyphInfo/FontMetrics/
 // FontLoadOptions tests (the GPU/TTF-free type coverage).
 #include <doctest/doctest.h>

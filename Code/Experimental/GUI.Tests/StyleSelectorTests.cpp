@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - CSS StyleSelector tests: parsing, specificity, and matching against the
 // UIWidget identity (tag/#id/.class), pseudo-classes via control state, and descendant /
 // child combinators. Derived from eepp css selector semantics (common subset).

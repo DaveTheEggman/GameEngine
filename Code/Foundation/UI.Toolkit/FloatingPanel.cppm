@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Toolkit - :floating_panel partition.
 //
 // A floating panel that hosts arbitrary content OVER another view (NOT an OS window and NOT

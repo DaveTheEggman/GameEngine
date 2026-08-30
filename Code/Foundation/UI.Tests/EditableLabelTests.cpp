@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/EditableLabelTests.bf (faithful). Beef [Friend]mBehavior ->
 // Behavior(); el.Text -> Text(); the ValidateRename `text.Contains("bad")` -> a local substring helper
 // (StringView has no Contains). Mode/transition/event logic needs no font service.

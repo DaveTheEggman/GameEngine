@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Image - :atlas_builder partition.
 //
 // RectI (integer rectangle for atlas regions) and ImageAtlasBuilder - a

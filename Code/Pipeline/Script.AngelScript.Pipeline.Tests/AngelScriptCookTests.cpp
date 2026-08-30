@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.script.angelscript.editor tests: the AngelScript cook - compile-check in a
 // cooker-owned AngelScript VM (resolved by language), the SHARED handler scan, the starter
 // template, and [metadata] PROPERTY HARVEST (typed member field + `[default, "desc"]`).

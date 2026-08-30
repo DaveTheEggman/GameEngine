@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "ibl_common.hlsli"
 
 TextureCube  SrcCube  : register(t0, space0);

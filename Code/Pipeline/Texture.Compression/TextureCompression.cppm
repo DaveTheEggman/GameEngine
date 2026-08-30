@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Texture.Compression - `texture.compression`.
 //
 // The ONLY code that includes the block-compression encoder headers (bc7enc/rgbcx). Two jobs:

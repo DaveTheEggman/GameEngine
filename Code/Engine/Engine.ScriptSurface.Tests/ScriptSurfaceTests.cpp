@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine.ScriptSurface.Tests - the drift + idempotency tripwire for the script-surface root.
 //
 // RegisterAllScriptFacades is the single source of truth for the complete subsystem facade set.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample023 -- Cube Map & Comparison Sampler. Ported from Sedulous Sample023_CubeMap.
 /// Demonstrates cube map textures and comparison samplers.

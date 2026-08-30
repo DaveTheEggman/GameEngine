@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit GradientEditor: set stops, read them back, update a stop color.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

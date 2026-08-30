@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles:streams - the SoA particle stream container, ported from
 // Sedulous.Particles (ParticleStream.bf, CPUStream.bf, ParticleStreamContainer.bf).
 //

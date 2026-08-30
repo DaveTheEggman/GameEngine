@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Terrain - `foundation.terrain`.
 ///
 /// The terrain MODEL over a heightfield (foundation.heightfield): the chunk grid + quadtree the

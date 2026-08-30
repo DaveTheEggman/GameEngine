@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.Resource - the `foundation.script.resource` module.
 //
 // Cooked script classes: a ScriptClass is SOURCE TEXT +

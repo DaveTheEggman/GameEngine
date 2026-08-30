@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script - the `:backend_registry` partition.
 //
 // The backend registry: a language backend is a LIBRARY that

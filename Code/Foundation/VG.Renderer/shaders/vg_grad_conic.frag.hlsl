@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG conic-gradient fragment shader (reference copy; the compiled source is
 // Data/Shaders/vg_grad_conic.ps.hlsl). The tessellator emits (pos-center) rotated by -startAngle as
 // TexCoord, so t = frac(atan2(y,x)/2pi) is computed per pixel (exact angular sweep), sampled from

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // NetEcho - a console proof of the foundation.net stack end to end: a reliable-UDP server + client
 // over real localhost sockets exchange a few chat lines (client sends, server echoes), then exit.
 // Demonstrates wire -> INetTransport -> reliable-UDP -> real UDP sockets with no graphics.

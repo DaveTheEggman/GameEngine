@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :selection partition.
 //
 // Generic editor selection set: ordered, deduplicated, with a primary element (Items()[0] - the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Validation wrapper for Device. Tracks all live resources for leak
 /// detection, validates create/destroy parameters.
 /// Ported from Sedulous.RHI.Validation/ValidatedDevice.bf.

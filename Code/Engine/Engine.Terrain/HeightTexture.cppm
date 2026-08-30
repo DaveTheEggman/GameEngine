@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Terrain - the `:heighttexture` partition.
 //
 // The GPU height texture. The renderer's VS fetches per-vertex height via textureLoad, so

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script - the `editor.script` module.
 //
 // ScriptEditorPage implementation: Save (write source + recook + notify), the debounced

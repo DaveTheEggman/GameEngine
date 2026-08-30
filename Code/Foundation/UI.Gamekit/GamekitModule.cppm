@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - `foundation.ui.gamekit` module aggregator.
 //
 // Game-UI conveniences over CORE foundation.ui, sibling of foundation.ui.toolkit: a UIScreen page view

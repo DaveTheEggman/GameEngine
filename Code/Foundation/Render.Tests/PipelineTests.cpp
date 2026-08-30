@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The mesh draw path through the new architecture: register a MeshRenderer with a
 // RendererRegistry, drive a RenderFrame (Begin / AddView / End) over an ExtractedScene with
 // a cube + camera, into a color target. Run on the Null RHI + real DXC: exercises the whole

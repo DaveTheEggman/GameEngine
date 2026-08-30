@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Sandbox - the running dev harness. It extends DefaultApplication (which registers
 // the SceneSubsystem + RenderSubsystem and renders active scenes each frame), creates a
 // scene with two spinning cube grids (instanced + distinct), and lets the engine draw it.

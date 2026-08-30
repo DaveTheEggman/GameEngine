@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Geometry - `foundation.geometry`, the engine's runtime mesh format.
 ///
 /// Distinct from foundation.model (the importer's representation of a loaded file): this

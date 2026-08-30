@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Faithful port of Sedulous.UI.Tests/src/DockPersistenceTests.bf (19 cases: PersistenceId, ExportLayout,
 // ApplyLayout, and Export->Apply round-trips). Beef `scope`/`new` view trees become RefPtr-owned views;
 // `===` -> pointer `==`; heap `DockLayoutNode` -> stack value / UniquePtr; `defer delete` dropped (RAII).

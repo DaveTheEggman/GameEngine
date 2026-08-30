@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :io partition (streams)
 //
 // IStream is the read/write/seek abstraction; FileStream wraps the System file

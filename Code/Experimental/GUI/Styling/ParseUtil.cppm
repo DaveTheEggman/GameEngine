@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :parse_util partition
 //
 // CSS-specific identifier scanning for the styling parsers. The generic helpers

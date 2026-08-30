@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:extract_ctx` partition.
 ///
 /// `RenderContext` provisions the per-worker scratch that parallel extraction writes into: one

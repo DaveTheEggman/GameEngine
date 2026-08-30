@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :popup_entry partition
 //
 // Entry tracking a single popup in the PopupLayer. Ported from Sedulous.UI/src/Overlay/PopupEntry.bf.

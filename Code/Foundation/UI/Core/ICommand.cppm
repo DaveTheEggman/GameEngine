@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :icommand partition
 //
 // ICommand: MVVM-style command binding on controls. ButtonBase.Command executes this

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Audio script FACADE end-to-end: a script drives Audio.playOneShot/playCue/playMusic by content
 // path through the resource seam. Cross-layer (scripting x audio), so it lives in Integration, not
 // in Engine.Audio.Tests (which stays backend-neutral). Driven on both surviving backends (AngelScript

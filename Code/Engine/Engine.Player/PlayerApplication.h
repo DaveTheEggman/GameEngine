@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // PlayerApplication - the generic game runner's IApplication, shared by the desktop and web
 // entry points (Main.cpp / WebMain.cpp). Runs a project with ZERO native game code: engine
 // subsystems + the project's content + the default scene, and the project's game SCRIPT (a

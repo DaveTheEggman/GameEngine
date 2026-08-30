@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Model-A runtime load: author a cooked TextureResource (record + "data" stream)
 // into a content DB, then load it through the ResourceManager with a device-backed
 // TextureFactory (Null RHI backend, headless) and verify the live GPU Texture.

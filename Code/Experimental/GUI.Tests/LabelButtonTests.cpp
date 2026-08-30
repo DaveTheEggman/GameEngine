@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Label / Button control tests: text properties, click handling through the
 // dispatcher, control-state reaction, and CSS targeting the default `button` tag.
 #include <doctest/doctest.h>

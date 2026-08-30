@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :button_prompt partition
 //
 // ButtonPrompt: a device hint - "[E] Deliver" - pairing a binding "keycap" with an action label.

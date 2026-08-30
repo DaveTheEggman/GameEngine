@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The per-user project registry - the headless core of the built-in project manager,
 // the RecentProjects section.
 //

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :list_view partition
 //
 // ListView: a virtualized, single-column model-backed list. Modeled on eepp's UIListView. The

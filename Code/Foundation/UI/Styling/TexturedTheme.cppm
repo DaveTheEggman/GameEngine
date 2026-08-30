@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :textured_theme partition
 //
 // Creates a fully image-skinned StyleSheet from a ThemeImageSet. All provided images are packed into a

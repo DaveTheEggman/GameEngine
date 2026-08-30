@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full collision pipeline: author a mesh (source db) -> CollisionShapeAsset -> cook via
 // the builder into an output db -> load the CollisionShape product through the factory ->
 // hand its blob to a live PhysicsWorld. Same for PhysicalMaterial.

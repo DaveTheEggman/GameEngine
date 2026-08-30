@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :status_bar partition
 //
 // Bottom status strip with text sections. Ported from Sedulous.UI.Toolkit/src/StatusBar.bf (a FlexLayout

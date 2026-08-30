@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - :namespace partition
 //
 // Well-known XML namespace constants + namespace-declaration helpers. Ported

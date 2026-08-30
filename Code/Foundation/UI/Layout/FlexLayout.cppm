@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :flex_layout partition
 //
 // CSS Flexbox-inspired container: grow distribution, justify-content, cross-axis alignment. Ported

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample025 - Multi-Draw Indirect & Lines. Ported from Sedulous Sample025_MultiDrawIndirect.
 /// Renders 4 colored quads using a single drawIndexedIndirect call with drawCount=4,

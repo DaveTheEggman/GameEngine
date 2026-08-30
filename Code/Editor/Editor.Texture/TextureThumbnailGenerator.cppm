@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor Texture - :thumbnail_generator partition
 //
 // The texture-domain thumbnail generator. Lives in the DOMAIN lib:

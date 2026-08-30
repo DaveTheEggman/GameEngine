@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - primary module interface unit for `foundation.ui.toolkit`.
 //
 // The editor-grade widget set (a faithful port of Sedulous.UI.Toolkit) layered on foundation.ui: docking,

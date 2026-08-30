@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :layer_drawable partition
 //
 // Stacks multiple drawables with per-layer insets, drawn in order. Ported from

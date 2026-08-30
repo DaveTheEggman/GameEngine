@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :system partition
 //
 // Platform abstraction. Exports thin wrappers that forward to the per-platform

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net:session - roles, peer registry, lifecycle, broadcast (over the sim).
 #include <doctest/doctest.h>
 #include <initializer_list>

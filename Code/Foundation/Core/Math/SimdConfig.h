@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - SIMD backend selection (GMF-only header; not part of the module interface).
 //
 // Included in the global-module-fragment of the :simd* partitions to pick the register backend

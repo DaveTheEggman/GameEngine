@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ViewTransformTests.bf (faithful; Vector2 -> core::Float2).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

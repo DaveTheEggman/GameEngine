@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Http tests - the parser edges (split pushes, case-insensitive headers, limits,
 // close-delimited bodies) and REAL loopback exchanges: a pumped server on an OS-assigned port,
 // the blocking client from a worker thread, one-shot requests, refusals, and an SSE stream

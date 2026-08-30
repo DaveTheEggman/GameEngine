@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :code_lexer partition (interface).
 //
 // The lexing seam of CodeEditView, built on the line-state

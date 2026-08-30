@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Runtime - :context partition
 //
 // Context: owns the engine's subsystems, looks them up by type, and drives

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :serialize partition
 //
 // Serialize(ISerializer&, T&) free functions for Core's own types: describe a

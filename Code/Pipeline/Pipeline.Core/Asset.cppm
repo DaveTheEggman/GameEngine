@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Core - the `editor.core` module.
 //
 // The tooling/authoring base for the asset pipeline: an `Asset`

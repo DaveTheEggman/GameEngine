@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shaders as resources: build a ShaderResource through the ResourceManager from an
 // authored ShaderSource, compile variants through it, and verify a reload bumps the
 // shader's version (the PSO-cache reload signal). Real DXC + Null RHI + content DB.

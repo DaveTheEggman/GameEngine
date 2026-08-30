@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:pipeline` partition.
 ///
 /// The frame driver + extension seam. A `Renderer` is a per-category drawer; subsystems

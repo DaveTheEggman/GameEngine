@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Fonts - the `foundation.fonts.editor` module (tooling).
 //
 // Source-side font authoring + cook (the editor tier of the fonts triad):

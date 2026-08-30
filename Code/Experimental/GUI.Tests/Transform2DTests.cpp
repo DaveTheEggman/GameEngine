@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Transform2D tests. Derived from eepp Transform behavior (translate/
 // rotate/scale/combine/inverse/transformPoint), plus a check that ToMatrix() feeds
 // core::TransformPoint2D (the VG DrawContext convention) identically.

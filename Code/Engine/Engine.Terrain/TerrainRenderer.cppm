@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.terrain:renderer - the chunked geo-mipmap terrain Renderer.
 //
 // Rides the Opaque category via the RegisterRenderer seam (no terrain code in Engine.Render, the

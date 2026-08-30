@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/PopupLayerTests.bf (faithful). Beef property `root.PopupLayer` ->
 // root->GetPopupLayer() (our PopupLayer is created lazily on first access rather than in the ctor - a
 // module-cycle divergence - so the "is last child" tests capture it into a local first, mirroring Beef's

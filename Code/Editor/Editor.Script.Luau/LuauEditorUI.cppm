@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script.Luau - the `editor.script.luau` module.
 //
 // Luau-specific EDITOR-UI services: everything the in-editor experience needs that depends on

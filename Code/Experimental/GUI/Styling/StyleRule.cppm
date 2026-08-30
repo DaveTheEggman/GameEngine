@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :style_rule partition
 //
 // StyleProperty + StyleRule: a CSS declaration block. Ported from eepp's

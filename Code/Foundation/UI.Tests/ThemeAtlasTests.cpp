@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ThemeAtlasTests.bf (faithful; Beef `scope`/`new`/`defer
 // ReleaseRef` -> stack values / RefPtr, tuple state span -> StateImageEntry[]).
 // NOTE: Sedulous NineSlice exposes PascalCase `.Left`; the engine image::NineSlice uses lowercase

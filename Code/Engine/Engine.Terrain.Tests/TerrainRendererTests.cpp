@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The terrain draw path end-to-end on the Null RHI + real DXC: build a heightfield -> chunk model +
 // GPU height texture -> ONE TerrainRenderData in an ExtractedScene, then drive a RenderFrame (Begin /
 // AddView / End) with the TerrainRenderer registered on Opaque. Exercises the whole Phase C path

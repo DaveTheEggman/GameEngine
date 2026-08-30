@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :ui_debug_overlay partition
 //
 // Draws debug overlays (bounds / padding / margin / hit-target / focus) for a view, in the view's local

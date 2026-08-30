@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :serializable_registry partition
 //
 // SerializableRegistry: maps a reflected TypeId to a factory that default-builds

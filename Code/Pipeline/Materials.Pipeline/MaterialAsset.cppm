@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Materials - the `foundation.materials.editor` module (tooling).
 //
 // Source-side material authoring + cook:

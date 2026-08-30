@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :float4_editor partition
 //
 // Property editor for Float4 values - four NumericFields (X, Y, Z, W) with colored axis labels.

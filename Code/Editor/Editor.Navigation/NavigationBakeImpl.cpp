@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Navigation - implementation unit.
 //
 // The bake logic + its heavy imports (engine.render for MeshComponent, geometry for StaticMesh,

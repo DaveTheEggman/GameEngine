@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::ViewportTools - the `editor.viewporttools` module.
 //
 // The viewport TOOL-MODE framework (terrain spec, editing-experience decisions 2026-08-10): a 3D

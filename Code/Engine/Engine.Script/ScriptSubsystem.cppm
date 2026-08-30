@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Script - the `engine.script` module.
 //
 // Entity behaviors: a ScriptSceneSystem per scene

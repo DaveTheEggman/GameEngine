@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::UI - reflection implementation unit: UI asset reflected surfaces.
 //
 // Kept OUT of the UIAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;

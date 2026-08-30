@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :drawable partition
 //
 // Drawable: base for composable visual primitives, rendered into a destination Rect via

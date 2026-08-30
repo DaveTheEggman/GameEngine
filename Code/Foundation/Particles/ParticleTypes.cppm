@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles:types - the particle value primitives, ported from Sedulous.Particles
 // (ParticleTypes.bf, RangeValue.bf, ParticleCurve.bf, EmissionShape.bf, ParticleEvent.bf,
 // ParticleBehavior.bf's update context). Pure value types over Core math. Fields adapt to

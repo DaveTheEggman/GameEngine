@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorJobService: a background job runs on a worker, reports through JobContext, and completes on
 // the main thread from Update(). Tests pump Update() in a spin loop (the workers are fast) and check
 // completion status, log drain, error propagation, and one-at-a-time ordering.

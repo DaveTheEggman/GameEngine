@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 Texture2D<float4> SceneTex    : register(t0, space0);   // lit HDR (reflected + composited into)
 Texture2D         DepthTex    : register(t1, space0);

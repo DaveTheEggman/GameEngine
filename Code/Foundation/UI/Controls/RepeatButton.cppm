@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :repeat_button partition
 //
 // Button that fires OnClick repeatedly while held down (scroll arrows, numeric steppers, ...).

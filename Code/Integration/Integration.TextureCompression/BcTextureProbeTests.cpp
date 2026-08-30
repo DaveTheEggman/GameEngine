@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Block-compressed texture upload+sample acceptance probe (asset-variants P1f). On real Vulkan +
 // WebGPU via the shared RHI.TestSupport readback substrate; STRUCTURAL assertions (no golden images).
 //

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :console_sink partition
 //
 // ConsoleSink: writes formatted lines to stdout (stderr for Error/Fatal).

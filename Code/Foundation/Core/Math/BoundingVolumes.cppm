@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :bounds partition
 //
 // Bounding-volume suite ported from SedulousEngine (Sedulous.Core.Mathematics): ContainmentType,

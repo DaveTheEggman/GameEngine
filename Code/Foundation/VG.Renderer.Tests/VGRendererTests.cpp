@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Headless VGRenderer test via the Null RHI backend: initialize the pipeline,
 // build a VGBatch with VGContext, Prepare it into the frame buffers, and check
 // the returned slice. (Render needs a live RenderPassEncoder, exercised by the

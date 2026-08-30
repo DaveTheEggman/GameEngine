@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.terrain (Phase A): the TerrainComponent's reflected surface + a scene serialize round-trip
 // (the terrain reference + flags survive save/load through the component manager).
 #include <doctest/doctest.h>

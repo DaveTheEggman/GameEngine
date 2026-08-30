@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The RegisterStandardFactories COVERAGE TRIPWIRE (Pipeline.Registration pattern applied to the
 // runtime's factory composition root). Incident 2026-08-12: FontFactory existed and was tested,
 // but NO host ever registered it - Bind<Font> failed silently in every runtime, masked in the

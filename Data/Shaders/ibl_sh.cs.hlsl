@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 TextureCube<float4> EnvMap : register(t0, space0);
 SamplerState        EnvSamp : register(s0, space0);
 RWStructuredBuffer<float4> ShOut : register(u0, space0);

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.input tests: binding + enum -> human labels (the :binding_names helpers, relocated
 // out of the editor's InputMapPage so runtime UI can render bindings the same way).
 #include <doctest/doctest.h>

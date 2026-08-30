@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles.resource - the cooked ParticleEffectResource (runtime input), its serializer,
 // and its resource factory. A ParticleEffectResource IS a reflected ISerializable that holds a
 // runtime ParticleEffect; the cook (foundation.particles.editor) writes one into the content DB, the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/InlineStyleTests.bf (faithful). Covers element-level + pseudo-element
 // inline styles, resolution priority (inline beats type/class+state/pseudo/local rules + inheritance), and
 // Drawable ownership via SetStyle. The ResolveStyleFontFamily / FontService resolution subset (5 cases) is

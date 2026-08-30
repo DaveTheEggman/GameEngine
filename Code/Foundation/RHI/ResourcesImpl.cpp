@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // RHI - :resources implementation unit.
 //
 // Out-of-line bodies whose headers must stay out of the interface (GCC gcm-cluster

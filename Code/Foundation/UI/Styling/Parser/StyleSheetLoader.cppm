@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_sheet_loader partition
 //
 // Entry point for loading .sss stylesheet files. Ported from

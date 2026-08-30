@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/EditTextTests.bf - the font-independent subset (cursor/selection/
 // insert/delete/undo/redo logic, all of which run through TextEditingBehavior on CHARACTER indices and
 // need no glyph shaping). Beef `[Friend]mBehavior` -> the public Behavior() accessor; `edit.Filter =`

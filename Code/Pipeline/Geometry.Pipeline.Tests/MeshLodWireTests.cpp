@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The LOD chain wire through StaticMeshSource v4 -> StaticMesh.
 // Covers the serialize round-trip (sidecar write/read), the FillStatic validation
 // (malformed tables collapse to 1 LOD - render at LOD 0, never crash), the

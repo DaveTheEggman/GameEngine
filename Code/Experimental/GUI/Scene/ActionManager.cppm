@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :action_manager partition
 //
 // ActionManager: owns and ticks running Actions. Ported from eepp's Scene::ActionManager

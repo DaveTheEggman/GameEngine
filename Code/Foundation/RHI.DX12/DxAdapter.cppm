@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of Adapter.
 /// Wraps IDXGIAdapter1, queries device features, creates DxDevice.
 /// Ported from Sedulous.RHI.DX12/DX12Adapter.bf.

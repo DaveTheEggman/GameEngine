@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :animation_graph_page partition (implementation).
 //
 // The state-machine / blend-tree authoring tool (see AnimationGraphPage.cppm for the overview).

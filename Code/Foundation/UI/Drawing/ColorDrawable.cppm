@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :color_drawable partition
 //
 // Fills bounds with a solid color. Ported from Sedulous.UI/src/Drawing/ColorDrawable.bf.

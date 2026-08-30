@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:ssr` partition.
 ///
 /// Screen-space reflections. A single fullscreen pass that reflects the lit HDR scene into itself:

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TextureEditorPage tests (headless): the factory routes TextureAsset through the page
 // registry (nearest-type dispatch), and the whole-asset blob snapshot the page's undo
 // commands ride round-trips every import setting. The page's widget tree needs a live UI

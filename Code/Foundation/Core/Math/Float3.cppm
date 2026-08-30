@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :float3 partition
 //
 // Float3: 3D f32 vector - arithmetic, Dot/Cross/Length/Normalized, Min/Max,

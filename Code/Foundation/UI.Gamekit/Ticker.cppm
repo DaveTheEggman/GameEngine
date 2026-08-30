@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :ticker partition
 //
 // Ticker: a Label that shows an integer which ANIMATES to new values - the score/number that rolls up

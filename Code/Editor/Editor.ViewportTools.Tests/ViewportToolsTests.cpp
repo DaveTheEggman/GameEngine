@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ViewportToolManager + provider registry tests: the activation state machine (first-added is
 // default and active, ActivateById round trip, gesture-end guarantee on switch), the
 // availability fallback (an active tool whose predicate lapses is deactivated BEFORE seeing

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :entity_picker_dialog partition.
 //
 // EntityPickerDialog: a modal entity picker for EntityRef component fields - the entity twin of

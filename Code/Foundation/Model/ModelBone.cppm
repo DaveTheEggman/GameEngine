@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// A bone/node in the model hierarchy with TRS decomposition.
 /// Ported from Sedulous.Models/ModelBone.bf.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - the `foundation.xml` module.
 //
 // A DOM XML parser + writer (UTF-8), faithfully ported from the hand-written

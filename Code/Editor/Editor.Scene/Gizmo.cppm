@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :gizmo partition.
 //
 // TransformGizmo + GizmoController: viewport transform manipulation. The

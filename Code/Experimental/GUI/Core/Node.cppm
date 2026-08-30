@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :node partition
 //
 // Node: the retained-mode scene-graph node - the tree content base (eepp Scene::Node).

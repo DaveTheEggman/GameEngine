@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::UI.Script - :facade partition
 //
 // The `ui` script facade (bound lowercase as `ui` via the ScriptName alias) - the SCREEN tier surfaced

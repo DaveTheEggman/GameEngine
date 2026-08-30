@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"

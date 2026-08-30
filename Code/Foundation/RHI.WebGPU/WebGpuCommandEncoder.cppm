@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:command_encoder - CommandEncoder over WGPUCommandEncoder.
 ///
 /// WebGPU encoders are ONE-SHOT; the wrapper is reusable - after Finish, the next

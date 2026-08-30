@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.scene :composition - declarative assembly (SceneModule/SceneComposition), ordered
 // observation (ISceneObserver/SceneLifecycleStage), the FrameTime time-scale chain, and the pure
 // SceneRegistry. No Context needed anywhere here - the registry is testable

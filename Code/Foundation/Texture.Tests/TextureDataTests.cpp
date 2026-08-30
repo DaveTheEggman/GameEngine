@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for foundation.texture: descriptor factories, format conversion, mip sizes.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

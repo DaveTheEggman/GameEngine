@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Model.Resource - the `foundation.model.resource` module.
 //
 // The RUNTIME side of the cooked model family: ModelNode + ModelManifestSource (the

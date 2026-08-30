@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :undo_stack partition
 //
 // Fixed-capacity undo/redo stack for text editing. Stores full text snapshots (not deltas).

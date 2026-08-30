@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - :types partition
 //
 // Value types for font/glyph/text-layout data. Ported from Sedulous.Fonts

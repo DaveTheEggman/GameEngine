@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :event partition
 //
 // Event<void(Args...)>: a minimal multicast delegate over core::Function, the port's

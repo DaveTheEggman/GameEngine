@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:bind_group - BindGroup over WGPUBindGroup.
 ///
 /// Desc entries are POSITIONAL against the layout's entries (the RHI contract all

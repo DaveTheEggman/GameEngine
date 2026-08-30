@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full terrain asset pipeline: author a TerrainAsset (referencing a cooked heightfield + layers) ->
 // cook with TerrainAssetBuilder into an output content DB -> load the Terrain through the manager and
 // confirm it resolves the SHARED heightfield + carries the layers/flags (a reference pass-through).

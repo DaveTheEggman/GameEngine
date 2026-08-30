@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :view_id partition
 //
 // Unique identifier for a view. Used by managers (Input, Focus, DragDrop) to track

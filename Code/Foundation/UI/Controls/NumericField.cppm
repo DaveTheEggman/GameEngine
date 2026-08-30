@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :numeric_field partition
 //
 // Numeric input field with optional integrated up/down spin buttons. Self-contained: owns its own

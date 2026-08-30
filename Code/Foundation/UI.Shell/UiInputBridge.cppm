@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - `foundation.ui.shell`: the platform input bridge for foundation.ui.
 //
 // Keeps the core foundation.ui platform-agnostic: it exposes UIContext's InputManager (physical-pixel

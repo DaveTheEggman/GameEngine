@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp.Http - the `foundation.mcp.http` module.
 //
 // The MCP streamable-HTTP binding: the SAME McpServer registry the

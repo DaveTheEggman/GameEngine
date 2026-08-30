@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :variant partition
 //
 // Variant: a small tagged value a Model hands to a view for a cell - the currency of the MVC

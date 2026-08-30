@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - :text_util partition
 //
 // Codepoint iteration over a UTF-8 StringView. Mirrors how Sedulous walked text

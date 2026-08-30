@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Thickness + LayerDrawable (background compositor) tests, including the
 // Phase 2 vertical slice: a styled panel (background + border) composited through VG.
 #include <doctest/doctest.h>

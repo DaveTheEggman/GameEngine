@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Resource - the `foundation.resource` module.
 //
 // The resource manager: turns content-database *source* objects (ISerializable,

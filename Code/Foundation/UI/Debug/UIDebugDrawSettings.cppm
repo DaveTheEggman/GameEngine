@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :debug_settings partition
 //
 // Flags controlling which debug overlays are drawn after the normal render pass.

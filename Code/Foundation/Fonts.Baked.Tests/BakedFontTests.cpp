@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Fonts.Tests/BakedFontTests.bf - pure-data exercises of
 // BakedFont + BakedFontAtlas (no rasterizer / no TTF).
 #include <doctest/doctest.h>

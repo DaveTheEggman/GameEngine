@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :popup_positioner partition
 //
 // Static positioning helpers for popups, tooltips, and menus - pure calculations, no state. Ported from

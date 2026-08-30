@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - foundation.fonts.ttf:text_shaper partition
 //
 // Basic left-to-right text shaper + UI helpers (hit testing, cursor/selection

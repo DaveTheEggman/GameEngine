@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Null RHI backend - stub implementations for all interfaces.
 /// Useful for headless testing, CI, or when no GPU is available.
 

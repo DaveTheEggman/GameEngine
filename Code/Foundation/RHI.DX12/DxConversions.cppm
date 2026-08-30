@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Conversion utilities between foundation::rhi enums and DX12/DXGI enums.
 /// Ported from Sedulous.RHI.DX12/DX12Conversions.bf.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :text_editing_behavior partition
 //
 // Reusable text-editing logic: cursor management, selection, keyboard shortcuts, mouse interaction,

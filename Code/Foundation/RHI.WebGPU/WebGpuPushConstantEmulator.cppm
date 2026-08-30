@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:push_constant_emulator - the uniform-buffer push-constant fallback.
 ///
 /// Where a device has no immediates path (browsers - Dawn/emdawnwebgpu - or the fallback

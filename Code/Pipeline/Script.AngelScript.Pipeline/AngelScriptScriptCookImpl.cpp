@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Script.AngelScript - implementation unit for the AngelScript cook.
 //
 // Compile-check + the shared handler scan + PROPERTY HARVEST. The behavior class is

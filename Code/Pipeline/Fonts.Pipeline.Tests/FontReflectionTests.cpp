@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // FontAsset's reflected surface + the FontBakeMode enum. Verifies the
 // authored scalar/enum/string fields enumerate with attributes, round-trip through get/set, and
 // that the bake-mode enum resolves named values. The `sizes` ramp is intentionally unreflected.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :markup_completion partition
 //
 // Completion provider for foundation.ui MARKUP documents, fed by the MarkupRegistry's real

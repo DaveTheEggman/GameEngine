@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :float2_animation partition
 //
 // Animates a Float2 value from a start to an end via a setter delegate. Ported from

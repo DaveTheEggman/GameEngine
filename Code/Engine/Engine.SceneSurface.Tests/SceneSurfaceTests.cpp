@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine.SceneSurface.Tests - the scene-surface composition root.
 //
 // The full scene set is ONE composition: a single per-domain module list whose `install` entries

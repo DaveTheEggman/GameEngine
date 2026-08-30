@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit DraggableTreeView: construct + exercise public methods (drag-enable/item-
 // height round-trips, internal TreeView access, adapter wiring) and the IDropTarget path (CanAcceptDrop
 // gating on format + adapter.CanMove; OnDrop invokes MoveItem + fires OnItemReordered). No rendering, no

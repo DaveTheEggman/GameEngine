@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full navigation pipeline: bake a navmesh -> NavigationZoneAsset (blob in a SIDECAR stream) ->
 // cook via the builder into an output db -> load the NavigationZoneResource product through the factory
 // -> a query paths across it. Also proves the blob does NOT ride the (text-capable) envelope.

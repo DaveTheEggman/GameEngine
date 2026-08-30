@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.integration tests: the physics-contact -> script bridge in isolation.
 // The kind mapping is pure (no subsystems needed); the full contact->behavior delivery through
 // this SAME bridge is covered end-to-end by the ContactWorld battery in the script scene tests.

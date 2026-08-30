@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorContext + EditorPageRegistry + Selection tests: nearest-type factory dispatch
 // (Traktor's type_difference contest), open/focus/close page lifecycle, undo routing to the
 // active page, selection semantics (dedup, primary, toggle).

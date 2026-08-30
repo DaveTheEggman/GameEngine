@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 struct Push { int FaceIndex; float Roughness; float2 Pad; };
 PUSH_CONSTANT(Push, pc, space1);

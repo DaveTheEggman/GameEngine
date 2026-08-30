@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.terrain: the terrain model over a heightfield - chunk grid + bounds, per-chunk LOD
 // selection determinism, quadtree correctness (build + frustum cull), and the splat descriptor.
 #include <doctest/doctest.h>

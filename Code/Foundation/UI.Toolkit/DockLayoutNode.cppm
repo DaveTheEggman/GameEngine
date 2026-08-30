@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :dock_layout_node partition
 //
 // Serializable snapshot of a dock tree node, used by DockManager.ExportLayout/ApplyLayout for layout

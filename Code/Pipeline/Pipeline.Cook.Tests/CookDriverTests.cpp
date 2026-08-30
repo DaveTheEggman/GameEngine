@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // CookDriver headless tests: the recipe-hash staleness model end to end. Fixture = four
 // NativeFileSystem mounts (source DB, cooked DB, sources, cache) under a temp tree, one
 // file-reading builder + one dependency-declaring builder.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - FlexLayout tests: main-axis distribution (justify-content + flex-grow), cross-
 // axis alignment (align-items), gap, and row/column direction.
 #include <doctest/doctest.h>

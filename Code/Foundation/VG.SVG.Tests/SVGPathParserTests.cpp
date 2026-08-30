@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.VG.Tests/SVGPathParserTests.bf.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

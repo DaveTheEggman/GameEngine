@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UIDocumentAsset (markup) + UIThemeAsset (stylesheet) reflected surfaces.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

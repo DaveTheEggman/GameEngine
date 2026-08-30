@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :unit partition
 //
 // Type-safe dimensional value carrying intent (dp/pt/px); resolves to pixels at layout time given

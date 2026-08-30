@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of MeshPipeline.
 /// Uses pipeline state stream (ID3D12Device2::CreatePipelineState) since
 /// mesh shader pipelines cannot use the traditional D3D12_GRAPHICS_PIPELINE_STATE_DESC.

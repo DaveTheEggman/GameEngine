@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Navigation - the `engine.navigation` module.
 //
 // Scene integration for the navmesh core: the zone + agent

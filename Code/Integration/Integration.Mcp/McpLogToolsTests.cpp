@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - the diagnostics tools: log_read / log_write /
 // known_issues. The agent-shaped loop: drop a marker, make the engine talk, read incrementally
 // from the marker's sequence and see exactly what happened after it - plus the filters and the

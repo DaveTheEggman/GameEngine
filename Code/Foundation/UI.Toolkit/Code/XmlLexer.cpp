@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - XmlLexer implementation (declared in :code_lexer).
 //
 // Stateful markup lexer: tags, attributes, quoted values, comments, CDATA, and <?...?>

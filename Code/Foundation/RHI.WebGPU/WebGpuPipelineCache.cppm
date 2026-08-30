@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:pipeline_cache - PipelineCache stand-in.
 ///
 /// WebGPU has no pipeline-cache object (the browser/driver caches internally), and

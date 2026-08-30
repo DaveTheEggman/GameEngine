@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Profiler - instrumentation macros.
 //
 // Include this header (it's just macros) AND `import foundation.profiler` in a TU that instruments.

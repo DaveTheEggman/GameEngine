@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Audio - the `:sound_cue_page` partition.
 //
 // SoundCuePage: the cue editor - eight variant slot rows (clip picker +

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::Animation - the `foundation.animation.editor` module.
 ///
 /// Authoring/cook side: a SkeletonAsset / AnimationClipAsset wraps the cooked source + the source

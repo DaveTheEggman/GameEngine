@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - asset_uses: the reverse dependency query an
 // agent must read before any destructive change. Exercises three edge families against a real
 // project: an asset->asset edge (MaterialAsset -> texture via the builder's ScanDependencies), a

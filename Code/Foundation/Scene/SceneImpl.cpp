@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Scene - foundation.scene:scene implementation unit.
 //
 // Out-of-line definitions for Scene's non-trivial member functions (sec 3.2 / sec 10.6).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // propertyanimation.pipeline - the cook path end to end: author a PropertyAnimationClipAsset, cook it
 // with the builder into a content DB, then load the cooked product through the runtime factory and
 // sample it (proving the asset -> source -> product -> resource wire).

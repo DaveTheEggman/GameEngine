@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ViewTests.bf (faithful; Beef `scope`/`new` -> RefPtr via MakeRef,
 // `===` -> pointer ==, Vector2 -> Float2 (.x/.y), UserData Object -> void*).
 #include <doctest/doctest.h>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :preferences_dialog partition.
 //
 // EditorPreferencesDialog: a modal editor for PER-USER editor preferences (the foundation.settings

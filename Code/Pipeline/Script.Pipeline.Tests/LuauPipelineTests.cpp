@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The neutral-builder cook round-trip driven with LUAU sources - the same source -> builder ->
 // factory -> metadata path as the AngelScript leg (AngelScriptPipelineTests.cpp), proving the
 // builder resolves the Luau cook by the asset's language. Luau harvests via construct-and-walk, so

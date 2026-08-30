@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Scene - `engine.scene`.
 ///
 /// The Context-level scene driver: it owns the pure scene registry

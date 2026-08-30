@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :hdr_color_picker partition
 //
 // Interactive HDR-allowed color picker. Mirrors ColorPicker's SV square + hue strip + alpha strip, but the

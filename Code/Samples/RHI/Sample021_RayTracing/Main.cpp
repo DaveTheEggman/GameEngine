@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample021 -- Ray Tracing (TraceRays). Ported from Sedulous Sample021_RayTracing.
 /// Demonstrates hardware ray tracing: builds a BLAS/TLAS for a single triangle,

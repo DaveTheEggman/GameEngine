@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Audio - :engine partition.
 //
 // AudioEngine: the engine wrapper over miniaudio. miniaudio is

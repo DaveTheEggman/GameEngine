@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :toolbar partition
 //
 // Horizontal toolbar container + its item family (ToolbarItem / ToolbarSeparator / ToolbarButton /

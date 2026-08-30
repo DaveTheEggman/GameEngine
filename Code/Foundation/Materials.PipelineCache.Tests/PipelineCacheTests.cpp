@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The render-side PSO cache: build a pipeline from a PipelineConfig pulling variants
 // from the ShaderSystem, verify it caches, and verify the version-polling hot-reload
 // path - invalidating the shader makes GetPipeline rebuild and retire the stale PSO.

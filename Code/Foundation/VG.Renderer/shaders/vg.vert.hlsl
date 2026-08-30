@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Vector Graphics Vertex Shader
 #pragma pack_matrix(row_major)
 

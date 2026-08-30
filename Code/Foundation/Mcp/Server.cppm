@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp - :server partition
 //
 // The JSON-RPC 2.0 dispatcher + MCP lifecycle + tool/resource registry. HandleLine takes ONE

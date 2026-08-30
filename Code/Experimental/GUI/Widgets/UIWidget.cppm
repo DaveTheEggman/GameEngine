@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :ui_widget partition
 //
 // UIWidget: a UINode with the CSS identity + layout inputs the styling engine matches on.

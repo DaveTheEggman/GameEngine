@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample017 - MultiQueue (Async Compute). Ported from Sedulous Sample017_MultiQueue.
 /// A compute shader generates an animated vertex grid on the compute queue,

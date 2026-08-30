@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :bool_editor partition
 //
 // Boolean property editor - a CheckBox. Instant edit: BeginEdit + value change + EndEdit on each toggle.

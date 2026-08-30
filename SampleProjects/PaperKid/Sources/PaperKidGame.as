@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // PaperKidGame - the Game-tier orchestrator (the skeleton + screen flow).
 //
 // This is the project's startup script (Project.xml startupScriptId), run by the play-in-editor

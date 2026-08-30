@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample005 - Multiple Bind Groups with Dynamic Offsets.
 /// Ported from Sedulous Sample005_BindGroups.

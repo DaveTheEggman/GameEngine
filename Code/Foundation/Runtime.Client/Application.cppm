@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Runtime.Client - `:app` partition.
 //
 // The application contract. There is exactly ONE application per host (not a list

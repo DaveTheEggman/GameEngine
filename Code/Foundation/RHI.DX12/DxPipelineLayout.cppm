@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of PipelineLayout.
 /// Creates ID3D12RootSignature from bind group layouts + push constant ranges.
 /// Ported from Sedulous.RHI.DX12/DX12PipelineLayout.bf.

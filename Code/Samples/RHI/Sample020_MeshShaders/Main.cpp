@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample020 -- Mesh Shaders (Rotating Triangle). Ported from Sedulous Sample020_MeshShaders.
 /// Demonstrates mesh shader pipeline: a rotating triangle generated entirely in the mesh shader.

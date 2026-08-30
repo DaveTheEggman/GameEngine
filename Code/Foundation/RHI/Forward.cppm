@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Forward declarations for all RHI types.
 
 export module foundation.rhi:forward;

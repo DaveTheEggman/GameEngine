@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Http - the `foundation.http` module.
 //
 // A deliberately SMALL HTTP/1.1 layer over the Core/System TCP sockets (via foundation.net's

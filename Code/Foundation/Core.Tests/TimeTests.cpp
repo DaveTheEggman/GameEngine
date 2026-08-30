@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Unit tests for the :time partition (Duration / TimePoint / Clock / Stopwatch).
 // Wall-clock assertions are lower-bound + generous upper-bound only, so a stalled
 // or throttled machine can't make them flaky.

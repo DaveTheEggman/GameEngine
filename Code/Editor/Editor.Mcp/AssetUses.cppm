@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :asset_uses partition
 //
 // asset_uses: the REVERSE dependency query - "what uses

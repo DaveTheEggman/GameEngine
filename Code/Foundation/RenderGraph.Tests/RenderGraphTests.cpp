@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Direct unit tests for pieces without a dedicated Sedulous test file
 // (SubresourceStateTracker, PersistentResource ping-pong, resource tracking).
 // The Sedulous suite is ported in Type/Descriptor/PassBuilder/Dependency/

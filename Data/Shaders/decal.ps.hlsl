@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma pack_matrix(row_major)
 Texture2D    SceneDepth : register(t0, space0);
 SamplerState DepthSamp  : register(s0, space0);

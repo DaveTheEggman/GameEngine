@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :enums partition
 //
 // Small Core enums ported from Sedulous.UI/src/Core (Visibility, Orientation,

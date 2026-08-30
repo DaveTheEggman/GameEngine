@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample003 - Rotating Cube with Uniform Buffers + Push Constants.
 /// Ported from Sedulous Sample003_UniformBuffers.

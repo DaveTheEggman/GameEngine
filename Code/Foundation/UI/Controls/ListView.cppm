@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :list_view partition
 //
 // Virtualized list: only creates/binds views for the visible range, recycling views that scroll out.

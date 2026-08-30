@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - :result partition
 //
 // XmlResult: the parse/lex outcome. Success is Ok; every other value is a

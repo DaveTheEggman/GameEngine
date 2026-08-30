@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Navigation - the `editor.navigation` module (interface).
 //
 // The "Bake Navigation" flow: collect every

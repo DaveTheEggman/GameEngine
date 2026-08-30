@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Vector Graphics Fragment Shader (reference copy; the compiled source is Data/Shaders/vg.ps.hlsl).
 // Multiplies vertex color by coverage and outputs premultiplied-alpha color (pairs with the
 // renderer's PremultipliedAlpha blend).

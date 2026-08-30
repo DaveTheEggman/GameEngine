@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Render-bundle pass: a render pass whose body is supplied by render bundles (the rendergraph
 // extension that lets parallel command recording run inside the frame graph). Driven on the
 // Null RHI so Execute actually runs the pass.

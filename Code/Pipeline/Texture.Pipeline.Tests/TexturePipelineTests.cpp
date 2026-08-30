@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full GPU-texture asset pipeline: author a TextureAsset (image file + sampler
 // intent) -> cook with TextureAssetBuilder into an output content DB -> load the
 // cooked TextureResource and build a live GPU Texture via the device-backed

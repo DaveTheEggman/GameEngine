@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // SceneEditContext tests (headless live Scene): every mutation is an undoable command by Guid.
 // Covers create (redo keeps the SAME Guid), rename (merge), reparent (cycle-refusal, undo),
 // destroy (undo restores the FULL subtree - names, transforms, hierarchy, active flags, and

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Input - :model partition.
 //
 // The action-mapping DATA MODEL: one InputMap = a whole game's

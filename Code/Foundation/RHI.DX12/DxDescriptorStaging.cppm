@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Bump-allocating staging region within a GPU-visible descriptor heap.
 /// Copies bind group descriptors from CPU heap into GPU heap at bind time.
 /// Ported from Sedulous.RHI.DX12/DX12DescriptorStaging.bf.

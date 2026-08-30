@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma once
 // Shared free-fly camera for the dev samples: WASD/QE move, hold RMB (or Tab to capture) to look,
 // Shift to move fast. Provides position + orientation; the sample consumes it as it likes (set a

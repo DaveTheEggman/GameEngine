@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :log_tools partition
 //
 // The diagnostics tools: log_read / log_write /

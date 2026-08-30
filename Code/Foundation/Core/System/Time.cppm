@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :time partition
 //
 // Unit-safe time types built on the platform tick counter (:system). Callers work

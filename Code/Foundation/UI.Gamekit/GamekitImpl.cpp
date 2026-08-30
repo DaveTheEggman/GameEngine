@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - implementation unit: ScreenStack push/pop/transition drive, UIScreen markup-attribute
 // parsers, `<screen>` markup registration, and the UIScreen RTTI definition. Kept out of the interface
 // units (GCC gcm-cluster hygiene + the heavier logic is not header material).

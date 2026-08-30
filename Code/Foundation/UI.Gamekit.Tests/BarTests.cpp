@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - Bar behavior (native, backend-neutral).
 //
 // A Bar is a ProgressBar with an optional smooth drain. These cover the instant SetFill (with the

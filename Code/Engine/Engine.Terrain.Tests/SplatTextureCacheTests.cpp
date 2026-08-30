@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The GPU splat caches (engine.terrain :splattexture, top-K model): the weight+index TEXTURE PAIR
 // per SplatWeights, UID-keyed (two rasters at the same address must not alias), a paint's version
 // bump RETIRES the old pair through the queue (never a direct in-flight destroy); the palette

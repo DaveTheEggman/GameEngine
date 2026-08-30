@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Source-side mesh cook: capture a primitive into a StaticMeshAsset, cook it through
 // the builder into an output DB, and verify the cooked StaticMeshSource carries the
 // vertex/index data. Plus the skinned path.

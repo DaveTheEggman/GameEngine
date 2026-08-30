@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Built-in theme sheet gates. The sheets are authored against the shared design system; the
 // legacy C++ builders are kept only as a parse-failure belt.
 // These gates check what must stay true regardless of look: every sheet parses non-empty

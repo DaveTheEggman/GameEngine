@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The cook-time optimization pass. Everything is a pure REORDER -
 // these tests pin the invariants (triangle set / vertex values / submesh ranges /
 // non-triangle index streams survive as sets or position-sequences), the wins (ACMR

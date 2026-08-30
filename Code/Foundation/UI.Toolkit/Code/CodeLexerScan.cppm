@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :code_lexer_scan partition (module-internal).
 //
 // Shared scanning primitives for the concrete lexers (CLikeLexer.cpp, XmlLexer.cpp): a

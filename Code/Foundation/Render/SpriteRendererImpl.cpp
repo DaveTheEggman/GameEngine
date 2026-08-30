@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:sprite_renderer` partition.
 ///
 /// A Renderer that draws textured billboard quads (sprites). Ported from SedulousEngine's

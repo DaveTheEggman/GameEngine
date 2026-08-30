@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :confirm_dialog partition.
 //
 // ConfirmDialog: a small modal question with 2-3 labeled choices, delivered through

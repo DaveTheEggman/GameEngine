@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // LuauEditorUI: registering the lexer makes it resolvable under both the canonical "luau" id
 // and the "lua" alias, with Luau classification (`--` comments, long brackets, backtick strings).
 #include <doctest/doctest.h>

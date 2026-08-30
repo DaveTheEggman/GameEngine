@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 <#
 build-export-templates.ps1 - build the WINDOWS export template (a prebuilt runtime bundle:
 Engine.Player + its runtime sidecars + template.xml). Sibling of build-export-templates.sh

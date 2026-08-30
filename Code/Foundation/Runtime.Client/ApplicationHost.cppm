@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Runtime.Client - the `foundation.runtime.client` module.
 //
 // ApplicationHost: the concrete, generic host that drives exactly ONE IApplication.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vulkan implementation of RenderBundleEncoder + RenderBundle.
 ///
 /// A render bundle is a SECONDARY VkCommandBuffer recorded with

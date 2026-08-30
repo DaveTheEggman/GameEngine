@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Slider tests: value clamping + change callback, drag-to-set, and pointer
 // capture (a drag keeps tracking after the cursor leaves the slider).
 #include <doctest/doctest.h>

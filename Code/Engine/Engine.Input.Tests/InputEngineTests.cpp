@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Input tests - the ENGINE-level input surface: the InputSubsystem
 // (per-surface scene binding / source overrides) and the per-context Input facade.
 //

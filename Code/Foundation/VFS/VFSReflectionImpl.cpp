@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS - reflection implementation unit: SourcePath's reflected surface.
 //
 // Kept OUT of the :source_path interface partition (REFLECT_* bodies make GCC emit a gcm

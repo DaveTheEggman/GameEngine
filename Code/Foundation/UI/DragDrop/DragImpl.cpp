@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for DragDropManager.
 //
 // Holds the View-touching bodies of DragDropManager (it reaches across the whole View cluster: UIContext,

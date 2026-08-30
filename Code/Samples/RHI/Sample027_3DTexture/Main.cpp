@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample027 -- 3D Texture & 1D LUT. Ported from Sedulous Sample027_3DTexture.
 /// Demonstrates 3D textures and 1D textures.

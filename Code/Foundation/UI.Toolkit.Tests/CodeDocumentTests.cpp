@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // CodeDocument headless tests: line buffer + span extraction, the single Edit mutation with
 // delta undo/redo and typing coalescing, marker line-tracking under edits, diagnostics and the
 // execution line, word boundaries, and the word harvest behind document-word completion.

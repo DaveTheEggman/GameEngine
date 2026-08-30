@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample006 - Alpha Blending. Ported from Sedulous Sample006_Blending.
 /// Renders overlapping semi-transparent colored quads.

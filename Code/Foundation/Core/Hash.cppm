@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :hash partition
 //
 // Hashing utilities: a byte hash (FNV-1a, 64-bit), an integer finalizer, and

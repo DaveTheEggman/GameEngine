@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - :nodes partition
 //
 // The DOM node hierarchy: XmlNode (intrusive tree) and its concrete kinds

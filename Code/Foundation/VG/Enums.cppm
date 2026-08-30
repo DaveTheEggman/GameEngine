@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG - :enums partition.
 //
 // Small enumerations for vector-graphics draw state. Ported from

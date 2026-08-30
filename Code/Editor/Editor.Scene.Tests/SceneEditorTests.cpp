@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // editor.scene headless tests: EditorCamera orientation math and the scene asset
 // creator (unique naming, SceneDocument primary, project round-trip). The page itself needs a
 // running host/renderer and is exercised in the editor app (on-screen path).

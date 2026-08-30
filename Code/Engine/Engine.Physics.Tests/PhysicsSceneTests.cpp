@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.physics tests: the scene integration headless - component-driven
 // body building (incl. hierarchy compounding), the fixed-step sync, render-frame
 // interpolation between fixed poses, kinematic scene-follow, and play-cycle teardown.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine.Player - the generic game runner.
 //
 // Runs a project with ZERO native game code: engine subsystems + the project's content +

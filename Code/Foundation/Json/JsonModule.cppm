@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - `foundation.json` (hand-rolled JSON DOM: value + parser + writer, UTF-8).
 //
 // The engine's boundary codec for JSON - the MCP wire protocol and game-chosen data interchange.

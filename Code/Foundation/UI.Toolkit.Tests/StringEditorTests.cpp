@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit StringEditor: value round-trip + EditText submit drives the setter.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

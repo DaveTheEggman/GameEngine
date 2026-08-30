@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :scroll_bar partition
 //
 // ScrollBar: a draggable indicator of a scroll position in [0,1], with a thumb whose length

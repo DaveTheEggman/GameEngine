@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :export partition.
 //
 // The export pipeline as a LIBRARY (the Tools.Export CLI and the editor's Export menu are

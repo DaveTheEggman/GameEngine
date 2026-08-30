@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net.manager - StateReplication driven end-to-end through NetworkManager over the sim
 // transport: a server-assigned networked entity's replicated state reaches a connected client's scene.
 #include <doctest/doctest.h>

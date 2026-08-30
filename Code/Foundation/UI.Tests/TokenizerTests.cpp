@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/TokenizerTests.bf (faithful; Beef `scope Tokenizer` -> stack
 // value, List<Token> -> Array<Token>, Math.Abs(...) < eps -> doctest::Approx).
 #include <doctest/doctest.h>

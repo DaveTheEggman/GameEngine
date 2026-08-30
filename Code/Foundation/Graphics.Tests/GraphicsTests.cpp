@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Headless tests for the RHI render host (GraphicsDevice + RenderWindow +
 // FrameContext) over the Null RHI backend + null shell - no GPU required.
 // Covers device bring-up, per-window frame begin/end, the frame-in-flight ring,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.particles:subsystem - the Context-level ParticleSubsystem.
 //
 // Mirrors AnimationSubsystem: injects the ParticleEffectComponentManager into every scene (so

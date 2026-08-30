@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - logging macros (classic header).
 //
 // Convenience front-end over foundation::core::Logf. Include this and `import

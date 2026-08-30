@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp - :transport partition
 //
 // Line-oriented transport for newline-delimited JSON-RPC (one message per line, NO Content-Length

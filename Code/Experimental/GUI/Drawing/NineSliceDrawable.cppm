@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :nine_slice_drawable partition
 //
 // NineSliceDrawable: draws an image as a nine-patch (fixed corners, stretched edges/

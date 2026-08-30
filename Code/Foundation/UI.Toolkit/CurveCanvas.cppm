@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :curve_canvas partition
 //
 // Multi-channel interactive curve editor canvas. Model-agnostic: callers describe their channels via

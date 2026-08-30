@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - the `:graph` partition.
 ///
 /// The animation graph stack, ported faithfully from Sedulous.Animation: state nodes (clip + 1D/2D

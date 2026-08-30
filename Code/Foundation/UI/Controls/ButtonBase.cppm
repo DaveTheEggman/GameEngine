@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :button_base partition
 //
 // Abstract base for button types: click event, pressed state, ICommand binding, focus/keyboard

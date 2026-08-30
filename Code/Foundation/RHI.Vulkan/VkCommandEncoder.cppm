@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vulkan implementation of CommandEncoder + RayTracingEncoderExt.
 /// Ported from Sedulous.RHI.Vulkan/VulkanCommandEncoder.bf.
 

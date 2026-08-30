@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Input - the `foundation.input.editor` module.
 //
 // The authored input-map asset (source, XML envelope like every authored asset) + its

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - :lexer partition
 //
 // Low-level UTF-8 scanning primitives: name/value/content reading, entity and

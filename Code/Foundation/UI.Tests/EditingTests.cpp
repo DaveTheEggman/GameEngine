@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editing subsystem tests. InputFilter cases are a faithful port of Sedulous.UI.Tests/src/
 // InputFilterTests.bf (Beef `scope`/`new` -> value, delegate -> lambda; char literals are char32_t
 // U'...'). UndoStack has no upstream test file (Sedulous exercises it only through EditText), so its

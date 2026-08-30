@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS - :native_filesystem partition
 //
 // NativeFileSystem: backs logical paths with a real directory prefix. Supports

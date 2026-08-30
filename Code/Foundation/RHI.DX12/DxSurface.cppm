@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of Surface. Simply stores the HWND.
 /// Ported from Sedulous.RHI.DX12/DX12Surface.bf.
 

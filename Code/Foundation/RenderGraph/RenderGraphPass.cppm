@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :pass partition
 //
 // A single pass: its declared resource accesses, attachments, dependencies, and

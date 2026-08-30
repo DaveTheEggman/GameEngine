@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ToastHost tests: timed expiry vs sticky toasts, deferred removal (never mid-dispatch),
 // action/close buttons, and the bottom-right stacking layout.
 #include <doctest/doctest.h>

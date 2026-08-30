@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :property_owner partition
 //
 // IPropertyOwner: objects that own Property<T> instances and respond to value changes

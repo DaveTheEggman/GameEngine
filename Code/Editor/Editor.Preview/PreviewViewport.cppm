@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Preview - `editor.preview`: the shared 3D-preview substrate for bespoke asset
 // editor pages (mesh / clip / skeleton / material / particle / animgraph / collision).
 //

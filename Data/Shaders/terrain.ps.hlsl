@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma pack_matrix(row_major)
 
 // Terrain chunk PS. Terrain is always opaque, so it writes the full forward GBUFFER (like unlit.ps):

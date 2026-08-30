@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_icons partition
 //
 // Built-in SVG icon definitions for theme drawable keys. These are string constants compiled into

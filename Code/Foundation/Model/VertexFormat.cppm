@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vertex element semantics, formats, and descriptors.
 /// Ported from Sedulous.Models/VertexFormat.bf.
 

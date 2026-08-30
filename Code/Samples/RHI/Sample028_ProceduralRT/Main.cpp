@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample028 -- Procedural RT (AABB Spheres). Ported from Sedulous Sample028_ProceduralRT.
 /// Demonstrates procedural ray tracing geometry using AABBs.

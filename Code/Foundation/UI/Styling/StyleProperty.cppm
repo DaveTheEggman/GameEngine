@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_property partition
 //
 // Identifies a style property settable in a StyleRule. COUNT sizes property arrays.

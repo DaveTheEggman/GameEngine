@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::GameInstance - the `engine.gameinstance` module.
 //
 // A single RUNNING GAME as a first-class object: its scene pairing,

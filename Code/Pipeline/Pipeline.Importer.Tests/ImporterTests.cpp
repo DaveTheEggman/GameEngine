@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Importer registry + shared import helpers: extension routing, path helpers, and the
 // copy-into-Sources step every file importer builds on.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Animation types: interpolation, channels, keyframes, and animation clips.
 /// Ported from Sedulous.Models/ModelAnimation.bf.
 

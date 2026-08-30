@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Image - reflection implementation unit: enum reflection bodies.
 //
 // Kept OUT of the :image_data interface partition (REFLECT_* bodies make GCC emit a gcm

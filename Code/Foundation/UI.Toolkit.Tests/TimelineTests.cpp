@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Timeline widget tests (headless). The Timeline is
 // domain-agnostic (no clip), so these exercise the pure surface: the shared time<->pixel transform
 // round-trips through zoom + scroll, the ruler tick step follows {1,2,5}x10^n and never lets

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #define CASCADE_COUNT 4
 cbuffer View : register(b0, space0) {
     row_major float4x4 ViewProj;   // Matrices are row-major; annotate so HLSL reads them right.

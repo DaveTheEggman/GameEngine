@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/MutationQueueTests.bf (faithful, full file, 7 cases). Tests the
 // deferred-mutation queue: enqueue actions, HasPending, Drain (in-order + re-entrant), BeginFrame drain,
 // and QueueDelete's double-delete guard. Beef `scope MutationQueue()` -> a stack MutationQueue value;

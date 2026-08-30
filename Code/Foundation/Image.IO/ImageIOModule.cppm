@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Concrete image loading and saving via stb_image / stb_image_write.
 /// No abstract loader/writer - direct stb dependency.
 /// Works with foundation::image::Image directly.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :event_args partition
 //
 // Pooled input event args (mouse/key/wheel/text). One instance reused per event type to avoid

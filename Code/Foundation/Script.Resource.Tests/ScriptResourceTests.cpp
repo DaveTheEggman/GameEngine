@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.script.resource tests: the tagged property-value wire (every kind, symmetric
 // writer/reader), harvested-metadata round-trip through the cooked record, and the
 // ScriptClassFactory (cooked record -> runtime product; metadata parse only, no VM).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.ui.script - the reflected view handles (native, no VM).
 //
 // These prove the properties the scripted parity suite relies on but cannot express: the OWNING

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :ref_counted partition
 //
 // Intrusive strong+weak reference counting (no std:: equivalent). One

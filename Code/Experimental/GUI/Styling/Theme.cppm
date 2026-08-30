@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :theme partition
 //
 // A theme is just a default stylesheet: built-in CSS that styles the standard widget tags plus

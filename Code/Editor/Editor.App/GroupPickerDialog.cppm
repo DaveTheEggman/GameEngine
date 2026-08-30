@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :group_picker_dialog partition.
 //
 // GroupPickerDialog: the AssetPickerDialog's sibling for CONTENT GROUPS - a modal picker over

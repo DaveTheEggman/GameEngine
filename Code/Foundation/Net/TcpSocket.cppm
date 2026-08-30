@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - `foundation.net:tcp_socket` partition.
 ///
 /// RAII TCP stream sockets over the Core/System TCP primitive, for

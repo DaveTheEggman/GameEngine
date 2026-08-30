@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // PropertyAnimationPanel tests (the persistent in-scene
 // editor). Covers the host-agnostic logic that does not need a live viewport: the reflected-type ->
 // TrackValueKind mapping, the animatable-property collector (against a reflected test component), the

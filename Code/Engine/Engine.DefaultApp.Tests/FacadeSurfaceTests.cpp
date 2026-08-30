@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The RUNTIME-path facade-surface tripwire (sibling of StandardFactoriesTests, same incident
 // class). Incident 2026-08-22: RegisterAllScriptFacades existed and was tested, but the runtime
 // app kept a hand-rolled per-subsystem registration list that drifted past RegisterRunScriptFacade

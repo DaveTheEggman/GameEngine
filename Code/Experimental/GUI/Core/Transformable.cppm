@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :transformable partition
 //
 // Transformable: 2D position / rotation / scale with a lazily-recomputed combined

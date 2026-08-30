@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - the golden agent-shaped tool-call flow.
 //
 // SUBJECT is the flow crossing collections: an agent drives the MCP protocol (foundation.mcp) to

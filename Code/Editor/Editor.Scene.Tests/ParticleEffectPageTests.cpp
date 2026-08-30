@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ParticleEffectEditorPage tests (headless): the "New Particle Effect" seed is a free, pure
 // function so it is covered here without a live host/renderer. The page's GPU preview + property
 // grid + component wiring need a live application host and are exercised in the editor app.

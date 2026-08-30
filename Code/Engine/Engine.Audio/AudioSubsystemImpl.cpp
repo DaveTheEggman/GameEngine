@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Audio - implementation unit: the per-frame engine drive (listener
 // push with active-camera fallback + engine tick) and the component reflection bodies.
 // Both live OUTSIDE the interface for GCC: the render import stays out of the

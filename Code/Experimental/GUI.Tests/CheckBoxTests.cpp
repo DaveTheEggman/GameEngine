@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - CheckBox tests: toggle on click, programmatic set, change callback, and
 // tag for CSS.
 #include <doctest/doctest.h>

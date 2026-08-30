@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :nine_slice_drawable partition
 //
 // 9-slice image drawable with optional Expand (shadow/glow extending beyond the logical bounds).

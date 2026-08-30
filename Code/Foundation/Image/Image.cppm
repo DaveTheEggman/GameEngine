@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Image - owns a CPU-side pixel buffer with manipulation methods.
 /// Implements ImageData so it can be passed to anything accepting the base type.
 /// Ported from Sedulous.Images.Image.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Shaders.System - the `:shader_system` partition.
 ///
 /// Compile-on-demand + cache for shader VARIANTS. A shader is registered by name

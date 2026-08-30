@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for BreadcrumbBar: SetPath split, SetSegments, GetSegment / GetPathUpTo round-trips.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

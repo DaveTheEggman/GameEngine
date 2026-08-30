@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Generic - the `editor.generic` module.
 //
 // GenericAssetEditorPage: the fallback

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Particles - reflection implementation unit (batch 1): the range leaf value types +
 // the flat/range particle module classes, so the module types stop being tooling-invisible.
 // The particle editor page stays bespoke - this reflection is for

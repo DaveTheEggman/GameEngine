@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Forward declarations of the opaque SDL3 handle types the foundation.shell.desktop interface
 // references (as pointers only). Included from the global module fragment so the interface
 // stays free of the heavy <SDL3/SDL.h>; the real definitions live in SDL3ShellImpl.cpp.

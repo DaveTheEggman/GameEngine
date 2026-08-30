@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - UINode / UIWidget tests: padding + content bounds, input-driven control
 // state (hover/press/focus/disabled), and the CSS identity surface (tag/id/classes).
 #include <doctest/doctest.h>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :content_button partition
 //
 // Button with arbitrary View content - icons, icon+text combos, or any custom content layout. Ported

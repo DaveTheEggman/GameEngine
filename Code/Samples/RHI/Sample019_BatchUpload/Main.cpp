@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample019 -- Batch Upload (Async Transfer). Ported from Sedulous Sample019_BatchUpload.
 /// Demonstrates batched GPU uploads using TransferBatch with async fence signaling.

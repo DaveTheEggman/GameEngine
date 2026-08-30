@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Drawing/render-seam tests. Metadata + behavior (drawing needs no GPU:
 // a VGContext tessellates into a CPU vertex batch, so we can assert geometry is produced).
 // StateList fallback semantics mirror the eepp/foundation.ui pattern.

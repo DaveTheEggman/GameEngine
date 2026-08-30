@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :input_enums partition
 //
 // Input enums ported from Sedulous.UI/src/Input (MouseButton, KeyModifiers, EventPhase,

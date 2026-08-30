@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ListViewTests.bf (faithful). Beef get/set props -> methods
 // (lv->SetAdapter / lv->ScrollY()); SimpleListAdapter test double lives in TestHelpers.h. The adapter is
 // borrowed (pattern-B) - declared before the ListView so it outlives it. Logic only, no font.

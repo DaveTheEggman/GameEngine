@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:ao` partition.
 ///
 /// Ambient occlusion. Two interchangeable generators feed one shared pipeline:

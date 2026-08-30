@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #ifndef DRACO_RHI_DX12_INCLUDES_H_
 #define DRACO_RHI_DX12_INCLUDES_H_
 

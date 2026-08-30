@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebTriangle - the first app that runs in a browser.
 //
 // It uses the RUNTIME framework (APP_MAIN -> IApplication driven by an ApplicationHost),

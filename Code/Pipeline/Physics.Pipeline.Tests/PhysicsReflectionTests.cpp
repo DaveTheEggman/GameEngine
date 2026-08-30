@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // CollisionShapeAsset + PhysicalMaterialAsset reflected surface, and the
 // CollisionCookKind enum. Verifies authored properties enumerate with attributes, round-trip
 // through get/set, and that the cook-mode enum resolves named values.

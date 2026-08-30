@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:render_pipeline - RenderPipeline over WGPURenderPipeline.
 ///
 /// One honest narrowing: FillMode::Wireframe has no WebGPU shape (polygon mode is

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_icon_set partition.
 //
 // The SHARED, bake-ready chrome glyph set behind the built-in themes. The audit found the

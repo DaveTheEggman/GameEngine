@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :context partition.
 //
 // EditorContext: the central service object handed to every page/panel/plugin (Sedulous's

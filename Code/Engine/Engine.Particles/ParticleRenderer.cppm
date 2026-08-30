@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.particles:renderer - the dedicated billboard particle Renderer.
 //
 // Modeled on SpriteRenderer (SV_VertexID quad + hardware instancing + per-frame ring + blended

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::UI.Resource - the `foundation.ui.resource` module.
 //
 // Cooked game-UI content. v1 payloads are VALIDATED TEXT:

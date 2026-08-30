@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Runtime - :pluginhost partition
 //
 // PluginHost: owns the set of loaded plugins and their backing shared libraries

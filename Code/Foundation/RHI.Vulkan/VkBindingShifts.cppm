@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// HLSL register binding shift configuration.
 /// Ported from Sedulous.RHI.Vulkan/VulkanDevice.bf (VulkanBindingShifts).
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :message_box partition
 //
 // MessageBox: a modal dialog with a message and a row of standard buttons (OK / OK-Cancel /

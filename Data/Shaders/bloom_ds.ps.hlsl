@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "bloom_common.hlsli"
 
 float3 Prefilter(float3 c) {

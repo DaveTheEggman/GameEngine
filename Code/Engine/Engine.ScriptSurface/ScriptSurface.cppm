@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::ScriptSurface - the `engine.scriptsurface` module.
 //
 // The SCRIPT-SURFACE composition root: the Engine-side sibling of Pipeline::Registration (MCP spec

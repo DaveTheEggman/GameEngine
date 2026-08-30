@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit Float4Editor: four-field row + value round-trip; a field drives the setter.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Terrain - the `:splattexture` partition.
 //
 // The GPU splat textures for the top-K blend: the CPU SplatWeights (the

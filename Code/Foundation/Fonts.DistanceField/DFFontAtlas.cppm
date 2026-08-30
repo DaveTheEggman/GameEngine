@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.DistanceField - foundation.fonts.distancefield:atlas partition
 //
 // IFontAtlas for distance-field (MSDF) atlases: stores RGBA8 linear pixel data

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - :interfaces partition
 //
 // Abstract font interfaces (IFont, IFontAtlas, ITextShaper, IFontService) and

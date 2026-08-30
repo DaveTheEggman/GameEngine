@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :tree_view partition
 //
 // Tree view built on a FlattenedTreeAdapter + an internal ListView for virtualization; draws indent +

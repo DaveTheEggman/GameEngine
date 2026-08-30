@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - foundation.fonts.ttf:atlas_baker partition
 //
 // IFontAtlasBaker for TrueType/OpenType: bakes a TrueTypeFont into a

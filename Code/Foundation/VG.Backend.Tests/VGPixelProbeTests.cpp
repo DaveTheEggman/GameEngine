@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG pixel probes - the VG "golden" tests. Deterministic VG scenes rendered on
 // REAL devices (Vulkan + WebGPU), single-sampled with a stencil attachment, pixels read
 // back and asserted STRUCTURALLY: fill-rule correctness, stencil path clipping, the

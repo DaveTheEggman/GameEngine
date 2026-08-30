@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - @keyframes tests: parsing keyframe blocks, and the animation runtime (an
 // `animation` property spawns a KeyframeAction that interpolates opacity across the stops as the
 // scene ticks, looping when requested).

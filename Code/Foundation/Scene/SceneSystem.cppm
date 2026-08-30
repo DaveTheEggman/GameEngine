@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:system` partition.
 ///
 /// SceneSystem: the base for a per-scene system - the unit a Scene owns, ticks per

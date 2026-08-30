@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Navigation - the `foundation.navigation` module.
 //
 // The navmesh core over vendored recastnavigation:

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :icon_button partition
 //
 // A small clickable button that draws an SVG icon centered over the themed button background, at a

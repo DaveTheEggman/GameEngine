@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :barrier_solver partition
 //
 // Computes and emits resource barriers between passes. State is tracked at two

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :gravity_helper partition
 //
 // Applies Gravity flags to position a child within a container. Ported from

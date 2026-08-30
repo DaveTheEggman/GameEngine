@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :toolkit_theme_extension partition
 //
 // Registers default theme styles for every foundation.ui.toolkit control (dock manager / panels / tab

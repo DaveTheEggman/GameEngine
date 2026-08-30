@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - System backend, Win32 implementation.
 //
 // NOTE: written against SystemBackend.h for Windows/MSVC; not compiled in the

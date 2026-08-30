@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :mutation_queue partition
 //
 // MutationQueue: deferred operations drained at a safe sync point (end of the SceneNode

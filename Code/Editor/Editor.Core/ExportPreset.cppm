@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :export_preset partition.
 //
 // Export presets: named, per-platform descriptions of how to produce a shippable dist - which

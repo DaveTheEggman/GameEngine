@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Slice 2 (mesh upload) - the mesh GPU cache uploads a StaticMesh's vertex/index
 // streams to RHI buffers on first use and reuses them after. Exercised on the Null RHI.
 #include <doctest/doctest.h>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:msaa_resolve` partition.
 ///
 /// Scene-pass MSAA first-sample (sample 0) resolve.

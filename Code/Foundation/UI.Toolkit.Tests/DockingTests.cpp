@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Faithful port of Sedulous.UI.Tests/src/DockingTests.bf (12 cases). Beef `scope`/`new` view trees
 // become RefPtr-owned views; `===` ref-equality becomes pointer `==` (with .Get()); `Test.Assert` -> CHECK.
 #include <doctest/doctest.h>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:probes` partition.
 ///
 /// Reflection probes: local, parallax-corrected, cluster-assigned cubemap reflections.

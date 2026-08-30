@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - :sculpt partition.
 //
 // TerrainSculptTool: the scene-viewport terrain brush (editor.viewporttools). A MODAL tool - the

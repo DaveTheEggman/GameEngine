@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.runtime.web - the browser (Emscripten) application runner.
 //
 // The web sibling of foundation.runtime.desktop. Same job - drive an IApplication (via

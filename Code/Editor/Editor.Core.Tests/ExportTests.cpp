@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // End-to-end export pipeline: author a project programmatically (scene + a cooked mesh asset
 // + a resource ref between them + a game script), ExportProject it, then consume the dist the
 // way Engine.Player does - ONE binary ContentDatabase over the pak for products AND scenes, the

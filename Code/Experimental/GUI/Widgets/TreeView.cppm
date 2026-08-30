@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :tree_view partition
 //
 // TreeView: a virtualized, model-backed tree. Modeled on eepp's UITreeView. It flattens the

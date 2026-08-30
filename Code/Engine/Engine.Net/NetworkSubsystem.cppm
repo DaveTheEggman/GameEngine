@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Net - the `engine.net` module.
 ///
 /// A Context-level subsystem (once-per-context BY CONTRACT) that integrates networking into scenes:

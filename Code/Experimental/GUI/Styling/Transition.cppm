@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :transition partition
 //
 // CSS transitions wired to the Action system. Ported from eepp's css/TransitionDefinition:

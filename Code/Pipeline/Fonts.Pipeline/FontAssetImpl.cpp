@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Fonts - reflection implementation unit: FontAsset's reflected surface.
 //
 // Kept OUT of the FontAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;

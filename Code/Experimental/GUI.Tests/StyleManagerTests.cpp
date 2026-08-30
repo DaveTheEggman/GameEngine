@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - StyleManager tests: a StyleSheet applied live to a widget tree, including
 // the end-to-end showcase where hovering re-resolves :hover rules and drives a CSS
 // transition through the ActionManager.

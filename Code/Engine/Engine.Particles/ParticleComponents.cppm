@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.particles:components - the ECS bridge between foundation.particles (the CPU
 // sim) and the renderer. Ported in spirit from Sedulous's ParticleComponent(Manager).
 //

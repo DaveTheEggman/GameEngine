@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - script_validate (compile-check form). The
 // strongest cheap proof: every enabled backend's OWN New-Asset starter must validate through
 // the tool with its metadata harvested (class name + handlers recognized), and broken source

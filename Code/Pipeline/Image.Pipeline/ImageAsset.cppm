@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Image - the `foundation.image.editor` module.
 //
 // Tooling: the source ImageAsset (an image file + color-space intent) and the

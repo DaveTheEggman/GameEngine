@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Scene-pass MSAA acceptance probes. All on real Vulkan + WebGPU via the shared
 // RHI.TestSupport readback substrate; STRUCTURAL assertions (no golden images).
 //   1) 4x resolve produces silhouette edge coverage that 1x does not (the core acceptance property).

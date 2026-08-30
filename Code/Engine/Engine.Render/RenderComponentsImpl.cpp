@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Render - render.subsystem implementation unit: component reflection bodies.
 //
 // Kept OUT of the :components interface partition (REFLECT_* bodies make GCC emit a

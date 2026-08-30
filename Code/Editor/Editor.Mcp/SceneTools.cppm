@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :scene_tools partition
 //
 // The scene/prefab MCP tools: scene_read / scene_write /

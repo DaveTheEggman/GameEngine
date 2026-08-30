@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The per-view LOD selection math (pure, no GPU). Coverage from a
 // camera (perspective divides by view depth; ortho is depth-free; bias halves per
 // unit), the descending-threshold pick walk, and the +-5% hysteresis band.

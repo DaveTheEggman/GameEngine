@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // APP_MAIN(AppType) - generates the program entry point for a client app.
 //
 // This is a classic header (macros can't live in a module). Use it in the app's

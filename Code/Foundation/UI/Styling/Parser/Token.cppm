@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :sss_token partition
 //
 // Token kinds and the Token record produced by the .sss Tokenizer. Ported from

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:query_set - QuerySet over WGPUQuerySet.
 ///
 /// Timestamp sets require the TimestampQuery feature (requested at device creation

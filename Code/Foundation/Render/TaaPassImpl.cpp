@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:taa` partition.
 ///
 /// Temporal anti-aliasing resolve (ported from Sedulous taa.frag.hlsl). Blends the current jittered

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:blit_helper - the internal fullscreen blit pass.
 ///
 /// WebGPU has no vkCmdBlitImage: scaling blits and mip generation are a render pass

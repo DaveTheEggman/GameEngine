@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - the `editor.terrain` module.
 //
 // TerrainEditorPage (TerrainPage): the COMPOSITION + PREVIEW surface for a

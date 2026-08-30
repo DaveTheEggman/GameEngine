@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles:effect - the particle object model, ported from Sedulous.Particles
 // (ParticleEmitter.bf, ParticleSystem.bf, ParticleEffect.bf, ParticleEffectInstance.bf).
 //

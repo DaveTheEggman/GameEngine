@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full heightfield asset pipeline: author a HeightfieldAsset (blank or a 16-bit heightmap) -> cook
 // with HeightfieldAssetBuilder into an output content DB -> load the cooked Heightfield through the
 // ResourceManager. Plus the resample helper and the size-snap guard.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// A complete 3D model with meshes, materials, skeleton, and animations.
 /// Ported from Sedulous.Models/Model.bf.
 

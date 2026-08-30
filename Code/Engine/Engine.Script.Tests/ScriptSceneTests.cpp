@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.script tests - the behaviors core, HEADLESS (real script VM, real
 // Scene, zero device deps): lifecycle dispatch (deferred start, onUpdate(dt), enable/
 // disable edges, onDestroy on entity destroy AND scene stop), defaults + hash-keyed

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Graphics - the `foundation.graphics` module.
 //
 // The RHI render host, promoted out of the per-sample bring-up code so samples,

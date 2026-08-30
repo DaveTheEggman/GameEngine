@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Audio - the `:cue` partition.
 //
 // SoundCue: the container primitive - ONE trigger, one of N clip variants,

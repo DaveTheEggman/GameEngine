@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:scene` partition.
 ///
 /// Scene: an isolated world of entities with a transform hierarchy (and, in later

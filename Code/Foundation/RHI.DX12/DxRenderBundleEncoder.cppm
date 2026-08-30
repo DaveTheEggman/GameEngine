@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of RenderBundleEncoder + RenderBundle.
 ///
 /// A render bundle is an ID3D12GraphicsCommandList of type D3D12_COMMAND_LIST_TYPE_BUNDLE,

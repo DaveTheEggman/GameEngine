@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:fence - CPU-side timeline fence.
 ///
 /// WebGPU has no fence object. The RHI's timeline contract is emulated CPU-side:

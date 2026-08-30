@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - CodeHighlighter implementation (declared in :code_lexer).
 //
 // The incremental per-line cache: relex from the first invalid line, converging as soon as a

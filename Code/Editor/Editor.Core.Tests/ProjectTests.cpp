@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorProject tests: create/open round-trip of the fixed project layout - manifest,
 // subdirectories, source (XML) + cooked (binary) content databases.
 

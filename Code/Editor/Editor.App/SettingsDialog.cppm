@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :settings_dialog partition.
 //
 // ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the fields a

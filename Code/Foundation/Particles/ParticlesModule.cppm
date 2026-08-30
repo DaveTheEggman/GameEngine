@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles - the CPU particle runtime, aggregating its partitions. A faithful
 // port of SedulousEngine's Sedulous.Particles (CPU side): the SoA stream container, the
 // initializer/behavior module taxonomy, the effect/system/emitter/instance object model,

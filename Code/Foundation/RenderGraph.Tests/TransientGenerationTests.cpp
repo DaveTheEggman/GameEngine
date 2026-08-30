@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Transient texture generation: each transient carries a stable id for its backing physical texture,
 // surfaced via GetTextureGeneration. A bind-group cache over a transient's view keys on this (not the
 // raw pointer) so a reused-address view can't alias a stale, destroyed texture across a resize.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :game_theme partition.
 //
 // GameTheme: the DEFAULT stylesheet for GAME UI (the UISubsystem's context ships with it;

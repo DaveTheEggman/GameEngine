@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :draw_context partition
 //
 // Drawing context passed to View.OnDraw(). Wraps a VGContext with clip stacking, plus

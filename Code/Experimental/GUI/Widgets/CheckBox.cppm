@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :check_box partition
 //
 // CheckBox: a toggleable box. A lean native control modeled on eepp's UICheckBox

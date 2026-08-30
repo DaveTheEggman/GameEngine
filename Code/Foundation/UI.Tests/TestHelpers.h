@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shared test doubles for the View cluster (faithful port of Sedulous.UI.Tests/src/TestHelpers.bf).
 // Declared here, defined once in TestHelpers.cpp (RTTI_OBJECT type-info must be single-definition).
 // The including TU must `import foundation.ui;` before including this header.

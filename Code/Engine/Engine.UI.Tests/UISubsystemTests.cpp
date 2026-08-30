@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Headless UISubsystem: canvas instantiation from documents (direct Ref override, no db),
 // hot-reload rebuild, visibility/interactivity sync, serialization round-trip. No GPU -
 // RenderOverlay untested here (the sample + editor smoke cover it on-screen).

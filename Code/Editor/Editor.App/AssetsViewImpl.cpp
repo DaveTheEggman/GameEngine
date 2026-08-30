@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :assets_view partition.
 //
 // AssetsView: the Assets panel - source-DB-backed, the typed DB is

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor Core - :thumbnail_service partition
 //
 // Asset thumbnails: an editor-only service that resolves a content

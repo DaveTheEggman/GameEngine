@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Render - foundation.render:pipeline implementation unit (sec 3.2 / sec 10.6).
 module;
 #include "Core/Prelude.h"

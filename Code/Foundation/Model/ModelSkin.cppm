@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Skin data for skeletal animation.
 /// Ported from Sedulous.Models/ModelSkin.bf.
 

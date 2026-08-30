@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - LinearLayout tests: children stacked in a row/column with spacing, re-run
 // on add and on size/orientation/spacing changes, skipping hidden children.
 #include <doctest/doctest.h>

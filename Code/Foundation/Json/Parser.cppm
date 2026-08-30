@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - :parser partition
 //
 // Hand-rolled recursive-descent JSON parser (RFC 8259), UTF-8 in / JsonValue out. No exceptions: a

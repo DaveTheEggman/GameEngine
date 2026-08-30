@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :thickness partition
 //
 // Thickness for padding, margin, and border - with symmetric constructors.

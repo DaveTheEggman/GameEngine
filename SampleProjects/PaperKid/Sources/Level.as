@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Level - the per-scene script for PaperKid's driving level. Set this class on MainScene's Scene
 // Script settings. It owns the countdown timer, the delivery quota, the out-of-papers fail rule, and
 // it drives the overlay HUD.

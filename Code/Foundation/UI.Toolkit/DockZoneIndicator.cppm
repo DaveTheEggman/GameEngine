@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :dock_zone_indicator partition
 //
 // Overlay showing dock drop zones during drag operations. Hit-test transparent; drawn manually by

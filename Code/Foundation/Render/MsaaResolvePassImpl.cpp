@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // MsaaResolvePass implementation. Fullscreen sample-0
 // resolve of the MSAA opaque depth + G-buffer aux into 1x targets. See MsaaResolvePass.cppm.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::UI - implementation unit: VG/shader/render contact, the input pump,
 // canvas syncing, and the component reflection bodies (GCC hygiene: none of this may sit
 // in the interface's global fragment / partitions - see physics for the precedent).

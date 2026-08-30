@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Web - `foundation.shell.web:input`.
 //
 // The web shell's input devices, wired to the browser via Emscripten's HTML5 API. Keyboard (window),

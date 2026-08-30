@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :color_picker partition
 //
 // Interactive HSV color picker: SV square + hue strip + alpha strip + RGB number fields + hex input +

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample013 - Border Sampler. Ported from Sedulous Sample013_BorderSampler.
 /// Demonstrates sampler border colors: TransparentBlack, OpaqueBlack, OpaqueWhite.

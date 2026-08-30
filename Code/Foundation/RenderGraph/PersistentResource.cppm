@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :persistent_resource partition
 //
 // A persistent resource that survives across frames with tracked state.

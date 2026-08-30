@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AnimationSampler: track/clip sampling + pose blending. Covers the ported math directly (no
 // Sedulous sampler test existed).
 #include <doctest/doctest.h>

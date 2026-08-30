@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :menu partition
 //
 // Menu (PopupMenu): a floating vertical list of rows - a context menu or a menu dropped from a

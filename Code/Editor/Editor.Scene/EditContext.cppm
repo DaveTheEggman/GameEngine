@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :edit partition.
 //
 // SceneEditContext: the per-page scene mutation mediator (the Lumix

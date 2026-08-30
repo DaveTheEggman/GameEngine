@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :color_functions partition
 //
 // Built-in color manipulation functions for .sss stylesheets:

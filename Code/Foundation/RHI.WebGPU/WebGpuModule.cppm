@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu - WebGPU RHI backend.
 ///
 /// Written against the STANDARD webgpu.h; on desktop the implementation is the

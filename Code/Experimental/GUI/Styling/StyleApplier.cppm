@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :style_applier partition
 //
 // ApplyStyle: writes a ResolvedStyle's known declarations onto a node's properties - the

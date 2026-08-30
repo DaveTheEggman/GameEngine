@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.animation:propertyanimator
 //
 // PropertyAnimatorComponent + its per-scene manager (Engine side). One animator

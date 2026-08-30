@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG batch/cache/clip: VGBatch bookkeeping, PathCache reuse + LRU, ClipPathManager.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

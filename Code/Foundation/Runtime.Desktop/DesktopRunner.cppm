@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.runtime.desktop - the desktop application runner.
 //
 // RunApplication is the DESKTOP execution model: a blocking wall-clock loop that drives an

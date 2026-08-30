@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials.PipelineCache - the `foundation.materials.pipelinecache` module.
 ///
 /// The render-side PSO cache: the one piece of the shader/material stack that lives

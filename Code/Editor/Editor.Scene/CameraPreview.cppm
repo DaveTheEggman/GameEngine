@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :camera_preview partition (task #118).
 //
 // The testable, UI-FREE core of the scene-editor camera preview: the CameraOverride a selected /

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - foundation.fonts.ttf:init partition
 //
 // Registers/unregisters the TTF parser + atlas baker with the IO factories.

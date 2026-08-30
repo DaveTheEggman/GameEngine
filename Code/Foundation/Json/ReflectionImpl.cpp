@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - :reflection implementation unit
 //
 // The REFLECT_VALUE body for JsonValue + RegisterJsonTypes(). Kept OUT of the :reflection interface

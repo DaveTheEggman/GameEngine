@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :flow_layout partition
 //
 // Arranges children left-to-right (horizontal) or top-to-bottom (vertical), wrapping to the next

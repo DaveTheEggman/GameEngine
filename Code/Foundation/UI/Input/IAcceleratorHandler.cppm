@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :iaccelerator_handler partition
 //
 // Implement on a View to receive Alt+key accelerator events. Accelerators are searched top-down

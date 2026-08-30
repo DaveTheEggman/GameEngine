@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:instance` partition.
 ///
 /// MaterialInstance: a per-use copy of a Material's properties with overridable

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :linear_allocator partition
 //
 // LinearAllocator: bump-pointer arena over a caller buffer; bulk Reset().

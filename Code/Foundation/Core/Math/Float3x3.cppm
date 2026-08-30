@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :float3x3 partition
 // Float3x3: 3x3 row-major matrix (rotation / normal matrices) - multiply,
 // Transpose/Determinant/Inverse, and FromMat4 (upper-left 3x3).

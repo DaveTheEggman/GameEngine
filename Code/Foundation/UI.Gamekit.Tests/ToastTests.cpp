@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - ToastHost behavior (native, backend-neutral). Copied from the toolkit; these mirror
 // the behaviour contract: Show tracks a card, timed toasts expire on Update, sticky toasts persist
 // until Dismiss, and an action toast fires its callback (then closes).

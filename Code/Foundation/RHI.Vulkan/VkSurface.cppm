@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vulkan implementation of Surface.
 /// Wraps VkSurfaceKHR + parent VkInstance for cleanup.
 

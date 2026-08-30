@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Vector Graphics Distance Field Fragment Shader
 // Decodes a multi-channel signed distance field (MSDF) atlas into a crisp, screen-space
 // antialiased alpha, then outputs premultiplied-alpha color. Reference copy - the compiled source

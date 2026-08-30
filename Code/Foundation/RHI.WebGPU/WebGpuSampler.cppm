@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:sampler - Sampler over WGPUSampler.
 ///
 /// Two narrowings vs the RHI desc (both logged nowhere - they are static, documented

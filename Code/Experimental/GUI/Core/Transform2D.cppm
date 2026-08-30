@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :transform2d partition
 //
 // Transform2D: a 2D affine transform, the primitive Transformable (Phase 1) composes

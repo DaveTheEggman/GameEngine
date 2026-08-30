@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :content_fit partition
 //
 // ContentFit: how a content box (of `contentSize`) is placed inside an outer `region`

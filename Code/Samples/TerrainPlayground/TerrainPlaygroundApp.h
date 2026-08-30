@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TerrainPlaygroundApp - the terrain showcase, shared by the desktop and web entry points
 // (Main.cpp / WebMain.cpp - the WebSceneApp.h pattern: this header uses the modules the including
 // TU imports, so it declares NO imports of its own). Builds a heightfield IN CODE, wraps it in an

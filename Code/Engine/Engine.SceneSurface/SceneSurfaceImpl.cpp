@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::SceneSurface - implementation unit (the wide subsystem imports live here, keeping the
 // interface BMI lean). The full scene composition is built ONCE from a single per-domain module
 // list; AddAllSceneManagers / RegisterAllSceneComponentReflection are thin wrappers over that

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :bottom_dock partition
 //
 // BottomDock: a Godot-style collapsible bottom strip. A thin tab bar is ALWAYS visible; above it sits a

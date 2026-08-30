@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :abstract_item_view partition
 //
 // AbstractItemView: the shared engine behind ListView / TableView / TreeView. Modeled on eepp's

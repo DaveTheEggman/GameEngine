@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Audio - the `:bus_layout_page` partition.
 //
 // AudioBusLayoutPage: the mixer editor. A bus TREE on the

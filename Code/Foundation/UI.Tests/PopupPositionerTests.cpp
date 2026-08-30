@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/PopupPositionerTests.bf (faithful). Beef `let (x,y) = ...` tuple ->
 // Float2; RectangleF -> core::Rectangle; Vector2 -> Float2; Math.Abs(d) < eps -> doctest::Approx.
 #include <doctest/doctest.h>

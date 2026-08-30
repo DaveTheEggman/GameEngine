@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TerrainSculptTool tests (headless): a whole sculpt gesture is scriptable through ViewportToolInput
 // (no viewport), so this drives press -> drag -> release over an in-memory terrain and asserts the
 // shared heightfield is raised, ONE region-delta command undoes/redoes it, the brush is unavailable

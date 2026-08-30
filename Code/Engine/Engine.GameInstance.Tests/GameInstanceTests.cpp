@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.gameinstance - the extracted run bracket owns the script run state + time scale.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

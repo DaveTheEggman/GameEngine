@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.audio tests: the scene integration headless - autoplay on scene
 // start, per-frame position/velocity sync (the doppler feed), finished-voice reap into
 // the component, the per-scene group pausing with scene simulation, the component

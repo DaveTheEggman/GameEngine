@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit HDRColorPicker: constructs, round-trips an HDR color, decomposes intensity.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

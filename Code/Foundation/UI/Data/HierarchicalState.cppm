@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :hierarchical_state partition
 //
 // Captures/restores TreeView state (expansion + selection + scroll) across data reloads or view

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :button_editor partition
 //
 // Property editor that displays a clickable Button (used for actions like "Add Condition"). Ported from

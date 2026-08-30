@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :radio partition
 //
 // RadioButton + RadioGroup: a mutually-exclusive selection. Modeled on eepp's UIRadioButton

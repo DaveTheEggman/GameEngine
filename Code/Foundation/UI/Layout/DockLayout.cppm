@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :dock_layout partition
 //
 // Docks children to edges (Left/Top/Right/Bottom/Fill); each docked child claims space from its edge,

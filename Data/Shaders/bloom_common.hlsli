@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 Texture2D<float4> Src  : register(t0, space0);
 SamplerState      Samp : register(s0, space0);

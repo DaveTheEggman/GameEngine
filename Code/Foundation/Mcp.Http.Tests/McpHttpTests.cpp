@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp.Http tests - the streamable-HTTP binding over REAL loopback sockets: an
 // authorized JSON-RPC exchange (initialize + a tool call) through HttpFetch, every refusal
 // (no token, wrong token, wrong method, unknown endpoint), the 202 notification path, and

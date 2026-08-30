@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Abstract Backend, Adapter, and Device interfaces.
 ///
 /// Backend is the entry point - it enumerates GPU adapters and creates

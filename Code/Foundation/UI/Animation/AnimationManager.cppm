@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :animation_manager partition
 //
 // Manages active animations. Owned by UIContext (a by-value member) and ticked each frame. Owns its

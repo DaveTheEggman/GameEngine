@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :simd_matrix partition
 //
 // Matrix4: aligned (16-byte) SIMD 4x4 matrix, backed by four simd::f32x4 rows. Same convention as the

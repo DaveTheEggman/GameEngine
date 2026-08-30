@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_atlas partition
 //
 // Builds a packed image atlas for theme drawables. Wraps ImageAtlasBuilder and creates

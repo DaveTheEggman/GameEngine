@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :sss_parser partition
 //
 // Parses .sss stylesheet text into a StyleSheet (used internally by StyleSheetLoader). Ported from

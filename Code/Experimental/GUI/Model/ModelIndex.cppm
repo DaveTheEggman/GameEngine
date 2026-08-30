@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :model_index partition
 //
 // ModelIndex + ModelRole: the address of a cell in a Model, and the aspect a view asks for.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :expander partition
 //
 // Collapsible container with a clickable header and expandable body. Ported from

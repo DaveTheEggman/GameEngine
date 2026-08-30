@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample029 -- ResolveTexture (Explicit 4x MSAA). Ported from Sedulous Sample029_ResolveTexture.
 /// Demonstrates explicit MSAA resolve via CommandEncoder::resolveTexture().

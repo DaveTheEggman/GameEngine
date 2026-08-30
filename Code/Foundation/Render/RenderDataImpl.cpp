@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:data` partition.
 ///
 /// The render-data contract - and the boundary that keeps the renderer scene-agnostic.

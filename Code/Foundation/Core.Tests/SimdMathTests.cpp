@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Unit tests for the SIMD math types (:simd_vector, :simd_matrix).
 //
 // Strategy: the packed Float* types are the already-tested scalar reference. For each operation we

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:command_pool - CommandPool over per-encoder allocation.
 ///
 /// WebGPU has no pool object - encoders come straight from the device and are

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net.manager - the runtime networking home (NetworkManager) mechanics + facade registration.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :float_editor partition
 //
 // Float property editor - a NumericField with focus-based edit transactions (Escape restores the pre-edit

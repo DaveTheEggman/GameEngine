@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - GridLayout + RelativeLayout tests: children are positioned by the layout
 // rules from the padding-inset content box, and re-laid-out on size/child changes.
 #include <doctest/doctest.h>

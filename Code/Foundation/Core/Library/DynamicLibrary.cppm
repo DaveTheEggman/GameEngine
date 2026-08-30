@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :library partition
 //
 // DynamicLibrary: an RAII handle over the System raw dynamic-library calls,

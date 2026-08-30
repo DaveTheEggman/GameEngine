@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG (2D vector-graphics) fragment shader. Samples the atlas at t0/s0, modulates by the vertex
 // color, folds AA coverage into alpha, and outputs PREMULTIPLIED-alpha color (rgb *= a) to pair
 // with the renderer's PremultipliedAlpha blend. Premultiplied compositing removes the dark halo on

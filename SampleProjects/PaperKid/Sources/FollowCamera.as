@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // FollowCamera - the third-person chase camera.
 //
 // A behavior on the camera entity. The target (the bike) is an [null] Entity@ PROPERTY: pick it in

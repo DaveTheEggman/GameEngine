@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :property_editor partition
 //
 // Abstract base for the typed property editors used by PropertyGrid (label + editing-control row).

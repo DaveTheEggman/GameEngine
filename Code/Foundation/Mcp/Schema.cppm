@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp - :schema partition
 //
 // The JSON Schema SUBSET the MCP layer emits (in tools/list inputSchema) and validates (on

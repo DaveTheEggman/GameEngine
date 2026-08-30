@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_palette partition
 //
 // Seed colors for a theme; controls + theme builders derive consistent state variants from these.

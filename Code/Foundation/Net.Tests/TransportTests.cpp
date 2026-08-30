@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net:transport - the loopback/sim transport (deterministic latency/loss/reorder/dup).
 #include <doctest/doctest.h>
 #include <initializer_list>

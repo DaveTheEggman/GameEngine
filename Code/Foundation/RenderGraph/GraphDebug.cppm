@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :debug partition
 //
 // Debug visualization/reporting: Graphviz DOT export and a text summary. Ported

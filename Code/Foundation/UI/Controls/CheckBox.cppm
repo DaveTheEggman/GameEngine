@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :checkbox partition
 //
 // Toggle checkbox with a text label. Ported from Sedulous.UI/src/Controls/CheckBox.bf (a View, not a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :input_filter partition
 //
 // Filters characters before insertion into a text control. Ported from

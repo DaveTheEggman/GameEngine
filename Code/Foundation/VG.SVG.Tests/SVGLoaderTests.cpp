@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Extra coverage (not from Sedulous.VG.Tests): exercise SVGLoader + SVGRenderer
 // end-to-end on a small document.
 #include <doctest/doctest.h>

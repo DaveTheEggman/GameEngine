@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:pipeline` partition.
 ///
 /// PipelineConfig: the full render-state description for a material (shader name +

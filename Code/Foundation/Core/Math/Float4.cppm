@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :float4 partition
 //
 // Float4: 4D f32 vector - arithmetic, Dot/Length/Normalized, XYZ(), component

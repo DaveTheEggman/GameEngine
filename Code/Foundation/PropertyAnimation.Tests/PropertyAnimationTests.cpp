@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.propertyanimation - evaluation (track Sample into Variants, quat slerp, durations) and
 // the reflection binding resolver (nested paths, missing/invalid targets, write-through re-walk).
 

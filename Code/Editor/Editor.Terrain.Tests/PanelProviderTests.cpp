@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Terrain tool-panel providers (the first consumers of the editor.app:tool_panel seam): after
 // RegisterTerrainToolPanels, the registry resolves a provider for each brush tool id, and each
 // provider builds a non-null settings panel for its concrete tool. Headless - the panel is just a

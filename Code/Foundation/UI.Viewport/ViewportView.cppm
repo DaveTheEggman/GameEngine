@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Viewport - `foundation.ui.viewport`
 //
 // ViewportView: a retained-mode ui::View that hosts 3D-rendered content. It owns an offscreen

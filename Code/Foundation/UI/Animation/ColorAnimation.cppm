@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :color_animation partition
 //
 // Animates a Color value from a start to an end color via a setter delegate. Ported from

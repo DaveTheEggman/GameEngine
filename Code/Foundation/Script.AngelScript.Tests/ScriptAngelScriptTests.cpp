@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.AngelScript tests: the reflected-type EMISSION
 // suite in AngelScript syntax (the battery certifies the context contract;
 // emission is certified per backend), the shared conformance battery, and the

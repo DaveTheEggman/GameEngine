@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // RenderStressTest - a deliberate worst-case renderer benchmark, ported from Sedulous's
 // EngineRenderStressTest. It keeps us honest as rendering features land: a flat grid of
 // spheres positioned so the camera sees ALL of them at once (frustum culling can't help),

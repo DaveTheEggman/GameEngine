@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :core_reflection implementation unit
 //
 // The reflection bodies for Core's value types. Kept OUT of the :core_reflection

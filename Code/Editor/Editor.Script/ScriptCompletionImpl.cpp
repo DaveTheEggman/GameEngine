@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script - the `editor.script` module.
 //
 // ScriptApiCompletionProvider implementation: serves candidates from the page's SHARED

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Draw-cost probe for large property grids (the ImportTest blank-UI incident: a ~1300-field
 // generic asset form exceeded the VG renderer's per-frame vertex ceiling, blanking the whole
 // window - blank-but-interactive, the 9e35fb51 class). Pins that off-screen rows contribute no

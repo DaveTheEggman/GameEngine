@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :media_query partition
 //
 // MediaQuery + MediaContext: `@media` condition evaluation. Ported from eepp's css/MediaQuery

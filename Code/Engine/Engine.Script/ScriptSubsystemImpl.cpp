@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Script - implementation unit: the reflection bodies + the
 // component-destroy hook. They live OUTSIDE the interface for GCC: REFLECT_*
 // bodies in a module interface make GCC emit an unreadable gcm cluster for

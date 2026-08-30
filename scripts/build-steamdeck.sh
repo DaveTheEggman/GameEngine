@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 #
 # build-steamdeck.sh - build Steam Deck-compatible Linux binaries (editor + player + all tools).
 #

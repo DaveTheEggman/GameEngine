@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :export_template partition.
 //
 // Export templates: portable, per-platform prebuilt bundles (a player binary + its runtime sidecars +

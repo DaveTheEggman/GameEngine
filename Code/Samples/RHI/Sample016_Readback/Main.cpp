@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample016 - GPU Readback. Ported from Sedulous Sample016_Readback.
 /// Renders a colored triangle to a small offscreen texture, copies it to a

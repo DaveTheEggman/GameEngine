@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell - the `foundation.shell` module.
 //
 // IShell is the raw OS/window service - the "shell" (Sedulous's term for it):

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AudioBusLayoutPage tests (headless): the cycle guard is a pure free function, and the ASSET
 // round-trips through the binary serializer (the page's undo-blob path). The tree/inspector
 // wiring needs a live host and is exercised in the editor app.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Image - reflection implementation unit: ImageAsset's reflected surface.
 //
 // Kept OUT of the ImageAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;

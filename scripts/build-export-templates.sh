@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 #
 # build-export-templates.sh - build export TEMPLATES (prebuilt runtime bundles) for the
 # supported platforms, so `Tools.Export` / the editor can stamp shippable dists against them.

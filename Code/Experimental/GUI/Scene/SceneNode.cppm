@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :scene_node partition
 //
 // SceneNode: the root of a widget tree AND its coordinator (eepp Scene::SceneNode). A Node

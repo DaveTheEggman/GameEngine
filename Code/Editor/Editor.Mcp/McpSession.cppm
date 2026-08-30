@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :session partition
 //
 // The shared host-session state + small JSON/content helpers every editor.mcp tool partition

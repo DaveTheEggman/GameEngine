@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :job_system partition
 //
 // A stackless work-stealing job system: a fixed (pre-sized) worker pool with per-worker

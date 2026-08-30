@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - the `:player` partition.
 ///
 /// AnimationPlayer: single-clip playback for one skeleton instance - time advance, looping/clamping,

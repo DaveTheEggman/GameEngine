@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.net - replication rides the per-scene FIXED lane:
 // NetworkSceneSystem::OnFixedUpdate drives the endpoint's UpdateReplication, while the transport half
 // (UpdateTransport) pumps the socket per-frame. These tests prove the round-trip works when driven by

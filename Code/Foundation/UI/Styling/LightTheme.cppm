@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :light_theme partition
 //
 // Factory building a light theme as a StyleSheet (flat ColorDrawable regions + tinted SVG icons). Ported

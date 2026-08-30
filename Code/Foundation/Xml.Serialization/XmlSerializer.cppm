@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml.Serialization - the `foundation.xml.serialization` module.
 //
 // An XML backend for Core's format-agnostic ISerializer/Serializer contract:

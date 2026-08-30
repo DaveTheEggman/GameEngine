@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.IO - foundation.fonts.io:manager partition
 //
 // Thread-safe font cache keyed by (path, pixel height). Loads source-format

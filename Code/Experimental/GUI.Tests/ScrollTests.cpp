@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - ScrollBar + ScrollView tests: scroll offset clamping, wheel bubbling from
 // hovered content, drag (with the leave-during-capture regression), and ScrollBar<->ScrollView
 // composition.

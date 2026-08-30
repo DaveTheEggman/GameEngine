@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :layout partition.
 //
 // PER-PROJECT editor-state persistence, UNIFIED on the structured settings store

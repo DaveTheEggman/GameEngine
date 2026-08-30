@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:component` partition.
 ///
 /// The value-pool component contract. A component is plain value data; the typed

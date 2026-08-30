@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Render - the `:scene_renderer` partition.
 ///
 /// `ISceneRenderer` (+ CameraOverride/TargetState) MOVED to the light `foundation.render.api`

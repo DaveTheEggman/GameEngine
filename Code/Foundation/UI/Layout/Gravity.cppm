@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :gravity partition
 //
 // Alignment flags for positioning a view within its parent's available space (combine H + V with |).

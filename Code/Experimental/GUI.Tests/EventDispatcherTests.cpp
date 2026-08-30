@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - EventDispatcher tests: hover enter/leave, click, focus (click + program-
 // matic), key/text routing to the focus node, and interaction-ref cleanup. Input is
 // injected as abstract events (the shell bridge's job), hit-tested via the tree's OverFind.

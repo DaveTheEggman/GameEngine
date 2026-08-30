@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render.Api - the `foundation.render.api` module.
 ///
 /// The renderer's SCENE-RENDERING INTERFACE, extracted into a light module (core + rhi + scene

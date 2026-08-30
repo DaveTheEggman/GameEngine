@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ParticleFX - the particle-system showcase. Builds a ParticleEffect in code (an additive fountain),
 // attaches it to an entity via ParticleEffectComponent, and lets engine.particles tick the
 // CPU sim + draw the billboards through the dedicated ParticleRenderer. Phase 2 of the particle track

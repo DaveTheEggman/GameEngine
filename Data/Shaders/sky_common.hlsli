@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 cbuffer Sky : register(b0, space0) {
     row_major float4x4 InvViewProj;    // inverse of this frame's UNJITTERED view-proj (stable sky ray under TAA)
     row_major float4x4 PrevViewProj;   // last frame's view-proj (motion vectors)

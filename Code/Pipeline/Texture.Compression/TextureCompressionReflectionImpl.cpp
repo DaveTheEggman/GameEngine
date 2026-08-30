@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // texture.compression - reflection implementation unit: the TextureUsage + CompressionChoice enum
 // bodies. Kept OUT of the interface (REFLECT_* bodies make GCC emit a gcm cluster; GCC module
 // hygiene) AND separate from the encoder impl (no reason to pull the reflection header in beside

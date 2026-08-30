@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :iserializable partition
 //
 // ISerializable: the polymorphic serialization base. A type that wants to be

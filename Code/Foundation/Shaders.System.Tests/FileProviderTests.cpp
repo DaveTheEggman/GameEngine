@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for the FileShaderSourceProvider (engine shader root) and the
 // ShaderSystem provider seam: manifest scan + stem/stage mapping, lazy fetch, pull-on-miss
 // through GetVariant with .hlsli include resolution, explicit-registration precedence, and

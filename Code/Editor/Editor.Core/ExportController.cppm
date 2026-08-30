@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :export_controller partition.
 //
 // ExportPresetsController: the non-UI logic behind the editor's "Export presets" panel - a

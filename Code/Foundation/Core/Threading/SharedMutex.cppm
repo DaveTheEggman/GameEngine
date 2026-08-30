@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :shared_mutex partition
 //
 // Writer-preferring read/write lock + ScopedSharedLock guard.

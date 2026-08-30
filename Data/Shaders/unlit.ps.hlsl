@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // variants: GBUFFER
 cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     row_major float4x4 ViewProj;

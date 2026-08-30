@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.net - the network's SceneModule contributes the NetworkComponentManager to the scene
 // composition, so authored NetworkComponents (and the server's runtime AssignNetworkId) have a home.
 #include <doctest/doctest.h>

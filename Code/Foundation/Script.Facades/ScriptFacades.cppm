@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.Facades - the `foundation.script.facades` module.
 //
 // The curated behavior facades: the per-entity

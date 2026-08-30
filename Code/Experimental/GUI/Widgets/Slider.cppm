@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :slider partition
 //
 // Slider: a draggable value in [0,1]. A lean native control modeled on eepp's

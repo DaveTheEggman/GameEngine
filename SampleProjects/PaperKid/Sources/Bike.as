@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Bike - the player's ride.
 //
 // A per-entity script BEHAVIOR attached to the bike entity (which carries a CharacterComponent =

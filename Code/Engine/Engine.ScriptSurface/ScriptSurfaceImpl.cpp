@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::ScriptSurface - implementation unit.
 //
 // The wide fan-in over every subsystem that contributes a script facade lives HERE (one TU),

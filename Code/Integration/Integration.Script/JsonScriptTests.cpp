@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Script - JSON through the scripting backends.
 //
 // SUBJECT is the cross-collection flow foundation.json x foundation.script.angelscript: a script

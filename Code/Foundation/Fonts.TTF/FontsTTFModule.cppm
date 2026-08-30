@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - the `foundation.fonts.ttf` module.
 //
 // TrueType/OpenType backend over stb_truetype: a TrueTypeFont (IFont), a

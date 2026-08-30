@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Navigation - :subsystem partition.
 //
 // NavigationSceneSystem: the per-scene navigation runtime. At OnSceneStarted it loads every

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :bar partition
 //
 // Bar: a game fill bar over the CORE ProgressBar, adding an OPTIONAL SMOOTH DRAIN - AnimateTo tweens

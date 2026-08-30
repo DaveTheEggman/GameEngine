@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :editor_icons partition.
 //
 // Hand-authored editor icon set: inline SVG strings materialized ONCE into shared

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Conversion utilities between foundation::rhi enums and Vulkan enums.
 /// Ported from Sedulous.RHI.Vulkan/VulkanConversions.bf.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - the `editor.app:tool_panel` partition.
 //
 // The viewport-tool PANEL seam. A viewport tool (editor.viewport-

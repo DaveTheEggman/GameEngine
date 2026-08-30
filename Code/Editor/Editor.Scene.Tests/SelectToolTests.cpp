@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // SelectTransformTool tests: the default viewport tool preserves the pre-framework page
 // behavior exactly - gizmo drags are one undo entry and consume the pointer (pick suppressed),
 // click-pick selects/toggles/clears, editingLocked (Simulate) blocks drags but NOT selection,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :code_edit_view partition
 //
 // CodeEditView: the purpose-built code editor widget over the

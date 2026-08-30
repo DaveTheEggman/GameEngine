@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :instance partition
 //
 // Instance: a borrowed, type-erased { void*, TypeInfo* } target for member

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG geometry: PathBuilder/Path queries, flattening, shapes, dashing.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

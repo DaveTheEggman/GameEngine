@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor App - :container_list_editor partition
 //
 // A generic list-of-asset-slots PropertyEditor: ONE property-grid row whose editor view is a header

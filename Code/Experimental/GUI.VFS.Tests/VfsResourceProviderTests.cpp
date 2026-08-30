@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for experimental.gui.vfs::VfsResourceProvider - loads + decodes background-image assets from
 // a VFS. A mock in-memory IFileSystem exercises the plumbing; a real BMP round-trip (SaveImage ->
 // NativeFileSystem -> LoadImage) exercises the decode path.

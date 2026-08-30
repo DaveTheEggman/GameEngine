@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Validates the foundation.fonts.io port: extension-routed parser/baker factories
 // and the FontManager cache. Sedulous exercised this path through its TTF
 // backend; here we drive it with fake parser/baker built on the baked types so

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Rect tests. Derived from eepp Rectf behavior (Left/Top/Right/Bottom,
 // contains/intersect), adapted to the x/y/w/h storage.
 #include <doctest/doctest.h>

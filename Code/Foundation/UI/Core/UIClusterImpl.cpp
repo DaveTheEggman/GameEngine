@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for foundation.ui.
 //
 // Holds the two styling methods that call into View (StyleSelector::Matches, StyleSheet::Resolve).

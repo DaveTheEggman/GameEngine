@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ControlTests.bf - the Button/RepeatButton/CheckBox subset
 // + the Button/CheckBox OnActivate cases from DirectionalFocusTests. Text rendering is not
 // exercised in the controls, but every tested behavior (state/events/toggle/measure fallback)

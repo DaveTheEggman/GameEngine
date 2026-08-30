@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.Facades - implementation unit: the REFLECT_* bodies (they
 // never sit in a module interface unit - the GCC gcm-cluster rule).
 

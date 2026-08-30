@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Particles - particles.subsystem implementation unit: the component reflection body.
 //
 // Kept OUT of the :components interface partition: REFLECT_* bodies in an interface

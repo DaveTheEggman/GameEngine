@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ClipEditorView seam tests. The shared editing view lives
 // over the IClipEditorHost seam, so it drives edits through a HOST's clip + command stack rather than
 // owning them. These tests host it against a minimal fake (a clip + a real EditorCommandStack) and

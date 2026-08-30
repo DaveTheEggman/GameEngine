@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Input - InputSubsystem implementation unit: the Input facade reflection body.
 //
 // Kept OUT of the interface: REFLECT_* bodies in an interface unit make GCC emit

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:gpu_mesh` partition.
 ///
 /// GpuMeshCache: uploads a StaticMesh's vertex + index streams to the GPU on first use and

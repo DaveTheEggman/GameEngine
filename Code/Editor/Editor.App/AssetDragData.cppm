@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor App - :asset_drag_data partition
 //
 // The typed drag payload for asset-browser drags: the dragged

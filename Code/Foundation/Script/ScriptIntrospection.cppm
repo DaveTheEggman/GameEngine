@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Script - :script_introspection partition
 //
 // The accurate data source for a future ScriptClassesView / autocomplete: what is

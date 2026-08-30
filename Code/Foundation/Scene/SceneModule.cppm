@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - `foundation.scene`, the scene / ECS foundation.
 ///
 /// The engine's world model: scenes of entities with a transform hierarchy and

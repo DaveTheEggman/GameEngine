@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::PropertyAnimation - the `editor.propertyanimation:panel` partition.
 //
 // PropertyAnimationPanel is the PERSISTENT in-scene property-animation editor: a docked View - NOT a

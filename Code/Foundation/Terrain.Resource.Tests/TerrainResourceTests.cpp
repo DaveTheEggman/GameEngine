@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The cooked terrain resource: TerrainSource v2 (top-K: base + palette + weightsId) serialize
 // round-trip, the v1 (fixed-4-layer) UPGRADE gate, and a full content-DB build through the
 // manager that RESOLVES the referenced heightfield (proving the shared Ref) while the texture

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Web - the `foundation.shell.web` module (primary interface unit).
 //
 // A self-contained IShell backed by a single HTML <canvas> under Emscripten - the web counterpart

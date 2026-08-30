@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - ScreenStack + UIScreen behavior (native, backend-neutral).
 //
 // Exercises the stack mechanics the `ui` script facade rides: push/pop/replace/clear + top/count, the

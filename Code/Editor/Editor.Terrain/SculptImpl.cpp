@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - :sculpt implementation (TerrainSculptTool + provider + registrar).
 //
 // The heavy engine/resource imports the interface partition deliberately keeps out (GCC module

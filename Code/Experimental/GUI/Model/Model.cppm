@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :model partition
 //
 // IModel: the abstract data source a model-backed view renders. Modeled on eepp's Models::Model

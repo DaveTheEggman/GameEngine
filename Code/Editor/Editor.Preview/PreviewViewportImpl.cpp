@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // PreviewViewport implementation (see PreviewViewport.cppm). The bodies here are the
 // substrate each bespoke page would otherwise hand-roll verbatim: build a private preview
 // scene, bind the ViewportView to its host window on first frame, drive the EditorCamera

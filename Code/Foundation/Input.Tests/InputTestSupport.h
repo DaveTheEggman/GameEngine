@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shared synthetic-device + representative-map helpers for the input tests.
 //
 // Header-only test scaffolding (internal linkage - each including TU gets its own copy).

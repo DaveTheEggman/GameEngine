@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Net.Manager - implementation unit: the REFLECT_* body for the Net facade +
 // the registration (kept out of the interface unit per the GCC gcm-cluster rule).
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Cross-backend orientation probe: render ONE asymmetric scene (a bright cube in the TOP half
 // over a dim ground plane in the bottom) through the FULL RenderFrame chain - forward + tonemap,
 // with and without the TAA resolve - on REAL Vulkan and WebGPU devices, read the pixels back,

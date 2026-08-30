@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - the scene/prefab tool flow: an agent opens a
 // project, authors a scene THROUGH THE TOOLS (write validates first), validates it, reads it back
 // byte-identically, and gets real refusals with reasons (garbage XML, wrong-type guid redirects,

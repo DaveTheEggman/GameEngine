@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::PropertyAnimation - the `editor.propertyanimation:clip_editor_view` partition.
 //
 // ClipEditorView: the SHARED clip-editing surface - a scrollable

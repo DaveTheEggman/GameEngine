@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :type_registry partition
 //
 // Explicit type registration; lookup by id or qualified name.

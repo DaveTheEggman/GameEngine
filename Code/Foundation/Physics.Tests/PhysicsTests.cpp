@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.physics core tests: headless Jolt world - "determinism-enough" simulation
 // (spawn/step/assert poses), the layer matrix, compound building, queries, kinematic
 // motion, and contact/trigger buffering.

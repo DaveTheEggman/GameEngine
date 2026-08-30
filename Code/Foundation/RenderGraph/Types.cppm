@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :types partition
 //
 // Core value types: resource/pass handles, pass + access enums, subresource

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :atlas_image_drawable partition
 //
 // Draws a sub-region of a shared atlas image (single-texture batching for themed UI).

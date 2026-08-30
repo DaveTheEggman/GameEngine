@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :shortcut_manager partition
 //
 // Manages global and scoped keyboard shortcuts, owned by UIContext. Dispatch order: focused-view key

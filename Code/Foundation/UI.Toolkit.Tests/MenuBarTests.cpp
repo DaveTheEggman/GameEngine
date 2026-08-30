@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for MenuBar: constructs, adds menus, tracks count, returns usable ContextMenus.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

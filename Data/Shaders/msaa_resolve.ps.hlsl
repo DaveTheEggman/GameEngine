@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Scene-pass MSAA first-sample (sample 0) resolve.
 //
 // Reads the multisampled depth + G-buffer aux (normal / velocity / material) written by the MSAA

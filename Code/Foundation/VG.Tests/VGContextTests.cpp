@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VGContext: batch production, transform/opacity, immediate-mode, images, commands.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

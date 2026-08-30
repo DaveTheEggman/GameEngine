@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:compute_pipeline - ComputePipeline over WGPUComputePipeline.
 
 module;

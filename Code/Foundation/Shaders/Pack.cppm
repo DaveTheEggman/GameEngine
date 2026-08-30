@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Cooked shader pack - the dist's compiler-free shader store.
 //
 // A dist carries no DXC/naga: every (shader name, stage, variant, backend format) the

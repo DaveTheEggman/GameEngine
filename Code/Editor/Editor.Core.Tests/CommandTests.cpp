@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorCommandStack tests: Lumix semantics - execute/undo/redo,
 // failed-execute drop, redo-tail truncation, same-type merge (slider drags), group transactions
 // (atomic undo/redo, same-type coalescing, LockGroup).

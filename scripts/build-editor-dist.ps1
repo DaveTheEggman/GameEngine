@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 <#
 .SYNOPSIS
   Assemble a portable, downloadable EDITOR distribution for Windows (x64).

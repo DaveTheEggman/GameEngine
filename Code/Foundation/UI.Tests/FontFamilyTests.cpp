@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/InlineStyleTests.bf - the ResolveStyleFontFamily / FontService
 // subset (the tests that exercise the font-service wiring: View::ResolveStyleFontFamily() falling back
 // to UIContext's IFontService default, the .FontFamily cascade winning over it, and per-instance

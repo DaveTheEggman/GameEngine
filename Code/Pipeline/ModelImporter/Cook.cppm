@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::ModelImporter:cook - cook a loaded Model into a content database.
 ///
 /// Cooks a model's textures, materials, and meshes through the editor stack (Asset ->

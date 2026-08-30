@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/SSSParserTests.bf.
 //
 // The resolution-pipeline tests are driven end-to-end through a real

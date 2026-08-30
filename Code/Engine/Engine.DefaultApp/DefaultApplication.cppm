@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::DefaultApp - the `engine.defaultapp` module.
 //
 // DefaultApplication: an opinionated IApplication base that registers the standard

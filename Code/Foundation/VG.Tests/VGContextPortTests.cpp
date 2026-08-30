@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.VG.Tests/VGContextTests.bf. (Sedulous Color32.Yellow is
 // inlined; Float4x4 != uses the C++20 rewrite of operator==.)
 #include <doctest/doctest.h>

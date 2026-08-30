@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :drawable partition
 //
 // Drawable: base class for composable visual primitives. Stateless; render into a bounds

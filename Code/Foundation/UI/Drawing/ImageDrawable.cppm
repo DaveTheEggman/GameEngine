@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :image_drawable partition
 //
 // Draws an image stretched to fill bounds. Ported from Sedulous.UI/src/Drawing/ImageDrawable.bf.

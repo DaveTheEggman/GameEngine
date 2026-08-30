@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Viewport tool-PANEL seam tests. The registry (keyed by tool id,
 // idempotent, first-wins) and ViewportToolPanelHost (the active-tool -> panel mount controller) are
 // pure logic, so they exercise headlessly: fake tools drive a ViewportToolManager, fake providers

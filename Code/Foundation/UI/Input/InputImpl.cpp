@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for the Input managers.
 //
 // Holds the View-touching bodies of FocusManager / InputManager / ShortcutManager and View's

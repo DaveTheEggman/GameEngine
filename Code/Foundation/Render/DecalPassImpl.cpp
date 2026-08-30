@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:decal_pass` partition.
 ///
 /// Screen-space projected decals, ported from SedulousEngine's DecalPass/decal.frag: reconstruct the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.propertyanimation - the binding resolver implementation. Walks the reflected property
 // chain (FindProperty per dot-segment, Nested for intermediates) and writes the leaf via reflection
 // set. Kept out of the interface (uses the reflection header + is not header-inline hot).

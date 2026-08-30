@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - ButtonPrompt behavior (native, backend-neutral).
 //
 // A ButtonPrompt shows "[<binding>] <text>". These cover the raw Set() and SetFromAction() resolving

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - CLikeLexer implementation (declared in :code_lexer).
 //
 // One configurable scanner covers the C-family languages the editor hosts; language identity

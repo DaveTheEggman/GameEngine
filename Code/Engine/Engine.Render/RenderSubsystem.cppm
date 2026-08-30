@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Render - the `:subsystem` partition.
 ///
 /// RenderSubsystem: the Context-level driver that connects scenes to the (scene-agnostic)

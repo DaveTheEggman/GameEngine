@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:debug_draw` partition (Debug layer).
 ///
 /// Instance-based immediate-mode debug drawing, ported from SedulousEngine's Sedulous.Renderer.Debug

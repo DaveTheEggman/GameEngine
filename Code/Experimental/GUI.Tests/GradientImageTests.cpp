@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - gradient + image/nine-slice drawable tests. Metadata + GPU-free geometry
 // checks (VGContext tessellates into a CPU vertex batch).
 #include <doctest/doctest.h>

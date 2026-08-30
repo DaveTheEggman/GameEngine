@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/DrawableTests.bf (faithful; Beef `new X()/defer ReleaseRef` ->
 // stack values / MakeRef children, `===` reference-equality -> pointer ==).
 // NOTE: the two NineSlice_* tests are not ported; they require NineSliceDrawable.

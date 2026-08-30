@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:buffer - Buffer over WGPUBuffer, with the Map emulation.
 ///
 /// The RHI's Map contract is Vulkan-shaped: a PERSISTENT COHERENT pointer - callers

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_selector partition
 //
 // Matches views by type, style class(es), control state, and optional pseudo-element name.

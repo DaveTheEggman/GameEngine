@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :popup_layer partition
 //
 // Central overlay manager: always the last child of RootView (topmost for drawing, first for hit-test).

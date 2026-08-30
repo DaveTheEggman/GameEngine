@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - the `:pose` partition.
 ///
 /// AnimationPose: a non-owning view over per-bone local transforms (+ optional morph weights)

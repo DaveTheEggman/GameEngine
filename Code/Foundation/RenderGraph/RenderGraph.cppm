@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :graph partition
 //
 // The orchestrator. GPU work is declared as passes with resource accesses; the

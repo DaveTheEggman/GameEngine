@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Physics - the `editor.physics` module (tooling).
 //
 // CollisionShapeEditorPage: the bespoke authoring page for a CollisionShapeAsset. It replaces the

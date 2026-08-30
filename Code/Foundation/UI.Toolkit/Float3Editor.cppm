@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :float3_editor partition
 //
 // Property editor for Float3 values - three NumericFields (X, Y, Z) side by side with colored axis labels.

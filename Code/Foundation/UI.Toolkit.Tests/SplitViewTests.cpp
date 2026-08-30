@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for SplitView: panes, ratio clamp + event, and a basic horizontal layout split.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

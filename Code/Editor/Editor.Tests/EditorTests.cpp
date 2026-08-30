@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Basic checks for the asset-pipeline base (Asset serialize round-trip + builder dispatch shape).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

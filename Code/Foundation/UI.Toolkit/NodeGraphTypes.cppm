@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :node_graph_types partition
 //
 // Plain data types describing a node graph: ports (typed, colored), nodes (title / position / ports),

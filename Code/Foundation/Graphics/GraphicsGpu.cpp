@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Graphics - implementation unit for `foundation.graphics.gpu`.
 //
 // All the backend-coupled code (Vulkan / DX12 / validation) lives here rather than

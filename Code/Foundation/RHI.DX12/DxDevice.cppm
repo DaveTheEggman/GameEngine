@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of Device.
 /// Creates ID3D12Device, manages descriptor heaps, queues, command signatures,
 /// and an internal blit pipeline for texture copy / mipmap generation.

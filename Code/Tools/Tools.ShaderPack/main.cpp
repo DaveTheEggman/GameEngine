@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tools.ShaderPack - a headless CLI that cooks the engine shader corpus into a CookedShaderPack
 // (shaders.dpak). This is the standalone shader half of what the exporter does: enumerate a shader
 // directory (Data/Shaders), compile every stage x variant to the requested backend blobs, and write

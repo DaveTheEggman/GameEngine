@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net.replication - NetworkId, the replicated-field layout harvest, and the reflection-
 // driven Variant<->wire codec. The central bet: a component marks fields Replicated and the wire
 // format is GENERATED from reflection - no hand-written per-component net code.

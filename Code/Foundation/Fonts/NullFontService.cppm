@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - :null_service partition
 //
 // A no-op IFontService (returns null for everything) for tests/headless use.

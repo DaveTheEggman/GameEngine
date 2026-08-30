@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :radio_group partition
 //
 // Groups RadioButtons for mutual exclusion (a vertical FlexLayout). Ported from

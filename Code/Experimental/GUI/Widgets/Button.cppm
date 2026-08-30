@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :button partition
 //
 // Button: a clickable Label. A lean native control modeled on eepp's UIPushButton

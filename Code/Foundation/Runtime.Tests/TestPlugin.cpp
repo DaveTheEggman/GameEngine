@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // A real plugin shared library, dynamically loaded by the PluginHost::Load test.
 // It registers a subsystem on load and removes it on unload; the subsystem bumps
 // a counter the test observes across the library boundary via TestPluginTicks.

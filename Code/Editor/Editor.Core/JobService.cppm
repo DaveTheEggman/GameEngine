@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :job_service partition.
 //
 // A GENERIC editor background-job runner with progress + step reporting (the pattern EditorCookService

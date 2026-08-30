@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG radial-gradient fragment shader (reference copy; the compiled source is
 // Data/Shaders/vg_grad_radial.ps.hlsl). The tessellator emits (pos-center)/radius as TexCoord, so
 // t = length(TexCoord) is computed per pixel (exact radial falloff), sampled from the baked ramp

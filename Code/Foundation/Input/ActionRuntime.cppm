@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Input - :runtime partition.
 //
 // ActionRuntime: per-frame evaluation of an InputMap against

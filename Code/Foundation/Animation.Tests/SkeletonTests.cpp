@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Skeleton hierarchy: name lookup, root/child/order building, world-pose accumulation, and
 // skinning-matrix correctness (identity at bind pose). No Sedulous test existed; this covers the
 // ported math directly.

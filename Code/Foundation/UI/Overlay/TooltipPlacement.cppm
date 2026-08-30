@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :tooltip_placement partition
 //
 // Where a tooltip appears relative to its anchor view. Ported verbatim from

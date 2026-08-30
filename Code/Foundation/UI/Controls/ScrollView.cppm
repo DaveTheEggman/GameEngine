@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :scroll_view partition
 //
 // Scrollable container: content can exceed the viewport, with optional scroll bars and momentum-based

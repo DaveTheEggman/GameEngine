@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :tab_widget partition
 //
 // TabWidget: a row of tab buttons over a content area that shows the selected tab's panel.

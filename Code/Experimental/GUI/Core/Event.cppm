@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :event partition
 //
 // Event + EventType + EventCallback: the high-level typed-event foundation nodes register

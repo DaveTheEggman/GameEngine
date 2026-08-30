@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Cook - the `editor.cook` module.
 //
 // The incremental cook driver. One rule decides

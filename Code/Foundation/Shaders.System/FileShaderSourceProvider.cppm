@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Shaders.System - the `:file_provider` partition.
 ///
 /// The DEV IShaderSourceProvider: engine built-in shaders as real files under the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :flattened_tree_adapter partition
 //
 // Wraps an ITreeAdapter to present as an IListAdapter for ListView virtualization: maintains expansion

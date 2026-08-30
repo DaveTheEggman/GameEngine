@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG.SVG::SVG - :renderer partition.
 //
 // SVGRenderer: draws an SVGDocument to a VGContext (standalone, no UI framework).

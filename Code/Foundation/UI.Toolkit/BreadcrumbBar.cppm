@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :breadcrumb_bar partition
 //
 // Horizontal path display with clickable segments and separator arrows. Ported from

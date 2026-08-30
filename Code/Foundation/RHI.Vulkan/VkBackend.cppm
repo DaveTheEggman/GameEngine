@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vulkan implementation of Backend.
 /// Creates VkInstance, enumerates physical devices, creates surfaces.
 /// Ported from Sedulous.RHI.Vulkan/VulkanBackend.bf.

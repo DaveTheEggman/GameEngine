@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:adapter - Adapter over WGPUAdapter.
 ///
 /// GetInfo maps WGPUAdapterInfo/limits/features onto the RHI's AdapterInfo;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Desktop - the `foundation.shell.desktop` module.
 //
 // The desktop shell target (Windows/Linux/macOS), implemented on SDL3:

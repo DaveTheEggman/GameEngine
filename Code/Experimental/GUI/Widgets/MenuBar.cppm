@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :menu_bar partition
 //
 // MenuBar: a horizontal strip of buttons, each opening a Menu below it - the classic

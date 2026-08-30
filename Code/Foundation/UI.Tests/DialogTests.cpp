@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/DialogTests.bf (faithful). Beef nullable String -> non-empty check;
 // `scope Dialog` / `new Dialog` -> RefPtr (RAII, ownsView:false so the test controls lifetime); Event
 // delegate captures -> lambda captures; ctx.MutationQueue.Drain() -> ctx.MutationQueueRef().Drain().

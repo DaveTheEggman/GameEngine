@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :curve partition
 // A general scalar keyframe curve: an ordered set of {time, value, tangents, interpolation} keys
 // sampled at an arbitrary time, using cubic-Hermite segment math and the :easings partition. Shared

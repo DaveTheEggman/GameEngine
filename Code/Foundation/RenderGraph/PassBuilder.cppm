@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :pass_builder partition
 //
 // Fluent builder handed to a pass's setup callback to declare reads/writes,

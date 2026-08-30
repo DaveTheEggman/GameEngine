@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// GLTF/GLB model loader using cgltf.
 /// Ported from Sedulous.Models.GLTF/GltfLoader.bf.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for SSSParser::ApplyInlineStyle.
 //
 // Holds the View-touching body of SSSParser::ApplyInlineStyle (it reaches into the View cluster for

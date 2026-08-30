@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Meshes as resources: cook a mesh (capture -> source -> content DB), then build it
 // back through the ResourceManager via the factory and verify the runtime mesh round-
 // trips its vertices/indices/submeshes/bounds. Covers both the static and skinned paths.

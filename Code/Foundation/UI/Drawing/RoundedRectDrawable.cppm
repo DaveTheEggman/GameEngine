@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :rounded_rect_drawable partition
 //
 // Filled rounded rectangle with optional border; per-corner radii via vg::CornerRadii.

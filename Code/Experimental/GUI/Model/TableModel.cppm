@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :table_model partition
 //
 // TableModel: a concrete multi-column Model - named columns and a grid of Variant cells.

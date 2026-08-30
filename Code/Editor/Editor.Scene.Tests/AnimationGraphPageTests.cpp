@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AnimationGraphEditorPage tests (headless): the "New Animation Graph" seed is a free, pure
 // function, and the ASSET (source + editor-only canvas layout) round-trips through the binary
 // serializer - the same blob path the page's undo snapshots ride. The canvas/inspector wiring

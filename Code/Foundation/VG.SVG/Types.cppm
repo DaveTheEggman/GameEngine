@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG.SVG::SVG - :types partition.
 //
 // SVG element/document model: SVGElementType, SVGTextAnchor, SVGElement (a parsed

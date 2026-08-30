@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :asset_create_dialog partition.
 //
 // AssetCreateDialog: the NEW-ASSET twin of the AssetPickerDialog - choose a GROUP (tree, same

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :slider partition
 //
 // Value slider with track, fill, and draggable thumb. Ported from Sedulous.UI/src/Controls/Slider.bf.

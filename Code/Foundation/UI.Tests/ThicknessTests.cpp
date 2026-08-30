@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ThicknessTests.bf (faithful; Beef Test.Assert -> doctest CHECK,
 // Beef properties -> methods).
 #include <doctest/doctest.h>

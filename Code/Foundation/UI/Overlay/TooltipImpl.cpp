@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for TooltipManager.
 //
 // Holds the View-touching bodies of TooltipManager (it reaches across the whole View cluster: UIContext,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :file_sink partition
 //
 // FileSink: appends formatted lines to a file.

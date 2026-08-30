@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Materials as resources: author a Material, capture it into a MaterialSource that
 // references a ShaderSource by id, then build the Material through the ResourceManager
 // with both factories registered. Verifies the cooked Material resolves the shader's

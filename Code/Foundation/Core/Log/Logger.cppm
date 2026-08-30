@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :logger partition
 //
 // Logging frontend: log levels, the ILogSink interface, the Logger (sink list

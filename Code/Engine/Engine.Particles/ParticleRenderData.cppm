@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.particles:renderdata - the render-data the particle billboard path produces.
 //
 // A ParticleBillboardRenderData is a BATCH: one item per (system, texture, blend) carrying a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::UI.Toolkit - the `foundation.ui.toolkit:timeline` partition.
 //
 // Timeline: a time RULER + draggable PLAYHEAD scrubber over a SECONDS axis.

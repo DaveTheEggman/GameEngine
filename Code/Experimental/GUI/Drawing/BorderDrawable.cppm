@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :border_drawable partition
 //
 // BorderDrawable: a stroked (optionally rounded) rectangle border. Derived from eepp's

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Sandbox - the first on-screen test of foundation.ui (the Sedulous.UI port). Builds a small View tree
 // (a themed FlexLayout panel of controls), styles it with the ported DarkTheme StyleSheet, lays it out
 // with UIContext, and renders it through the same VG -> VGRenderer -> RHI path as VGSandbox/GUISandbox.

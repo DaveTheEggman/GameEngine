@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.audio core tests: the HEADLESS engine (no device - Update() pumps the mixer,
 // so the whole voice state machine runs deterministically): handle validity across slot
 // generations, the Traktor steal policy (free -> lower priority -> farthest same

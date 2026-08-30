@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :style_selector partition
 //
 // CSS selector matching, ported from eepp's css/StyleSheetSelector(+Rule). A StyleSelector

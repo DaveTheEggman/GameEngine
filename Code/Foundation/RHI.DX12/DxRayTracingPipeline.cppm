@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of RayTracingPipeline.
 /// Wraps a D3D12 state object created via ID3D12Device5::CreateStateObject.
 /// Ported from Sedulous.RHI.DX12/DX12RayTracingPipeline.bf.

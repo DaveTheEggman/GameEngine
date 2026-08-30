@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // BottomDock tests: the Godot-style collapsible bottom strip. Headless - exercises the tab/expand
 // state machine + OnExpandedChanged event + per-tab content visibility (the host wires the event to
 // SplitView::SetPaneCollapsed; that half is covered by SplitViewTests).

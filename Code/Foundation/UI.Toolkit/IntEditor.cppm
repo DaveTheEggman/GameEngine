@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :int_editor partition
 //
 // Integer property editor - a NumericField with 0 decimal places and focus-based edit transactions. Ported

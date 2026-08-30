@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "ibl_common.hlsli"
 
 static const float API = 3.14159265359;

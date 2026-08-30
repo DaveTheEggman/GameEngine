@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Proves the authoring pipeline end to end (no editor UI): build a ParticleEffect in code, cook it
 // into a content-DB ParticleEffectResource, then load it back through the ResourceManager + factory
 // and verify the reconstructed effect matches - modules polymorphically rebuilt via reflection - and

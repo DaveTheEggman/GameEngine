@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net.manager - the Net facade PROVEN end-to-end on both script backends.
 //
 // ManagerTests.cpp checks the facade TYPE registers; this drives a real AngelScript

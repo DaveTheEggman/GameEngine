@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample007 - Instanced Rendering. Ported from Sedulous Sample007_Instancing.
 /// Renders 64 small quads in a grid using instanced draw with per-instance offset + color.

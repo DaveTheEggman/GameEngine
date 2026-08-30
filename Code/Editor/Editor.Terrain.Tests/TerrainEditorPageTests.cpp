@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TerrainEditorPage tests (headless): the pure stat-lines readout + the TerrainAsset v2 blob
 // round-trip the page's undo snapshots ride (versioned payload - the page wraps its snapshots in
 // BeginVersionedPayload so the top-K fields survive) + the v1 upgrade the page reads old assets

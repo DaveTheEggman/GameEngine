@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.Baked - the `foundation.fonts.baked` module.
 //
 // Pre-baked IFont / IFontAtlas implementations with no rasterizer dependency:

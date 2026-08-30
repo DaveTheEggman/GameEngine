@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Animation-graph creator path through a REAL project: create instance -> WriteObject(seeded)
 // -> ReadObject (the page-open read). Regression coverage for the New-Asset flow (the original
 // crash was a missing ctor init in the PAGE, but this pins the data path).

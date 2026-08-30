@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :ui_page partition.
 //
 // UIEditorPage: the UI-side extension of the headless editor::EditorPage - a page that owns a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Physics - PhysicsWorld implementation (module IMPLEMENTATION unit).
 //
 // ALL Jolt contact lives here: the interface stays JPH-free (API hygiene + GCC's module

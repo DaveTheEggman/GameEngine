@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS - :data_root partition.
 //
 // Discovers the DATA ROOT: the "Data" directory that holds the runtime assets, shaders, and

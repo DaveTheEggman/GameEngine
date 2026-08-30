@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::UI.Script - implementation unit: view-handle + `ui` facade bodies, the REFLECT_VALUE /
 // REFLECT_MEMBERS registrations, and the RegisterUiScriptSurface entry point. Kept out of the interface
 // units (the REFLECT bodies + foundation.ui contact never sit in a module interface - GCC gcm-cluster

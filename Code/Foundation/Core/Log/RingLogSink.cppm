@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :ring_log_sink partition
 //
 // RingLogSink: keeps the most recent records in a ring buffer (tools / in-app

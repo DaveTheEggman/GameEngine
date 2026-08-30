@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Texture - reflection implementation unit: TextureAsset's reflected surface.
 //
 // Kept OUT of the TextureAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm

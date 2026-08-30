@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebMain.cpp - the BROWSER entry for WebScene (see WebSceneApp.h - the shared full-renderer
 // exercise scene). Web platform trio: WebShell + WebGPU + the requestAnimationFrame runner via
 // APP_MAIN's web body. The cooked WGSL shaders.dpak + this sample's preload wiring live

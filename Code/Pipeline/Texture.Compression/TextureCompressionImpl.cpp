@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // texture.compression impl - the encoder dispatch + policy table. The heavy encoder headers live
 // ONLY here (GCC module hygiene). bc7enc = BC7; rgbcx = BC1/3/4/5.
 

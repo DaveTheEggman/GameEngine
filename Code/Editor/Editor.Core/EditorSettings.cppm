@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The editor's USER-LEVEL settings store (<user-data>/editor.settings.xml): the
 // cross-project preference sections (fonts, UI scale), the file plumbing, and the
 // one registration entry point for every section type.

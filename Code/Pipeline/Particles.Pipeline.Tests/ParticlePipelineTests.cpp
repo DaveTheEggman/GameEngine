@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The full authoring bake: author a ParticleEffectAsset in code, cook it with
 // ParticleEffectAssetBuilder into a content-DB instance, then load the cooked ParticleEffectResource
 // back through the ResourceManager + factory and confirm it round-trips + simulates. Mirrors

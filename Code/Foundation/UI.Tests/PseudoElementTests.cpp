@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/PseudoElementTests.bf (faithful, full file, 17 cases). Covers
 // pseudo-element ("part") styling end-to-end: StyleSelector matching + specificity with a pseudo,
 // StyleSheet part resolution over the UIContext/RootView/TestView tree (ForTypePseudo/ForTypePseudoState,

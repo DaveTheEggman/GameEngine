@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Runtime.Client - :embedded_host partition.
 //
 // EmbeddedApplicationHost: the editor-embedding adapter (Sedulous

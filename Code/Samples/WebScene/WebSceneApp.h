@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebSceneApp - the FULL-RENDERER exercise scene, shared by the desktop and web entry points
 // (Main.cpp / WebMain.cpp - the PlayerApplication.h pattern: this header uses the modules the
 // including TU imports). One lean, procedurally built scene that touches every renderer feature,

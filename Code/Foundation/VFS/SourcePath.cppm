@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS - :source_path partition.
 //
 // SourcePath: a typed MOUNT-RELATIVE logical path - the currency for source-file

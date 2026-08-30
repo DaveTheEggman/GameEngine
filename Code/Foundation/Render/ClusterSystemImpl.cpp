@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:cluster_system` partition.
 ///
 /// Clustered light culling. Bins lights into a 3D froxel grid (screen tiles ×

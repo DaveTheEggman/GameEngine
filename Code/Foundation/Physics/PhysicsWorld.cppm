@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Physics - :world partition.
 //
 // PhysicsWorld: the Jolt-backed rigid-body world. Jolt is the

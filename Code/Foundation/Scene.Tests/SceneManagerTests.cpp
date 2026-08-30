@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.scene :manager - SceneManager owns a group of scenes, assembles them through a
 // type-erased installer, tears them down through a type-erased uninstaller, and ticks its own group
 // (the linchpin of the GameInstance model).

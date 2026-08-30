@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma pack_matrix(row_major)
 
 // Terrain chunk VS. ONE 65x65 grid (+ a skirt copy) is drawn for every chunk; this shader places each

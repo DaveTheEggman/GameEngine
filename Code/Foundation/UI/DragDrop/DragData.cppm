@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :drag_data partition
 //
 // Base class for drag-and-drop payload data. Subclass to carry typed data; the Format string enables

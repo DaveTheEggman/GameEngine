@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :modal_backdrop partition
 //
 // Semi-transparent backdrop drawn behind modal popups; blocks input to underlying content by consuming

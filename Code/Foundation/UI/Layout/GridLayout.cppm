@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :grid_layout partition
 //
 // Row/column grid with Auto/Fixed/Flex track sizing and auto-flow placement. Ported from

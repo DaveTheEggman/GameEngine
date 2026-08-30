@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GPU-free guard/bounds coverage for GraphProfiler (Sedulous ships no profiler
 // test; the timing path needs a real device + fence wait, exercised in samples).
 #include <doctest/doctest.h>

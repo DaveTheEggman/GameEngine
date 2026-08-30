@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :label partition
 //
 // Text display view with alignment, word wrap, and ellipsis. Ported from Sedulous.UI/src/Controls/

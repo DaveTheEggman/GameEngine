@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_extension partition
 //
 // Lets external libraries inject style rules into a theme StyleSheet after base theme init.

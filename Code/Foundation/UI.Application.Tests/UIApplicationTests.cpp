@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Application tests: the dockable-window chrome policy.
 // RuntimeDockableWindowHost itself needs a live GraphicsDevice + UIHost, so the unit under test
 // here is the pure platform-policy mapping the host resolves through; the host-side wiring

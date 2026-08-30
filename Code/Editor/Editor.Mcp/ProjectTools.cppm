@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - `editor.mcp`
 //
 // The project MCP tool contribution: project_create / project_open / project_info. Lets an agent

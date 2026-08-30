@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_value_parser partition
 //
 // Parses style value literals from .sss token text (shared between the .sss parser and the .sml

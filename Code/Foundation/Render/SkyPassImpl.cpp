@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:sky` partition.
 ///
 /// Draws the environment as the visible background: a fullscreen triangle at the far plane, depth-

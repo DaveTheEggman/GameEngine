@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :idockable_window_host partition
 //
 // Bridge between the docking system (UI layer) and the application (framework layer). Abstracts whether

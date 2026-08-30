@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - `foundation.animation`, the engine's skeletal-animation foundation.
 ///
 /// A faithful port of Sedulous.Animation (foundation only - no rendering dependency; the renderer

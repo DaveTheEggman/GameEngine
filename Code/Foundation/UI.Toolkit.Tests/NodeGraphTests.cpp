@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Verbatim port of Sedulous.UI.Tests/src/NodeGraphTests.bf (SedulousEngine).
 // Data-model + add/remove/connection/selection/transform/auto-size/custom-validator coverage for the
 // toolkit NodeGraphCanvas. Beef `scope NodeGraphNode()` (heap, owned) -> the canvas stores nodes as

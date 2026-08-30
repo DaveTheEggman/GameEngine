@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Regression: the "property-field" style class (the editor sizes property-grid fields through
 // it) must reach the NumericFields INSIDE every toolkit property editor. Float3Editor & friends
 // have their own nested field subclasses - a field created without the class silently keeps the

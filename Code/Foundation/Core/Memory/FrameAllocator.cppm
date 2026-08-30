@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :frame_allocator partition
 //
 // FrameAllocator: double-buffered linear allocator; NextFrame() swaps halves

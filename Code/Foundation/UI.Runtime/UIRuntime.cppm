@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::UI.Runtime - the `foundation.ui.runtime` module.
 //
 // UIHost: the reusable bridge that draws foundation.ui on the runtime's multi-window graphics host

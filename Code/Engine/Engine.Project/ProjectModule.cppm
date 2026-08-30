@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Project - the `engine.project` module.
 //
 // The RUNTIME-side project definition: the manifest payload (ProjectSettings), the fixed

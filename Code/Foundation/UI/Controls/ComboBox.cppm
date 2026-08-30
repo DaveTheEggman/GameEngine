@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :combo_box partition
 //
 // Drop-down selector: shows the selected item + a dropdown arrow, and opens a dedicated ComboBoxDropdown

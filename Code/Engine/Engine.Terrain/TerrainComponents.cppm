@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.terrain:components - the TerrainComponent + its manager.
 //
 // PHASE A (the authoring surface): TerrainComponent references a cooked TerrainResource (heightfield

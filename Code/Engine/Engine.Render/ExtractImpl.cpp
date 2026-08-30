@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Render - the `:extract` partition.
 ///
 /// Extraction: read a Scene's render components into a render::ExtractedScene (world-space

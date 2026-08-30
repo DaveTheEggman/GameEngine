@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Script - :script_register partition
 //
 // Bridges reflection -> scripting: registers every type in a TypeRegistry with a

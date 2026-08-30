@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Materials - reflection implementation unit: the material render-state enums.
 //
 // Reflected in their OWNING module (foundation.materials) so any consumer of a reflected

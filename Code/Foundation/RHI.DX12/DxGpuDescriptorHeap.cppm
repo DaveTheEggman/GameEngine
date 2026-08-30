@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// GPU-visible descriptor heap with contiguous block allocation.
 /// Used for CBV/SRV/UAV and Sampler heaps that are shader-visible.
 /// Ported from Sedulous.RHI.DX12/DX12GpuDescriptorHeap.bf.

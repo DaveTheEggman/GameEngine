@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AudioPlayground - the audio consumer proof: an ambient chord loop on the Music bus
 // plus four looping 3D emitters around the origin (distinct pitches of the same clip -
 // REAL pitch resampling), all authored as AudioSource COMPONENTS with autoplay on a

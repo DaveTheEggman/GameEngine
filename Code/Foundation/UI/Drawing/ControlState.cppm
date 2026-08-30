@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :control_state partition
 //
 // Visual state of a control as bit flags (combinable, e.g. Checked | Hover).

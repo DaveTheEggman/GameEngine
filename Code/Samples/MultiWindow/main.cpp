@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // MultiWindow - the runtime-host smoke test (NOT an RHI sample). It exercises the
 // promoted render host end to end: a shared GraphicsDevice, the Application's
 // per-window render loop, and runtime window creation. It opens TWO OS windows -

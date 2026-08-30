@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Lod - the `foundation.lod` module.
 //
 // Level-of-detail selection math, shared by every LOD system in the engine: mesh chains

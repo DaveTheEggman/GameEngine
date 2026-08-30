@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :float4x4 partition
 // Float4x4: 4x4 row-major matrix - transforms, projections (Perspective/Ortho/
 // LookAt RH), multiply, Transpose/Determinant/Inverse, point/direction xform.

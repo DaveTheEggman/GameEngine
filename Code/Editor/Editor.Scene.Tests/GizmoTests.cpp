@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TransformGizmo + GizmoController headless tests: pick math (priorities, grazing disable,
 // half-ring culling), drag math (translate/rotate/scale + snap quantization), and full scripted
 // drag sessions against a live Scene (one undo entry per drag via group bracketing, exact

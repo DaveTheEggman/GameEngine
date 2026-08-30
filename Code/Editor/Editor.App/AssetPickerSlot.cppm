@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor App - :asset_picker_slot partition
 //
 // The asset reference "slot": a horizontal composite

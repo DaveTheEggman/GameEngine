@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - @media query tests: condition evaluation against a MediaContext, and
 // end-to-end parsing + media-gated resolution.
 #include <doctest/doctest.h>

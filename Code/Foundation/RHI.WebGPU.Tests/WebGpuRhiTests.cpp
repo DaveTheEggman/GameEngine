@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebGPU backend bring-up tests. ENVIRONMENT-DEPENDENT by nature (they need the
 // wgpu-native sidecar AND a GPU the runtime can drive) - when the backend cannot
 // initialize, the suite reports that once and passes vacuously rather than failing

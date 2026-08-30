@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net:rpc - name-hashed RPCs with wire-serialized args over a NetSession.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

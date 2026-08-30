@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AudioClipAsset's reflected surface. Verifies the authored bool/scalar
 // fields enumerate with attributes (loop-frame fields gated on `loop`), and round-trip through
 // get/set. No enums on this asset.

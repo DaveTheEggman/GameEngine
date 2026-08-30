@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::GameUI :theme partition - the bespoke editor for UIThemeAssets (.sss).
 //
 // Mirrors UIDocumentEditorPage, but the ASSET is the stylesheet and the preview needs MARKUP to style.

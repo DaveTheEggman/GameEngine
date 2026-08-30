@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script.AngelScript - the `editor.script.angelscript` module.
 //
 // AngelScript-specific EDITOR-UI services: everything the in-editor experience needs that

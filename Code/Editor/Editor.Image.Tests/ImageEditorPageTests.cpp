@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ImageEditorPage tests (headless): factory type-dispatch + the asset blob round-trip the
 // page's undo snapshots ride. The preview + grid need a live harness (editor app).
 

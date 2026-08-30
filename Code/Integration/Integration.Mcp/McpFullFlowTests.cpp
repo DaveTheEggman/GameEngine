@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - the FULL agent-shaped sequence: one
 // golden that walks the whole workflow THROUGH THE TOOLS, in the order the skill teaches:
 // create -> open -> import a real script source -> cook -> author a scene -> validate ->

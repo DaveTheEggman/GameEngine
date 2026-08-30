@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Headless ViewportView tests via the Null RHI backend: layout creates the offscreen color+depth
 // targets and registers the color view into a VGRenderer as an external texture; OnDraw emits a
 // textured quad that Prepare can turn into a valid slice (proving the external texture is usable

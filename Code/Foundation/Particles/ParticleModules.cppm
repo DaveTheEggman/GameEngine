@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles:modules - the initializer/behavior module taxonomy + the concrete
 // modules + the CPU simulator + the runtime type-id registry. Ported from Sedulous.Particles
 // (ParticleInitializer.bf, ParticleBehavior.bf, ParticleSimulator.bf, CPUSimulator.bf,

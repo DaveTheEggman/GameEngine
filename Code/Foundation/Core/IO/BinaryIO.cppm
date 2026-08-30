@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :binary_io partition
 //
 // BinaryWriter / BinaryReader: thin typed wrappers over an IStream for raw

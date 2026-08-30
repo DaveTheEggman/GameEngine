@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Abstract swap chain for double/triple-buffered presentation.
 
 export module foundation.rhi:swapchain;

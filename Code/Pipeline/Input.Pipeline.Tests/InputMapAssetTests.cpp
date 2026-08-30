@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.input.editor tests: InputMapAsset's reflected surface - a Nested `map` property whose
 // InputMap tree (sets -> actions -> bindings) is traversable via reflection (scriptability). The
 // input editor page itself stays bespoke; this proves the asset is reflection-visible.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :label partition
 //
 // Label: a UIWidget that displays a line of text. The thinnest real control - it composes

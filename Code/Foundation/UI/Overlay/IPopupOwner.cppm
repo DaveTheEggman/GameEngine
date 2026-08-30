@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :ipopup_owner partition
 //
 // Implemented to receive notification when a popup you opened is closed. In practice every owner is

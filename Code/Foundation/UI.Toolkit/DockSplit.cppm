@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :dock_split partition
 //
 // Binary split node for the dock tree: two children separated by a draggable divider. Direct ViewGroup,

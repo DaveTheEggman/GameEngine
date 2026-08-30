@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample018 -- Bindless Textures. Ported from Sedulous Sample018_Bindless.
 /// Demonstrates bindless texture arrays with material index via push constants.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.AngelScript - implementation (module IMPLEMENTATION unit).
 //
 // ALL AngelScript SDK contact lives here: the interface unit stays engine-types-only

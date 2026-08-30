@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script.Luau - the `editor.script.luau` module.
 //
 // The Luau syntax tables + lexer registration. Luau lexes on the toolkit's LuaLikeLexer: `--`

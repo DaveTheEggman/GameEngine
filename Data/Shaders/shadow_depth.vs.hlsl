@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // variants: SKINNED INSTANCED ALPHA_TEST
 cbuffer ShadowView : register(b0, space0) {
     row_major float4x4 LightViewProj;

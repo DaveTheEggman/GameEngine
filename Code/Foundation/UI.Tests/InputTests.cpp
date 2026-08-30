@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests Input suites: FocusManagerTests, CapturePhaseTests, ShortcutManagerTests,
 // and the control-independent subset of DirectionalFocusTests (MoveFocus + OnCancel). Deferred: the
 // OnActivate/WantsArrowKeys cases (need Button/CheckBox/EditText controls) and InputFilterTests (the

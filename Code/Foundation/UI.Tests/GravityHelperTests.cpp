@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/GravityHelperTests.bf, for the margin-box
 // contract: Apply positions the MARGIN BOX (no margin parameter); View::Layout
 // insets to the border box. The margin cases below assert the margin-box rect and note the final

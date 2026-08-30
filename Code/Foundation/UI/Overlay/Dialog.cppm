@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :dialog partition
 //
 // Modal dialog with title, content, and a right-aligned button row. Shown via PopupLayer as a centered

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net.Manager - the `foundation.net.manager` module.
 ///
 /// A NETWORKED ENDPOINT, owned per running game (a GameInstance): NetworkManager owns a live

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Async resource loading (task #123): BindAsync / Pump / WaitAll, the two-stage factory protocol,
 // dedup, sync-upgrade of a pending id, the decode-failure path, budget-bounded finalize, and the
 // destructor drain. The fake factory is TSAN-safe: DecodeStage runs on a worker and only reads

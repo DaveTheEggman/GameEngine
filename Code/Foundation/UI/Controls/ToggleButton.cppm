@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :toggle_button partition
 //
 // Stateful button that toggles checked/unchecked, with a content view (a Label by default). Ported

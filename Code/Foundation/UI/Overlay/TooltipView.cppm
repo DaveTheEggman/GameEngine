@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :tooltip_view partition
 //
 // Tooltip container with a themed background. Content is any View (defaults to a simple text label set

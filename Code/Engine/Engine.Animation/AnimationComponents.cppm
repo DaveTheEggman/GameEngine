@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Animation - the `:components` partition.
 ///
 /// The scene-facing side of skeletal animation. Two components, each with a manager that ticks its

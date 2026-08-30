@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 Texture2D    CurrentColor  : register(t0, space0);
 Texture2D    HistoryColor  : register(t1, space0);

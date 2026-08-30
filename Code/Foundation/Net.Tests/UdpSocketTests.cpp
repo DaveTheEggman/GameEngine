@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net:socket - the REAL UDP backend over localhost (integration: uses the OS network stack).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - foundation.fonts.ttf:service partition
 //
 // IFontService that loads TrueType/OpenType fonts through the source-format

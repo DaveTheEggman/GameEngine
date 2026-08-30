@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Images.Tests/NormalMapTests.bf - the Image normal-map
 // generators + CalculateNormalFromHeight. Mirrors the Sedulous assertions
 // (Test.Assert -> CHECK; pixel.R/G/B/A -> .r/.g/.b/.a; Float3.X/Y/Z -> .x/.y/.z).

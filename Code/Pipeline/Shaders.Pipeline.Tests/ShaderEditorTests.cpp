@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Source-side shader cook: write two .hlsl files, point a ShaderAsset at them,
 // cook through ShaderAssetBuilder into an output content DB, and verify the cooked
 // ShaderSource carries the name + both stages' inline HLSL.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Reusable depth buffer helper for samples.
 
 export module samples.framework:depth_buffer;

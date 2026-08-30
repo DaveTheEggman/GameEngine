@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/LocalStyleSheetTests.bf (faithful, full file, 23 cases). Sub-phase E
 // lifecycle of View.LocalStyleSheet + sub-phase F/G resolution wiring (ancestor walk + context fallback +
 // pseudo-elements + inheritable-via-ForAll). Beef refcount lifecycle (`new/scope/defer ReleaseRef` + `delete

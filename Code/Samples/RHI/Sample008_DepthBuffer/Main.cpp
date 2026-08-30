@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample008 - Depth Buffer. Ported from Sedulous Sample008_DepthBuffer.
 /// Three overlapping quads at different Z depths demonstrate depth testing.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :scroll_view partition
 //
 // ScrollView: a container that clips its content to the viewport and offsets it by a scroll

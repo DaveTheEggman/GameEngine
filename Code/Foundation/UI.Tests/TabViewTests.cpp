@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/TabViewTests.bf (faithful). Beef SelectedIndex/TabCount get/set ->
 // methods; `new TestView()` content -> a MakeRef<TestView> whose ref AddView adopts (kept as a local when
 // the test inspects its Visibility). KeyEventArgs.Set + OnKeyDown drive the keyboard case. No font needed.

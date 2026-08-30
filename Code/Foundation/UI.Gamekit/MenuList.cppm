@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :menu_list partition
 //
 // MenuList: a vertical stack of selectable menu rows, "thin over CORE" - a FlexLayout of focusable

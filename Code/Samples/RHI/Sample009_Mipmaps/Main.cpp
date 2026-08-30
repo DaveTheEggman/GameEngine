@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample009 - Mipmaps. Ported from Sedulous Sample009_Mipmaps.
 /// Textured quad that recedes into the distance showing mip level selection.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Abstract resource classes. Each represents a GPU-allocated object
 /// owned and destroyed by the Device.
 

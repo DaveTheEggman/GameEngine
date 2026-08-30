@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_value partition
 //
 // A tagged value stored in a StyleRule: a discriminated union of Color / Float / Thickness /

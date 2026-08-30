@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :object partition
 //
 // Object: the polymorphic reflection root (derives RefCounted), plus the

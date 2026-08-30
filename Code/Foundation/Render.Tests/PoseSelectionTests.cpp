@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Skinned-crowd pose selection: the renderer's per-instance pose pick (SelectPose) and the crowd-
 // authoring helpers that build an Explicit per-instance index array from a grid position (ColumnPose /
 // WavePose / ClusterPose). Pure integer math, no GPU - this is where the "does the pose mode do what it

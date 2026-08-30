@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 #
 # Runs INSIDE the scripts/steamdeck/Dockerfile container (repo bind-mounted at /work). Configures
 # a Release build with Clang 21 + GCC 14's libstdc++, links libstdc++/libgcc statically, builds

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Navigation - :mesh partition.
 //
 // The Detour runtime wrappers: NavigationMesh (a loaded single-tile navmesh), its query

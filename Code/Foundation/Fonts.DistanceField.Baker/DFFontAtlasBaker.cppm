@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.DistanceField.Baker - foundation.fonts.distancefield.baker:baker partition
 //
 // IFontAtlasBaker that generates MSDF atlases via msdfgen (core-only).

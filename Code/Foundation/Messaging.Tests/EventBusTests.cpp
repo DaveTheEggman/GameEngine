@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The native event bus (foundation.messaging) - exercised with ZERO scripting, because the
 // C++-only contract is load-bearing: a C++-only game must publish/subscribe with native callbacks.
 #include <doctest/doctest.h>

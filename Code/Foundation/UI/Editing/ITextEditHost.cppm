@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :itext_edit_host partition
 //
 // Interface that TextEditingBehavior uses to talk to its host control (EditText). The host owns

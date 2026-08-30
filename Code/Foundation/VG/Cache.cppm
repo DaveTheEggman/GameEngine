@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG - :cache partition.
 //
 // Pre-tessellated path reuse across frames: CachedPath (cached fill/stroke

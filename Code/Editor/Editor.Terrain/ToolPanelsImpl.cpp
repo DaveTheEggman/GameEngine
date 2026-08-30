@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - tool-panel providers (the FIRST consumers of the viewport-tool-panel seam,
 // editor.app:tool_panel). A provider builds the on-screen settings panel for a terrain brush tool;
 // the scene page's ViewportToolPanelHost mounts it in the active tool's FloatingPanel.

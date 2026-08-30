@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::GameUI - the `editor.gameui` module.
 //
 // UIDocumentPage: text editing + LIVE PREVIEW for UIDocumentAssets.

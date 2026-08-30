@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::UI.Script - `engine.ui.script` module aggregator.
 //
 // The UI SCRIPT SURFACE: reflected typed view handles (Label/Button/ProgressBar/TextBox/ViewGroup/

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Geometry - the `:primitives` partition.
 ///
 /// Procedural primitive meshes (debug shapes / placeholders / tests). Each returns a

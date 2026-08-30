@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The engine runtime mesh format: vertex/stream sizes, the index buffer, StaticMesh
 // geometry ops, and the key design point -- SkinnedMesh IS-A StaticMesh, so its static
 // stream is usable anywhere a StaticMesh is, with the skinning stream discoverable via

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :grid_layout partition
 //
 // GridLayout: flows its children into a fixed number of columns, wrapping to a new row when

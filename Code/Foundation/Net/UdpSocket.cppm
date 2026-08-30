@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - `foundation.net:udp_socket` partition.
 ///
 /// The real UDP IDatagramSocket backend: wraps the Core/System UDP primitives (sockets live in

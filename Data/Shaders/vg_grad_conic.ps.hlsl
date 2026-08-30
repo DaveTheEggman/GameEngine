@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG conic (angular/sweep) gradient fragment shader. The tessellator emits (pos-center) rotated by
 // -startAngle as TexCoord, so the parameter t = frac(atan2(y,x)/2pi) is computed PER PIXEL (exact
 // angular sweep) instead of Gouraud-interpolating it. t is sampled from the baked 256x1 ramp LUT at

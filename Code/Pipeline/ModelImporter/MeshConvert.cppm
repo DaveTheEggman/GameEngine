@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::ModelImporter:mesh_convert - Model IR mesh -> geometry *Source.
 ///
 /// Converts a `model::ModelMesh` (raw interleaved vertex bytes described by a

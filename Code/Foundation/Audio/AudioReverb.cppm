@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Audio - the `:reverb` partition.
 //
 // A Freeverb-style Schroeder reverberator (public-domain topology: 8 parallel damped

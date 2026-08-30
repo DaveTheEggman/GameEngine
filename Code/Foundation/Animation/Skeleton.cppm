@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - the `:skeleton` partition.
 ///
 /// The skeletal hierarchy (ported faithfully from Sedulous.Animation.Skeleton/Bone). A `Bone` is a

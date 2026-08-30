@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/UnitTests.bf, for LOGICAL unit semantics:
 // layout runs in logical space and the root applies DpiScale once at draw.
 // Dp is identity at resolve (a value*scale here would DOUBLE-scale), Px divides by the scale so it

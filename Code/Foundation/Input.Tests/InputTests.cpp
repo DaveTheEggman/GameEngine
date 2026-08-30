@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.input tests: model round-trip (binary + XML) + validation, and ActionRuntime
 // evaluation over SYNTHETIC devices (the design's testing contract - no real hardware).
 

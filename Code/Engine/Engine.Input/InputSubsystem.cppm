@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Input - the `engine.input` module.
 //
 // The runtime hookup: owns the ActionRuntime + the device provider and evaluates once per

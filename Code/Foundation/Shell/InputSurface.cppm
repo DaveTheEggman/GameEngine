@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell - `:surface` partition.
 //
 // InputSurface + InputRouter: the viewport-input layer that sits above the raw

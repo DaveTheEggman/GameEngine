@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests layout suites: FrameLayoutTests, AbsoluteLayoutTests, FlowLayoutTests,
 // DockLayoutTests, GridLayoutTests, FlexLayoutTests (faithful; RefPtr views/params, Beef object-init
 // `new X() { F = v }` -> construct + set fields, Math.Abs(..) < eps -> doctest::Approx).

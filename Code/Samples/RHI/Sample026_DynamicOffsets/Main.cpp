@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample026 - Dynamic Offsets & Blend Constants. Ported from Sedulous Sample026_DynamicOffsets.
 /// Demonstrates dynamic uniform buffer offsets and blend constants.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :dock_position partition
 //
 // Position for docking a panel relative to a target. Ported 1:1 from

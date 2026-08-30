@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG.Renderer::Renderer - :renderer partition.
 //
 // VGRenderer: draws VGContext/VGBatch content through the RHI. Owns per-frame

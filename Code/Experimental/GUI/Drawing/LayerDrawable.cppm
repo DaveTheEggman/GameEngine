@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :layer_drawable partition
 //
 // LayerDrawable: stacks multiple drawables with per-layer insets, drawn in order. This is

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :guid partition
 //
 // Guid: a 128-bit globally unique identifier (asset ids, object ids, ...).

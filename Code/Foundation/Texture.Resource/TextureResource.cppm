@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Texture.Resource - the `foundation.texture.resource` module (runtime).
 //
 // The GPU texture as a runtime resource (model A, Traktor-style):

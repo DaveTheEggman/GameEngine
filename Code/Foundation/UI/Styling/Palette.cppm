@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :palette partition
 //
 // Generates derived colors (hover/pressed/disabled/focused) from seed colors, and builds

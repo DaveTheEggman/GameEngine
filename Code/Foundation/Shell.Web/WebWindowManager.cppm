@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Web - `foundation.shell.web:window_manager`.
 //
 // One canvas => one window. The main window is created at construction; additional CreateWindow

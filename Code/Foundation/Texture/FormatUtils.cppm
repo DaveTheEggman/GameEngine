@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Texture - :format_utils partition
 //
 // Maps an image PixelFormat to the RHI TextureFormat, honoring the source

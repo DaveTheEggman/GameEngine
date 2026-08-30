@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Project-registry tests: the recent-projects Settings section (touch/dedupe/order/cap/remove +
 // store round-trip), manifest probing, the engine-version relation, and the manifest backup -
 // the headless core of the built-in project manager.

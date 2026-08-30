@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::ViewportTools - implementation unit (manager state machine + provider registry).
 
 module;

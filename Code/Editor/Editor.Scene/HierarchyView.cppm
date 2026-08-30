@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :hierarchy partition.
 //
 // SceneHierarchyView: the entity tree INSIDE a scene page (multi-scene rule - one per page,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Registration - implementation unit.
 //
 // The wide fan-in lives HERE (one TU), keeping the interface BMI lean for the four hosts. This

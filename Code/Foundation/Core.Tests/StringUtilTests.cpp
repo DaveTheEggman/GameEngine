@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :string_util tests: character classification and whitespace trimming.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

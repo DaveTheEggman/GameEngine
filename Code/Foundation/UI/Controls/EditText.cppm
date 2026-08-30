@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :edit_text partition
 //
 // Single-line and multiline text input control. Implements ITextEditHost for TextEditingBehavior;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Heightfield as a resource: capture a grid -> HeightfieldSource, cook into a content DB, then build
 // it back through the ResourceManager via the factory and verify the runtime grid round-trips its
 // parameters + samples. Plus the direct source round-trip and the inconsistent-cook guards.

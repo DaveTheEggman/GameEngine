@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - :splat implementation (TerrainSplatTool). Also extends the terrain viewport-tool
 // provider (SculptImpl.cpp) to contribute this second tool.
 //

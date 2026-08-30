@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorLogBuffer tests: sink capture through the global logger,
 // incremental CollectSince polling, bounded-ring overflow with drop counting, full-fidelity
 // (untruncated) messages, and cross-thread writes.

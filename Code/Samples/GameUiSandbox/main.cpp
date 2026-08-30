@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GameUiSandbox - the game-UI-kit widgets on screen. A DefaultApplication (same host as
 // ScriptPlayground / PhysicsPlayground: UISubsystem + rendering + input come for free) that pushes a
 // game UIScreen onto the UISubsystem's screen-tier ScreenStack and fills it with the gamekit widgets:

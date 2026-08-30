@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full font asset pipeline: author a FontAsset over a real TTF -> cook with
 // FontAssetBuilder into an output content DB -> load the cooked FontResource through the
 // ResourceManager with the device-free FontFactory and verify the rasterizer-free product.

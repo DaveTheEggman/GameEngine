@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.navigation scene integration: a baked zone + a MoveEntity agent. At Start the subsystem
 // loads the zone and registers the agent; navigate() then steers it, and the Update tick writes
 // the steered position back to the entity transform until it arrives.

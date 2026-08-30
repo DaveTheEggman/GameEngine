@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG distance-field (MSDF) text fragment shader. Decodes a median-of-3 signed distance from the
 // atlas and antialiases in SCREEN space (pxRange scaled by fwidth of the texcoord), so text stays
 // crisp at any scale. Shares VGUniforms (b0) for the DF metadata; pairs with vg.vs. Resolved via

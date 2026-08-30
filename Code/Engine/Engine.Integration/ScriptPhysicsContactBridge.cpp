@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Integration - implementation unit: the bridge bodies. The virtual
 // IContactListener override + the subsystem calls live OUTSIDE the interface (GCC module
 // hygiene: cross-partition inline virtuals are not reliably emitted).

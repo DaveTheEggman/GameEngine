@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :tooltip partition
 //
 // Tooltip: a small text panel shown after the pointer rests on a widget for a delay. Modeled

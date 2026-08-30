@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :password_box partition
 //
 // Masked password input. Extends EditText to display mask characters instead of the real text, and

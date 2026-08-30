@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorShell + dock-layout persistence tests (headless: views build and lay out without a
 // window, same as the toolkit's DockPersistenceTests). Covers: chrome construction (bars, dock,
 // the five persistence-id'd panels), status routing, and the save -> restore -> same-layout

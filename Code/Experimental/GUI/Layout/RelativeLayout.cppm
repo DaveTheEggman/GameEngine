@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :relative_layout partition
 //
 // RelativeLayout: positions each child by an anchor relative to the parent's padding-inset

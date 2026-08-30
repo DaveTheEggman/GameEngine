@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Image - the `editor.image` module.
 //
 // ImageEditorPage (the Texture page's source-side sibling): the inspect +

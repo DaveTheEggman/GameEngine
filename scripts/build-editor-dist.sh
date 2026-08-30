@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 #
 # build-editor-dist.sh - assemble a portable, downloadable EDITOR distribution for Linux.
 #

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shared doctest entry point for all test binaries.
 //
 // Redirects test-written scratch data (content DBs, cooked projects, temp files - all created

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Audio - the `engine.audio` module.
 //
 // Scene integration: an AudioSceneSystem per scene owns a

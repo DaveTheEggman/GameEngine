@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor navigation bake: a scene with a ground mesh + a zone -> collect the in-zone geometry in
 // zone-local space -> Recast bake -> write the NavigationZoneAsset sidecar. The written blob loads
 // back into a NavigationMesh and paths, proving the whole author-side chain end to end (headless).

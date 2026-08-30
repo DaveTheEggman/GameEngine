@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_image_set partition
 //
 // Generic container for theme images, keyed by "styleClass:propertyName". Pass to a textured-theme

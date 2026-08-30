@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :rect partition
 //
 // Rect: 2D float rectangle stored as (x, y, width, height) - matching core::Rectangle

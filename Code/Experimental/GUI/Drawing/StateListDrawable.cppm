@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :state_list_drawable partition
 //
 // StateListDrawable: maps a ControlState to a child Drawable and dispatches Draw to it,

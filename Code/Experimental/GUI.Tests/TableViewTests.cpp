@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - TableModel + TableView tests: multi-column data, virtualized rows with a
 // header, single selection (mouse + keyboard), and header-click reporting (for sorting).
 #include <doctest/doctest.h>

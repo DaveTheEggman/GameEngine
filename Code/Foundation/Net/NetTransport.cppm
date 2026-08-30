@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - `foundation.net:transport` partition.
 ///
 /// The transport seam. `INetTransport` is the swappable-backend

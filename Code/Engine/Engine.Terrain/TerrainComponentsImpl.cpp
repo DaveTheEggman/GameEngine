@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Terrain - reflection + scene-composition implementation unit.
 //
 // The REFLECT_VALUE body lives here (kept out of the interface; see gcc-module-interface-hygiene).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :easing partition
 //
 // Convenience re-exports of foundation.core's easing functions (:easings) with short, UI-friendly names.

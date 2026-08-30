@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // BuildScriptApiTree: the API browser's tree model over a bound-API surface - alphabetical
 // type + member order, signature-or-name labels, member-name insert text, and the
 // case-insensitive filter (type match keeps the whole type; member match keeps its type row).

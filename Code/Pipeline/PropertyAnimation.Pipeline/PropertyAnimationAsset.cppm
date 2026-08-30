@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::PropertyAnimation - `propertyanimation.pipeline` (tooling).
 //
 // The source asset for a property-animation clip + its XML->binary builder. Clips are authored

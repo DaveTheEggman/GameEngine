@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ScrollViewTests.bf (faithful; includes its MomentumHelper +
 // ScrollBar cases). Beef get/set properties -> methods (scroll->SetScrollY / ScrollY()); the (dx,dy)
 // tuple -> Float2. Logic only - no font service needed.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AnimationPose view. Ported from Sedulous.Animation.Tests.AnimationPoseTests.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - the `foundation.fonts` module.
 //
 // Font/glyph/text-layout types and abstract interfaces (IFont, IFontAtlas,

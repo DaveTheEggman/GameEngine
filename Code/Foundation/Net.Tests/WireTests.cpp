@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.net:wire - bit-level pack/unpack, varints, ranged-float quantization, overflow safety.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AnimationPlayer: playback, event firing, looping, evaluation. Ports the player section of
 // Sedulous.Animation.Tests.AnimationEventTests + adds playback/eval coverage.
 #include <doctest/doctest.h>

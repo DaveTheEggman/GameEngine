@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor Core - ThumbnailService implementation.
 //
 // ScheduleLoad gathers everything on the MAIN thread (instance resolve, generator lookup, the

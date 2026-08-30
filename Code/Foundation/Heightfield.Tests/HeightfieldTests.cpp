@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.heightfield: the pure grid + sampling math. Covers the size contract, exact grid-point
 // and bilinear-midpoint sampling, edge clamp, world<->grid round-trip, normals, cell bounds, and the
 // ray-march query (the editor-brush / physics-shared height source). Heightfield IS-A Object (a

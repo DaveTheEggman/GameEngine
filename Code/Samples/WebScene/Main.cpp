@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Main.cpp - the DESKTOP entry for WebScene (see WebSceneApp.h - the shared full-renderer
 // exercise scene). Desktop platform trio via APP_MAIN's desktop body, which also gives
 // the backend flags: `WebScene --vulkan` vs `--webgpu` compares the SAME scene across backends,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The scene->render extraction bridge: spawn a camera + mesh entities in a scene and
 // verify ExtractSceneInto snapshots the per-mesh world matrices + mesh/material into an
 // ExtractedScene (the data the scene-agnostic renderer consumes), and ExtractPrimaryCamera

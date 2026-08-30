@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :gradient_drawable partition
 //
 // Linear gradient fill with two colors and a direction. Ported from

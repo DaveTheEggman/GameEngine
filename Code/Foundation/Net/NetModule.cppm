@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - the `foundation.net` module.
 ///
 /// Real-time game networking: the wire format, a transport abstraction

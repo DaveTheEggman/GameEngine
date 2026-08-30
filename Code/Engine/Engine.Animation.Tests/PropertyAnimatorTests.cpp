@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.animation property animator: scene integration - a clip drives a reflected property on the
 // owning entity's component over a simulated tick sequence; loop wrapping; failed-track disable.
 

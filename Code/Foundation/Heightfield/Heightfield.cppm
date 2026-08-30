@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Heightfield - `foundation.heightfield`.
 ///
 /// The pure heightfield grid + sampling math, the shared source of truth the terrain renderer,

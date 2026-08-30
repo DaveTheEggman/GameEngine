@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shell - foundation.shell.desktop implementation unit.
 //
 // Out-of-line definitions for the SDL3 backend classes (sec 3.2 / sec 10.6): all the SDL_*

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :spacer partition
 //
 // Empty view for explicit spacing. Ported from Sedulous.UI/src/Controls/Spacer.bf.

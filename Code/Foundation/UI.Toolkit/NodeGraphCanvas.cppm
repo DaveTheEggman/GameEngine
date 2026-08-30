@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :node_graph_canvas partition
 //
 // Model-agnostic interactive node graph canvas. Renders nodes with typed ports and bezier connections.

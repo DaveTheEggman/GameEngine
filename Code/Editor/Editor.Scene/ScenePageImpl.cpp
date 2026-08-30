@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :page partition.
 //
 // SceneEditorPage: the scene document editor. Each page owns its OWN

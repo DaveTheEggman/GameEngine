@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Animation graph stack: parameters, conditions, transitions, states, layers, blend trees, graph,
 // and a graph-player smoke test. Ports Sedulous.Animation.Tests (AnimationGraph*, BlendTree*,
 // BoneMask, AnimationLayer) + adds a state-machine integration check.

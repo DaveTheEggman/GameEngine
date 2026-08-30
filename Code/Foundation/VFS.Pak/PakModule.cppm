@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS.Pak::Pak - the `foundation.vfs.pak` module.
 //
 // A packed, read-only archive backend for the VFS (the shipping counterpart to

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/UIContextTests.bf (faithful; RefPtr views, `===` -> pointer ==).
 // All managers (Input/Focus/DragDrop/Animation/Shortcut/Tooltip) are owned by-value on UIContext, so
 // Managers_CreatedByDefault just checks the accessors return non-null (they point at the value members).

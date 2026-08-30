@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:pipeline_layout - PipelineLayout over WGPUPipelineLayout.
 ///
 /// Push constants take one of two shapes:

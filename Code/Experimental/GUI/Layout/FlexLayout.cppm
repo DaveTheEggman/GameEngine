@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :flex_layout partition
 //
 // FlexLayout: a CSS-flexbox-style layout. Modeled on the CSS flex model (role, not a port). It

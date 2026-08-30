@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for the toolkit ButtonEditor: builds a Button whose click drives the action.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

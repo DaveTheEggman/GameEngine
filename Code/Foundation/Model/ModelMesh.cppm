@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// A mesh within a model containing vertex and index data.
 /// Ported from Sedulous.Models/ModelMesh.bf.
 

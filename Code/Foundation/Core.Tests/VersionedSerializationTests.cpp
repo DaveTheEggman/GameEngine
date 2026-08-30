@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Data-version scopes (serialization migration, Traktor-style): payloads carry the writing
 // type's data-version chain; Serialize bodies branch on ar.Version() to read old layouts and
 // upgrade on the next save. One code path, no migration files.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.AngelScript - AngelScript backend (foundation.script.angelscript).
 //
 // Implements Foundation::Script.AngelScript on AngelScript (the second certified backend - the

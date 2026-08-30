@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :asset_picker_dialog partition.
 //
 // AssetPickerDialog: a modal, READ-ONLY mirror of the asset browser for resource-ref picking -

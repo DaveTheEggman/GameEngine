@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :draggable_tree_view partition
 //
 // A TreeView with drag-to-reorder support. Ported from Sedulous.UI.Toolkit/src/DraggableTreeView.bf.

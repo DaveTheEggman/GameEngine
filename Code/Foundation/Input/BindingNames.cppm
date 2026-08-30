@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Input - :binding_names partition
 //
 // Human-readable names for input bindings + the enums around them: a key/pad/mouse code -> label

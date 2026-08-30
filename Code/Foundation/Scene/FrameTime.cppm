@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:frame_time` partition.
 ///
 /// FrameTime: the ONE value type carrying the scene lane's time-scale chain

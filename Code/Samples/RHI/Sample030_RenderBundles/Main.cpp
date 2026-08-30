@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample030 - Render Bundles. Records the triangle's draw commands into a render bundle
 /// (a reusable, off-thread-recordable command sequence) and replays it into the frame's render

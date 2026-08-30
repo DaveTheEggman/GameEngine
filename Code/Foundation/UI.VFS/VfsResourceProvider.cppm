@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - `foundation.ui.vfs`: an IResourceProvider backed by a VFS filesystem.
 //
 // The IO model that backs the UI's resource provider: StyleSheetLoader (@import / @icon SVG text) and

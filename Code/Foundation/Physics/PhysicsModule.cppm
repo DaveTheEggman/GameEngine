@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Physics - the `foundation.physics` module.
 //
 // The rigid-body physics core over the vendored Jolt: world,

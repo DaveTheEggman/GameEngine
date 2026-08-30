@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 Texture2D<float4> ReflTex     : register(t0, space0);   // current reflection (rgb + confidence)
 Texture2D<float4> HistoryTex  : register(t1, space0);   // previous accumulated reflection

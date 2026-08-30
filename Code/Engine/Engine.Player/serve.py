@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 # Serve a web export from THIS folder. Python 3 stdlib only.
 #
 #   python3 serve.py [port]        (default 8000)  ->  http://localhost:8000/Engine.Player.html

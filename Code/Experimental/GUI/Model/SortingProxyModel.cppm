@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :sorting_proxy_model partition
 //
 // SortingProxyModel: wraps a source Model and presents the same columns with the rows reordered

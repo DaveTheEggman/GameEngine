@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG (2D vector-graphics) vertex shader. Transforms a 2D position by the projection cbuffer and
 // passes texcoord / color / coverage through. Shared by the standard and distance-field pipelines.
 // Cooked into the engine shader pack like every other engine shader (WGSL for web, SPIR-V/DXIL for

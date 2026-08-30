@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Fonts.Tests/UIFeaturesTests.bf - the font-driven shaper
 // UI helpers (hit testing, cursor position, selection rects, font decoration
 // metrics) over the bundled Roboto asset. The pure value-type cases live in

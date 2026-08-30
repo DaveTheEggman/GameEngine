@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Terrain - the `terrain.pipeline` module.
 //
 // Tooling: the source TerrainAsset (references a heightfield asset + the splat weights + an

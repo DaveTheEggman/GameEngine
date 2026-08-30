@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DX12 implementation of BindGroup.
 /// Allocates contiguous descriptor ranges in CPU-visible heaps and writes descriptors.
 /// Ported from Sedulous.RHI.DX12/DX12BindGroup.bf.

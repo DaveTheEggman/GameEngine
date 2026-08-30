@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // EditorCamera pure-geometry + input-drive tests. EditorCamera is the algorithmic content of
 // editor.preview (LookAt solves yaw/pitch with a level horizon; the free-fly/orbit Update maps
 // gated devices to motion). PreviewViewport itself is glue over a live IApplicationHost + UIHost

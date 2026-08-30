@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // WebMain.cpp - the BROWSER entry point for Engine.Player. Shares PlayerApplication.h with the
 // desktop Main.cpp and runs the exact same generic game runner; it differs only in the platform
 // trio (web shell + WebGPU + the requestAnimationFrame runner, via APP_MAIN's web body)

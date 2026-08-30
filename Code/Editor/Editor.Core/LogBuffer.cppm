@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Core - :log_buffer partition.
 //
 // EditorLogBuffer: the editor's log capture. ONE thread-safe

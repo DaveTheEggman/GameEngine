@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ContextMenuTests.bf (faithful). Beef `delegate void()` -> Function<
 // void()>; Beef nullable String -> empty String check; MenuItem.CreateSeparator returns UniquePtr; menu
 // item/submenu structure only (no popup, no font).

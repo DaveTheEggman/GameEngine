@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Validation wrapper for Adapter.
 /// Ported from Sedulous.RHI.Validation/ValidatedAdapter.bf.
 

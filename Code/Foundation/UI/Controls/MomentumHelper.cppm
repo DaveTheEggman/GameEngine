@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :momentum_helper partition
 //
 // Physics-based kinetic scrolling helper. A plain value struct embedded in ScrollView: call Update()

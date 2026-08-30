@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - MarkupLoader tests: inflate a widget tree from XML - element -> widget,
 // nesting -> children, id/class -> identity, claimed attributes (text/orientation) structural,
 // and everything else applied as inline CSS through the StyleApplier.

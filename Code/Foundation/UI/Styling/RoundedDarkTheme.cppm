@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :rounded_dark_theme partition
 //
 // Dark theme variant with consistent rounded corners everywhere - demonstrates that the drawable-based

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :dark_theme partition
 //
 // Factory building the default dark theme as a StyleSheet (all visual regions use Drawable properties;

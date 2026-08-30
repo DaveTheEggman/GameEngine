@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Input - the `editor.input` module.
 //
 // InputMapPage: the editing surface for InputMapAsset - a scrollable

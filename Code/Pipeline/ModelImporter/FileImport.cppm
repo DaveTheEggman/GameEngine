@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::ModelImporter - :file_import partition.
 //
 // The SOURCE-side model importer for the editor pipeline: a

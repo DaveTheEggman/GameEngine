@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Registration - the `pipeline.registration` module.
 //
 // The pipeline's COMPOSITION ROOT as a library. Every host that cooks or imports - the CLI

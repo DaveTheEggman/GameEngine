@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // SampleApp - abstract base for RHI samples (adapted from a sample
 // framework to this engine.s shell). Brings up a window (foundation.shell),
 // a Vulkan backend (validation-wrapped), device, queue, and swap chain; pumps

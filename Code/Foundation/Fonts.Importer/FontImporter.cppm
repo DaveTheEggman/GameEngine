@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.Importer - the `foundation.fonts.importer` module.
 //
 // Editor/build-time baking: turns TTF/OTF/TTC bytes into pre-rasterized

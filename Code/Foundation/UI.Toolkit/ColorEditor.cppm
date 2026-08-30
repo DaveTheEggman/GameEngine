@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :color_editor partition
 //
 // Color property editor - a ColorView swatch that opens a ColorPicker (the already-ported toolkit control)

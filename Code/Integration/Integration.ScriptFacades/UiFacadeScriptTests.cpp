@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // engine.ui.script - the `ui` script facade exercised end-to-end on both backends.
 //
 // This drives a real AngelScript / Luau VM against a real screen tier: a UIContext + RootView + a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tools.Mcp - headless MCP stdio server.
 //
 // Speaks newline-delimited JSON-RPC over stdin/stdout so an agent (e.g. Claude Code, one command

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - TreeModel + TreeView tests: hierarchical navigation (RowCount(parent)/Index/
 // ParentIndex/HasChildren), and a TreeView that flattens visible nodes, expands/collapses (arrow
 // click + keyboard), and remaps selection by node id across re-flattening.

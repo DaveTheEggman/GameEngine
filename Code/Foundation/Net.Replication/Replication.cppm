@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net.Replication - the `foundation.net.replication` module.
 ///
 /// The foundation of StateReplication: a stable per-entity NetworkId + authority, and - the central

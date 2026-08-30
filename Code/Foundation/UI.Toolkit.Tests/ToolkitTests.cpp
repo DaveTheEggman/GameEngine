@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Verbatim port of Sedulous.UI.Tests/src/ToolkitTests.bf (SedulousEngine).
 // Standalone-construction coverage for the toolkit bars (MenuBar/Toolbar/StatusBar/SplitView/
 // BreadcrumbBar), ColorPicker (+ static HSV<->RGB), PropertyGrid, and every PropertyEditor. No UIContext

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.TTF - foundation.fonts.ttf:font partition
 //
 // TrueType/OpenType IFont backed by stb_truetype. Owns the raw font bytes and

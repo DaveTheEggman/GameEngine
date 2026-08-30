@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :style_sheet partition
 //
 // Rule-based cascading style system: rules match views by type/class/state; most specific match

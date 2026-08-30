@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Full audio pipeline: author a wav (sources mount) -> AudioClipAsset -> cook via the
 // builder into an output db -> load the AudioClip product through the factory. Covers
 // write-through byte identity (NO PCM sidecars - the container bytes ARE the cook), the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - `foundation.net:reliable` partition.
 ///
 /// Reliable-UDP over the unreliable datagram substrate. A

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Luau C API includes for the foundation.script.luau backend. Kept in a header so the
 // module unit's global module fragment stays one line (the third-party-headers rule).
 // LUA_USE_LONGJMP=1 arrives PUBLIC from the ThirdParty::Luau target: the engine builds

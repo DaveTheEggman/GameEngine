@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :list_box partition
 //
 // ListBox: a scrollable, single-selection list of text items. Modeled on eepp's UIListBox

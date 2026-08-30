@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :menu_bar partition
 //
 // Horizontal menu bar with dropdown ContextMenus. Ported from Sedulous.UI.Toolkit/src/MenuBar.bf.

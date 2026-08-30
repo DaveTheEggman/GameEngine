@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Geometry.Resource - the `foundation.geometry.resource` module.
 ///
 /// Meshes as resources: a StaticMeshSource / SkinnedMeshSource (cooked content - the

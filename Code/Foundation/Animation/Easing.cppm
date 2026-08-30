@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Animation - the `:easing` partition.
 ///
 /// EasingType: a serializable enum mapping 1:1 to the core easing functions (foundation.core :easings).

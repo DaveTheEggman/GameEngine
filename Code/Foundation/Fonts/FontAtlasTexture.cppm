@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts - :atlas_texture partition
 //
 // Expands a font atlas's single-channel R8 coverage buffer into a renderer-

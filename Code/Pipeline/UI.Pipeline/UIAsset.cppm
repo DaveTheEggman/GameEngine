@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::UI - the `foundation.ui.editor` module (tooling).
 //
 // Source-side game-UI authoring + cook:

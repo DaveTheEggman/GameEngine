@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/TreeViewTests.bf (faithful). SimpleTreeAdapter test double from
 // TestHelpers.h; the borrowed adapter is declared before the TreeView so it outlives it. Beef property
 // passthroughs -> methods (tv->FlatAdapter()/Selection()); HierarchicalState.CaptureState/ApplyState take

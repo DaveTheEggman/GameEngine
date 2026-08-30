@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Input - reflection implementation unit: the input-map LEAF value types + enums.
 //
 // Reflected in their owning module (foundation.input) so the input types are visible to

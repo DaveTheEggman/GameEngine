@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Terrain pixel-level ground truth on a REAL Vulkan device. Renders terrain through the full
 // RenderFrame chain, reads pixels back, and asserts real render outcomes the Null test can't:
 //   1. a lit dome COVERS the view + SHADES (normals + lit path work, not a flat fill);

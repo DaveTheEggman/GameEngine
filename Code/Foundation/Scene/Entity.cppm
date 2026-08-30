@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:entity` partition.
 ///
 /// EntityHandle: a lightweight, copyable reference to an entity in a Scene - a pool

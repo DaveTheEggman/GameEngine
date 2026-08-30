@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :page_toolbar partition.
 //
 // PageToolbar: a standard per-page action bar - Save / Undo / Redo / Discard Changes - plus a slot

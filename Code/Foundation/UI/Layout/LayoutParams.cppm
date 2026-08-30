@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :layout_params partition
 //
 // Base layout parameters for a view within a container. Container-specific subclasses add fields

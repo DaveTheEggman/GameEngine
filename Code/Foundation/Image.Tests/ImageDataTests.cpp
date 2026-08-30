@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Images.Tests/ImageDataTests.bf - OwnedImageData,
 // NineSlice, ImageAtlasBuilder, PixelFormat. Mirrors the Sedulous assertions so
 // the ported lib inherits that suite's coverage. (Test.Assert -> CHECK; Beef

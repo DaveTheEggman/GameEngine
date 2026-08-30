@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Graphics - the `foundation.graphics.null` module.
 //
 // Headless GraphicsDevice factory over the Null RHI backend (no GPU). For CI,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::GameInstance :networkcontroller partition - a running game's networking, held off the
 // GameInstance object. It OWNS: the
 // endpoint, the INetworkController implementation, the role lifecycle (StartServer/Connect/Stop), the

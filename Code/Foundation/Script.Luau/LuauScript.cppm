@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script.Luau - the Luau VM backend for Foundation::Script.
 //
 // Implements IScriptManager / IScriptContext / ScriptObject / IScriptDelegate over the

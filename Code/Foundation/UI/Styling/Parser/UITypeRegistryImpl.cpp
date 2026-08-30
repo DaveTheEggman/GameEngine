@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for UITypeRegistry::RegisterBuiltins.
 //
 // Registers every built-in View/layout/control type name so .sss element selectors (View, ButtonBase,

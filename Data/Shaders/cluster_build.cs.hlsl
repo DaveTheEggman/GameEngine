@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma pack_matrix(row_major)
 static const uint MAX_PER_CLUSTER = 64;
 

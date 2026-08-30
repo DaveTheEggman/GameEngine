@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :path_picker_dialog partition.
 //
 // PathPickerDialog: the AssetPickerDialog's sibling for SOURCE FILES - a modal picker over

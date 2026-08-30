@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Input.Resource - the `foundation.input.resource` module.
 //
 // The cooked form of an input map: pure data (no processing beyond validation at cook),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:shader_module - ShaderModule over WGPUShaderModule.
 ///
 /// Desktop dev loop: the ShaderModuleDesc carries the SAME DXC-produced SPIR-V the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :application partition.
 //
 // EditorApplication: the editor as a runtime IApplication - the

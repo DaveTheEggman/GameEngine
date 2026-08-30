@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :screen partition
 //
 // UIScreen: one game screen/page (main menu, pause, HUD, game-over). A ViewGroup that fills its parent

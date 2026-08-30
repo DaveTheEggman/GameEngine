@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Script - :script_manager partition
 //
 // IScriptManager: the VM. Reflected types are registered with it (it walks each

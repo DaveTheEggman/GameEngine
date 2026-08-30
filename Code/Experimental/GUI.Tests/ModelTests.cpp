@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - MVC data-core tests: Variant (typed value + ToString + Compare), ModelIndex,
 // and StringListModel (row/column/data + client notification on mutation).
 #include <doctest/doctest.h>

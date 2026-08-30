@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :frame_layout partition
 //
 // Stacks children on top of each other, each positioned independently by Gravity. Simplest ViewGroup.

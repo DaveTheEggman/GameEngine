@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ImGui pixel shader: vertex color * font-atlas sample. Resolved via
 // ShaderSystem::GetVariant("imgui", Fragment).
 Texture2D    FontTex  : register(t0, space0);

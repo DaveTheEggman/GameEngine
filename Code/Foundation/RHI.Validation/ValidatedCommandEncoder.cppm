@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Validation wrapper for CommandEncoder + RayTracingEncoderExt.
 /// Ported from Sedulous.RHI.Validation/ValidatedCommandEncoder.bf.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :tab_view partition
 //
 // Tabbed container: clickable tab headers + switchable content, Top/Bottom/Left/Right strip placement,

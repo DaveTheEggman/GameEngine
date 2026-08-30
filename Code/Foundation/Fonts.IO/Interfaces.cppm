@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Fonts.IO - foundation.fonts.io:interfaces partition
 //
 // The source-format load pipeline contracts: IFontParser (source bytes -> a

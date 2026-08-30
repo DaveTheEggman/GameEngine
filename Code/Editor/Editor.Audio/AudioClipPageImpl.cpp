@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Audio - the `editor.audio` module.
 //
 // AudioClipPage: the audition page. Opens an AudioClipAsset with a peak

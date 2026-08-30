@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The Luau backend against the shared conformance battery (the certification bar every
 // backend meets) with the Luau dialect: metatable-OOP classes, our coroutine primitives
 // (startCoroutine / waitSeconds / waitUntil), closures as delegates.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :docking partition (mutually-recursive docking cluster)
 //
 // The six docking types that reference one another cyclically live in ONE partition (the established

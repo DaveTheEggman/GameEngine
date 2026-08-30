@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :ui_type_registry partition
 //
 // Maps short string names to View types (our RTTI TypeInfo). Used by the .sss parser for element

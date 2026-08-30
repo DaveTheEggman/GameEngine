@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // SplatmapAsset cook (top-K model): the two-stream ("pixels" weights + "indices") round-trip
 // through SplatmapAssetBuilder -> SplatWeightsFactory with PRODUCT guid == SOURCE guid (the
 // ref-id parity the terrain resolution rests on), the LEGACY single-raster migration

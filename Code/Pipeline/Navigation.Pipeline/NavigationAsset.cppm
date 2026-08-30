@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Navigation - the `navigation.pipeline` module (tooling).
 //
 // Source-side navmesh authoring + cook:

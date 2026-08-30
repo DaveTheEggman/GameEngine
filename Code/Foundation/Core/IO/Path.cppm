@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :path partition
 //
 // UTF-8 path string manipulation (POSIX '/' separator). Non-owning queries

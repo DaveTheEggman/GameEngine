@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Audio - :components partition.
 //
 // The authoring components: AudioSourceComponent carries the

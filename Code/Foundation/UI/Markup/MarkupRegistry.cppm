@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :markup_registry partition
 //
 // Maps XML element names to View factories and property/layout-param setters (registration-based, not

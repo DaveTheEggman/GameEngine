@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/ThemeTests.bf (faithful). Beef static props ThemePalette.Dark/Light
 // -> ThemePalette::Dark()/Light(); `let sheet = DarkTheme.Create(); ctx.StyleSheet = sheet; sheet.ReleaseRef();`
 // -> `ctx.SetStyleSheet(DarkTheme::Create())` (RefPtr ownership; Create returns refcount-1); Color byte

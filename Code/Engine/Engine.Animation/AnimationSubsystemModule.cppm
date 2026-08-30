@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Animation - `engine.animation`, the scene side of skeletal animation.
 ///
 /// SkeletalAnimationComponent (single clip) + AnimationGraphComponent (state machine / blend trees),

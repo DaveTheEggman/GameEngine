@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Script.AngelScript - the `foundation.script.angelscript.editor` module.
 //
 // The AngelScript cook service: compile-check in a cooker-owned

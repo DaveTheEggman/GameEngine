@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :import_dialog partition.
 //
 // The pre-import options dialog (Sedulous ImportDialog lineage, lean v1): dropping a file on

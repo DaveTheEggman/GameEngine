@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :view_animator partition
 //
 // Static convenience factories for common view animations. Returned animations are NOT automatically

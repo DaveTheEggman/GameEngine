@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - Threading backend (classic header).
 //
 // OS threading primitives implemented per-platform (Threading/Linux,

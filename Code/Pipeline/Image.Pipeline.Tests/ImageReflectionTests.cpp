@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ImageAsset's reflected surface (its colorSpace enum property).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

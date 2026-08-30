@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :reflection partition
 //
 // Reflection runtime built on Variant/Instance: properties, methods, enums'

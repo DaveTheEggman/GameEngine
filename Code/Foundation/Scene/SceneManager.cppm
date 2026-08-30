@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:manager` partition.
 ///
 /// SceneManager: a GROUP of scenes as a first-class scene-lib object.

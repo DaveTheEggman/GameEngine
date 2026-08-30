@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG.Renderer::Renderer - :vertex partition.
 //
 // VGRenderVertex: the GPU vertex layout (float2 pos, float2 uv, float4 color,

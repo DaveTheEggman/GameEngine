@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - module implementation unit for UIDebugOverlay::DrawOverlays.
 //
 // Holds the body (it reaches into the full View/ViewGroup cluster: Cast<ViewGroup>, view.Width()/

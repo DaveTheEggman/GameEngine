@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::GameInstance :networkcontroller - the networking role bodies.
 // A second implementation unit of engine.gameinstance; it sees
 // NetworkController through the primary interface's `export import :networkcontroller`.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Resource-reference layer: SkeletalAnimationComponent's skeleton/clip resource::Ref fields
 // round-trip through scene serialization by Guid and resolve through the ResourceManager's
 // proxy handles (mirrors the MeshComponent coverage in Render/Subsystem/Tests).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :size_spec partition
 //
 // How a view should be sized along one axis (Fixed(Unit) / Match / Wrap). Stored on LayoutParams.

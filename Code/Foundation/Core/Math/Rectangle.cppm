@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :rectangle partition
 //
 // Rectangle: 2D rectangle (x,y is the min corner) with Contains/Intersects.

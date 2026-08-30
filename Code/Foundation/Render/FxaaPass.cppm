@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:fxaa` partition.
 ///
 /// FXAA (Fast Approximate Anti-Aliasing), the TAA-OFF fallback AA. A single fullscreen LDR pass after

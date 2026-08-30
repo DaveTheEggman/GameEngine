@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GpuRetireQueue: frames-in-flight deferred GPU destruction (the web-safe replacement
 // for grow-path WaitIdle). Null-RHI: verifies aging (freed only after framesInFlight+1
 // ticks), typed retire, and Flush.

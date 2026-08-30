@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ScriptApiCompletionProvider over the SHARED ScriptApiSurface (built once through a throwaway
 // backend manager - the runtime's registration sequence): type names at top level + a type's
 // members after `Type.`. Proven identically on both backends (the surface resolves by language).

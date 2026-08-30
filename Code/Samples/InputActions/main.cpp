@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // InputActions - the foundation.input consumer proof, now the WHOLE stack in one app:
 // named actions (WASD/stick/touch move, Jump via key/pad/touch region), an exclusive Menu
 // set (suppression + held-latching), the Flax-style smoothing, the engine TIME SCALE, the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - :stack partition
 //
 // ScreenStack: manages a stack of UIScreens over a RootView (the screen tier's, wired by the host).

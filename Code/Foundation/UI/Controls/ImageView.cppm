@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :image_view partition
 //
 // Displays an image with configurable scaling. Ported from Sedulous.UI/src/Controls/ImageView.bf.

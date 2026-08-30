@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:tonemap` partition.
 ///
 /// The HDR resolve: the forward pass renders linear HDR into a transient (RGBA16F); this fullscreen

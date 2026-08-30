@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Http - implementation unit (parser, server pump, SSE writes, blocking client).
 
 module;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :scroll_bar partition
 //
 // Standalone scrollbar (used by ScrollView internally). Ported from Sedulous.UI/src/Controls/ScrollBar.bf.

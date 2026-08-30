@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Xml - :writer partition
 //
 // XmlWriter: serializes a node/tree to UTF-8 text with optional pretty-printing.

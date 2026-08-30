@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::UI.Script - :types partition
 //
 // The reflected typed VIEW HANDLES scripts get from the `ui` facade. Each is a copyable value struct

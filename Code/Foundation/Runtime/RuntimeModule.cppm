@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Runtime - the `foundation.runtime` module.
 //
 // The engine runtime: a Context owns Subsystems and drives their lifecycle and

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :string_util partition
 //
 // Small, generic string/character scanning helpers over the UTF-8 StringView: ASCII

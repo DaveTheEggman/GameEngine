@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Toolkit fragment sheet gates. The fragments are authored against the shared design system;
 // ApplyLegacyForParity remains only as a parse-failure belt. These gates check the invariants:
 // both fragments parse non-empty, Apply merges the parsed rules (not the belt), the ramp holds

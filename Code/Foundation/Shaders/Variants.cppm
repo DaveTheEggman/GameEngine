@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shader variant model - declared masks + canonicalization.
 //
 // A dist has NO compiler, so every variant the runtime can request must exist in the cooked

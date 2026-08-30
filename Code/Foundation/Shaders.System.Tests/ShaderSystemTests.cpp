@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Headless tests for the shader variant system: compile-on-demand, flags->defines,
 // caching, and invalidation. Compiles real SPIR-V via DXC; creates modules on the
 // Null RHI backend (so distinct compiles yield distinct module objects).

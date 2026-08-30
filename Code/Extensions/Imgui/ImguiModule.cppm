@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Extensions::Imgui - `extensions.imgui`, the Dear ImGui debug-UI integration.
 ///
 /// ImguiRenderer (RHI-based draw-data renderer) + ImguiSubsystem (context + per-frame NewFrame/Render

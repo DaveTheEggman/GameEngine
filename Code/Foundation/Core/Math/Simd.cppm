@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :simd partition
 //
 // f32x4: a 4-lane float SIMD register abstraction, the substrate for the aligned Vector*/Matrix4

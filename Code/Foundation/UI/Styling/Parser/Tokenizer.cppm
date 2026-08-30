@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :sss_tokenizer partition
 //
 // Lexer for .sss stylesheet files. Ported from Sedulous.UI/src/Styling/Parser/Tokenizer.bf.

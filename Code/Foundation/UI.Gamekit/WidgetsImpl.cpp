@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI.Gamekit - widget implementation unit: the game-UI widgets' RTTI definitions + logic (MenuList
 // now; Bar / Ticker / Toast to follow). Kept out of the interface partitions (GCC gcm-cluster
 // hygiene) and separate from GamekitImpl.cpp, which owns the ScreenStack + `<screen>` markup.

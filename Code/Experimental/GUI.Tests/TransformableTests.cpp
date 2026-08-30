@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Transformable tests. Derived from eepp Transformable behavior
 // (position/rotation/scale composed into a lazily-cached transform).
 #include <doctest/doctest.h>

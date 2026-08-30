@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:builder` partition.
 ///
 /// Fluent builder for authoring a Material in code: declare the shader, pipeline

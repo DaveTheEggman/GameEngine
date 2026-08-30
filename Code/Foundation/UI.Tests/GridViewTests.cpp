@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/GridViewTests.bf (faithful). Beef get/set props -> methods
 // (gv->SetAdapter / gv->ScrollY()); shared SimpleListAdapter test double from TestHelpers.h; the borrowed
 // adapter is declared before the GridView so it outlives it. Logic only, no font.

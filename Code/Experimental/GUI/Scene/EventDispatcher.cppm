@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :event_dispatcher partition
 //
 // EventDispatcher: routes abstract input into the node tree. Ported from eepp's

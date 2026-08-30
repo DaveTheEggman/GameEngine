@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - StyleRule / StyleSheet cascade tests: property blocks and specificity-
 // ordered resolution against a UIWidget.
 #include <doctest/doctest.h>

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell - :dialog partition.
 //
 // Native OS file/folder dialogs. Async by nature - the Show* call returns immediately and the

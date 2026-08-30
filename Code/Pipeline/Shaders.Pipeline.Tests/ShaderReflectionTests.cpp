@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ShaderAsset's reflected surface (name + fragmentFile strings).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

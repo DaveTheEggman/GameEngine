@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :markup partition
 //
 // MarkupLoader: inflate a widget tree from XML markup. Modeled on eepp's layout loading (role

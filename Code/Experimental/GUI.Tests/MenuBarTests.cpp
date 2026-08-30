@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - MenuBar tests: a horizontal strip of buttons, each opening a Menu below it.
 // Clicking a button toggles its menu; while one is open, hovering another button switches to
 // it; an outside click dismisses and clears the bar's state. No font is set, so each button is

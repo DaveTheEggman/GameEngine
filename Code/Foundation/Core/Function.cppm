@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :function partition
 //
 // Function<R(Args...)>: a move-only, type-erased callable (the engine's delegate

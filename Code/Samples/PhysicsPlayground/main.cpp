@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // PhysicsPlayground - the physics consumer proof: a stack of falling crates, a
 // kinematic sweeper, a trigger volume, and crosshair raycast shoving - all authored as
 // RigidBody/Collider COMPONENTS on a scene, simulated by the Jolt-backed subsystem on the

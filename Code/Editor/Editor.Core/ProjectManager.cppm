@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The project-manager CONTROLLER - the headless decision layer between the manager UI and
 // the registry/manifest primitives (:project_registry). The UI (editor.app's
 // ProjectManagerView + the application's dialogs) renders what this class decides; nothing

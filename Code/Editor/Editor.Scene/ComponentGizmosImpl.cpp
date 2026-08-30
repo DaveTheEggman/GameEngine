@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :component_gizmos partition.
 //
 // IGizmoRenderer + registry: per-component-type viewport gizmos drawn through debug-draw.

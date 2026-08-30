@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ThumbnailService tests. A stub generator + a real EditorJobService
 // (Update pumped like JobServiceTests) + a scratch cache dir exercise the full pipeline
 // headlessly: icon-fallback-until-ready (Get empty, then a drawable + ONE ready signal),

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Vulkan implementation of Adapter.
 /// Queries physical device properties, features, and queue families.
 /// Provides feature detection and queue family selection.

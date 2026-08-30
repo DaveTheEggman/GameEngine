@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Web - `foundation.shell.web:window`.
 //
 // The web shell's window IS an HTML <canvas>. Its size comes from the live canvas

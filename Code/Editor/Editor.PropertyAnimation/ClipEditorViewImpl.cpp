@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::PropertyAnimation - ClipEditorView implementation (UI construction + curve wiring). Kept
 // out of the interface (heavy UI bodies; the module-hygiene rule).
 

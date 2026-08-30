@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Audio - reflection implementation unit: AudioClipAsset's reflected surface.
 //
 // Kept OUT of the AudioAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;

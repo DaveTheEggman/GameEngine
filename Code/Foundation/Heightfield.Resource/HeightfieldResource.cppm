@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Heightfield.Resource - the `foundation.heightfield.resource` module.
 ///
 /// The heightfield as a referenceable, cooked resource. HeightfieldSource is the small serialized

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Script - the `editor.script` module.
 //
 // ScriptApiBrowserView implementation: the openable API panel on a script page. A filter

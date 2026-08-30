@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :transform partition
 // Transform: position / rotation / scale, composed as S * R * T into a Float4x4.
 

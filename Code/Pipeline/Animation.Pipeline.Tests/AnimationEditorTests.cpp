@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Animation editor: cook a SkeletonAsset through its builder into the content DB, then load it back
 // through the resource factory and verify the runtime skeleton. Exercises the authoring -> cook ->
 // product path.

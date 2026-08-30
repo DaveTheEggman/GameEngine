@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::UI.Application - the `foundation.ui.application` module.
 //
 // The docking / workbench layer: RuntimeDockableWindowHost implements the toolkit's IDockableWindowHost in

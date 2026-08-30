@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ImGui vertex shader: pos2D + uv + RGBA8 vertex color -> clip space via an ortho projection
 // (row-vector mul, engine convention). Cooked into the engine shader pack like every other shader
 // (WGSL for web); the ImGui renderer resolves it via ShaderSystem::GetVariant("imgui", Vertex).

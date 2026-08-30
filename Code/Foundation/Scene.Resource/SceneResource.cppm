@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene.Resource - the `foundation.scene.resource` module.
 ///
 /// Whole-scene serialization - both LoadScene and its SaveScene mirror. A scene is

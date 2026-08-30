@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Image - :nine_slice partition.
 //
 // NineSlice: border insets for 9-slice image scaling - corners stay fixed,

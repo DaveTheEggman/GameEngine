@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :tools partition.
 //
 // SelectTransformTool: the scene viewport's DEFAULT viewport tool (editor.viewporttools) -

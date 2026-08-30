@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // CodeLexer headless tests: the C-like scanner's classification and every spec flag (nested
 // block comments, triple-quoted strings, preprocessor lines, char literals), the XML lexer's
 // stateful constructs, multi-line state carry, the CodeLexerRegistry seam, and

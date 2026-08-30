@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Main.cpp - the DESKTOP entry for TerrainPlayground (see TerrainPlaygroundApp.h - the shared
 // terrain showcase). Desktop platform trio via APP_MAIN's desktop body, which also gives the
 // backend flags: `TerrainPlayground --vulkan` vs `--webgpu` runs the same terrain per backend,

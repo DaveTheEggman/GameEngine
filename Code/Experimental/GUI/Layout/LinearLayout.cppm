@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :linear_layout partition
 //
 // LinearLayout: stacks its children in a row or column with spacing, starting from the

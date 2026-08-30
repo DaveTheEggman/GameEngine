@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Terrain.Resource - :splatmap partition.
 ///
 /// The editable terrain SPLAT WEIGHTS: the top-K (K = 4) blend model.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :animation partition
 //
 // Abstract base class for all property animations: manages elapsed time, easing, delay, repeat, and

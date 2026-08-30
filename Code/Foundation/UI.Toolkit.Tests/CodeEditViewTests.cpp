@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // CodeEditView headless tests: real InputManager key/mouse driving (typing, navigation,
 // undo chords, Tab-through-WantsTabKey, gutter breakpoint clicks, clipboard round trip) plus
 // CompletionModel unit coverage (filter ranking + popup key routing without a UIContext).

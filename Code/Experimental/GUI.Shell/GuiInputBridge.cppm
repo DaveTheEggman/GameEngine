@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - `experimental.gui.shell`: the platform input bridge.
 //
 // Keeps the GUI core platform-agnostic: the core EventDispatcher exposes an abstract

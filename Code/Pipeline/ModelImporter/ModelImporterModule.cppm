@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::ModelImporter - the `modelimporter` umbrella module.
 ///
 /// The top-level model import pipeline: it converts a loaded `foundation.model` Model

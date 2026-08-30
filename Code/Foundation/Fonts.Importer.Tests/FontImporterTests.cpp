@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Fonts.Tests/FontImporterTests.bf - drives the editor-
 // time baking pipeline (FontImporter::Bake) over the bundled Roboto asset and
 // confirms the produced BakedFont + BakedFontAtlas carry usable data.

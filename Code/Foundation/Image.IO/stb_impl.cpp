@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Single translation unit for stb implementations.
 // Module units cannot define these macros (static symbol collisions),
 // so the implementations live in a regular .cpp.

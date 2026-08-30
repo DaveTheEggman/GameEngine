@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :resource partition
 //
 // A resource managed by the graph (texture or buffer): its descriptor, the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TerrainSplatTool tests (headless, top-K model): a whole paint gesture scripted through
 // ViewportToolInput. Drives press -> drag -> release over an in-memory terrain (heightfield +
 // SplatWeights) and asserts the selected PALETTE layer rises out of the base, ONE both-raster

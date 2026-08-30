@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.Fonts.Tests TTF suites (loader/font/atlas/shaper).
 // Sedulous loaded system fonts from C:/Windows/Fonts; the engine bundles the
 // Roboto asset (copied from Sedulous/Assets) and points at it via the

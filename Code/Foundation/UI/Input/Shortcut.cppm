@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :shortcut partition
 //
 // A keyboard shortcut binding: key + modifiers -> action. Ported from Sedulous.UI/src/Input/Shortcut.bf.

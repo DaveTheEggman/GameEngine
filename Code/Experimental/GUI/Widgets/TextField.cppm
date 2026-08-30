@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :text_field partition
 //
 // TextField: a single-line, editable text control - the widget driven by the keyboard and

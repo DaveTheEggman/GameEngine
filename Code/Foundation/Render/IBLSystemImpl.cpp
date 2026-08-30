@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Render - the `:ibl` partition.
 ///
 /// Image-Based Lighting: the split-sum environment pipeline (ported from Sedulous.Renderer/IBL with

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :string_list_model partition
 //
 // StringListModel: the simplest concrete Model - a single column of strings, one per row.

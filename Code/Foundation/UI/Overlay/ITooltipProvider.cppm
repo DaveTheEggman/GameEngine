@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :itooltip_provider partition
 //
 // Implement on a View to provide custom tooltip content instead of plain text. TooltipManager checks

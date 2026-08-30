@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::Terrain - the `:renderdata` partition.
 //
 // The whole-terrain render item: ONE TerrainRenderData per terrain component per frame (the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:queue - Queue over the device's single WGPUQueue.
 ///
 /// WebGPU exposes exactly ONE queue per device. The RHI models Graphics/Compute/

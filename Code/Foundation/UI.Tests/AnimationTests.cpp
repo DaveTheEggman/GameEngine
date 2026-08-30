@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/AnimationTests.bf (faithful). Beef owned setter delegates ->
 // Function<void(T)>; `scope`/`new` -> stack value or UniquePtr (manager takes ownership); Vector2 ->
 // Float2 (Vector2Animation -> Float2Animation); Color byte ctors -> float (/255); ctx.Animations ->

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :tree_model partition
 //
 // TreeModel: a concrete hierarchical Model - nodes with a text label and children. Modeled on

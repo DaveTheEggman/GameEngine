@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :allocator partition (foundation)
 //
 // The allocator vocabulary every consumer needs: alignment / raw-memory

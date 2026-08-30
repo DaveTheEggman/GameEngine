@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Scene - the `:phase` partition.
 ///
 /// ScenePhase: the ordered slots a scene runs each update. Order is the contract -

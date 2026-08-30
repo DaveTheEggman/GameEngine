@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Terrain - the `editor.terrain` module (implementation).
 //
 // The heavy engine.terrain / engine.render / engine.scene / ui.toolkit imports live here, out of the

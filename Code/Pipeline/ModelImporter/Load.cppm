@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::ModelImporter:load - load a model file + cook it in one call.
 ///
 /// Convenience over the model loaders + the cook step: registers the glTF/FBX

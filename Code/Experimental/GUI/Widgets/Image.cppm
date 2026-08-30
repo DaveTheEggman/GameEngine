@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :image partition
 //
 // Image: a widget that draws a Drawable (an ImageDrawable/NineSlice/gradient/…) inside its

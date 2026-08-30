@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :memory_tag partition
 //
 // Memory tagging: attribute allocations to a named category via an open

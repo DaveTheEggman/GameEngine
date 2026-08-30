@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Materials - the `:system` partition.
 ///
 /// MaterialSystem: owns material instances' GPU resources and - the key idea -

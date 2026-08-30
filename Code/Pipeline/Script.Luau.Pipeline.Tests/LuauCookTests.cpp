@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // script.luau.pipeline tests: the Luau cook service in isolation - the tier starters, the
 // construct-and-walk property harvest (number/bool/string/Float3, non-scalars skipped, sorted),
 // the compile-check, and the shared startCoroutine coroutine opt-in - driven straight through

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :iserializer partition
 //
 // The serialization contract: a mode-aware, format-agnostic interface. One

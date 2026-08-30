@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - Action tests: Move/Fade/Scale/Delay/Runnable/Sequence driven through a
 // SceneNode's ActionManager. Derived from eepp scene/actions behavior.
 #include <doctest/doctest.h>

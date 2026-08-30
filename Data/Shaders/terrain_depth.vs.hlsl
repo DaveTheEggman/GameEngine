@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #pragma pack_matrix(row_major)
 
 // Terrain DEPTH-only VS (camera depth prepass + CSM cascade passes). Replays terrain.vs's exact height

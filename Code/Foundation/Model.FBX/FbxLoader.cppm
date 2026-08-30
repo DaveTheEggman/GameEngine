@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// FBX/OBJ model loader using ufbx.
 /// Ported from Sedulous.Models.FBX/FbxLoader.bf.
 

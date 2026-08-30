@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Texture-related enums and the ModelTexture class.
 /// Ported from Sedulous.Models/ModelTexture.bf.
 

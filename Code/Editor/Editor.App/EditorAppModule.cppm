@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - the `editor.app` module.
 //
 // The editor UI shell on foundation.ui: the EditorShell chrome

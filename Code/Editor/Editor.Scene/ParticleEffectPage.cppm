@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :particle_effect_page partition.
 //
 // ParticleEffectEditorPage: a full authoring tool for a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :spin_lock partition
 //
 // Busy-wait exclusive lock for very short critical sections.

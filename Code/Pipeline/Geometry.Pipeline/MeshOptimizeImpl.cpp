@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Geometry - implementation unit for the mesh optimization pass.
 //
 // meshoptimizer is included HERE only - the interface stays clean of the vendored

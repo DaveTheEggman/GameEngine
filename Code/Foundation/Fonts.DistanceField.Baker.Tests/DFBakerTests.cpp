@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // DFFontAtlasBaker diagnostics: bake real Roboto glyphs and inspect where the MSDF baker places
 // them in their cell, versus the known-good coverage (stb pack) path. This CONFIRMS the reported
 // symptom (descenders like g/q clipped, glyphs mis-registered) by measuring the baked cell's ink

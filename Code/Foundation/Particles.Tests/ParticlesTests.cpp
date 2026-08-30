@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.particles - CPU runtime coverage: value types (ranges/curves/emission shapes), the
 // SoA stream container (lazy alloc / typed access / swap-remove / compaction), the modules
 // (initializers + behaviors), and the effect/system Update loop (spawn, integrate, age, die),

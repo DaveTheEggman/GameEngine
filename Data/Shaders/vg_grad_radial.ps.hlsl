@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG radial-gradient fragment shader. The tessellator emits the gradient-space coordinate
 // (pos-center)/radius as TexCoord, so the parameter t = length(TexCoord) is computed PER PIXEL
 // (exact radial falloff) instead of Gouraud-interpolating it across triangles. The RAW t samples

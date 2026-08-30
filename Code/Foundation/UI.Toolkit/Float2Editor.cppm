@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :float2_editor partition
 //
 // Property editor for Float2 values - two NumericFields (X, Y) side by side with colored axis labels.

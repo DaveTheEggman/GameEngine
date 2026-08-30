@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Net - `foundation.net:session` partition.
 ///
 /// The session layer (`foundation.net.session`): roles, a peer

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG Sandbox - faithful port of Sedulous Samples/VG/VGSandbox. A NanoVG-style
 // demo exercising the whole VG stack (foundation.vg + .renderer + .svg + fonts +
 // image): line widths/caps/joins, animated eyes, an HSL color wheel, an area

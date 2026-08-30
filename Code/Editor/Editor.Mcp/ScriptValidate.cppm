@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Mcp - :script_validate partition
 //
 // script_validate (the COMPILE-CHECK version): compile a script source against a chosen backend WITHOUT saving anything, through

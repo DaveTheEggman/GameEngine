@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :idrop_target partition
 //
 // Implement on a View subclass to make it a drop target. Ported from Sedulous.UI/src/DragDrop/IDropTarget.bf.

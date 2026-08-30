@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :transient_pool partition
 //
 // Pools GPU textures for reuse across frames by transient resources, avoiding

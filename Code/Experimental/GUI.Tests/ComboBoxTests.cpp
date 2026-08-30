@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - ComboBox tests: item management, opening/closing the dropdown popup, picking
 // an item through the dropdown, and dismissal (outside click / Escape) via the dispatcher's
 // popup support.

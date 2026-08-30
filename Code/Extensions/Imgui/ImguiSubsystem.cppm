@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Extensions::Imgui - the `:subsystem` partition.
 ///
 /// ImguiSubsystem: a Context-level subsystem that owns the Dear ImGui context + the RHI renderer and

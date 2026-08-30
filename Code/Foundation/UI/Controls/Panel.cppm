@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :panel partition
 //
 // Container with an optional background drawable; children fill the panel minus padding. Ported from

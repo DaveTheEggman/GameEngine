@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Script - the `foundation.script` module.
 //
 // A thin, VM-agnostic scripting abstraction built on Core's reflection: an

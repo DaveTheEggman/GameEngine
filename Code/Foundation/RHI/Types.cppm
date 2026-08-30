@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Core RHI types: geometry primitives, adapter info, device features,
 /// device descriptor, copy regions, and push constant ranges.
 

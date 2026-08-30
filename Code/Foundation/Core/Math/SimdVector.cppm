@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :simd_vector partition
 //
 // Vector2/3/4: aligned (16-byte) SIMD compute types, backed by simd::f32x4. These are the types to

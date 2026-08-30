@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :color_view partition
 //
 // Solid color swatch view. Ported from Sedulous.UI/src/Controls/ColorView.bf.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // MeshEditorPage tests (headless): the viewer's stat-line readout is a free, pure function so
 // it is covered here without a live host/renderer. The page's GPU orbit preview + product
 // binding + viewport lifecycle need a live application host (like MaterialPage/SceneEditorPage)

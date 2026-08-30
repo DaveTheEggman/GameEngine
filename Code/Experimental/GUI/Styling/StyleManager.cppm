@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :style_manager partition
 //
 // StyleManager: the glue that makes a StyleSheet live on a widget tree. It resolves each

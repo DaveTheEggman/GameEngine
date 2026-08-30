@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // FloatingPanel control tests (foundation.ui.toolkit:floating_panel): the draggable / resizable /
 // collapsible / closable float panel. The bare-panel cases run headlessly (no UIContext, no layout
 // pass): construction, the collapse toggle, content swap, preferred-size clamping, and OnClose.

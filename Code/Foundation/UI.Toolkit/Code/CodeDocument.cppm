@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::UI.Toolkit - the `:code_document` partition.
 ///
 /// The UI-free core of CodeEditView: a line-array text buffer with

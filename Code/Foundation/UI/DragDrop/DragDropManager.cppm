@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :drag_drop_manager partition
 //
 // Drag-and-drop state machine within a UIContext, driven by the InputManager at the mouse-event points.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :property partition
 //
 // Property<T>: observable value wrapper with change notification + owner invalidation.

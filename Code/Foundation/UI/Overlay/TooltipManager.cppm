@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :tooltip_manager partition
 //
 // Manages tooltip display timing. Owns a single reusable TooltipView; ticked by UIContext each frame

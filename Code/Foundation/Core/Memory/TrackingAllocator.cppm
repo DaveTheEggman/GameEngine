@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :tracking_allocator partition
 //
 // TrackingAllocator: wraps an allocator, tracks live/total bytes+counts and

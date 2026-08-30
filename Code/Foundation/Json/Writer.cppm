@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Json - :writer partition
 //
 // Serialize a JsonValue to UTF-8 JSON text: compact (default) or 2-space pretty. Strings are escaped

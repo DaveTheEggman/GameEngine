@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "push_constant.hlsli"
 struct VSIn  { float3 pos : TEXCOORD0; float4 col : TEXCOORD1; };
 struct VSOut { float4 pos : SV_Position; float4 col : TEXCOORD0; };

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:transfer_batch - TransferBatch over queue writes.
 ///
 /// WebGPU's wgpuQueueWriteBuffer/WriteTexture ARE staged uploads (the runtime owns

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Tests for UiInputBridge (foundation.ui.shell) - our reimplementation, covered per the additions
 // rule. Synthetic shell::InputEvents drive a UIContext through the bridge; a mock IWindow verifies the
 // focus-driven text-input (IME) sync.

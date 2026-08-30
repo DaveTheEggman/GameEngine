@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:api - the loaded WebGPU function table.
 ///
 /// The backend never links wgpu at build time. On DESKTOP the implementation is a

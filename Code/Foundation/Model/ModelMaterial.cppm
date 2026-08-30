@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Material properties for PBR rendering.
 /// Ported from Sedulous.Models/ModelMaterial.bf.
 

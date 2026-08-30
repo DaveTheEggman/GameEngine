@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Pipeline::ModelImporter:anim_convert - Model IR skin/animation -> animation *Source.
 ///
 /// Converts a model's skin (joints + inverse-bind matrices + the bone hierarchy) into a

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // LogView tests (headless): entry accumulation with category-prefixed text, level-bucket
 // filtering (fold Trace+Debug / Error+Fatal), entry cap trimming, and Clear.
 

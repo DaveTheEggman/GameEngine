@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Engine::GameInstance - the script-bracket bodies (moved verbatim from DefaultApplication's
 // former StartGameScript/StopGameScript/TickGameScript, now per-instance).
 

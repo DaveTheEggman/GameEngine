@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp.Script - `foundation.mcp.script`
 //
 // The scripting MCP tool contribution: script_api. Dumps the PER-BACKEND bound API - the exact

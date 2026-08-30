@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :style_sheet partition
 //
 // ResolvedStyle + StyleSheet: the cascade. Ported from eepp's css/StyleSheet(::getElement

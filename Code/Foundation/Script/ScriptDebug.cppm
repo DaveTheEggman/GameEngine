@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Script - :script_debug partition
 //
 // The neutral interfaces, implemented by no backend, for a

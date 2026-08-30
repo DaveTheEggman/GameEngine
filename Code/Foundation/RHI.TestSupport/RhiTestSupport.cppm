@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RHI.TestSupport - `foundation.rhi.testsupport`.
 //
 // A tiny, backend-agnostic substrate for offscreen render tests: create a device, and read a

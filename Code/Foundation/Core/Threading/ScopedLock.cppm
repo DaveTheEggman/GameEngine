@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :scoped_lock partition
 //
 // Generic RAII lock guard for any type with Lock()/Unlock().

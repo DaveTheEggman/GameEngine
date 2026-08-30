@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - CSS value parsers + typed property application: parse value strings into
 // Color/length/bool/Thickness, and apply a resolved (or parsed) stylesheet onto a widget.
 #include <doctest/doctest.h>

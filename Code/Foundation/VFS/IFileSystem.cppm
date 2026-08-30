@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VFS - :ifilesystem partition
 //
 // The filesystem contract: a minimal read interface (IFileSystem) plus optional

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Terrain.Resource - the `foundation.terrain.resource` module.
 ///
 /// The cooked terrain resource: a bundle of REFERENCES (a heightfield, the top-K splat weights,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG.SVG::SVG - :loader partition.
 //
 // SVGLoader: parses a subset of SVG (path/rect/circle/ellipse/line/polygon/

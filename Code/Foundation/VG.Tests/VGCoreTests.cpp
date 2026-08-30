@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // VG core leaf types: vertex layout, gradient stop interpolation, fills, style.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

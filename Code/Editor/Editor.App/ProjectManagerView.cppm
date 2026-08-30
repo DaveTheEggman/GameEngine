@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::App - :project_manager_view partition.
 //
 // The PROJECT MANAGER screen (built into the single editor exe): shown at startup when no

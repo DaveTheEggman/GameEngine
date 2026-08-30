@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Audio - :clip partition.
 //
 // AudioClip: the RUNTIME clip object - metadata plus the

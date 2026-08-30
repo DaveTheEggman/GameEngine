@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The data-driven material model: build a material with the fluent builder, verify
 // uniform-buffer layout + declared properties, drive a MaterialSystem (bind-group
 // layout inferred from the property list) against the Null RHI, and check instance

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// DXC shader compiler - loads dxcompiler.dll/libdxcompiler.so at runtime.
 /// Ported from Sedulous.Shaders/ShaderCompiler.bf via the port.
 

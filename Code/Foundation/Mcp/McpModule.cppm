@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Mcp - `foundation.mcp` (JSON-RPC 2.0 + MCP lifecycle + tool/resource registry).
 //
 // The protocol layer (layer 2, over foundation.json). Transport-abstract, stdio

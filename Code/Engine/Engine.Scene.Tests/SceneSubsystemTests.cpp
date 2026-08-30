@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Phase 4 - the Context-level scene driver: an owner registers its own SceneManager, the subsystem
 // assembles every scene from a SceneComposition, fans the SystemsReady/Destroying observer stages, and
 // ticks each group on the Context lane.

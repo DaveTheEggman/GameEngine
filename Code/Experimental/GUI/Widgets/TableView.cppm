@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :table_view partition
 //
 // TableView: a virtualized, multi-column model-backed table. Modeled on eepp's UITableView. The

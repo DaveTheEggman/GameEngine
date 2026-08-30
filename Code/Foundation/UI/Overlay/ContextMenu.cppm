@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :context_menu partition
 //
 // Popup context menu with themed items, submenus, separators, and full keyboard navigation. Shown via

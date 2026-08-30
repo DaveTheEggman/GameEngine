@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // ScriptClassAsset's reflected surface (its language string).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Script - the `foundation.script.editor` module (tooling).
 //
 // Source-side script authoring + cook, fully

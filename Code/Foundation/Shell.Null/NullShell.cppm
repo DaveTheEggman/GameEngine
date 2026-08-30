@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Null - the `foundation.shell.null` module.
 //
 // A headless IShell implementation: no real window or OS events. Useful for

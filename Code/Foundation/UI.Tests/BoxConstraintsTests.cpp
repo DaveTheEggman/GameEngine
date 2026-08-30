@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Ported from Sedulous.UI.Tests/src/BoxConstraintsTests.bf (faithful; float.MaxValue -> kFloatMax).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

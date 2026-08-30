@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :theme_registry partition
 //
 // Central registry for theme extensions, applied to every theme StyleSheet created by the

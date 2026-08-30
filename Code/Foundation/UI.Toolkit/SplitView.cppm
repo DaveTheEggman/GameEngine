@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI Toolkit - :split_view partition
 //
 // Resizable two-pane container with a draggable divider. Ported from Sedulous.UI.Toolkit/src/SplitView.bf.

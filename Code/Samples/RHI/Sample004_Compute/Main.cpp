@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include <new>
 /// Sample004 - Compute Shader (Animated Point Grid).
 /// Ported from Sedulous Sample004_Compute.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :storyboard partition
 //
 // Groups multiple animations to play sequentially or in parallel. A Storyboard is itself an Animation, so

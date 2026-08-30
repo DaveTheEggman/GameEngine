@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The value-pool component manager (sparse set): add/get/has/remove by
 // entity, dense contiguous iteration, swap-remove keeping the pack dense, generation
 // staleness, the one-per-entity invariant, and manager-driven deferred lifecycle.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // foundation.settings: typed sections round-trip through the serializer abstraction (binary factory
 // here; the editor exercises the XML factory). Also covers defaults, change notification, and the
 // core UserDataDir / GetEnvironmentVariable helpers the store's storage location builds on.

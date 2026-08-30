@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::RenderGraph - :descriptors partition
 //
 // Render-graph resource descriptors (transient texture/buffer) and pass target

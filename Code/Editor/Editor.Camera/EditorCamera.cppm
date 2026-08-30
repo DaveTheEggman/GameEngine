@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Camera - `editor.camera`: the free-fly viewport camera, graduated out of Editor::Scene
 // into its own LEAN module (foundation-only) so every editor page lib can share it: the scene
 // pages, Editor.Physics, and PreviewViewport (editor.preview) alike. Kept separate from the heavy

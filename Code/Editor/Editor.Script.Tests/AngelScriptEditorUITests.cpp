@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // AngelScriptEditorUI: registering the lexer makes it resolvable under both the canonical
 // "angelscript" id and the "as" alias, with AngelScript classification.
 #include <doctest/doctest.h>

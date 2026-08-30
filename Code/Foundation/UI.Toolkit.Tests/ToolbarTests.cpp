@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Smoke test for Toolbar: constructs, adds buttons/separators/toggles, toggle round-trips + fires event.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"

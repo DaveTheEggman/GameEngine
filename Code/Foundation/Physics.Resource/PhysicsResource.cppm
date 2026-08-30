@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Physics.Resource - the `foundation.physics.resource` module.
 //
 // Cooked physics content, mirroring the mesh-resource split:

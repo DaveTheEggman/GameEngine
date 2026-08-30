@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // A tiny shared library loaded by the Library (DynamicLibrary) tests.
 // Plain C ABI exports so symbol names are unmangled.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Generic asset page tests (headless): the serialize-driven scan/patch machinery is pure over
 // any ISerializable, so it is covered with a synthetic asset exercising scalars, strings,
 // guids, blobs, arrays, and a version-gated + a value-conditional field. The grid wiring needs

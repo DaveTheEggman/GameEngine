@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :filesystem partition
 //
 // Whole-file convenience helpers over FileStream. Directory queries live in

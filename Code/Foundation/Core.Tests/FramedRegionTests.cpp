@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Framed-region capability on the Serializer contract: binary length-frames a self-delimiting region
 // so a payload can be SKIPPED or CAPTURED without knowing its type, and RawRemainder moves the framed
 // bytes verbatim. This is the mechanism the settings unknown-section passthrough builds on. (XML is

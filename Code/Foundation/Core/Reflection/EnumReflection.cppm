@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :enum_reflection partition
 //
 // EnumBuilder patches an enum's TypeOf<E>() TypeInfo in place (name/id +

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :drag_adorner partition
 //
 // Visual overlay shown during a drag operation. Wraps a user-provided visual or shows a default

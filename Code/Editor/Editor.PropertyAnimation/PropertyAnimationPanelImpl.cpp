@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::PropertyAnimation - PropertyAnimationPanel (the persistent in-scene editor): clip document
 // management, live preview, and the docked chrome (Timeline scrubber + header over the shared
 // ClipEditorView). Heavy bodies out of the interface, per the module-hygiene rule.

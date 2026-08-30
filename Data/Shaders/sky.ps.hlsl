@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 #include "sky_common.hlsli"
 
 TextureCube  EnvMap  : register(t0, space0);

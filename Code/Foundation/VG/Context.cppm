@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG - :context partition.
 //
 // VGState (the per-state-stack snapshot) and VGContext - the main user-facing

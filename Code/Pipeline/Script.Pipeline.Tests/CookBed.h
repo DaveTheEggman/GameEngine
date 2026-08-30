@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Shared cook harness for the neutral-builder pipeline tests. The ScriptClassAssetBuilder is
 // backend-neutral: it resolves a per-language cook through the registry, so an
 // AngelScript-source test (AngelScriptPipelineTests.cpp) and a Luau-source test

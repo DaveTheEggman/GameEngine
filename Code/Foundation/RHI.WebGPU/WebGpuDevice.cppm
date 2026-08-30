@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:device - Device over WGPUDevice.
 ///
 /// Handles device/queue lifecycle (creation, loss latch, WaitIdle, fences,

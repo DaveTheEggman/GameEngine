@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // UI - :view_transform partition
 //
 // Post-layout transform applied during drawing and hit testing (does NOT affect layout).

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Foundation::Geometry - the `:index_buffer` partition.
 ///
 /// A format-tagged index buffer (16- or 32-bit), stored as raw bytes so it uploads

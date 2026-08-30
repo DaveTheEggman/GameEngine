@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // texture.compression tests - the policy table (pure logic), exact block sizes, and a real
 // encode->decode round-trip whose PSNR proves the encoders actually run and reconstruct. Decoding
 // uses the vendored bc7enc/rgbcx decoders directly (test-only; the module itself only encodes).

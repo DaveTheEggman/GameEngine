@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :radial_gradient_drawable partition
 //
 // RadialGradientDrawable: a multi-stop radial gradient centered within the destination

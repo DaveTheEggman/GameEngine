@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // GUI - :css_parser partition
 //
 // CSSParser: turns `.css` text into a StyleSheet. Ported from eepp's css/StyleSheetParser

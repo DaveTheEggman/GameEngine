@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - :type_info partition
 //
 // The type-system foundation: stable type identity (TypeId / TypeInfo),

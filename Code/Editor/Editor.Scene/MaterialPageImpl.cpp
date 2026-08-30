@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Editor::Scene - :material_page partition.
 //
 // MaterialEditorPage (Sedulous MaterialEditorPage shape): edits a MaterialAsset - a preview

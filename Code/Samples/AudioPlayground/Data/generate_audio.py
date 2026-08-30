@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+
 """Generates the AudioPlayground sample's tiny WAV assets procedurally (16-bit PCM).
 
 Run from this directory: python3 generate_audio.py

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Pipeline::Audio - the `foundation.audio.editor` module (tooling).
 //
 // Source-side audio authoring + cook:

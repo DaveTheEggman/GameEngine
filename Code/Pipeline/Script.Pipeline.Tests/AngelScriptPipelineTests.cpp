@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // The neutral-builder cook round-trip driven with ANGELSCRIPT sources: source -> the builder's
 // cooker VM -> cooked record -> factory -> runtime metadata, the compile-error path (cook FAILS,
 // last good record survives), backend-neutrality (the builder resolves its cook through the

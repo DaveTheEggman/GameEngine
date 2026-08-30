@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Shell.Web - `foundation.shell.web:dialogs`.
 //
 // The web shell's file-dialog service. Stubbed to cancel immediately; the browser equivalents are a

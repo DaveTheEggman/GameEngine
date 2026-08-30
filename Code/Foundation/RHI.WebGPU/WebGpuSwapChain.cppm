@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:swapchain - SwapChain over the configured WGPUSurface.
 ///
 /// WebGPU has no swapchain object: the surface is CONFIGURED (format/size/present

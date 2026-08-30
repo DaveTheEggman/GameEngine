@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// Engine::Render - the `:components` partition.
 ///
 /// The render-facing scene components + their managers - the scene-coupled side of the

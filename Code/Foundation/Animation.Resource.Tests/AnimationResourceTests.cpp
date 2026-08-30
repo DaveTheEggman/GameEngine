@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Skeleton + clip resources: cook (capture -> source -> content DB), then build back through the
 // ResourceManager via the factory and verify the runtime types round-trip. Mirrors the mesh
 // resource test (full content-DB round-trip).

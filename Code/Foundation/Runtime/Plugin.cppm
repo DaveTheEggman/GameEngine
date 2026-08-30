@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Runtime - :plugin partition
 //
 // IRuntimePlugin: a unit of engine functionality delivered separately from the

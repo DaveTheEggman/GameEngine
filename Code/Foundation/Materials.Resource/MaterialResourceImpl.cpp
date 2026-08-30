@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::Materials.Resource - reflection implementation unit: MaterialSource's reflected surface.
 //
 // Kept OUT of the MaterialResource.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm

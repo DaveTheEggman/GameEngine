@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 /// foundation.rhi.webgpu:render_pass_encoder - RenderPassEncoder over WGPURenderPassEncoder.
 ///
 /// SetPushConstants takes native immediates where available (see :pipeline_layout), else the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Foundation::VG - :vertex partition.
 //
 // VGVertex: the GPU vertex for vector graphics with analytical-AA coverage.

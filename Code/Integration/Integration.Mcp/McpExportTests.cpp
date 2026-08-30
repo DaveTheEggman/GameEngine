@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Integration.Mcp - project_export: a REAL dist through the
 // tool - cook + scene staging + pack + player staging - against a scratch project with one
 // authored scene. The host template resolves from the directory of THIS test executable

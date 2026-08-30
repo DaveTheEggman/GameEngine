@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // TextureAsset's reflected surface + the enum reflection its properties
 // reference. Verifies the authored fields enumerate with tooling attributes, round-trip through
 // get/set, and that the enum property types resolve named values (the generic asset page's

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
 // Core - Debug / assertions
 //
 // Assertions are macro-based, so they live in a classic header (macros cannot
