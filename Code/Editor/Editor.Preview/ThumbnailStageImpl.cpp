@@ -74,7 +74,7 @@ namespace editor
             }
             f32 value;
             static_assert(sizeof(value) == sizeof(bits));
-            __builtin_memcpy(&value, &bits, sizeof(value));
+            MemCopy(&value, &bits, sizeof(value));
             return value;
         }
 
