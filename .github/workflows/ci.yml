@@ -124,59 +124,45 @@ jobs:
   linux-gcc:
     name: Linux / gcc / Debug
     runs-on: ubuntu-24.04
+    # Ubuntu 26.04's g++-15 (15.2.0-16ubuntu1) is the dev toolchain and the only GCC that
+    # builds this codebase today: upstream 15.2.0 release cannot resolve transitive CMIs
+    # from CMake's direct-imports-only module maps ("failed to read compiled module: Bad
+    # import dependency"), and the toolchain-r noble backport miscompiles module interfaces
+    # (defaulted constructors diagnosed as overloading themselves). Ubuntu's own 26.04 LTS
+    # package carries both branch fixes, so the job runs in that container.
+    container:
+      image: ubuntu:26.04
+      volumes:
+        - /mnt:/mnt # the roomy disk: object/module output lives here (the host disk-reclaim
+                    # step cannot run inside a container, and the modules build is disk-hungry)
     timeout-minutes: 180
     env:
-      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2' # a container job cannot add swap headroom; stay low
     steps:
       - uses: actions/checkout@v4
-      - name: Free up disk space
-        run: |
-          df -h /
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
-                      /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/powershell
-          sudo apt-get clean
-          df -h /
-      # A change is done only when BOTH compilers build and test green - a GCC-only
-      # diagnostic or libstdc++ divergence must fail CI, not the human's local run. The dev
-      # toolchain is GCC 15; the toolchain-r PPA carries it for noble - fall back to g++-14
-      # if the PPA lags (the fallback may be below the modules floor; the job will say so
-      # loudly rather than silently skipping gcc coverage).
       - name: Install dependencies
         run: |
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          if apt-cache show g++-15 >/dev/null 2>&1; then GXX_VER=15; else GXX_VER=14; fi
-          echo "GXX_VER=$GXX_VER" >> "$GITHUB_ENV"
-          echo "Using g++-$GXX_VER"
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++-$GXX_VER pkg-config xvfb \
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build g++-15 pkg-config xvfb ca-certificates \
             libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
-      - name: Add swap headroom
-        run: |
-          sudo swapoff -a || true
-          sudo rm -f /swapfile /mnt/swapfile
-          sudo fallocate -l 12G /mnt/swapfile && sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
-          free -h
-      # NO ccache on the gcc lane: GCC's module scheme (-fmodules-ts + -fmodule-mapper) writes
-      # each interface unit's .gcm as a side effect ccache cannot model, and a ccache-mediated
-      # compile of an interface unit can stream declarations into the .gcm twice - importers
-      # then fail with "X cannot be overloaded with X" on defaulted members. The clang lane
-      # keeps ccache: its module outputs are explicit per-TU files on the command line.
+          g++-15 --version
       - name: Configure
-        run: |
-          g++-${{ env.GXX_VER }} --version
-          cmake --preset gcc \
-            -DCMAKE_C_COMPILER=gcc-${{ env.GXX_VER }} \
-            -DCMAKE_CXX_COMPILER=g++-${{ env.GXX_VER }}
+        # Not the preset: the build dir must live on the /mnt volume (see above), and the
+        # preset pins binaryDir. Cache variables mirror the gcc preset.
+        run: >
+          cmake -S . -B /mnt/build-gcc -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=gcc-15
+          -DCMAKE_CXX_COMPILER=g++-15
       - name: Build
-        run: cmake --build --preset gcc
+        run: cmake --build /mnt/build-gcc -j2 -- -k 0
       - name: Test
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
-        run: xvfb-run -a ctest --preset gcc --output-on-failure --timeout 300 --no-tests=error
+        run: xvfb-run -a ctest --test-dir /mnt/build-gcc --output-on-failure --timeout 300 --no-tests=error
 
   # Windows build + test with MSVC. This covers the D3D12 backend (which the Linux job cannot
   # exercise) plus WebGPU and the headless/logic suites. No Vulkan SDK is installed, so

@@ -190,6 +190,12 @@ the binding rule set and reviews enforce it. The headlines:
   target). GPU-visible behavior prefers semantic pixel probes on real devices
   over image goldens.
 - **Both compilers green** (clang + gcc, Debug) before a change is done.
+  The GCC that works is Ubuntu's packaged GCC 15 (`g++-15` on 24.04+ backports /
+  26.04 LTS): the upstream 15.2.0 release cannot resolve transitive module CMIs
+  from CMake's module maps ("Bad import dependency"), and the toolchain-r noble
+  backport miscompiles module interfaces (defaulted constructors diagnosed as
+  overloading themselves). Clang is the portable lane; CI's gcc job runs in an
+  `ubuntu:26.04` container for exactly this reason.
 - **Style**: Allman braces, per-module `.clang-format`, PascalCase methods,
   full descriptive names, no em/en-dashes anywhere (ASCII hyphen only).
 - **Module hygiene**: heavy third-party headers and reflection bodies go in
