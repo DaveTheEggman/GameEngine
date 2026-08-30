@@ -20,17 +20,15 @@ which reads the build's runtime-libs manifest, copies the player + sidecars, wri
            -Jobs <n>    build parallelism (default 4)
            -Compiler    MSVC (default) or Clang (clang-cl); sets the Bin\...\Win64-<Compiler> tag
 
-  ============================ WINDOWS AGENT: FINISH HERE ============================
-  This is a BEST-EFFORT scaffold written from Linux - a Windows agent should verify:
+  Written on Linux; has not yet run on a Windows agent. On Windows, confirm:
     * Run from a Developer PowerShell / VS dev environment so cl/clang-cl + ninja are on PATH
       (or swap the generator below to a Visual Studio one).
-    * That the Win64 runtime SIDECARS actually stage: the DXC runtime (dxcompiler.dll) and
-      wgpu-native are dlopen/runtime deps - export-templates.md + the dxc-runtime-sidecar note.
-      Confirm they land in Engine.Player.runtime-libs and beside the exe (the +x/rpath concerns
-      are POSIX-only; on Windows it is DLL-search-path / same-dir).
-    * That `Tools.Export.exe --template list` shows the new draconic-win64-release template.
-    * Adjust $Plat/$Comp if the platform tag differs from Win64-<Compiler>.
-  ===================================================================================
+    * The Win64 runtime sidecars stage: the DXC runtime (dxcompiler.dll) and wgpu-native are
+      dlopen/runtime deps (see export-templates.md and the dxc-runtime-sidecar note). Confirm they
+      land in Engine.Player.runtime-libs and beside the exe (rpath is POSIX-only; on Windows it is
+      the DLL search path / same directory).
+    * Tools.Export.exe --template list shows the new win64-release template.
+    * $Plat/$Comp match the actual Bin\...\Win64-<Compiler> tag.
 #>
 [CmdletBinding()]
 param(
