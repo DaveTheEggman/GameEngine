@@ -1,4 +1,7 @@
-# Scene editor: floating, pinnable camera preview (task #118)
+# Scene editor: floating, pinnable camera preview (task #118)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 > STATUS: BUILT 2026-08-03 (cd8201b9 core, 07daee85 overlay, 2e4db157
 > view-keyed debug draw so gizmos stay out of the preview) + tests

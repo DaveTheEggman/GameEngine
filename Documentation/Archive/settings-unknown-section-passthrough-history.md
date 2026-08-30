@@ -1,4 +1,7 @@
-# Settings: unknown-section passthrough
+# Settings: unknown-section passthrough  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Size: S. Module: `Code/Draconic/Foundation/Draconic.Settings/` (+ Editor.Core
 consumers). No new dependencies.

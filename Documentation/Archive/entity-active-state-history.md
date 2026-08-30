@@ -1,4 +1,7 @@
-# Entity active state: inactive stops BOTH rendering and simulating
+# Entity active state: inactive stops BOTH rendering and simulating  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: SPEC (Fable, 2026-08-17). Ready to build. Origin: week-2026-08-15 item +
 Opus's correct assessment that it is NOT a quick win - no system honors

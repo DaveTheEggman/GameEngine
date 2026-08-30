@@ -1,4 +1,7 @@
-# Shared editor preview viewport (extract the triplicated bespoke-page 3D preview)
+# Shared editor preview viewport (extract the triplicated bespoke-page 3D preview)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: COMPLETE (2026-08-18). All commits landed, both compilers green, per-page
 tests unchanged (Editor.Scene.Tests 708 + Editor.Camera.Tests 25). The only

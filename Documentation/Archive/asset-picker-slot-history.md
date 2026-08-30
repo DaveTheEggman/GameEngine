@@ -1,4 +1,7 @@
-# Asset picker slot
+# Asset picker slot  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 > STATUS: BUILT 2026-08-16 (Fable, P1-P3 in one pass). The composite slot is
 > [preview | name | Pick | Edit | Clear] per the user's Unity-style refinement

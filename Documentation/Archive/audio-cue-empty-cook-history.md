@@ -1,4 +1,7 @@
-# Sound cue: how should cooking an EMPTY / invalid cue behave?
+# Sound cue: how should cooking an EMPTY / invalid cue behave?  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: RULED - build A + D + a health check (Fable 2026-08-18, call delegated
 by the user; graduated Ideas -> Specs). Was: DESIGN QUESTION for Fable (Opus,

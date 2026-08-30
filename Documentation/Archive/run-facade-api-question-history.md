@@ -1,4 +1,7 @@
-# Question for Fable: the `run` facade API shape (game-ready-scripting2 P2-2)
+# Question for Fable: the `run` facade API shape (game-ready-scripting2 P2-2)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 **From:** Opus (building game-ready-scripting2). **Status:** BLOCKED on a ruling before I build P2-2.
 **Context:** P2-1 (the run-scoped `EventBus` on `GameInstance` + the Game tier's `on<Event>` inbox) is

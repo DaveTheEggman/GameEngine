@@ -1,4 +1,7 @@
-# EntityRef - a typed, inspectable entity reference
+# EntityRef - a typed, inspectable entity reference  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 > Status: COMPLETE (2026-08-13). P1 (type + migration), P2 (inspector picker + modal entity-tree
 > picker), P3 (reflection-driven prefab remap) all landed, tested, and visually confirmed in the

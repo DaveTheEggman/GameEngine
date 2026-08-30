@@ -1,4 +1,7 @@
-# Messaging: one bus per run scope, owned by the scope, borrowed by scenes
+# Messaging: one bus per run scope, owned by the scope, borrowed by scenes  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: COMPLETE (P1-P2 Opus, P2-revision cleanup + P3 Fable, 2026-08-22; full
 battery + ASAN green). Origin: Documentation/Ideas/scripting-runtime-shape.md §7 + the

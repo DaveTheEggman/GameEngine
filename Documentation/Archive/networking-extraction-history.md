@@ -1,4 +1,7 @@
-# Networking extraction: off the god object, off the app, onto the standard lanes
+# Networking extraction: off the god object, off the app, onto the standard lanes  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: COMPLETE - all phases P1-P4 shipped (Opus, 2026-08-22); see Progress. Origin:
 Documentation/Ideas/scripting-runtime-shape.md §8 (Fable-reviewed, user-cut as its own

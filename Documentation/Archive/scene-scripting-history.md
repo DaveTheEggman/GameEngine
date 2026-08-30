@@ -1,4 +1,7 @@
-# Scene-level scripting (the third tier)
+# Scene-level scripting (the third tier)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Size: M. Modules: `Code/Draconic/Engine/Draconic.Engine.Script/` (the scene
 system + dispatch), `Draconic.Foundation/Draconic.Scene` (nothing - the seam

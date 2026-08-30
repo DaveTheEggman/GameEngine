@@ -1,4 +1,7 @@
-# Script surface: retire the facade layer via `.of` on reflected real types
+# Script surface: retire the facade layer via `.of` on reflected real types  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Status: CLOSED (user accepted the audit verdict, 2026-08-22). Deliverable = P0 + the
 physics explicit-hit fix. The .of(context) conversion is NOT built - the five static

@@ -1,4 +1,7 @@
-# Link SDL statically (task #119)
+# Link SDL statically (task #119)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 Size: S. Scope: root `CMakeLists.txt` (~line 337) +
 `Code/Draconic/Foundation/Draconic.Shell.Desktop/CMakeLists.txt`.

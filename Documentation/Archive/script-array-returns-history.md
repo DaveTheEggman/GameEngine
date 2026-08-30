@@ -1,4 +1,7 @@
-# Native array returns from script facades
+# Native array returns from script facades  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 > Status: **SHIPPED** (2026-08-26, Opus). Fable unavailable this session; built + self-reviewed, to be
 > reviewed retroactively. Motivated by the `overlapSphere -> OverlapHits` workaround (physics shape

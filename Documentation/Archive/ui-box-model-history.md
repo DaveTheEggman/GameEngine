@@ -1,4 +1,7 @@
-# UI core P2 - the canonical box model (border-box)
+# UI core P2 - the canonical box model (border-box)  (archived)
+
+> Status: ARCHIVED - fully built. Non-authoritative: this is the original build spec, kept
+> as the record of what was built and why; present-tense truth is the code + tests.
 
 > STATUS: spec locked 2026-08-15 (Fable, from the audit in
 > Documentation/Backlog/ui-core-audit.md Q1 - evidence anchors live there).
