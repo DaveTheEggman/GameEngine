@@ -133,10 +133,13 @@ Built: the GPU lane end to end, with MESH + MATERIAL generators.
   one, with the corrupt-file self-heal falling through to a fresh GPU job.
 - `ThumbnailStage` (editor.preview, PIMPL like PreviewViewport): a persistent hidden scene in
   its own SceneManager, an ortho camera along (1,1,1) with half-extent = radius * 1.1, a 4x
-  supersampled 512 target box-downscaled to 128, and a readback whose copy rides the FRAME
-  encoder (ordered after the render) and retires by frame-ring round-trip - no fence, no
-  stall. Driven by Editor.App: Update in OnUpdate, Render inside the scene-render bracket;
-  destroyed on project close before the service resets.
+  supersampled RGBA16Float 512 target (the viewport format - the post passes never see a
+  second format) box-downscaled to 128 with a half-float decode (the tonemap output is
+  already sRGB-encoded; quantize directly), and a readback whose copy is recorded one frame
+  AFTER the scene view (the graph executes at EndRendering, behind the frame encoder's own
+  commands - a same-frame copy captures the previous job) and retires by frame-ring
+  round-trip - no fence, no stall. Driven by Editor.App: Update in OnUpdate, Render inside
+  the scene-render bracket; destroyed on project close before the service resets.
 - Generators (editor.scene, registered from RegisterSceneEditor; composition-root tripwire =
   2): meshes (cooked product, bounds-centered at the origin, neutral PBR, radius = bounds
   half-diagonal; covers StaticMeshAsset + SkinnedMeshAsset) and materials (cooked material on
@@ -151,7 +154,8 @@ P2 calls for one, and it needs an editor-host harness (RenderSubsystem + SceneSu
 resource manager + a cooked product) that no test target stands up today. That probe is the
 immediate P2 follow-up, together with the remaining P2 generators (prefab / scene /
 particle-effect - they ride the existing stage; prefab/scene can also use the
-dependency-delegate trick below). In-editor visual verification is owed.
+dependency-delegate trick below). In-editor visual verification PASSED (2026-08-30, user):
+PaperKid mesh grid generates clean - no validation errors, correct tiles.
 
 ## P2 notes from the cross-engine research (Sedulous / Lumix / Traktor)
 
