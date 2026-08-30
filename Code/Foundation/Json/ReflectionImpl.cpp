@@ -16,11 +16,25 @@ module foundation.json;
 
 import foundation.core;
 import :value;
+import :writer; // Write() for JsonValue::ToString
+import :parser; // json::Parse() for JsonValue::Parse
 
 using namespace foundation::core;
 
 namespace foundation::json
 {
+    // Declared on JsonValue in :value; defined here (not inline in the primary interface) so MSVC
+    // emits a linkable body - see the note in JsonModule.cppm.
+    String JsonValue::ToString(bool pretty) const
+    {
+        return Write(*this, pretty);
+    }
+
+    JsonValue JsonValue::Parse(String text)
+    {
+        return foundation::json::Parse(text.AsView()).value; // Null on error - never a half-value
+    }
+
     REFLECT_VALUE(JsonValue, "rtti::foundation::json")
     {
         builder

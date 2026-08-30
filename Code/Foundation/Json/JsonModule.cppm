@@ -15,17 +15,8 @@ export import :writer;
 export import :parser;
 export import :reflection;
 
-// The two convenience members declared on JsonValue live here (the primary interface), where both
-// :writer and :parser are visible.
-namespace foundation::json
-{
-    inline foundation::core::String JsonValue::ToString(bool pretty) const
-    {
-        return Write(*this, pretty);
-    }
-
-    inline JsonValue JsonValue::Parse(foundation::core::String text)
-    {
-        return foundation::json::Parse(text.AsView()).value; // Null on error - never a half-value
-    }
-}
+// The two convenience members declared on JsonValue (ToString/Parse) are DEFINED in the
+// implementation unit (ReflectionImpl.cpp), not here: defining them inline in this primary
+// interface unit left MSVC without an emitted body for the address-taken forms
+// (&JsonValue::ToString), producing LNK2019 in consumers. They need :writer / :parser to define,
+// which the implementation unit sees.
