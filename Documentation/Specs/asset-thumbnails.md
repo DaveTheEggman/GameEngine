@@ -149,13 +149,23 @@ Built: the GPU lane end to end, with MESH + MATERIAL generators.
   one-in-flight, publish + ready signal + light-lane PNG persist, negative on failure, disk
   round-trip without re-queueing, Reset drops a taken job's late result).
 
+Prefab / scene / particle generators (2026-08-30): all three ride a PRIVATE per-job scene
+(`NeedsPrivateScene`) the stage creates through its registered SceneManager (the installer
+assembles the app's full manager set) and destroys at job end - arbitrary content never
+leaks into the shared stage. Prefabs spawn via SpawnPrefab + the source-DB payload resolver,
+frame by combined world mesh bounds, and get a sun; scene documents LoadScene +
+ResolveScenePrefabs and render through their OWN primary camera when present
+(`preferSceneCamera`; bounds framing is the fallback, no sun - the scene owns its lighting);
+particle effects stage an emitter and ask for `prewarmSteps` sim ticks (the stage enables
+simulation on the private scene only for the burst) with a FIXED framing radius (extents are
+sim-dependent). The Stage seam now reports a `ThumbnailFraming` (center/radius/camera-
+preference/prewarm) instead of a bare radius. Composition-root tripwire = 5.
+
 KNOWN GAP (the honest one): the stage itself has NO on-device pixel probe yet - the spec's
 P2 calls for one, and it needs an editor-host harness (RenderSubsystem + SceneSubsystem +
 resource manager + a cooked product) that no test target stands up today. That probe is the
-immediate P2 follow-up, together with the remaining P2 generators (prefab / scene /
-particle-effect - they ride the existing stage; prefab/scene can also use the
-dependency-delegate trick below). In-editor visual verification PASSED (2026-08-30, user):
-PaperKid mesh grid generates clean - no validation errors, correct tiles.
+remaining P2 follow-up. In-editor visual verification: mesh grid PASSED (2026-08-30, user) -
+no validation errors, correct tiles; prefab/scene/particle tiles still owed a look.
 
 ## P2 notes from the cross-engine research (Sedulous / Lumix / Traktor)
 

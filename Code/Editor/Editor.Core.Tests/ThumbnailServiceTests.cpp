@@ -271,9 +271,27 @@ namespace
         }
         [[nodiscard]] ThumbnailStageStep Stage(const Guid&, foundation::scene::Scene&,
                                                foundation::resource::ResourceManager&,
-                                               f32&) override
+                                               ThumbnailFraming&) override
         {
             return ThumbnailStageStep::Failed; // never driven here - the STAGE owns Stage()
+        }
+        void Unstage(foundation::scene::Scene&) override {}
+    };
+
+    class OtherSceneGenerator final : public ISceneThumbnailGenerator
+    {
+    public:
+        [[nodiscard]] Span<const StringView> AssetTypeNames() const override
+        {
+            static constexpr StringView kTypes[] = {u8"OtherGpuAsset"};
+            return Span<const StringView>(kTypes, 1);
+        }
+        [[nodiscard]] bool NeedsPrivateScene() const override { return true; }
+        [[nodiscard]] ThumbnailStageStep Stage(const Guid&, foundation::scene::Scene&,
+                                               foundation::resource::ResourceManager&,
+                                               ThumbnailFraming&) override
+        {
+            return ThumbnailStageStep::Failed;
         }
         void Unstage(foundation::scene::Scene&) override {}
     };
@@ -401,4 +419,26 @@ TEST_CASE("thumbnails: Reset clears the GPU queue and drops a taken job's result
     CHECK(fx.service.QueuedSceneJobs() == 0u);
     fx.service.AcceptSceneResult(job.id, SolidTile(50), true); // dropped, not published
     CHECK(fx.service.CachedCount() == 0u);
+}
+
+TEST_CASE("thumbnails: jobs route to the generator covering the asset's type")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_route");
+    GpuFixture fx(u8"thumbs_gpu_route");
+    fx.service.RegisterSceneGenerator(MakeUnique<OtherSceneGenerator>(DefaultAllocator()));
+    CHECK(fx.service.SceneGeneratorCount() == 2u);
+
+    CHECK(fx.service.Get(fx.known).Get() == nullptr); // StubGpuAsset: queued
+    const SceneThumbnailJob job = fx.service.TakeSceneJob();
+    REQUIRE(job.generator != nullptr);
+    // The job carries the STUB generator (covers "StubGpuAsset"), not the other one - and the
+    // stub keeps the shared-stage default while the other opts into a private scene.
+    CHECK(job.generator->AssetTypeNames()[0] == StringView(u8"StubGpuAsset"));
+    CHECK(!job.generator->NeedsPrivateScene());
+
+    ThumbnailFraming framing;
+    CHECK(framing.radius == 1.0f);
+    CHECK(!framing.preferSceneCamera);
+    CHECK(framing.prewarmSteps == 0u);
+    fx.service.Reset();
 }

@@ -88,26 +88,43 @@ export namespace editor
     enum class ThumbnailStageStep : u8
     {
         Pending, // resources still resolving - call Stage again next frame
-        Ready,   // scene populated; outRadius carries the framing bounds
+        Ready,   // scene populated; outFraming carries the view parameters
         Failed,  // cannot stage (missing product, unbound resource) - negative-cache it
     };
 
-    /// A GPU thumbnail producer: populates the shared offscreen preview scene for one asset;
-    /// the STAGE (editor.preview) owns the camera/render/readback around it. All calls are
+    /// How the stage views a staged job. Default: an ORTHO camera along (1,1,1) aimed at
+    /// `center`, sized from `radius`. `preferSceneCamera` asks the stage to use the scene's
+    /// own primary camera when one exists (scene documents look like themselves); the framing
+    /// fields stay the fallback. `prewarmSteps` simulation ticks (1/60s each) run before the
+    /// render - for content that is empty at t=0 (particles).
+    struct ThumbnailFraming
+    {
+        Float3 center{};
+        f32 radius = 1.0f;
+        bool preferSceneCamera = false;
+        u32 prewarmSteps = 0;
+    };
+
+    /// A GPU thumbnail producer: populates an offscreen preview scene for one asset; the
+    /// STAGE (editor.preview) owns the camera/render/readback around it. All calls are
     /// MAIN-thread. Stage() is called once per frame until it returns Ready or Failed (the
-    /// stage bounds the retries); Unstage() must remove exactly what Stage() added - the scene
-    /// is persistent and reused across jobs (per-job scene setup is the cost this design
-    /// avoids). Framing: the stage renders an ORTHO view along (1,1,1) sized from outRadius.
+    /// stage bounds the retries); Unstage() must remove exactly what Stage() added.
+    /// NeedsPrivateScene() = false stages into the SHARED persistent scene (cheap; the
+    /// generator owns persistent entities toggled active per job). True gives each job a
+    /// FRESH scene with the app's full manager set, destroyed at job end - for generators
+    /// that instantiate arbitrary content (prefabs, scene documents, simulated effects)
+    /// where teardown-by-hand or leaked scene-level state would be the bug.
     class ISceneThumbnailGenerator
     {
     public:
         virtual ~ISceneThumbnailGenerator() = default;
         /// The content asset-type names this generator covers (e.g. "MeshAsset").
         [[nodiscard]] virtual Span<const StringView> AssetTypeNames() const = 0;
+        [[nodiscard]] virtual bool NeedsPrivateScene() const { return false; }
         [[nodiscard]] virtual ThumbnailStageStep Stage(const Guid& id,
                                                        foundation::scene::Scene& scene,
                                                        foundation::resource::ResourceManager& resources,
-                                                       f32& outRadius) = 0;
+                                                       ThumbnailFraming& outFraming) = 0;
         virtual void Unstage(foundation::scene::Scene& scene) = 0;
     };
 

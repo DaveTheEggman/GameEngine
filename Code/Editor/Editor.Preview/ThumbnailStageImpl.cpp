@@ -146,7 +146,9 @@ namespace editor
 
         State state = State::Idle;
         SceneThumbnailJob job{};
-        f32 radius = 1.0f;
+        scene::Scene* jobScene = nullptr; // the shared stage, or a per-job private scene
+        bool jobSceneIsPrivate = false;
+        ThumbnailFraming framing;
         u32 stagingFrames = 0;
         u32 submittedIndex = 0;
         bool sawOtherIndex = false; // the ring must LEAVE the submitted slot before it retires
@@ -201,12 +203,25 @@ namespace editor
             return true;
         }
 
+        // Unstage + drop the job's scene (destroys a private one). Every job-end path funnels
+        // through here so a private scene can never outlive its job.
+        void ReleaseJobScene()
+        {
+            if (job.generator != nullptr && jobScene != nullptr)
+            {
+                job.generator->Unstage(*jobScene);
+            }
+            if (jobSceneIsPrivate && jobScene != nullptr)
+            {
+                sceneManager.DestroyScene(jobScene);
+            }
+            jobScene = nullptr;
+            jobSceneIsPrivate = false;
+        }
+
         void FailJob()
         {
-            if (job.generator != nullptr && scene != nullptr)
-            {
-                job.generator->Unstage(*scene);
-            }
+            ReleaseJobScene();
             service->AcceptSceneResult(job.id, image::Image{}, false);
             job = {};
             state = State::Idle;
@@ -267,19 +282,38 @@ namespace editor
                 return;
             }
             impl.job = job;
+            impl.jobSceneIsPrivate = job.generator->NeedsPrivateScene();
+            if (impl.jobSceneIsPrivate)
+            {
+                // Inactive: never manager-ticked; the stage renders and (for prewarm) ticks it
+                // by hand. The registered installer assembles the app's full manager set.
+                impl.jobScene = impl.sceneManager.CreateScene(u8"thumbnails.job", false);
+                if (impl.jobScene == nullptr)
+                {
+                    impl.jobSceneIsPrivate = false;
+                    impl.FailJob();
+                    return;
+                }
+                impl.jobScene->SetSimulationEnabled(false);
+            }
+            else
+            {
+                impl.jobScene = impl.scene;
+            }
             impl.stagingFrames = 0;
             impl.state = Impl::State::Staging;
         }
 
         if (impl.state == Impl::State::Staging)
         {
-            f32 radius = 1.0f;
+            ThumbnailFraming framing;
             const ThumbnailStageStep step =
-                impl.job.generator->Stage(impl.job.id, *impl.scene, *impl.resources, radius);
+                impl.job.generator->Stage(impl.job.id, *impl.jobScene, *impl.resources, framing);
             switch (step)
             {
             case ThumbnailStageStep::Ready:
-                impl.radius = Max(radius, 0.001f);
+                impl.framing = framing;
+                impl.framing.radius = Max(framing.radius, 0.001f);
                 impl.state = Impl::State::RenderPending;
                 break;
             case ThumbnailStageStep::Failed:
@@ -325,10 +359,7 @@ namespace editor
             {
                 Downscale(mapped, kRenderSize * 8u, pixels);
                 impl.readback->Unmap();
-                if (impl.job.generator != nullptr)
-                {
-                    impl.job.generator->Unstage(*impl.scene);
-                }
+                impl.ReleaseJobScene();
                 impl.service->AcceptSceneResult(impl.job.id, Move(pixels), true);
                 impl.job = {};
                 impl.state = Impl::State::Idle;
@@ -364,35 +395,55 @@ namespace editor
             return; // no device yet; retry next frame
         }
 
-        // The stage scene never ticks a simulation, but its transforms must be current for
-        // extraction (generators set entity transforms during Stage).
-        impl.scene->UpdateTransforms();
+        // Content that is empty at t=0 (particles) asks for simulation ticks before its one
+        // render. Only ever a PRIVATE scene: sim on for the burst, off again after.
+        if (impl.framing.prewarmSteps > 0 && impl.jobSceneIsPrivate)
+        {
+            impl.jobScene->SetSimulationEnabled(true);
+            const u32 steps = Min(impl.framing.prewarmSteps, 600u);
+            for (u32 i = 0; i < steps; ++i)
+            {
+                impl.jobScene->Update(1.0f / 60.0f);
+            }
+            impl.jobScene->SetSimulationEnabled(false);
+        }
 
-        // Ortho along (1,1,1): rotation-invariant framing sized from the staged bounds.
+        // The stage never ticks a simulation otherwise, but transforms must be current for
+        // extraction (generators set entity transforms during Stage).
+        impl.jobScene->UpdateTransforms();
+
+        // Ortho along (1,1,1) aimed at the framing center, sized from the staged bounds.
         const Float3 direction = Normalized(Float3{1.0f, 1.0f, 1.0f});
-        const f32 distance = impl.radius * 4.0f;
-        const f32 halfExtent = impl.radius * 1.1f;
+        const f32 distance = impl.framing.radius * 4.0f;
+        const f32 halfExtent = impl.framing.radius * 1.1f;
         render::ViewCamera camera;
-        const Float3 eye = direction * distance;
-        camera.view = Float4x4::LookAtRH(eye, Float3{0.0f, 0.0f, 0.0f}, Float3{0.0f, 1.0f, 0.0f});
+        const Float3 eye = impl.framing.center + direction * distance;
+        camera.view = Float4x4::LookAtRH(eye, impl.framing.center, Float3{0.0f, 1.0f, 0.0f});
         camera.projection = Float4x4::OrthographicRH(halfExtent * 2.0f, halfExtent * 2.0f, 0.05f,
-                                                     distance + impl.radius * 4.0f);
+                                                     distance + impl.framing.radius * 4.0f);
         camera.position = eye;
-        camera.farZ = distance + impl.radius * 4.0f;
+        camera.farZ = distance + impl.framing.radius * 4.0f;
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
         cameraOverride.clearColor = Color{0.10f, 0.11f, 0.13f, 1.0f};
+
+        // Scene documents look like themselves: their own primary camera + clear color when
+        // one exists (RenderScene extracts both when no override is passed).
+        render::ViewCamera sceneCamera;
+        const bool useSceneCamera =
+            impl.framing.preferSceneCamera &&
+            engine::render::ExtractPrimaryCamera(*impl.jobScene, sceneCamera, nullptr);
 
         render::TargetState targetState;
         targetState.texture = impl.target;
         targetState.currentState = impl.targetState;
         targetState.finalState = rhi::ResourceState::CopySrc;
 
-        impl.render->RenderScene(*impl.scene, impl.targetView, rhi::TextureFormat::RGBA16Float,
+        impl.render->RenderScene(*impl.jobScene, impl.targetView, rhi::TextureFormat::RGBA16Float,
                                  kRenderSize, kRenderSize,
                                  render::ViewportRect{0, 0, kRenderSize, kRenderSize},
-                                 &cameraOverride, targetState);
+                                 useSceneCamera ? nullptr : &cameraOverride, targetState);
         impl.targetState = rhi::ResourceState::CopySrc;
         impl.state = Impl::State::CopyPending;
     }
@@ -400,10 +451,9 @@ namespace editor
     void ThumbnailStage::Shutdown()
     {
         Impl& impl = *m_impl;
-        if (impl.state != Impl::State::Idle && impl.job.generator != nullptr &&
-            impl.scene != nullptr)
+        if (impl.state != Impl::State::Idle)
         {
-            impl.job.generator->Unstage(*impl.scene);
+            impl.ReleaseJobScene();
         }
         impl.job = {};
         impl.state = Impl::State::Idle;

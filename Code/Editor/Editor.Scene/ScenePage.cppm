@@ -819,7 +819,7 @@ export namespace editor
 
         if (context.Thumbnails() != nullptr)
         {
-            RegisterSceneThumbnailGenerators(*context.Thumbnails());
+            RegisterSceneThumbnailGenerators(*context.Thumbnails(), context);
         }
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(

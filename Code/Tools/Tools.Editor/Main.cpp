@@ -429,7 +429,7 @@ int main(int argc, char** argv)
         DIAGNOSTIC_ASSERT(app.Context().Thumbnails() != nullptr &&
                           app.Context().Thumbnails()->GeneratorCount() == 1);
         // 2 = mesh + material (RegisterSceneEditor); the GPU lane's stage renders these.
-        DIAGNOSTIC_ASSERT(app.Context().Thumbnails()->SceneGeneratorCount() == 2);
+        DIAGNOSTIC_ASSERT(app.Context().Thumbnails()->SceneGeneratorCount() == 5);
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators.
         // RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST - RegisterAllBuilders (below) also registers them for the
