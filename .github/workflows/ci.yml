@@ -149,7 +149,7 @@ jobs:
           echo "GXX_VER=$GXX_VER" >> "$GITHUB_ENV"
           echo "Using g++-$GXX_VER"
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++-$GXX_VER pkg-config ccache xvfb \
+            cmake ninja-build g++-$GXX_VER pkg-config xvfb \
             libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
@@ -160,26 +160,23 @@ jobs:
           sudo fallocate -l 12G /mnt/swapfile && sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
           free -h
-      - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: linux-gcc-debug
-          max-size: 2G
+      # NO ccache on the gcc lane: GCC's module scheme (-fmodules-ts + -fmodule-mapper) writes
+      # each interface unit's .gcm as a side effect ccache cannot model, and a ccache-mediated
+      # compile of an interface unit can stream declarations into the .gcm twice - importers
+      # then fail with "X cannot be overloaded with X" on defaulted members. The clang lane
+      # keeps ccache: its module outputs are explicit per-TU files on the command line.
       - name: Configure
-        run: >
-          cmake --preset gcc
-          -DCMAKE_C_COMPILER=gcc-${{ env.GXX_VER }}
-          -DCMAKE_CXX_COMPILER=g++-${{ env.GXX_VER }}
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: |
+          g++-${{ env.GXX_VER }} --version
+          cmake --preset gcc \
+            -DCMAKE_C_COMPILER=gcc-${{ env.GXX_VER }} \
+            -DCMAKE_CXX_COMPILER=g++-${{ env.GXX_VER }}
       - name: Build
         run: cmake --build --preset gcc
       - name: Test
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: xvfb-run -a ctest --preset gcc --output-on-failure --timeout 300 --no-tests=error
-      - name: ccache stats
-        if: always()
-        run: ccache -s
 
   # Windows build + test with MSVC. This covers the D3D12 backend (which the Linux job cannot
   # exercise) plus WebGPU and the headless/logic suites. No Vulkan SDK is installed, so
