@@ -22,6 +22,8 @@ import foundation.image;
 import foundation.ui;
 import editor.core;
 import foundation.vfs;
+import foundation.scene;    // the stub scene generator's Stage signature
+import foundation.resource; // (never driven here; the STAGE owns the GPU side)
 
 using namespace foundation::core;
 using namespace editor;
@@ -253,4 +255,150 @@ TEST_CASE("thumbnails: a corrupt cache file self-heals (deleted + regenerated, n
         CHECK(f.generates == 1);
         CHECK(FileExists(path.AsView())); // rewritten
     }
+}
+
+// ---- the GPU lane (scene generators + the one-in-flight job queue) -------------------------
+
+namespace
+{
+    class StubSceneGenerator final : public ISceneThumbnailGenerator
+    {
+    public:
+        [[nodiscard]] Span<const StringView> AssetTypeNames() const override
+        {
+            static constexpr StringView kTypes[] = {u8"StubGpuAsset"};
+            return Span<const StringView>(kTypes, 1);
+        }
+        [[nodiscard]] ThumbnailStageStep Stage(const Guid&, foundation::scene::Scene&,
+                                               foundation::resource::ResourceManager&,
+                                               f32&) override
+        {
+            return ThumbnailStageStep::Failed; // never driven here - the STAGE owns Stage()
+        }
+        void Unstage(foundation::scene::Scene&) override {}
+    };
+
+    [[nodiscard]] image::Image SolidTile(u8 red)
+    {
+        image::Image out(8, 8, image::PixelFormat::RGBA8);
+        Span<u8> px = out.PixelDataMut();
+        for (usize i = 0; i < px.Size(); i += 4)
+        {
+            px[i + 0] = red;
+            px[i + 3] = 255;
+        }
+        return out;
+    }
+
+    struct GpuFixture
+    {
+        content::ContentDatabase db;
+        content::Instance instance;
+        EditorJobService jobs;
+        ThumbnailService service;
+        Guid known{0x3333, 0x4444};
+
+        explicit GpuFixture(StringView cacheDir, u64 hash = 0x99)
+            : db(Fixture::NullMount(), nullptr, u8"asset"),
+              instance(db, *db.RootGroup(), Guid{0x3333, 0x4444}, u8"StubGpu", u8"tests",
+                       u8"StubGpuAsset")
+        {
+            (void)CreateDirectory(cacheDir);
+            service.RegisterSceneGenerator(MakeUnique<StubSceneGenerator>(DefaultAllocator()));
+            content::Instance* inst = &instance;
+            Guid knownId = known;
+            service.Configure(
+                cacheDir,
+                Function<content::Instance*(const Guid&)>{
+                    [inst, knownId](const Guid& id)
+                    { return id == knownId ? inst : nullptr; }},
+                &jobs, Function<u64(const Guid&)>{[hash](const Guid&) { return hash; }},
+                u8"thumbs_empty_mount");
+        }
+    };
+}
+
+TEST_CASE("thumbnails: a scene-generated type queues ONE GPU job on miss (deduped, one taken)")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_queue");
+    GpuFixture fx(u8"thumbs_gpu_queue");
+    CHECK(fx.service.SceneGeneratorCount() == 1u);
+
+    CHECK(fx.service.Get(fx.known).Get() == nullptr); // miss: queued for the stage
+    CHECK(fx.service.QueuedSceneJobs() == 1u);
+    CHECK(fx.service.Get(fx.known).Get() == nullptr); // re-query does not duplicate
+    CHECK(fx.service.QueuedSceneJobs() == 1u);
+
+    SceneThumbnailJob job = fx.service.TakeSceneJob();
+    CHECK(job.id == fx.known);
+    CHECK(job.generator != nullptr);
+    CHECK(fx.service.TakeSceneJob().id.IsNil()); // one job in flight at a time
+    CHECK(fx.service.Get(fx.known).Get() == nullptr); // active job: no re-queue
+    CHECK(fx.service.QueuedSceneJobs() == 1u);        // (the taken job still counts)
+
+    int ready = 0;
+    fx.service.OnThumbnailReady = [&ready](const Guid&) { ++ready; };
+    fx.service.AcceptSceneResult(fx.known, SolidTile(180), true);
+    CHECK(ready == 1);
+    CHECK(fx.service.Get(fx.known).Get() != nullptr); // published immediately (RAM)
+    CHECK(fx.service.QueuedSceneJobs() == 0u);
+
+    PumpLight(fx.jobs); // the PNG persist runs on the light lane
+    bool fileExists = false;
+    {
+        foundation::vfs::NativeFileSystem cache{StringView(u8"thumbs_gpu_queue")};
+        Array<foundation::vfs::DirEntry> entries;
+        (void)cache.AsEnumerable()->Enumerate(u8"", entries);
+        for (const auto& entry : entries)
+        {
+            fileExists = fileExists || entry.name.AsView().EndsWith(u8".png");
+        }
+    }
+    CHECK(fileExists);
+}
+
+TEST_CASE("thumbnails: a failed stage result caches a negative and never re-queues")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_fail");
+    GpuFixture fx(u8"thumbs_gpu_fail");
+    (void)fx.service.Get(fx.known);
+    SceneThumbnailJob job = fx.service.TakeSceneJob();
+    REQUIRE(job.id == fx.known);
+    fx.service.AcceptSceneResult(fx.known, image::Image{}, false);
+    CHECK(fx.service.Get(fx.known).Get() == nullptr);
+    CHECK(fx.service.QueuedSceneJobs() == 0u); // negative: the miss stopped rescheduling
+}
+
+TEST_CASE("thumbnails: the scene-generated disk cache round-trips through the light lane")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_disk");
+    const StringView dir = u8"thumbs_gpu_disk";
+    {
+        GpuFixture fx(dir);
+        (void)fx.service.Get(fx.known);
+        (void)fx.service.TakeSceneJob();
+        fx.service.AcceptSceneResult(fx.known, SolidTile(90), true);
+        PumpLight(fx.jobs); // persist
+    }
+    // A fresh service (same cache dir + hash): the file serves on the LIGHT lane; the GPU
+    // queue is never touched.
+    GpuFixture fx(dir);
+    CHECK(fx.service.Get(fx.known).Get() == nullptr); // scheduled, not yet loaded
+    CHECK(fx.service.QueuedSceneJobs() == 0u);
+    PumpLight(fx.jobs);
+    CHECK(fx.service.Get(fx.known).Get() != nullptr);
+    CHECK(fx.service.QueuedSceneJobs() == 0u);
+}
+
+TEST_CASE("thumbnails: Reset clears the GPU queue and drops a taken job's result")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_reset");
+    GpuFixture fx(u8"thumbs_gpu_reset");
+    (void)fx.service.Get(fx.known);
+    SceneThumbnailJob job = fx.service.TakeSceneJob();
+    REQUIRE(job.id == fx.known);
+    fx.service.Reset();
+    CHECK(fx.service.QueuedSceneJobs() == 0u);
+    fx.service.AcceptSceneResult(job.id, SolidTile(50), true); // dropped, not published
+    CHECK(fx.service.CachedCount() == 0u);
 }

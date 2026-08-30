@@ -44,7 +44,9 @@ namespace editor
             return;
         }
         IThumbnailGenerator* generator = GeneratorFor(instance->TypeName());
-        if (generator == nullptr)
+        ISceneThumbnailGenerator* sceneGenerator =
+            (generator == nullptr) ? SceneGeneratorFor(instance->TypeName()) : nullptr;
+        if (generator == nullptr && sceneGenerator == nullptr)
         {
             m_entries.InsertOrAssign(id, Entry{}); // no generator: the type icon stays
             return;
@@ -62,9 +64,36 @@ namespace editor
             slot->diskPath = CachePathFor(id, hash);
         }
 
+        const bool diskHit = !slot->diskPath.IsEmpty() && FileExists(slot->diskPath.AsView());
+
+        // A GPU-generated type with no cached file goes to the scene queue (one job at a
+        // time, drained by the stage); a cached file loads on the light lane like any other.
+        if (generator == nullptr)
+        {
+            if (!diskHit)
+            {
+                DefaultAllocator().Delete(slot);
+                if (m_activeSceneJob == id)
+                {
+                    return; // being rendered right now
+                }
+                for (const SceneThumbnailJob& queued : m_sceneQueue)
+                {
+                    if (queued.id == id)
+                    {
+                        return; // already queued
+                    }
+                }
+                m_sceneQueue.PushBack(SceneThumbnailJob{id, sceneGenerator});
+                return;
+            }
+            // Load-only slot: slot->generator stays null; the worker never generates. A stale
+            // file self-heals through the existing staleDiskFile path (delete + full retry,
+            // which then queues the GPU job).
+        }
         // MAIN-thread Prepare: the worker never touches the content DB. A Prepare failure is a
         // negative entry (bad/missing source stream) - logged once here, not every frame.
-        if (slot->diskPath.IsEmpty() || !FileExists(slot->diskPath.AsView()))
+        else if (!diskHit)
         {
             const Status prepared = generator->Prepare(*instance, *m_sources, slot->payload);
             if (!prepared.IsOk())
@@ -91,10 +120,12 @@ namespace editor
                                      slot->ok = true;
                                      return;
                                  }
-                                 if (slot->payload.IsEmpty() && !slot->diskPath.IsEmpty())
+                                 if (slot->generator == nullptr ||
+                                     (slot->payload.IsEmpty() && !slot->diskPath.IsEmpty()))
                                  {
-                                     // The cache file existed at schedule time (so Prepare was
-                                     // skipped) but would not load - a stale/corrupt write.
+                                     // Either a load-only slot (GPU-generated type) whose file
+                                     // would not load, or the cache file existed at schedule
+                                     // time (so Prepare was skipped) but is stale/corrupt.
                                      // Self-heal: delete it and retry the FULL path next Get.
                                      slot->staleDiskFile = true;
                                      return;
@@ -160,5 +191,48 @@ namespace editor
             }
         }
         DefaultAllocator().Delete(slot);
+    }
+
+    void ThumbnailService::AcceptSceneResult(const Guid& id, image::Image pixels, bool ok)
+    {
+        // Main thread (the stage runs on the frame loop). Only the ACTIVE job may complete;
+        // a Reset between Take and Accept cleared the flag, and the result is simply dropped.
+        if (!m_sceneJobActive || m_activeSceneJob != id)
+        {
+            return;
+        }
+        m_sceneJobActive = false;
+        m_activeSceneJob = Guid{};
+
+        if (!ok)
+        {
+            LOG_WARNING(u8"Thumbnails", u8"stage render failed for {} (cached negative)", id);
+            m_entries.InsertOrAssign(id, Entry{}); // negative: stop rescheduling
+            return;
+        }
+
+        // Persist on the light lane (PNG encode off the main thread), publish immediately -
+        // the drawable owns its pixels, so the UI can swap in before the file lands.
+        const u64 hash = m_contentHash ? m_contentHash(id) : 0;
+        if (hash != 0 && m_jobs != nullptr)
+        {
+            auto* file = DefaultAllocator().New<image::Image>(pixels); // copy: publish keeps the original
+            String path = CachePathFor(id, hash);
+            m_jobs->SubmitLight(
+                Function<void()>{[file, path]()
+                                 {
+                                     (void)image::io::SaveImage(*file, path.AsView(),
+                                                                image::io::ImageFileFormat::PNG);
+                                 }},
+                Function<void()>{[file]() { DefaultAllocator().Delete(file); }});
+        }
+
+        Entry entry;
+        entry.drawable = MakeRef<OwnedThumbnailDrawable>(DefaultAllocator(), Move(pixels));
+        m_entries.InsertOrAssign(id, Move(entry));
+        if (OnThumbnailReady)
+        {
+            OnThumbnailReady(id);
+        }
     }
 }

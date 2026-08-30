@@ -32,6 +32,8 @@ import foundation.core;
 import foundation.content;
 import foundation.image;
 import foundation.image.io;
+import foundation.resource; // ResourceManager (scene-thumbnail generators bind cooked products)
+import foundation.scene;    // Scene (the stage's persistent preview scene, populated by generators)
 import foundation.ui;
 import foundation.vfs;
 import :job_service;
@@ -82,6 +84,40 @@ export namespace editor
         [[nodiscard]] virtual Status Generate(Span<const byte> payload, image::Image& out) = 0;
     };
 
+    /// One step of staging an asset into the shared preview scene.
+    enum class ThumbnailStageStep : u8
+    {
+        Pending, // resources still resolving - call Stage again next frame
+        Ready,   // scene populated; outRadius carries the framing bounds
+        Failed,  // cannot stage (missing product, unbound resource) - negative-cache it
+    };
+
+    /// A GPU thumbnail producer: populates the shared offscreen preview scene for one asset;
+    /// the STAGE (editor.preview) owns the camera/render/readback around it. All calls are
+    /// MAIN-thread. Stage() is called once per frame until it returns Ready or Failed (the
+    /// stage bounds the retries); Unstage() must remove exactly what Stage() added - the scene
+    /// is persistent and reused across jobs (per-job scene setup is the cost this design
+    /// avoids). Framing: the stage renders an ORTHO view along (1,1,1) sized from outRadius.
+    class ISceneThumbnailGenerator
+    {
+    public:
+        virtual ~ISceneThumbnailGenerator() = default;
+        /// The content asset-type names this generator covers (e.g. "MeshAsset").
+        [[nodiscard]] virtual Span<const StringView> AssetTypeNames() const = 0;
+        [[nodiscard]] virtual ThumbnailStageStep Stage(const Guid& id,
+                                                       foundation::scene::Scene& scene,
+                                                       foundation::resource::ResourceManager& resources,
+                                                       f32& outRadius) = 0;
+        virtual void Unstage(foundation::scene::Scene& scene) = 0;
+    };
+
+    /// One queued GPU thumbnail job (the stage drives it; the service owns the bookkeeping).
+    struct SceneThumbnailJob
+    {
+        Guid id{};
+        ISceneThumbnailGenerator* generator = nullptr; // borrowed; lives on the service
+    };
+
     /// The thumbnail service. One per open project - the app Configures
     /// it on project open and Resets it on close.
     class ThumbnailService
@@ -104,6 +140,40 @@ export namespace editor
         void RegisterGenerator(UniquePtr<IThumbnailGenerator> generator)
         {
             m_generators.PushBack(Move(generator));
+        }
+
+        void RegisterSceneGenerator(UniquePtr<ISceneThumbnailGenerator> generator)
+        {
+            m_sceneGenerators.PushBack(Move(generator));
+        }
+        [[nodiscard]] usize SceneGeneratorCount() const noexcept
+        {
+            return m_sceneGenerators.Size();
+        }
+
+        // ---- the GPU lane (driven by the stage, one job at a time) --------------------
+        /// The next queued GPU job, or empty ({} id) when none. The job stays "taken" until
+        /// AcceptSceneResult for its id - a second call while one is out returns empty (the
+        /// one-in-flight rule every surveyed engine converged on).
+        [[nodiscard]] SceneThumbnailJob TakeSceneJob()
+        {
+            if (m_sceneJobActive || m_sceneQueue.IsEmpty())
+            {
+                return {};
+            }
+            SceneThumbnailJob job = m_sceneQueue[0];
+            m_sceneQueue.RemoveAt(0);
+            m_sceneJobActive = true;
+            m_activeSceneJob = job.id;
+            return job;
+        }
+        /// The stage finished (or failed) the active job: publish exactly like a CPU generate -
+        /// disk cache (PNG on the light lane), RAM entry, OnThumbnailReady. Failure caches a
+        /// negative entry so Get stops rescheduling until Invalidate.
+        void AcceptSceneResult(const Guid& id, image::Image pixels, bool ok);
+        [[nodiscard]] usize QueuedSceneJobs() const noexcept
+        {
+            return m_sceneQueue.Size() + (m_sceneJobActive ? 1u : 0u);
         }
 
         /// Project-open wiring: where the cache lives, how to resolve instances, the job lane,
@@ -130,6 +200,9 @@ export namespace editor
                 flight.slot->serviceAlive = false;
             }
             m_inFlight.Clear();
+            m_sceneQueue.Clear();
+            m_sceneJobActive = false;
+            m_activeSceneJob = Guid{};
             m_entries.Clear();
             m_cacheDirectory.Clear();
             m_resolve = {};
@@ -194,6 +267,21 @@ export namespace editor
             JobSlot* slot = nullptr;
         };
 
+        [[nodiscard]] ISceneThumbnailGenerator* SceneGeneratorFor(StringView typeName)
+        {
+            for (const UniquePtr<ISceneThumbnailGenerator>& generator : m_sceneGenerators)
+            {
+                for (StringView covered : generator->AssetTypeNames())
+                {
+                    if (covered == typeName)
+                    {
+                        return generator.Get();
+                    }
+                }
+            }
+            return nullptr;
+        }
+
         [[nodiscard]] IThumbnailGenerator* GeneratorFor(StringView typeName)
         {
             for (const UniquePtr<IThumbnailGenerator>& generator : m_generators)
@@ -223,7 +311,11 @@ export namespace editor
         Function<u64(const Guid&)> m_contentHash;
         EditorJobService* m_jobs = nullptr;
         Array<UniquePtr<IThumbnailGenerator>> m_generators;
+        Array<UniquePtr<ISceneThumbnailGenerator>> m_sceneGenerators;
         HashMap<Guid, Entry> m_entries;
         Array<InFlight> m_inFlight;
+        Array<SceneThumbnailJob> m_sceneQueue; // GPU-lane queue (one active at a time)
+        bool m_sceneJobActive = false;
+        Guid m_activeSceneJob{};
     };
 }

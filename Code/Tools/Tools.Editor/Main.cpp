@@ -428,6 +428,8 @@ int main(int argc, char** argv)
         // gains one, so a silently-unregistered generator fails loudly here, not as icons.
         DIAGNOSTIC_ASSERT(app.Context().Thumbnails() != nullptr &&
                           app.Context().Thumbnails()->GeneratorCount() == 1);
+        // 2 = mesh + material (RegisterSceneEditor); the GPU lane's stage renders these.
+        DIAGNOSTIC_ASSERT(app.Context().Thumbnails()->SceneGeneratorCount() == 2);
         // Script behavior page + per-backend "New Asset > <Lang> Script" creators.
         // RegisterScriptEditor fans creators over backends that have a registered COOK, so the
         // cooks must be registered FIRST - RegisterAllBuilders (below) also registers them for the

@@ -685,6 +685,10 @@ namespace editor::app
 
     void EditorApplication::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        if (m_thumbnailStage)
+        {
+            m_thumbnailStage->Update(); // take/stage the next queued GPU thumbnail job
+        }
         // I4 instrumentation: periodic resident-product report while a project is open -
         // the 5-GB-with-no-pages repro accumulates over ~30s of background work AFTER open,
         // so a single post-open snapshot misses it. 15s cadence, INFO; remove or demote
@@ -927,6 +931,10 @@ namespace editor::app
             for (const PagePanel& entry : m_pagePanels)
             {
                 entry.page->OnRenderWindow(host, frame);
+            }
+            if (m_thumbnailStage)
+            {
+                m_thumbnailStage->Render(frame); // offscreen thumbnail job (same bracket)
             }
             if (m_sceneRenderer != nullptr)
             {
@@ -2171,6 +2179,12 @@ namespace editor::app
                 Function<foundation::core::u64(const Guid&)>{
                     [this](const Guid& id) { return m_cookService.RecipeHashFor(id); }},
                 m_project->SourcesRoot().AsView());
+
+            // The GPU half: the stage renders queued mesh/material jobs offscreen. Created per
+            // project (needs the runtime context's resource manager); destroyed in CloseProject
+            // BEFORE the service resets so an in-flight job unstages cleanly.
+            m_thumbnailStage = MakeUnique<editor::ThumbnailStage>(
+                DefaultAllocator(), *m_host, m_thumbnailService, m_context.Resources());
         }
 
         // I4b instrumentation: what the open-time header scans actually cost. The XML
@@ -2491,6 +2505,7 @@ namespace editor::app
             return;
         }
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
+        m_thumbnailStage = {};      // unstages + drops GPU objects while the renderer is alive
         m_thumbnailService.Reset(); // in-flight slots outlive harmlessly; entries drop
         SaveLayout();             // pages.bin + layout.xml for the next open
         // Close every page: the tab-close pair (panel, then page), applied to all. ClosePage

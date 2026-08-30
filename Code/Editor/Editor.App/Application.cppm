@@ -39,6 +39,7 @@ import foundation.vfs;
 import foundation.resource;
 import pipeline.core;
 import editor.core;
+import editor.preview; // ThumbnailStage (the GPU thumbnail renderer, app-owned)
 import foundation.settings;
 import :assets_view;
 import :editor_icons;
@@ -367,6 +368,7 @@ export namespace editor::app
         pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
         editor::ThumbnailService m_thumbnailService; // per-project state
+        UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)
         editor::EditorJobService m_jobService; // generic background jobs (export, ...)
         foundation::settings::Settings
             m_editorSettings; // per-user editor prefs (<userdata>/editor.settings.xml)

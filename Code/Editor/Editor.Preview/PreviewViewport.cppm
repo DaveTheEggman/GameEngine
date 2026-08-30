@@ -25,6 +25,8 @@ module;
 
 export module editor.preview;
 
+export import :thumbnail_stage; // the GPU thumbnail renderer (shares this substrate's home)
+
 import foundation.core;
 import foundation.runtime.client; // IApplicationHost
 import foundation.ui.runtime;     // UIHost

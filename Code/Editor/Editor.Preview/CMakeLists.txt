@@ -12,11 +12,14 @@ target_link_libraries(Editor.Preview
         Foundation::Graphics Foundation::RHI Foundation::Scene Engine::Scene
         Foundation::Render Engine::Render Editor::Camera
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
+        Foundation::Image Foundation::Resource Editor::Core
         Foundation::Policy)
 
 target_sources(Editor.Preview
     PRIVATE
         PreviewViewportImpl.cpp
+        ThumbnailStageImpl.cpp
     PUBLIC
         FILE_SET editor_preview_modules TYPE CXX_MODULES FILES
-            PreviewViewport.cppm)
+            PreviewViewport.cppm
+            ThumbnailStage.cppm)

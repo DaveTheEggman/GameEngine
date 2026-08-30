@@ -21,6 +21,8 @@ module;
 
 export module editor.scene:page;
 
+import :asset_thumbnails; // RegisterSceneThumbnailGenerators (called from RegisterSceneEditor)
+
 import foundation.core;
 import foundation.content;
 import foundation.rhi;
@@ -814,6 +816,11 @@ export namespace editor
         RegisterSceneViewSettingsType();
         GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<scene::PrefabDocument>();
+
+        if (context.Thumbnails() != nullptr)
+        {
+            RegisterSceneThumbnailGenerators(*context.Thumbnails());
+        }
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost), DefaultAllocator()));

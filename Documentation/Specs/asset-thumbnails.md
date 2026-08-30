@@ -1,6 +1,7 @@
 # Asset thumbnails (generation + display)
 
-> STATUS: P1 BUILT 2026-08-16 (Fable). Service + texture generator + browser-grid and
+> STATUS: P2 (mesh + material) BUILT 2026-08-30 (Fable) - see the P2 status block below.
+> P1 BUILT 2026-08-16 (Fable). Service + texture generator + browser-grid and
 > picker-slot display + tests shipped. ARCHITECTURE RULING (user): generators live in
 > the DOMAIN editor libs beside their asset's editor surface (Editor.Texture carries
 > the texture generator + its Pipeline::Texture knowledge) and register through the
@@ -119,6 +120,38 @@ Phased coverage:
 - **P3** - font + audio generators.
 - **P4** - picker dialog thumbnails; a settings knob for thumbnail size; cache
   maintenance action (clear/regenerate all).
+
+## P2 status (2026-08-30)
+
+Built: the GPU lane end to end, with MESH + MATERIAL generators.
+
+- `ISceneThumbnailGenerator` (editor.core): the type-erased GPU seam - a generator populates
+  the shared stage scene (Stage per frame until Ready/Failed, Unstage removes what it added)
+  and reports a framing radius; it never touches the GPU. The service grew the one-in-flight
+  job queue (`TakeSceneJob`/`AcceptSceneResult`), and its disk cache is now generator-kind
+  agnostic: a cached PNG for a GPU-generated type loads on the light lane exactly like a CPU
+  one, with the corrupt-file self-heal falling through to a fresh GPU job.
+- `ThumbnailStage` (editor.preview, PIMPL like PreviewViewport): a persistent hidden scene in
+  its own SceneManager, an ortho camera along (1,1,1) with half-extent = radius * 1.1, a 4x
+  supersampled 512 target box-downscaled to 128, and a readback whose copy rides the FRAME
+  encoder (ordered after the render) and retires by frame-ring round-trip - no fence, no
+  stall. Driven by Editor.App: Update in OnUpdate, Render inside the scene-render bracket;
+  destroyed on project close before the service resets.
+- Generators (editor.scene, registered from RegisterSceneEditor; composition-root tripwire =
+  2): meshes (cooked product, bounds-centered at the origin, neutral PBR, radius = bounds
+  half-diagonal; covers StaticMeshAsset + SkinnedMeshAsset) and materials (cooked material on
+  a unit sphere). Each owns PERSISTENT stage entities toggled active per job (the
+  Sedulous/Lumix persistent-world pattern) with a private no-shadow sun.
+- Tests: the GPU-lane queue mechanics are pinned headlessly in Editor.Core.Tests (dedupe,
+  one-in-flight, publish + ready signal + light-lane PNG persist, negative on failure, disk
+  round-trip without re-queueing, Reset drops a taken job's late result).
+
+KNOWN GAP (the honest one): the stage itself has NO on-device pixel probe yet - the spec's
+P2 calls for one, and it needs an editor-host harness (RenderSubsystem + SceneSubsystem +
+resource manager + a cooked product) that no test target stands up today. That probe is the
+immediate P2 follow-up, together with the remaining P2 generators (prefab / scene /
+particle-effect - they ride the existing stage; prefab/scene can also use the
+dependency-delegate trick below). In-editor visual verification is owed.
 
 ## P2 notes from the cross-engine research (Sedulous / Lumix / Traktor)
 

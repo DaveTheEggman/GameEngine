@@ -30,6 +30,7 @@ target_sources(Editor.Scene
         GizmoImpl.cpp
         ToolsImpl.cpp
         ComponentGizmosImpl.cpp
+        AssetThumbnailsImpl.cpp
         HierarchyViewImpl.cpp
         InspectorViewImpl.cpp
         ScenePageImpl.cpp
@@ -48,6 +49,7 @@ target_sources(Editor.Scene
             Gizmo.cppm
             Tools.cppm
             ComponentGizmos.cppm
+            AssetThumbnails.cppm
             HierarchyView.cppm
             InspectorView.cppm
             EntityPickerDialog.cppm

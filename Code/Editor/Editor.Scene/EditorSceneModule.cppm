@@ -17,6 +17,7 @@ export import :edit;
 export import :gizmo;
 export import :tools;
 export import :component_gizmos;
+export import :asset_thumbnails;
 export import :hierarchy;
 export import :inspector;
 export import :entity_picker_dialog;

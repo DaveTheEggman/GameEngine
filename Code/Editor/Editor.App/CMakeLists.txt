@@ -12,7 +12,7 @@ target_link_libraries(Editor.App
         Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.Resource Foundation::Fonts.DistanceField.Baker
         Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime Foundation::UI.Application
         Foundation::UI.Resource Engine::UI
-        Foundation::Input Engine::Input
+        Foundation::Input Engine::Input Editor::Preview
         Editor::Core Editor::ViewportTools Foundation::Settings Foundation::Policy)
 
 target_sources(Editor.App
