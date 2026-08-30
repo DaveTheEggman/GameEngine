@@ -179,6 +179,13 @@
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "msvc",
+      "configurePreset": "msvc",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }

@@ -118,3 +118,29 @@ jobs:
       - name: ccache stats
         if: always()
         run: ccache -s
+
+  # Windows build + test with MSVC. This covers the D3D12 backend (which the Linux job cannot
+  # exercise) plus WebGPU and the headless/logic suites. No Vulkan SDK is installed, so
+  # find_package(Vulkan) fails and RHI.Vulkan + the Vulkan-only Render.Backend.Tests are skipped by
+  # design (Vulkan is the Linux job's coverage). SDL3 is vendored source and builds static in-tree,
+  # and DXC/wgpu ship as Windows prebuilts in ThirdParty - so there is nothing to install beyond the
+  # toolchain. Independent of the Linux job; a Windows failure does not cancel Linux.
+  windows-msvc:
+    name: Windows / MSVC / Debug
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 if the modules build OOMs on the 16 GB runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1 # puts cl + the Windows SDK on PATH for the later steps
+      - name: Install Ninja
+        run: choco install ninja -y # the msvc preset uses the Ninja generator (C++20 modules)
+      - name: Configure
+        run: cmake --preset msvc
+      - name: Build
+        run: cmake --build --preset msvc
+      # Device-creating suites run against whatever headless adapter Windows provides (D3D12 WARP);
+      # ones with no software path skip themselves. --timeout bounds any hang.
+      - name: Test
+        run: ctest --preset msvc --output-on-failure --timeout 300
