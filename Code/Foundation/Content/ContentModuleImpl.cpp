@@ -74,10 +74,42 @@ namespace foundation::content
         return nullptr;
     }
 
+    bool Group::NameLess(StringView a, StringView b)
+    {
+        const usize n = Min(a.Size(), b.Size());
+        for (usize i = 0; i < n; ++i)
+        {
+            utf8char ca = a[i];
+            utf8char cb = b[i];
+            if (ca >= utf8char('A') && ca <= utf8char('Z'))
+            {
+                ca = static_cast<utf8char>(ca + 32);
+            }
+            if (cb >= utf8char('A') && cb <= utf8char('Z'))
+            {
+                cb = static_cast<utf8char>(cb + 32);
+            }
+            if (ca != cb)
+            {
+                return ca < cb;
+            }
+        }
+        return a.Size() < b.Size();
+    }
+
     Group* Group::AddChildGroup(StringView name)
     {
         Group* child = m_db->NewGroup(this, name);
-        m_groups.PushBack(child);
+        usize at = m_groups.Size();
+        for (usize i = 0; i < m_groups.Size(); ++i)
+        {
+            if (NameLess(child->Name(), m_groups[i]->Name()))
+            {
+                at = i;
+                break;
+            }
+        }
+        m_groups.Insert(at, child);
         return child;
     }
 
@@ -85,8 +117,24 @@ namespace foundation::content
                                  StringView typeName)
     {
         Instance* instance = m_db->NewInstance(*this, id, name, typeNs, typeName);
-        m_instances.PushBack(instance);
+        usize at = m_instances.Size();
+        for (usize i = 0; i < m_instances.Size(); ++i)
+        {
+            if (NameLess(instance->Name(), m_instances[i]->Name()))
+            {
+                at = i;
+                break;
+            }
+        }
+        m_instances.Insert(at, instance);
         return instance;
+    }
+
+    void Group::ResortChildren()
+    {
+        m_groups.Sort([](Group* a, Group* b) { return NameLess(a->Name(), b->Name()); });
+        m_instances.Sort([](Instance* a, Instance* b)
+                         { return NameLess(a->Name(), b->Name()); });
     }
 
     void Group::RemoveInstance(Instance* instance)
@@ -542,6 +590,7 @@ namespace foundation::content
 
         // The envelope may not exist yet (instance created, never written) - that's fine.
         instance->m_name = String(newName);
+        instance->OwningGroup().ResortChildren();
         if (m_mount->Exists(oldEnvelope.AsView()))
         {
             const Status moved =
@@ -576,6 +625,7 @@ namespace foundation::content
 
         const String oldPath = group.Path();
         group.m_name = String(newName);
+        group.Parent()->ResortChildren();
         // The directory may not exist yet (group created, nothing written under it).
         if (!oldPath.IsEmpty() && m_mount->Exists(oldPath.AsView()))
         {

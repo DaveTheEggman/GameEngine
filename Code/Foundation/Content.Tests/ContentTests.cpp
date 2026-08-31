@@ -509,3 +509,51 @@ TEST_CASE("content: the open scan reports envelope count + bytes opened (I4b ins
         CHECK(db.LastScanStats().bytesOpened > 0);
     }
 }
+
+TEST_CASE("content: group children stay name-sorted through create and rename")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"scratch_content_sort_db";
+    RemoveDirectory(JoinPath(dir, u8"zinc"));
+    RemoveDirectory(JoinPath(dir, u8"Alpha"));
+    RemoveDirectory(JoinPath(dir, u8"metals"));
+    RemoveDirectory(JoinPath(dir, u8"steel"));
+    RemoveDirectory(dir);
+    NativeFileSystem mount(dir);
+    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+
+    // Created deliberately out of order (and mixed case) - readdir/import order must not
+    // leak into the surfaced order.
+    Group* root = db.RootGroup();
+    (void)root->CreateGroup(u8"zinc");
+    (void)root->CreateGroup(u8"Alpha");
+    (void)root->CreateGroup(u8"metals");
+    REQUIRE(root->Groups().Size() == 3u);
+    CHECK(root->Groups()[0]->Name() == u8"Alpha");
+    CHECK(root->Groups()[1]->Name() == u8"metals");
+    CHECK(root->Groups()[2]->Name() == u8"zinc");
+
+    Group* metals = root->GetGroup(u8"metals");
+    (void)metals->CreateInstance(u8"tin", MaterialResource::StaticType());
+    (void)metals->CreateInstance(u8"Bronze", MaterialResource::StaticType());
+    foundation::content::Instance* steel =
+        metals->CreateInstance(u8"steel", MaterialResource::StaticType());
+    REQUIRE(metals->Instances().Size() == 3u);
+    CHECK(metals->Instances()[0]->Name() == u8"Bronze");
+    CHECK(metals->Instances()[1]->Name() == u8"steel");
+    CHECK(metals->Instances()[2]->Name() == u8"tin");
+
+    // A rename re-sorts its siblings.
+    REQUIRE(db.RenameInstance(steel->Id(), u8"zeta").IsOk());
+    CHECK(metals->Instances()[2]->Name() == u8"zeta");
+    Group* alpha = root->GetGroup(u8"Alpha");
+    REQUIRE(db.RenameGroup(*alpha, u8"omega").IsOk());
+    CHECK(root->Groups()[0]->Name() == u8"metals");
+    CHECK(root->Groups()[1]->Name() == u8"omega");
+    CHECK(root->Groups()[2]->Name() == u8"zinc");
+
+    RemoveDirectory(JoinPath(dir, u8"metals"));
+    RemoveDirectory(dir);
+}

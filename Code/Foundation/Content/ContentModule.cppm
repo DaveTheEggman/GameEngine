@@ -137,12 +137,17 @@ export namespace foundation::content
                                        const TypeInfo& primaryType);
 
         // --- internal (used by the database scanner) ---
+        // Children stay NAME-SORTED (case-insensitive): the mount scan hands entries in
+        // arbitrary readdir order and imports append, so without an invariant every browser,
+        // tree, and picker showed a different order per session.
         Group* AddChildGroup(StringView name);
         Instance* AddInstance(const Guid& id, StringView name, StringView typeNs,
                               StringView typeName);
         void RemoveInstance(Instance* instance); // unlinks from this group (DB owns destruction)
+        void ResortChildren(); // re-establish the name order after a child rename
 
     private:
+        [[nodiscard]] static bool NameLess(StringView a, StringView b);
         friend class ContentDatabase; // rename rewrites m_name after moving the directory
         ContentDatabase* m_db;
         Group* m_parent;
