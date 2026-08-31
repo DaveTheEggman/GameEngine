@@ -51,7 +51,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build clang pkg-config ccache xvfb \
+            cmake ninja-build clang pkg-config xvfb \
             libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
             libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
@@ -86,14 +86,10 @@ jobs:
           sudo swapon /mnt/swapfile
           free -h
 
-      # ccache caches the many non-module ThirdParty TUs (ThirdParty is ~46% of a
-      # clean build). Module units may not cache, but this still cuts the biggest cost.
-      - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2
-        with:
-          key: linux-clang-debug
-          max-size: 2G
-
+      # NO ccache: it does not hash the module BMIs behind CMake's @modmap files, so an
+      # interface (.cppm) change gets importer TUs served as stale cached objects - a silent
+      # ABI/constant mismatch (bit locally 2026-08-30, then this lane on the facade-count
+      # bump). Re-adding it would need a launcher scoped to non-module TUs only (ThirdParty).
       - name: Configure
         # Override the preset's CMAKE_CXX_COMPILER ('clang++') with the versioned Clang 21 binary.
         # A command-line -D beats the preset cache var (and beats CC/CXX env), so this does not
@@ -103,7 +99,6 @@ jobs:
           -DCMAKE_C_COMPILER=clang-21
           -DCMAKE_CXX_COMPILER=clang++-21
           -DCMAKE_ASM_COMPILER=clang++-21
-          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build --preset clang
@@ -116,10 +111,6 @@ jobs:
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: xvfb-run -a ctest --preset clang --output-on-failure --timeout 300 --no-tests=error
-
-      - name: ccache stats
-        if: always()
-        run: ccache -s
 
   linux-gcc:
     name: Linux / gcc / Debug
