@@ -51,6 +51,48 @@ export namespace engine::spline
         }
     };
 
+    /// Moves its entity along another entity's spline at a constant speed (the first spline
+    /// consumer). `distance` is the position along the curve (serialized, so an authored
+    /// start offset survives); non-loop follows stop at the end (closed curves always wrap).
+    struct PathFollowComponent
+    {
+        foundation::scene::EntityRef spline; // the entity carrying the SplineComponent
+        f32 speed = 1.0f;                    // world units per second along the curve
+        f32 distance = 0.0f;                 // current position along the curve
+        bool playing = true;
+        bool loop = true;
+        bool alignToTangent = true; // face -Z along the curve direction
+    };
+
+    inline void Serialize(ISerializer& ar, PathFollowComponent& c)
+    {
+        foundation::core::Serialize(ar, "spline", c.spline.id);
+        foundation::core::Serialize(ar, "speed", c.speed);
+        foundation::core::Serialize(ar, "distance", c.distance);
+        foundation::core::Serialize(ar, "playing", c.playing);
+        foundation::core::Serialize(ar, "loop", c.loop);
+        foundation::core::Serialize(ar, "alignToTangent", c.alignToTangent);
+    }
+
+    /// Simulation-only: advances every follower during Update (edit mode never moves them).
+    class PathFollowComponentManager final
+        : public foundation::scene::SerializableComponentManager<PathFollowComponent>
+    {
+    public:
+        PathFollowComponentManager()
+            : foundation::scene::SerializableComponentManager<PathFollowComponent>(
+                  u8"path_follow")
+        {
+        }
+
+        [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
+        void OnSceneCreate(foundation::scene::Scene& scene) override { m_scene = &scene; }
+        void OnUpdate(foundation::scene::ScenePhase phase, f32 deltaTime) override;
+
+    private:
+        foundation::scene::Scene* m_scene = nullptr;
+    };
+
     /// Scene-composition install (the domain module entry; see Engine.SceneSurface).
     void AddSplineSceneManagers(foundation::scene::Scene& scene);
     /// Component reflection (component menu + inspector + data-version gate). Idempotent.

@@ -96,3 +96,73 @@ TEST_CASE("spline facade: world-space queries through SceneSplines")
     CHECK(!splines.sampleAt(bareEntity, 0.5f).valid);
     CHECK(splines.length(bareEntity) == 0.0f);
 }
+
+TEST_CASE("path follow: the follower advances, aligns, and stops at an open end")
+{
+    foundation::scene::Scene sceneObj(u8"follow");
+    engine::spline::AddSplineSceneManagers(sceneObj);
+    auto* splines = sceneObj.GetSystem<engine::spline::SplineComponentManager>();
+    auto* follows = sceneObj.GetSystem<engine::spline::PathFollowComponentManager>();
+    REQUIRE(splines != nullptr);
+    REQUIRE(follows != nullptr);
+    sceneObj.SetSimulationEnabled(true);
+
+    const foundation::scene::EntityHandle path = sceneObj.CreateEntity(u8"path");
+    engine::spline::SplineComponent& spline = splines->Add(path);
+    spline.curve.points.PushBack(SplinePoint{Float3{0, 0, 0}});
+    spline.curve.points.PushBack(SplinePoint{Float3{10, 0, 0}});
+    spline.curve.UpdateAutoHandles();
+    spline.curve.RebuildArcLength();
+
+    const foundation::scene::EntityHandle mover = sceneObj.CreateEntity(u8"mover");
+    engine::spline::PathFollowComponent& follow = follows->Add(mover);
+    follow.spline = sceneObj.GetEntityId(path);
+    follow.speed = 2.0f;
+    follow.loop = false;
+    sceneObj.UpdateTransforms();
+
+    sceneObj.Update(1.0f); // 2 units along +X
+    const Float3 afterOne = sceneObj.GetWorldPosition(mover);
+    CHECK(afterOne.x == doctest::Approx(2.0f).epsilon(0.05));
+    CHECK(afterOne.y == doctest::Approx(0.0f).epsilon(0.01));
+    // Aligned: -Z of the follower's rotation points along +X (the tangent).
+    const Transform t = sceneObj.GetLocalTransform(mover);
+    const Float3 forward = RotateVector(t.rotation, Float3{0, 0, -1});
+    CHECK(Length(forward - Float3{1, 0, 0}) < 0.01f);
+
+    // Run past the end: clamps at the far point and stops playing.
+    for (int i = 0; i < 10; ++i)
+    {
+        sceneObj.Update(1.0f);
+    }
+    const Float3 end = sceneObj.GetWorldPosition(mover);
+    CHECK(end.x == doctest::Approx(10.0f).epsilon(0.01));
+    CHECK(!follows->Get(mover)->playing);
+}
+
+TEST_CASE("path follow: a looping follower wraps instead of stopping")
+{
+    foundation::scene::Scene sceneObj(u8"follow_loop");
+    engine::spline::AddSplineSceneManagers(sceneObj);
+    auto* splines = sceneObj.GetSystem<engine::spline::SplineComponentManager>();
+    auto* follows = sceneObj.GetSystem<engine::spline::PathFollowComponentManager>();
+    sceneObj.SetSimulationEnabled(true);
+
+    const foundation::scene::EntityHandle path = sceneObj.CreateEntity(u8"path");
+    engine::spline::SplineComponent& spline = splines->Add(path);
+    spline.curve.points.PushBack(SplinePoint{Float3{0, 0, 0}});
+    spline.curve.points.PushBack(SplinePoint{Float3{10, 0, 0}});
+    spline.curve.UpdateAutoHandles();
+    spline.curve.RebuildArcLength();
+
+    const foundation::scene::EntityHandle mover = sceneObj.CreateEntity(u8"mover");
+    engine::spline::PathFollowComponent& follow = follows->Add(mover);
+    follow.spline = sceneObj.GetEntityId(path);
+    follow.speed = 4.0f;
+    follow.loop = true;
+    sceneObj.UpdateTransforms();
+
+    sceneObj.Update(3.0f); // 12 units -> wraps to 2
+    CHECK(sceneObj.GetWorldPosition(mover).x == doctest::Approx(2.0f).epsilon(0.05));
+    CHECK(follows->Get(mover)->playing);
+}

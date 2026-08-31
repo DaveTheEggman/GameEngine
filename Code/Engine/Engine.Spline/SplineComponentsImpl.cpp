@@ -28,9 +28,102 @@ namespace engine::spline
         // flag is a direct property.
     }
 
+    void PathFollowComponentManager::OnUpdate(foundation::scene::ScenePhase phase,
+                                              f32 deltaTime)
+    {
+        if (phase != foundation::scene::ScenePhase::Update || m_scene == nullptr ||
+            deltaTime <= 0.0f)
+        {
+            return;
+        }
+        auto* splines = m_scene->GetSystem<SplineComponentManager>();
+        if (splines == nullptr)
+        {
+            return;
+        }
+        ForEach(
+            [&](PathFollowComponent& follow, foundation::scene::EntityHandle owner)
+            {
+                if (!follow.playing || follow.spline.IsNil() ||
+                    !m_scene->IsEffectivelyActive(owner))
+                {
+                    return;
+                }
+                const foundation::scene::EntityHandle splineEntity =
+                    m_scene->FindEntity(follow.spline.id);
+                const SplineComponent* component = splines->Get(splineEntity);
+                if (component == nullptr)
+                {
+                    return;
+                }
+                const foundation::spline::SplineCurve& curve = component->curve;
+                const f32 length = curve.Length();
+                if (length <= 0.0f)
+                {
+                    return;
+                }
+
+                follow.distance += follow.speed * deltaTime;
+                if (curve.closed || follow.loop)
+                {
+                    follow.distance -= Floor(follow.distance / length) * length;
+                }
+                else if (follow.distance >= length)
+                {
+                    follow.distance = length;
+                    follow.playing = false; // arrived
+                }
+                else if (follow.distance < 0.0f)
+                {
+                    follow.distance = 0.0f;
+                    follow.playing = false;
+                }
+
+                const f32 t = curve.DistanceToT(follow.distance);
+                const Float4x4 splineWorld = m_scene->GetWorldMatrix(splineEntity);
+                const Float3 world = TransformPoint(curve.Evaluate(t), splineWorld);
+
+                // NOTE: assumes an unparented follower (local == world), the NavAgent
+                // moveEntity convention; a parented follower would need world->parent-local.
+                Transform transform = m_scene->GetLocalTransform(owner);
+                transform.position = world;
+                if (follow.alignToTangent)
+                {
+                    const Float3 tangent =
+                        Normalized(TransformDirection(curve.Tangent(t), splineWorld));
+                    if (LengthSquared(tangent) > 0.5f)
+                    {
+                        // Yaw/pitch that turn -Z into the tangent (roll-free).
+                        const f32 yaw = Atan2(-tangent.x, -tangent.z);
+                        const f32 horizontal =
+                            Sqrt(tangent.x * tangent.x + tangent.z * tangent.z);
+                        const f32 pitch = Atan2(tangent.y, horizontal);
+                        transform.rotation =
+                            Quaternion::FromAxisAngle(Float3{0, 1, 0}, yaw) *
+                            Quaternion::FromAxisAngle(Float3{1, 0, 0}, pitch);
+                    }
+                }
+                m_scene->SetLocalTransform(owner, transform);
+            });
+    }
+
+    REFLECT_VALUE(PathFollowComponent, "rtti::engine::spline")
+    {
+        builder.Attribute("displayName", String(u8"Path Follow"))
+            .Attribute("category", String(u8"Utility"))
+            .DataVersion(1)
+            .Property<&PathFollowComponent::spline>("spline")
+            .Property<&PathFollowComponent::speed>("speed")
+            .Property<&PathFollowComponent::distance>("distance")
+            .Property<&PathFollowComponent::playing>("playing")
+            .Property<&PathFollowComponent::loop>("loop")
+            .Property<&PathFollowComponent::alignToTangent>("alignToTangent");
+    }
+
     void AddSplineSceneManagers(foundation::scene::Scene& scene)
     {
         scene.AddSystem<SplineComponentManager>();
+        scene.AddSystem<PathFollowComponentManager>();
     }
 
     void RegisterSplineComponentReflection()
@@ -38,6 +131,7 @@ namespace engine::spline
         static const bool once = []()
         {
             RttiRegisterValue_SplineComponent();
+            RttiRegisterValue_PathFollowComponent();
             return true;
         }();
         (void)once;
