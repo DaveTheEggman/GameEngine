@@ -6,7 +6,7 @@ add_library(Engine.Spline STATIC)
 add_library(Engine::Spline ALIAS Engine.Spline)
 
 target_link_libraries(Engine.Spline PUBLIC
-    Foundation::Core Foundation::Scene Foundation::Spline Foundation::Policy)
+    Foundation::Core Foundation::Scene Foundation::Spline Foundation::Script.Facades Foundation::Policy)
 
 target_sources(Engine.Spline
     PRIVATE

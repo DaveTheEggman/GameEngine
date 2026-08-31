@@ -15,6 +15,7 @@ module engine.scriptsurface;
 
 import foundation.core;
 import foundation.script.facades; // RegisterScriptFacadeReflection (base Entity/Log/Time/Random)
+import engine.spline;
 import engine.physics;
 import engine.navigation;
 import engine.audio;
@@ -49,6 +50,7 @@ namespace engine
         engine::render::RegisterRenderScriptFacade();
         engine::particles::RegisterParticleScriptFacade();
         engine::animation::RegisterAnimationScriptFacade();
+        engine::spline::RegisterSplineScriptFacade();
         engine::runtime::RegisterRunScriptFacade(); // run.* (bound as `run` via ScriptName)
         foundation::net::RegisterNetScriptFacade();
         foundation::net::RegisterNetworkComponentScriptFacade();

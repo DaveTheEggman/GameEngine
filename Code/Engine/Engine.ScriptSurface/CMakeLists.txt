@@ -12,7 +12,7 @@ add_library(Engine::ScriptSurface ALIAS Engine.ScriptSurface)
 target_link_libraries(Engine.ScriptSurface PUBLIC
     Foundation::Core Foundation::Script.Facades
     Engine::Physics Engine::Navigation Engine::Audio Engine::Input Engine::UI Engine::UI.Script Engine::Render
-    Engine::Particles Engine::Animation Engine::GameInstance
+    Engine::Particles Engine::Animation Engine::Spline Engine::GameInstance
     Foundation::Net.Manager Foundation::Net.Replication
     Foundation::Policy)
 

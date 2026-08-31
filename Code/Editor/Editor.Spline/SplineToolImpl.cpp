@@ -122,17 +122,41 @@ namespace editor
                     return m_dragging;
                 }
 
-                // Hover: nearest control point within the screen-constant radius.
+                // Hover: nearest control point within the screen-constant radius; the
+                // SELECTED point's tangent handles pick first (they sit near the point).
+                m_hoverHandle = -1;
                 f32 bestDistance = kFloatMax;
-                for (usize i = 0; i < curve.points.Size(); ++i)
+                if (m_selectedPoint >= 0 &&
+                    m_selectedPoint < static_cast<i32>(curve.points.Size()))
                 {
-                    const Float3 world = TransformPoint(curve.points[i].position, m_world);
-                    f32 along = 0.0f;
-                    const f32 d = RayPointDistance(input.ray, world, along);
-                    if (d < along * kPickScale && d < bestDistance)
+                    const fspline::SplinePoint& selected =
+                        curve.points[static_cast<usize>(m_selectedPoint)];
+                    const Float3 ends[2] = {
+                        TransformPoint(selected.position + selected.inHandle, m_world),
+                        TransformPoint(selected.position + selected.outHandle, m_world)};
+                    for (i32 h = 0; h < 2; ++h)
                     {
-                        bestDistance = d;
-                        m_hoverPoint = static_cast<i32>(i);
+                        f32 along = 0.0f;
+                        const f32 d = RayPointDistance(input.ray, ends[h], along);
+                        if (d < along * kPickScale && d < bestDistance)
+                        {
+                            bestDistance = d;
+                            m_hoverHandle = h;
+                        }
+                    }
+                }
+                if (m_hoverHandle < 0)
+                {
+                    for (usize i = 0; i < curve.points.Size(); ++i)
+                    {
+                        const Float3 world = TransformPoint(curve.points[i].position, m_world);
+                        f32 along = 0.0f;
+                        const f32 d = RayPointDistance(input.ray, world, along);
+                        if (d < along * kPickScale && d < bestDistance)
+                        {
+                            bestDistance = d;
+                            m_hoverPoint = static_cast<i32>(i);
+                        }
                     }
                 }
 
@@ -161,8 +185,39 @@ namespace editor
                         if (t > 0.0f)
                         {
                             const Float3 world = input.ray.origin + input.ray.direction * t;
-                            curve.points[static_cast<usize>(m_dragPoint)].position =
-                                TransformPoint(world, Inverse(m_world));
+                            const Float3 local = TransformPoint(world, Inverse(m_world));
+                            fspline::SplinePoint& point =
+                                curve.points[static_cast<usize>(m_dragPoint)];
+                            if (m_dragHandle < 0)
+                            {
+                                point.position = local;
+                            }
+                            else
+                            {
+                                // Editing a handle promotes Auto; Shift breaks the pair.
+                                if (point.mode == fspline::SplineHandleMode::Auto)
+                                {
+                                    point.mode = fspline::SplineHandleMode::Smooth;
+                                }
+                                if (input.shift)
+                                {
+                                    point.mode = fspline::SplineHandleMode::Broken;
+                                }
+                                Float3& dragged =
+                                    (m_dragHandle == 0) ? point.inHandle : point.outHandle;
+                                Float3& other =
+                                    (m_dragHandle == 0) ? point.outHandle : point.inHandle;
+                                dragged = local - point.position;
+                                if (point.mode == fspline::SplineHandleMode::Smooth)
+                                {
+                                    // Collinear: the other handle keeps its own magnitude.
+                                    const f32 draggedLength = Length(dragged);
+                                    if (draggedLength > 0.0001f)
+                                    {
+                                        other = dragged * (-Length(other) / draggedLength);
+                                    }
+                                }
+                            }
                             curve.UpdateAutoHandles();
                             curve.RebuildArcLength();
                         }
@@ -187,17 +242,35 @@ namespace editor
                     curve.RebuildArcLength();
                     CommitSnapshot(curve);
                     m_hoverPoint = -1;
+                    m_selectedPoint = -1;
                     return true;
                 }
 
                 if (input.leftPressed && input.pointerOver)
                 {
+                    if (m_hoverHandle >= 0 && m_selectedPoint >= 0)
+                    {
+                        const fspline::SplinePoint& selected =
+                            curve.points[static_cast<usize>(m_selectedPoint)];
+                        BeginSnapshot(curve);
+                        m_dragging = true;
+                        m_dragPoint = m_selectedPoint;
+                        m_dragHandle = m_hoverHandle;
+                        m_dragPlaneOrigin = TransformPoint(
+                            selected.position +
+                                (m_hoverHandle == 0 ? selected.inHandle : selected.outHandle),
+                            m_world);
+                        m_dragPlaneNormal = input.cameraForward * -1.0f;
+                        return true;
+                    }
                     if (m_hoverPoint >= 0)
                     {
                         // Grab: gesture snapshot + a camera-facing drag plane.
                         BeginSnapshot(curve);
                         m_dragging = true;
                         m_dragPoint = m_hoverPoint;
+                        m_dragHandle = -1;
+                        m_selectedPoint = m_hoverPoint;
                         m_dragPlaneOrigin = TransformPoint(
                             curve.points[static_cast<usize>(m_dragPoint)].position, m_world);
                         m_dragPlaneNormal = input.cameraForward * -1.0f;
@@ -254,6 +327,24 @@ namespace editor
                                             hovered ? hoverColor : pointColor);
                     (void)size;
                 }
+                if (m_selectedPoint >= 0 &&
+                    m_selectedPoint < static_cast<i32>(curve.points.Size()))
+                {
+                    const fspline::SplinePoint& selected =
+                        curve.points[static_cast<usize>(m_selectedPoint)];
+                    const Float3 anchor = TransformPoint(selected.position, m_world);
+                    const Color handleColor{0.75f, 0.6f, 1.0f, 1.0f};
+                    const Float3 ends[2] = {
+                        TransformPoint(selected.position + selected.inHandle, m_world),
+                        TransformPoint(selected.position + selected.outHandle, m_world)};
+                    for (i32 h = 0; h < 2; ++h)
+                    {
+                        drawList.DrawLine(anchor, ends[h], handleColor);
+                        drawList.DrawWireSphere(ends[h], m_hoverHandle == h ? 0.09f : 0.06f,
+                                                m_hoverHandle == h ? hoverColor : handleColor,
+                                                10);
+                    }
+                }
                 if (m_hasInsertPreview)
                 {
                     drawList.DrawWireSphere(TransformPoint(m_insertLocal, m_world), 0.08f,
@@ -263,7 +354,7 @@ namespace editor
 
             [[nodiscard]] StringView StatusText() const override
             {
-                return u8"drag point | Ctrl+click segment: insert | Del/X: remove";
+                return u8"drag point/handle (Shift: break pair) | Ctrl+click segment: insert | Del/X: remove";
             }
 
         private:
@@ -368,6 +459,9 @@ namespace editor
 
             bool m_dragging = false;
             i32 m_dragPoint = -1;
+            i32 m_dragHandle = -1; // -1 = the point itself; 0 = inHandle, 1 = outHandle
+            i32 m_selectedPoint = -1;
+            i32 m_hoverHandle = -1;
             Float3 m_dragPlaneOrigin{};
             Float3 m_dragPlaneNormal{0, 0, 1};
 

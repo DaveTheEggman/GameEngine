@@ -45,5 +45,5 @@ export namespace engine
     // (overlapSphere returns a native Array<Entity>, which is not a boxed facade type, so it adds
     // no surface name.)
     // 34 = +DebugDraw: DebugDraw.of(scene) immediate-mode debug draw facade.
-    inline constexpr usize kSubsystemFacadeNameCount = 34;
+    inline constexpr usize kSubsystemFacadeNameCount = 36; // + SplineHit + SceneSplines
 }
