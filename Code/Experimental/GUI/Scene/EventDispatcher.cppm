@@ -82,18 +82,27 @@ export namespace experimental::gui
             if (hit != m_overNode)
             {
                 if (m_overNode)
+                {
+                    const core::RefPtr<Node> pin{m_overNode};
                     m_overNode->HandleMouseLeave(
                         MouseEvent(EventType::MouseLeave, m_overNode, position));
+                }
                 m_overNode = hit;
                 if (m_overNode)
+                {
+                    const core::RefPtr<Node> pin{m_overNode};
                     m_overNode->HandleMouseEnter(
                         MouseEvent(EventType::MouseEnter, m_overNode, position));
+                }
             }
             // Pointer capture: while a button is held, the pressed node keeps receiving moves
             // (so a drag continues even when the cursor leaves it). Otherwise the hovered node.
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
             if (target)
+            {
+                const core::RefPtr<Node> pin{target};
                 target->HandleMouseMove(MouseEvent(EventType::MouseMove, target, position));
+            }
         }
 
         void InjectMouseDown(core::Float2 position, MouseButton button, u32 modifiers = 0)
@@ -110,8 +119,11 @@ export namespace experimental::gui
             m_downNode = hit;
             SetFocusNode(hit); // click-to-focus
             if (hit)
+            {
+                const core::RefPtr<Node> pin{hit};
                 hit->HandleMouseDown(
                     MouseEvent(EventType::MouseDown, hit, position, button, modifiers));
+            }
         }
 
         void InjectMouseUp(core::Float2 position, MouseButton button, u32 modifiers = 0)
@@ -130,7 +142,12 @@ export namespace experimental::gui
             }
             Node* hit = HitTest(position);
             // The captured (pressed) node gets the release, even if the cursor moved off it.
+            // Both nodes are pinned for the rest of this call: a handler may mutate the tree
+            // (e.g. a header click re-sorts a model and the view rebuilds its header cells),
+            // dropping the last owning reference to the very node still on the call stack.
+            const core::RefPtr<Node> hitPin{hit};
             Node* target = (m_downNode != nullptr) ? m_downNode : hit;
+            const core::RefPtr<Node> targetPin{target};
             if (target)
                 target->HandleMouseUp(
                     MouseEvent(EventType::MouseUp, target, position, button, modifiers));
@@ -152,13 +169,17 @@ export namespace experimental::gui
             {
                 if (n->WantsWheel())
                 {
+                    const core::RefPtr<Node> pin{n};
                     n->HandleMouseWheel(WheelEvent(n, position, delta));
                     return;
                 }
             }
             if (hit)
+            {
+                const core::RefPtr<Node> pin{hit};
                 hit->HandleMouseWheel(
                     WheelEvent(hit, position, delta)); // fallback: listeners on the hit node
+            }
         }
 
         void InjectKeyDown(u32 keyCode, u32 modifiers = 0)
