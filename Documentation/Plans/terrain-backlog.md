@@ -23,9 +23,10 @@
 
 ## Smaller items (no seed; build when touched)
 
-- **Eraser + smooth-weights splat brush modes** - painting another layer
-  already erases (the base need); these are comfort modes on the existing
-  splat tool.
+- **Smooth-weights splat brush mode** - a blur brush that averages a texel's
+  weights with its neighbors to feather an already-painted layer seam without
+  repainting. (The eraser is DONE - shipped with top-K splat: hotkey 0 /
+  last palette slot, EraseTopK fades painted weights to reveal the base.)
 - **Derived-texture bakes** - normal/occlusion maps generated FROM the
   heightfield (Traktor feature); pipeline-side, rides no other work.
 - **Coverage-mask R4** - mip softening of stencil masks accepted as-is;
