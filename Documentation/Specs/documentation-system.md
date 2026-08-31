@@ -84,7 +84,7 @@ or ~8-10 docs per session, so each batch is reviewable.
 **P2 - extraction + refresh.** Lift still-load-bearing RULINGS out of
 archived specs into the owning Systems doc (the ruling's rationale stays
 in Archive; the RULE lives where the next reader looks). Refresh
-docs/design/roadmap.md into Documentation/Plans/roadmap.md against the
+docs/design/roadmap.md into Documentation/Archive/roadmap-history.md against the
 current tracker state (it is known-stale).
 
 **P3 - policy mechanics.** CONVENTIONS.md gains the new rules: (1) docs

@@ -1,4 +1,10 @@
-# Draconic — Engine Roadmap (living checklist)
+# Draconic — Engine Roadmap (ARCHIVED 2026-09-01)
+
+> This checklist is no longer the planning surface. Everything still open moved
+> to the weekly docs (Documentation/Plans/week-2026-09-05.md, "Backlog absorbed
+> from roadmap.md"); the weeklies are the one place work is planned and
+> recorded. Kept for the strategy narrative, the decisions log, and the done
+> record as of the final sync below.
 
 **Last synced to reality: 2026-09-01.** Since the previous sync (2026-07-29) the "decided-not-
 started" pair both SHIPPED (web platform: WASM player + WebGPU + AS-on-web; shaders: .hlsl

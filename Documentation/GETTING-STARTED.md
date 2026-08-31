@@ -26,7 +26,7 @@ of the Sedulous engine (Beef) and has grown well past it. Defining traits:
   (Emscripten + WebGPU), with per-target cooked asset variants.
 
 Read next: the root `README.md` (requirements + build commands),
-`Documentation/Plans/roadmap.md` (where the project is heading).
+`Documentation/Archive/roadmap-history.md` (where the project is heading).
 
 ## Repository map
 
