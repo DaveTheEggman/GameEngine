@@ -1,5 +1,14 @@
 # Asset thumbnails (generation + display)
 
+> ARCHIVED 2026-09-01: generation is DONE - P1 (texture/image CPU lane), P2
+> (GPU stage + mesh/material/prefab/scene/particle), P3 + the coverage ruling
+> (font, audio, heightfield, splatmap, collision, skeleton, model manifest).
+> Still-open tail (P4 picker-dialog/size-knob/cache-action, the on-device
+> pixel probe, the owed visual verifies) lives in
+> Documentation/Plans/week-2026-09-05.md ("Backlog absorbed from
+> asset-thumbnails.md").
+
+
 > STATUS: P2 (mesh + material) BUILT 2026-08-30 (Fable) - see the P2 status block below.
 > P1 BUILT 2026-08-16 (Fable). Service + texture generator + browser-grid and
 > picker-slot display + tests shipped. ARCHITECTURE RULING (user): generators live in

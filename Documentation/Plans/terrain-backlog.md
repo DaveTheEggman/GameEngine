@@ -40,7 +40,7 @@
   is the trigger.
 - **Terrain asset thumbnail** - the browser tile is the type icon; the page's
   3D orbit preview is the natural GPU-stage generator when someone wants it
-  (asset-thumbnails.md records the ruling: heightfield carries the visual
+  (Archive/asset-thumbnails-history.md records the ruling: heightfield carries the visual
   identity meanwhile).
 
 ## Done since the track closed (so nobody re-plans them)
