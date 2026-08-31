@@ -739,3 +739,69 @@ TEST_CASE("physics: the character walks, climbs steps, and pushes light bodies")
     position = world.CharacterPosition(character);
     CHECK(position.y == doctest::Approx(1.2f).epsilon(0.05)); // still walking the ledge
 }
+
+TEST_CASE("physics: continuous collision stops a fast body a discrete body tunnels through")
+{
+    // A thin static wall + a small fast sphere fired straight at it: with discrete stepping
+    // the sphere jumps clean across the wall in one step; LinearCast sweeps and stops.
+    const auto fire = [](bool continuous) -> f32
+    {
+        PhysicsWorld world;
+        BodyDesc wall;
+        wall.motion = MotionKind::Static;
+        wall.layer = PhysicsLayer::Static;
+        ShapeDesc slab;
+        slab.kind = ShapeKind::Box;
+        // Thin, but >= Jolt's default box convex radius (0.05) or BoxShape asserts.
+        slab.halfExtents = Float3{0.1f, 5.0f, 5.0f}; // 20cm thick vs 3.3 units per step
+        wall.shapes.PushBack(slab);
+        wall.position = Float3{5.0f, 0.0f, 0.0f};
+        (void)world.CreateBody(wall);
+
+        BodyDesc bullet;
+        bullet.motion = MotionKind::Dynamic;
+        bullet.layer = PhysicsLayer::Dynamic;
+        bullet.continuousCollision = continuous;
+        ShapeDesc ball;
+        ball.kind = ShapeKind::Sphere;
+        ball.radius = 0.05f;
+        bullet.shapes.PushBack(ball);
+        bullet.position = Float3{0.0f, 0.0f, 0.0f};
+        const BodyId id = world.CreateBody(bullet);
+        world.SetLinearVelocity(id, Float3{200.0f, 0.0f, 0.0f}); // 3.3 units per 1/60 step
+
+        for (int i = 0; i < 30; ++i)
+        {
+            world.Step(1.0f / 60.0f);
+        }
+        Float3 position;
+        Quaternion rotation;
+        world.GetBodyTransform(id, position, rotation);
+        return position.x;
+    };
+
+    CHECK(fire(false) > 6.0f); // discrete: sailed through the wall
+    CHECK(fire(true) < 5.0f);  // LinearCast: stopped at (or bounced off) the wall
+}
+
+TEST_CASE("physics: an explicit mass override wins over the density-derived mass")
+{
+    PhysicsWorld world;
+    // Density path: a unit-ish box at 1000 kg/m^3 has a known mass (volume * density).
+    BodyDesc byDensity = BoxAt(1.0f);
+    const BodyId dense = world.CreateBody(byDensity);
+    const f32 derived = world.BodyMass(dense);
+    CHECK(derived == doctest::Approx(1.0f * 1000.0f).epsilon(0.01)); // 1m^3 box
+
+    BodyDesc overridden = BoxAt(3.0f);
+    overridden.massOverride = 5.0f;
+    const BodyId light = world.CreateBody(overridden);
+    CHECK(world.BodyMass(light) == doctest::Approx(5.0f).epsilon(0.001));
+
+    // Unset (0) keeps the density path byte-identical.
+    BodyDesc unset = BoxAt(5.0f);
+    CHECK(world.BodyMass(world.CreateBody(unset)) == doctest::Approx(derived).epsilon(0.001));
+
+    // Static bodies report no mass.
+    CHECK(world.BodyMass(world.CreateBody(FloorDesc())) == 0.0f);
+}

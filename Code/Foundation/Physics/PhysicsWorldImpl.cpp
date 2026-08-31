@@ -36,6 +36,7 @@ module;
 #include <Jolt/Physics/Collision/ShapeCast.h>    // RShapeCast / ShapeCast* (ShapeCast)
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Constraints/FixedConstraint.h>
 #include <Jolt/Physics/Constraints/PointConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
@@ -638,6 +639,19 @@ namespace foundation::physics
         settings.mIsSensor = desc.isTrigger;
         settings.mUserData = desc.userData;
         settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateMassAndInertia;
+        if (desc.motion == MotionKind::Dynamic)
+        {
+            if (desc.continuousCollision)
+            {
+                settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
+            }
+            if (desc.massOverride > 0.0f)
+            {
+                // Inertia stays density-derived; only the scalar mass is overridden.
+                settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+                settings.mMassPropertiesOverride.mMass = desc.massOverride;
+            }
+        }
 
         JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
         const JPH::BodyID id = bodies.CreateAndAddBody(
@@ -659,6 +673,26 @@ namespace foundation::physics
     }
 
     usize PhysicsWorld::BodyCount() const { return m_impl->system->GetNumBodies(); }
+
+    f32 PhysicsWorld::BodyMass(BodyId id) const
+    {
+        if (!id.IsValid())
+        {
+            return 0.0f;
+        }
+        const JPH::BodyLockRead lock(m_impl->system->GetBodyLockInterface(), JPH::BodyID(id.value));
+        if (!lock.Succeeded())
+        {
+            return 0.0f;
+        }
+        const JPH::Body& body = lock.GetBody();
+        if (!body.IsDynamic())
+        {
+            return 0.0f;
+        }
+        const f32 inverseMass = body.GetMotionProperties()->GetInverseMass();
+        return inverseMass > 0.0f ? 1.0f / inverseMass : 0.0f;
+    }
 
     void PhysicsWorld::Step(f32 deltaTime, i32 collisionSteps)
     {

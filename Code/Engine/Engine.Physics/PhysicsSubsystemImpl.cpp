@@ -227,7 +227,8 @@ namespace engine::physics
     REFLECT_VALUE(RigidBodyComponent, "rtti::engine::physics")
     {
         builder.Attribute("displayName", String(u8"Rigid Body"))
-            .Attribute("category", String(u8"Physics")).DataVersion(2); // v2: heightfield ref
+            .Attribute("category", String(u8"Physics"))
+            .DataVersion(3); // v3: continuous collision + explicit mass
         builder.Property<&RigidBodyComponent::motion>("motion");
         builder.Property<&RigidBodyComponent::layer>("layer");
         builder.Property<&RigidBodyComponent::shape>("shape");
@@ -249,6 +250,8 @@ namespace engine::physics
         builder.Property<&RigidBodyComponent::linearDamping>("linearDamping");
         builder.Property<&RigidBodyComponent::angularDamping>("angularDamping");
         builder.Property<&RigidBodyComponent::isTrigger>("isTrigger");
+        builder.Property<&RigidBodyComponent::continuousCollision>("continuousCollision");
+        builder.Property<&RigidBodyComponent::mass>("mass");
         builder.Property<&RigidBodyComponent::collisionGroup>("collisionGroup");
         builder.Property<&RigidBodyComponent::collisionShape>("collisionShape");
         builder.Property<&RigidBodyComponent::material>("material");

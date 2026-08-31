@@ -45,6 +45,12 @@ export namespace engine::physics
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
         bool isTrigger = false;
+        // Continuous collision (Jolt LinearCast): fast small dynamic bodies stop tunneling
+        // through thin geometry. Opt-in - an extra cast per fast body per step.
+        bool continuousCollision = false;
+        // Explicit mass in kg (dynamic only). 0 = derive from density as today; > 0
+        // overrides the scalar mass while inertia stays density-derived.
+        f32 mass = 0.0f;
         // Designer collision group [0, 32) - pairs collide when the scene's group matrix
         // allows it (PhysicsSceneSettings::groupCollides).
         u8 collisionGroup = 0;
@@ -110,6 +116,11 @@ export namespace engine::physics
         if (ar.Version() >= 2) // v2: ShapeKind::Heightfield reference
         {
             foundation::core::Serialize(ar, "heightfield", c.heightfield);
+        }
+        if (ar.Version() >= 3) // v3: continuous collision + explicit mass
+        {
+            foundation::core::Serialize(ar, "continuousCollision", c.continuousCollision);
+            foundation::core::Serialize(ar, "mass", c.mass);
         }
     }
 

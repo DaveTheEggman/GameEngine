@@ -101,6 +101,13 @@ export namespace foundation::physics
         f32 linearDamping = 0.05f;
         f32 angularDamping = 0.05f;
         bool isTrigger = false; // sensor (forces layer Trigger)
+        /// Continuous collision (Jolt LinearCast): fast small DYNAMIC bodies stop tunneling
+        /// through thin geometry. Opt-in - it costs an extra cast per fast body per step.
+        bool continuousCollision = false;
+        /// Explicit mass in kg for DYNAMIC bodies (feel: a light-looking prop that shoves
+        /// hard). <= 0 = derive from density as today; > 0 overrides the scalar mass while
+        /// inertia stays density-derived.
+        f32 massOverride = 0.0f;
         /// Designer collision group [0, 32): pairs collide only when the world matrix
         /// allows BOTH directions' bits (PhysicsWorldSettings::groupCollides). The
         /// semantic layer rules (static-static never, trigger sensing) still apply.
@@ -307,6 +314,9 @@ export namespace foundation::physics
         /// Velocity-correct kinematic move over `deltaTime` (the fixed step).
         void MoveKinematic(BodyId id, Float3 position, Quaternion rotation, f32 deltaTime);
         void SetLinearVelocity(BodyId id, Float3 velocity);
+        /// The body's actual mass in kg (0 for static/kinematic/invalid bodies) - the
+        /// density-derived value, or the massOverride when one was set.
+        [[nodiscard]] f32 BodyMass(BodyId id) const;
         [[nodiscard]] Float3 LinearVelocity(BodyId id) const;
         void AddImpulse(BodyId id, Float3 impulse);
         void AddForce(BodyId id, Float3 force);

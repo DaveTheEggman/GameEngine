@@ -731,6 +731,8 @@ export namespace engine::physics
                     desc.linearDamping = c.linearDamping;
                     desc.angularDamping = c.angularDamping;
                     desc.isTrigger = c.isTrigger;
+                    desc.continuousCollision = c.continuousCollision;
+                    desc.massOverride = c.mass;
                     desc.group = c.collisionGroup;
 
                     // Reverse map: the owning entity handle, packed losslessly into the body user
