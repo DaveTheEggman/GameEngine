@@ -146,3 +146,59 @@ TEST_CASE("list-view: AdapterObserver_OnDataSetChanged")
 
     CHECK(lv->GetAdapter()->ItemCount() == 20);
 }
+
+namespace
+{
+    // Counts binds per position and tracks view identity, so a range-changed notify can be
+    // pinned as an IN-PLACE rebind (same view object, no recycle) of only the named items.
+    class BindCountingAdapter : public ListAdapterBase
+    {
+    public:
+        core::i32 Count = 0;
+        core::Array<core::i32> Binds;
+        core::Array<View*> BoundViews;
+        explicit BindCountingAdapter(core::i32 count) : Count(count)
+        {
+            Binds.Resize(static_cast<core::usize>(count), 0);
+            BoundViews.Resize(static_cast<core::usize>(count), nullptr);
+        }
+        [[nodiscard]] core::i32 ItemCount() const override { return Count; }
+        [[nodiscard]] core::RefPtr<View> CreateView(core::i32) override
+        {
+            return core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 30.0f);
+        }
+        void BindView(View* view, core::i32 position) override
+        {
+            Binds[static_cast<core::usize>(position)] += 1;
+            BoundViews[static_cast<core::usize>(position)] = view;
+        }
+    };
+}
+
+TEST_CASE("list-view: NotifyRangeChanged rebinds only the named visible item, in place")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
+    BindCountingAdapter adapter(100);
+    auto lv = MakeList();
+    lv->ItemHeight.SetValue(30);
+    lv->SetAdapter(&adapter);
+    root->AddView(lv.Get());
+    LayoutPass(ctx, root.Get());
+
+    const usize before = lv->VisualChildCount();
+    REQUIRE(adapter.Binds[2] == 1); // visible, bound once by the layout pass
+    View* boundView = adapter.BoundViews[2];
+    REQUIRE(boundView != nullptr);
+
+    adapter.NotifyRangeChanged(2, 1);
+    CHECK(adapter.Binds[2] == 2);            // rebound...
+    CHECK(adapter.BoundViews[2] == boundView); // ...into the SAME view (no recycle)
+    CHECK(adapter.Binds[3] == 1);            // neighbors untouched
+    CHECK(lv->VisualChildCount() == before); // no teardown
+
+    // An off-screen position no-ops (nothing active to rebind).
+    adapter.NotifyRangeChanged(90, 1);
+    CHECK(adapter.Binds[90] == 0);
+}

@@ -2305,11 +2305,11 @@ namespace editor::app
         // (SetThumbnails happens in the CONSTRUCTOR - the composition root registers
         // generators before this UI-boot phase runs); ready thumbnails rebind the browser,
         // inspector slots re-query per refresh.
-        m_thumbnailService.OnThumbnailReady = [this](const Guid&)
+        m_thumbnailService.OnThumbnailReady = [this](const Guid& id)
         {
             if (m_assetsView)
             {
-                m_assetsView->Rebuild();
+                m_assetsView->RefreshThumbnail(id);
             }
         };
         m_assetsView =

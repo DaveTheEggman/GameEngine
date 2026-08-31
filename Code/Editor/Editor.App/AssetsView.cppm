@@ -273,6 +273,10 @@ export namespace editor::app
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
+        /// A thumbnail finished for `id`: rebind just that row/tile in place (no tree or list
+        /// reconstruction - a generation burst would otherwise flicker the whole browser).
+        /// Rows outside the current folder/filter no-op.
+        void RefreshThumbnail(const Guid& id);
         /// Reveal an instance in the browser: navigate to its owning
         /// group, select its row, and scroll it into view. Unknown Guids no-op.
         void Reveal(const Guid& id);

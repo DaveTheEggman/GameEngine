@@ -367,6 +367,21 @@ namespace editor::app
         Rebuild();
     }
 
+    void AssetsView::RefreshThumbnail(const Guid& id)
+    {
+        for (usize i = 0; i < m_rows.Size(); ++i)
+        {
+            if (m_rows[i].group == nullptr && m_rows[i].id == id)
+            {
+                // Both adapters share the row model; only the attached view holds active
+                // (visible) item views, so the other notify is a no-op.
+                m_listAdapter->NotifyRangeChanged(static_cast<i32>(i), 1);
+                m_gridAdapter->NotifyRangeChanged(static_cast<i32>(i), 1);
+                return;
+            }
+        }
+    }
+
     void AssetsView::Rebuild()
     {
         m_groups.Clear();
