@@ -1,5 +1,10 @@
 # Parity check: Draconic vs LumixEngine vs Traktor (2026-08-10)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> SUPERSEDED at archive by the Documentation/Parity/ folder surveys (Lumix 2026-08-26). The MISSING column is stale: navigation, terrain, and property animation all shipped since.
+
+
 Full surveys: Lumix on branch `lumscript` (HEAD 9428a1a06, 2026-08-07),
 Traktor at acde828f7 (2026-08-09), Draconic at 0a45edce. Both references are
 actively developed, mature (10-20 year) engines. Ours is ~1 year old, which

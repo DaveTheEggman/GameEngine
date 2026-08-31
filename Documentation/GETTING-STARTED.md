@@ -219,7 +219,6 @@ Documentation/
                        HANDOFF.md (review pass records).
   Guides/              How-tos (terrain authoring, adding a script facade, Emscripten setup).
   Plans/               Roadmaps and design plans (roadmap.md, weekly plans).
-  Backlog/             Audits and improvement backlogs.
   UAT/                 Manual smoke-test checklists.
   Archive/             Historical/superseded documents.
 ```

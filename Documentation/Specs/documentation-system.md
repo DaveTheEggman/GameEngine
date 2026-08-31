@@ -19,7 +19,7 @@ about reality (this week's incidents showed what drift costs).
   parity P0 specs, ...). A spec whose track COMPLETES moves to Archive.
 - `Documentation/Plans/` - approved designs not yet started + future
   phases split out of completed tracks (e.g. deferred P2/P3 sections).
-- `Documentation/Backlog/` - deferred-by-design, queued leftovers,
+- (RETIRED 2026-09-01) `Documentation/Backlog/` - absorbed into the weekly docs; was deferred-by-design, queued leftovers,
   triage lists. Includes today's deferred-by-design.md and the
   per-track "remaining" sections that outlive their spec.
 - `Documentation/Guides/` - how-to (adding-facades, emscripten-windows,
@@ -77,7 +77,7 @@ spelling of reality, not memory of it); rewrite present-tense; split mixed
 docs (a design doc that is half reference + half plan becomes a Systems
 doc + a Plans doc); stamp the header; log every move/merge/deletion in the
 audit log. Priority: Systems docs for ACTIVE subsystems first (scripting,
-pipeline/MCP, fonts, renderer, editor), then Plans/Backlog, Archive last
+pipeline/MCP, fonts, renderer, editor), then Plans, Archive last
 (archive needs only headers, not verification). Batch size: one subsystem
 or ~8-10 docs per session, so each batch is reviewable.
 

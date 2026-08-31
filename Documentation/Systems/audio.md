@@ -84,7 +84,7 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
 
 Grain banks (Traktor's compositional sound-graph) and their incremental growth path from `SoundCue`
 (in-loop-out, a parameter system, blend cues, sequence/composite cues):
-`Documentation/Backlog/audio-followups.md`.
+`Documentation/Archive/audio-followups-history.md` (open items: week-2026-09-05).
 
 ---
 

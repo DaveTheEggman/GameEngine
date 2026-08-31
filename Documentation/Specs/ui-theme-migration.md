@@ -2,7 +2,7 @@
 
 > STATUS: ACTIVE 2026-08-16 (user un-deferred P3 and widened it). Fable-executed.
 > Existing-implementation check (per the CONVENTIONS spec rule): the full scoping
-> investigation lives in Documentation/Backlog/ui-core-audit.md ("P3 SCOPING
+> investigation lives in Documentation/Archive/ui-core-audit-history.md ("P3 SCOPING
 > INVESTIGATED") - the SSS parser vocabulary is ~95% sufficient, breeze.sss
 > covers every icon slot, TexturedTheme embeds no images (excluded, stays C++).
 

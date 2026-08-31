@@ -1,5 +1,9 @@
 # Editor Polish — UX cleanup backlog
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Status: **backlog (2026-07-24).** Started from a firsthand UX pass (Draconic vs. LunarSong side-by-side).
 Living checklist — add items as they surface. Grounded in code (file:line), not guesses.
 

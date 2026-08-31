@@ -76,7 +76,7 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
   as name-HASHED override blobs (rename-safe) and re-applied after hot reload.
 - **Hot reload** (edit during play/simulate): resource reload -> per-instance re-instantiate
   -> re-apply hashed overrides; old-instance coroutines stop. (Live-value migration is a
-  deferred follow-up - see [[Backlog/scripting-followups]].)
+  deferred follow-up - see [[Archive/scripting-followups-history]].)
 
 ## Events into scripts
 
@@ -151,4 +151,4 @@ reports it per language. See [[mcp-track]].
 ---
 
 Design lineage + resolved open questions: `Documentation/Archive/scripting-design-history.md`.
-Deferred follow-ups: `Documentation/Backlog/scripting-followups.md`.
+Deferred follow-ups: `Documentation/Archive/scripting-followups-history.md` (open items: week-2026-09-05).

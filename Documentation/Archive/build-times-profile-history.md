@@ -1,5 +1,9 @@
 # Build-times profile (task #136) - measurements, 2026-08-24
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Measured by Fable per the backlog's "measure first" step (build-times.md). All
 numbers from ISOLATED build dirs (`build/timing` clang, `build/timing-gcc` gcc;
 `BUILDSYSTEM_OUTPUT_SUFFIX` keeps Bin separate), Debug, Ninja, target

@@ -1,5 +1,9 @@
 # Editor polish backlog
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Size: M (a set of S items; land separately). Modules:
 `Code/Draconic/Editor/*`. Context: memory `editor-polish-track` - P1
 (component-menu attributes) and P2 (menu reorg) shipped; these are the

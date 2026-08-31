@@ -1,5 +1,9 @@
 # Web platform remainder (task #112)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Size: L (three independent items; A is the big one). Design doc:
 `docs/design/web-platform.md`. Everything below assumes the shipped state:
 full engine + WebScene + player run in Chromium browsers on WebGPU; web export

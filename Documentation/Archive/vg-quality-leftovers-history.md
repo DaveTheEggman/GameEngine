@@ -1,5 +1,9 @@
 # VG quality leftovers (post-#121)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Size: M total; three independent items, land separately. Modules:
 `Code/Draconic/Foundation/Draconic.VG` (Context.cppm),
 `Code/Draconic/Foundation/Draconic.VG.Renderer` (Renderer.cppm),

@@ -1,5 +1,10 @@
 # Build times (future track)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> CORRECTION at archive: the ccache/sccache lever below is DEAD - ccache is banned with C++20 modules (proven stale-BMI corruption, 2026-08-30). Superseded by build-times-profile-history.md (the measurements this doc asked for).
+
+
 > Raised by the user 2026-08-17: builds are too slow. Task #136. Nothing
 > committed to a plan yet - MEASURE FIRST, then pick targets.
 

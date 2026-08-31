@@ -1,5 +1,9 @@
 # Draconic -> Sedulous back-port worklist
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Raw per-lib commit lists for `cbfe1d49..HEAD` (no triage/classification — review each yourself).
 
 - Drop-off (last back-port): `cbfe1d49` - "UIToolkit: docking a panel into a tab group activates its tab" (2026-07-11)

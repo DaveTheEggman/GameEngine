@@ -1,5 +1,10 @@
 # Deferred by design (do NOT build without a user go-ahead)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> CORRECTION at archive: the draconic.gui keyframes fix SHIPPED (spec archived); skinned crowds shipped (noted inline). The rest of the list stands.
+
+
 These are known, consciously parked. Listed so the build agent does not
 "helpfully" start one. Each has context in memory/design docs; ask the user
 before touching any.

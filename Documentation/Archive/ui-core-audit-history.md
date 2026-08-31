@@ -1,5 +1,9 @@
 # UI core audit - good to great (Foundation/UI)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 > Fable, 2026-08-15. Four-lens audit (box model/layout, styling, focus/input,
 > cross-cutting architecture) of Code/Foundation/UI only - toolkit and leaf
 > libs deliberately out of scope. Every claim below was verified against code

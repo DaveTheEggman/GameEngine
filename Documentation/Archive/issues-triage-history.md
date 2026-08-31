@@ -1,5 +1,9 @@
 # GitHub issues triage (2026-08-08, user-filed)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 Nine issues, triaged with code-grounded diagnoses where possible. Cross-refs
 into smoketest-fixes.md where they overlap. Same rules as every spec
 (CONVENTIONS.md binding; each item lands independently with tests).

@@ -1,5 +1,10 @@
 # Scripting - deferred follow-ups
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> CORRECTION at archive: Wren retirement is DONE (AngelScript + Luau are the backend set) - the P7 "deferred by the user" entry below is stale.
+
+
 > Status: CURRENT
 > Track: [[script-behaviors-p1]] / [[luau-backend-track]] / [[script-debugger-track]]
 

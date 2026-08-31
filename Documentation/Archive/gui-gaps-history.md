@@ -1,5 +1,10 @@
 # draconic.gui vs eepp UI — gap analysis (2026-07-09, HEAD 665fce5)
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> MOOT at archive: draconic.gui is parked (Experimental) by ruling; this gap analysis applies only if it is ever revived.
+
+
 Where the port stands and what's missing, to plan the next sessions. eepp UI ≈ 115k LOC,
 ~95 widgets, real CSS, HarfBuzz+bidi text, models/MVC, XML markup, code editor/HTML/terminal.
 draconic.gui = the **engine + CSS + 5 widgets**, thin-native (roles not source).

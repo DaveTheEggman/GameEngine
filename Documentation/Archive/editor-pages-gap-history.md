@@ -1,5 +1,10 @@
 # Editor Pages — coverage gap & the next editor pass
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+> CLOSED at archive: the coverage gap this audit found was fully closed (every asset type opens - bespoke pages + the generic fallback).
+
+
 Status: **audit (2026-07-23).** Grounded in a cross-reference of cooked asset types vs. registered
 editor pages vs. importers vs. inspector coverage — measured, not estimated. This is the proposed
 focus of the next editor pass.

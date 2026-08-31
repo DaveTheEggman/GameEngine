@@ -119,7 +119,7 @@ The bridge from cooked products to live scenes:
 
 GPU thumbnails (offscreen render -> `.cache/thumbs/<guid>.png` keyed by recipe hash, budgeted async
 readback) and cooked per-target platform variants (one cooked DB per target - the recipe hash
-already has a platform-salt seam) are not built. See `Documentation/Backlog/`.
+already has a platform-salt seam) are not built. See the week-2026-09-05 absorbed backlog.
 
 ---
 

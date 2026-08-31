@@ -1,5 +1,9 @@
 # Audio - grain banks + growth path
 
+> ARCHIVED 2026-09-01: still-open items live in Documentation/Plans/week-2026-09-05.md
+> ("Backlog folder absorbed"). This archive keeps the full detail.
+
+
 > Status: CURRENT
 > Track: [[audio-subsystem]]
 
