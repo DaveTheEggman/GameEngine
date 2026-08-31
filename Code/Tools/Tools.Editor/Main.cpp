@@ -77,6 +77,7 @@ import editor.texture;
 import editor.image;
 import editor.heightfield;
 import editor.terrain;
+import editor.spline;
 import editor.fonts;
 import editor.physics;
 import editor.generic;
@@ -416,6 +417,7 @@ int main(int argc, char** argv)
         editor::RegisterHeightfieldEditor(app.Context());
         editor::RegisterTerrainEditor(app.Context(), host, uiHost);
         editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt + splat brushes
+        editor::RegisterSplineViewportTools(); // the scene-viewport spline control-point editor
         editor::RegisterTerrainToolPanels();    // their bottom-dock brush settings panels
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);

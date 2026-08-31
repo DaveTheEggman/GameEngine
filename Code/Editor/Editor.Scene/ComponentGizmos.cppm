@@ -23,6 +23,7 @@ import foundation.scene;
 import foundation.render;
 import engine.render;
 import engine.navigation;
+import engine.spline;
 
 using namespace foundation::core;
 
@@ -214,6 +215,16 @@ export namespace editor
         [[nodiscard]] bool DrawWhenUnselected() const override { return true; }
     };
 
+    /// The authored spline curve + its control points, drawn whenever the owning entity is
+    /// selected (the spline TOOL adds interaction; this keeps the curve visible under every
+    /// tool).
+    class SplineGizmoRenderer final : public IGizmoRenderer
+    {
+    public:
+        [[nodiscard]] const TypeInfo* ComponentType() const override;
+        void Draw(const Instance& component, scene::EntityHandle owner, GizmoContext& ctx) override;
+    };
+
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
@@ -236,6 +247,8 @@ export namespace editor
         registry.Register(UniquePtr<IGizmoRenderer>(
             DefaultAllocator().New<CharacterColliderGizmoRenderer>(), DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<JointGizmoRenderer>(),
+                                                    DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<SplineGizmoRenderer>(),
                                                     DefaultAllocator()));
     }
 }

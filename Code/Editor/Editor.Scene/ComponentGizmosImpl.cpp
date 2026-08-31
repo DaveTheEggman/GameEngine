@@ -24,6 +24,8 @@ import foundation.render;
 import foundation.geometry;
 import engine.render;
 import engine.navigation;
+import engine.spline;
+import foundation.spline;
 import engine.physics;          // RigidBodyComponent (edit-time collider gizmo)
 import foundation.physics;      // ShapeKind / MotionKind
 import foundation.heightfield;  // Heightfield (ShapeKind::Heightfield bounds)
@@ -105,6 +107,42 @@ namespace editor
         ctx.debug->DrawTransformedBox(Float3{} - zone->extents, zone->extents, world,
                                       Color{0.20f, 0.85f, 1.0f, 1.0f});
     }
+    const TypeInfo* SplineGizmoRenderer::ComponentType() const
+    {
+        return &TypeOf<engine::spline::SplineComponent>();
+    }
+    void SplineGizmoRenderer::Draw(const Instance& component, scene::EntityHandle owner,
+                                   GizmoContext& ctx)
+    {
+        const auto* spline = component.TryGet<engine::spline::SplineComponent>();
+        if (spline == nullptr)
+        {
+            return;
+        }
+        const auto& curve = spline->curve;
+        const Float4x4 world = ctx.scene->GetWorldMatrix(owner);
+        const Color curveColor{0.35f, 0.85f, 1.0f, 1.0f};
+        const u32 segments = curve.SegmentCount();
+        if (segments > 0)
+        {
+            const u32 steps = segments * foundation::spline::SplineCurve::kSamplesPerSegment;
+            Float3 previous = TransformPoint(curve.Evaluate(0.0f), world);
+            for (u32 i = 1; i <= steps; ++i)
+            {
+                const f32 t =
+                    curve.MaxT() * static_cast<f32>(i) / static_cast<f32>(steps);
+                const Float3 position = TransformPoint(curve.Evaluate(t), world);
+                ctx.debug->DrawLine(previous, position, curveColor);
+                previous = position;
+            }
+        }
+        for (const foundation::spline::SplinePoint& point : curve.points)
+        {
+            ctx.debug->DrawWireSphere(TransformPoint(point.position, world), 0.1f,
+                                      Color{1.0f, 0.85f, 0.2f, 1.0f}, 12);
+        }
+    }
+
     void GizmoRendererRegistry::Register(UniquePtr<IGizmoRenderer> renderer)
     {
         if (renderer)

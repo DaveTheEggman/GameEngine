@@ -25,6 +25,7 @@ import engine.audio;
 import engine.script;
 import engine.ui;
 import engine.net; // engine::net::AddNetworkSceneManagers (component managers + the fixed-lane driver)
+import engine.spline;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -60,10 +61,13 @@ namespace
                                        &engine::ui::RegisterUIComponentReflection};
     const scene::SceneModule kNetModule{u8"net", &engine::net::AddNetworkSceneManagers,
                                         &foundation::net::RegisterReplicationComponents};
+    const scene::SceneModule kSplineModule{u8"spline", &engine::spline::AddSplineSceneManagers,
+                                           &engine::spline::RegisterSplineComponentReflection};
 
     const scene::SceneModule* kAllModules[] = {
         &kRenderModule,   &kAnimationModule, &kParticleModule, &kPhysicsModule, &kTerrainModule,
         &kNavigationModule, &kAudioModule,   &kScriptModule,   &kUiModule,      &kNetModule,
+        &kSplineModule,
     };
 }
 

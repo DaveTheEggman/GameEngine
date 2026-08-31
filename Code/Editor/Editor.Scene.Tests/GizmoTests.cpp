@@ -359,7 +359,7 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 {
     GizmoRendererRegistry registry;
     RegisterBuiltinGizmoRenderers(registry);
-    CHECK(registry.Count() == 10u); // +PhysicsCollider/ChildCollider/Character/Joint (edit-time physics gizmos)
+    CHECK(registry.Count() == 11u); // +PhysicsCollider/ChildCollider/Character/Joint (edit-time physics gizmos)
 
     CHECK(registry.Find(&TypeOf<engine::render::LightComponent>()) != nullptr);
     CHECK(registry.Find(&TypeOf<engine::physics::RigidBodyComponent>()) != nullptr);
