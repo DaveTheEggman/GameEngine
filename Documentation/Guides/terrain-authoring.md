@@ -2,7 +2,7 @@
 
 The end-to-end workflow for building a terrain in the editor: the assets that make one up, the
 layer/texture model, sculpting, splat painting, and the gotchas that cost time in practice. For
-the engineering side see `Plans/terrain.md`, `Archive/terrain-splat-topk-history.md`, and
+the engineering side see `Archive/terrain-history.md`, `Archive/terrain-splat-topk-history.md`, and
 `Archive/terrain-layer-pbr-history.md`.
 
 ## What a terrain is made of
