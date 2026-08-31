@@ -3,7 +3,7 @@
 **Status:** BUILT 2026-08-16 (all 7 phases + H1-H4) - REVIEW PASS 10 ruled
 CONDITIONAL: the required-fix list below must land before the track closes
 (full findings in Documentation/Process/HANDOFF.md pass 10). First of the
-three parity P0 tracks (this, then navigation.md, then terrain.md - see
+three parity P0 tracks (this, then navigation (Archive/navigation-history.md), then terrain (Archive/terrain-history.md) - see
 docs/design/parity-2026-08.md).
 
 ## REVIEW PASS 10 - REQUIRED FIXES (Opus, in priority order)

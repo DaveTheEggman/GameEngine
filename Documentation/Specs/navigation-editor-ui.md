@@ -1,7 +1,7 @@
 # Navigation P4b (editor UI): how to consume the viewport-tool seams
 
 Status: DESIGN QUESTION for Fable (Opus, 2026-08-18). The navigation runtime + bake
-core are built and tested (navigation.md P0-P4a). What remains is the editor UI:
+core are built and tested (Archive/navigation-history.md P0-P4a). What remains is the editor UI:
 zone gizmo, a Bake action, and navmesh/agent-path debug draw. This is exactly the
 consumer the viewport-tool seams were built for (property-animation.md Phase H said
 so), so before building I want a ruling on how navigation should plug in.
@@ -136,7 +136,7 @@ pattern that actually won. That reshapes question 1.
    setting (scene-settings inspector gets it for free as a reflected field).
 
 4. **Async bake: defer, RECORDED.** Keep P4b synchronous; note the deferral in
-   navigation.md with its trigger ("go async when a measured bake stutters -
+   the nav backlog (week-2026-09-05) with its trigger ("go async when a measured bake stutters -
    roughly >100ms on a real zone"), so it is a deliberate deferral, not a
    silent scope-down. Structure the call site as one function (collect ->
    bake -> write -> flash outcome) so moving it onto a worker later is
