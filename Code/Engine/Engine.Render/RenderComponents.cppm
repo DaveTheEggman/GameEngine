@@ -785,6 +785,12 @@ export namespace engine::render
             vp.taaEnabled = false;
             vp.fxaaEnabled = false;
         }
+        if (o.disablePost)
+        {
+            // Editing clarity: the viewport must not shift brightness as the camera moves
+            // between dark and bright regions - freeze to the fixed authored EV.
+            vp.autoExposure = false;
+        }
         // MSAA is an INDEPENDENT toggle: disablePost/disableAa do NOT touch it.
         // The editor viewport forces its own off/2x/4x count here (0 = leave the resolved count).
         if (o.msaaOverride != 0)

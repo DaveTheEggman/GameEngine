@@ -548,6 +548,7 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
         vp.taaEnabled = true;
         vp.fxaaEnabled = false;
         vp.exposure = 2.0f;
+        vp.autoExposure = true;
         return vp;
     };
 
@@ -557,6 +558,15 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
         ApplyViewPostOverride(vp, ViewPostOverride{.disableBloom = true});
         CHECK_FALSE(vp.bloomEnabled);
         CHECK(vp.aoMode == 1u);
+        CHECK(vp.autoExposure); // per-effect flags leave adaptation alone
+    }
+    {
+        // The master toggle also FREEZES auto exposure (editing clarity: the viewport must not
+        // shift brightness with the camera); the fixed authored EV survives.
+        ViewPostConfig vp = base();
+        ApplyViewPostOverride(vp, ViewPostOverride{.disablePost = true});
+        CHECK_FALSE(vp.autoExposure);
+        CHECK(vp.exposure == doctest::Approx(2.0f));
     }
     {
         ViewPostConfig vp = base();
