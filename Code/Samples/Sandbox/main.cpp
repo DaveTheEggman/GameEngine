@@ -778,8 +778,10 @@ namespace
                         engine::animation::AnimationGraphComponent& gc = graphMgr->Add(modelRoot);
                         gc.skeleton = model->skeleton.Get();
                         gc.graph = graph.Get();
-                        gc.meshEntities =
-                            static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
+                        for (scene::EntityHandle e : skinnedEntities)
+                        {
+                            gc.meshEntities.PushBack(m_scene->GetEntityId(e));
+                        }
                         m_graphs.PushBack(static_cast<core::RefPtr<animation::AnimationGraph>&&>(
                             graph));             // keep alive
                         m_graphChar = modelRoot; // G drives this one
@@ -791,8 +793,10 @@ namespace
                     engine::animation::SkeletalAnimationComponent& sa = skelMgr->Add(modelRoot);
                     sa.skeleton = model->skeleton.Get();
                     sa.clip = model->animations[0].Get();
-                    sa.meshEntities =
-                        static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
+                    for (scene::EntityHandle e : skinnedEntities)
+                    {
+                        sa.meshEntities.PushBack(m_scene->GetEntityId(e));
+                    }
                 }
             }
         }

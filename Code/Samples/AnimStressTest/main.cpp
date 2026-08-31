@@ -349,8 +349,10 @@ namespace
                     engine::animation::SkeletalAnimationComponent& a = anims->Add(modelRoot);
                     a.skeleton = m_model->skeleton.Get();
                     a.clip = clip;
-                    a.meshEntities =
-                        static_cast<core::Array<scene::EntityHandle>&&>(skinnedEntities);
+                    for (scene::EntityHandle e : skinnedEntities)
+                    {
+                        a.meshEntities.PushBack(m_scene->GetEntityId(e));
+                    }
                     a.speed = 0.85f + m_rng.NextFloat() * 0.3f;
                     a.startTime = (clip != nullptr && clip->duration > 0.0f)
                                       ? m_rng.NextFloat() * clip->duration

@@ -229,3 +229,65 @@ TEST_CASE("resource-ref: sequential picks start playback (skeleton first, clip l
     scene.Update(1.0f / 60.0f);
     CHECK(a.player->CurrentClip() == run.Get());
 }
+
+TEST_CASE("mesh-entities: one animator feeds multiple parts by EntityRef, and the refs persist")
+{
+    RefPtr<animation::Skeleton> skel = MakeRef<animation::Skeleton>(DefaultAllocator(), 2);
+    BuildSkeleton(*skel);
+    RefPtr<animation::AnimationClip> clip = MakeRef<animation::AnimationClip>(DefaultAllocator());
+    clip->duration = 1.0f;
+    clip->isLooping = true;
+
+    scene::Scene scene;
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
+    auto* mgr = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    const scene::EntityHandle rig = scene.CreateEntity(u8"Rig");
+    const scene::EntityHandle partA = scene.CreateEntity(u8"PartA");
+    const scene::EntityHandle partB = scene.CreateEntity(u8"PartB");
+    (void)meshes->Add(partA);
+    (void)meshes->Add(partB);
+
+    // The multi-part character: ONE animator on the rig, parts referenced by stable guid.
+    engine::animation::SkeletalAnimationComponent& a = mgr->Add(rig);
+    a.skeleton = skel.Get();
+    a.clip = clip.Get();
+    a.meshEntities.PushBack(scene.GetEntityId(partA));
+    a.meshEntities.PushBack(scene.GetEntityId(partB));
+
+    scene.Update(1.0f / 60.0f);
+    engine::render::MeshComponent* fedA = meshes->Get(partA);
+    engine::render::MeshComponent* fedB = meshes->Get(partB);
+    REQUIRE(fedA != nullptr);
+    REQUIRE(fedB != nullptr);
+    CHECK(fedA->boneMatrices != nullptr); // both parts received the ONE player's matrices
+    CHECK(fedB->boneMatrices != nullptr);
+    CHECK(fedA->boneCount == 2u);
+    CHECK(fedA->boneMatrices == fedB->boneMatrices); // same evaluation, not per-part players
+
+    // The refs are part of the component's persisted state (v1): a scene round-trip keeps
+    // them, still naming the same entities by guid.
+    MemoryStream blob;
+    {
+        BinarySerializer ar(blob, SerializeMode::Write);
+        scene::SerializeScene(ar, scene);
+        REQUIRE(ar.IsOk());
+    }
+    scene::Scene loaded;
+    loaded.AddSystem<engine::render::MeshComponentManager>();
+    auto* loadedMgr = loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
+    {
+        BinarySerializer ar(blob, SerializeMode::Read);
+        scene::SerializeScene(ar, loaded);
+        REQUIRE(ar.IsOk());
+    }
+    engine::animation::SkeletalAnimationComponent* la = nullptr;
+    loadedMgr->ForEach(
+        [&](engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle) { la = &c; });
+    REQUIRE(la != nullptr);
+    REQUIRE(la->meshEntities.Size() == 2u);
+    CHECK(loaded.GetEntityName(loaded.FindEntity(la->meshEntities[0].id)) ==
+          StringView(u8"PartA"));
+    CHECK(loaded.GetEntityName(loaded.FindEntity(la->meshEntities[1].id)) ==
+          StringView(u8"PartB"));
+}

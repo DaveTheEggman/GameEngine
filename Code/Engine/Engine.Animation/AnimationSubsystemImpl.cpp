@@ -29,12 +29,15 @@ namespace engine::animation
     {
         builder.Attribute("displayName", String(u8"Skeletal Animation"))
             .Attribute("category", String(u8"Animation"))
+            .DataVersion(1) // v1: meshEntities persist (EntityRef list, prefab-remapped)
             // Script (Track A): SkeletalAnimationComponent.of(entity) -> live speed/startTime/autoPlay.
             // play/stop/setClip are player ops -> SceneAnimation.of(scene) (world ops keyed by entity).
             .Method<&foundation::script::ComponentOf<SkeletalAnimationComponent>,
                     SkeletalAnimationComponent>("of")
             .Property<&SkeletalAnimationComponent::skeleton>("skeleton")
             .Property<&SkeletalAnimationComponent::clip>("clip")
+            .Property<&SkeletalAnimationComponent::meshEntities>("meshEntities")
+            .PropAttribute("displayName", String(u8"Mesh Entities"))
             .Property<&SkeletalAnimationComponent::speed>("speed")
             .Property<&SkeletalAnimationComponent::startTime>("startTime")
             .Property<&SkeletalAnimationComponent::autoPlay>("autoPlay");
@@ -44,12 +47,15 @@ namespace engine::animation
     {
         builder.Attribute("displayName", String(u8"Animation Graph"))
             .Attribute("category", String(u8"Animation"))
+            .DataVersion(1) // v1: meshEntities persist (EntityRef list, prefab-remapped)
             // Script (Track A): AnimationGraphComponent.of(entity) -> live `active`; graph params
             // (setFloat/setBool/setTrigger) are player ops -> SceneAnimation.of(scene).
             .Method<&foundation::script::ComponentOf<AnimationGraphComponent>, AnimationGraphComponent>(
                 "of")
             .Property<&AnimationGraphComponent::skeleton>("skeleton")
             .Property<&AnimationGraphComponent::graph>("graph")
+            .Property<&AnimationGraphComponent::meshEntities>("meshEntities")
+            .PropAttribute("displayName", String(u8"Mesh Entities"))
             .Property<&AnimationGraphComponent::active>("active");
     }
 
@@ -125,6 +131,9 @@ namespace engine::animation
     {
         static const bool once = []()
         {
+            // The meshEntities lists reflect as containers (inspector list editor + the prefab
+            // spawn's EntityRef remap walker both introspect through ContainerInfo).
+            core::RegisterArrayType<foundation::scene::EntityRef>();
             RttiRegisterValue_SkeletalAnimationComponent();
             RttiRegisterValue_AnimationGraphComponent();
             RttiRegisterValue_InstancedSkinningComponent();

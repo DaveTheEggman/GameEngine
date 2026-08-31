@@ -165,13 +165,22 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
 
     usize animCount = 0;
     anims->ForEach(
-        [&](engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle)
+        [&](engine::animation::SkeletalAnimationComponent& c, scene::EntityHandle e)
         {
             ++animCount;
             CHECK(c.skeleton.id == skeleton);
             CHECK(c.clip.id == clip);
+            // ONE animator on the prefab ROOT feeds the skinned nodes through
+            // prefab-remapped EntityRefs - never one animator per part.
+            CHECK(e == root);
+            REQUIRE(c.meshEntities.Size() == 1u);
+            const scene::EntityHandle fed = level.FindEntity(c.meshEntities[0].id);
+            REQUIRE(fed.IsAssigned());
+            engine::render::MeshComponent* fedMesh = meshes->Get(fed);
+            REQUIRE(fedMesh != nullptr);
+            CHECK(fedMesh->mesh.id == meshSkinned);
         });
-    CHECK(animCount == 1u); // only the SKINNED node animates
+    CHECK(animCount == 1u); // one animator for the whole model
 
     // Regeneration finds + reuses the instance: same guid, refreshed payload.
     editor::ModelPrefabResult again =

@@ -53,15 +53,15 @@ export namespace engine::animation
         UniquePtr<animation::AnimationPlayer> player;   // created lazily by the manager
         animation::Skeleton* playerSkeleton = nullptr;  // the skeleton the player was built for
         animation::AnimationClip* playerClip = nullptr; // the clip last handed to the player
-        Array<scene::EntityHandle> meshEntities;        // feed targets (empty => own entity)
+        // Feed targets by stable guid (empty => own entity): serializable and prefab-remapped,
+        // so ONE animator can drive a multi-part character's skinned mesh nodes.
+        Array<scene::EntityRef> meshEntities;
         f32 speed = 1.0f;
         f32 startTime = 0.0f; // initial clock (desync a herd); applied on first tick
         bool autoPlay = true; // Play(clip) on first tick
     };
 
     // Persist the refs + tunables; the player and per-frame feed state are runtime-only.
-    // (meshEntities are transient handles - the model-spawn workflow re-wires them; they'll persist
-    // once entity-reference serialization exists.)
     inline void Serialize(ISerializer& ar, SkeletalAnimationComponent& c)
     {
         foundation::core::Serialize(ar, "skeleton", c.skeleton);
@@ -69,6 +69,10 @@ export namespace engine::animation
         foundation::core::Serialize(ar, "speed", c.speed);
         foundation::core::Serialize(ar, "startTime", c.startTime);
         foundation::core::Serialize(ar, "autoPlay", c.autoPlay);
+        if (ar.Version() >= 1) // v1: meshEntities persist (EntityRef, prefab-remapped)
+        {
+            foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
@@ -171,9 +175,9 @@ export namespace engine::animation
                     }
                     else
                     {
-                        for (scene::EntityHandle e : a.meshEntities)
+                        for (const scene::EntityRef& r : a.meshEntities)
                         {
-                            feed(e);
+                            feed(m_scene->FindEntity(r.id)); // guid -> live handle each frame
                         }
                     }
                 });
@@ -196,8 +200,8 @@ export namespace engine::animation
         UniquePtr<animation::AnimationGraphPlayer> player; // created lazily by the manager
         animation::Skeleton* playerSkeleton = nullptr;     // what the player was built for
         animation::AnimationGraph* playerGraph = nullptr;
-        Array<scene::EntityHandle> meshEntities; // feed targets (empty => own entity)
-        bool active = true;                      // evaluate this frame?
+        Array<scene::EntityRef> meshEntities; // feed targets by stable guid (empty => own entity)
+        bool active = true;                   // evaluate this frame?
     };
 
     inline void Serialize(ISerializer& ar, AnimationGraphComponent& c)
@@ -205,6 +209,10 @@ export namespace engine::animation
         foundation::core::Serialize(ar, "skeleton", c.skeleton);
         foundation::core::Serialize(ar, "graph", c.graph);
         foundation::core::Serialize(ar, "active", c.active);
+        if (ar.Version() >= 1) // v1: meshEntities persist (EntityRef, prefab-remapped)
+        {
+            foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
@@ -292,9 +300,9 @@ export namespace engine::animation
                     }
                     else
                     {
-                        for (scene::EntityHandle e : a.meshEntities)
+                        for (const scene::EntityRef& r : a.meshEntities)
                         {
-                            feed(e);
+                            feed(m_scene->FindEntity(r.id)); // guid -> live handle each frame
                         }
                     }
                 });

@@ -6,9 +6,9 @@
 // Model->prefab generation: a model import's manifest (node hierarchy + cooked
 // leaf guids) becomes a spawnable PrefabDocument named "Prefab" inside the model's group. The
 // wiring mirrors the runtime model spawn (Sandbox): one entity per node, MeshComponents with
-// mesh/material refs by guid (per-submesh refs for multi-material models), and a
-// SkeletalAnimationComponent on each skinned mesh node (feeds its own entity) when the model
-// brought a skeleton + clips.
+// mesh/material refs by guid (per-submesh refs for multi-material models), and - when the model
+// brought a skeleton + clips - ONE SkeletalAnimationComponent on the root whose meshEntities
+// (EntityRefs, prefab-remapped per spawn) feed every skinned mesh node.
 //
 // RE-IMPORT REGENERATES: the "Prefab" instance is found by name and reused (same guid), so
 // placed instances rebuild through the standard prefab machinery. This lives in the scene
@@ -85,6 +85,7 @@ export namespace editor
             entities.PushBack(e);
         }
         const bool animated = !manifest.skeletonGuid.IsNil() && !manifest.animationGuids.IsEmpty();
+        Array<scene::EntityHandle> skinnedEntities;
         for (usize i = 0; i < manifest.nodes.Size(); ++i)
         {
             const foundation::model::ModelNode& node = manifest.nodes[i];
@@ -128,10 +129,21 @@ export namespace editor
                 (meshIndex < manifest.meshSkinned.Size()) && manifest.meshSkinned[meshIndex] != 0;
             if (skinned && animated)
             {
-                // Feeds its OWN entity (meshEntities stays empty - it doesn't serialize yet).
-                engine::animation::SkeletalAnimationComponent& ac = anims->Add(entities[i]);
-                ac.skeleton.SetId(manifest.skeletonGuid);
-                ac.clip.SetId(manifest.animationGuids[0]);
+                skinnedEntities.PushBack(entities[i]);
+            }
+        }
+
+        // ONE animator on the root drives every skinned mesh node via EntityRef (prefab
+        // instancing remaps the guids per spawn). One player, one pose evaluation per frame -
+        // per-part animators sampled the same clip once per part.
+        if (!skinnedEntities.IsEmpty())
+        {
+            engine::animation::SkeletalAnimationComponent& ac = anims->Add(root);
+            ac.skeleton.SetId(manifest.skeletonGuid);
+            ac.clip.SetId(manifest.animationGuids[0]);
+            for (scene::EntityHandle e : skinnedEntities)
+            {
+                ac.meshEntities.PushBack(scene.GetEntityId(e));
             }
         }
 

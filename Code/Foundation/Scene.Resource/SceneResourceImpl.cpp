@@ -691,20 +691,41 @@ namespace foundation::scene
         {
             return;
         }
-        for (const PropertyInfo& p : Properties(*type))
+        const auto remapOne = [&liveBySource](EntityRef* ref)
         {
-            if (p.type != &TypeOf<EntityRef>() || p.address == nullptr)
-            {
-                continue;
-            }
-            auto* ref = static_cast<EntityRef*>(p.address(inst));
             if (ref == nullptr || ref->id.IsNil())
             {
-                continue;
+                return;
             }
             if (const Guid* live = liveBySource.Find(ref->id))
             {
                 ref->id = *live;
+            }
+        };
+        for (const PropertyInfo& p : Properties(*type))
+        {
+            if (p.address == nullptr)
+            {
+                continue;
+            }
+            if (p.type == &TypeOf<EntityRef>())
+            {
+                remapOne(static_cast<EntityRef*>(p.address(inst)));
+                continue;
+            }
+            // Containers of EntityRef (e.g. an animator's meshEntities list): walk the
+            // elements by address so every entry remaps in place.
+            if (p.type != nullptr && p.type->container != nullptr &&
+                p.type->container->elementType == &TypeOf<EntityRef>() &&
+                p.type->container->addressAt != nullptr)
+            {
+                const Instance field{p.address(inst), p.type};
+                const usize count = p.type->container->size(field);
+                for (usize i = 0; i < count; ++i)
+                {
+                    const Instance element = p.type->container->addressAt(field, i);
+                    remapOne(static_cast<EntityRef*>(element.Pointer()));
+                }
             }
         }
     }
