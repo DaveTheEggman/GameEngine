@@ -1,11 +1,30 @@
-# Raptor Core — Implementation Plan
+# Raptor Core — Implementation Plan (ARCHIVED 2026-09-01)
 
-> Status: **In progress** — Core implemented on Linux (Clang 21 + GCC 15), all
-> ten subsystems functional with tests green under ASan/UBSan/TSan. Per-subsystem
-> status in §8; outstanding work consolidated in §10. · Owner: TBD · Last updated: 2026-06-15
+> **Reality sync at archive time.** Core is DONE and has been load-bearing under
+> the whole engine for months. Since this doc's last update (2026-06-15) the
+> world moved: the module is `foundation.core` (not `Raptor.Core`), the engine
+> is Draconic, macros are migrating off the `RAPTOR_`/`DRACONIC_` prefix to
+> family prefixes (RTTI_/REFLECT_/LOG_/...), and the tree lives under
+> `Code/Foundation/Core/`. §10's "outstanding" list is mostly SHIPPED since:
+> backtraces (sys::WriteBacktrace on assert/fatal), RingLogSink + compile-time
+> format-arg checks, JobSystem task-graph dependencies (counter-based
+> Submit/SubmitAfter) + work-stealing + ParallelFor, the SIMD math split
+> (packed default + opt-in SIMD types, hot-path migration measured + deferred),
+> field-decomposed endian-portable serialization, Serialization's XML backend,
+> and Windows/MSVC building on CI. The RTTI serialization auto-walker was
+> SUPERSEDED by convention: hand-written `Serialize(ISerializer&, T&)` per type
+> with strict versioning (deliberate - reflection drives the inspector, not the
+> wire). The plugin/module system is PHASE-NEVER by MVP ruling (static-link
+> native modules; scripts are the iteration path).
 >
-> **Caveat:** §4 (per-module first-pass scope) is the original design intent and is
-> *not* kept in lockstep with the implementation — §8/§10 are authoritative.
+> Still open at archive time (moved to Documentation/Plans/week-2026-09-05.md,
+> "Backlog absorbed from Core.md"): Win32 runtime validation depth, async IO,
+> DynamicLibrary name/extension resolution. Lock-free containers, TLSF/guard
+> allocators, Unicode collation, and pak compression already live in the
+> roadmap-absorbed backlog there.
+>
+> Historical status below (§8/§10 were authoritative then; §4 was design
+> intent). Kept for the ground rules, module map, and decision rationale.
 
 The Core library is the foundation every other engine module builds on. It owns
 the engine's fundamental types, platform abstraction, memory management,
