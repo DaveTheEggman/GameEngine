@@ -1398,3 +1398,19 @@ TEST_CASE("angelscript: a METHOD delegate is a native callback via IScriptDelega
     CHECK(signal->Emit(10.0) == doctest::Approx(10.0));  // native fires -> h.bump ran (v: 0 -> 10)
     CHECK(signal->Emit(5.0) == doctest::Approx(15.0));   // same bound object accumulates (v -> 15)
 }
+
+TEST_CASE("angelscript: many engine lifecycles in one process (the cook pattern)")
+{
+    // The cook builds one engine per script; interleaved create/destroy used to unbalance
+    // the process-global thread manager and assert at teardown. The constructor's
+    // process-lifetime pin makes any sequence safe - this exercises the multi-engine path.
+    for (int i = 0; i < 8; ++i)
+    {
+        RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+        REQUIRE(manager.Get() != nullptr);
+        manager->FinalizeTypes();
+        RefPtr<IScriptContext> ctx = manager->CreateContext();
+        REQUIRE(ctx.Get() != nullptr);
+        CHECK(ctx->Load(u8"void main() { }", u8"cook_cycle").IsOk());
+    }
+}

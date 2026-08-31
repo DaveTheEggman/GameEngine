@@ -555,6 +555,15 @@ namespace foundation::script::angelscript
     public:
         AngelScriptManager()
         {
+            // Pin the PROCESS-GLOBAL thread manager for the process lifetime. AngelScript
+            // refcounts it across engines (first engine creates, last release frees); a
+            // multi-engine process (the cook builds one engine per script) can otherwise
+            // interleave into a double-unprepare that asserts at teardown
+            // (asCThreadManager::Unprepare 'threadManager' failed). One deliberate extra
+            // prepare keeps the manager alive until process exit - the upstream idiom for
+            // multi-engine hosts. Never unprepared: the OS reclaims at exit.
+            static const int threadManagerPin = asPrepareMultithread();
+            (void)threadManagerPin;
             m_engine = asCreateScriptEngine();
             m_engine->SetMessageCallback(asFUNCTION(&AngelScriptManager::OnMessage), this,
                                          asCALL_CDECL);
