@@ -1,5 +1,11 @@
 # Renderer - Improvements & Optimizations
 
+> ARCHIVED 2026-09-01: the WORK LIST moved to Documentation/Plans/
+> week-2026-09-05.md ("Backlog absorbed from renderer-improvements.md",
+> priority order preserved). This archive keeps the measured analysis - the
+> Godot A/B numbers, the P-dump breakdowns, and the resolve-SoA correction -
+> that the work items reference.
+
 Status: **backlog.** The renderer itself is built and shipping ([renderer.md](renderer.md) is
 the done design record). This document tracks the optimizations and extensions that remain -
 what makes it *faster* and *broader*, not what makes it *exist*. Ordered roughly by value.

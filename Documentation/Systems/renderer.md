@@ -28,7 +28,7 @@ version-poll hot reload - see `shaders-materials-hot-reload.md`), `foundation.sh
 
 Future optimization + extension work (the CPU->GPU-bound parity work - parallel command recording +
 draw-list sort, shadow instance reuse - the GPU-driven/indirect path, and the spatial acceleration
-structure) is tracked in `Documentation/Plans/renderer-improvements.md`. The instanced-mesh (MultiMesh)
+structure) is tracked in the weekly backlog (week-2026-09-05, "absorbed from renderer-improvements"); analysis in `Documentation/Archive/renderer-improvements-history.md`. The instanced-mesh (MultiMesh)
 primitive is `Documentation/Systems/instanced-mesh.md`.
 
 _(Original design grounding, preserved: the thin-slice ([[renderer-thin-slice]]), a critical assessment
@@ -431,7 +431,7 @@ forward light loop, but design the data path for *many many lights* from the sta
 
 **All phases below are DELIVERED** (0-9, plus SSR and view-frustum culling added after). The
 one item explicitly deferred - the spatial acceleration structure - moved to
-[renderer-improvements.md](renderer-improvements.md); culling is still linear scans today.
+[renderer-improvements-history.md](../Archive/renderer-improvements-history.md); culling is still linear scans today.
 
 0. **(done)** Thin slice: extraction boundary + forward draw of a cube.
 1. **Extraction + view core**: replace `ExtractedView`/`Renderable` with per-scene
@@ -447,7 +447,7 @@ one item explicitly deferred - the spatial acceleration structure - moved to
 5. **Shadows**: CSM (with texel snap) + the rebuilt atlas/scheduler (static caching).
 6. **IBL + sky**, then **post** (TAA/SSAO/bloom/tonemap/FXAA), then **skinning**. **(done)**
  - **spatial acceleration structure** (BVH/octree over `MeshRenderData` world bounds) - DEFERRED,
- moved to [renderer-improvements.md](renderer-improvements.md). Culling is linear scans today; the
+ moved to [renderer-improvements-history.md](../Archive/renderer-improvements-history.md). Culling is linear scans today; the
  world center+radius on `MeshRenderData` are the ready-made index, and it drops in behind the
  existing `BuildDrawList` / `BuildShadowCasterList` cull seam when a profile demands it.
 7. **Reflection probes (rebuilt)**, **decals**, **debug draw**. **(done)**

@@ -87,7 +87,7 @@ shadowed crowds, while the existing per-entity path stays for genuinely dynamic 
 **Non-goals (v1).** Per-instance frustum culling (the set culls as one AABB - GPU clips the
 rest, same as Godot); GPU-driven culling/compaction; skinned crowds (designed for, built
 later - §7 - now shipped); LOD selection per instance. The ones that remain deferred are now
-tracked in **[renderer-improvements.md](renderer-improvements.md) §2** ("Remaining MultiMesh
+tracked in **[renderer-improvements-history.md](../Archive/renderer-improvements-history.md) §2** ("Remaining MultiMesh
 optimizations") and §3/§4 (GPU-driven, spatial accel).
 
 ---
@@ -269,22 +269,22 @@ Do not build either skinned option until the static primitive is proven.
 
 Decisions taken vs §10's open questions: **per-set buffer** (not a shared arena) and **full
 `Mat4` InstanceData** (`World + PrevWorld + Tint`, 144B - not the 3×4 compaction the doc leaned
-toward; that's now a deferred optimization in [renderer-improvements.md](renderer-improvements.md) §2).
+toward; that's now a deferred optimization in [renderer-improvements-history.md](../Archive/renderer-improvements-history.md) §2).
 
 ---
 
 ## 10. Open questions - resolved
 
 The v1 open questions have been decided by the shipped implementation; the ones that stay open
-are optimizations, now tracked in **[renderer-improvements.md](renderer-improvements.md) §2**.
+are optimizations, now tracked in **[renderer-improvements-history.md](../Archive/renderer-improvements-history.md) §2**.
 
 - **Compact per-instance data?** → **Shipped full `Mat4`** (`World + PrevWorld + Tint`, 144B),
  *not* the 3×4 the doc leaned toward. The ~3× smaller 3×4/TRS packing is a real future
- bandwidth/memory win → **deferred** (renderer-improvements.md §2).
+ bandwidth/memory win → **deferred** (the renderer backlog (week-2026-09-05) / Archive/renderer-improvements-history.md §2).
 - **Per-set buffer vs shared arena?** → **Per-set** (one bind per MultiMesh; few sets in
  practice). Shared-arena sub-allocation stays a future option, not needed yet.
 - **Culling granularity?** → **One merged AABB** (Godot-parity). Coarse per-cell sub-AABB
- splitting for open-world-scale sets → **deferred** (renderer-improvements.md §2 / §4 spatial).
+ splitting for open-world-scale sets → **deferred** (the renderer backlog (week-2026-09-05) / Archive/renderer-improvements-history.md §2 / §4 spatial).
 - **Motion vectors?** → Static sets carry `prevWorld = world` (zero motion). Skinned crowds
  ship real per-bone motion blur via the ping-pong prev pose pool (`DataOffsets.z`). Done.
 
