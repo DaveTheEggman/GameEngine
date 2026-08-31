@@ -34,6 +34,41 @@ export namespace editor
 
     class SoundCueEditorPage final : public app::UIEditorPage
     {
+        class EditSoundCueCommand final : public IEditorCommand
+        {
+        public:
+            EditSoundCueCommand(SoundCueEditorPage& page, StringView mergeKey, Array<byte> before,
+                                Array<byte> after)
+                : m_page(&page), m_mergeKey(mergeKey), m_before(Move(before)), m_after(Move(after))
+            {
+            }
+            [[nodiscard]] bool Execute() override
+            {
+                m_page->ApplyAssetBlob(m_after);
+                return true;
+            }
+            void Undo() override { m_page->ApplyAssetBlob(m_before); }
+            [[nodiscard]] StringView TypeId() const override { return u8"edit_soundcue"; }
+            [[nodiscard]] bool MergeInto(IEditorCommand& previous) override
+            {
+                auto& prev = static_cast<EditSoundCueCommand&>(previous);
+                // Empty key = a discrete op (pick/clear/mode): never coalesce those.
+                if (prev.m_page != m_page || m_mergeKey.IsEmpty() ||
+                    prev.m_mergeKey.AsView() != m_mergeKey.AsView())
+                {
+                    return false;
+                }
+                prev.m_after = Move(m_after);
+                return true;
+            }
+
+        private:
+            SoundCueEditorPage* m_page;
+            String m_mergeKey;
+            Array<byte> m_before;
+            Array<byte> m_after;
+        };
+
     public:
         SoundCueEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                            foundation::content::Instance& instance)
@@ -98,7 +133,7 @@ export namespace editor
                     {
                         self->m_asset.clipIds[slot] = Guid{};
                         self->RefreshSlot(slot);
-                        self->MarkDirty();
+                        self->CommitEdit(u8"");
                     });
                 row->AddView(clear.Get());
 
@@ -117,7 +152,10 @@ export namespace editor
                     [self, slot](ui::NumericField*, f64 value)
                     {
                         self->m_asset.weights[slot] = static_cast<f32>(value);
-                        self->MarkDirty();
+                        // Keyed: a scrub coalesces into ONE undo step per field.
+                        u8 key[] = {'w', 'e', 'i', 'g', 'h', 't',
+                                    static_cast<u8>('0' + slot), 0};
+                        self->CommitEdit(StringView(reinterpret_cast<const char8_t*>(key)));
                     });
                 row->AddView(m_weightFields[i].Get());
 
@@ -140,7 +178,7 @@ export namespace editor
                     {
                         self->m_asset.mode = static_cast<u8>((self->m_asset.mode + 1) % 3);
                         self->RefreshModeButton();
-                        self->MarkDirty();
+                        self->CommitEdit(u8"");
                     });
                 row->AddView(m_modeButton.Get());
                 AddJitterField(*row, u8"pitch min", m_asset.pitchMin);
@@ -201,6 +239,7 @@ export namespace editor
             }
             RefreshModeButton();
             m_savedBlob = SnapshotAsset(); // the on-load state Discard reverts to
+            m_undoBaseline = m_savedBlob;   // and the first edit command's "before"
         }
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
@@ -241,6 +280,9 @@ export namespace editor
         // backs Discard Changes.
         [[nodiscard]] Array<byte> SnapshotAsset();
         void ApplyAssetBlob(const Array<byte>& blob);
+        /// Push one undo step: snapshot after the mutation, Execute a blob command against the
+        /// baseline. Keyed commits coalesce (field scrubs); an empty key never merges.
+        void CommitEdit(StringView mergeKey);
 
         EditorContext* m_context = nullptr;
         engine::audio::AudioSubsystem* m_audio = nullptr;
@@ -257,6 +299,7 @@ export namespace editor
         RefPtr<ui::View> m_content;
         RefPtr<app::PageToolbar> m_toolbar;
         Array<byte> m_savedBlob; // last-saved asset state; Discard Changes reverts to this
+        Array<byte> m_undoBaseline; // the "before" of the NEXT edit command
         RefPtr<ui::Label> m_slotLabels[pipeline::kSoundCueSlotCount];
         RefPtr<ui::NumericField> m_weightFields[pipeline::kSoundCueSlotCount];
         Array<RefPtr<ui::NumericField>> m_jitterFields;

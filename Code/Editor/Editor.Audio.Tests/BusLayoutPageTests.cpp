@@ -75,3 +75,45 @@ TEST_CASE("bus layout page: asset round-trips buses + custom slots (undo blob pa
     CHECK(b.custom[0].bus.lowpassHz == doctest::Approx(1200.0f));
     CHECK(b.custom[0].bus.reverbWet == doctest::Approx(0.4f));
 }
+
+TEST_CASE("sound cue page: asset round-trips slots + jitter (undo blob path)")
+{
+    pipeline::SoundCueAsset a;
+    a.clipIds[0] = Guid{0x11, 0x22};
+    a.clipIds[2] = Guid{0x33, 0x44};
+    a.weights[0] = 2.5f;
+    a.weights[2] = 0.5f;
+    a.mode = 2;
+    a.pitchMin = 0.9f;
+    a.pitchMax = 1.1f;
+    a.volumeMin = 0.8f;
+    a.volumeMax = 1.0f;
+
+    // The page's undo snapshots ride a versioned payload; the round-trip must preserve
+    // every field an undo restores.
+    MemoryStream stream;
+    {
+        BinarySerializer ar(stream, SerializeMode::Write);
+        BeginVersionedPayload(ar, pipeline::SoundCueAsset::StaticType());
+        a.Serialize(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    pipeline::SoundCueAsset b;
+    {
+        BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, pipeline::SoundCueAsset::StaticType());
+        b.Serialize(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(b.clipIds[0] == a.clipIds[0]);
+    CHECK(b.clipIds[1].IsNil());
+    CHECK(b.clipIds[2] == a.clipIds[2]);
+    CHECK(b.weights[0] == doctest::Approx(2.5f));
+    CHECK(b.weights[2] == doctest::Approx(0.5f));
+    CHECK(b.mode == 2);
+    CHECK(b.pitchMin == doctest::Approx(0.9f));
+    CHECK(b.volumeMax == doctest::Approx(1.0f));
+}

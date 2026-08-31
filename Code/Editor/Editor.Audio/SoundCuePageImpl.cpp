@@ -102,6 +102,14 @@ namespace editor
         {
             return;
         }
+        {
+            const Array<byte> current = SnapshotAsset();
+            if (current.Size() == blob.Size() &&
+                MemCompare(current.Data(), blob.Data(), blob.Size()) == 0)
+            {
+                return;
+            }
+        }
         MemoryStream stream;
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
@@ -121,12 +129,26 @@ namespace editor
         {
             m_jitterFields[i]->SetValue(jitter[i]);
         }
+        m_undoBaseline = blob; // undo/redo landed here; the next edit diffs from THIS state
+        MarkDirty();
+    }
+
+    void SoundCueEditorPage::CommitEdit(StringView mergeKey)
+    {
+        Array<byte> after = SnapshotAsset();
+        (void)Commands().Execute(UniquePtr<IEditorCommand>(
+            DefaultAllocator().New<EditSoundCueCommand>(*this, mergeKey, m_undoBaseline,
+                                                        after),
+            DefaultAllocator()));
+        m_undoBaseline = Move(after);
+        MarkDirty();
     }
 
     void SoundCueEditorPage::DiscardChanges()
     {
         ApplyAssetBlob(m_savedBlob); // restore the last-saved state into the widgets
-        Commands().Clear();          // and drop the (currently unused) undo history
+        Commands().Clear();          // drop the undo history (it predates the restore)
+        m_undoBaseline = m_savedBlob;
         ClearDirty();                // overwrites any spurious dirty from the SetValue refresh above
     }
 
@@ -154,11 +176,12 @@ namespace editor
         field->SetValue(target);
         SoundCueEditorPage* self = this;
         f32* slot = &target; // points into m_asset (stable for the page's lifetime)
+        String key(label); // per-field merge key: a scrub coalesces into one undo step
         field->OnValueChanged.Add(
-            [self, slot](ui::NumericField*, f64 value)
+            [self, slot, key = Move(key)](ui::NumericField*, f64 value)
             {
                 *slot = static_cast<f32>(value);
-                self->MarkDirty();
+                self->CommitEdit(key.AsView());
             });
         row.AddView(field.Get());
         m_jitterFields.PushBack(field);
@@ -180,7 +203,7 @@ namespace editor
         {
             self->m_asset.clipIds[slot] = id;
             self->RefreshSlot(slot);
-            self->MarkDirty();
+            self->CommitEdit(u8"");
         };
         picker->Show(uiContext);
     }
