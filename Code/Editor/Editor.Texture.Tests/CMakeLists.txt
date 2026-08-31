@@ -1,7 +1,7 @@
 add_executable(Editor.Texture.Tests TestsMain.cpp TextureEditorPageTests.cpp)
 target_link_libraries(Editor.Texture.Tests PRIVATE
     Editor::Texture Editor::Core
-    Foundation::Texture Pipeline::Texture Foundation::Image Foundation::Image.IO
+    Foundation::Texture Pipeline::Texture Pipeline::Texture.Compression Foundation::RHI Foundation::Image Foundation::Image.IO
     Foundation::Content Foundation::VFS doctest::doctest)
 target_compile_definitions(Editor.Texture.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Editor.Texture.Tests PRIVATE

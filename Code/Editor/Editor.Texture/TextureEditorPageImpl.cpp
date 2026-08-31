@@ -19,6 +19,7 @@ import texture.compression;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
+import foundation.rhi;
 import editor.app;
 
 using namespace foundation::core;
@@ -38,14 +39,29 @@ namespace editor
                                                u8"Mipmap Linear"};
         constexpr StringView kWrapItems[] = {u8"Repeat", u8"Clamp To Edge", u8"Clamp To Border",
                                              u8"Mirrored Repeat"};
-        // Block-compression authoring (asset-variants). Index == the texcomp enum's value.
-        constexpr StringView kUsageItems[] = {u8"Color", u8"Normal", u8"Mask", u8"HDR"};
+        // Block-compression authoring (asset-variants). Index == the texcomp enum's value;
+        // labels speak the author's language, not the enum's.
+        constexpr StringView kUsageItems[] = {u8"Color", u8"Normal map",
+                                              u8"Data mask (rough/AO/height/coverage)", u8"HDR"};
         constexpr StringView kCompressionItems[] = {u8"Default", u8"None", u8"Quality"};
 
-        // Presets mirror TextureAsset's Sedulous-derived setups; index 0 is a no-op sentinel.
-        constexpr StringView kPresetItems[] = {u8"(apply preset)",  u8"UI",
-                                               u8"Sprite",          u8"3D",
-                                               u8"Equirect Skybox", u8"Cubemap Skybox"};
+        // The display name of a policy-resolved cooked format (the "Cooks to:" row).
+        [[nodiscard]] StringView CookedFormatName(foundation::rhi::TextureFormat format)
+        {
+            switch (format)
+            {
+            case foundation::rhi::TextureFormat::BC1RGBAUnorm: return u8"BC1 (opaque)";
+            case foundation::rhi::TextureFormat::BC1RGBAUnormSrgb: return u8"BC1 sRGB (opaque)";
+            case foundation::rhi::TextureFormat::BC4RUnorm: return u8"BC4 (single channel)";
+            case foundation::rhi::TextureFormat::BC5RGUnorm: return u8"BC5 (normal RG)";
+            case foundation::rhi::TextureFormat::BC7RGBAUnorm: return u8"BC7";
+            case foundation::rhi::TextureFormat::BC7RGBAUnormSrgb: return u8"BC7 sRGB";
+            case foundation::rhi::TextureFormat::ASTC4x4Unorm: return u8"ASTC 4x4";
+            case foundation::rhi::TextureFormat::ASTC4x4UnormSrgb: return u8"ASTC 4x4 sRGB";
+            case foundation::rhi::TextureFormat::RGBA32Float: return u8"RGBA32F (uncompressed)";
+            default: return u8"uncompressed";
+            }
+        }
 
         // Convert a decoded source image to an RGBA8 CPU buffer for the ImageView (the VG image
         // path is 8-bit; HDR sources are tonemapped by a plain clamp - a faithful preview needs
@@ -137,6 +153,16 @@ namespace editor
         auto gridColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
+        gridColumn->Spacing = 6.0f;
+        {
+            auto profileRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            profileRow->Direction = ui::Orientation::Horizontal;
+            profileRow->Spacing = 4.0f;
+            BuildProfileRow(*profileRow);
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            gridColumn->AddView(profileRow.Get(), lp);
+        }
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
             lp->Grow = 1.0f;
@@ -273,79 +299,12 @@ namespace editor
         }
         TextureEditorPage* self = this;
 
-        // --- Presets (uncategorized, at the top): apply a Sedulous setup as one undo entry ---
-        auto preset = MakeRef<ui::toolkit::EnumEditor>(
-            DefaultAllocator(), StringView(u8"Preset"), 0, Span<const StringView>{kPresetItems, 6},
-            Function<void(i32)>{[self](i32 index)
-                                {
-                                    if (index <= 0)
-                                    {
-                                        return;
-                                    }
-                                    self->ApplyEdit(u8"preset",
-                                                    Function<void(pipeline::TextureAsset&)>{
-                                                        [index](pipeline::TextureAsset& a)
-                                                        {
-                                                            switch (index)
-                                                            {
-                                                            case 1:
-                                                                a.SetupForUI();
-                                                                break;
-                                                            case 2:
-                                                                a.SetupForSprite();
-                                                                break;
-                                                            case 3:
-                                                                a.SetupFor3D();
-                                                                break;
-                                                            case 4:
-                                                                a.SetupForEquirectangularSkybox();
-                                                                break;
-                                                            case 5:
-                                                                a.SetupForCubemapSkybox();
-                                                                break;
-                                                            default:
-                                                                break;
-                                                            }
-                                                        }});
-                                }});
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(preset.Get()));
+        // (Profiles are BUTTONS above the grid - an action, not a property; see BuildProfileRow.)
 
-        // --- Texture: color space + shape ---
-        {
-            auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Color Space"),
-                static_cast<i32>(m_asset->colorSpace), Span<const StringView>{kColorSpaceItems, 2},
-                Function<void(i32)>{
-                    [self](i32 v)
-                    {
-                        self->ApplyEdit(
-                            u8"colorSpace",
-                            Function<void(pipeline::TextureAsset&)>{
-                                [v](pipeline::TextureAsset& a)
-                                { a.colorSpace = static_cast<image::ImageColorSpace>(v); }});
-                    }},
-                StringView(u8"Texture"));
-            AddEditor(editor.Get(), [self, raw = editor.Get()]()
-                      { raw->SetValue(static_cast<i32>(self->m_asset->colorSpace)); });
-        }
-        {
-            auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Shape"), static_cast<i32>(m_asset->shape),
-                Span<const StringView>{kShapeItems, 5},
-                Function<void(i32)>{
-                    [self](i32 v)
-                    {
-                        self->ApplyEdit(u8"shape",
-                                        Function<void(pipeline::TextureAsset&)>{
-                                            [v](pipeline::TextureAsset& a)
-                                            { a.shape = static_cast<texture::TextureShape>(v); }});
-                    }},
-                StringView(u8"Texture"));
-            AddEditor(editor.Get(), [self, raw = editor.Get()]()
-                      { raw->SetValue(static_cast<i32>(self->m_asset->shape)); });
-        }
 
-        // --- Compression: authored usage + choice (drives the cook's BC/ASTC format policy) ---
+        // --- Content: WHAT the texture is. Usage is the primary question; Color Space
+        // derives from it (Normal/Mask/HDR are always Linear; Color implies sRGB) in the
+        // SAME undo entry, with the demoted advanced row below for the rare override. ---
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
                 DefaultAllocator(), StringView(u8"Usage"), static_cast<i32>(m_asset->usage),
@@ -356,11 +315,66 @@ namespace editor
                         self->ApplyEdit(u8"usage",
                                         Function<void(pipeline::TextureAsset&)>{
                                             [v](pipeline::TextureAsset& a)
-                                            { a.usage = static_cast<texcomp::TextureUsage>(v); }});
+                                            {
+                                                a.usage = static_cast<texcomp::TextureUsage>(v);
+                                                a.colorSpace =
+                                                    a.usage == texcomp::TextureUsage::Color
+                                                        ? image::ImageColorSpace::Srgb
+                                                        : image::ImageColorSpace::Linear;
+                                            }});
                     }},
-                StringView(u8"Compression"));
+                StringView(u8"Content"));
             AddEditor(editor.Get(), [self, raw = editor.Get()]()
                       { raw->SetValue(static_cast<i32>(self->m_asset->usage)); });
+        }
+        {
+            // The one legitimate override (linear color data, e.g. a LUT authored as an image).
+            auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                DefaultAllocator(), StringView(u8"Color Space (advanced)"),
+                static_cast<i32>(m_asset->colorSpace), Span<const StringView>{kColorSpaceItems, 2},
+                Function<void(i32)>{
+                    [self](i32 v)
+                    {
+                        self->ApplyEdit(
+                            u8"colorSpace",
+                            Function<void(pipeline::TextureAsset&)>{
+                                [v](pipeline::TextureAsset& a)
+                                { a.colorSpace = static_cast<image::ImageColorSpace>(v); }});
+                    }},
+                StringView(u8"Content"));
+            AddEditor(editor.Get(), [self, raw = editor.Get()]()
+                      { raw->SetValue(static_cast<i32>(self->m_asset->colorSpace)); });
+        }
+        {
+            // The mismatch lint: presentation only - it fires on assets that already carry a
+            // semantically wrong combination, which is the point.
+            auto lint = MakeRef<ui::toolkit::StringEditor>(
+                DefaultAllocator(), StringView(u8"Warning"), StringView(u8""),
+                Function<void(StringView)>{}, StringView(u8"Content"));
+            ui::toolkit::StringEditor* lintRaw = lint.Get();
+            AddEditor(lint.Get(),
+                      [self, lintRaw]()
+                      {
+                          const bool dataAsSrgb =
+                              self->m_asset->usage != texcomp::TextureUsage::Color &&
+                              self->m_asset->colorSpace == image::ImageColorSpace::Srgb;
+                          const bool colorAsLinear =
+                              self->m_asset->usage == texcomp::TextureUsage::Color &&
+                              self->m_asset->colorSpace == image::ImageColorSpace::Linear;
+                          lintRaw->SetRowVisible(dataAsSrgb || colorAsLinear);
+                          if (dataAsSrgb)
+                          {
+                              lintRaw->SetValue(
+                                  u8"Normal/Mask/HDR maps are data - sRGB will warp the values. "
+                                  u8"Set Linear.");
+                          }
+                          else if (colorAsLinear)
+                          {
+                              lintRaw->SetValue(
+                                  u8"Color as Linear is unusual (fine for LUT-style data).");
+                          }
+                      });
+            lintRaw->SetRowVisible(false);
         }
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
@@ -375,9 +389,36 @@ namespace editor
                                 [v](pipeline::TextureAsset& a)
                                 { a.compression = static_cast<texcomp::CompressionChoice>(v); }});
                     }},
-                StringView(u8"Compression"));
+                StringView(u8"Content"));
             AddEditor(editor.Get(), [self, raw = editor.Get()]()
                       { raw->SetValue(static_cast<i32>(self->m_asset->compression)); });
+        }
+        {
+            // "Default" stops being opaque: the policy evaluated for the desktop profile (and
+            // the mobile one when it differs). Read-only; recomputed after every edit.
+            auto cooks = MakeRef<ui::toolkit::StringEditor>(
+                DefaultAllocator(), StringView(u8"Cooks to"), StringView(u8""),
+                Function<void(StringView)>{}, StringView(u8"Content"));
+            ui::toolkit::StringEditor* cooksRaw = cooks.Get();
+            AddEditor(cooks.Get(),
+                      [self, cooksRaw]() { cooksRaw->SetValue(self->ResolvedFormatText().AsView()); });
+            cooksRaw->SetValue(ResolvedFormatText().AsView());
+        }
+        {
+            auto editor = MakeRef<ui::toolkit::EnumEditor>(
+                DefaultAllocator(), StringView(u8"Shape"), static_cast<i32>(m_asset->shape),
+                Span<const StringView>{kShapeItems, 5},
+                Function<void(i32)>{
+                    [self](i32 v)
+                    {
+                        self->ApplyEdit(u8"shape",
+                                        Function<void(pipeline::TextureAsset&)>{
+                                            [v](pipeline::TextureAsset& a)
+                                            { a.shape = static_cast<texture::TextureShape>(v); }});
+                    }},
+                StringView(u8"Sampling"));
+            AddEditor(editor.Get(), [self, raw = editor.Get()]()
+                      { raw->SetValue(static_cast<i32>(self->m_asset->shape)); });
         }
 
         // --- Sampling: filters, wraps, mipmaps, anisotropy ---
@@ -454,6 +495,82 @@ namespace editor
             AddEditor(editor.Get(),
                       [self, raw = editor.Get()]() { raw->SetValue(self->m_asset->anisotropy); });
         }
+    }
+
+    String TextureEditorPage::ResolvedFormatText() const
+    {
+        if (m_asset.Get() == nullptr)
+        {
+            return String(u8"-");
+        }
+        // The cook's own inputs, mirrored: sRGB flag, level-0 alpha scan, source size. An HDR
+        // source resolves through the policy's HDR branch (uncompressed until BC6H).
+        const bool srgb = m_asset->colorSpace == image::ImageColorSpace::Srgb;
+        const u32 width = m_preview.Get() != nullptr ? m_preview->Width() : 0;
+        const u32 height = m_preview.Get() != nullptr ? m_preview->Height() : 0;
+        bool hasAlpha = false;
+        if (m_preview.Get() != nullptr)
+        {
+            const Span<const u8> px = m_preview->PixelData();
+            for (usize i = 0; i + 3 < px.Size(); i += 4)
+            {
+                if (px[i + 3] != 255)
+                {
+                    hasAlpha = true;
+                    break;
+                }
+            }
+        }
+        const foundation::rhi::TextureFormat uncompressed =
+            m_sourceFormat == image::PixelFormat::RGBA32F
+                ? foundation::rhi::TextureFormat::RGBA32Float
+                : foundation::rhi::TextureFormat::RGBA8Unorm;
+        const foundation::rhi::TextureFormat desktop = texcomp::ResolveCompressedFormat(
+            m_asset->usage, srgb, hasAlpha, m_asset->compression, width, height,
+            texcomp::DesktopProfile(), uncompressed);
+        const foundation::rhi::TextureFormat mobile = texcomp::ResolveCompressedFormat(
+            m_asset->usage, srgb, hasAlpha, m_asset->compression, width, height,
+            texcomp::MobileProfile(), uncompressed);
+        if (desktop == mobile)
+        {
+            return String(CookedFormatName(desktop));
+        }
+        return Format(u8"{}  |  mobile: {}", CookedFormatName(desktop), CookedFormatName(mobile));
+    }
+
+    void TextureEditorPage::BuildProfileRow(foundation::ui::FlexLayout& row)
+    {
+        // Profiles are ACTIONS (one click configures sampler + shape + usage + colorSpace
+        // coherently, one undo entry) - buttons, not a stateful enum pretending to be a fact.
+        TextureEditorPage* self = this;
+        const auto profile = [&row, self](StringView label,
+                                          void (pipeline::TextureAsset::*setup)())
+        {
+            auto button = MakeRef<foundation::ui::Button>(DefaultAllocator(), label);
+            button->OnClick.Add(
+                [self, setup](foundation::ui::ButtonBase*)
+                {
+                    self->ApplyEdit(u8"profile", Function<void(pipeline::TextureAsset&)>{
+                                                     [setup](pipeline::TextureAsset& a)
+                                                     { (a.*setup)(); }});
+                });
+            row.AddView(button.Get());
+        };
+        auto caption = MakeRef<foundation::ui::Label>(DefaultAllocator(),
+                                                      StringView(u8"Apply profile:"));
+        caption->FontSize.SetValue(12.0f);
+        {
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            lp->AlignSelf = foundation::ui::Align::Center;
+            row.AddView(caption.Get(), lp);
+        }
+        profile(u8"UI", &pipeline::TextureAsset::SetupForUI);
+        profile(u8"Sprite", &pipeline::TextureAsset::SetupForSprite);
+        profile(u8"3D Surface", &pipeline::TextureAsset::SetupFor3D);
+        profile(u8"Normal Map", &pipeline::TextureAsset::SetupForNormalMap);
+        profile(u8"Data Mask", &pipeline::TextureAsset::SetupForDataMask);
+        profile(u8"Equirect Sky", &pipeline::TextureAsset::SetupForEquirectangularSkybox);
+        profile(u8"Cubemap Sky", &pipeline::TextureAsset::SetupForCubemapSkybox);
     }
 
     void TextureEditorPage::AddEditor(ui::toolkit::PropertyEditor* editor,

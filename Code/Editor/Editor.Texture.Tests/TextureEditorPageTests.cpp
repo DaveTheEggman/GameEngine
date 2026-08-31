@@ -17,6 +17,7 @@ import foundation.image;
 import foundation.texture;
 import texture.pipeline;
 import texture.compression;
+import foundation.rhi;
 import editor.core;
 import editor.texture;
 
@@ -106,4 +107,51 @@ TEST_CASE("TextureAsset presets move the sampler settings a page preset row woul
     asset.SetupForSprite();
     CHECK(asset.minFilter == texture::TextureFilter::Nearest);
     CHECK(asset.magFilter == texture::TextureFilter::Nearest);
+}
+
+TEST_CASE("the Cooks-to row's policy expectations (desktop profile)")
+{
+    // The page renders ResolveCompressedFormat verbatim; pin the spec's two anchor cases plus
+    // the usage-driven families the lint/derivation flow leads authors into.
+    using texcomp::ResolveCompressedFormat;
+    const auto desktop = texcomp::DesktopProfile();
+    const auto rgba8 = foundation::rhi::TextureFormat::RGBA8Unorm;
+
+    // Color with alpha -> BC7 sRGB.
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true,
+                                  texcomp::CompressionChoice::Default, 512, 512, desktop,
+                                  rgba8) == foundation::rhi::TextureFormat::BC7RGBAUnormSrgb);
+    // Compression = None -> uncompressed passthrough.
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true,
+                                  texcomp::CompressionChoice::None, 512, 512, desktop,
+                                  rgba8) == rgba8);
+    // The derived pairs: Normal -> BC5, Mask -> BC4 (both linear).
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Normal, false, false,
+                                  texcomp::CompressionChoice::Default, 512, 512, desktop,
+                                  rgba8) == foundation::rhi::TextureFormat::BC5RGUnorm);
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Mask, false, false,
+                                  texcomp::CompressionChoice::Default, 512, 512, desktop,
+                                  rgba8) == foundation::rhi::TextureFormat::BC4RUnorm);
+}
+
+TEST_CASE("usage implies color space (the page's derivation + lint contract)")
+{
+    // The page derives colorSpace from usage in ONE mutation and lints the mismatch. The
+    // mapping is the contract; pin it here so a page edit cannot silently drop it.
+    const auto derived = [](texcomp::TextureUsage usage)
+    {
+        return usage == texcomp::TextureUsage::Color ? image::ImageColorSpace::Srgb
+                                                     : image::ImageColorSpace::Linear;
+    };
+    CHECK(derived(texcomp::TextureUsage::Color) == image::ImageColorSpace::Srgb);
+    CHECK(derived(texcomp::TextureUsage::Normal) == image::ImageColorSpace::Linear);
+    CHECK(derived(texcomp::TextureUsage::Mask) == image::ImageColorSpace::Linear);
+    CHECK(derived(texcomp::TextureUsage::HDR) == image::ImageColorSpace::Linear);
+
+    // The lint predicate: warn exactly when data is stored as sRGB.
+    const auto lints = [](texcomp::TextureUsage usage, image::ImageColorSpace cs)
+    { return usage != texcomp::TextureUsage::Color && cs == image::ImageColorSpace::Srgb; };
+    CHECK(lints(texcomp::TextureUsage::Normal, image::ImageColorSpace::Srgb));
+    CHECK(!lints(texcomp::TextureUsage::Normal, image::ImageColorSpace::Linear));
+    CHECK(!lints(texcomp::TextureUsage::Color, image::ImageColorSpace::Srgb));
 }

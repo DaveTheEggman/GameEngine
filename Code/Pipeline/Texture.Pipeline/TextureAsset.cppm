@@ -90,9 +90,13 @@ export namespace pipeline{
             foundation::core::Serialize(ar, "anisotropy", anisotropy);
         }
 
-        // Presets (subset of Sedulous's).
+        // Profiles (Sedulous-derived samplers + the usage/colorSpace pair): each configures the
+        // WHOLE story coherently - sampler, shape, usage, and the color space usage implies.
+        // The page's profile buttons and the importer helpers share these one definitions.
         void SetupForUI()
         {
+            usage = texcomp::TextureUsage::Color;
+            colorSpace = image::ImageColorSpace::Srgb;
             shape = TextureShape::Texture2D;
             minFilter = TextureFilter::Linear;
             magFilter = TextureFilter::Linear;
@@ -103,6 +107,8 @@ export namespace pipeline{
         }
         void SetupForSprite()
         {
+            usage = texcomp::TextureUsage::Color;
+            colorSpace = image::ImageColorSpace::Srgb;
             shape = TextureShape::Texture2D;
             minFilter = TextureFilter::Nearest;
             magFilter = TextureFilter::Nearest;
@@ -113,6 +119,8 @@ export namespace pipeline{
         }
         void SetupFor3D()
         {
+            usage = texcomp::TextureUsage::Color;
+            colorSpace = image::ImageColorSpace::Srgb;
             shape = TextureShape::Texture2D;
             minFilter = TextureFilter::MipmapLinear;
             magFilter = TextureFilter::Linear;
@@ -123,6 +131,7 @@ export namespace pipeline{
         }
         void SetupForEquirectangularSkybox()
         {
+            usage = texcomp::TextureUsage::HDR;
             colorSpace = image::ImageColorSpace::Linear;
             shape = TextureShape::Texture2D;
             minFilter = TextureFilter::Linear;
@@ -133,8 +142,24 @@ export namespace pipeline{
             generateMipmaps = false;
             anisotropy = 1.0f;
         }
+        // A tangent-space normal map: the 3D sampler + the data semantics (linear, BC5 policy).
+        void SetupForNormalMap()
+        {
+            SetupFor3D();
+            usage = texcomp::TextureUsage::Normal;
+            colorSpace = image::ImageColorSpace::Linear;
+        }
+        // A data mask (roughness / AO / height / coverage): 3D sampler + linear single-channel policy.
+        void SetupForDataMask()
+        {
+            SetupFor3D();
+            usage = texcomp::TextureUsage::Mask;
+            colorSpace = image::ImageColorSpace::Linear;
+        }
         void SetupForCubemapSkybox()
         {
+            usage = texcomp::TextureUsage::HDR;
+            colorSpace = image::ImageColorSpace::Linear;
             shape = TextureShape::Cubemap;
             minFilter = TextureFilter::Linear;
             magFilter = TextureFilter::Linear;
@@ -735,6 +760,73 @@ export namespace pipeline{
     //   - a cube-face name (sky_px.png etc.) with all 6 sibling faces present
     //                                           -> ONE cube asset (all 6 faces copied)
     //   - anything else                         -> the standard 3D preset
+    // Usage inference from texture-pack name tokens, case-insensitive, matched anywhere in
+    // the stem. A token counts only when what FOLLOWS it is the end, an underscore, or a digit
+    // ("foo_nor_gl_4k" matches "_nor"; "my_armor" does not match "_arm" - the boundary rule
+    // keeps ordinary words out). Unrecognized names infer Color.
+    [[nodiscard]] inline texcomp::TextureUsage InferTextureUsage(StringView stem)
+    {
+        String lower;
+        lower.Reserve(stem.Size());
+        for (usize i = 0; i < stem.Size(); ++i)
+        {
+            utf8char c = stem[i];
+            if (c >= u8'A' && c <= u8'Z')
+            {
+                c = static_cast<utf8char>(c + 32);
+            }
+            lower.Append(c);
+        }
+        const auto hasToken = [&lower](StringView token) -> bool
+        {
+            const StringView haystack = lower.AsView();
+            if (haystack.Size() < token.Size())
+            {
+                return false;
+            }
+            for (usize at = 0; at + token.Size() <= haystack.Size(); ++at)
+            {
+                bool match = true;
+                for (usize i = 0; i < token.Size(); ++i)
+                {
+                    if (haystack[at + i] != token[i])
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (!match)
+                {
+                    continue;
+                }
+                const usize next = at + token.Size();
+                if (next >= haystack.Size() || haystack[next] == u8'_' ||
+                    (haystack[next] >= u8'0' && haystack[next] <= u8'9'))
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        for (StringView t :
+             {u8"_normal", u8"_norm", u8"_nrm", u8"_nor", u8"_ddn", u8"normalmap"})
+        {
+            if (hasToken(t))
+            {
+                return texcomp::TextureUsage::Normal;
+            }
+        }
+        for (StringView t : {u8"_disp", u8"_height", u8"_mask", u8"_rough", u8"_ao", u8"_orm",
+                             u8"_arm", u8"_metal"})
+        {
+            if (hasToken(t))
+            {
+                return texcomp::TextureUsage::Mask;
+            }
+        }
+        return texcomp::TextureUsage::Color;
+    }
+
     class TextureFileImporter final : public pipeline::IFileImporter
     {
     public:
@@ -801,14 +893,20 @@ export namespace pipeline{
             }
             else
             {
-                asset.SetupFor3D();
-                // Normal-map heuristic: a tangent normal MUST cook linear + BC5, and importing one as
-                // sRGB color is doubly wrong (wrong decode + wrong compression). Only the least
-                // ambiguous, widely-used suffixes; the user can still override in the texture page.
-                if (LooksLikeNormalMap(stem))
+                // Usage inference from the universal texture-pack name tokens: the result is
+                // just the stored fields - the page shows what was inferred and the author
+                // corrects it like any edit. Unrecognized names keep the Color default.
+                switch (InferTextureUsage(stem))
                 {
-                    asset.usage = texcomp::TextureUsage::Normal;
-                    asset.colorSpace = image::ImageColorSpace::Linear;
+                case texcomp::TextureUsage::Normal:
+                    asset.SetupForNormalMap();
+                    break;
+                case texcomp::TextureUsage::Mask:
+                    asset.SetupForDataMask();
+                    break;
+                default:
+                    asset.SetupFor3D();
+                    break;
                 }
             }
             const Status written = instance->WriteObject(asset);
@@ -820,38 +918,6 @@ export namespace pipeline{
         }
 
     private:
-        // A conservative tangent-normal-map name test: the common, unambiguous suffixes only.
-        [[nodiscard]] static bool LooksLikeNormalMap(StringView stem)
-        {
-            for (StringView s : {u8"_normal", u8"_norm", u8"_nrm", u8"_ddn", u8"normalmap"})
-            {
-                if (stem.Size() >= s.Size())
-                {
-                    // Case-insensitive suffix match.
-                    const usize off = stem.Size() - s.Size();
-                    bool match = true;
-                    for (usize i = 0; i < s.Size(); ++i)
-                    {
-                        utf8char a = stem[off + i];
-                        if (a >= u8'A' && a <= u8'Z')
-                        {
-                            a = static_cast<utf8char>(a + 32);
-                        }
-                        if (a != s[i])
-                        {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
         // Copy all 6 faces into Sources/ and create ONE cube TextureAsset. fileName = the
         // +X face; the builder re-derives the face set from its naming convention at cook.
         [[nodiscard]] static Result<content::Instance*>

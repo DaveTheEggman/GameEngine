@@ -608,3 +608,47 @@ TEST_CASE("texture.asset: pre-variants payloads (no usage/compression keys) stil
         CHECK(asset.compression == texcomp::CompressionChoice::Quality);
     }
 }
+
+TEST_CASE("texture import: usage inference from texture-pack name tokens")
+{
+    using pipeline::InferTextureUsage;
+    // The universal suffixes, matched mid-stem with the boundary rule.
+    CHECK(InferTextureUsage(u8"foo_nor_gl_4k") == texcomp::TextureUsage::Normal);
+    CHECK(InferTextureUsage(u8"brick_NORMAL") == texcomp::TextureUsage::Normal);
+    CHECK(InferTextureUsage(u8"bar_disp_2k") == texcomp::TextureUsage::Mask);
+    CHECK(InferTextureUsage(u8"ground_rough_1k") == texcomp::TextureUsage::Mask);
+    CHECK(InferTextureUsage(u8"kit_orm") == texcomp::TextureUsage::Mask);
+    CHECK(InferTextureUsage(u8"trim_AO_2k") == texcomp::TextureUsage::Mask);
+    // Everything else keeps the Color default - including boundary-rule near-misses.
+    CHECK(InferTextureUsage(u8"grass_diff") == texcomp::TextureUsage::Color);
+    CHECK(InferTextureUsage(u8"my_armor") == texcomp::TextureUsage::Color);   // "_arm" + letter
+    CHECK(InferTextureUsage(u8"town_north") == texcomp::TextureUsage::Color); // "_nor" + letter
+}
+
+TEST_CASE("texture profiles configure usage + color space with the sampler")
+{
+    pipeline::TextureAsset a;
+    a.SetupForNormalMap();
+    CHECK(a.usage == texcomp::TextureUsage::Normal);
+    CHECK(a.colorSpace == image::ImageColorSpace::Linear);
+    CHECK(a.generateMipmaps);                                  // rides the 3D sampler
+    CHECK(a.wrapU == TextureWrap::Repeat);
+
+    a.SetupForDataMask();
+    CHECK(a.usage == texcomp::TextureUsage::Mask);
+    CHECK(a.colorSpace == image::ImageColorSpace::Linear);
+
+    a.SetupForUI();
+    CHECK(a.usage == texcomp::TextureUsage::Color);
+    CHECK(a.colorSpace == image::ImageColorSpace::Srgb);
+    CHECK(!a.generateMipmaps);
+
+    a.SetupForEquirectangularSkybox();
+    CHECK(a.usage == texcomp::TextureUsage::HDR);
+    CHECK(a.colorSpace == image::ImageColorSpace::Linear);
+
+    a.SetupForCubemapSkybox();
+    CHECK(a.usage == texcomp::TextureUsage::HDR);
+    CHECK(a.colorSpace == image::ImageColorSpace::Linear);
+    CHECK(a.shape == TextureShape::Cubemap);
+}

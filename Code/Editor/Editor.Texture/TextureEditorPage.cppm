@@ -82,6 +82,12 @@ export namespace editor
         // Add an editor row plus a refresher that re-pulls its value (unless the user is
         // mid-edit) - so undo/redo and presets reflow every row without rebuilding the grid.
         void AddEditor(ui::toolkit::PropertyEditor* editor, Function<void()> refresher);
+        /// The "Cooks to:" text: the compression policy evaluated for desktop (+ mobile when
+        /// it differs) from the asset's authored usage/colorSpace/compression + source facts.
+        [[nodiscard]] String ResolvedFormatText() const;
+        /// The profile BUTTONS (an action, not a property): each applies sampler + shape +
+        /// usage + colorSpace coherently as one undo entry.
+        void BuildProfileRow(foundation::ui::FlexLayout& row);
 
         // Whole-asset snapshot command: before/after blobs + a merge key (consecutive edits
         // of the same field collapse; the first command keeps the original `before`).
