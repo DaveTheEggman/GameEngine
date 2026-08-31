@@ -1,5 +1,9 @@
 # Docking v2 - floating windows, previews, and the Linux chrome ruling
 
+> ARCHIVED 2026-09-01: everything still open (the secondary-window render bug,
+> the Wayland verify, the optional extras) moved to
+> Documentation/Plans/week-2026-09-05.md ("Backlog absorbed from docking-v2.md").
+
 **Status:** BUILT (Fable, 2026-08-24). The stuck-drag watchdog, the Linux
 OS-chrome flip, the zone-hover drop preview, and the tab-chip drag visual are
 all SHIPPED; remaining open items are listed at the bottom. Direction set by
