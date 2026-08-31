@@ -76,7 +76,7 @@ across camera + all cascades) - Godot-parity for static shadowed crowds, plus a 
 edge Godot's MultiMesh lacks (per-instance bone base via `DataOffsets.y`).
 
 **Done** - design record in **[instanced-mesh.md](instanced-mesh.md)** (§1-7 all shipped),
-user-facing explainer in **[../instanced-crowds.md](../instanced-crowds.md)**. Static
+how-it-works + engine/VAT comparison in **[../Systems/instanced-mesh.md](../Systems/instanced-mesh.md)**. Static
 `InstancedMeshComponent` + a persistent, N-buffered per-set instance buffer + a shared
 `DataOffsets` ramp, drawn as one set across depth/forward/all CSM cascades with no per-frame
 fill (§1-6). Skinned crowds via the `InstancedSkinning` companion - M shared pose palettes/
@@ -98,6 +98,11 @@ complementary; §2 reused the shader, cull, and shadow-decoupling seams unchange
 - **Coarse spatial-split culling for huge sets.** A MultiMesh culls as one AABB (Godot-parity).
   Open-world-scale sets want per-cell sub-AABBs so an off-screen half culls, at the cost of
   per-cell CPU work - the MultiMesh face of the §4 spatial structure.
+- **No-prepass mode for cheap-shading crowds.** The depth prepass (~6ms at crowd scale) can
+  cost more than early-Z saves for simple-material crowds with little overdraw. Must stay a
+  MODE (the prepass feeds SSAO + motion vectors), not a default.
+- **Static shadow caching.** A static crowd re-renders into all four CSM cascades every
+  frame; caching the cascade contributions for provably-static sets is the shadows-on win.
 - General per-instance frustum culling / GPU compaction is the §3 (GPU-driven) endgame, not
   MultiMesh-specific.
 

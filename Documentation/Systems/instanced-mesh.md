@@ -287,3 +287,56 @@ are optimizations, now tracked in **[renderer-improvements.md](renderer-improvem
  splitting for open-world-scale sets → **deferred** (renderer-improvements.md §2 / §4 spatial).
 - **Motion vectors?** → Static sets carry `prevWorld = world` (zero motion). Skinned crowds
  ship real per-bone motion blur via the ping-pong prev pose pool (`DataOffsets.z`). Done.
+
+---
+
+## 11. Relationship to other engines
+
+Flax describes "storing skeleton bones in a global shared GPU buffer and batching the same skinned
+meshes into a single draw call" — that is exactly Draconic's **existing per-entity skinned
+instancing** (shared bone pool + per-instance bone range via `DataOffsets.y` + `ResolveInstanced`
+batching), where every character animates independently (**O(N)** unique poses).
+
+`InstancedSkinning` is the step *beyond* that for crowds: **O(M) shared poses + O(1) scene**. The
+trade is explicit — Flax keeps 5,000 fully-independent actors at O(N) animation; Draconic's crowd
+shares M poses at O(M) to reach far higher counts. You pick per-entity for a few dozen distinct
+characters and `InstancedSkinning` for thousands of same-clip agents. (Godot's `MultiMesh` is the
+static analogue; it has no per-instance skeleton, so its crowds need the technique below.)
+
+---
+
+## 12. vs. Vertex Animation Textures (the other main technique)
+
+The classic technique for *massive* crowds (100k+) is **Vertex Animation Textures (VAT)**: bake each
+frame of the animation into a texture (a texel holds a vertex's position or offset at that frame),
+and in the vertex shader sample the texture at `(vertexID, phase)` to get the deformed vertex. There
+are no bones and no skinning matrices at render time — per-vertex is one or two texture fetches, and
+per-instance is just a phase offset.
+
+VAT and the shared pose pool solve the *same* problem — collapse a crowd to one draw with
+per-instance addressing — but sit at opposite ends of a trade-off:
+
+| | Shared pose pool (Draconic) | Vertex Animation Textures |
+|---|---|---|
+| Animation compute | **O(M) on the CPU** (M palettes/frame) | **O(0)** — fully baked, GPU-only |
+| Per-vertex GPU | 4-bone matrix blend | 1–2 texture fetches (cheaper) |
+| Per-instance data | bone base (`i % M`) | a phase / frame offset |
+| Memory | M × boneCount matrices (~100 KB) | verts × frames × channels (often large) |
+| Runtime skeleton | **yes** — any clip, blends, IK, bone sockets | **no** — animation is baked |
+| Blend / mix clips | pose lerp at runtime | multiple VATs + blend, or pre-baked |
+| Authoring | none (uses the rig directly) | an offline bake per clip |
+
+The shared pose pool is deliberately the **middle ground**: it gets VAT-like **CPU scaling** (O(M),
+not O(N)) while keeping a **live skeleton**. That matters — a pooled crowd character can still blend
+clips, run IK, or hold a weapon socketed to a bone, none of which a baked VAT supports without extra
+machinery. The price is the per-vertex bone blend (a GPU cost) instead of a texture fetch — and
+since the crowd is already GPU-bound, that is a deliberate *"spend GPU to keep flexibility"* choice.
+
+**When would VAT win?** At the extreme end — 100k+ (or high-poly) characters where the per-vertex
+cost dominates and the crowd genuinely needs no runtime flexibility (identical baked loops). Because
+Draconic already addresses instances by a per-instance base + phase, a VAT-style path drops into the
+*same* instanced draw (bake to a texture, sample instead of blending bones) — so it's a future
+option for that regime, not a fork. In short: the pose pool covers "thousands of flexible agents"
+without giving up the skeleton; VAT is the escape hatch for "hundreds of thousands of baked ones."
+
+---

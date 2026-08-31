@@ -1,3 +1,10 @@
+# Instanced Meshes & Animated Crowds (ARCHIVED 2026-09-01)
+
+> Superseded: Documentation/Systems/instanced-mesh.md is the maintained
+> how-it-works (and absorbed this doc's engine/VAT comparison as its §11-12);
+> the future levers (§7 here) live in Plans/renderer-improvements.md §2. The
+> code map below predates the Draconic/Foundation rename - paths are stale.
+
 # Instanced Meshes & Animated Crowds
 
 *How Draconic draws tens of thousands of static props — and thousands of animated characters —
