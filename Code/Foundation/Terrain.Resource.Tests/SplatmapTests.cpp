@@ -242,3 +242,119 @@ TEST_CASE("splat weights: the brush core scales - small cores grade, the default
     CHECK(softMid < 220);
     CHECK(softMid > 60); // graded, not culled
 }
+
+namespace
+{
+    // Author a one-hot texel directly (slot 0 = `layer` at full weight).
+    void SetOneHot(SplatWeights& sw, i32 x, i32 y, u8 layer)
+    {
+        const usize at = sw.TexelOffset(x, y);
+        sw.Indices()[at] = layer;
+        sw.Weights()[at] = 255;
+    }
+}
+
+TEST_CASE("splat weights: smoothing a uniform region is a no-op")
+{
+    SplatWeights sw(16, 16);
+    for (i32 y = 0; y < 16; ++y)
+    {
+        for (i32 x = 0; x < 16; ++x)
+        {
+            SetOneHot(sw, x, y, 3);
+        }
+    }
+    const u64 v0 = sw.Version();
+    const SplatRegion r = SmoothTopK(sw, 0.5f, 0.5f, 0.4f, 0.4f, 1.0f);
+    CHECK(r.IsEmpty());
+    CHECK(sw.Version() == v0);
+    CHECK(sw.WeightOfLayer(8, 8, 3) == 255);
+}
+
+TEST_CASE("splat weights: smoothing feathers a hard paint-vs-base edge both ways")
+{
+    SplatWeights sw(16, 16);
+    for (i32 y = 0; y < 16; ++y)
+    {
+        for (i32 x = 0; x < 8; ++x)
+        {
+            SetOneHot(sw, x, y, 2); // left half = one-hot layer 2, right half = pure base
+        }
+    }
+    const u64 v0 = sw.Version();
+    const SplatRegion r = SmoothTopK(sw, 0.5f, 0.5f, 0.45f, 0.45f, 1.0f);
+    REQUIRE(!r.IsEmpty());
+    CHECK(sw.Version() > v0);
+
+    // The boundary column faded (its 3x3 sees base), the first base column gained paint
+    // (its 3x3 sees the layer), and the deep interior is untouched.
+    const u8 wEdge = sw.WeightOfLayer(7, 8, 2);
+    const u8 wBled = sw.WeightOfLayer(8, 8, 2);
+    CHECK(wEdge < 255);
+    CHECK(wEdge > 0);
+    CHECK(wBled > 0);
+    CHECK(wBled < wEdge);
+    CHECK(sw.WeightOfLayer(5, 8, 2) == 255); // fully inside: 3x3 all painted
+    CHECK(sw.WeightOfLayer(11, 8, 2) == 0);  // fully outside: 3x3 all base
+
+    // Convexity holds everywhere the brush touched.
+    for (i32 y = r.minY; y <= r.maxY; ++y)
+    {
+        for (i32 x = r.minX; x <= r.maxX; ++x)
+        {
+            CHECK(SlotSum(sw, x, y) <= 255);
+        }
+    }
+}
+
+TEST_CASE("splat weights: smoothing across many layers keeps top-K and convexity")
+{
+    SplatWeights sw(8, 8);
+    // A 3x3 block of NINE distinct one-hot layers: every neighborhood union exceeds K = 4.
+    u8 layer = 10;
+    for (i32 y = 3; y <= 5; ++y)
+    {
+        for (i32 x = 3; x <= 5; ++x)
+        {
+            SetOneHot(sw, x, y, layer++);
+        }
+    }
+    const SplatRegion r = SmoothTopK(sw, 0.5625f, 0.5625f, 0.3f, 0.3f, 1.0f);
+    REQUIRE(!r.IsEmpty());
+    for (i32 y = r.minY; y <= r.maxY; ++y)
+    {
+        for (i32 x = r.minX; x <= r.maxX; ++x)
+        {
+            CHECK(SlotSum(sw, x, y) <= 255);
+            // Every occupied slot names a real layer; freed slots are fully cleared.
+            for (u32 k = 0; k < kSplatSlotCount; ++k)
+            {
+                if (sw.SlotWeight(x, y, k) == 0)
+                {
+                    CHECK(sw.SlotIndex(x, y, k) == 0);
+                }
+            }
+        }
+    }
+    // The centre texel kept at most K layers of its 9-layer union, and gave weight to base.
+    CHECK(SlotSum(sw, 4, 4) < 255);
+    CHECK(SlotSum(sw, 4, 4) > 0);
+}
+
+TEST_CASE("splat weights: smoothing outside the brush leaves texels untouched")
+{
+    SplatWeights sw(32, 32);
+    for (i32 y = 0; y < 32; ++y)
+    {
+        for (i32 x = 0; x < 16; ++x)
+        {
+            SetOneHot(sw, x, y, 1);
+        }
+    }
+    const SplatRegion r = SmoothTopK(sw, 0.5f, 0.5f, 0.15f, 0.15f, 1.0f);
+    REQUIRE(!r.IsEmpty());
+    CHECK(r.minX >= 10);
+    CHECK(r.maxX <= 21);
+    CHECK(sw.WeightOfLayer(15, 2, 1) == 255); // same edge, far row: outside the disc
+    CHECK(sw.WeightOfLayer(16, 2, 1) == 0);
+}

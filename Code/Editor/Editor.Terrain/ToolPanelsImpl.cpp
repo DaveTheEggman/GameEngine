@@ -360,17 +360,20 @@ namespace editor
                 root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
                               MakeRef<ui::LayoutParams>(DefaultAllocator()));
 
-                // Slots 0..N-1 = palette layers; slot N = the eraser. The palette is UNBOUNDED:
-                // the resolved terrain's real count always wins (numbered labels when thumbnails
-                // are unavailable); 4 numbered slots only when no terrain resolved at all.
+                // Slots 0..N-1 = palette layers; slot N = the eraser; slot N+1 = smooth (blur).
+                // The palette is UNBOUNDED: the resolved terrain's real count always wins
+                // (numbered labels when thumbnails are unavailable); 4 numbered slots only when
+                // no terrain resolved at all.
                 const i32 paletteCount = ls.count > 0 ? static_cast<i32>(ls.count) : 4;
                 auto layers = MakeRef<SegmentedToggle>(DefaultAllocator());
                 layers->Build(
-                    paletteCount + 1,
+                    paletteCount + 2,
                     [useThumbs, thumbs, ls, fallbackIcon, paletteCount](i32 i) -> RefPtr<ui::View> {
-                        if (i == paletteCount)
+                        if (i >= paletteCount)
                         {
-                            auto lbl = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"E"));
+                            const StringView text =
+                                i == paletteCount ? StringView(u8"E") : StringView(u8"S");
+                            auto lbl = MakeRef<ui::Label>(DefaultAllocator(), text);
                             lbl->FontSize.SetValue(Optional<f32>{12.0f});
                             return RefPtr<ui::View>(lbl.Get());
                         }
@@ -391,6 +394,10 @@ namespace editor
                         {
                             t->SetEraser(true);
                         }
+                        else if (i == paletteCount + 1)
+                        {
+                            t->SetSmooth(true);
+                        }
                         else
                         {
                             t->SetPaletteIndex(static_cast<u32>(i));
@@ -398,13 +405,18 @@ namespace editor
                     },
                     [t, paletteCount]()
                     {
-                        return t->IsEraser() ? paletteCount
-                                             : static_cast<i32>(t->PaletteIndex());
+                        return t->IsEraser()   ? paletteCount
+                               : t->IsSmooth() ? paletteCount + 1
+                                               : static_cast<i32>(t->PaletteIndex());
                     },
                     [paletteCount, names = Move(layerNames)](i32 i) -> StringView {
                         if (i == paletteCount)
                         {
                             return u8"Eraser (reveals base)";
+                        }
+                        if (i == paletteCount + 1)
+                        {
+                            return u8"Smooth (feathers painted seams)";
                         }
                         return (i >= 0 && static_cast<usize>(i) < names.Size())
                                    ? names[static_cast<usize>(i)].AsView()

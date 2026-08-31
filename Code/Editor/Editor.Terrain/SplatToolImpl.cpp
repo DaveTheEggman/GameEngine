@@ -226,8 +226,9 @@ namespace editor
     {
         m_hasHover = false;
 
-        // Palette hotkeys 1..9 -> palette layers 0..8; 0 = the ERASER (reveals the base). The
-        // panel mirrors the selection and offers the full (unbounded) palette.
+        // Palette hotkeys 1..9 -> palette layers 0..8; 0 = the ERASER (reveals the base);
+        // minus = SMOOTH (blur toward the neighborhood average). The panel mirrors the
+        // selection and offers the full (unbounded) palette.
         if (foundation::shell::IKeyboard* kb = input.keyboard; kb != nullptr && input.pointerValid)
         {
             using foundation::shell::KeyCode;
@@ -241,6 +242,7 @@ namespace editor
             if (kb->IsKeyPressed(KeyCode::Num8)) SetPaletteIndex(7);
             if (kb->IsKeyPressed(KeyCode::Num9)) SetPaletteIndex(8);
             if (kb->IsKeyPressed(KeyCode::Num0)) SetEraser(true);
+            if (kb->IsKeyPressed(KeyCode::Minus)) SetSmooth(true);
         }
 
         if (input.pointerOver && input.wheelDelta != 0.0f)
@@ -368,9 +370,12 @@ namespace editor
         const f32 t = Clamp(amount, 0.0f, 1.0f);
         const f32 core = 0.5f * t;
         const terrain::SplatRegion r =
-            m_erase ? terrain::EraseTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t, core)
-                    : terrain::PaintTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY,
-                                         m_paletteIndex, t, core);
+            m_smooth
+                ? terrain::SmoothTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t, core)
+            : m_erase
+                ? terrain::EraseTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY, t, core)
+                : terrain::PaintTopK(*m_strokeWeights, uvX, uvY, uvRadiusX, uvRadiusY,
+                                     m_paletteIndex, t, core);
         if (!r.IsEmpty())
         {
             m_region.Add(r.minX, r.minY);
@@ -467,9 +472,13 @@ namespace editor
             return;
         }
         // Cursor tint: a stable per-palette-index hue so the active layer reads at a glance;
-        // the eraser rings in white.
+        // the eraser rings in white, smooth in a cool grey-blue.
         Color ring{0.95f, 0.95f, 0.95f, 1.0f};
-        if (!m_erase)
+        if (m_smooth)
+        {
+            ring = Color{0.55f, 0.75f, 0.95f, 1.0f};
+        }
+        else if (!m_erase)
         {
             const f32 hue = static_cast<f32>((m_paletteIndex * 47u) % 360u) / 360.0f;
             const f32 h6 = hue * 6.0f;
@@ -486,11 +495,15 @@ namespace editor
 
     void TerrainSplatTool::UpdateStatus()
     {
-        m_status = m_erase
-                       ? Format(u8"Paint Splat [ERASER]  radius {}  (1-9 layer, 0 eraser, wheel size)",
-                                static_cast<i32>(m_radius + 0.5f))
-                       : Format(u8"Paint Splat [layer {}]  radius {}  (1-9 layer, 0 eraser, wheel size)",
-                                static_cast<i32>(m_paletteIndex),
-                                static_cast<i32>(m_radius + 0.5f));
+        m_status =
+            m_smooth
+                ? Format(u8"Paint Splat [SMOOTH]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                         static_cast<i32>(m_radius + 0.5f))
+            : m_erase
+                ? Format(u8"Paint Splat [ERASER]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                         static_cast<i32>(m_radius + 0.5f))
+                : Format(u8"Paint Splat [layer {}]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                         static_cast<i32>(m_paletteIndex),
+                         static_cast<i32>(m_radius + 0.5f));
     }
 }

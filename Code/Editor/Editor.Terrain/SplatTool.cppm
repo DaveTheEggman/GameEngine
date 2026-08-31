@@ -57,11 +57,30 @@ export namespace editor
         {
             m_paletteIndex = Min(index, 255u);
             m_erase = false;
+            m_smooth = false;
         }
         [[nodiscard]] u32 PaletteIndex() const noexcept { return m_paletteIndex; }
         /// Eraser mode: fades all painted weights toward 0, revealing the BASE layer.
-        void SetEraser(bool erase) noexcept { m_erase = erase; }
+        void SetEraser(bool erase) noexcept
+        {
+            m_erase = erase;
+            if (erase)
+            {
+                m_smooth = false;
+            }
+        }
         [[nodiscard]] bool IsEraser() const noexcept { return m_erase; }
+        /// Smooth mode: blurs each texel's weights toward its neighborhood average, feathering
+        /// an already-painted seam without repainting either side.
+        void SetSmooth(bool smooth) noexcept
+        {
+            m_smooth = smooth;
+            if (smooth)
+            {
+                m_erase = false;
+            }
+        }
+        [[nodiscard]] bool IsSmooth() const noexcept { return m_smooth; }
         void SetRadius(f32 r)
         {
             m_radius = Clamp(r, kMinRadius, kMaxRadius);
@@ -119,6 +138,7 @@ export namespace editor
 
         u32 m_paletteIndex = 0; // which PALETTE layer the brush paints (0..255)
         bool m_erase = false;   // eraser mode (reveals the base)
+        bool m_smooth = false;  // smooth mode (blurs weights toward the neighborhood average)
         f32 m_radius = 6.0f;   // world units
         // Per-STAMP coverage fraction at the brush centre (0..1; 1 = one-hot in one stamp, and a
         // hard eraser). Stamps are spaced along the stroke's world-space travel (m_spacing of the

@@ -340,6 +340,58 @@ TEST_CASE("terrain splat: the eraser fades paint back to the base")
     CHECK(fx.weights->BaseWeight(16, 16) > 90);
 }
 
+TEST_CASE("terrain splat: smooth mode feathers a hard seam and rides the stroke undo")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::TerrainSplatTool tool(fx.scene, commands, nullptr);
+
+    // Author a hard paint-vs-base edge down the raster middle (left half one-hot layer 1).
+    for (i32 y = 0; y < 32; ++y)
+    {
+        for (i32 x = 0; x < 16; ++x)
+        {
+            const usize at = fx.weights->TexelOffset(x, y);
+            fx.weights->Indices()[at] = 1;
+            fx.weights->Weights()[at] = 255;
+        }
+    }
+
+    // Mode selection is mutually exclusive across paint/erase/smooth.
+    tool.SetSmooth(true);
+    CHECK(tool.IsSmooth());
+    CHECK(!tool.IsEraser());
+    tool.SetEraser(true);
+    CHECK(!tool.IsSmooth());
+    tool.SetSmooth(true);
+    tool.SetStrength(1.0f);
+
+    editor::ViewportToolInput press = CenterRay(0.0f);
+    press.leftPressed = true;
+    press.leftDown = true;
+    (void)tool.Update(press);
+    editor::ViewportToolInput release = CenterRay(0.0f);
+    release.leftReleased = true;
+    (void)tool.Update(release);
+
+    // The boundary column faded and the first base column gained paint - the seam is graded.
+    const u8 edge = fx.weights->WeightOfLayer(15, 16, 1);
+    const u8 bled = fx.weights->WeightOfLayer(16, 16, 1);
+    CHECK(edge < 255);
+    CHECK(edge > 0);
+    CHECK(bled > 0);
+    CHECK(bled < edge);
+
+    // One command per stroke: undo restores the hard edge exactly.
+    commands.Undo();
+    CHECK(fx.weights->WeightOfLayer(15, 16, 1) == 255);
+    CHECK(fx.weights->WeightOfLayer(16, 16, 1) == 0);
+
+    // Selecting a palette layer leaves smooth mode.
+    tool.SetPaletteIndex(2);
+    CHECK(!tool.IsSmooth());
+}
+
 TEST_CASE("terrain splat: unavailable with no weights, and refuses edits while editingLocked")
 {
     // A terrain with a heightfield but NO weights raster: the paint tool is not relevant.

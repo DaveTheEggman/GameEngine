@@ -94,9 +94,13 @@ TEST_CASE("terrain tool panels: providers register + build a panel for each brus
     countTooltips(*splatPanel, countTooltips);
     CHECK(tooltipped >= 7); // 6 palette slots + the eraser (+ the base swatch when thumbs exist)
 
-    // The eraser mode the panel's last slot drives round-trips on the tool.
+    // The eraser and smooth modes the panel's trailing slots drive round-trip on the tool,
+    // mutually exclusive with each other and with the palette selection.
     splat.SetEraser(true);
     CHECK(splat.IsEraser());
-    splat.SetEraser(false);
-    CHECK(splat.PaletteIndex() == 5u); // selection survives leaving eraser mode
+    splat.SetSmooth(true);
+    CHECK(splat.IsSmooth());
+    CHECK(!splat.IsEraser());
+    splat.SetSmooth(false);
+    CHECK(splat.PaletteIndex() == 5u); // selection survives leaving eraser/smooth mode
 }

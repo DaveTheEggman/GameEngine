@@ -396,6 +396,186 @@ export namespace foundation::terrain
         return region;
     }
 
+    /// Smooth (blur) over the brush disc: every texel's weights move toward the AVERAGE of their
+    /// 3x3 neighborhood (clamped at the raster edge), `w = lerp(w, avg, t)` - feathering an
+    /// already-painted seam without repainting either side. The base needs no handling: it is the
+    /// remainder, and an average of convex texels stays convex. Neighborhoods are read from a
+    /// SNAPSHOT of the touched rect (+1 ring) so the pass is order-independent - no directional
+    /// smearing from reading already-smoothed texels. Where the union of neighborhood layers
+    /// exceeds K, the K largest smoothed weights win (the dropped tail falls to base - the same
+    /// least-visible-error rule as paint eviction). Bumps the version if anything changed;
+    /// returns the touched rect for region-delta undo + the bounded GPU re-upload.
+    inline SplatRegion SmoothTopK(SplatWeights& sw, f32 uvX, f32 uvY, f32 uvRadiusX, f32 uvRadiusY,
+                                  f32 amount, f32 coreFraction = 0.5f)
+    {
+        SplatRegion region;
+        if (sw.IsEmpty() || uvRadiusX <= 0.0f || uvRadiusY <= 0.0f || amount <= 0.0f)
+        {
+            return region;
+        }
+        const i32 w = sw.Width();
+        const i32 h = sw.Height();
+        // Snapshot the brush rect + a 1-texel ring (every neighborhood read lands inside it).
+        const f32 cx = uvX * static_cast<f32>(w);
+        const f32 cy = uvY * static_cast<f32>(h);
+        const f32 rx = uvRadiusX * static_cast<f32>(w);
+        const f32 ry = uvRadiusY * static_cast<f32>(h);
+        const i32 sx0 = Max(0, static_cast<i32>(Floor(cx - rx)) - 1);
+        const i32 sx1 = Min(w - 1, static_cast<i32>(Ceil(cx + rx)) + 1);
+        const i32 sy0 = Max(0, static_cast<i32>(Floor(cy - ry)) - 1);
+        const i32 sy1 = Min(h - 1, static_cast<i32>(Ceil(cy + ry)) + 1);
+        if (sx1 < sx0 || sy1 < sy0)
+        {
+            return region;
+        }
+        const i32 snapW = sx1 - sx0 + 1;
+        const i32 snapH = sy1 - sy0 + 1;
+        const usize snapBytes =
+            static_cast<usize>(snapW) * static_cast<usize>(snapH) * kSplatSlotCount;
+        Array<u8> snapIdx;
+        Array<u8> snapWts;
+        snapIdx.Resize(snapBytes);
+        snapWts.Resize(snapBytes);
+        {
+            const Span<const u8> idx = sw.Indices();
+            const Span<const u8> wts = sw.Weights();
+            for (i32 y = sy0; y <= sy1; ++y)
+            {
+                const usize src = sw.TexelOffset(sx0, y);
+                const usize dst = static_cast<usize>(y - sy0) * static_cast<usize>(snapW) *
+                                  kSplatSlotCount;
+                const usize rowBytes = static_cast<usize>(snapW) * kSplatSlotCount;
+                MemCopy(snapIdx.Data() + dst, idx.Data() + src, rowBytes);
+                MemCopy(snapWts.Data() + dst, wts.Data() + src, rowBytes);
+            }
+        }
+        const auto snapAt = [&](i32 x, i32 y) -> usize
+        {
+            return (static_cast<usize>(y - sy0) * static_cast<usize>(snapW) +
+                    static_cast<usize>(x - sx0)) *
+                   kSplatSlotCount;
+        };
+
+        Span<u8> idx = sw.Indices();
+        Span<u8> wts = sw.Weights();
+        bool changed = false;
+        detail::VisitSplatBrush(
+            sw, uvX, uvY, uvRadiusX, uvRadiusY, amount, coreFraction,
+            [&](i32 x, i32 y, f32 t)
+            {
+                // Accumulate per-layer weight sums over the clamped 3x3 neighborhood (edge
+                // texels clamp-extend). Union of layers across 9 texels: at most 36 candidates.
+                u8 candIdx[9 * kSplatSlotCount];
+                f32 candSum[9 * kSplatSlotCount];
+                u32 candCount = 0;
+                for (i32 dy = -1; dy <= 1; ++dy)
+                {
+                    for (i32 dx = -1; dx <= 1; ++dx)
+                    {
+                        const i32 nx = Clamp(x + dx, sx0, sx1);
+                        const i32 ny = Clamp(y + dy, sy0, sy1);
+                        const usize at = snapAt(nx, ny);
+                        for (u32 k = 0; k < kSplatSlotCount; ++k)
+                        {
+                            const u8 nw = snapWts[at + k];
+                            if (nw == 0)
+                            {
+                                continue;
+                            }
+                            const u8 layer = snapIdx[at + k];
+                            u32 c = 0;
+                            for (; c < candCount; ++c)
+                            {
+                                if (candIdx[c] == layer)
+                                {
+                                    break;
+                                }
+                            }
+                            if (c == candCount)
+                            {
+                                candIdx[candCount] = layer;
+                                candSum[candCount] = 0.0f;
+                                ++candCount;
+                            }
+                            candSum[c] += static_cast<f32>(nw) * (1.0f / 255.0f);
+                        }
+                    }
+                }
+
+                // Target per layer = lerp(own weight, neighborhood average, t).
+                const usize own = snapAt(x, y);
+                f32 candNew[9 * kSplatSlotCount];
+                for (u32 c = 0; c < candCount; ++c)
+                {
+                    f32 cur = 0.0f;
+                    for (u32 k = 0; k < kSplatSlotCount; ++k)
+                    {
+                        if (snapWts[own + k] > 0 && snapIdx[own + k] == candIdx[c])
+                        {
+                            cur = static_cast<f32>(snapWts[own + k]) * (1.0f / 255.0f);
+                            break;
+                        }
+                    }
+                    const f32 avg = candSum[c] * (1.0f / 9.0f);
+                    candNew[c] = cur + t * (avg - cur);
+                }
+
+                // Keep the K largest smoothed weights (selection sort - K is 4). Quantize in
+                // descending order, each capped by the remaining byte budget, so convexity
+                // (sum <= 255) holds exactly and rounding error lands on the smallest weights.
+                const usize at = sw.TexelOffset(x, y);
+                u8 newIdx[kSplatSlotCount] = {};
+                u8 newWts[kSplatSlotCount] = {};
+                i32 budget = 255;
+                for (u32 k = 0; k < kSplatSlotCount && k < candCount; ++k)
+                {
+                    u32 best = k;
+                    for (u32 c = k + 1; c < candCount; ++c)
+                    {
+                        if (candNew[c] > candNew[best])
+                        {
+                            best = c;
+                        }
+                    }
+                    const u8 bi = candIdx[best];
+                    const f32 bw = candNew[best];
+                    candIdx[best] = candIdx[k];
+                    candNew[best] = candNew[k];
+                    candIdx[k] = bi;
+                    candNew[k] = bw;
+                    const u8 q = static_cast<u8>(
+                        Clamp(bw * 255.0f + 0.5f, 0.0f, static_cast<f32>(budget)));
+                    if (q == 0)
+                    {
+                        break;
+                    }
+                    newIdx[k] = bi;
+                    newWts[k] = q;
+                    budget -= q;
+                }
+                bool texelChanged = false;
+                for (u32 k = 0; k < kSplatSlotCount; ++k)
+                {
+                    if (idx[at + k] != newIdx[k] || wts[at + k] != newWts[k])
+                    {
+                        idx[at + k] = newIdx[k];
+                        wts[at + k] = newWts[k];
+                        texelChanged = true;
+                    }
+                }
+                if (texelChanged)
+                {
+                    region.Add(x, y);
+                    changed = true;
+                }
+            });
+        if (changed)
+        {
+            sw.BumpVersion();
+        }
+        return region;
+    }
+
     /// Palette-remove remap (ruling R6): slots referencing `removedIndex` are FREED (their weight
     /// falls to the base) and indices above it decrement so every surviving slot still names its
     /// layer. Whole-raster; bumps the version when anything changed. Returns whether it did.
