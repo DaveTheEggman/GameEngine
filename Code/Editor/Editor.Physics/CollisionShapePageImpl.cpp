@@ -156,7 +156,21 @@ namespace editor
         auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
         split->SetSplitRatio(0.62f);
         split->SetPanes(m_preview->View(), column.Get());
-        m_content = split;
+
+        // The page action bar (Save / Undo / Redo / Discard) above the split.
+        m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
+        auto pageColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        pageColumn->Direction = ui::Orientation::Vertical;
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            pageColumn->AddView(m_toolbar.Get(), lp);
+            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            grow->Grow = 1.0f;
+            grow->Width = ui::SizeSpec::Match();
+            pageColumn->AddView(split.Get(), grow);
+        }
+        m_content = pageColumn;
 
         // Bind the cooked product (auto-follows re-cooks); DrawOutline reads it each frame.
         if (m_context->Resources() != nullptr)
@@ -186,6 +200,30 @@ namespace editor
             self->RefreshStatus();
         };
         dialog->Show(m_content->Context);
+    }
+
+    void CollisionShapeEditorPage::DiscardChanges()
+    {
+        // The page mutates the asset directly (no commands yet), so the base "undo the stack"
+        // default would clear dirty WITHOUT reverting - reload from the source DB instead.
+        content::Instance* instance = (m_context->Project() != nullptr)
+                                          ? m_context->Project()->SourceDb().GetInstance(InstanceId())
+                                          : nullptr;
+        if (instance != nullptr)
+        {
+            RefPtr<ISerializable> object = instance->ReadObject();
+            if (auto* asset = Cast<pipeline::CollisionShapeAsset>(object.Get()))
+            {
+                m_asset = RefPtr<pipeline::CollisionShapeAsset>(asset);
+                if (m_cookButton.Get() != nullptr)
+                {
+                    m_cookButton->SetText(CookLabel(m_asset->cook));
+                }
+                RefreshStatus();
+            }
+        }
+        Commands().Clear();
+        ClearDirty();
     }
 
     void CollisionShapeEditorPage::RefreshStatus()
@@ -274,6 +312,10 @@ namespace editor
 
     void CollisionShapeEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync Save/Discard/Undo/Redo enabled state each frame
+        }
         if (m_preview.Get() != nullptr)
         {
             m_preview->Update(dt);

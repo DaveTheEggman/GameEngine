@@ -52,6 +52,7 @@ export namespace editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override;
+        void DiscardChanges() override;
 
         // 3D preview: draw the cooked outline wireframe, drive the orbit camera, hot-swap on re-cook.
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
@@ -72,6 +73,7 @@ export namespace editor
         String m_title;
         RefPtr<pipeline::CollisionShapeAsset> m_asset;
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::Label> m_meshLabel;
         RefPtr<ui::Button> m_cookButton;
         RefPtr<ui::Label> m_status;

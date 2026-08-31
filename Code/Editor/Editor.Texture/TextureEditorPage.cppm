@@ -32,6 +32,8 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
 import editor.app;
+import foundation.runtime.client;
+import foundation.runtime.client;
 
 using namespace foundation::core;
 
@@ -49,6 +51,14 @@ export namespace editor
 
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
+
+        void OnUpdate(foundation::runtime::IApplicationHost&, f32) override
+        {
+            if (m_toolbar.Get() != nullptr)
+            {
+                m_toolbar->Refresh(); // sync Save/Discard/Undo/Redo enabled state each frame
+            }
+        }
         [[nodiscard]] Status Save() override;
 
     private:
@@ -116,6 +126,7 @@ export namespace editor
         image::PixelFormat m_sourceFormat = image::PixelFormat::RGBA8; // pre-preview source format
 
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::ImageView> m_image;
         RefPtr<ui::Label> m_info;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;

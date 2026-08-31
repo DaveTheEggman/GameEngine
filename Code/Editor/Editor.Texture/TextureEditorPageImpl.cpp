@@ -146,7 +146,21 @@ namespace editor
         auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
         split->SetSplitRatio(0.55f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
-        m_content = split;
+
+        // The page action bar (Save / Undo / Redo / Discard) above the split.
+        m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
+        auto pageColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        pageColumn->Direction = ui::Orientation::Vertical;
+        {
+            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            lp->Width = ui::SizeSpec::Match();
+            pageColumn->AddView(m_toolbar.Get(), lp);
+            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            grow->Grow = 1.0f;
+            grow->Width = ui::SizeSpec::Match();
+            pageColumn->AddView(split.Get(), grow);
+        }
+        m_content = pageColumn;
 
         RefreshInfo();
     }
