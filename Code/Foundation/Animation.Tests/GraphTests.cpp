@@ -284,3 +284,72 @@ TEST_CASE("graph: player transitions states on a bool parameter")
     Span<const Float4x4> skin = player.GetSkinningMatrices();
     CHECK(skin.Size() == 1);
 }
+
+// ---- blend-tree event firing (the dominant clip's events; empty no-op was a bug) ----
+TEST_CASE("graph: BlendTree1D fires the dominant clip's events once (incl. loop wrap)")
+{
+    AnimationClip walk{u8"walk", 1.0f};
+    walk.AddEvent(0.5f, u8"step.walk");
+    AnimationClip run{u8"run", 1.0f};
+    run.AddEvent(0.5f, u8"step.run");
+    BlendTree1D tree;
+    tree.AddEntry(0.0f, &walk);
+    tree.AddEntry(1.0f, &run);
+
+    Array<String> fired;
+    const AnimationEventHandler handler{[&fired](StringView name, f32)
+                                        { fired.PushBack(String(name)); }};
+
+    // Near the walk end of the axis: walk's event fires, exactly once.
+    tree.parameter = 0.2f;
+    tree.FireEvents(0.4f, 0.6f, false, handler);
+    REQUIRE(fired.Size() == 1u);
+    CHECK(fired[0] == u8"step.walk");
+
+    // The blend parameter decides WHICH clip's events fire.
+    fired.Clear();
+    tree.parameter = 0.9f;
+    tree.FireEvents(0.4f, 0.6f, false, handler);
+    REQUIRE(fired.Size() == 1u);
+    CHECK(fired[0] == u8"step.run");
+
+    // Loop wrap fires the event that sits in the wrapped span - once.
+    fired.Clear();
+    tree.FireEvents(0.9f, 0.1f, true, handler);
+    CHECK(fired.Size() == 0u); // event at 0.5 is in neither (0.9,1.0] nor [0,0.1]
+    tree.FireEvents(0.4f, 0.1f, true, handler);
+    REQUIRE(fired.Size() == 1u); // crossed 0.5 before the wrap
+    CHECK(fired[0] == u8"step.run");
+
+    // No crossing, no event.
+    fired.Clear();
+    tree.FireEvents(0.6f, 0.8f, false, handler);
+    CHECK(fired.IsEmpty());
+}
+
+TEST_CASE("graph: BlendTree2D fires the nearest entry's events, never both")
+{
+    AnimationClip idle{u8"idle", 1.0f};
+    idle.AddEvent(0.25f, u8"breath");
+    AnimationClip strafe{u8"strafe", 1.0f};
+    strafe.AddEvent(0.25f, u8"scuff");
+    BlendTree2D tree;
+    tree.AddEntry(0.0f, 0.0f, &idle);
+    tree.AddEntry(1.0f, 0.0f, &strafe);
+
+    Array<String> fired;
+    const AnimationEventHandler handler{[&fired](StringView name, f32)
+                                        { fired.PushBack(String(name)); }};
+
+    tree.parameterX = 0.1f;
+    tree.parameterY = 0.0f;
+    tree.FireEvents(0.2f, 0.3f, false, handler);
+    REQUIRE(fired.Size() == 1u); // dominant only - a shared-timing event cannot double-fire
+    CHECK(fired[0] == u8"breath");
+
+    fired.Clear();
+    tree.parameterX = 0.9f;
+    tree.FireEvents(0.2f, 0.3f, false, handler);
+    REQUIRE(fired.Size() == 1u);
+    CHECK(fired[0] == u8"scuff");
+}

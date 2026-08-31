@@ -34,6 +34,42 @@ export namespace foundation::animation
         BlendTree2D
     };
 
+    // Wrap-aware clip-event firing shared by the clip node and the blend trees (which fire
+    // their DOMINANT clip's events - firing every blended clip would double-fire an event
+    // both entries carry, like a footstep both walk clips share).
+    inline void FireClipEvents(const AnimationClip& clip, f32 prevNorm, f32 currentNorm,
+                               bool looping, const AnimationEventHandler& handler)
+    {
+        if (!handler || clip.Events().IsEmpty() || clip.duration <= 0.0f)
+        {
+            return;
+        }
+        const f32 prevAbs = prevNorm * clip.duration;
+        const f32 curAbs = currentNorm * clip.duration;
+        if (looping && currentNorm < prevNorm)
+        {
+            // wrapped: (prevAbs, Duration] then [0, curAbs]
+            for (const AnimationEvent& e : clip.Events())
+            {
+                if (e.time > prevAbs && e.time <= clip.duration)
+                {
+                    handler(StringView{e.name}, e.time);
+                }
+            }
+            for (const AnimationEvent& e : clip.Events())
+            {
+                if (e.time <= curAbs)
+                {
+                    handler(StringView{e.name}, e.time);
+                }
+            }
+        }
+        else
+        {
+            clip.FireEvents(prevAbs, curAbs, handler);
+        }
+    }
+
     // A node that produces an animation pose. Implemented by ClipStateNode + the blend trees.
     class IAnimationStateNode
     {
@@ -73,34 +109,9 @@ export namespace foundation::animation
         void FireEvents(f32 prevNorm, f32 currentNorm, bool looping,
                         const AnimationEventHandler& handler) const override
         {
-            if (m_clip == nullptr || !handler || m_clip->Events().IsEmpty() ||
-                m_clip->duration <= 0.0f)
+            if (m_clip != nullptr)
             {
-                return;
-            }
-            const f32 prevAbs = prevNorm * m_clip->duration;
-            const f32 curAbs = currentNorm * m_clip->duration;
-            if (looping && currentNorm < prevNorm)
-            {
-                // wrapped: (prevAbs, Duration] then [0, curAbs]
-                for (const AnimationEvent& e : m_clip->Events())
-                {
-                    if (e.time > prevAbs && e.time <= m_clip->duration)
-                    {
-                        handler(StringView{e.name}, e.time);
-                    }
-                }
-                for (const AnimationEvent& e : m_clip->Events())
-                {
-                    if (e.time <= curAbs)
-                    {
-                        handler(StringView{e.name}, e.time);
-                    }
-                }
-            }
-            else
-            {
-                m_clip->FireEvents(prevAbs, curAbs, handler);
+                FireClipEvents(*m_clip, prevNorm, currentNorm, looping, handler);
             }
         }
 
@@ -282,10 +293,34 @@ export namespace foundation::animation
             }
             return bestDuration;
         }
-        void FireEvents(f32, f32, bool, const AnimationEventHandler&) const override {
-        } // blend trees don't fire clip events
+        void FireEvents(f32 prevNorm, f32 currentNorm, bool looping,
+                        const AnimationEventHandler& handler) const override
+        {
+            // The DOMINANT clip's events (nearest threshold - the same pick Duration makes,
+            // so timing and events stay in agreement).
+            if (const AnimationClip* clip = DominantClip())
+            {
+                FireClipEvents(*clip, prevNorm, currentNorm, looping, handler);
+            }
+        }
 
     private:
+        [[nodiscard]] const AnimationClip* DominantClip() const noexcept
+        {
+            f32 bestDist = 3.4e38f;
+            const AnimationClip* best = nullptr;
+            for (const BlendTree1DEntry& e : m_entries)
+            {
+                const f32 dist = Abs(e.threshold - parameter);
+                if (dist < bestDist && e.clip != nullptr)
+                {
+                    bestDist = dist;
+                    best = e.clip;
+                }
+            }
+            return best;
+        }
+
         void SampleEntry(usize idx, const Skeleton& skeleton, f32 normalizedTime,
                          Span<BoneTransform> outPoses) const
         {
@@ -419,7 +454,31 @@ export namespace foundation::animation
             }
             return totalWeight > 0.0f ? totalDuration / totalWeight : 0.0f;
         }
-        void FireEvents(f32, f32, bool, const AnimationEventHandler&) const override {}
+        void FireEvents(f32 prevNorm, f32 currentNorm, bool looping,
+                        const AnimationEventHandler& handler) const override
+        {
+            // The DOMINANT clip's events: the max inverse-distance weight = the nearest entry.
+            const Float2 paramPos{parameterX, parameterY};
+            f32 bestDist = 3.4e38f;
+            const AnimationClip* best = nullptr;
+            for (const BlendTree2DEntry& e : m_entries)
+            {
+                if (e.clip == nullptr)
+                {
+                    continue;
+                }
+                const f32 dist = Length(paramPos - e.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = e.clip;
+                }
+            }
+            if (best != nullptr)
+            {
+                FireClipEvents(*best, prevNorm, currentNorm, looping, handler);
+            }
+        }
 
     private:
         void SampleEntry(usize idx, const Skeleton& skeleton, f32 normalizedTime,
