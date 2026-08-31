@@ -257,14 +257,17 @@ export namespace editor
                 column->AddView(statusRow.Get(), lp);
             }
 
-            // The compile-error list: a read-only multi-line view (file:line + message).
+            // The compile-error list: a read-only multi-line view (file:line + message) at a
+            // FIXED height - a proportional share made it balloon with the docked panel and
+            // steal editor space. Long content scrolls (multiline EditText wheel-scrolls
+            // itself; no ScrollView wrap, that would double-scroll).
             m_errorView = MakeRef<ui::EditText>(DefaultAllocator());
             m_errorView->Multiline.SetValue(true);
             m_errorView->IsReadOnly.SetValue(true);
             {
                 auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
-                lp->Grow = 0.35f;
                 lp->Width = ui::SizeSpec::Match();
+                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(96));
                 column->AddView(m_errorView.Get(), lp);
             }
 
