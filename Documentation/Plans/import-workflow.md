@@ -27,8 +27,23 @@ by prepare output, committing only what was approved.
    name, proposed target name, dependencies (material -> its textures) -
    with NO content-DB writes.
 2. **Review** (the dialog, one session for the whole drop):
-   - Left: source-file list (the batch). Per-file importer dropdown where
-     the extension is ambiguous - this REPLACES the modal-per-file chooser.
+   - RULING (user + Fable 2026-08-31): ONE dialog per drop, ALWAYS - no
+     per-type dialogs, no tabs, no no-dialog fast path for single files
+     (almost any file can import as several asset types, so the type choice
+     is part of every import; a single file is just a one-row session, and
+     "import with defaults" keeps it one click).
+   - Left: source-file list (the batch), grouped into SECTIONS by resolved
+     importer ("Models (2) / Textures (5) / Audio (1)"). A mixed-type drop
+     is therefore the same dialog as a homogeneous one. Per-file importer
+     dropdown where the extension is ambiguous - this REPLACES the
+     modal-per-file chooser; changing it moves the row into that importer's
+     section. Selecting a section header (or multi-select) sets the
+     importer / applies a preset for all rows at once.
+   - The DETAIL panes (center + right) adapt to the selected file's
+     importer - model shows the resource tree + 3D preview, texture its
+     options + flat preview, audio its options. One dialog, one selection
+     model, one commit; per-importer detail panes (the inspector's
+     per-component-editor idiom).
    - Center: resource tree for the selected source, grouped by kind
      (Meshes / Materials / Textures / Skeleton / Clips / Generated:
      prefab, scene, collision, LODs). Checkbox per item AND per group
@@ -95,10 +110,6 @@ platform risk on the import track.)
 - Where do presets live - per-project settings (per-project store exists) or
   user-global?
 - Target-group choice in the dialog, or always the drop-target group?
-- Does the texture/audio/single-asset import (non-model) go through the same
-  dialog with a one-item list, or keep the direct path? (Recommend: same
-  dialog only when ambiguous or multi-resource; single-resource imports stay
-  direct.)
 - Clip preview: play on the imported model in the preview scene - needs the
   prepare-stage model wired to a private preview scene before any assets
   exist. Feasible (runtime model spawn path exists) but the most involved
