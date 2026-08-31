@@ -2915,6 +2915,19 @@ namespace editor::app
                     categories.PushBack(creator.category.AsView());
                 }
             }
+            categories.Sort(
+                [](StringView a, StringView b)
+                {
+                    const usize n = Min(a.Size(), b.Size());
+                    for (usize i = 0; i < n; ++i)
+                    {
+                        if (a[i] != b[i])
+                        {
+                            return a[i] < b[i];
+                        }
+                    }
+                    return a.Size() < b.Size();
+                });
             for (StringView category : categories)
             {
                 foundation::ui::MenuItem* submenuItem = file->AddSubmenu(category);

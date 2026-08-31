@@ -966,67 +966,82 @@ namespace editor::app
         content::Group* target = m_selectedGroup; // creations land in the group we're in
         auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
 
-        // ONE "Create" submenu holds every asset creator (uncategorized flat, then each
-        // category as a separated block) - the flat "New X" sprawl was most of the menu.
+        // ONE "Create" submenu holds every asset creator: uncategorized items flat, then one
+        // NESTED submenu per category - a flat list of every creator outgrew the screen.
         {
             ui::MenuItem* createItem = menu->AddSubmenu(u8"Create");
             auto* create = Cast<ui::ContextMenu>(createItem->Submenu.Get());
             if (create != nullptr)
             {
+                const auto addCreator = [self, target](ui::ContextMenu& into,
+                                                       const editor::EditorContext::AssetCreator&
+                                                           creator)
+                {
+                    const auto* entry = &creator;
+                    into.AddItem(creator.label.AsView(),
+                                 [self, entry, target]()
+                                 {
+                                     if (self->OnCreate)
+                                     {
+                                         self->OnCreate(*entry, target);
+                                     }
+                                     self->Rebuild();
+                                 });
+                };
                 Array<StringView> categories;
                 for (const editor::EditorContext::AssetCreator& creator : m_context->Creators())
                 {
-                    if (!creator.category.IsEmpty())
+                    if (creator.category.IsEmpty())
                     {
-                        bool seen = false;
-                        for (StringView c : categories)
-                        {
-                            if (c == creator.category.AsView())
-                            {
-                                seen = true;
-                                break;
-                            }
-                        }
-                        if (!seen)
-                        {
-                            categories.PushBack(creator.category.AsView());
-                        }
+                        addCreator(*create, creator);
                         continue;
                     }
-                    const auto* entry = &creator;
-                    create->AddItem(creator.label.AsView(),
-                                    [self, entry, target]()
-                                    {
-                                        if (self->OnCreate)
-                                        {
-                                            self->OnCreate(*entry, target);
-                                        }
-                                        self->Rebuild();
-                                    });
+                    bool seen = false;
+                    for (StringView c : categories)
+                    {
+                        if (c == creator.category.AsView())
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        categories.PushBack(creator.category.AsView());
+                    }
                 }
-                for (StringView category : categories)
+                if (!categories.IsEmpty())
                 {
                     create->AddSeparator();
+                }
+                categories.Sort(
+                    [](StringView a, StringView b)
+                    {
+                        const usize n = Min(a.Size(), b.Size());
+                        for (usize i = 0; i < n; ++i)
+                        {
+                            if (a[i] != b[i])
+                            {
+                                return a[i] < b[i];
+                            }
+                        }
+                        return a.Size() < b.Size();
+                    });
+                for (StringView category : categories)
+                {
+                    ui::MenuItem* categoryItem = create->AddSubmenu(category);
+                    auto* categoryMenu = Cast<ui::ContextMenu>(categoryItem->Submenu.Get());
+                    if (categoryMenu == nullptr)
+                    {
+                        continue;
+                    }
                     for (const editor::EditorContext::AssetCreator& creator :
                          m_context->Creators())
                     {
-                        if (creator.category.AsView() != category)
+                        if (creator.category.AsView() == category)
                         {
-                            continue;
+                            addCreator(*categoryMenu, creator);
                         }
-                        String label(category);
-                        label += u8": ";
-                        label += creator.label;
-                        const auto* entry = &creator;
-                        create->AddItem(label.AsView(),
-                                        [self, entry, target]()
-                                        {
-                                            if (self->OnCreate)
-                                            {
-                                                self->OnCreate(*entry, target);
-                                            }
-                                            self->Rebuild();
-                                        });
                     }
                 }
             }

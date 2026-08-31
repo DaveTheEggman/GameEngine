@@ -2316,6 +2316,7 @@ namespace editor
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Animation Graph");
+        creator.category = String(u8"Animation");
         creator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreateAnimationGraphInstance(ctx, group); };
         context.RegisterCreator(Move(creator));

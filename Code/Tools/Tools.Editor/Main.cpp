@@ -480,6 +480,7 @@ int main(int argc, char** argv)
             // New Asset > Physical Material (surface properties; edited in the inspector).
             editor::EditorContext::AssetCreator materialCreator;
             materialCreator.label = String(u8"Physical Material");
+            materialCreator.category = String(u8"Physics");
             materialCreator.create =
                 [](editor::EditorContext& ctx,
                    foundation::content::Group* group) -> foundation::content::Instance*
@@ -539,6 +540,7 @@ int main(int argc, char** argv)
             // New Asset > Audio Bus Layout (the mixer as data; edited in the inspector).
             editor::EditorContext::AssetCreator busLayoutCreator;
             busLayoutCreator.label = String(u8"Audio Bus Layout");
+            busLayoutCreator.category = String(u8"Audio");
             busLayoutCreator.create =
                 [](editor::EditorContext& ctx,
                    foundation::content::Group* group) -> foundation::content::Instance*
@@ -568,6 +570,7 @@ int main(int argc, char** argv)
             // New Asset > Sound Cue (weighted clip variants; edited via SoundCuePage).
             editor::EditorContext::AssetCreator cueCreator;
             cueCreator.label = String(u8"Sound Cue");
+            cueCreator.category = String(u8"Audio");
             cueCreator.create = [](editor::EditorContext& ctx,
                                    foundation::content::Group* group) -> foundation::content::Instance*
             {
@@ -602,6 +605,7 @@ int main(int argc, char** argv)
             // file. Cook + hot reload run through the standard path.
             editor::EditorContext::AssetCreator documentCreator;
             documentCreator.label = String(u8"UI Document");
+            documentCreator.category = String(u8"UI");
             documentCreator.create =
                 [](editor::EditorContext& ctx,
                    foundation::content::Group* group) -> foundation::content::Instance*
@@ -643,6 +647,7 @@ int main(int argc, char** argv)
                 static_cast<editor::EditorContext::AssetCreator&&>(documentCreator));
             editor::EditorContext::AssetCreator themeCreator;
             themeCreator.label = String(u8"UI Theme");
+            themeCreator.category = String(u8"UI");
             themeCreator.create =
                 [](editor::EditorContext& ctx,
                    foundation::content::Group* group) -> foundation::content::Instance*
@@ -687,6 +692,7 @@ int main(int argc, char** argv)
             // New Asset > Collision Shape (point its sourceMesh at a mesh in the inspector).
             editor::EditorContext::AssetCreator shapeCreator;
             shapeCreator.label = String(u8"Collision Shape");
+            shapeCreator.category = String(u8"Physics");
             shapeCreator.create =
                 [](editor::EditorContext& ctx,
                    foundation::content::Group* group) -> foundation::content::Instance*
