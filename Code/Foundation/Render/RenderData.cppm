@@ -581,6 +581,19 @@ export namespace foundation::render
         // stays frame-global).
         bool ssrEnabled = false;
         f32 ssrIntensity = 1.0f;
+        // Auto-exposure (eye adaptation): the tonemap multiplies exposure by
+        // clamp(key / adaptedLuminance, autoMin..autoMax) when enabled.
+        bool autoExposure = false;
+        f32 autoExposureKey = 0.18f;
+        f32 autoExposureSpeed = 2.0f;        // adaptation rate (1/s)
+        f32 autoExposureMin = 0.0625f;       // clamp as LINEAR multipliers (exp2 of the EV window)
+        f32 autoExposureMax = 16.0f;
+        // Display-referred color grading via a strip LUT (applied after the tonemap operator).
+        // Resolved product view + uid (change detection NEVER by pointer); null = no grading.
+        rhi::TextureView* gradingLut = nullptr;
+        u64 gradingLutUid = 0;
+        f32 gradingLutSize = 0.0f; // slice count (16 for a 256x16 strip); 0 = off
+        f32 gradingIntensity = 1.0f;
         // Resolved by the subsystem: does this view need motion vectors? (taaEnabled || an SSR temporal
         // pass). Read at forward-pass EXECUTE via the bound view, so it must be pre-resolved here rather
         // than recomputed from frame-global state.

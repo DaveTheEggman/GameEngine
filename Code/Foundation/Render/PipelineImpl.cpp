@@ -1895,13 +1895,34 @@ namespace foundation::render
                                    u8"post.ldr", rendergraph::RGTextureDesc(
                                                      v->TargetFormat(), v->Width(), v->Height()))
                              : colorH;
+                    // Auto-exposure: measure+adapt the pre-tonemap HDR into the view's 1x1,
+                    // then hand the tonemap the adapted binding (a graph edge orders them).
+                    TonemapAutoExposure autoExposure;
+                    if (post.autoExposure && m_exposurePass != nullptr)
+                    {
+                        const ExposurePass::Result adapted = m_exposurePass->DeclareExposure(
+                            m_graph, sceneColor, viewIndex, uvScale, uvOffset, m_deltaSeconds,
+                            post.autoExposureSpeed);
+                        autoExposure.enabled = adapted.view != nullptr;
+                        autoExposure.handle = adapted.handle;
+                        autoExposure.view = adapted.view;
+                        autoExposure.generation = adapted.generation;
+                        autoExposure.key = post.autoExposureKey;
+                        autoExposure.minExposure = post.autoExposureMin;
+                        autoExposure.maxExposure = post.autoExposureMax;
+                    }
+                    TonemapGrading grading;
+                    grading.view = post.gradingLut;
+                    grading.uid = post.gradingLutUid;
+                    grading.lutSize = post.gradingLutSize;
+                    grading.intensity = post.gradingIntensity;
                     m_tonemap->DeclareTonemap(
                         m_graph, sceneColor, bloomTex, aoTex, tonemapOut,
                         /*clearColor*/ fxaa || clearColor, v->Settings().clear, v->TargetFormat(),
                         v->ViewportX(), v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
                         m_frameIndex, viewIndex, post.exposure, bloomStrength, uvScale, uvOffset,
                         aoStrength, showAo, post.agxTonemap,
-                        /*sceneYFlipped*/ !post.taaEnabled);
+                        /*sceneYFlipped*/ !post.taaEnabled, autoExposure, grading);
                     // World-space UI draws BETWEEN tonemap and FXAA: authored colors survive
                     // (FXAA doesn't grade) and the quad silhouettes get antialiased. With
                     // FXAA off the pass lands directly on the final LDR (TAA never touched

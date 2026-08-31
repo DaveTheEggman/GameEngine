@@ -27,6 +27,29 @@ namespace rhi = foundation::rhi;
 export namespace foundation::render
 {
 
+    /// Auto-exposure inputs for the tonemap: the exposure pass's adapted 1x1 (imported handle
+    /// + raw view + generation) and the key/clamp window. A null view (or enabled=false)
+    /// disables.
+    struct TonemapAutoExposure
+    {
+        bool enabled = false;
+        rendergraph::RGHandle handle{};
+        rhi::TextureView* view = nullptr;
+        u64 generation = 0;
+        f32 key = 0.18f;
+        f32 minExposure = 0.0625f;
+        f32 maxExposure = 16.0f;
+    };
+    /// Display-referred grading strip LUT for the tonemap (a static cooked texture; uid keys
+    /// the bind-group cache, never the pointer). lutSize < 2 (or a null view) disables.
+    struct TonemapGrading
+    {
+        rhi::TextureView* view = nullptr;
+        u64 uid = 0;
+        f32 lutSize = 0.0f;
+        f32 intensity = 1.0f;
+    };
+
     // Tonemaps an HDR transient into an LDR target. Owns the fullscreen pipeline + per-(view,frame)
     // bind groups over the (transient) HDR view. Declared once per view, after that view's forward pass.
     class TonemapPass
@@ -58,7 +81,9 @@ export namespace foundation::render
                             f32 exposure = 1.0f, f32 bloomIntensity = 0.0f,
                             Float2 uvScale = Float2{1, 1}, Float2 uvOffset = Float2{0, 0},
                             f32 aoStrength = 0.0f, bool debugShowAo = false, bool agx = true,
-                            bool sceneYFlipped = false);
+                            bool sceneYFlipped = false,
+                            const TonemapAutoExposure& autoExposure = {},
+                            const TonemapGrading& grading = {});
 
     private:
         static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;
@@ -75,6 +100,7 @@ export namespace foundation::render
         // by the new allocation, leaving the cached bind group pointing at a destroyed texture.
         rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView,
                                         rhi::TextureView* bloomView, rhi::TextureView* aoView,
+                                        rhi::TextureView* autoLumView, rhi::TextureView* lutView,
                                         u64 generation);
 
         void Shutdown();

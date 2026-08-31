@@ -50,7 +50,7 @@ target_sources(Render
             AoPass.cppm
             MsaaResolvePass.cppm
             SsrPass.cppm
-            FxaaPass.cppm
+            FxaaPass.cppm ExposurePass.cppm
             DecalPass.cppm
             Debug/DebugFont.cppm
             Debug/DebugDraw.cppm

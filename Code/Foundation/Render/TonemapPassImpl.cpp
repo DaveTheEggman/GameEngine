@@ -36,11 +36,16 @@ namespace foundation::render
             rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry aoEntry =
             rhi::BindGroupLayoutEntry::SampledTexture(2, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry autoLumEntry =
+            rhi::BindGroupLayoutEntry::SampledTexture(3, rhi::ShaderStage::Fragment);
+        rhi::BindGroupLayoutEntry lutEntry =
+            rhi::BindGroupLayoutEntry::SampledTexture(4, rhi::ShaderStage::Fragment);
         rhi::BindGroupLayoutEntry sampEntry =
             rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment);
-        rhi::BindGroupLayoutEntry entries[] = {hdrEntry, bloomEntry, aoEntry, sampEntry};
+        rhi::BindGroupLayoutEntry entries[] = {hdrEntry, bloomEntry, aoEntry,
+                                               autoLumEntry, lutEntry, sampEntry};
         rhi::BindGroupLayoutDesc ld{};
-        ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 4};
+        ld.entries = Span<const rhi::BindGroupLayoutEntry>{entries, 6};
         if (!m_device->CreateBindGroupLayout(ld, m_layout).IsOk())
         {
             return Status{ErrorCode::Unknown};
@@ -50,8 +55,9 @@ namespace foundation::render
         rhi::PushConstantRange pc{};
         pc.stages = rhi::ShaderStage::Fragment;
         pc.offset = 0;
-        pc.size = sizeof(f32) * 10; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength +
-                                    // debugShowAo + operator + flipSceneY
+        pc.size = sizeof(f32) * 16; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength +
+                                    // debugShowAo + operator + flipSceneY + autoExposure/key/min/max
+                                    // + gradeIntensity + lutSize
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pc, 1};
@@ -81,7 +87,9 @@ namespace foundation::render
                                      i32 vpX, i32 vpY, u32 vpW, u32 vpH, u32 frameIndex,
                                      u32 viewIndex, f32 exposure, f32 bloomIntensity,
                                      Float2 uvScale, Float2 uvOffset, f32 aoStrength,
-                                     bool debugShowAo, bool agx, bool sceneYFlipped)
+                                     bool debugShowAo, bool agx, bool sceneYFlipped,
+                                     const TonemapAutoExposure& autoExposure,
+                                     const TonemapGrading& grading)
     {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr)
@@ -93,32 +101,53 @@ namespace foundation::render
         // The scene input is mirrored on Y-flip backends unless the TAA resolve un-mirrored
         // it upstream; tonemap compensates then (see tonemap.ps.hlsl FlipSceneY).
         const bool flipSceneY = sceneYFlipped && m_device->NeedsClipSpaceYFlip();
-        const f32 push[10] = {
+        // Auto-exposure / grading are optional: unbound slots fall back to the HDR view (any
+        // valid texture - the shader gates on the flags, never the binding).
+        const bool autoOn = autoExposure.view != nullptr && autoExposure.enabled;
+        const bool gradeOn = grading.view != nullptr && grading.lutSize >= 2.0f;
+        const f32 push[16] = {
             exposure,          bloomIntensity, uvScale.x,  uvScale.y,
             uvOffset.x,        uvOffset.y,     aoStrength, debugShowAo ? 1.0f : 0.0f,
-            agx ? 1.0f : 0.0f, flipSceneY ? 1.0f : 0.0f};
+            agx ? 1.0f : 0.0f, flipSceneY ? 1.0f : 0.0f,
+            autoOn ? 1.0f : 0.0f, autoExposure.key, autoExposure.minExposure,
+            autoExposure.maxExposure,
+            gradeOn ? grading.intensity : 0.0f, gradeOn ? grading.lutSize : 0.0f};
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
+        rhi::TextureView* autoView = autoOn ? autoExposure.view : nullptr;
+        const u64 autoGen = autoOn ? autoExposure.generation : 0;
+        const rendergraph::RGHandle autoHandle = autoExposure.handle;
+        rhi::TextureView* lutView = gradeOn ? grading.view : nullptr;
+        const u64 lutUid = gradeOn ? grading.uid : 0;
         graph.AddRenderPass(
             u8"tonemap",
             [this, &graph, hdr, bloom, ao, ldr, load, clear, vpX, vpY, vpW, vpH, pipeline, slot,
-             push](rendergraph::PassBuilder& b)
+             push, autoView, autoGen, autoHandle, lutView, lutUid](rendergraph::PassBuilder& b)
             {
                 b.SetColorTarget(0, ldr, load, rhi::StoreOp::Store, clear);
                 b.ReadTexture(hdr);
                 b.ReadTexture(bloom);
                 b.ReadTexture(ao);
+                if (autoView != nullptr && autoHandle.IsValid())
+                {
+                    b.ReadTexture(autoHandle); // orders after the exposure measure pass
+                }
                 b.SetViewport(vpX, vpY, vpW, vpH);
                 b.NeverCull();
                 b.SetExecute(
-                    [this, &graph, hdr, bloom, ao, pipeline, slot, push](rhi::RenderPassEncoder& rp)
+                    [this, &graph, hdr, bloom, ao, pipeline, slot, push, autoView, autoGen,
+                     lutView, lutUid](rhi::RenderPassEncoder& rp)
                     {
+                        rhi::TextureView* hdrView = graph.GetTextureView(hdr);
                         rhi::BindGroup* bg = EnsureBindGroup(
-                            slot, graph.GetTextureView(hdr), graph.GetTextureView(bloom),
+                            slot, hdrView, graph.GetTextureView(bloom),
                             graph.GetTextureView(ao),
+                            autoView != nullptr ? autoView : hdrView,
+                            lutView != nullptr ? lutView : hdrView,
                             graph.GetTextureGeneration(hdr) ^
                                 (graph.GetTextureGeneration(bloom) * 1099511628211ull) ^
-                                (graph.GetTextureGeneration(ao) * 14695981039346656037ull));
+                                (graph.GetTextureGeneration(ao) * 14695981039346656037ull) ^
+                                (autoGen * 31ull) ^ (lutUid * 131071ull));
                         if (bg == nullptr)
                         {
                             return;
@@ -206,9 +235,12 @@ namespace foundation::render
 
     rhi::BindGroup* TonemapPass::EnsureBindGroup(u32 slot, rhi::TextureView* hdrView,
                                                  rhi::TextureView* bloomView,
-                                                 rhi::TextureView* aoView, u64 generation)
+                                                 rhi::TextureView* aoView,
+                                                 rhi::TextureView* autoLumView,
+                                                 rhi::TextureView* lutView, u64 generation)
     {
-        if (slot >= kMaxSlots || hdrView == nullptr || bloomView == nullptr || aoView == nullptr)
+        if (slot >= kMaxSlots || hdrView == nullptr || bloomView == nullptr ||
+            aoView == nullptr || autoLumView == nullptr || lutView == nullptr)
         {
             return nullptr;
         }
@@ -226,11 +258,13 @@ namespace foundation::render
             rhi::BindGroupEntry::TextureEntry(hdrView),
             rhi::BindGroupEntry::TextureEntry(bloomView),
             rhi::BindGroupEntry::TextureEntry(aoView),
+            rhi::BindGroupEntry::TextureEntry(autoLumView),
+            rhi::BindGroupEntry::TextureEntry(lutView),
             rhi::BindGroupEntry::SamplerEntry(m_sampler),
         };
         rhi::BindGroupDesc bgd{};
         bgd.layout = m_layout;
-        bgd.entries = Span<const rhi::BindGroupEntry>{entries, 4};
+        bgd.entries = Span<const rhi::BindGroupEntry>{entries, 6};
         if (!m_device->CreateBindGroup(bgd, m_bindGroups[slot]).IsOk())
         {
             m_bindGroups[slot] = nullptr;

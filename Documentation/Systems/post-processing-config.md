@@ -41,7 +41,20 @@ viewport-toolbar button opening a checkable show-flags menu bound to a page-loca
 
 ## Deferred
 
-- **Phase 4 - breadth**: color-grading LUT, depth of field, vignette, motion blur, auto-exposure. None
+- **Phase 4 - breadth**: color-grading LUT, depth of field, vignette, motion blur, auto-exposure.
+  AUTO-EXPOSURE + GRADING LUT SHIPPED 2026-08-31: ExposurePass (foundation.render:exposure)
+  measures geometric-mean luminance into a persistent per-view 1x1 ping-pong (16x16 grid over
+  the view's sub-rect, exponential adaptation eased by the frame dt via
+  RenderFrame::SetDeltaSeconds) imported into the graph so the tonemap's read is a real edge;
+  the tonemap multiplies exposure by clamp(key/avg, 2^minEV..2^maxEV). Grading = a
+  display-referred 2D strip LUT (author a neutral 256x16, grade it in an image editor, import
+  with Color Space = Linear; height = size, width must equal size^2 or the resolve ignores it)
+  applied after BOTH tonemap operators with an intensity mix. Authored on PostProcessSettings
+  (autoExposure/key/speed/minEV/maxEV + gradingLut Ref + gradingIntensity; settings payload v2,
+  reads gated), resolved in ResolveScenePost (EV window -> linear clamps, LUT -> view/uid/size),
+  inspector rows ride reflection (the settings Ref<Texture> picker already dispatches).
+  WGSL-cooked (86 variants green). Remaining phase-4: depth of field, vignette, motion blur.
+  Original note: none
   built (no LUT/DoF/vignette/motion-blur/auto-exposure in the render code).
 - **Phase 5 - localized looks**: per-camera overrides + post-process volumes (blend by region). Not
   built.

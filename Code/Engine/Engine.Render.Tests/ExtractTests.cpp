@@ -784,3 +784,40 @@ TEST_CASE("extract: an inactive primary camera falls through to the next primary
     scene.SetActive(second, false);
     CHECK_FALSE(ExtractPrimaryCamera(scene, vc)); // no active primary at all
 }
+
+TEST_CASE("ResolveScenePost: auto-exposure window resolves EV stops to linear clamps")
+{
+    // Defaults: off, and no grading (a default block stays byte-identical to the old config).
+    {
+        PostProcessSettings d;
+        const ViewPostConfig vp = ResolveScenePost(d);
+        CHECK_FALSE(vp.autoExposure);
+        CHECK(vp.gradingLut == nullptr);
+        CHECK(Near(vp.gradingLutSize, 0.0f));
+    }
+    // The clamp window is authored in relative EV; the config carries linear multipliers.
+    {
+        PostProcessSettings s;
+        s.autoExposure = true;
+        s.autoExposureKey = 0.25f;
+        s.autoExposureSpeed = 3.0f;
+        s.autoExposureMinEV = -2.0f;
+        s.autoExposureMaxEV = 3.0f;
+        const ViewPostConfig vp = ResolveScenePost(s);
+        CHECK(vp.autoExposure);
+        CHECK(Near(vp.autoExposureKey, 0.25f));
+        CHECK(Near(vp.autoExposureSpeed, 3.0f));
+        CHECK(Near(vp.autoExposureMin, 0.25f)); // 2^-2
+        CHECK(Near(vp.autoExposureMax, 8.0f));  // 2^3
+    }
+    // A grading Ref with no resolved product (or no GPU view) resolves to no grading - the
+    // strip-shape guard (width == height^2) is only consulted on a live product.
+    {
+        PostProcessSettings s;
+        s.gradingLut.SetId(Guid{0x1, 0x2}); // unbound: Get() == nullptr headlessly
+        s.gradingIntensity = 0.5f;
+        const ViewPostConfig vp = ResolveScenePost(s);
+        CHECK(vp.gradingLut == nullptr);
+        CHECK(Near(vp.gradingLutSize, 0.0f));
+    }
+}

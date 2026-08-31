@@ -56,6 +56,14 @@ namespace engine::render
         m_providers.PushBack(SceneProvider{&scene, &provider});
     }
 
+    void RenderSubsystem::Update(f32 deltaTime)
+    {
+        if (m_frame.Get() != nullptr)
+        {
+            m_frame->SetDeltaSeconds(deltaTime);
+        }
+    }
+
     i32 RenderSubsystem::UpdateOrder() const noexcept
     {
         return 1000;
@@ -819,10 +827,17 @@ namespace engine::render
             m_debugPass.Reset();
         }
 
+        m_exposurePass = MakeUnique<ExposurePass>(DefaultAllocator(), *m_device, *m_shaders);
+        if (!m_exposurePass->Initialize().IsOk())
+        {
+            m_exposurePass.Reset(); // auto-exposure silently unavailable; fixed EV still works
+        }
+
         m_frame = MakeUnique<RenderFrame>(
             DefaultAllocator(), *m_device, m_registry, m_framesInFlight, m_clusterSystem.Get(),
             m_tonemapPass.Get(), m_shadowSystem.Get(), m_iblSystem.Get(), m_skyPass.Get(),
-            m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(), m_fxaaPass.Get());
+            m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(), m_fxaaPass.Get(),
+            m_exposurePass.Get());
         m_frame->EnableGpuProfiling(); // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 

@@ -128,6 +128,9 @@ export namespace engine::render
 
         [[nodiscard]] i32 UpdateOrder() const noexcept override;
 
+        // Frame dt reaches the render pipeline (auto-exposure adaptation eases against it).
+        void Update(foundation::core::f32 deltaTime) override;
+
         // Drop any render-data providers registered for a scene that's going away (borrowed pointers).
         void OnDestroying(scene::Scene& scene) override;
 
@@ -321,6 +324,7 @@ export namespace engine::render
         UniquePtr<SsrPass> m_ssrPass;
         UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve
         UniquePtr<FxaaPass> m_fxaaPass;
+        UniquePtr<ExposurePass> m_exposurePass;
         UniquePtr<DecalPass> m_decalPass;
         UniquePtr<DebugDrawPass> m_debugPass;
         debug::DebugDraw m_debugGlobal;                         // global gizmos (all views)

@@ -629,6 +629,20 @@ export namespace engine::render
         bool ssrEnabled = false;
         f32 ssrIntensity = 1.0f;
 
+        // Auto-exposure (eye adaptation): exposure follows the scene's average luminance,
+        // clamped to +-EV around the authored exposureEV. Off = the fixed EV alone.
+        bool autoExposure = false;
+        f32 autoExposureKey = 0.18f;    // target "middle gray" the average maps to
+        f32 autoExposureSpeed = 2.0f;   // adaptation rate (1/s)
+        f32 autoExposureMinEV = -4.0f;  // clamp window (stops, relative)
+        f32 autoExposureMaxEV = 4.0f;
+
+        // Display-referred color grading: a strip LUT texture (width = size*size, height =
+        // size; author a neutral 256x16 strip, grade it in an image editor, import with
+        // Color Space = Linear so the samples pass through undecoded). Nil = no grading.
+        foundation::resource::Ref<texture::Texture> gradingLut;
+        f32 gradingIntensity = 1.0f;
+
         // Anti-aliasing (aaMode selects the exclusive path; the others' params are ignored).
         AaMode aaMode = AaMode::Off;
         f32 taaBlendFactor = 0.97f;   // history weight   (aaMode == TAA)
@@ -669,6 +683,21 @@ export namespace engine::render
             foundation::core::Serialize(ar, "taaBlendFactor", m_post.taaBlendFactor);
             foundation::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
             foundation::core::Serialize(ar, "fxaaSubpixel", m_post.fxaaSubpixel);
+            if (ar.Version() >= 2) // v2: auto-exposure + grading LUT
+            {
+                foundation::core::Serialize(ar, "autoExposure", m_post.autoExposure);
+                foundation::core::Serialize(ar, "autoExposureKey", m_post.autoExposureKey);
+                foundation::core::Serialize(ar, "autoExposureSpeed", m_post.autoExposureSpeed);
+                foundation::core::Serialize(ar, "autoExposureMinEV", m_post.autoExposureMinEV);
+                foundation::core::Serialize(ar, "autoExposureMaxEV", m_post.autoExposureMaxEV);
+                foundation::core::Serialize(ar, "gradingLut", m_post.gradingLut);
+                foundation::core::Serialize(ar, "gradingIntensity", m_post.gradingIntensity);
+            }
+        }
+
+        void ResolveResources(foundation::resource::ResourceManager& manager) override
+        {
+            m_post.gradingLut.Bind(manager);
         }
 
     private:
@@ -711,6 +740,26 @@ export namespace engine::render
         vp.ssrEnabled = s.ssrEnabled;
         vp.ssrIntensity = s.ssrIntensity;
         vp.needsMotion = vp.taaEnabled; // caller ORs in (ssrEnabled && ssr-temporal)
+        vp.autoExposure = s.autoExposure;
+        vp.autoExposureKey = s.autoExposureKey;
+        vp.autoExposureSpeed = s.autoExposureSpeed;
+        // The clamp window is authored in relative EV stops; the tonemap clamps a LINEAR
+        // multiplier.
+        vp.autoExposureMin = foundation::core::Pow(2.0f, s.autoExposureMinEV);
+        vp.autoExposureMax = foundation::core::Pow(2.0f, s.autoExposureMaxEV);
+        if (texture::Texture* lut = s.gradingLut.Get())
+        {
+            // Strip layout: height = the LUT size (a 256x16 strip = 16 slices). A texture
+            // that is not wider than tall is not a strip - ignore it rather than garble.
+            if (lut->View() != nullptr && lut->Height() >= 2 &&
+                lut->Width() == lut->Height() * lut->Height())
+            {
+                vp.gradingLut = lut->View();
+                vp.gradingLutUid = lut->Uid();
+                vp.gradingLutSize = static_cast<f32>(lut->Height());
+                vp.gradingIntensity = s.gradingIntensity;
+            }
+        }
         return vp;
     }
 

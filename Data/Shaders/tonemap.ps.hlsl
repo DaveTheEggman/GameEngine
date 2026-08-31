@@ -5,11 +5,14 @@
 Texture2D<float4> Hdr       : register(t0, space0);
 Texture2D<float4> Bloom     : register(t1, space0);
 Texture2D<float4> Ao        : register(t2, space0);
+Texture2D<float4> AutoLum   : register(t3, space0); // 1x1 adapted luminance (auto-exposure)
+Texture2D<float4> GradeLut  : register(t4, space0); // 2D strip LUT (width = size*size, height = size)
 SamplerState      BloomSamp : register(s0, space0);
 // UvScale/UvOffset map the fullscreen [0,1] uv to this view's sub-rect of the (full-size) HDR/bloom
 // transients - so split-screen views resolve their own region instead of the whole target.
 // AoStrength lerps the AO factor in (0 = GTAO off).
-struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; float FlipSceneY; };
+struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float2 UvOffset; float AoStrength; float DebugShowAo; float Operator; float FlipSceneY;
+                     float AutoExposure; float AutoKey; float AutoMin; float AutoMax; float GradeIntensity; float LutSize; };
 PUSH_CONSTANT(TonemapPush, pc, space1);
 
 // Linear -> sRGB display encode (the OETF the CM1a "clamp" operator needs before writing the
@@ -38,6 +41,26 @@ float3 agxLook(float3 val) {
     return luma + 1.4 * (val - luma);                     // saturation
 }
 
+// Display-referred color grading via a 2D strip LUT (the standard Photoshop-authored neutral
+// strip: width = size*size, height = size; blue selects the slice). Trilinear = two slice
+// samples + a lerp. LutSize = 0 disables; GradeIntensity mixes the graded result in.
+float3 applyGrade(float3 c) {
+    if (pc.LutSize < 1.5) { return c; }
+    float size = pc.LutSize;
+    c = saturate(c);
+    float slice = c.b * (size - 1.0);
+    float sliceLo = floor(slice);
+    float sliceFrac = slice - sliceLo;
+    float texelW = 1.0 / (size * size);
+    float u = (c.r * (size - 1.0) + 0.5) * texelW;
+    float v = (c.g * (size - 1.0) + 0.5) / size;
+    float uLo = u + sliceLo * (1.0 / size);
+    float uHi = u + min(sliceLo + 1.0, size - 1.0) * (1.0 / size);
+    float3 lo = GradeLut.SampleLevel(BloomSamp, float2(uLo, v), 0).rgb;
+    float3 hi = GradeLut.SampleLevel(BloomSamp, float2(uHi, v), 0).rgb;
+    return lerp(c, lerp(lo, hi, sliceFrac), saturate(pc.GradeIntensity));
+}
+
 float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     // Sample HDR + bloom with the SAME (top-origin) uv, mapped to this view's sub-rect. Both via Sample
     // (Sedulous-style - mixing Load(pos) with Sample(uv) is what caused the mirrored bloom ghost).
@@ -56,10 +79,16 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float ao = lerp(1.0, Ao.SampleLevel(BloomSamp, st, 0).r, saturate(pc.AoStrength));   // GTAO
     c *= ao;                                                                       // occlude before adding bloom
     c += Bloom.SampleLevel(BloomSamp, st, 0).rgb * max(pc.BloomIntensity, 0.0);   // additive bloom (linear HDR)
-    c *= max(pc.Exposure, 0.0);   // linear exposure multiplier (scene setting)
+    float exposure = max(pc.Exposure, 0.0);
+    if (pc.AutoExposure > 0.5) {
+        // Adapted scene luminance -> a key/avg multiplier, clamped to the authored EV window.
+        float avg = max(AutoLum.SampleLevel(BloomSamp, float2(0.5, 0.5), 0).r, 1e-4);
+        exposure *= clamp(pc.AutoKey / avg, pc.AutoMin, pc.AutoMax);
+    }
+    c *= exposure;   // linear exposure multiplier (scene EV x adaptation)
 
     // CM1a: a trivial clamp operator (saturate) + the sRGB display OETF. AgX (below) is the default.
-    if (pc.Operator < 0.5) { return float4(linearToSrgb(c), 1.0); }
+    if (pc.Operator < 0.5) { return float4(applyGrade(linearToSrgb(c)), 1.0); }
 
     const float3x3 agxInset = float3x3(
         0.842479062253094, 0.0423282422610123, 0.0423756549057051,
@@ -78,5 +107,5 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     v = agxContrast(v);                    // sigmoid (output is display-encoded)
     v = agxLook(v);                        // punchy look (contrast + saturation)
     v = mul(agxOutset, v);
-    return float4(saturate(v), 1.0);       // straight to the UNORM display target
+    return float4(applyGrade(saturate(v)), 1.0); // straight to the UNORM display target
 }

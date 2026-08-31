@@ -39,6 +39,7 @@ import :ao;
 import :ssr;
 import :msaa_resolve;
 import :fxaa;
+import :exposure;
 import :debug_draw;
 import :debug_pass;
 import :decal_pass;
@@ -501,13 +502,17 @@ export namespace foundation::render
                     ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
                     ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr,
                     SkyPass* sky = nullptr, BloomPass* bloom = nullptr, TaaPass* taa = nullptr,
-                    AoPass* ao = nullptr, FxaaPass* fxaa = nullptr) noexcept
+                    AoPass* ao = nullptr, FxaaPass* fxaa = nullptr,
+                    ExposurePass* exposure = nullptr) noexcept
             : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
               m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky),
-              m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa)
+              m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa), m_exposurePass(exposure)
         {
             m_device = &device;
         }
+
+        /// Frame delta for the auto-exposure adaptation (seconds); set by the host each frame.
+        void SetDeltaSeconds(f32 dt) noexcept { m_deltaSeconds = dt; }
 
     private:
         // (Declared before the methods below - they appear in member-function SIGNATURES.)
@@ -735,6 +740,8 @@ export namespace foundation::render
         f32 m_taaBlend = 0.97f;
         f32 m_taaGamma = 1.25f;
         f32 m_taaMotionScale = 32.0f;
+        ExposurePass* m_exposurePass = nullptr;
+        f32 m_deltaSeconds = 1.0f / 60.0f;
         u32 m_jitterIndex = 0; // Halton phase, advances once per frame (mod 8)
         bool m_anyViewTaa =
             false; // set per frame when any view enables TAA (drives the jitter advance)

@@ -373,7 +373,7 @@ namespace engine::render
     REFLECT_VALUE(PostProcessSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Post Processing"))
-            .Attribute("category", String(u8"Rendering")).DataVersion(1)
+            .Attribute("category", String(u8"Rendering")).DataVersion(2) // v2: auto-exposure + grading
             // Script (Track A): PostProcessSettings.of(scene) -> the scene's LIVE post settings (edit
             // exposure/tonemap/bloom/AA). A scene-scoped re-resolving handle.
             .Method<&PostProcessSettingsOf, PostProcessSettings>("of")
@@ -392,6 +392,30 @@ namespace engine::render
             .PropAttribute("range", Float4{0.0f, 1.0f, 0.01f, 0.0f})
             .Property<&PostProcessSettings::bloomIntensity>("bloomIntensity")
             .PropAttribute("range", Float4{0.0f, 1.0f, 0.005f, 0.0f})
+            .Property<&PostProcessSettings::autoExposure>("autoExposure")
+            .PropAttribute("displayName", String(u8"Auto Exposure"))
+            .PropAttribute("description",
+                           String(u8"Exposure follows the scene's average luminance"))
+            .Property<&PostProcessSettings::autoExposureKey>("autoExposureKey")
+            .PropAttribute("range", Float4{0.02f, 1.0f, 0.01f, 0.0f})
+            .PropAttribute("displayName", String(u8"Auto Exposure Key"))
+            .Property<&PostProcessSettings::autoExposureSpeed>("autoExposureSpeed")
+            .PropAttribute("range", Float4{0.1f, 10.0f, 0.1f, 0.0f})
+            .PropAttribute("displayName", String(u8"Adaptation Speed"))
+            .Property<&PostProcessSettings::autoExposureMinEV>("autoExposureMinEV")
+            .PropAttribute("range", Float4{-8.0f, 0.0f, 0.25f, 0.0f})
+            .PropAttribute("displayName", String(u8"Auto Exposure Min (EV)"))
+            .Property<&PostProcessSettings::autoExposureMaxEV>("autoExposureMaxEV")
+            .PropAttribute("range", Float4{0.0f, 8.0f, 0.25f, 0.0f})
+            .PropAttribute("displayName", String(u8"Auto Exposure Max (EV)"))
+            .Property<&PostProcessSettings::gradingLut>("gradingLut")
+            .PropAttribute("displayName", String(u8"Grading LUT"))
+            .PropAttribute("description",
+                           String(u8"Neutral strip LUT (256x16, Color Space = Linear), graded "
+                                  u8"in an image editor"))
+            .Property<&PostProcessSettings::gradingIntensity>("gradingIntensity")
+            .PropAttribute("range", Float4{0.0f, 1.0f, 0.01f, 0.0f})
+            .PropAttribute("displayName", String(u8"Grading Intensity"))
             .Property<&PostProcessSettings::aoMode>("aoMode")
             .PropAttribute("displayName", String(u8"Ambient Occlusion"))
             .Property<&PostProcessSettings::aoStrength>("aoStrength")
