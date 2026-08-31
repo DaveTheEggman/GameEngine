@@ -1,13 +1,13 @@
 # Draconic — Engine Roadmap (living checklist)
 
-**Last synced to reality: 2026-07-29** (after the networking arc: draconic.net P0-P2 with
-replication core, on-screen host/join demo; GameInstance as a first-class runtime object;
-the CodeEditView track - a real code editor in ui.toolkit powering ScriptPage with completion,
-highlighting, diagnostics, and the AngelScript debugger's editor story; post-processing config
-phases 1-3; Release/Shipping CMake presets; and two big DECIDED-not-started tracks: web
-platform (Emscripten+WebGPU) and shaders-out-of-C++ - see Decisions). Next planned: export
-hardening (export-templates/export/export-reachability), reflection track, roadmap-order picks
-from web P0 spike / shaders P1.
+**Last synced to reality: 2026-09-01.** Since the previous sync (2026-07-29) the "decided-not-
+started" pair both SHIPPED (web platform: WASM player + WebGPU + AS-on-web; shaders: .hlsl
+files + bytecode cook + WGSL), and so did: terrain (complete, incl. brushes + top-K splat +
+nav-bake feed), navigation (Recast/Detour + editor bake), mesh LOD (complete), export/settings
+templates incl. the WEB target, asset thumbnails (13 types), physics CCD/mass + shape queries,
+splines (Bezier-native + editor tool + path-follow), i18n foundation, Luau replacing Wren as
+the second backend, and the first game (PaperKid, playable in-editor). Weekly plan docs
+(week-*.md) are the fine-grained ledger; this doc is the cross-track summary.
 
 **Goal:** general-purpose engine at **Sedulous parity or better** (Sedulous ships game-ready systems
 + a usable editor; much of Draconic was seeded from it, and more will be — notably the UI framework).
@@ -54,15 +54,14 @@ in Core hardening, the content pipeline, prefabs, portability groundwork, and th
 2. **Core / content-pipeline hardening** (editor prereqs, backfill as the editor needs them) —
    ~~content-DB text format~~ ✅, offline cooker, prefabs (+ model→prefab), fonts→triad, texture-cook
    completeness, scene-serialization robustness. *(hot-reload deferred — not needed pre-editor.)*
-3. **Portability groundwork** - **DECIDED 2026-07-28** (docs/design/web-platform.md): Emscripten +
-   WebGPU via a **native-first wgpu-native sidecar backend** against `webgpu.h` (validated on
-   desktop before any browser build), single-threaded web v1, browser milestone gated on the
-   shaders track's WGSL path. **P0 = the emcc + CMake + C++23-modules spike** - it gates
-   everything. Android after.
-4. **Gameplay-runtime subsystems** — ✅ audio (miniaudio, P1-P3), ✅ physics (Jolt, P1-P3),
-   ✅ input action-mapping, ✅ game-UI subsystem. Remaining: AI/navigation, terrain — later.
+3. **Portability groundwork** - ✅ web SHIPPED (Emscripten + WebGPU wgpu-native sidecar; the
+   3D scene, web player, and AngelScript all run in-browser off the naga WGSL cook). Remaining:
+   web networking/Firefox/export polish, then Android.
+4. **Gameplay-runtime subsystems** — ✅ audio (miniaudio, P1-P3), ✅ physics (Jolt, P1-P3 +
+   CCD/mass + shape queries), ✅ input action-mapping, ✅ game-UI subsystem, ✅ navigation
+   (Recast/Detour), ✅ terrain (complete; follow-ups in terrain-backlog.md).
 5. ~~**Gameplay / scripting**~~ ✅ **SHIPPED far beyond the original line** — two CERTIFIED
-   backends (Wren + AngelScript), coroutines, the full entity-behavior tier (harvested
+   backends (AngelScript + Luau; Wren retired), coroutines, the full entity-behavior tier (harvested
    properties both languages, lifecycle, events, Scene facade, delegates, introspection),
    ScriptPage, and an AngelScript step debugger (P1). See docs/design/scripting.md §9 for
    status + follow-ups and docs/design/script-debugger.md for the debugger track.
@@ -144,13 +143,13 @@ in Core hardening, the content pipeline, prefabs, portability groundwork, and th
 - [x] **Offline cooker tool** — `DraconicCook` CLI (`Code/Tools/Cook`): headless, opens the project,
       registers every builder, plans + executes the incremental cook (`--rebuild` / `--dry-run`;
       exit code = failed cooks). Editor + cook exes assemble the full pipeline.
-- [ ] **Fonts → proper triad** — Sedulous fonts has the resource split; adopt it so fonts are
-      GUID-addressable through the content DB/ResourceManager (currently a separate service)
-- [~] Texture cook completeness — **cubemap cook done** (`BuildCubemap`: 6-face load/validate/
-      concat → 6-layer cube resource). Still missing: **cook-time mip generation** (every cook writes
-      `mipLevels=1` and the `generateMipmaps` flag is currently inert — no chain built cook- or run-time),
-      **GPU block compression** (BC/ASTC — all textures cook uncompressed; needs an encoder dep), and
-      **KTX2/basis import** (ties to compression + the WASM/Android transcode path)
+- [x] **Fonts → proper triad** — SHIPPED (all 6 phases): FontAsset triad through the content
+      DB/ResourceManager, project templates carry fonts, embedded editor font, MSDF UI rendering on
+- [~] Texture cook completeness — cubemap cook, **cook-time mip generation** (AppendMipChain),
+      and **BC block compression** (bc7enc BC7 + rgbcx BC1/3/4/5, policy-driven) all SHIPPED.
+      Still missing: **BC6H for HDR + the normal-map format fix** (spec ready:
+      texture-compression-hdr-and-normals.md, after texture-page-ux) and **KTX2/basis import**
+      (ties to the WASM/Android transcode path)
 - [x] Skinned-model full PBR maps — skinned meshes share the static forward path; the `Skinned` flag
       is vertex-stage only (bone skinning + skin stream), and set 2 binds the same **data-driven
       material** (all declared textures: albedo/normal/MR/occlusion/emissive). Not albedo-only.
@@ -184,8 +183,10 @@ in Core hardening, the content pipeline, prefabs, portability groundwork, and th
         instead of committed resources, same RHI seam
   - [ ] Keep the `[VkTexture] vkAllocateMemory FAILED` / RenderGraph transient-alloc warnings as the
         regression tripwire
-- [ ] Spatial acceleration (culling for dense/shadowed scenes)
-- [ ] **Move shaders out of C++ code - DESIGN DECIDED 2026-07-28** (docs/design/shaders.md,
+- [~] Spatial acceleration — brute-force sphere view-frustum culling SHIPPED (default-off,
+      per-cascade shadow culls decoupled); a real spatial structure (BVH/octree) not started
+- [x] **Move shaders out of C++ code — SHIPPED** (P1 .hlsl files + provider seam + hot reload,
+      P2 cooked per-backend bytecode, P3 WGSL cook via naga for web). Original design notes:
       supersedes the old sketch here). HLSL stays the authored source; every inline string bank
       lifts to VFS-mounted engine `.hlsl` files. Two resource tiers: engine builtins stay
       name-addressed through an `IShaderSourceProvider` seam (renderer stays resource-agnostic);
@@ -207,7 +208,7 @@ in Core hardening, the content pipeline, prefabs, portability groundwork, and th
 - [x] **CodeEditView** (2026-07-29, code-editor.md) - purpose-built code editor in ui.toolkit:
       CodeDocument (delta undo, markers, find, compound edits) + virtualized CodeEditView
       (gutter/breakpoints, find/replace bar, self-drawn completion popup), line-state lexer
-      model + registry (toolkit ships NO language tables - Wren/AngelScript lexers + API
+      model + registry (toolkit ships NO language tables - the backends' lexers + API
       completion live in `Script/{Language}/Editor/`), diagnostics, hover values, execution
       arrow. All 4 phases shipped + user-verified.
 - [x] Runtime integration — draconic.ui on the multi-window runtime (UIHost + ui.application docking
@@ -236,12 +237,12 @@ in Core hardening, the content pipeline, prefabs, portability groundwork, and th
 layers), triad + subsystem; skinned crowds proven
 
 **Input** — [x] event stream + devices (keyboard/mouse/gamepad/touch); [x] **action/mapping/binding
-layer** (P1+P2: runtime/asset/interactions/rebind/InputMapPage/Wren facade) — rest of P3 blocked on
+layer** (P1+P2: runtime/asset/interactions/rebind/InputMapPage/script facade) — rest of P3 blocked on
 game-ui consumers
 
 **Audio** — [x] **SHIPPED** (miniaudio; P1-P3 + niceties): 4 buses, pooled voices + steal, per-scene
 groups, 3D spatialization + distance LPF, SoundCue (weighted no-repeat), Freeverb + listener zones,
-multi-listener, BusLayout-as-data, audition + SoundCue editor pages, Wren Audio facade. Grain banks
+multi-listener, BusLayout-as-data, audition + SoundCue editor pages, Audio script facade. Grain banks
 deferred (documented growth path). See audio.md
 
 **Physics** — [x] **SHIPPED** (Jolt; P1-P3): cooked shapes + plane, collision assets + import,
@@ -254,13 +255,18 @@ sockets; P1 session/clock/RPC + NetworkSubsystem + Net facade on BOTH script bac
 DefaultApplication game-wiring; P2 replication core (draconic.net.replication: reflection field
 codec → snapshot → per-peer delta → prefab spawn + late-join → interpolation → relevancy/
 fog-of-war). First target genre RTS (genres kept open via the IReplicationModel seam).
-- [ ] NEXT: wire StateReplication + InterpolationBuffer into NetworkSubsystem on the fixed/render tick
+- [x] StateReplication + interpolation wired through the run scope (GameInstance carries its
+      NetworkManager; replication rides the fixed/render tick); net extraction spec ready (P1-P4)
 - [ ] Deferred: per-field bitmask delta, receive-RPC-into-script, project-settings → NetworkStartup
 - [ ] Win32 socket backend needs Windows validation
 
-**AI / Navigation** — [ ] not started — navmesh, pathfinding, behavior trees
+**AI / Navigation** — [~] navmesh/pathfinding COMPLETE (Recast/Detour: zones + editor bake +
+agents/crowd + FindPath, wasm-clean; terrain surfaces feed the bake since 2026-08-31); behavior
+trees not started
 
-**Terrain** — [ ] not started — heightfield, chunked LOD, streaming, terrain material/paint
+**Terrain** — [x] COMPLETE — heightfield triad, chunked geo-mip LOD, top-K splat painting +
+sculpt brushes, per-layer PBR/height/mask, nav-bake integration. Streaming/paging + the other
+follow-ups live in terrain-backlog.md
 
 **UI (subsystem)** — [x] draconic.ui wired into the multi-window runtime (UIHost + ui.application
 docking host + input routing); dockable 3D viewport (`draconic.ui.viewport`) hosted per scene page
@@ -280,9 +286,10 @@ shaders track's WGSL path)*
         graceful skips), the FULL renderer (Sandbox), the UI stack (UISandbox), and
         the EDITOR - zero validation errors, visually confirmed vs Vulkan. All
         executables take --webgpu/--vulkan/--dx12 (shared SelectBackendFromArguments).
-  - [ ] Compile runtime libraries under WASM/emscripten (headless) - flushes out desktop-only
-        assumptions
-  - [ ] Web shell/runner (async browser main loop; single-threaded v1 - no SharedArrayBuffer)
+  - [x] Runtime compiles + runs under WASM/emscripten — the 3D scene, the web player, and
+        AngelScript-on-web all work in-browser (WebScene target; naga WGSL cook)
+  - [~] Web shell/runner — single-threaded browser main loop working; remaining: web
+        networking (WebSocket client), Firefox validation, export integration
 - **Android**
   - [ ] Android shell backend (Vulkan already covers the GPU side)
   - [ ] Touch/input + build
@@ -291,21 +298,22 @@ shaders track's WGSL path)*
 
 ## Track: Gameplay
 - [x] **Scripting → ECS — SHIPPED** (the biggest track; see scripting.md §9 + script-debugger.md).
-      Game-script layer (Wren `Game` class in DraconicPlayer/PIE) AND the full **entity-behavior**
+      Game-script layer (the `Game` class in DraconicPlayer/PIE) AND the full **entity-behavior**
       tier: ScriptComponent, cooked ScriptClass + per-language cook/harvest, lifecycle + simulation
-      gating, hot reload, property overrides + inspector. **Backend-NEUTRAL, proven**: Wren +
-      AngelScript both CERTIFIED (registry + conformance battery + capability flags). Coroutines
+      gating, hot reload, property overrides + inspector. **Backend-NEUTRAL, proven**: AngelScript +
+      Luau both CERTIFIED (registry + conformance battery + capability flags; Wren retired). Coroutines
       (both backends), `entity.send`, physics/UI events, `Scene.spawn`/`find`, Input/Audio/Physics
       facades, delegates + API introspection, ScriptPage editor, AngelScript step debugger (P1).
       Follow-ups (non-blocking) in scripting.md §9.
 - [x] **Multiplayer foundations** - draconic.net P0-P2 + per-instance NetworkManager on
       GameInstance + Net script facade (see Subsystems: Networking; replication wiring into the
       tick is the open item)
-- [ ] Save-game / settings-config / localization *(project settings groundwork exists -
-      settings.md; export/settings track active)*
-- [ ] Gameplay sample exercising input-actions + physics + audio + script-behaviors + prefabs
-      + networking *(the pieces all exist now - an integrated showcase sample is the remaining
-      glue; the net demo scripts are a seed)*
+- [~] Save-game / settings-config / localization — settings + export templates SHIPPED
+      (uniform CLI+editor export incl. the WEB target); i18n foundation layer SHIPPED
+      (v2 ruling: foundation-only, no subsystem). Save-game still open
+- [~] Gameplay sample — **PaperKid** (P1 playable in-editor) exercises input-actions +
+      physics + audio + script-behaviors + prefabs + game-UI; networking is the one subsystem
+      it does not touch (the net demo scripts remain that seed)
 
 ## Milestone: MVP-to-Export (agreed 2026-07-12)
 
@@ -361,11 +369,12 @@ Critical path (order):
 input/game-UI DONE (and networking since). Still deferred: editor follow-ups 7-8 (thumbnails,
 drag-from-assets, importer chooser, scatter tooling), portability packaging (WASM/Android ride
 their shells).
-**NEXT PLANNED TRACKS (2026-07-29): export hardening - export-templates.md / export.md /
-export-reachability.md (settings/export precursors done, export Phase 2 next) - plus the
-reflection track (docs/design/reflection-track.md, 83 reflected vs 329 identity-only types);
-then the two decided-not-started tracks in whichever order proves right: web P0 spike
-(web-platform.md) and shaders P1 (shaders.md); post-processing phases 4/5; AI/nav, terrain.**
+**STATUS 2026-09-01: everything the 2026-07-29 "next planned" list named has SHIPPED**
+(export templates incl. WEB, reflection P2, web platform, shaders, AI/nav, terrain) except
+post-processing phases 4/5 (phases 1-3 built, PAUSED pending verify). Current planning lives
+in the weekly docs (Documentation/Plans/week-*.md; the 2026-09-05 doc carries the triaged
+project seeds) - this milestone is effectively feature-complete, and the remaining MVP gap is
+unchanged: export-depth hardening + one integrated showcase sample (PaperKid covers most of it).
 
 ## Track: Editor  *(ACTIVE — the editor app on draconic.ui; see docs/design/editor.md)*
 - [x] Editor app shell + multi-scene pages (one-bracket rendering across scenes)
@@ -374,7 +383,9 @@ then the two decided-not-started tracks in whichever order proves right: web P0 
 - [x] Scene hierarchy panel with full command coverage + gizmos (one-undo-per-drag) + dockable viewport
 - [x] Material editor page (per-asset preview choice, unlit preset, responsive re-cook)
 - [~] Asset browser over the content DB — browse + import + inline rename + group delete + scoped/
-      group cook done; thumbnails, drag-from-assets, importer chooser deferred (post-MVP)
+      group cook done; **thumbnails SHIPPED** (CPU lane: texture/image/font/audio/heightfield/
+      splatmap; GPU stage: mesh/material/prefab/scene/particle/collision/skeleton/model).
+      Drag-from-assets + importer chooser still deferred
 - [x] Model importer — hierarchy-preserving import cook (authored names, full texture wiring, usage
       color spaces, MR bake, generated tangents)
 - [x] Cook pipeline — thread-safe three-phase cook (worker plan → main pre-create → worker build),
@@ -389,7 +400,7 @@ then the two decided-not-started tracks in whichever order proves right: web P0 
 - [x] **ScriptPage autocomplete** - shipped via CodeEditView: completion over the backend's
       ACTUAL bound API (IScriptManager::DescribeBoundApi through a throwaway manager), plus
       markup-element/attribute completion on UIDocument pages
-- [~] **ScriptPage API browser** - IMPLEMENTED 2026-07-29, awaiting smoke: openable side panel
+- [x] **ScriptPage API browser** - shipped (code-editor track COMPLETE): openable side panel
       (API toggle in the status row) with a filter box over a class > members tree of the bound
       API; completion and the browser now share ONE ScriptApiSurface (same data, built once);
       double-click inserts at the cursor. Editor-only bindings are MARKED " [editor]" in both
@@ -398,8 +409,10 @@ then the two decided-not-started tracks in whichever order proves right: web P0 
       pass TypeDomain(u8"Editor"); widen-only re-registration rule), and ScriptApiType
       carries its TypeId. Future payoff: an export-time lint for player-bound scripts
       referencing editor-only API
-- [x] **Bespoke per-asset pages** - Texture + Mesh-viewer pages shipped (reusable recipe in
-      editor-bespoke-pages); ParticleEffect next, generic ReflectedAssetPage last
+- [x] **Bespoke per-asset pages** - the full set shipped: Texture, Mesh, Image, Heightfield,
+      Terrain, Font, Material, AnimationClip/Graph, Skeleton, ParticleEffect, CollisionShape,
+      InputMap, AudioClip/SoundCue/BusLayout, and the generic reflected AssetFormPage
+      (recipe in editor-bespoke-pages)
 - ~~Depends on: content-DB text format, offline cooker, prefabs~~ ✅ all shipped
 
 ---
