@@ -16,8 +16,10 @@ import foundation.scene.resource;
 import engine.render;
 import foundation.ui;
 import foundation.ui.toolkit;
+import editor.app; // ContainerListEditor (the generic reflected-list row)
 import editor.core;
 import editor.scene;
+import engine.animation;
 import foundation.shell;
 import foundation.settings;
 import foundation.xml.serialization;
@@ -452,4 +454,33 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showColliders == true);
     CHECK(LoadSceneViewPref(&reloaded, sceneB, fb).showColliders == false);
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showLodOverlay == true); // siblings intact
+}
+
+TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
+{
+    engine::animation::RegisterAnimationComponentReflection();
+    scene::Scene scene;
+    auto* anims = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    EditorContext editor;
+    SceneInspectorView inspector(editor, edit);
+
+    const Guid rig = edit.CreateEntity(u8"Rig");
+    const Guid body = edit.CreateEntity(u8"Body");
+    engine::animation::SkeletalAnimationComponent& a =
+        anims->Add(scene.FindEntity(rig));
+    a.meshEntities.PushBack(foundation::scene::EntityRef{body});
+    a.meshEntities.PushBack(foundation::scene::EntityRef{}); // unset slot
+    a.meshEntities.PushBack(foundation::scene::EntityRef{Guid{1234, 5678}}); // dangling
+
+    edit.EntitySelection().Set(rig);
+    inspector.Refresh();
+    auto* list = foundation::core::Cast<editor::app::ContainerListEditor>(
+        inspector.Grid()->GetProperty(u8"Mesh Entities"));
+    REQUIRE(list != nullptr);
+    REQUIRE(list->slotNames.Size() == 3u);
+    CHECK(list->slotNames[0] == u8"Body");      // named, never "<value>"
+    CHECK(list->slotNames[1] == u8"None");      // nil ref
+    CHECK(list->slotNames[2] == u8"(missing)"); // guid that resolves to no entity
 }

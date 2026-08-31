@@ -2665,6 +2665,25 @@ namespace editor
                     names.PushBack(target.IsNil() ? String(u8"None")
                                                   : String(self->AssetNameFor(target)));
                 }
+                else if (el.Pointer() != nullptr &&
+                         el.Type() == &TypeOf<foundation::scene::EntityRef>())
+                {
+                    // Entity reference: the referenced entity's NAME (the guid is meaningless
+                    // to a person).
+                    const Guid target =
+                        static_cast<const foundation::scene::EntityRef*>(el.Pointer())->id;
+                    if (target.IsNil())
+                    {
+                        names.PushBack(String(u8"None"));
+                    }
+                    else
+                    {
+                        const scene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
+                        names.PushBack(h.IsAssigned()
+                                           ? String(self->m_edit->Scene().GetEntityName(h))
+                                           : String(u8"(missing)"));
+                    }
+                }
                 else if (el.Type() != nullptr)
                 {
                     names.PushBack(ContainerElementLabel(el.Type()));
@@ -2734,7 +2753,84 @@ namespace editor
                                   });
             self->m_forceRebuild = true;
         };
-        // Pick opens the type-filtered asset picker for this slot (Material).
+        // Pick per element type: EntityRef slots open the entity picker; material slots the
+        // type-filtered asset picker.
+        if (prop.type->container->elementType == &TypeOf<foundation::scene::EntityRef>())
+        {
+            rawList->OnPickSlot = [self, id, type, propPtr](usize i)
+            {
+                if (self->Context == nullptr)
+                {
+                    return;
+                }
+                Guid current{};
+                {
+                    scene::ComponentManagerBase* mgr = self->m_edit->FindManager(type);
+                    const scene::EntityHandle e = self->m_edit->Resolve(id);
+                    const Instance comp = (mgr != nullptr && e.IsAssigned())
+                                              ? mgr->GetComponentInstance(e)
+                                              : Instance{};
+                    if (!comp.IsEmpty())
+                    {
+                        const Instance container(propPtr->address(comp), propPtr->type);
+                        const ContainerInfo& ci = *propPtr->type->container;
+                        if (i < ContainerSize(ci, container))
+                        {
+                            const Instance el = ContainerAddressAt(ci, container, i);
+                            if (el.Pointer() != nullptr)
+                            {
+                                current =
+                                    static_cast<const foundation::scene::EntityRef*>(el.Pointer())
+                                        ->id;
+                            }
+                        }
+                    }
+                }
+                auto dialog = MakeRef<editor::EntityPickerDialog>(DefaultAllocator(),
+                                                                 self->m_edit->Scene(), current);
+                dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
+                {
+                    self->MutateComponent(
+                        id, type,
+                        [propPtr, i, target](const Instance& comp)
+                        {
+                            const Instance container(propPtr->address(comp), propPtr->type);
+                            const ContainerInfo& ci = *propPtr->type->container;
+                            if (i >= ContainerSize(ci, container))
+                            {
+                                return;
+                            }
+                            const Instance el = ContainerAddressAt(ci, container, i);
+                            if (el.Pointer() != nullptr)
+                            {
+                                static_cast<foundation::scene::EntityRef*>(el.Pointer())->id =
+                                    target;
+                            }
+                        });
+                    self->m_forceRebuild = true;
+                };
+                dialog->Show(self->Context);
+            };
+            AddEditor(rawList,
+                      [self, rawList, computeNames]()
+                      {
+                          const Array<String> names = computeNames();
+                          if (names.Size() != rawList->slotNames.Size())
+                          {
+                              self->m_forceRebuild = true;
+                              return;
+                          }
+                          for (usize k = 0; k < names.Size(); ++k)
+                          {
+                              if (names[k] != rawList->slotNames[k])
+                              {
+                                  self->m_forceRebuild = true;
+                                  return;
+                              }
+                          }
+                      });
+            return;
+        }
         rawList->OnPickSlot = [self, id, type, propPtr](usize i)
         {
             if (self->Context == nullptr || self->m_editor->Project() == nullptr)
