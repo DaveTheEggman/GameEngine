@@ -245,6 +245,11 @@ export namespace editor::app
         /// registered importers. An importer with options gets the pre-import dialog first;
         /// the actual import runs in ExecuteImport.
         void ImportFile(StringView path);
+        /// The modal importer chooser: shows the FILE NAME + one button per claiming importer.
+        /// Multi-file drops queue - one dialog at a time, each naming its file (a cancel skips
+        /// only that file).
+        void QueueImporterChoice(StringView path);
+        void ShowNextImporterChoice();
         // Run the import for ONE resolved importer (the single match, or the chooser pick): shows its
         // options dialog if it has options, else imports immediately.
         void ImportWith(StringView path, pipeline::IFileImporter* importer);
@@ -277,6 +282,10 @@ export namespace editor::app
         void OnLayout(f32, f32, f32 width, f32 height) override;
 
     private:
+        // The importer-chooser queue (multi-importer extensions, multi-file drops).
+        Array<String> m_pendingImporterChoices;
+        bool m_importerChoiceOpen = false;
+
         struct GroupNode
         {
             content::Group* group = nullptr;

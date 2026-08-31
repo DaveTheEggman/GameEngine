@@ -40,6 +40,7 @@ import editor.core;
 import foundation.settings;
 import :editor_icons;
 import :import_dialog;
+import :confirm_dialog;
 import :group_picker_dialog;
 import :layout; // EditorAssetBrowserSettings (per-project list/grid view mode)
 
@@ -80,16 +81,69 @@ namespace editor::app
             return;
         }
 
-        // More than one importer claims this extension (e.g. image vs texture): let the user pick which.
-        AssetsView* self = this;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        // More than one importer claims this extension (e.g. image vs texture): a MODAL
+        // chooser naming the file, queued so a multi-file drop asks one file at a time.
+        QueueImporterChoice(path);
+    }
+
+    void AssetsView::QueueImporterChoice(StringView path)
+    {
+        m_pendingImporterChoices.PushBack(String(path));
+        if (!m_importerChoiceOpen)
+        {
+            ShowNextImporterChoice();
+        }
+    }
+
+    void AssetsView::ShowNextImporterChoice()
+    {
+        if (m_pendingImporterChoices.IsEmpty() || Context == nullptr)
+        {
+            m_importerChoiceOpen = false;
+            return;
+        }
+        const String path = m_pendingImporterChoices[0];
+        m_pendingImporterChoices.RemoveAt(0);
+
+        const String ext = pipeline::FileExtensionLower(path.AsView());
+        Array<pipeline::IFileImporter*> matches = m_context->Importers().FindAllFor(ext.AsView());
+        if (matches.IsEmpty())
+        {
+            ShowNextImporterChoice();
+            return;
+        }
+        Array<StringView> choices;
         for (pipeline::IFileImporter* importer : matches)
         {
-            menu->AddItem(importer->Label(), [self, file = String(path), importer]()
-                          { self->ImportWith(file.AsView(), importer); });
+            choices.PushBack(importer->Label());
         }
-        const Float2 at = LocalToScreen(Float2{40.0f, 40.0f});
-        menu->Show(Context, at.x, at.y);
+        choices.PushBack(u8"Skip");
+
+        String message(u8"'");
+        message += pipeline::FileNameOf(path.AsView());
+        message += u8"' can be imported by more than one importer. Import as:";
+        if (!m_pendingImporterChoices.IsEmpty())
+        {
+            message += u8"  (";
+            AppendCount(message, m_pendingImporterChoices.Size());
+            message += u8" more file(s) queued)";
+        }
+
+        m_importerChoiceOpen = true;
+        AssetsView* self = this;
+        auto dialog = MakeRef<ConfirmDialog>(DefaultAllocator(), StringView(u8"Choose Importer"),
+                                             message.AsView(),
+                                             Span<const StringView>{choices.Data(), choices.Size()});
+        dialog->OnChosen = [self, file = path, matches](usize index)
+        {
+            if (index < matches.Size())
+            {
+                self->ImportWith(file.AsView(), matches[index]);
+            }
+            // Skip / Escape: this file only - the queue continues either way.
+            self->ShowNextImporterChoice();
+        };
+        dialog->Show(Context);
     }
 
     void AssetsView::ImportWith(StringView path, pipeline::IFileImporter* importer)
@@ -774,6 +828,12 @@ namespace editor::app
             content::Group* group = row->group;
             auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
             menu->AddItem(u8"Open", [self, group]() { self->SelectGroup(group); });
+            menu->AddSeparator();
+            menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
+            menu->AddItem(IsGroupExportRoot(group) ? StringView(u8"Don't always export contents")
+                                                   : StringView(u8"Always export contents"),
+                          [self, group]() { self->ToggleGroupExportRoot(group); });
+            menu->AddSeparator();
             menu->AddItem(u8"Cook Group",
                           [self, group]()
                           {
@@ -788,10 +848,6 @@ namespace editor::app
                               CollectInstanceIds(group, ids);
                               self->m_cook->RequestCookFor(Move(ids), true);
                           });
-            menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
-            menu->AddItem(IsGroupExportRoot(group) ? StringView(u8"Don't always export contents")
-                                                   : StringView(u8"Always export contents"),
-                          [self, group]() { self->ToggleGroupExportRoot(group); });
             menu->AddSeparator();
             menu->AddItem(u8"Delete Group", [self, group]() { self->ConfirmDeleteGroup(group); });
             const Float2 screenPos = anchor->LocalToScreen(Float2{x, y});
@@ -819,8 +875,10 @@ namespace editor::app
                               }
                           }
                       });
+        menu->AddSeparator();
         menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
         menu->AddItem(u8"Duplicate", [self, id]() { self->DuplicateInstance(id); });
+        menu->AddSeparator();
         // OS clipboard (not the editor's typed clipboard): the canonical UUID string / the
         // mount-relative content path, for pasting into scripts (Guid("...")) and docs.
         menu->AddItem(u8"Copy GUID",
@@ -893,39 +951,69 @@ namespace editor::app
         content::Group* target = m_selectedGroup; // creations land in the group we're in
         auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
 
-        // Top-level creators, then categorized ones ("Primitives") in submenus, then the
-        // group + cook actions.
-        Array<StringView> categories;
-        for (const editor::EditorContext::AssetCreator& creator : m_context->Creators())
+        // ONE "Create" submenu holds every asset creator (uncategorized flat, then each
+        // category as a separated block) - the flat "New X" sprawl was most of the menu.
         {
-            if (creator.category.IsEmpty())
+            ui::MenuItem* createItem = menu->AddSubmenu(u8"Create");
+            auto* create = Cast<ui::ContextMenu>(createItem->Submenu.Get());
+            if (create != nullptr)
             {
-                String label(u8"New ");
-                label += creator.label;
-                const auto* entry = &creator;
-                menu->AddItem(label.AsView(),
-                              [self, entry, target]()
-                              {
-                                  if (self->OnCreate)
-                                  {
-                                      self->OnCreate(*entry, target);
-                                  }
-                                  self->Rebuild();
-                              });
-                continue;
-            }
-            bool seen = false;
-            for (StringView c : categories)
-            {
-                if (c == creator.category.AsView())
+                Array<StringView> categories;
+                for (const editor::EditorContext::AssetCreator& creator : m_context->Creators())
                 {
-                    seen = true;
-                    break;
+                    if (!creator.category.IsEmpty())
+                    {
+                        bool seen = false;
+                        for (StringView c : categories)
+                        {
+                            if (c == creator.category.AsView())
+                            {
+                                seen = true;
+                                break;
+                            }
+                        }
+                        if (!seen)
+                        {
+                            categories.PushBack(creator.category.AsView());
+                        }
+                        continue;
+                    }
+                    const auto* entry = &creator;
+                    create->AddItem(creator.label.AsView(),
+                                    [self, entry, target]()
+                                    {
+                                        if (self->OnCreate)
+                                        {
+                                            self->OnCreate(*entry, target);
+                                        }
+                                        self->Rebuild();
+                                    });
                 }
-            }
-            if (!seen)
-            {
-                categories.PushBack(creator.category.AsView());
+                for (StringView category : categories)
+                {
+                    create->AddSeparator();
+                    for (const editor::EditorContext::AssetCreator& creator :
+                         m_context->Creators())
+                    {
+                        if (creator.category.AsView() != category)
+                        {
+                            continue;
+                        }
+                        String label(category);
+                        label += u8": ";
+                        label += creator.label;
+                        const auto* entry = &creator;
+                        create->AddItem(label.AsView(),
+                                        [self, entry, target]()
+                                        {
+                                            if (self->OnCreate)
+                                            {
+                                                self->OnCreate(*entry, target);
+                                            }
+                                            self->Rebuild();
+                                        });
+                    }
+                }
             }
         }
         menu->AddItem(u8"New Group", [self, target]() { self->CreateGroupIn(target); });
@@ -935,6 +1023,16 @@ namespace editor::app
                       { if (self->OnBrowseImport) self->OnBrowseImport(); });
         if (target != nullptr)
         {
+            menu->AddSeparator();
+            if (target->Parent() != nullptr)
+            {
+                menu->AddItem(u8"Rename Group",
+                              [self, target]() { self->StartRenameGroupInTreeDeferred(target); });
+                menu->AddItem(IsGroupExportRoot(target)
+                                  ? StringView(u8"Don't always export contents")
+                                  : StringView(u8"Always export contents"),
+                              [self, target]() { self->ToggleGroupExportRoot(target); });
+            }
             menu->AddItem(u8"Cook Group",
                           [self, target]()
                           {
@@ -949,45 +1047,10 @@ namespace editor::app
                               CollectInstanceIds(target, ids);
                               self->m_cook->RequestCookFor(Move(ids), true);
                           });
-        }
-        if (target != nullptr && target->Parent() != nullptr)
-        {
-            menu->AddItem(u8"Rename Group",
-                          [self, target]() { self->StartRenameGroupInTreeDeferred(target); });
-            menu->AddItem(IsGroupExportRoot(target) ? StringView(u8"Don't always export contents")
-                                                    : StringView(u8"Always export contents"),
-                          [self, target]() { self->ToggleGroupExportRoot(target); });
-            menu->AddItem(u8"Delete Group", [self, target]() { self->ConfirmDeleteGroup(target); });
-        }
-        if (!categories.IsEmpty())
-        {
-            menu->AddSeparator();
-        }
-        for (StringView category : categories)
-        {
-            ui::MenuItem* submenuItem = menu->AddSubmenu(category);
-            auto* submenu = Cast<ui::ContextMenu>(submenuItem->Submenu.Get());
-            if (submenu == nullptr)
+            if (target->Parent() != nullptr)
             {
-                continue;
-            }
-            for (const editor::EditorContext::AssetCreator& creator :
-                 m_context->Creators())
-            {
-                if (creator.category.AsView() != category)
-                {
-                    continue;
-                }
-                const auto* entry = &creator;
-                submenu->AddItem(creator.label.AsView(),
-                                 [self, entry, target]()
-                                 {
-                                     if (self->OnCreate)
-                                     {
-                                         self->OnCreate(*entry, target);
-                                     }
-                                     self->Rebuild();
-                                 });
+                menu->AddItem(u8"Delete Group",
+                              [self, target]() { self->ConfirmDeleteGroup(target); });
             }
         }
         menu->AddSeparator();
