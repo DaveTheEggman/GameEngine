@@ -341,7 +341,12 @@ export namespace foundation::ui
             {
                 View* popup = entry.Popup.Get();
                 popup->Measure(BoxConstraints::Loose(width, height));
-                popup->Layout(entry.X, entry.Y, popup->MeasuredSize.x, popup->MeasuredSize.y);
+                // Clamp to the space below the anchor: a popup placed low would otherwise get
+                // its full measured height and run off the layer, with the tail unreachable.
+                // Scroll-aware popups (ContextMenu) see the smaller Height() and scroll.
+                const f32 availableH = Max(0.0f, height - entry.Y);
+                popup->Layout(entry.X, entry.Y, popup->MeasuredSize.x,
+                              Min(popup->MeasuredSize.y, availableH));
             }
         }
 

@@ -285,3 +285,18 @@ TEST_CASE("popup-layer: out-of-LIFO-order close never cross-restores another pop
     CHECK(fm->FocusedView() == baseView.Get());
     CHECK(fm->FocusStackDepth() == 0u);
 }
+
+TEST_CASE("popup-layer: a popup anchored low is clamped to the space below it")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    root->ViewportSize = Float2{800, 600};
+    LayoutPass(ctx, root.Get());
+    auto popup = MakeView(100, 500); // measures 500 tall...
+    root->GetPopupLayer()->ShowPopup(popup.Get(), nullptr, 10, 400, true, false, true);
+    LayoutPass(ctx, root.Get());
+    // ...but only 200 fit below y=400: the layout clamps instead of running off the layer
+    // (scroll-aware popups see the smaller height and scroll their content).
+    CHECK(popup->Height() == 200.0f);
+}

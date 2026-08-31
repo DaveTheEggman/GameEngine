@@ -93,3 +93,93 @@ TEST_CASE("context-menu: Show resets the stale hover highlight")
     menu->Show(&ctx, 0.0f, 0.0f);
     CHECK(menu->HoveredIndex() == -1);
 }
+
+TEST_CASE("context-menu: taller-than-constraint menus clamp and wheel-scroll")
+{
+    auto menu = MakeMenu();
+    for (core::i32 i = 0; i < 30; ++i)
+    {
+        menu->AddItem(u8"Item", {});
+    }
+    // 30 items x 28 + 8 padding = 848 of content against a 300 ceiling.
+    menu->Measure(BoxConstraints::Loose(400, 300));
+    CHECK(menu->MeasuredSize.y == 300);
+    menu->Layout(0, 0, menu->MeasuredSize.x, menu->MeasuredSize.y);
+
+    MouseEventArgs top;
+    top.X = 10.0f;
+    top.Y = 10.0f;
+    menu->OnMouseMove(top);
+    CHECK(menu->HoveredIndex() == 0);
+
+    // One wheel notch scrolls the items up under the cursor.
+    MouseWheelEventArgs wheel;
+    wheel.Y = 10.0f;
+    wheel.DeltaY = -1.0f;
+    menu->OnMouseWheel(wheel);
+    CHECK(wheel.Handled);
+    menu->OnMouseMove(top);
+    CHECK(menu->HoveredIndex() > 0);
+
+    // Scrolling far past the end clamps - the LAST item is reachable at the bottom band
+    // (the regression: overflow items simply could not be clicked).
+    for (core::i32 i = 0; i < 100; ++i)
+    {
+        MouseWheelEventArgs w;
+        w.Y = 10.0f;
+        w.DeltaY = -1.0f;
+        menu->OnMouseWheel(w);
+    }
+    MouseEventArgs bottom;
+    bottom.X = 10.0f;
+    bottom.Y = 290.0f;
+    menu->OnMouseMove(bottom);
+    CHECK(menu->HoveredIndex() == 29);
+}
+
+TEST_CASE("context-menu: menus that fit ignore the wheel")
+{
+    auto menu = MakeMenu();
+    menu->AddItem(u8"A", {});
+    menu->AddItem(u8"B", {});
+    menu->Measure(BoxConstraints::Loose(400, 300));
+    menu->Layout(0, 0, menu->MeasuredSize.x, menu->MeasuredSize.y);
+
+    MouseWheelEventArgs wheel;
+    wheel.Y = 10.0f;
+    wheel.DeltaY = -1.0f;
+    menu->OnMouseWheel(wheel);
+    CHECK(!wheel.Handled); // bubbles on: nothing to scroll here
+
+    MouseEventArgs top;
+    top.X = 10.0f;
+    top.Y = 10.0f;
+    menu->OnMouseMove(top);
+    CHECK(menu->HoveredIndex() == 0); // items did not move
+}
+
+TEST_CASE("context-menu: keyboard navigation scrolls the hovered item into view")
+{
+    auto menu = MakeMenu();
+    for (core::i32 i = 0; i < 30; ++i)
+    {
+        menu->AddItem(u8"Item", {});
+    }
+    menu->Measure(BoxConstraints::Loose(400, 300));
+    menu->Layout(0, 0, menu->MeasuredSize.x, menu->MeasuredSize.y);
+
+    // Walk down past the visible band; each step must keep the hovered row inside the
+    // frame, so by the last item the menu has scrolled to its end.
+    for (core::i32 i = 0; i < 30; ++i)
+    {
+        KeyEventArgs down;
+        down.Key = KeyCode::Down;
+        menu->OnKeyDown(down);
+    }
+    CHECK(menu->HoveredIndex() == 29);
+    MouseEventArgs bottom;
+    bottom.X = 10.0f;
+    bottom.Y = 290.0f;
+    menu->OnMouseMove(bottom);
+    CHECK(menu->HoveredIndex() == 29); // the row under the cursor IS the scrolled-to row
+}

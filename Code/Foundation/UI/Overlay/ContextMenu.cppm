@@ -113,8 +113,9 @@ export namespace foundation::ui
             // Menus are RETAINED views (a menu bar reuses its ContextMenu instances), so
             // the previous session's hover survives the close - reopening after "Close
             // Project" showed that item still highlighted until the mouse first moved.
-            // Every show starts unhighlighted.
+            // Every show starts unhighlighted and scrolled to the top.
             m_hoveredIndex = -1;
+            m_scrollY = 0;
 
             RootView* root = ctx->ActiveInputRoot();
             if (root == nullptr)
@@ -237,7 +238,8 @@ export namespace foundation::ui
                     ? ctx.FontService()->GetFont(ResolveStyleFontFamily(), fontSize)
                     : nullptr;
 
-            f32 y = 4;
+            ctx.VG().PushClipRect(menuBounds); // scrolled items must not bleed past the frame
+            f32 y = 4 - m_scrollY;
             for (i32 i = 0; i < static_cast<i32>(m_items.Size()); ++i)
             {
                 MenuItem* item = m_items[static_cast<usize>(i)].Get();
@@ -300,6 +302,33 @@ export namespace foundation::ui
 
                 y += m_itemHeight;
             }
+            ctx.VG().PopClip();
+
+            // Overflow hints: a small chevron at the clipped edge(s) so a scrollable menu
+            // reads as "there is more" instead of silently cut off.
+            if (MaxScrollY() > 0)
+            {
+                const f32 cx = w * 0.5f;
+                const f32 arrow = 5.0f;
+                if (m_scrollY > 0)
+                {
+                    ctx.VG().BeginPath();
+                    ctx.VG().MoveTo(cx - arrow, 2 + arrow);
+                    ctx.VG().LineTo(cx, 2);
+                    ctx.VG().LineTo(cx + arrow, 2 + arrow);
+                    ctx.VG().ClosePath();
+                    ctx.VG().Fill(textColor);
+                }
+                if (m_scrollY < MaxScrollY())
+                {
+                    ctx.VG().BeginPath();
+                    ctx.VG().MoveTo(cx - arrow, h - 2 - arrow);
+                    ctx.VG().LineTo(cx, h - 2);
+                    ctx.VG().LineTo(cx + arrow, h - 2 - arrow);
+                    ctx.VG().ClosePath();
+                    ctx.VG().Fill(textColor);
+                }
+            }
         }
 
         // === Input ===
@@ -341,6 +370,25 @@ export namespace foundation::ui
                     e.Handled = true;
                 }
             }
+        }
+
+        void OnMouseWheel(MouseWheelEventArgs& e) override
+        {
+            if (MaxScrollY() <= 0 || e.DeltaY == 0)
+            {
+                return;
+            }
+            m_scrollY = Clamp(m_scrollY - e.DeltaY * 40.0f, 0.0f, MaxScrollY());
+            // Items moved under the cursor: recompute hover (and drop a submenu whose
+            // anchor row scrolled away).
+            const i32 newIndex = GetItemIndexAt(e.Y);
+            if (newIndex != m_hoveredIndex)
+            {
+                m_hoveredIndex = newIndex;
+                CloseOpenSubmenu();
+            }
+            Invalidate();
+            e.Handled = true;
         }
 
         void OnKeyDown(KeyEventArgs& e) override
@@ -463,6 +511,9 @@ export namespace foundation::ui
             }
             totalH += 4; // bottom padding
 
+            // Content taller than the constraint (a long menu near the screen edge) clamps to
+            // it and becomes SCROLLABLE - every item stays reachable via wheel/keyboard.
+            m_contentHeight = totalH;
             MeasuredSize =
                 Float2{constraints.ConstrainWidth(maxW), constraints.ConstrainHeight(totalH)};
         }
@@ -480,6 +531,7 @@ export namespace foundation::ui
                 if (!m_items[static_cast<usize>(idx)]->IsSeparator)
                 {
                     m_hoveredIndex = idx;
+                    EnsureItemVisible(idx);
                     Invalidate();
                     return;
                 }
@@ -496,9 +548,31 @@ export namespace foundation::ui
                 if (!m_items[static_cast<usize>(idx)]->IsSeparator)
                 {
                     m_hoveredIndex = idx;
+                    EnsureItemVisible(idx);
                     Invalidate();
                     return;
                 }
+            }
+        }
+
+        [[nodiscard]] f32 MaxScrollY() const
+        {
+            return Max(0.0f, m_contentHeight - Height());
+        }
+
+        /// Scroll so the item's row sits fully inside the frame (keyboard navigation on a
+        /// scrollable menu).
+        void EnsureItemVisible(i32 index)
+        {
+            const f32 top = GetItemY(index);
+            const f32 bottom = top + m_itemHeight + 4; // + bottom padding
+            if (top - m_scrollY < 0)
+            {
+                m_scrollY = Max(0.0f, top - 4);
+            }
+            else if (bottom - m_scrollY > Height())
+            {
+                m_scrollY = Min(MaxScrollY(), bottom - Height());
             }
         }
 
@@ -506,7 +580,7 @@ export namespace foundation::ui
 
         [[nodiscard]] i32 GetItemIndexAt(f32 localY) const
         {
-            f32 y = 4;
+            f32 y = 4 - m_scrollY;
             for (i32 i = 0; i < static_cast<i32>(m_items.Size()); ++i)
             {
                 const f32 h =
@@ -550,9 +624,15 @@ export namespace foundation::ui
             }
 
             const Float2 logical = root->LogicalSize();
+            // Position with the submenu's REAL measured size (a fixed guess let tall submenus
+            // open downward and run off screen; the positioner slides/clamps correctly once it
+            // knows the height, and taller-than-screen content scrolls).
+            submenu->m_scrollY = 0;
+            submenu->Measure(BoxConstraints::Loose(logical.x, logical.y));
             const Float2 pos = PopupPositioner::Submenu(
-                Rectangle{Bounds.x, Bounds.y + GetItemY(index), Width(), m_itemHeight},
-                Float2{submenu->m_minWidth, 200}, Rectangle{0, 0, logical.x, logical.y});
+                Rectangle{Bounds.x, Bounds.y + GetItemY(index) - m_scrollY, Width(),
+                          m_itemHeight},
+                submenu->MeasuredSize, Rectangle{0, 0, logical.x, logical.y});
 
             m_openSubmenu = submenu;
             m_submenuLayer = root->GetPopupLayer();
@@ -592,6 +672,8 @@ export namespace foundation::ui
         f32 m_itemHeight = 28;
         f32 m_separatorHeight = 8;
         f32 m_minWidth = 150;
+        f32 m_contentHeight = 0; // unclamped measure; > Height() = scrollable
+        f32 m_scrollY = 0;
     };
 
     RTTI_DEFINE_OBJECT(ContextMenu, "rtti::ui")
