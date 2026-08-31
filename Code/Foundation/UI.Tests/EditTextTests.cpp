@@ -265,6 +265,41 @@ TEST_CASE("edit-text: OnEditingFinished_FiresOnceOnBlur_NoSubmit")
     CHECK(submitted == 0); // blur does NOT submit
 }
 
+// OnCommit: Enter fires it; blur fires it only when the text changed since focus gain.
+TEST_CASE("edit-text: OnCommit_FiresOnEnterAndChangedBlur_NotUntouchedBlur")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    auto other = MakeEdit();
+    root->AddView(edit.Get());
+    root->AddView(other.Get());
+    LayoutPass(ctx, root.Get());
+
+    int committed = 0;
+    edit->OnCommit.Add(Event<void(EditText*)>::Handler{[&committed](EditText*) { ++committed; }});
+
+    // Untouched focus round-trip: no commit.
+    ctx.GetFocusManager()->SetFocus(edit.Get());
+    ctx.GetFocusManager()->SetFocus(other.Get());
+    CHECK(committed == 0);
+
+    // Typed then clicked away: exactly one commit.
+    ctx.GetFocusManager()->SetFocus(edit.Get());
+    edit->Behavior().HandleTextInput(U'x');
+    ctx.GetFocusManager()->SetFocus(other.Get());
+    CHECK(committed == 1);
+
+    // Enter commits; the following blur (no further change) must not re-commit.
+    ctx.GetFocusManager()->SetFocus(edit.Get());
+    edit->Behavior().HandleTextInput(U'y');
+    edit->OnActivate();
+    CHECK(committed == 2);
+    ctx.GetFocusManager()->SetFocus(other.Get());
+    CHECK(committed == 2);
+}
+
 // === PasswordBox ===
 
 TEST_CASE("edit-text: PasswordBox_DisplayTextIsMasked")

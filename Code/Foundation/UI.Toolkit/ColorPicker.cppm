@@ -538,7 +538,8 @@ export namespace foundation::ui::toolkit
         m_hexInput = hex.Get();
         {
             ColorPicker* self = this;
-            hex->OnSubmit.Add([self](EditText*) { self->OnHexSubmit(); });
+            // OnCommit: Enter AND typed-then-clicked-away both apply the hex value.
+            hex->OnCommit.Add([self](EditText*) { self->OnHexSubmit(); });
         }
         AddView(hex.Get());
 

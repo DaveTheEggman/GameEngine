@@ -68,10 +68,15 @@ export namespace foundation::ui
         Event<void(EditText*)> OnTextChanged;
         Event<void(EditText*)> OnSubmit;
         /// Fired when the field loses focus. OnSubmit fires only on Enter/activate, so a consumer
-        /// that must not drop a typed-then-clicked-away edit commits from here too. Whether OnSubmit
-        /// itself should fire on blur is a separate open decision (week-2026-08-29); this event is
-        /// the neutral hook either way.
+        /// that must not drop a typed-then-clicked-away edit commits from here too. This is the
+        /// neutral blur hook; consumers that want "the user finished entering a value" semantics
+        /// subscribe OnCommit instead.
         Event<void(EditText*)> OnEditingFinished;
+        /// The COMMIT event: fires on Enter/activate (with OnSubmit), and on focus-lost when the
+        /// text changed since focus was gained. A typed-then-clicked-away edit is never dropped,
+        /// and an untouched field never re-commits on blur. Subscribe THIS for value entry;
+        /// OnSubmit stays Enter-only for consumers with activation side effects (navigation).
+        Event<void(EditText*)> OnCommit;
 
         EditText() : m_behavior(this)
         {
@@ -360,13 +365,27 @@ export namespace foundation::ui
             Invalidate();
             e.Handled = true;
         }
-        void OnFocusGained() override { ResetBlink(); }
+        void OnFocusGained() override
+        {
+            ResetBlink();
+            m_textAtFocusGain = m_text;
+        }
         void OnFocusLost() override
         {
             m_isDragging = false;
             OnEditingFinished.Invoke(this);
+            if (m_text != m_textAtFocusGain)
+            {
+                m_textAtFocusGain = m_text; // a re-entrant blur must not double-commit
+                OnCommit.Invoke(this);
+            }
         }
-        void OnActivate() override { OnSubmit.Invoke(this); }
+        void OnActivate() override
+        {
+            OnSubmit.Invoke(this);
+            m_textAtFocusGain = m_text; // committed: the following blur must not re-commit
+            OnCommit.Invoke(this);
+        }
 
         // Text to display; overridden by PasswordBox for masking. Public so tests can inspect it
         // (Beef exercised it via [Friend]); it is the PasswordBox masking extension point.
@@ -491,6 +510,7 @@ export namespace foundation::ui
         }
 
         String m_text;
+        String m_textAtFocusGain; // commit baseline (OnCommit fires on blur only when changed)
         TextEditingBehavior m_behavior;
         bool m_isDragging = false;
 

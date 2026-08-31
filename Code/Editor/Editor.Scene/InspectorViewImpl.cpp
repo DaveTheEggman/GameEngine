@@ -176,24 +176,15 @@ namespace editor
             auto name = MakeRef<ui::EditText>(DefaultAllocator());
             name->SetText(names[i].AsView());
             ui::EditText* nameRaw = name.Get();
+            // Enter commits immediately; the OnEditingFinished handler below covers blur with
+            // its own change detection (vs committedNames), so this row does not use OnCommit -
+            // the pair would double-commit a changed blur.
             name->OnSubmit.Add(
                 [self, i, nameRaw](ui::EditText*)
                 {
                     if (self->OnRename)
                     {
                         self->OnRename(i, String(nameRaw->Text()));
-                    }
-                });
-            // Mirror the typed text into the in-memory name list every keystroke (NO commit/rebuild -
-            // that would steal focus mid-edit). EditText only fires OnSubmit on Enter/activate, NOT on
-            // blur, so clicking Add/Remove/a checkbox after typing would otherwise drop an un-submitted
-            // rename; the structural handlers read `names`, so this keeps their edited copy current.
-            name->OnTextChanged.Add(
-                [self, i, nameRaw](ui::EditText*)
-                {
-                    if (i < self->names.Size())
-                    {
-                        self->names[i] = String(nameRaw->Text());
                     }
                 });
             // Commit on blur too: a rename typed and then clicked-away-from (another entity, save,
