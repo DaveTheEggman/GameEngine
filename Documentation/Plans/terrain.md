@@ -677,6 +677,12 @@ RGBA8) via SplatmapAsset.fileName, exactly as HeightfieldAsset imports a
 heightmap; the runtime product stays a versioned Splatmap (not an ImageResource),
 so we reuse the DECODER, never an ImageAsset reference.
 
+FOLLOW-UP RESOLVED (verified in-tree 2026-09-01): the sculpt persist closure
+CLEARS fileName and writes the "heights" sidecar (SculptImpl.cpp), and
+HeightfieldAssetBuilder treats an empty fileName as "the sidecar is the truth"
+- sculpted heightfields survive re-cooks. The paragraph below is the original
+stale concern, kept for history:
+
 FOLLOW-UP (needs a ruling, mirrors the splat fix): the SCULPT save closure
 writes a HeightfieldSource object + "heights" sidecar to the source instance,
 but HeightfieldAssetBuilder cooks from `fileName`, not a "heights" sidecar -

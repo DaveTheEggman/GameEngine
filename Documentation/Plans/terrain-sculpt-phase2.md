@@ -1,5 +1,8 @@
 # Terrain Sculpt (phase 2) - data-flow spec for Fable
 
+> STATUS: SHIPPED (1330f7ff + follow-ups) - the sculpt tool, region-delta undo, and the
+> editable-source persist (fileName cleared, "heights" sidecar authoritative) are all on master.
+
 **From:** Opus (terrain track)  **Date:** 2026-08-23  **Re:** the deferred "detailed data flow lands in the phase-2 spec" for Sculpt (terrain.md phase-2 direction)
 
 The Sculpt tool is mostly specified in the direction; two seams need your ruling before I build the coupled editor parts. The **pure brush core is already built + tested** (`foundation.heightfield`: `SculptRaise/Flatten/Smooth` -> a touched `HeightfieldRegion`, cosine falloff, BumpVersion, clamp; 5 headless tests, green clang+gcc). What remains is the viewport tool that wraps it - and its persistence.

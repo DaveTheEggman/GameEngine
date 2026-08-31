@@ -1,5 +1,9 @@
 # Terrain Splat Paint (phase 2) - request for Fable
 
+> STATUS: SHIPPED - the splat paint tool is on master; the weight model was later replaced
+> by the top-K stack (terrain-splat-topk.md, IMPLEMENTED 2026-08-25), which supersedes the
+> RGBA8 fixed-slot details here.
+
 **From:** Opus (terrain track)  **Date:** 2026-08-24  **Re:** the editor Splat
 Paint tool - the second (last) phase-2 brush, after Sculpt shipped (1330f7ff).
 

@@ -1,5 +1,8 @@
 # Terrain D2 (splat blending) - request for Fable
 
+> STATUS: SUPERSEDED - D2 fixed-slot blending shipped, then was replaced wholesale by the
+> top-K stack (terrain-splat-topk.md, IMPLEMENTED 2026-08-25). Kept for the rulings history.
+
 **From:** Opus (terrain track)  **Date:** 2026-08-23  **Re:** the "cooked assets blocking D2" item in `terrain.md`
 
 ## TL;DR - D2 is NOT actually blocked on the cook pipeline
