@@ -61,87 +61,179 @@ namespace editor::app
 
     void AssetsView::ImportFile(StringView path)
     {
+        const String one(path);
+        ImportFiles(Span<const String>{&one, 1});
+    }
+
+    void AssetsView::ImportFiles(Span<const String> paths)
+    {
         if (m_context->Project() == nullptr || Context == nullptr)
         {
             return;
         }
-        const String ext = pipeline::FileExtensionLower(path);
-        Array<pipeline::IFileImporter*> matches = m_context->Importers().FindAllFor(ext.AsView());
-        if (matches.IsEmpty())
+        // Resolve each file's importer candidates; unclaimed files drop with a notice.
+        Array<app::BatchImportDialog::FileEntry> files;
+        for (const String& path : paths)
         {
-            String message(u8"No importer for '");
-            message += pipeline::FileNameOf(path);
-            message += u8"'.";
-            m_context->Notify(editor::NoticeKind::Warning, message.AsView());
-            return;
-        }
-        if (matches.Size() == 1)
-        {
-            ImportWith(path, matches[0]);
-            return;
-        }
-
-        // More than one importer claims this extension (e.g. image vs texture): a MODAL
-        // chooser naming the file, queued so a multi-file drop asks one file at a time.
-        QueueImporterChoice(path);
-    }
-
-    void AssetsView::QueueImporterChoice(StringView path)
-    {
-        m_pendingImporterChoices.PushBack(String(path));
-        if (!m_importerChoiceOpen)
-        {
-            ShowNextImporterChoice();
-        }
-    }
-
-    void AssetsView::ShowNextImporterChoice()
-    {
-        if (m_pendingImporterChoices.IsEmpty() || Context == nullptr)
-        {
-            m_importerChoiceOpen = false;
-            return;
-        }
-        const String path = m_pendingImporterChoices[0];
-        m_pendingImporterChoices.RemoveAt(0);
-
-        const String ext = pipeline::FileExtensionLower(path.AsView());
-        Array<pipeline::IFileImporter*> matches = m_context->Importers().FindAllFor(ext.AsView());
-        if (matches.IsEmpty())
-        {
-            ShowNextImporterChoice();
-            return;
-        }
-        Array<StringView> choices;
-        for (pipeline::IFileImporter* importer : matches)
-        {
-            choices.PushBack(importer->Label());
-        }
-        choices.PushBack(u8"Skip");
-
-        String message(u8"'");
-        message += pipeline::FileNameOf(path.AsView());
-        message += u8"' can be imported by more than one importer. Import as:";
-        if (!m_pendingImporterChoices.IsEmpty())
-        {
-            message += u8"  (";
-            AppendCount(message, m_pendingImporterChoices.Size());
-            message += u8" more file(s) queued)";
-        }
-
-        m_importerChoiceOpen = true;
-        AssetsView* self = this;
-        auto dialog = MakeRef<ConfirmDialog>(DefaultAllocator(), StringView(u8"Choose Importer"),
-                                             message.AsView(),
-                                             Span<const StringView>{choices.Data(), choices.Size()});
-        dialog->OnChosen = [self, file = path, matches](usize index)
-        {
-            if (index < matches.Size())
+            const String ext = pipeline::FileExtensionLower(path.AsView());
+            Array<pipeline::IFileImporter*> matches =
+                m_context->Importers().FindAllFor(ext.AsView());
+            if (matches.IsEmpty())
             {
-                self->ImportWith(file.AsView(), matches[index]);
+                String message(u8"No importer for '");
+                message += pipeline::FileNameOf(path.AsView());
+                message += u8"'.";
+                m_context->Notify(editor::NoticeKind::Warning, message.AsView());
+                continue;
             }
-            // Skip / Escape: this file only - the queue continues either way.
-            self->ShowNextImporterChoice();
+            app::BatchImportDialog::FileEntry entry;
+            entry.path = path;
+            entry.candidates = Move(matches);
+            files.PushBack(Move(entry));
+        }
+        if (files.IsEmpty())
+        {
+            return;
+        }
+        // A single unambiguous file keeps the focused single-file review (prepare -> plan
+        // dialog); everything else - several files, or any ambiguity - is ONE batch session
+        // (the import-workflow ruling: one dialog per drop; the per-row importer dropdown
+        // replaces the old modal-per-file chooser).
+        if (files.Size() == 1 && files[0].candidates.Size() == 1)
+        {
+            ImportWith(files[0].path.AsView(), files[0].candidates[0]);
+            return;
+        }
+        ShowBatchImport(Move(files));
+    }
+
+    void AssetsView::ShowBatchImport(Array<app::BatchImportDialog::FileEntry> files)
+    {
+        content::Group* group = (m_selectedGroup != nullptr)
+                                    ? m_selectedGroup
+                                    : m_context->Project()->SourceDb().RootGroup();
+        m_importTargetGroup = group;
+
+        for (app::BatchImportDialog::FileEntry& entry : files)
+        {
+            entry.options = entry.candidates[entry.importerIndex]->CreateOptions();
+        }
+        auto dialog = MakeRef<app::BatchImportDialog>(DefaultAllocator(), group->Path().AsView(),
+                                                      Move(files));
+        AssetsView* self = this;
+        app::BatchImportDialog* dlg = dialog.Get();
+        const RefPtr<app::BatchImportDialog> keepAlive(dlg);
+
+        // Inline describe for light importers (worker-prepare importers land through the
+        // jobs below instead - describing them inline would stall the UI on a full parse).
+        dialog->DescribeFile = [](app::BatchImportDialog::FileEntry& entry)
+        {
+            pipeline::IFileImporter* importer = entry.candidates[entry.importerIndex];
+            if (!importer->WantsWorkerPrepare())
+            {
+                entry.plan =
+                    importer->DescribeImport(entry.path.AsView(), entry.options.Get(), nullptr);
+                entry.described = true;
+            }
+        };
+        for (app::BatchImportDialog::FileEntry& entry : dialog->Files())
+        {
+            dialog->DescribeFile(entry);
+        }
+
+        // Worker prepares queue on the job service and stream into the open dialog.
+        for (usize i = 0; i < dialog->Files().Size(); ++i)
+        {
+            app::BatchImportDialog::FileEntry& entry = dialog->Files()[i];
+            pipeline::IFileImporter* importer = entry.candidates[entry.importerIndex];
+            if (!importer->WantsWorkerPrepare() || m_jobs == nullptr)
+            {
+                continue;
+            }
+            String title(u8"Reading ");
+            title += pipeline::FileNameOf(entry.path.AsView());
+            auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+            m_jobs->Submit(
+                title.AsView(),
+                Function<Status(editor::JobContext&)>{
+                    [importer, file = entry.path, holder](editor::JobContext& job) -> Status
+                    {
+                        job.SetStep(u8"loading + decoding", 1, 2);
+                        *holder = importer->PrepareOnWorker(file.AsView());
+                        return (holder->Get() != nullptr) ? Status{}
+                                                          : Status{ErrorCode::InvalidArgument};
+                    }},
+                Function<void(Status)>{
+                    [self, keepAlive, i, importer, holder](Status result)
+                    {
+                        RefPtr<Object> prepared = *holder;
+                        DefaultAllocator().Delete(holder);
+                        if (i >= keepAlive->Files().Size())
+                        {
+                            return;
+                        }
+                        app::BatchImportDialog::FileEntry& e = keepAlive->Files()[i];
+                        // The user may have switched this row's importer while the job ran -
+                        // a stale payload must not describe the wrong importer.
+                        if (e.candidates[e.importerIndex] != importer)
+                        {
+                            return;
+                        }
+                        if (!result.IsOk())
+                        {
+                            e.enabled = false; // unreadable: drop it from the commit
+                            String message(u8"Import failed: '");
+                            message += pipeline::FileNameOf(e.path.AsView());
+                            message += u8"' (see Console).";
+                            self->m_context->Notify(editor::NoticeKind::Error, message.AsView());
+                        }
+                        else
+                        {
+                            e.prepared = prepared;
+                            e.plan = importer->DescribeImport(e.path.AsView(), e.options.Get(),
+                                                             prepared.Get());
+                            e.described = true;
+                        }
+                        keepAlive->OnFilePrepared(i);
+                    }});
+        }
+
+        dialog->OnChangeDestination = [self, dlg]()
+        {
+            if (self->m_context->Project() == nullptr || self->Context == nullptr)
+            {
+                return;
+            }
+            content::Group* root = self->m_context->Project()->SourceDb().RootGroup();
+            auto picker = MakeRef<GroupPickerDialog>(DefaultAllocator(),
+                                                     StringView(u8"Select destination group"),
+                                                     root, self->m_importTargetGroup);
+            picker->OnPicked = [self, dlg](content::Group* g)
+            {
+                if (g != nullptr)
+                {
+                    self->m_importTargetGroup = g;
+                    dlg->SetDestination(g->Path().AsView());
+                }
+            };
+            picker->Show(self->Context);
+        };
+        dialog->OnImport = [self, dlg]()
+        {
+            for (app::BatchImportDialog::FileEntry& entry : dlg->Files())
+            {
+                if (!entry.enabled || !entry.described)
+                {
+                    continue;
+                }
+                if (entry.options.Get() != nullptr)
+                {
+                    entry.options->selection =
+                        static_cast<pipeline::ImportPlan&&>(entry.plan);
+                }
+                self->CommitImport(entry.path, entry.candidates[entry.importerIndex],
+                                   entry.options, entry.prepared);
+            }
         };
         dialog->Show(Context);
     }

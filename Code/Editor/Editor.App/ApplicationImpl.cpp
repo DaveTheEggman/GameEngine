@@ -878,9 +878,15 @@ namespace editor::app
         {
             m_droppedFiles.Clear();
             host.Shell()->DrainDroppedFiles(m_droppedFiles);
-            for (const foundation::shell::DroppedFile& drop : m_droppedFiles)
+            if (!m_droppedFiles.IsEmpty())
             {
-                m_assetsView->ImportFile(drop.path.AsView());
+                // ONE review session for the whole drop (import-workflow ruling).
+                Array<String> paths;
+                for (const foundation::shell::DroppedFile& drop : m_droppedFiles)
+                {
+                    paths.PushBack(drop.path);
+                }
+                m_assetsView->ImportFiles(Span<const String>{paths.Data(), paths.Size()});
             }
         }
         if (m_uiHost)
@@ -2358,11 +2364,7 @@ namespace editor::app
                                                             {
                                                                 return;
                                                             }
-                                                            for (usize i = 0; i < paths.Size(); ++i)
-                                                            {
-                                                                m_assetsView->ImportFile(
-                                                                    paths[i].AsView());
-                                                            }
+                                                            m_assetsView->ImportFiles(paths);
                                                         }},
                 {}, {}, /*allowMultiple*/ true);
         };

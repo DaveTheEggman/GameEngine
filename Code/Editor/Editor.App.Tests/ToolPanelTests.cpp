@@ -260,3 +260,72 @@ TEST_CASE("tool-panel host: forwards the provider's placement hint to mount + cl
     CHECK(clears == 1);
     CHECK(clearedAt == ToolPanelPlacement::ViewportOverlay);
 }
+
+TEST_CASE("import-plan view: edits the external plan in place - checks live, names on sync")
+{
+    pipeline::ImportPlan plan;
+    const auto add = [&plan](pipeline::ImportResourceKind kind, StringView name)
+    {
+        pipeline::ImportPlanEntry e;
+        e.kind = kind;
+        e.sourceName = String(name);
+        e.targetName = String(name);
+        plan.entries.PushBack(Move(e));
+    };
+    add(pipeline::ImportResourceKind::Mesh, u8"body");
+    add(pipeline::ImportResourceKind::AnimationClip, u8"walk");
+    add(pipeline::ImportResourceKind::AnimationClip, u8"run");
+
+    auto view = MakeRef<editor::app::ImportPlanView>(DefaultAllocator(), &plan);
+
+    // Rows: per-entry enable checkboxes write straight into the plan; the section
+    // check-all drives every row of its kind. Walk the tree for the checkboxes:
+    // [Meshes header][mesh row][Clips header][clip row][clip row].
+    Array<ui::CheckBox*> checks;
+    const auto collect = [&](ui::View* v, auto&& recurse) -> void
+    {
+        if (auto* c = Cast<ui::CheckBox>(v))
+        {
+            checks.PushBack(c);
+        }
+        if (auto* g = Cast<ui::ViewGroup>(v))
+        {
+            for (usize i = 0; i < g->ChildCount(); ++i)
+            {
+                recurse(g->GetChildAt(i), recurse);
+            }
+        }
+    };
+    collect(view.Get(), collect);
+    REQUIRE(checks.Size() == 5u); // 2 section headers + 3 entry rows
+
+    // The clips section header is the 3rd checkbox; unchecking it disables BOTH clips
+    // but not the mesh.
+    checks[2]->IsChecked.SetValue(false);
+    CHECK(plan.entries[0].enabled);
+    CHECK(!plan.entries[1].enabled);
+    CHECK(!plan.entries[2].enabled);
+
+    // Rename through the row editor; SyncNames writes it back into the plan.
+    Array<ui::EditText*> editors;
+    const auto collectEdits = [&](ui::View* v, auto&& recurse) -> void
+    {
+        if (auto* e = Cast<ui::EditText>(v))
+        {
+            editors.PushBack(e);
+        }
+        if (auto* g = Cast<ui::ViewGroup>(v))
+        {
+            for (usize i = 0; i < g->ChildCount(); ++i)
+            {
+                recurse(g->GetChildAt(i), recurse);
+            }
+        }
+    };
+    collectEdits(view.Get(), collectEdits);
+    REQUIRE(editors.Size() == 3u);
+    editors[0]->SetText(u8"hero_body");
+    view->SyncNames();
+    CHECK(plan.entries[0].targetName == u8"hero_body");
+    CHECK(plan.entries[1].targetName == u8"walk"); // untouched rows keep their names
+}

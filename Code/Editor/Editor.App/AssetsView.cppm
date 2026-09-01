@@ -241,15 +241,14 @@ export namespace editor::app
         /// Per-frame: refresh badges after a cook finishes (DB shape changes call Rebuild()).
         void Refresh();
 
-        /// Import an OS file (drag-dropped onto the editor) into the selected group via the
-        /// registered importers. An importer with options gets the pre-import dialog first;
-        /// the actual import runs in ExecuteImport.
+        /// Import ONE OS file (forwards to ImportFiles - one review session per drop).
         void ImportFile(StringView path);
-        /// The modal importer chooser: shows the FILE NAME + one button per claiming importer.
-        /// Multi-file drops queue - one dialog at a time, each naming its file (a cancel skips
-        /// only that file).
-        void QueueImporterChoice(StringView path);
-        void ShowNextImporterChoice();
+        /// Import a DROP of OS files into the selected group: one review session for the
+        /// whole batch. A single unambiguous file keeps the focused single-file review;
+        /// several files, or any importer ambiguity, open the batch dialog (its per-row
+        /// importer dropdown replaced the old modal-per-file chooser).
+        void ImportFiles(Span<const String> paths);
+        void ShowBatchImport(Array<app::BatchImportDialog::FileEntry> files);
         // Run the import for ONE resolved importer (the single match, or the chooser pick): shows its
         // options dialog if it has options, else imports immediately.
         void ImportWith(StringView path, pipeline::IFileImporter* importer);
@@ -290,10 +289,6 @@ export namespace editor::app
         void OnLayout(f32, f32, f32 width, f32 height) override;
 
     private:
-        // The importer-chooser queue (multi-importer extensions, multi-file drops).
-        Array<String> m_pendingImporterChoices;
-        bool m_importerChoiceOpen = false;
-
         struct GroupNode
         {
             content::Group* group = nullptr;
