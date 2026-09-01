@@ -1,5 +1,12 @@
 # Import workflow - the review-and-commit import dialog
 
+> STATUS 2026-08-31: P1 SHIPPED (37b44451) for the MODEL importer -
+> DescribeImport seam + selection on ImportOptions + the dialog's per-kind
+> resource list (check-all, per-row enable + rename) + prepare-first flow
+> reusing the worker payload at commit. NOT yet: previews, batch/multi-file
+> session, presets/inference, other importers' DescribeImport, re-import
+> memory. User visual verify owed on the new dialog.
+
 > DRAFT for discussion (user + Fable, 2026-08-31). Nothing here is scheduled;
 > the user wants ONE well-planned improvement pass over import UX rather than
 > incremental patches. Absorbs the open import seeds: merge-meshes (user
