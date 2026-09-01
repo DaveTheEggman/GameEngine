@@ -65,9 +65,21 @@ by prepare output, committing only what was approved.
 - ONE dialog session for an N-file drop; per-file review is optional, not
   forced. "Import all with defaults" stays one click - the dialog must never
   make the simple case slower.
-- **Presets**: named bundles of group toggles + rename rules ("Character",
-  "Static prop", "Environment kit"). Apply to any selection of source files.
-  Presets are the scaling answer; per-file fiddling is the exception.
+- **Presets are RULE SETS, not flat settings** (ruling, user + Fable
+  2026-08-31, from the terrain-set case: a drop of diffuse + displacement +
+  heightmap + masks needs DIFFERENT settings per file, so "apply one
+  setting to all" is the failure mode). A preset = named rules (name-token
+  -> configuration) + group toggles + rename rules ("Character",
+  "Static prop", "Terrain set"). Applying one runs the rules per file.
+- **Batch application is SELECTION-scoped, never drop-scoped**: select the
+  four masks -> set Data Mask once; per-file editing stays the fallback.
+- **Name-token inference pre-configures each file at prepare time**:
+  pipeline::InferTextureUsage (shipped with the texture-page rework) maps
+  _diffuse/_normal/_mask/_height tokens to usage -> color space ->
+  compression, so a texture set arrives correctly configured and review is
+  a glance. Inference may also suggest the IMPORTER per file (a heightmap
+  likely wants the heightfield importer, not texture) - shown in the row's
+  dropdown, overridable.
 - Previews load LAZILY (selection-driven) - a 100-file drop must open
   instantly.
 - Shared settings edit = apply to all selected files; per-file overrides
