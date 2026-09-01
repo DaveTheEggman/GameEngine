@@ -3,9 +3,14 @@
 > STATUS 2026-08-31: P1 SHIPPED (37b44451) for the MODEL importer -
 > DescribeImport seam + selection on ImportOptions + the dialog's per-kind
 > resource list (check-all, per-row enable + rename) + prepare-first flow
-> reusing the worker payload at commit. NOT yet: previews, batch/multi-file
-> session, presets/inference, other importers' DescribeImport, re-import
-> memory. User visual verify owed on the new dialog.
+> reusing the worker payload at commit. P2 SHIPPED (605ddf0f): ONE batch
+> session per drop (BatchImportDialog - file list w/ enable + per-row
+> importer dropdown replacing the modal-per-file chooser, per-file plan +
+> toggles, shared destination, streaming worker prepares, Import gated on
+> described). Also FIXED (48bf978a): LOD folding shifted manifest mesh
+> slots - authored-LOD models lost meshes in generated prefabs/scenes.
+> NOT yet: previews, presets/inference, other importers' DescribeImport,
+> re-import memory. User visual verify owed on BOTH dialogs.
 
 > DRAFT for discussion (user + Fable, 2026-08-31). Nothing here is scheduled;
 > the user wants ONE well-planned improvement pass over import UX rather than
