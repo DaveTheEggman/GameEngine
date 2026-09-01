@@ -35,6 +35,62 @@ export namespace pipeline
         String sourcesRoot; // absolute OS path to the project's Sources/ tree
     };
 
+    /// What kind of asset an import-plan entry would create (the review dialog's grouping).
+    enum class ImportResourceKind : u8
+    {
+        Texture,
+        Material,
+        Mesh,
+        Skeleton,
+        AnimationClip,
+        Collision,
+    };
+
+    [[nodiscard]] inline StringView ImportResourceKindLabel(ImportResourceKind kind) noexcept
+    {
+        switch (kind)
+        {
+        case ImportResourceKind::Texture: return u8"Textures";
+        case ImportResourceKind::Material: return u8"Materials";
+        case ImportResourceKind::Mesh: return u8"Meshes";
+        case ImportResourceKind::Skeleton: return u8"Skeleton";
+        case ImportResourceKind::AnimationClip: return u8"Animation Clips";
+        case ImportResourceKind::Collision: return u8"Collision";
+        }
+        return u8"Resources";
+    }
+
+    /// One resource an import WOULD create. `sourceName` is the importer's deterministic base
+    /// name for the resource (the stable key the commit matches on); `targetName` is what the
+    /// user wants it called (defaults to sourceName); unchecked entries are skipped.
+    struct ImportPlanEntry
+    {
+        ImportResourceKind kind = ImportResourceKind::Texture;
+        String sourceName;
+        String targetName;
+        bool enabled = true;
+    };
+
+    /// DescribeImport's result: everything the import would create, in fan-out order.
+    /// Empty = the importer does not support per-resource review (toggles only).
+    struct ImportPlan
+    {
+        Array<ImportPlanEntry> entries;
+        [[nodiscard]] bool IsEmpty() const noexcept { return entries.IsEmpty(); }
+        [[nodiscard]] const ImportPlanEntry* Find(ImportResourceKind kind,
+                                                 StringView sourceName) const
+        {
+            for (const ImportPlanEntry& e : entries)
+            {
+                if (e.kind == kind && e.sourceName.AsView() == sourceName)
+                {
+                    return &e;
+                }
+            }
+            return nullptr;
+        }
+    };
+
     /// Importer-specific options, shown by the import dialog before the import runs. The
     /// dialog renders one checkbox per Toggle (each points into the options object) - a
     /// declarative description, no reflection required. Subclasses add their fields and
@@ -52,6 +108,25 @@ export namespace pipeline
 
         [[nodiscard]] virtual Array<Toggle> Toggles() { return {}; }
         void Serialize(ISerializer&) override {}
+
+        /// The review dialog's per-resource decisions (edited copy of DescribeImport's plan).
+        /// Empty = import everything under default names. Importers that support review
+        /// consult it via SelectionEnabled/SelectionName at each creation site; others
+        /// ignore it.
+        ImportPlan selection;
+
+        [[nodiscard]] bool SelectionEnabled(ImportResourceKind kind, StringView sourceName) const
+        {
+            const ImportPlanEntry* e = selection.Find(kind, sourceName);
+            return e == nullptr || e->enabled;
+        }
+        /// The user's target name for the resource (falls back to the importer's base name).
+        [[nodiscard]] StringView SelectionName(ImportResourceKind kind, StringView sourceName) const
+        {
+            const ImportPlanEntry* e = selection.Find(kind, sourceName);
+            return (e != nullptr && !e->targetName.IsEmpty()) ? e->targetName.AsView()
+                                                              : sourceName;
+        }
     };
 
     /// A BULK write an importer defers to the worker flush. Three shapes, one struct:
@@ -153,6 +228,17 @@ export namespace pipeline
         /// worker phase (Import does everything inline).
         [[nodiscard]] virtual bool WantsWorkerPrepare() const { return false; }
         [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/);
+
+        /// Enumerate everything Import would create (the review dialog's data), WITHOUT
+        /// touching the project or DB. `prepared` is PrepareOnWorker's payload when the
+        /// two-phase path ran (a supporting importer should reuse it, not re-parse).
+        /// Default: empty plan = no per-resource review; the dialog shows toggles only.
+        [[nodiscard]] virtual ImportPlan DescribeImport(StringView /*sourcePath*/,
+                                                        const ImportOptions* /*options*/,
+                                                        Object* /*prepared*/)
+        {
+            return {};
+        }
 
         /// Import `sourcePath` (absolute OS path): copy the source under Sources/ and create
         /// the typed Asset instance(s) in `group`. Returns the primary created instance.

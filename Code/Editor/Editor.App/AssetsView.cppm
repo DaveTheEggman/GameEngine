@@ -256,6 +256,10 @@ export namespace editor::app
         // The "Change..." destination chooser: a menu of every project group; picking one retargets
         // m_importTargetGroup and updates the dialog's shown destination path.
         void ShowImportDestinationMenu(ImportOptionsDialog& dialog);
+        /// Review-capable importers: shown AFTER the worker prepare - lists every resource
+        /// the import would create (DescribeImport); commit reuses the prepared payload.
+        void ShowImportReview(const String& path, pipeline::IFileImporter* importer,
+                              RefPtr<pipeline::ImportOptions> options, RefPtr<Object> prepared);
 
         /// Runs the import (post-dialog). Slow importers (models) split: the parse/decode
         /// runs on the JOB worker so the UI stays live (with the status-bar progress), and

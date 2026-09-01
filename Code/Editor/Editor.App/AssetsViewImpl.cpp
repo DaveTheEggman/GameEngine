@@ -165,14 +165,86 @@ namespace editor::app
             ExecuteImport(String(path), importer, {});
             return;
         }
-        auto dialog =
-            MakeRef<ImportOptionsDialog>(DefaultAllocator(), path, group->Path().AsView(), options);
+
+        // Review-capable importers (DescribeImport) invert the order: the slow parse runs
+        // FIRST (worker), the dialog then lists every resource the import would create
+        // (check/uncheck + rename), and commit reuses the prepared payload - no second load.
+        if (importer->WantsWorkerPrepare() && m_jobs != nullptr)
+        {
+            String title(u8"Reading ");
+            title += pipeline::FileNameOf(path);
+            auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+            AssetsView* self = this;
+            m_jobs->Submit(
+                title.AsView(),
+                Function<Status(editor::JobContext&)>{
+                    [importer, file = String(path), holder](editor::JobContext& job) -> Status
+                    {
+                        job.SetStep(u8"loading + decoding", 1, 2);
+                        *holder = importer->PrepareOnWorker(file.AsView());
+                        return (holder->Get() != nullptr) ? Status{}
+                                                          : Status{ErrorCode::InvalidArgument};
+                    }},
+                Function<void(Status)>{
+                    [self, file = String(path), importer, options, holder](Status result)
+                    {
+                        RefPtr<Object> prepared = *holder;
+                        DefaultAllocator().Delete(holder);
+                        if (!result.IsOk())
+                        {
+                            String message(u8"Import failed: '");
+                            message += pipeline::FileNameOf(file.AsView());
+                            message += u8"' (see Console).";
+                            self->m_context->Notify(editor::NoticeKind::Error, message.AsView());
+                            return;
+                        }
+                        self->ShowImportReview(file, importer, options, prepared);
+                    }});
+            return;
+        }
+
+        // Inline importers: describe here (cheap parse) - an empty plan degrades to the
+        // toggles-only dialog.
+        pipeline::ImportPlan plan = importer->DescribeImport(path, options.Get(), nullptr);
+        auto dialog = MakeRef<ImportOptionsDialog>(DefaultAllocator(), path,
+                                                   group->Path().AsView(), options, Move(plan));
         AssetsView* self = this;
         ImportOptionsDialog* dlg = dialog.Get();
         dialog->OnChangeDestination = [self, dlg]() { self->ShowImportDestinationMenu(*dlg); };
-        dialog->OnImport = [self, file = String(path), importer,
+        dialog->OnImport = [self, dlg, file = String(path), importer,
                             opts = RefPtr<pipeline::ImportOptions>(options.Get())]()
-        { self->ExecuteImport(file, importer, opts); };
+        {
+            opts->selection = dlg->TakePlan();
+            self->ExecuteImport(file, importer, opts);
+        };
+        dialog->Show(Context);
+    }
+
+    void AssetsView::ShowImportReview(const String& path, pipeline::IFileImporter* importer,
+                                      RefPtr<pipeline::ImportOptions> options,
+                                      RefPtr<Object> prepared)
+    {
+        if (m_context->Project() == nullptr || Context == nullptr)
+        {
+            return;
+        }
+        content::Group* group = (m_importTargetGroup != nullptr)
+                                    ? m_importTargetGroup
+                                    : m_context->Project()->SourceDb().RootGroup();
+        pipeline::ImportPlan plan =
+            importer->DescribeImport(path.AsView(), options.Get(), prepared.Get());
+        auto dialog =
+            MakeRef<ImportOptionsDialog>(DefaultAllocator(), path.AsView(),
+                                         group->Path().AsView(), options, Move(plan));
+        AssetsView* self = this;
+        ImportOptionsDialog* dlg = dialog.Get();
+        dialog->OnChangeDestination = [self, dlg]() { self->ShowImportDestinationMenu(*dlg); };
+        dialog->OnImport = [self, dlg, file = path, importer,
+                            opts = RefPtr<pipeline::ImportOptions>(options.Get()), prepared]()
+        {
+            opts->selection = dlg->TakePlan();
+            self->CommitImport(file, importer, opts, prepared);
+        };
         dialog->Show(Context);
     }
 

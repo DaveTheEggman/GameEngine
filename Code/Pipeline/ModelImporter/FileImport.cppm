@@ -254,6 +254,102 @@ export namespace pipeline
             return false;
         }
 
+        /// Everything Import would create, in fan-out order - the review dialog's data.
+        /// Reuses the worker-prepared model when supplied; only mirrors the naming logic of
+        /// the fan-out helpers (ComputeLodFold is shared so the mesh set matches exactly).
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions* options,
+                                                          Object* prepared) override
+        {
+            const ModelImportOptions defaults;
+            const ModelImportOptions& opt =
+                (options != nullptr) ? static_cast<const ModelImportOptions&>(*options) : defaults;
+            foundation::model::Model inlineModel;
+            foundation::model::Model* modelPtr = nullptr;
+            if (auto* loadedPayload = Cast<LoadedModel>(prepared))
+            {
+                modelPtr = &loadedPayload->model;
+            }
+            else
+            {
+                if (LoadModelFrom(sourcePath, inlineModel) !=
+                    foundation::model::ModelLoadResult::Ok)
+                {
+                    return {};
+                }
+                modelPtr = &inlineModel;
+            }
+            const foundation::model::Model& model = *modelPtr;
+
+            pipeline::ImportPlan plan;
+            const auto add = [&plan](pipeline::ImportResourceKind kind, String name)
+            {
+                pipeline::ImportPlanEntry e;
+                e.kind = kind;
+                e.targetName = name;
+                e.sourceName = Move(name);
+                e.enabled = true;
+                plan.entries.PushBack(Move(e));
+            };
+
+            if (opt.importTextures)
+            {
+                const Span<foundation::model::ModelTexture* const> textures = model.textures();
+                for (usize i = 0; i < textures.Size(); ++i)
+                {
+                    const foundation::model::ModelTexture& t = *textures[i];
+                    const bool rgba8 =
+                        (t.getData() != nullptr && t.width > 0 && t.height > 0 &&
+                         t.getDataSize() == t.width * t.height * 4);
+                    if (rgba8) // undecodable textures never become assets - keep them out
+                    {
+                        add(pipeline::ImportResourceKind::Texture, ImportedTextureName(t, i));
+                    }
+                }
+            }
+            if (opt.importMaterials)
+            {
+                const Span<foundation::model::ModelMaterial* const> materials = model.materials();
+                for (usize i = 0; i < materials.Size(); ++i)
+                {
+                    add(pipeline::ImportResourceKind::Material,
+                        ImportedAssetName(materials[i]->name(), u8"mat", i));
+                }
+            }
+            if (opt.importAnimations && model.skins().Size() > 0)
+            {
+                add(pipeline::ImportResourceKind::Skeleton, SkeletonBaseName(*model.skins()[0]));
+                const Span<foundation::model::ModelAnimation* const> animations =
+                    model.animations();
+                for (usize a = 0; a < animations.Size(); ++a)
+                {
+                    add(pipeline::ImportResourceKind::AnimationClip,
+                        ImportedAssetName(animations[a]->name(), u8"anim", a));
+                }
+            }
+            const bool hasSkin = model.skins().Size() > 0;
+            const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
+            Array<i32> lodOf;
+            Array<Array<usize>> lodLevels;
+            ComputeLodFold(model, /*logMismatch*/ false, lodOf, lodLevels);
+            for (usize i = 0; i < meshes.Size(); ++i)
+            {
+                if (lodOf[i] >= 0)
+                {
+                    continue; // folds into its base's LOD chain - not an asset of its own
+                }
+                add(pipeline::ImportResourceKind::Mesh,
+                    ImportedAssetName(meshes[i]->name(), u8"mesh", i));
+                if (opt.generateCollision && !(IsSkinnedMesh(*meshes[i]) && hasSkin))
+                {
+                    String key = ImportedAssetName(meshes[i]->name(), u8"mesh", i);
+                    key.Append(u8".collision");
+                    add(pipeline::ImportResourceKind::Collision, Move(key));
+                }
+            }
+            return plan;
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
                const pipeline::ImportOptions* options, Object* prepared,
@@ -330,7 +426,7 @@ export namespace pipeline
             Array<Guid> textureGuids;
             if (opt.importTextures)
             {
-                ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites);
+                ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites, opt);
             }
             else
             {
@@ -342,22 +438,24 @@ export namespace pipeline
             if (opt.importMaterials)
             {
                 ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed,
-                                deferredWrites);
+                                deferredWrites, opt);
             }
             if (opt.importAnimations)
             {
-                ImportSkeletonAndClips(model, *modelGroup, manifest, claimed);
+                ImportSkeletonAndClips(model, *modelGroup, manifest, claimed, opt);
             }
+            Array<String> meshSourceNames; // per manifest mesh slot (collision's plan keys)
             const Status meshes =
                 ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites,
-                             opt.generateLods);
+                             opt.generateLods, opt, meshSourceNames);
             if (!meshes.IsOk())
             {
                 return Err(meshes.Code());
             }
             if (opt.generateCollision)
             {
-                ImportCollisionShapes(*modelGroup, manifest, opt.collisionConvex, claimed);
+                ImportCollisionShapes(*modelGroup, manifest, opt.collisionConvex, claimed, opt,
+                                      meshSourceNames);
             }
             ImportNodes(model, manifest);
 
@@ -542,7 +640,8 @@ export namespace pipeline
 
         static void ImportTextures(const foundation::model::Model& model, content::Group& group,
                                    Array<Guid>& outGuids, Array<String>& claimed,
-                                   Array<pipeline::DeferredImportWrite>* deferredWrites)
+                                   Array<pipeline::DeferredImportWrite>* deferredWrites,
+                                   const pipeline::ImportOptions& sel)
         {
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear - sRGB-decoding
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
@@ -573,9 +672,16 @@ export namespace pipeline
                 asset.generateMipmaps = true; // mips at cook (2026-08-12) - shimmer was the no-mips gap
 
                 // Real names when the source has them (rules out slot mix-ups at a glance).
-                content::Instance* inst =
-                    ClaimInstance(group, ImportedTextureName(t, i).AsView(),
-                                  pipeline::TextureAsset::StaticType(), claimed);
+                const String texBase = ImportedTextureName(t, i);
+                if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Texture, texBase.AsView()))
+                {
+                    outGuids.PushBack(Guid{}); // deselected: dependents wire no texture
+                    continue;
+                }
+                content::Instance* inst = ClaimInstance(
+                    group,
+                    sel.SelectionName(pipeline::ImportResourceKind::Texture, texBase.AsView()),
+                    pipeline::TextureAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk())
                 {
                     outGuids.PushBack(Guid{});
@@ -663,13 +769,24 @@ export namespace pipeline
         static void ImportMaterials(const foundation::model::Model& model, content::Group& group,
                                     const Array<Guid>& textureGuids, ModelManifestSource& manifest,
                                     Array<String>& claimed,
-                                    Array<pipeline::DeferredImportWrite>* deferredWrites)
+                                    Array<pipeline::DeferredImportWrite>* deferredWrites,
+                                    const pipeline::ImportOptions& sel)
         {
             HashMap<u64, Guid> bakedMR; // per-pair bake cache (see GetOrBakePackedMR)
             const Span<foundation::model::ModelMaterial* const> materials = model.materials();
             for (usize i = 0; i < materials.Size(); ++i)
             {
                 const foundation::model::ModelMaterial& m = *materials[i];
+                const String matBase = ImportedAssetName(m.name(), u8"mat", i);
+                if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Material,
+                                          matBase.AsView()))
+                {
+                    // Deselected: hold the manifest slots (nil) so submesh materialIndex
+                    // stays aligned.
+                    manifest.materialGuids.PushBack(Guid{});
+                    manifest.materialAlbedo.PushBack(Guid{});
+                    continue;
+                }
                 RefPtr<foundation::materials::Material> built = foundation::materials::CreatePBR(
                     ImportedAssetName(m.name(), u8"mat", i).AsView(), m.baseColorFactor,
                     m.metallicFactor, m.roughnessFactor);
@@ -737,9 +854,10 @@ export namespace pipeline
                         foundation::materials::CullModeConfig::None;
                 }
 
-                content::Instance* inst =
-                    ClaimInstance(group, ImportedAssetName(m.name(), u8"mat", i).AsView(),
-                                  pipeline::MaterialAsset::StaticType(), claimed);
+                content::Instance* inst = ClaimInstance(
+                    group,
+                    sel.SelectionName(pipeline::ImportResourceKind::Material, matBase.AsView()),
+                    pipeline::MaterialAsset::StaticType(), claimed);
                 if (inst == nullptr || !inst->WriteObject(asset).IsOk())
                 {
                     manifest.materialGuids.PushBack(Guid{});
@@ -756,9 +874,17 @@ export namespace pipeline
             }
         }
 
+        // The importer's deterministic skeleton base name (also the review plan's key).
+        [[nodiscard]] static String SkeletonBaseName(const foundation::model::ModelSkin& skin)
+        {
+            return skin.name().IsEmpty() ? String(u8"skeleton")
+                                         : ImportedAssetName(skin.name(), u8"skeleton", 0);
+        }
+
         static void ImportSkeletonAndClips(const foundation::model::Model& model,
                                            content::Group& group, ModelManifestSource& manifest,
-                                           Array<String>& claimed)
+                                           Array<String>& claimed,
+                                           const pipeline::ImportOptions& sel)
         {
             if (model.skins().Size() == 0)
             {
@@ -767,23 +893,34 @@ export namespace pipeline
             const foundation::model::ModelSkin& skin = *model.skins()[0];
             const HashMap<i32, i32> boneToJoint = BuildBoneToJoint(skin);
 
-            pipeline::SkeletonAsset skeleton;
-            SkeletonSourceFromModel(model, skin, boneToJoint, skeleton.source);
-            content::Instance* skelInst = ClaimInstance(
-                group,
-                skin.name().IsEmpty() ? StringView(u8"skeleton")
-                                      : ImportedAssetName(skin.name(), u8"skeleton", 0).AsView(),
-                pipeline::SkeletonAsset::StaticType(), claimed);
-            if (skelInst != nullptr && skelInst->WriteObject(skeleton).IsOk())
+            const String skelBase = SkeletonBaseName(skin);
+            if (sel.SelectionEnabled(pipeline::ImportResourceKind::Skeleton, skelBase.AsView()))
             {
-                manifest.skeletonGuid = skelInst->Id();
+                pipeline::SkeletonAsset skeleton;
+                SkeletonSourceFromModel(model, skin, boneToJoint, skeleton.source);
+                content::Instance* skelInst = ClaimInstance(
+                    group,
+                    sel.SelectionName(pipeline::ImportResourceKind::Skeleton, skelBase.AsView()),
+                    pipeline::SkeletonAsset::StaticType(), claimed);
+                if (skelInst != nullptr && skelInst->WriteObject(skeleton).IsOk())
+                {
+                    manifest.skeletonGuid = skelInst->Id();
+                }
             }
 
             const Span<foundation::model::ModelAnimation* const> animations = model.animations();
             for (usize a = 0; a < animations.Size(); ++a)
             {
+                const String clipBase = ImportedAssetName(animations[a]->name(), u8"anim", a);
+                if (!sel.SelectionEnabled(pipeline::ImportResourceKind::AnimationClip,
+                                          clipBase.AsView()))
+                {
+                    continue; // animationGuids is a plain list - no slot to hold
+                }
                 content::Instance* clipInst = ClaimInstance(
-                    group, ImportedAssetName(animations[a]->name(), u8"anim", a).AsView(),
+                    group,
+                    sel.SelectionName(pipeline::ImportResourceKind::AnimationClip,
+                                      clipBase.AsView()),
                     pipeline::AnimationClipAsset::StaticType(), claimed);
                 pipeline::AnimationClipAsset clip;
                 AnimationClipSourceFromModel(
@@ -796,24 +933,19 @@ export namespace pipeline
             }
         }
 
-        [[nodiscard]] static Status ImportMeshes(const foundation::model::Model& model,
-                                                 content::Group& group,
-                                                 ModelManifestSource& manifest,
-                                                 Array<String>& claimed,
-                                                 Array<pipeline::DeferredImportWrite>* deferredWrites,
-                                                 bool generateLods = true)
+        // Authored LOD collapse: "Foo_LOD1"/"Foo_LOD2" meshes become chain levels of the mesh
+        // named "Foo" instead of assets of their own. lodOf[i] = the base mesh index a
+        // suffixed mesh folds into (or -1); levels are gathered per base sorted by their
+        // suffix number. A MIXED pair (skinned base with a static level or vice versa) is
+        // refused - the parallel-stream contract cannot hold across the mismatch. Shared by
+        // the import fan-out and DescribeImport so the review plan lists EXACTLY the mesh
+        // assets the import creates.
+        static void ComputeLodFold(const foundation::model::Model& model, bool logMismatch,
+                                   Array<i32>& lodOf, Array<Array<usize>>& lodLevels)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
-
-            // Authored LOD collapse: "Foo_LOD1"/"Foo_LOD2" meshes become
-            // chain levels of the STATIC mesh named "Foo" instead of assets of their own.
-            // lodOf[i] = the base mesh index a suffixed mesh folds into (or -1); levels are
-            // gathered per base sorted by their suffix number. Skinned bases/levels never
-            // collapse (chains are static-only) - they import separately with a warning.
-            Array<i32> lodOf;
             lodOf.Resize(meshes.Size());
-            Array<Array<usize>> lodLevels; // per mesh: consumed level indices, suffix order
             lodLevels.Resize(meshes.Size());
             for (usize i = 0; i < meshes.Size(); ++i)
             {
@@ -840,16 +972,16 @@ export namespace pipeline
                 {
                     continue; // no base of that name - a plain mesh that happens to end _LODn
                 }
-                // Skinned chains are supported; only a MIXED pair (skinned base with a
-                // static level or vice versa) is refused - the parallel-stream contract
-                // cannot hold across the mismatch.
                 if ((IsSkinnedMesh(*meshes[baseIndex]) && hasSkin) !=
                     (IsSkinnedMesh(*meshes[i]) && hasSkin))
                 {
-                    LOG_WARNING(u8"Import",
-                                u8"mesh '{}': LOD level and base disagree on skinning - "
-                                u8"importing as a separate mesh",
-                                meshes[i]->name());
+                    if (logMismatch)
+                    {
+                        LOG_WARNING(u8"Import",
+                                    u8"mesh '{}': LOD level and base disagree on skinning - "
+                                    u8"importing as a separate mesh",
+                                    meshes[i]->name());
+                    }
                     continue;
                 }
                 lodOf[i] = baseIndex;
@@ -868,6 +1000,22 @@ export namespace pipeline
                 }
                 levels.Insert(at, i);
             }
+        }
+
+        [[nodiscard]] static Status ImportMeshes(const foundation::model::Model& model,
+                                                 content::Group& group,
+                                                 ModelManifestSource& manifest,
+                                                 Array<String>& claimed,
+                                                 Array<pipeline::DeferredImportWrite>* deferredWrites,
+                                                 bool generateLods,
+                                                 const pipeline::ImportOptions& sel,
+                                                 Array<String>& meshSourceNames)
+        {
+            const bool hasSkin = model.skins().Size() > 0;
+            const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
+            Array<i32> lodOf;
+            Array<Array<usize>> lodLevels; // per mesh: consumed level indices, suffix order
+            ComputeLodFold(model, /*logMismatch*/ true, lodOf, lodLevels);
 
             for (usize i = 0; i < meshes.Size(); ++i)
             {
@@ -878,7 +1026,20 @@ export namespace pipeline
                 const foundation::model::ModelMesh& m = *meshes[i];
                 const bool skinned = IsSkinnedMesh(m) && hasSkin;
                 const String baseName = ImportedAssetName(m.name(), u8"mesh", i);
-                const StringView name = baseName.AsView();
+                if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Mesh, baseName.AsView()))
+                {
+                    // Deselected in the review dialog: hold the manifest slot (nil guid) so
+                    // parallel arrays and node mesh indices keep their shape.
+                    manifest.meshGuids.PushBack(Guid{});
+                    manifest.meshSkinned.PushBack(skinned ? u8{1} : u8{0});
+                    const Span<const foundation::model::ModelMeshPart> skippedParts = m.parts();
+                    manifest.meshMaterial.PushBack(
+                        skippedParts.Size() > 0 ? skippedParts[0].materialIndex : -1);
+                    meshSourceNames.PushBack(baseName);
+                    continue;
+                }
+                const StringView name =
+                    sel.SelectionName(pipeline::ImportResourceKind::Mesh, baseName.AsView());
 
                 // Mesh envelopes are the import's largest SERIALIZATION cost (a big mesh
                 // source rendered to XML) - defer object + write to the worker flush.
@@ -1006,6 +1167,7 @@ export namespace pipeline
                 manifest.meshSkinned.PushBack(skinned ? u8{1} : u8{0});
                 const Span<const foundation::model::ModelMeshPart> parts = m.parts();
                 manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
+                meshSourceNames.PushBack(baseName);
             }
             return Status{};
         }
@@ -1014,11 +1176,25 @@ export namespace pipeline
         // the guid lands in manifest.collisionGuids (parallel; nil = none) for the
         // prefab generator to wire colliders from.
         static void ImportCollisionShapes(content::Group& group, ModelManifestSource& manifest,
-                                          bool convex, Array<String>& claimed)
+                                          bool convex, Array<String>& claimed,
+                                          const pipeline::ImportOptions& sel,
+                                          const Array<String>& meshSourceNames)
         {
             for (usize i = 0; i < manifest.meshGuids.Size(); ++i)
             {
-                if (manifest.meshSkinned[i] != 0)
+                if (manifest.meshSkinned[i] != 0 || manifest.meshGuids[i].IsNil())
+                {
+                    manifest.collisionGuids.PushBack(Guid{});
+                    continue;
+                }
+                // Plan key: the MESH's source base + ".collision" (stable under mesh renames -
+                // the created name below still derives from the live mesh instance name, so a
+                // renamed mesh cascades to its shape's name).
+                String selKey(i < meshSourceNames.Size() ? meshSourceNames[i].AsView()
+                                                         : StringView(u8"mesh"));
+                selKey.Append(u8".collision");
+                if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Collision,
+                                          selKey.AsView()))
                 {
                     manifest.collisionGuids.PushBack(Guid{});
                     continue;
@@ -1034,6 +1210,12 @@ export namespace pipeline
                 }
                 String name(meshInstance != nullptr ? meshInstance->Name() : StringView(u8"mesh"));
                 name.Append(u8".collision");
+                const StringView renamed =
+                    sel.SelectionName(pipeline::ImportResourceKind::Collision, selKey.AsView());
+                if (renamed != selKey.AsView())
+                {
+                    name = String(renamed); // explicit user rename wins over the derived name
+                }
                 content::Instance* inst =
                     ClaimInstance(group, name.AsView(),
                                   pipeline::CollisionShapeAsset::StaticType(), claimed);

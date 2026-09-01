@@ -1267,3 +1267,132 @@ TEST_CASE("mesh lod: a skinned level appends with its skinning stream in lockste
     CHECK(source.lodStart[0] == 3);
     CHECK(source.indexData[3] == 3); // offset past the base's vertices
 }
+
+TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters and renames it")
+{
+    using namespace editor;
+    using namespace pipeline;
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterTextureAsset();
+    pipeline::RegisterMeshAssets();
+    pipeline::RegisterMaterialAsset();
+    pipeline::RegisterAnimationAssets();
+
+    const StringView dir = u8"scratch_model_describe_project";
+    auto cleanTree = [&]()
+    {
+        for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
+        {
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            Array<foundation::vfs::DirEntry> tops;
+            if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
+            {
+                for (const auto& top : tops)
+                {
+                    if (!top.isDirectory)
+                    {
+                        (void)fs.AsWritable()->Delete(top.name.AsView());
+                        continue;
+                    }
+                    Array<foundation::vfs::DirEntry> inner;
+                    if (fs.AsEnumerable()->Enumerate(top.name.AsView(), inner).IsOk())
+                    {
+                        for (const auto& e : inner)
+                        {
+                            (void)fs.AsWritable()->Delete(
+                                PathJoin(top.name.AsView(), e.name.AsView()).AsView());
+                        }
+                    }
+                    (void)RemoveDirectory(
+                        PathJoin(PathJoin(dir, sub).AsView(), top.name.AsView()).AsView());
+                }
+            }
+            (void)RemoveDirectory(PathJoin(dir, sub).AsView());
+        }
+        FileDelete(PathJoin(dir, u8"Project.xml"));
+        (void)RemoveDirectory(PathJoin(dir, u8"Editor"));
+        (void)RemoveDirectory(dir);
+    };
+    cleanTree();
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    pipeline::ModelFileImporter importer;
+    const auto* glb = reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB);
+
+    // The plan of a skinned character: meshes + materials + skeleton + clips, all enabled,
+    // target = source name.
+    pipeline::ImportPlan plan = importer.DescribeImport(glb, nullptr, nullptr);
+    REQUIRE(!plan.IsEmpty());
+    usize meshCount = 0, clipCount = 0, skeletonCount = 0;
+    for (const pipeline::ImportPlanEntry& e : plan.entries)
+    {
+        CHECK(e.enabled);
+        CHECK(e.targetName.AsView() == e.sourceName.AsView());
+        meshCount += (e.kind == pipeline::ImportResourceKind::Mesh) ? 1u : 0u;
+        clipCount += (e.kind == pipeline::ImportResourceKind::AnimationClip) ? 1u : 0u;
+        skeletonCount += (e.kind == pipeline::ImportResourceKind::Skeleton) ? 1u : 0u;
+    }
+    REQUIRE(meshCount >= 1u);
+    REQUIRE(clipCount >= 1u);
+    REQUIRE(skeletonCount == 1u);
+
+    // PARITY: an unfiltered import creates an instance for EVERY plan entry, by name.
+    {
+        Result<foundation::content::Instance*> imported = importer.Import(
+            glb, pipeline::ImportContext{project->SourcesRoot()},
+            *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+        REQUIRE(imported.HasValue());
+        foundation::content::Group& modelGroup = imported.Value()->OwningGroup();
+        for (const pipeline::ImportPlanEntry& e : plan.entries)
+        {
+            CHECK(modelGroup.GetInstance(e.sourceName.AsView()) != nullptr);
+        }
+    }
+
+    // Selection: clips OFF, first mesh RENAMED - the fan-out skips and renames accordingly.
+    {
+        auto options = MakeRef<pipeline::ModelImportOptions>(DefaultAllocator());
+        options->selection = importer.DescribeImport(glb, options.Get(), nullptr);
+        String meshSource;
+        for (pipeline::ImportPlanEntry& e : options->selection.entries)
+        {
+            if (e.kind == pipeline::ImportResourceKind::AnimationClip)
+            {
+                e.enabled = false;
+            }
+            if (e.kind == pipeline::ImportResourceKind::Mesh && meshSource.IsEmpty())
+            {
+                meshSource = e.sourceName;
+                e.targetName = String(u8"hero.mesh");
+            }
+        }
+        REQUIRE(!meshSource.IsEmpty());
+
+        foundation::content::Group* target =
+            project->SourceDb().RootGroup()->CreateGroup(u8"filtered");
+        Result<foundation::content::Instance*> imported = importer.Import(
+            glb, pipeline::ImportContext{project->SourcesRoot()}, *target, options.Get(),
+            nullptr, nullptr);
+        REQUIRE(imported.HasValue());
+        foundation::content::Group& modelGroup = imported.Value()->OwningGroup();
+
+        CHECK(modelGroup.GetInstance(u8"hero.mesh") != nullptr);   // renamed
+        CHECK(modelGroup.GetInstance(meshSource.AsView()) == nullptr); // not under the old name
+        for (foundation::content::Instance* inst : modelGroup.Instances())
+        {
+            CHECK(inst->TypeName() != StringView(u8"AnimationClipAsset")); // clips skipped
+        }
+        // The manifest kept the skeleton (still selected) and lost the clips.
+        RefPtr<ISerializable> object = imported.Value()->ReadObject();
+        auto* manifest = Cast<pipeline::ModelManifestAsset>(object.Get());
+        REQUIRE(manifest != nullptr);
+        CHECK(!manifest->manifest.skeletonGuid.IsNil());
+        CHECK(manifest->manifest.animationGuids.IsEmpty());
+        CHECK(!manifest->manifest.meshGuids.IsEmpty());
+        CHECK(!manifest->manifest.meshGuids[0].IsNil());
+    }
+
+    cleanTree();
+}
