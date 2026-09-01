@@ -202,3 +202,29 @@ TEST_CASE("list-view: NotifyRangeChanged rebinds only the named visible item, in
     adapter.NotifyRangeChanged(90, 1);
     CHECK(adapter.Binds[90] == 0);
 }
+
+TEST_CASE("damage: visual-only invalidation redraws WITHOUT layout damage")
+{
+    UIContext ctx;
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
+    auto view = core::MakeRef<foundation::ui::tests::TestView>(core::DefaultAllocator(), 50.0f,
+                                                               20.0f);
+    root->AddView(view.Get()); // tree mutation -> layout damage (the safe default)
+    CHECK(ctx.NeedsLayout());
+    CHECK(ctx.NeedsRedraw());
+
+    // The host consumed the frame's layout damage.
+    LayoutPass(ctx, root.Get());
+    ctx.ClearLayoutDamage();
+    CHECK(!ctx.NeedsLayout());
+
+    // Visual-only producer (hover tint / press state / focus ring): redraw, no relayout.
+    view->InvalidateVisual();
+    CHECK(!ctx.NeedsLayout());
+    CHECK(ctx.NeedsRedraw());
+
+    // A plain Invalidate stays the safe default: layout + redraw.
+    view->Invalidate();
+    CHECK(ctx.NeedsLayout());
+}

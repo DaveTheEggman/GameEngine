@@ -271,13 +271,26 @@ export namespace foundation::ui
         }
 
         // === Draw invalidation ===
-        void Invalidate(); // defined below (touches Context)
+        /// Layout-affecting change: the host re-measures + re-lays-out + redraws. The SAFE
+        /// default for any mutation (yesterday's only spelling).
+        void Invalidate(); // defined in the impl unit (touches Context)
+        /// Visual-only change (hover tint, press state, focus ring, caret): redraw WITHOUT
+        /// the whole-tree relayout. Use only where geometry provably cannot change.
+        void InvalidateVisual();
         [[nodiscard]] bool NeedsRedraw() const noexcept { return m_needsRedraw; }
         void ClearRedrawFlag() noexcept { m_needsRedraw = false; }
         void OnPropertyChanged(InvalidationKind kind) override
         {
-            (void)kind;
-            Invalidate();
+            // Properties DECLARE their damage: visual-only props (Opacity, TextColor, Cursor)
+            // skip the relayout; everything else takes the safe layout path.
+            if (kind == InvalidationKind::Visual)
+            {
+                InvalidateVisual();
+            }
+            else
+            {
+                Invalidate();
+            }
         }
 
         // === Layout ===
@@ -1149,6 +1162,11 @@ export namespace foundation::ui
 
         [[nodiscard]] Phase CurrentPhase() const noexcept { return m_phase; }
         [[nodiscard]] bool NeedsRedraw() const noexcept { return m_needsRedraw; }
+        /// Layout damage: some view's GEOMETRY may have changed since the last layout pass.
+        /// Visual-only damage (hover/caret/press) leaves this clear, so the host can redraw
+        /// without re-measuring the whole tree - the interaction-frame cost cut.
+        [[nodiscard]] bool NeedsLayout() const noexcept { return m_needsLayout; }
+        void ClearLayoutDamage() noexcept { m_needsLayout = false; }
         [[nodiscard]] f32 DeltaTime() const noexcept { return m_deltaTime; }
         [[nodiscard]] f32 TotalTime() const noexcept { return m_totalTime; }
         [[nodiscard]] usize RootViewCount() const noexcept { return m_rootViews.Size(); }
@@ -1298,6 +1316,11 @@ export namespace foundation::ui
 
         // === Frame lifecycle ===
         void MarkNeedsRedraw() noexcept { m_needsRedraw = true; }
+        void MarkNeedsLayout() noexcept
+        {
+            m_needsLayout = true;
+            m_needsRedraw = true; // a relayout always redraws
+        }
         void BeginFrame(f32 deltaTime)
         {
             m_deltaTime = deltaTime;
@@ -1406,6 +1429,7 @@ export namespace foundation::ui
         fonts::IFontService* m_fontService = nullptr;
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;
+        bool m_needsLayout = true;
         f32 m_deltaTime = 0.0f;
         f32 m_totalTime = 0.0f;
     };

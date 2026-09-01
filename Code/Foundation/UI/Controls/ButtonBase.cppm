@@ -89,7 +89,7 @@ export namespace foundation::ui
             if (e.Button == MouseButton::Left)
             {
                 m_isPressed = true;
-                Invalidate();
+                InvalidateVisual(); // press tint - geometry unchanged
                 e.Handled = true;
             }
         }
@@ -98,7 +98,7 @@ export namespace foundation::ui
             if (e.Button == MouseButton::Left && m_isPressed)
             {
                 m_isPressed = false;
-                Invalidate();
+                InvalidateVisual();
                 if (IsHovered())
                 {
                     FireClick();

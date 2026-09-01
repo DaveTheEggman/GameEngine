@@ -23,6 +23,17 @@ namespace foundation::ui
 
     void View::Invalidate()
     {
+        // The safe default: any mutation may have changed geometry, so the host re-lays-out
+        // before redrawing. Visual-only producers use InvalidateVisual to skip that pass.
+        m_needsRedraw = true;
+        if (Context != nullptr)
+        {
+            Context->MarkNeedsLayout();
+        }
+    }
+
+    void View::InvalidateVisual()
+    {
         m_needsRedraw = true;
         if (Context != nullptr)
         {

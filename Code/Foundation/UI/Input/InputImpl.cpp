@@ -90,7 +90,7 @@ namespace foundation::ui
             if (m_focusSource != source)
             {
                 m_focusSource = source;
-                view->Invalidate();
+                view->InvalidateVisual(); // focus ring only - geometry unchanged
             }
             return;
         }
@@ -98,12 +98,12 @@ namespace foundation::ui
         if (oldFocused != nullptr)
         {
             oldFocused->OnFocusLost();
-            oldFocused->Invalidate();
+            oldFocused->InvalidateVisual();
         }
         m_focusedId = view->Id;
         m_focusSource = source;
         view->OnFocusGained();
-        view->Invalidate();
+        view->InvalidateVisual();
     }
 
     void FocusManager::ClearFocus()
@@ -112,7 +112,7 @@ namespace foundation::ui
         if (oldFocused != nullptr)
         {
             oldFocused->OnFocusLost();
-            oldFocused->Invalidate();
+            oldFocused->InvalidateVisual();
         }
         m_focusedId = ViewId::Invalid;
         m_focusSource = FocusSource::Programmatic;
@@ -862,13 +862,13 @@ namespace foundation::ui
             if (View* oldHovered = m_context->GetViewById(m_hoveredId))
             {
                 oldHovered->OnMouseLeave();
-                oldHovered->Invalidate(); // hover tint OFF (damage gating: no free redraws)
+                oldHovered->InvalidateVisual(); // hover tint OFF (visual: no relayout)
             }
             m_hoveredId = newHoverId;
             if (hitView != nullptr)
             {
                 hitView->OnMouseEnter();
-                hitView->Invalidate(); // hover tint ON
+                hitView->InvalidateVisual(); // hover tint ON (visual: no relayout)
             }
             // Notify tooltip manager of hover change.
             m_context->Tooltips()->OnHoverChanged(hitView);

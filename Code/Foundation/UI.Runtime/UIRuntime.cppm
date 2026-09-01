@@ -210,6 +210,9 @@ export namespace foundation::ui::runtime
         [[nodiscard]] bool DamageGatingEnabled() const noexcept { return m_damageGateEnabled; }
         [[nodiscard]] u64 FramesDrawn() const noexcept { return m_framesDrawn; }
         [[nodiscard]] u64 FramesSkipped() const noexcept { return m_framesSkipped; }
+        /// Frames that ALSO re-measured + re-laid-out (subset of FramesDrawn; the gap is the
+        /// visual-only frames - hover/press/caret - that redraw over a valid layout).
+        [[nodiscard]] u64 FramesLaidOut() const noexcept { return m_framesLaidOut; }
 
         /// Background clear color behind the UI (the theme usually paints an opaque root over it).
         /// Takes the theme's color as authored (sRGB, like every UI color). The swapchain
@@ -514,6 +517,19 @@ export namespace foundation::ui::runtime
             }
             ++m_framesDrawn;
 
+            // Layout runs only on LAYOUT damage - visual-only frames (hover tint, press
+            // state, focus ring, caret blink) redraw without re-measuring every window's
+            // whole tree. That relayout was the interaction-frame cost: moving the mouse
+            // over a large dialog re-laid-out the entire editor each frame.
+            const bool layoutDamaged =
+                !m_damageGateEnabled || structural || m_ctx.NeedsLayout();
+            if (!layoutDamaged)
+            {
+                m_ctx.ClearLayoutDamage();
+                return; // draw-only: RenderWindow re-walks OnDraw over the valid layout
+            }
+            ++m_framesLaidOut;
+
             for (Attached& a : m_attached)
             {
                 a.data->root->ViewportSize =
@@ -537,6 +553,7 @@ export namespace foundation::ui::runtime
                     (void)a.data->CreateTargets(a.window->Swap()->Format(), w, h);
                 }
             }
+            m_ctx.ClearLayoutDamage(); // consumed by this frame's layout pass
         }
 
         /// Draw one window's RootView into its frame backbuffer. No-op for a non-UI or invalid frame.
@@ -1057,6 +1074,7 @@ export namespace foundation::ui::runtime
         bool m_frameDamaged = true;      // frame-scoped (set in Update, read by RenderWindow)
         u64 m_framesDrawn = 0;
         u64 m_framesSkipped = 0;
+        u64 m_framesLaidOut = 0;
         f32 m_uiScale = 1.0f; // user preference multiplier on the OS content scale
         rhi::ClearColor m_clear = rhi::ClearColor(0.006f, 0.006f, 0.009f, 1.0f);
     };
