@@ -704,6 +704,20 @@ export namespace pipeline{
             return ScriptBackendRegistry::Get().FindByExtension(extension) != nullptr;
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
+        [[nodiscard]] pipeline::ImportPlan StoredSelection(content::Group& group,
+                                                           StringView sourcePath) override
+        {
+            return pipeline::SingleAssetStoredSelection(group, sourcePath,
+                                                        u8"ScriptClassAsset");
+        }
+
         [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
             return {}; // no options dialog - the drop imports immediately
@@ -711,7 +725,7 @@ export namespace pipeline{
 
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context,
-               content::Group& group, const pipeline::ImportOptions*, Object*,
+               content::Group& group, const pipeline::ImportOptions* options, Object*,
                Array<pipeline::DeferredImportWrite>*) override
         {
             const String extension = pipeline::FileExtensionLower(sourcePath);
@@ -729,8 +743,8 @@ export namespace pipeline{
             }
 
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance =
-                group.CreateInstance(stem, ScriptClassAsset::StaticType());
+            content::Instance* instance = group.CreateInstance(
+                pipeline::SingleAssetName(options, stem), ScriptClassAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

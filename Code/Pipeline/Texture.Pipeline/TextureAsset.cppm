@@ -851,6 +851,12 @@ export namespace pipeline{
             return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
         }
 
+        [[nodiscard]] pipeline::ImportPlan StoredSelection(content::Group& group,
+                                                           StringView sourcePath) override
+        {
+            return pipeline::SingleAssetStoredSelection(group, sourcePath, u8"TextureAsset");
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context,
                content::Group& group, const pipeline::ImportOptions* options, Object*,

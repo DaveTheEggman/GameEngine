@@ -697,6 +697,25 @@ TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename re
     // The SOURCE keeps its file identity - only the asset instance is renamed.
     CHECK(FileExists(PathJoin(dir, u8"Sources/wall.png").AsView()));
 
+    // RE-IMPORT MEMORY: the renamed asset is found again through its typed fileName
+    // back-reference; merging pre-seeds the fresh plan with the rename, and committing
+    // with it UPDATES the renamed instance instead of minting a duplicate "wall".
+    pipeline::ImportPlan stored =
+        importer.StoredSelection(*project->SourceDb().RootGroup(), u8"wall.png");
+    REQUIRE(stored.entries.Size() == 1u);
+    CHECK(stored.entries[0].targetName == u8"wall_albedo");
+    pipeline::ImportPlan fresh = importer.DescribeImport(u8"wall.png", nullptr, nullptr);
+    pipeline::MergeStoredSelection(fresh, stored);
+    CHECK(fresh.entries[0].targetName == u8"wall_albedo");
+    auto reOptions = MakeRef<pipeline::ImportOptions>(DefaultAllocator());
+    reOptions->selection = Move(fresh);
+    Result<foundation::content::Instance*> reimported = importer.Import(
+        u8"wall.png", pipeline::ImportContext{project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), reOptions.Get(), nullptr, nullptr);
+    REQUIRE(reimported.HasValue());
+    CHECK(reimported.Value() == imported.Value()); // same instance, updated
+    CHECK(project->SourceDb().RootGroup()->GetInstance(u8"wall") == nullptr);
+
     FileDelete(u8"wall.png");
     cleanTree();
 }

@@ -6,7 +6,7 @@
 add_library(Pipeline.Importer STATIC)
 add_library(Pipeline::Importer ALIAS Pipeline.Importer)
 
-target_link_libraries(Pipeline.Importer PUBLIC Foundation::Core Foundation::Content Foundation::VFS Foundation::Policy)
+target_link_libraries(Pipeline.Importer PUBLIC Foundation::Core Foundation::Content Foundation::VFS Foundation::Policy Pipeline::Core)
 
 target_sources(Pipeline.Importer
     PRIVATE

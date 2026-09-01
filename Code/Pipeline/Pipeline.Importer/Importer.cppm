@@ -22,6 +22,7 @@ export module pipeline.importer;
 
 import foundation.core;
 import foundation.content;
+import pipeline.core; // Asset (the typed fileName back-reference re-import memory matches on)
 
 using namespace foundation::core;
 
@@ -397,6 +398,42 @@ export namespace pipeline
     {
         return (options != nullptr) ? options->SelectionName(ImportResourceKind::Asset, stem)
                                     : stem;
+    }
+
+    /// Re-import memory for single-asset importers: find the asset a PREVIOUS import of this
+    /// source created in `group` - matched by the typed fileName back-reference, so a RENAMED
+    /// asset stays findable - and return its current name as the stored rename. `typeName`
+    /// filters candidates before the envelope read (the read is the expensive part).
+    [[nodiscard]] inline ImportPlan SingleAssetStoredSelection(foundation::content::Group& group,
+                                                              StringView sourcePath,
+                                                              StringView typeName)
+    {
+        const StringView fileName = FileNameOf(sourcePath);
+        if (fileName.IsEmpty())
+        {
+            return {};
+        }
+        for (foundation::content::Instance* instance : group.Instances())
+        {
+            if (instance->TypeName() != typeName)
+            {
+                continue;
+            }
+            RefPtr<ISerializable> object = instance->ReadObject();
+            const auto* asset = Cast<Asset>(object.Get());
+            if (asset == nullptr || asset->fileName != fileName)
+            {
+                continue;
+            }
+            ImportPlan plan;
+            ImportPlanEntry e;
+            e.kind = ImportResourceKind::Asset;
+            e.sourceName = String(FileStemOf(fileName));
+            e.targetName = String(instance->Name());
+            plan.entries.PushBack(Move(e));
+            return plan;
+        }
+        return {};
     }
 
     /// Copy an OS file into the project's Sources/ tree. Returns the sources-relative name the

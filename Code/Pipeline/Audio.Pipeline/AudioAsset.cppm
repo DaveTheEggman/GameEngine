@@ -358,6 +358,12 @@ export namespace pipeline{
             return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
         }
 
+        [[nodiscard]] pipeline::ImportPlan StoredSelection(content::Group& group,
+                                                           StringView sourcePath) override
+        {
+            return pipeline::SingleAssetStoredSelection(group, sourcePath, u8"AudioClipAsset");
+        }
+
         [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
             return MakeRef<AudioImportOptions>(DefaultAllocator());

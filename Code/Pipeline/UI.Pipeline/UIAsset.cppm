@@ -232,9 +232,25 @@ export namespace pipeline{
             return extension == u8"sml" || extension == u8"sss";
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
+        [[nodiscard]] pipeline::ImportPlan StoredSelection(foundation::content::Group& group,
+                                                           StringView sourcePath) override
+        {
+            const bool isTheme = pipeline::FileExtensionLower(sourcePath) == u8"sss";
+            return pipeline::SingleAssetStoredSelection(
+                group, sourcePath, isTheme ? u8"UIThemeAsset" : u8"UIDocumentAsset");
+        }
+
         [[nodiscard]] Result<foundation::content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context,
-               foundation::content::Group& group, const pipeline::ImportOptions*, Object*,
+               foundation::content::Group& group,
+               const pipeline::ImportOptions* options, Object*,
                Array<pipeline::DeferredImportWrite>*) override
         {
             const bool isTheme = pipeline::FileExtensionLower(sourcePath) == u8"sss";
@@ -247,7 +263,8 @@ export namespace pipeline{
 
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             foundation::content::Instance* instance = group.CreateInstance(
-                stem, isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
+                pipeline::SingleAssetName(options, stem),
+                isTheme ? UIThemeAsset::StaticType() : UIDocumentAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);
