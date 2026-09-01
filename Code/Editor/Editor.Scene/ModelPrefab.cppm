@@ -103,6 +103,12 @@ export namespace editor
                 continue;
             }
             const usize meshIndex = static_cast<usize>(node.meshIndex);
+            if (manifest.meshGuids[meshIndex].IsNil())
+            {
+                // A held slot: the mesh folded into a LOD chain or was deselected at import -
+                // an empty MeshComponent would only be noise.
+                continue;
+            }
             engine::render::MeshComponent& mc = meshes->Add(entities[i]);
             mc.mesh.SetId(manifest.meshGuids[meshIndex]);
 

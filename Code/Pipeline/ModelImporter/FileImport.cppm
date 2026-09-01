@@ -1021,7 +1021,21 @@ export namespace pipeline
             {
                 if (lodOf[i] >= 0)
                 {
-                    continue; // consumed as a chain level of its base - no asset of its own
+                    // Consumed as a chain level of its base - no asset of its own, but the
+                    // manifest slot MUST hold (nil guid): node.meshIndex is a MODEL mesh
+                    // index, and dropping the entry shifted every later mesh's slot - nodes
+                    // then referenced the wrong mesh or fell out of range, and the generated
+                    // prefab/scene silently lost meshes on authored-LOD models.
+                    const foundation::model::ModelMesh& folded = *meshes[i];
+                    manifest.meshGuids.PushBack(Guid{});
+                    manifest.meshSkinned.PushBack(
+                        (IsSkinnedMesh(folded) && hasSkin) ? u8{1} : u8{0});
+                    const Span<const foundation::model::ModelMeshPart> foldedParts =
+                        folded.parts();
+                    manifest.meshMaterial.PushBack(
+                        foldedParts.Size() > 0 ? foldedParts[0].materialIndex : -1);
+                    meshSourceNames.PushBack(ImportedAssetName(folded.name(), u8"mesh", i));
+                    continue;
                 }
                 const foundation::model::ModelMesh& m = *meshes[i];
                 const bool skinned = IsSkinnedMesh(m) && hasSkin;

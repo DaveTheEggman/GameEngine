@@ -1396,3 +1396,99 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
 
     cleanTree();
 }
+
+TEST_CASE("model-import: LOD folding holds the manifest slot so node mesh indices stay valid")
+{
+    // Regression: meshes [Part_LOD1, Part] folded the level OUT of manifest.meshGuids while
+    // node.meshIndex kept the MODEL index - the Part node's index 1 fell out of the 1-entry
+    // array and the generated prefab silently lost the mesh.
+    using namespace editor;
+    using namespace pipeline;
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterMeshAssets();
+
+    const StringView dir = u8"scratch_model_lodslot_project";
+    FileDelete(PathJoin(dir, u8"Content/lodtest/Part.xasset"));
+    FileDelete(PathJoin(dir, u8"Content/lodtest/Part.geometry.bin"));
+    FileDelete(PathJoin(dir, u8"Content/lodtest/lodtest.xasset"));
+    (void)RemoveDirectory(PathJoin(dir, u8"Content/lodtest"));
+    FileDelete(PathJoin(dir, u8"Sources/lodtest.glb"));
+    for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache", u8"Editor"})
+    {
+        (void)RemoveDirectory(PathJoin(dir, sub));
+    }
+    FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
+    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    // The dropped file only needs to EXIST (provenance copy); the parsed model arrives as
+    // the prepared payload, exactly like the editor's worker-prepare path.
+    const String fakeSource = PathJoin(dir, u8"lodtest.glb");
+    const byte junk[4] = {byte{1}, byte{2}, byte{3}, byte{4}};
+    REQUIRE(WriteFile(fakeSource.AsView(), Span<const byte>(junk, 4)).IsOk());
+
+    struct SrcVertex
+    {
+        Float3 pos;
+        Float3 normal;
+        Float2 uv;
+    };
+    const SrcVertex verts[3] = {
+        {{0, 0, 0}, {0, 0, 1}, {0, 0}},
+        {{1, 0, 0}, {0, 0, 1}, {0, 1}},
+        {{1, 1, 0}, {0, 0, 1}, {1, 1}},
+    };
+    const u32 indices[3] = {0, 1, 2};
+    const auto makeMesh = [&](StringView name) -> model::ModelMesh*
+    {
+        auto* mesh = new model::ModelMesh();
+        mesh->setName(name);
+        mesh->addVertexElement(model::VertexElement(model::VertexSemantic::Position,
+                                                    model::VertexElementFormat::Float3, 0));
+        mesh->addVertexElement(model::VertexElement(model::VertexSemantic::Normal,
+                                                    model::VertexElementFormat::Float3, 12));
+        mesh->addVertexElement(model::VertexElement(model::VertexSemantic::TexCoord,
+                                                    model::VertexElementFormat::Float2, 24));
+        mesh->allocateVertices(3, sizeof(SrcVertex));
+        mesh->setVertexData(verts, 3);
+        mesh->allocateIndices(3, true);
+        mesh->setIndexData(indices, 3);
+        return mesh;
+    };
+
+    auto prepared = MakeRef<pipeline::LoadedModel>(DefaultAllocator());
+    // The LEVEL sits at index 0, the BASE at index 1 - the shape that shifted the slots.
+    (void)prepared->model.addMesh(makeMesh(u8"Part_LOD1"));
+    (void)prepared->model.addMesh(makeMesh(u8"Part"));
+    auto* node = new model::ModelBone();
+    node->setName(u8"PartNode");
+    node->meshIndex = 1; // references the BASE by model index
+    (void)prepared->model.addBone(node);
+    prepared->model.calculateBounds();
+
+    pipeline::ModelFileImporter importer;
+    Result<foundation::content::Instance*> imported = importer.Import(
+        fakeSource.AsView(), pipeline::ImportContext{project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), nullptr, prepared.Get(), nullptr);
+    REQUIRE(imported.HasValue());
+
+    RefPtr<ISerializable> object = imported.Value()->ReadObject();
+    auto* manifestAsset = Cast<pipeline::ModelManifestAsset>(object.Get());
+    REQUIRE(manifestAsset != nullptr);
+    const foundation::model::ModelManifestSource& manifest = manifestAsset->manifest;
+
+    // BOTH model meshes hold a slot: the folded level as nil, the base as a real asset -
+    // and the node's model-space index resolves to the base's guid.
+    REQUIRE(manifest.meshGuids.Size() == 2u);
+    CHECK(manifest.meshGuids[0].IsNil());
+    CHECK(!manifest.meshGuids[1].IsNil());
+    REQUIRE(manifest.nodes.Size() == 1u);
+    CHECK(manifest.nodes[0].meshIndex == 1);
+    foundation::content::Instance* part =
+        imported.Value()->OwningGroup().GetInstance(u8"Part");
+    REQUIRE(part != nullptr);
+    CHECK(part->Id() == manifest.meshGuids[1]);
+    CHECK(imported.Value()->OwningGroup().GetInstance(u8"Part_LOD1") == nullptr);
+}
