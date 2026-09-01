@@ -68,11 +68,18 @@ export namespace pipeline
         RTTI_OBJECT(ModelManifestAsset, pipeline::Asset)
     public:
         ModelManifestSource manifest;
+        // Re-import memory: the review dialog's decisions from the import that wrote this
+        // manifest - a re-import merges them onto the fresh plan instead of re-asking.
+        pipeline::ImportPlan importSelection;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName = the imported model file (re-import seed)
             manifest.Serialize(ar);
+            if (ar.Version() >= 1) // v1: importSelection (see RegisterModelManifestAsset)
+            {
+                foundation::core::Serialize(ar, "importSelection", importSelection);
+            }
         }
     };
 
@@ -350,6 +357,28 @@ export namespace pipeline
             return plan;
         }
 
+        /// The selection the previous import of this source stored on its manifest (the
+        /// fan-out lands in a subgroup named after the file stem; the manifest carries the
+        /// review decisions that produced it).
+        [[nodiscard]] pipeline::ImportPlan StoredSelection(content::Group& group,
+                                                           StringView sourcePath) override
+        {
+            const StringView stem = pipeline::FileStemOf(pipeline::FileNameOf(sourcePath));
+            content::Group* modelGroup = group.GetGroup(stem);
+            content::Instance* manifestInst =
+                (modelGroup != nullptr) ? modelGroup->GetInstance(stem) : nullptr;
+            if (manifestInst == nullptr ||
+                manifestInst->TypeName() != StringView(u8"ModelManifestAsset"))
+            {
+                return {};
+            }
+            RefPtr<ISerializable> object = manifestInst->ReadObject();
+            auto* asset = Cast<ModelManifestAsset>(object.Get());
+            return (asset != nullptr)
+                       ? static_cast<pipeline::ImportPlan&&>(asset->importSelection)
+                       : pipeline::ImportPlan{};
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
                const pipeline::ImportOptions* options, Object* prepared,
@@ -418,6 +447,7 @@ export namespace pipeline
 
             ModelManifestAsset manifestAsset;
             manifestAsset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
+            manifestAsset.importSelection = opt.selection; // re-import memory
             ModelManifestSource& manifest = manifestAsset.manifest;
             manifest.boundsMin = model.bounds().min;
             manifest.boundsMax = model.bounds().max;
@@ -1272,6 +1302,10 @@ export namespace pipeline
     // Registers the manifest asset type for content-DB construction + deserialization.
     inline void RegisterModelManifestAsset()
     {
+        // v1 = importSelection (re-import memory). No REFLECT block owns this type, so the
+        // data version is patched directly on the registered TypeInfo - pre-v1 envelopes
+        // skip the gated read (the strict-versioning rule).
+        const_cast<TypeInfo&>(ModelManifestAsset::StaticType()).dataVersion = 1;
         GlobalTypeRegistry().Register(ModelManifestAsset::StaticType());
         RegisterSerializable<ModelManifestAsset>();
     }

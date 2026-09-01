@@ -96,6 +96,39 @@ export namespace pipeline
         }
     };
 
+    inline void Serialize(ISerializer& ar, ImportPlanEntry& e)
+    {
+        u8 kind = static_cast<u8>(e.kind);
+        foundation::core::Serialize(ar, "kind", kind);
+        e.kind = static_cast<ImportResourceKind>(kind);
+        foundation::core::Serialize(ar, "sourceName", e.sourceName);
+        foundation::core::Serialize(ar, "targetName", e.targetName);
+        foundation::core::Serialize(ar, "enabled", e.enabled);
+    }
+
+    inline void Serialize(ISerializer& ar, ImportPlan& p)
+    {
+        foundation::core::Serialize(ar, "entries", p.entries);
+    }
+
+    /// Re-import memory: overlay the STORED decisions of a previous import onto a freshly
+    /// described plan. Matched entries (kind + sourceName) take the stored enabled state and
+    /// rename; resources NEW in the source stay at their described defaults.
+    inline void MergeStoredSelection(ImportPlan& plan, const ImportPlan& stored)
+    {
+        for (ImportPlanEntry& e : plan.entries)
+        {
+            if (const ImportPlanEntry* s = stored.Find(e.kind, e.sourceName.AsView()))
+            {
+                e.enabled = s->enabled;
+                if (!s->targetName.IsEmpty())
+                {
+                    e.targetName = s->targetName;
+                }
+            }
+        }
+    }
+
     /// Importer-specific options, shown by the import dialog before the import runs. The
     /// dialog renders one checkbox per Toggle (each points into the options object) - a
     /// declarative description, no reflection required. Subclasses add their fields and
@@ -241,6 +274,15 @@ export namespace pipeline
         [[nodiscard]] virtual ImportPlan DescribeImport(StringView /*sourcePath*/,
                                                         const ImportOptions* /*options*/,
                                                         Object* /*prepared*/)
+        {
+            return {};
+        }
+
+        /// Re-import memory: the selection a PREVIOUS import of this source stored in the
+        /// target group (empty = none / unsupported). The editor merges it onto the fresh
+        /// plan (MergeStoredSelection) so re-importing does not re-ask settled decisions.
+        [[nodiscard]] virtual ImportPlan StoredSelection(foundation::content::Group& /*group*/,
+                                                        StringView /*sourcePath*/)
         {
             return {};
         }

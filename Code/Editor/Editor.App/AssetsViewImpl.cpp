@@ -132,13 +132,16 @@ namespace editor::app
 
         // Inline describe for light importers (worker-prepare importers land through the
         // jobs below instead - describing them inline would stall the UI on a full parse).
-        dialog->DescribeFile = [](app::BatchImportDialog::FileEntry& entry)
+        content::Group* describeGroup = group; // re-import memory reads the initial target
+        dialog->DescribeFile = [describeGroup](app::BatchImportDialog::FileEntry& entry)
         {
             pipeline::IFileImporter* importer = entry.candidates[entry.importerIndex];
             if (!importer->WantsWorkerPrepare())
             {
                 entry.plan =
                     importer->DescribeImport(entry.path.AsView(), entry.options.Get(), nullptr);
+                pipeline::MergeStoredSelection(
+                    entry.plan, importer->StoredSelection(*describeGroup, entry.path.AsView()));
                 entry.described = true;
             }
         };
@@ -198,6 +201,12 @@ namespace editor::app
                             e.prepared = prepared;
                             e.plan = importer->DescribeImport(e.path.AsView(), e.options.Get(),
                                                              prepared.Get());
+                            if (self->m_importTargetGroup != nullptr)
+                            {
+                                pipeline::MergeStoredSelection(
+                                    e.plan, importer->StoredSelection(
+                                                *self->m_importTargetGroup, e.path.AsView()));
+                            }
                             e.described = true;
                         }
                         keepAlive->OnFilePrepared(i);
@@ -311,6 +320,7 @@ namespace editor::app
             ExecuteImport(String(path), importer, {});
             return;
         }
+        pipeline::MergeStoredSelection(plan, importer->StoredSelection(*group, path));
         if (options.Get() == nullptr)
         {
             options = RefPtr<pipeline::ImportOptions>(
@@ -343,6 +353,8 @@ namespace editor::app
                                     : m_context->Project()->SourceDb().RootGroup();
         pipeline::ImportPlan plan =
             importer->DescribeImport(path.AsView(), options.Get(), prepared.Get());
+        // Re-import memory: a previous import of this source into this group seeds the plan.
+        pipeline::MergeStoredSelection(plan, importer->StoredSelection(*group, path.AsView()));
         auto dialog =
             MakeRef<ImportOptionsDialog>(DefaultAllocator(), path.AsView(),
                                          group->Path().AsView(), options, Move(plan));

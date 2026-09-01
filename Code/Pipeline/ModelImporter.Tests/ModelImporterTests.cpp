@@ -1392,6 +1392,28 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
         CHECK(manifest->manifest.animationGuids.IsEmpty());
         CHECK(!manifest->manifest.meshGuids.IsEmpty());
         CHECK(!manifest->manifest.meshGuids[0].IsNil());
+
+        // RE-IMPORT MEMORY: the manifest stored the decisions; StoredSelection reads them
+        // back, and merging onto a fresh plan reproduces them - clips stay off, the rename
+        // sticks, without the user re-answering anything.
+        pipeline::ImportPlan stored = importer.StoredSelection(*target, glb);
+        REQUIRE(!stored.IsEmpty());
+        pipeline::ImportPlan fresh = importer.DescribeImport(glb, nullptr, nullptr);
+        pipeline::MergeStoredSelection(fresh, stored);
+        bool sawRenamedMesh = false;
+        for (const pipeline::ImportPlanEntry& e : fresh.entries)
+        {
+            if (e.kind == pipeline::ImportResourceKind::AnimationClip)
+            {
+                CHECK(!e.enabled);
+            }
+            if (e.sourceName == meshSource)
+            {
+                sawRenamedMesh = true;
+                CHECK(e.targetName == u8"hero.mesh");
+            }
+        }
+        CHECK(sawRenamedMesh);
     }
 
     cleanTree();
