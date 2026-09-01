@@ -16,10 +16,12 @@
 > P4 SHIPPED (b353bef6): re-import memory for models - the manifest stores
 > the committed selection (envelope v1), StoredSelection + merge pre-seed
 > every describe site.
-> NOT yet: previews, presets/inference, script/UI importer describe,
-> single-asset re-import memory (a renamed asset needs a source-file ->
-> asset back-reference to find again; the typed fileName field is the
-> candidate). User visual verify owed on BOTH dialogs.
+> P5 SHIPPED (f67efacc): single-asset re-import memory (the typed fileName
+> back-reference finds a RENAMED asset again; re-import updates it instead
+> of duplicating) + script/UI importers describe. All nine importers are
+> now review-capable.
+> NOT yet: previews, presets/inference. User visual verify owed on BOTH
+> dialogs.
 
 > DRAFT for discussion (user + Fable, 2026-08-31). Nothing here is scheduled;
 > the user wants ONE well-planned improvement pass over import UX rather than
