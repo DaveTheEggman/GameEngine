@@ -44,6 +44,7 @@ export namespace pipeline
         Skeleton,
         AnimationClip,
         Collision,
+        Asset, // a single-asset importer's one product (texture/image/audio/font/... file)
     };
 
     [[nodiscard]] inline StringView ImportResourceKindLabel(ImportResourceKind kind) noexcept
@@ -56,9 +57,13 @@ export namespace pipeline
         case ImportResourceKind::Skeleton: return u8"Skeleton";
         case ImportResourceKind::AnimationClip: return u8"Animation Clips";
         case ImportResourceKind::Collision: return u8"Collision";
+        case ImportResourceKind::Asset: return u8"Asset";
         }
         return u8"Resources";
     }
+
+    // (SingleAssetPlan - the shared single-asset DescribeImport - is defined below the path
+    // helpers it uses.)
 
     /// One resource an import WOULD create. `sourceName` is the importer's deterministic base
     /// name for the resource (the stable key the commit matches on); `targetName` is what the
@@ -329,6 +334,27 @@ export namespace pipeline
             }
         }
         return fileName;
+    }
+
+    /// The plan of a SINGLE-ASSET importer: one Asset entry named after the file stem - the
+    /// shared DescribeImport for texture/image/audio/font/heightfield/splatmap.
+    [[nodiscard]] inline ImportPlan SingleAssetPlan(StringView sourcePath)
+    {
+        ImportPlan plan;
+        ImportPlanEntry e;
+        e.kind = ImportResourceKind::Asset;
+        e.sourceName = String(FileStemOf(FileNameOf(sourcePath)));
+        e.targetName = e.sourceName;
+        plan.entries.PushBack(Move(e));
+        return plan;
+    }
+
+    /// The instance name a single-asset importer should CLAIM: the user's rename when a
+    /// selection carries one, else the stem.
+    [[nodiscard]] inline StringView SingleAssetName(const ImportOptions* options, StringView stem)
+    {
+        return (options != nullptr) ? options->SelectionName(ImportResourceKind::Asset, stem)
+                                    : stem;
     }
 
     /// Copy an OS file into the project's Sources/ tree. Returns the sources-relative name the

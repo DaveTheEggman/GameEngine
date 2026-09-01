@@ -117,6 +117,12 @@ namespace editor::app
         for (app::BatchImportDialog::FileEntry& entry : files)
         {
             entry.options = entry.candidates[entry.importerIndex]->CreateOptions();
+            if (entry.options.Get() == nullptr)
+            {
+                // Bare selection carrier so option-less importers still honor renames.
+                entry.options = RefPtr<pipeline::ImportOptions>(
+                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+            }
         }
         auto dialog = MakeRef<app::BatchImportDialog>(DefaultAllocator(), group->Path().AsView(),
                                                       Move(files));
@@ -252,17 +258,18 @@ namespace editor::app
         m_importTargetGroup = group;
 
         RefPtr<pipeline::ImportOptions> options = importer->CreateOptions();
-        if (options.Get() == nullptr)
-        {
-            ExecuteImport(String(path), importer, {});
-            return;
-        }
 
         // Review-capable importers (DescribeImport) invert the order: the slow parse runs
         // FIRST (worker), the dialog then lists every resource the import would create
         // (check/uncheck + rename), and commit reuses the prepared payload - no second load.
         if (importer->WantsWorkerPrepare() && m_jobs != nullptr)
         {
+            if (options.Get() == nullptr)
+            {
+                // Bare selection carrier - the review dialog's renames travel on the base.
+                options = RefPtr<pipeline::ImportOptions>(
+                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+            }
             String title(u8"Reading ");
             title += pipeline::FileNameOf(path);
             auto* holder = DefaultAllocator().New<RefPtr<Object>>();
@@ -295,9 +302,20 @@ namespace editor::app
             return;
         }
 
-        // Inline importers: describe here (cheap parse) - an empty plan degrades to the
-        // toggles-only dialog.
+        // Inline importers: describe here (cheap parse). Importers with NO options and NO
+        // plan (script/UI stubs) still import immediately; everything else opens the review
+        // dialog - per the one-dialog ruling, even a single texture gets its rename row.
         pipeline::ImportPlan plan = importer->DescribeImport(path, options.Get(), nullptr);
+        if (options.Get() == nullptr && plan.IsEmpty())
+        {
+            ExecuteImport(String(path), importer, {});
+            return;
+        }
+        if (options.Get() == nullptr)
+        {
+            options = RefPtr<pipeline::ImportOptions>(
+                MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+        }
         auto dialog = MakeRef<ImportOptionsDialog>(DefaultAllocator(), path,
                                                    group->Path().AsView(), options, Move(plan));
         AssetsView* self = this;

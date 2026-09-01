@@ -756,9 +756,16 @@ export namespace pipeline
             return extension == u8"png";
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context, content::Group& group,
-               const pipeline::ImportOptions*, Object*, Array<pipeline::DeferredImportWrite>*) override
+               const pipeline::ImportOptions* options, Object*, Array<pipeline::DeferredImportWrite>*) override
         {
             Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
             if (!fileName.HasValue())
@@ -766,7 +773,8 @@ export namespace pipeline
                 return Err(fileName.Error());
             }
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance = group.CreateInstance(stem, SplatmapAsset::StaticType());
+            content::Instance* instance = group.CreateInstance(
+                pipeline::SingleAssetName(options, stem), SplatmapAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

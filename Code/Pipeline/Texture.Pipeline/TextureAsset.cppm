@@ -844,9 +844,16 @@ export namespace pipeline{
             return false;
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context,
-               content::Group& group, const pipeline::ImportOptions*, Object*,
+               content::Group& group, const pipeline::ImportOptions* options, Object*,
                Array<pipeline::DeferredImportWrite>*) override
         {
             // Cubemap intent: the dropped file's stem matches a face convention (px/nx/...,
@@ -879,7 +886,8 @@ export namespace pipeline{
             }
 
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance = group.CreateInstance(stem, TextureAsset::StaticType());
+            content::Instance* instance = group.CreateInstance(
+                pipeline::SingleAssetName(options, stem), TextureAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

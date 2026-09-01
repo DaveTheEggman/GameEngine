@@ -359,9 +359,16 @@ export namespace pipeline{
             return extension == u8"ttf" || extension == u8"otf" || extension == u8"ttc";
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
         [[nodiscard]] Result<content::Instance*>
         Import(StringView sourcePath, const pipeline::ImportContext& context,
-               content::Group& group, const pipeline::ImportOptions*, Object*,
+               content::Group& group, const pipeline::ImportOptions* options, Object*,
                Array<pipeline::DeferredImportWrite>*) override
         {
             Result<String> fileName = pipeline::CopyIntoSources(context, sourcePath);
@@ -370,7 +377,8 @@ export namespace pipeline{
                 return Err(fileName.Error());
             }
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance = group.CreateInstance(stem, FontAsset::StaticType());
+            content::Instance* instance = group.CreateInstance(
+                pipeline::SingleAssetName(options, stem), FontAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

@@ -571,6 +571,12 @@ export namespace editor::app
             }
             entry.importerIndex = importerIndex;
             entry.options = entry.candidates[importerIndex]->CreateOptions();
+            if (entry.options.Get() == nullptr)
+            {
+                // Bare selection carrier (option-less importers still honor renames).
+                entry.options = RefPtr<pipeline::ImportOptions>(
+                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+            }
             entry.prepared = {}; // payloads are importer-specific
             entry.plan = {};
             entry.described = false;

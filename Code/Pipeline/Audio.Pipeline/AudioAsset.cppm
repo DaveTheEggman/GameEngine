@@ -351,6 +351,13 @@ export namespace pipeline{
             return false;
         }
 
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath); // one asset, named after the stem
+        }
+
         [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
         {
             return MakeRef<AudioImportOptions>(DefaultAllocator());
@@ -383,7 +390,8 @@ export namespace pipeline{
             }
 
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
-            content::Instance* instance = group.CreateInstance(stem, AudioClipAsset::StaticType());
+            content::Instance* instance = group.CreateInstance(
+                pipeline::SingleAssetName(options, stem), AudioClipAsset::StaticType());
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

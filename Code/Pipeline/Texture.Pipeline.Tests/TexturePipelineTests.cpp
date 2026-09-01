@@ -652,3 +652,51 @@ TEST_CASE("texture profiles configure usage + color space with the sampler")
     CHECK(a.colorSpace == image::ImageColorSpace::Linear);
     CHECK(a.shape == TextureShape::Cubemap);
 }
+
+TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename renames it")
+{
+    RegisterTextureAsset();
+
+    const StringView dir = u8"scratch_tex_rename_project";
+    auto cleanTree = [&]()
+    {
+        FileDelete(PathJoin(dir, u8"Project.xml"));
+        FileDelete(PathJoin(dir, u8"Sources/wall.png"));
+        FileDelete(PathJoin(dir, u8"Content/wall_albedo.xasset"));
+        for (StringView sub : {u8"Content", u8"Sources", u8"Cooked", u8"Editor", u8".cache"})
+        {
+            RemoveDirectory(PathJoin(dir, sub));
+        }
+        RemoveDirectory(dir);
+    };
+    cleanTree();
+    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(static_cast<bool>(project));
+
+    const byte fakePng[6] = {byte{'P'}, byte{'N'}, byte{'G'}, byte{4}, byte{5}, byte{6}};
+    REQUIRE(WriteFile(u8"wall.png", Span<const byte>(fakePng, 6)).IsOk());
+
+    TextureFileImporter importer;
+    pipeline::ImportPlan plan = importer.DescribeImport(u8"wall.png", nullptr, nullptr);
+    REQUIRE(plan.entries.Size() == 1u);
+    CHECK(plan.entries[0].kind == pipeline::ImportResourceKind::Asset);
+    CHECK(plan.entries[0].sourceName == u8"wall");
+    CHECK(plan.entries[0].targetName == u8"wall");
+
+    // The review dialog's rename travels on the BASE options (option-less importer).
+    auto options = MakeRef<pipeline::ImportOptions>(DefaultAllocator());
+    plan.entries[0].targetName = String(u8"wall_albedo");
+    options->selection = Move(plan);
+    Result<foundation::content::Instance*> imported = importer.Import(
+        u8"wall.png", pipeline::ImportContext{project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), options.Get(), nullptr, nullptr);
+    REQUIRE(imported.HasValue());
+    CHECK(imported.Value()->Name() == StringView(u8"wall_albedo"));
+    CHECK(project->SourceDb().RootGroup()->GetInstance(u8"wall") == nullptr);
+    // The SOURCE keeps its file identity - only the asset instance is renamed.
+    CHECK(FileExists(PathJoin(dir, u8"Sources/wall.png").AsView()));
+
+    FileDelete(u8"wall.png");
+    cleanTree();
+}
