@@ -9,8 +9,17 @@
 > toggles, shared destination, streaming worker prepares, Import gated on
 > described). Also FIXED (48bf978a): LOD folding shifted manifest mesh
 > slots - authored-LOD models lost meshes in generated prefabs/scenes.
-> NOT yet: previews, presets/inference, other importers' DescribeImport,
-> re-import memory. User visual verify owed on BOTH dialogs.
+> P3 SHIPPED (aca3a502): single-asset importers
+> (texture/image/audio/heightfield/splatmap/font) describe + honor renames
+> via a bare-ImportOptions carrier; a single dropped file always gets its
+> one-row review (only option-less+plan-less importers import immediately).
+> P4 SHIPPED (b353bef6): re-import memory for models - the manifest stores
+> the committed selection (envelope v1), StoredSelection + merge pre-seed
+> every describe site.
+> NOT yet: previews, presets/inference, script/UI importer describe,
+> single-asset re-import memory (a renamed asset needs a source-file ->
+> asset back-reference to find again; the typed fileName field is the
+> candidate). User visual verify owed on BOTH dialogs.
 
 > DRAFT for discussion (user + Fable, 2026-08-31). Nothing here is scheduled;
 > the user wants ONE well-planned improvement pass over import UX rather than
