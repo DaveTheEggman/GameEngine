@@ -69,6 +69,41 @@ namespace engine::navigation
                     });
             }
 
+            if (settings.debugDrawBakeStages)
+            {
+                if (auto* system = scene.GetSystem<NavigationSceneSystem>())
+                {
+                    const NavigationSceneSystem::BakeStageCache& stages = system->BakeStages();
+                    if (!stages.contourLines.IsEmpty() || !stages.walkableSamples.IsEmpty())
+                    {
+                        // Placed by the zone entity's RIGID frame - the same frame the bake
+                        // captured in (zone-local), so stages overlay the mesh exactly.
+                        const Float4x4 world =
+                            scene.FindEntity(scene.GetEntityId(stages.zoneEntity))
+                                    .IsAssigned()
+                                ? RigidPart(scene.GetWorldMatrix(stages.zoneEntity))
+                                : Float4x4::Identity();
+                        const Color contourColor{1.0f, 0.55f, 0.15f, 1.0f}; // orange outlines
+                        for (usize i = 0; i + 1 < stages.contourLines.Size(); i += 2)
+                        {
+                            draw.DrawLine(TransformPoint(stages.contourLines[i], world),
+                                          TransformPoint(stages.contourLines[i + 1], world),
+                                          contourColor);
+                        }
+                        // Span-top ticks, strided to a sane draw budget.
+                        const Color spanColor{0.35f, 0.9f, 0.35f, 1.0f};
+                        const usize stride =
+                            1 + stages.walkableSamples.Size() / 20000; // <= ~20k ticks
+                        for (usize i = 0; i < stages.walkableSamples.Size(); i += stride)
+                        {
+                            const Float3 p =
+                                TransformPoint(stages.walkableSamples[i], world);
+                            draw.DrawLine(p, p + Float3{0, 0.15f, 0}, spanColor);
+                        }
+                    }
+                }
+            }
+
             if (settings.debugDrawPaths)
             {
                 if (auto* agents = scene.GetSystem<NavAgentComponentManager>())
@@ -191,9 +226,10 @@ namespace engine::navigation
 
     REFLECT_VALUE(NavigationSceneSettings, "rtti::engine::navigation")
     {
-        builder.DataVersion(1);
+        builder.DataVersion(2); // v2: debugDrawBakeStages
         builder.Property<&NavigationSceneSettings::debugDraw>("debugDraw");
         builder.Property<&NavigationSceneSettings::debugDrawPaths>("debugDrawPaths");
+        builder.Property<&NavigationSceneSettings::debugDrawBakeStages>("debugDrawBakeStages");
     }
 
     void RegisterNavigationComponentReflection()

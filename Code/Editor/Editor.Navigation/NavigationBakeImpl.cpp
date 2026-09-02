@@ -221,10 +221,19 @@ namespace editor::navigation
             Array<byte> blob;
             // TILED (the Lumix-parity build): small zones come out as one tile; large ones
             // split, and the per-tile primitive can regenerate a single tile later. v1
-            // single-tile blobs still load (the reader sniffs the version).
+            // single-tile blobs still load (the reader sniffs the version). Stages are
+            // captured every editor bake and parked on the scene system - the
+            // debugDrawBakeStages overlay shows how THIS bake arrived at its mesh.
+            nav::NavigationBakeStages stages;
             const Status baked = nav::NavigationMeshBuilder::BuildTiled(
                 Span<const Float3>{verts.Data(), verts.Size()},
-                Span<const u32>{indices.Data(), indices.Size()}, params, blob);
+                Span<const u32>{indices.Data(), indices.Size()}, params, blob, &stages);
+            if (auto* system = scene.GetSystem<engine::navigation::NavigationSceneSystem>())
+            {
+                system->SetBakeStages(
+                    zoneEntity, static_cast<Array<Float3>&&>(stages.contourLines),
+                    static_cast<Array<Float3>&&>(stages.walkableSamples));
+            }
             if (baked.IsOk() && !blob.IsEmpty())
             {
                 asset.navMeshBlob.Resize(blob.Size());

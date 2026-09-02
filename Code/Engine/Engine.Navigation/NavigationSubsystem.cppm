@@ -54,6 +54,24 @@ export namespace engine::navigation
         }
         [[nodiscard]] NavigationSceneSettings& Settings() noexcept { return m_settings; }
 
+        // The last bake's stage capture (zone-LOCAL space + the zone entity to place it by).
+        // The EDITOR bake deposits it here; the debug overlay draws it when the settings
+        // flag is on. Transient - never serialized.
+        struct BakeStageCache
+        {
+            scene::EntityHandle zoneEntity{};
+            Array<Float3> contourLines;    // segment pairs
+            Array<Float3> walkableSamples; // span-top points
+        };
+        void SetBakeStages(scene::EntityHandle zoneEntity, Array<Float3> contourLines,
+                           Array<Float3> walkableSamples)
+        {
+            m_bakeStages.zoneEntity = zoneEntity;
+            m_bakeStages.contourLines = static_cast<Array<Float3>&&>(contourLines);
+            m_bakeStages.walkableSamples = static_cast<Array<Float3>&&>(walkableSamples);
+        }
+        [[nodiscard]] const BakeStageCache& BakeStages() const noexcept { return m_bakeStages; }
+
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
 
         void OnSceneStarted() override
@@ -320,6 +338,7 @@ export namespace engine::navigation
         scene::Scene* m_scene = nullptr;
         Array<RuntimeZone> m_zones;
         NavigationSceneSettings m_settings;
+        BakeStageCache m_bakeStages;
     };
 
     // Per-scene manager set (the same call SceneSurface + the runtime injection use).

@@ -37,6 +37,19 @@ export namespace foundation::navigation
         u32 tileCells = 64;
     };
 
+    // OPT-IN bake-stage capture (Lumix-parity diagnostics): the intermediate Recast data a
+    // failed or surprising bake is debugged with. Zone-local space, ready for debug draw.
+    // The LIVE dtNavMesh draw stays the ground truth for what queries run on - stages show
+    // how the bake ARRIVED there (where spans rasterized, where contours went).
+    struct NavigationBakeStages
+    {
+        // Simplified region contours: line-segment PAIRS (i, i+1 per segment).
+        Array<Float3> contourLines;
+        // Walkable span tops from the rasterized heightfield, one point per cell (strided
+        // + capped - diagnostics, not a point cloud export).
+        Array<Float3> walkableSamples;
+    };
+
     class NavigationMeshBuilder
     {
     public:
@@ -58,7 +71,8 @@ export namespace foundation::navigation
         [[nodiscard]] static Status BuildTiled(Span<const Float3> vertices,
                                                Span<const u32> indices,
                                                const NavigationBakeParams& params,
-                                               Array<byte>& outData);
+                                               Array<byte>& outData,
+                                               NavigationBakeStages* outStages = nullptr);
 
         // The per-tile regeneration primitive (Lumix generateTileAt parity): bake ONE tile
         // (tx, ty of the grid BuildTiled would derive from these bounds) to raw Detour tile

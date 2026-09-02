@@ -129,12 +129,20 @@ export namespace engine::navigation
     {
         bool debugDraw = false;
         bool debugDrawPaths = false;
+        // Bake-stage overlay (Lumix parity): the LAST editor bake's intermediate Recast data
+        // (walkable spans + region contours) - how the bake ARRIVED at the mesh. Cleared per
+        // bake; the live-dtNavMesh draw above stays the query ground truth.
+        bool debugDrawBakeStages = false;
     };
 
     inline void SerializeNavigationSceneSettings(ISerializer& ar, NavigationSceneSettings& settings)
     {
         foundation::core::Serialize(ar, "debugDraw", settings.debugDraw);
         foundation::core::Serialize(ar, "debugDrawPaths", settings.debugDrawPaths);
+        if (ar.Version() >= 2) // v2: the bake-stage overlay toggle
+        {
+            foundation::core::Serialize(ar, "debugDrawBakeStages", settings.debugDrawBakeStages);
+        }
     }
 
     inline void Serialize(ISerializer& ar, NavMeshZoneComponent& c)

@@ -327,7 +327,8 @@ namespace foundation::navigation
         [[nodiscard]] Status BuildOneTile(Span<const Float3> vertices, Span<const u32> indices,
                                           const NavigationBakeParams& params,
                                           const TileGrid& grid, i32 tileX, i32 tileY,
-                                          Array<byte>& outNavData)
+                                          Array<byte>& outNavData,
+                                          NavigationBakeStages* outStages = nullptr)
         {
             outNavData.Clear();
             if (tileX < 0 || tileY < 0 || tileX >= grid.countX || tileY >= grid.countY)
@@ -446,6 +447,54 @@ namespace foundation::navigation
                 {
                     return Status{ErrorCode::Internal};
                 }
+                if (outStages != nullptr)
+                {
+                    // Stage 1: walkable span tops (strided, capped) - where geometry
+                    // actually rasterized before any erosion killed it.
+                    constexpr usize kMaxSamples = 60000;
+                    constexpr int kStride = 2;
+                    for (int y = 0; y < solid->height; y += kStride)
+                    {
+                        for (int x = 0; x < solid->width; x += kStride)
+                        {
+                            if (outStages->walkableSamples.Size() >= kMaxSamples)
+                            {
+                                break;
+                            }
+                            for (const rcSpan* span = solid->spans[x + y * solid->width];
+                                 span != nullptr; span = span->next)
+                            {
+                                if (span->area == RC_NULL_AREA)
+                                {
+                                    continue;
+                                }
+                                outStages->walkableSamples.PushBack(Float3{
+                                    cfg.bmin[0] + (static_cast<f32>(x) + 0.5f) * cfg.cs,
+                                    cfg.bmin[1] + static_cast<f32>(span->smax) * cfg.ch,
+                                    cfg.bmin[2] + (static_cast<f32>(y) + 0.5f) * cfg.cs});
+                            }
+                        }
+                    }
+                    // Stage 2: simplified contours - the region outlines polygons come from.
+                    for (int c = 0; c < cset->nconts; ++c)
+                    {
+                        const rcContour& contour = cset->conts[c];
+                        for (int v = 0; v < contour.nverts; ++v)
+                        {
+                            const int* a = &contour.verts[v * 4];
+                            const int* b =
+                                &contour.verts[((v + 1) % contour.nverts) * 4];
+                            outStages->contourLines.PushBack(Float3{
+                                cset->bmin[0] + static_cast<f32>(a[0]) * cset->cs,
+                                cset->bmin[1] + static_cast<f32>(a[1]) * cset->ch,
+                                cset->bmin[2] + static_cast<f32>(a[2]) * cset->cs});
+                            outStages->contourLines.PushBack(Float3{
+                                cset->bmin[0] + static_cast<f32>(b[0]) * cset->cs,
+                                cset->bmin[1] + static_cast<f32>(b[1]) * cset->ch,
+                                cset->bmin[2] + static_cast<f32>(b[2]) * cset->cs});
+                        }
+                    }
+                }
                 if (pmesh->npolys == 0)
                 {
                     return Status{ErrorCode::NotFound}; // an empty tile - normal off-geometry
@@ -532,7 +581,8 @@ namespace foundation::navigation
     Status NavigationMeshBuilder::BuildTiled(Span<const Float3> vertices,
                                              Span<const u32> indices,
                                              const NavigationBakeParams& params,
-                                             Array<byte>& outData)
+                                             Array<byte>& outData,
+                                             NavigationBakeStages* outStages)
     {
         PROFILE_SCOPE("Navigation.BakeTiled");
         outData.Clear();
@@ -555,7 +605,7 @@ namespace foundation::navigation
             {
                 Array<byte> tileData;
                 const Status tileStatus =
-                    BuildOneTile(vertices, indices, params, grid, tx, ty, tileData);
+                    BuildOneTile(vertices, indices, params, grid, tx, ty, tileData, outStages);
                 if (tileStatus.Code() == ErrorCode::NotFound)
                 {
                     continue; // empty tile

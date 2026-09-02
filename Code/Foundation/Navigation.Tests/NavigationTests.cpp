@@ -415,3 +415,45 @@ TEST_CASE("tiled bake: v1 single-tile blobs still load (the reader sniffs the ve
     REQUIRE(mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
     CHECK(mesh.IsValid());
 }
+
+TEST_CASE("tiled bake: stage capture yields contours + walkable span samples in-bounds")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -10.0f, 10.0f, -10.0f, 10.0f);
+    NavigationBakeParams params;
+    Array<byte> blob;
+    NavigationBakeStages stages;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(Span<const Float3>{verts.Data(), verts.Size()},
+                                              Span<const u32>{indices.Data(), indices.Size()},
+                                              params, blob, &stages)
+                .IsOk());
+
+    REQUIRE(!stages.contourLines.IsEmpty());
+    CHECK(stages.contourLines.Size() % 2u == 0u); // segment PAIRS
+    REQUIRE(!stages.walkableSamples.IsEmpty());
+
+    // Everything captured sits on/near the baked geometry (border expansion allows a small
+    // apron beyond the ground bounds).
+    const f32 apron = 3.0f;
+    for (const Float3& p : stages.contourLines)
+    {
+        CHECK(p.x > -10.0f - apron);
+        CHECK(p.x < 10.0f + apron);
+        CHECK(p.z > -10.0f - apron);
+        CHECK(p.z < 10.0f + apron);
+    }
+    for (const Float3& p : stages.walkableSamples)
+    {
+        CHECK(std::abs(p.y) < 1.0f); // span tops hug the y=0 ground
+    }
+
+    // Capture is an observer: the blob is byte-identical with and without it.
+    Array<byte> plain;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(Span<const Float3>{verts.Data(), verts.Size()},
+                                              Span<const u32>{indices.Data(), indices.Size()},
+                                              params, plain)
+                .IsOk());
+    REQUIRE(plain.Size() == blob.Size());
+    CHECK(std::memcmp(plain.Data(), blob.Data(), plain.Size()) == 0);
+}
