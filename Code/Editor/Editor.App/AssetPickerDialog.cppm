@@ -93,7 +93,7 @@ export namespace editor::app
             }
             m_listAdapter = MakeUnique<ListAdapter>(DefaultAllocator(), *this);
             m_list = MakeRef<ui::ListView>(DefaultAllocator());
-            m_list->ItemHeight.SetValue(20.0f);
+            m_list->ItemHeight.SetValue(28.0f); // rows carry a 24px thumbnail, not a 14px glyph
             m_list->SetAdapter(m_listAdapter.Get());
             {
                 AssetPickerDialog* self = this;
@@ -243,8 +243,8 @@ export namespace editor::app
                 row->Spacing = 6;
                 row->Padding = ui::Thickness{4, 2};
                 auto iconView = MakeRef<ui::DrawableView>(DefaultAllocator());
-                iconView->DesiredWidth.SetValue(Optional<f32>(14.0f));
-                iconView->DesiredHeight.SetValue(Optional<f32>(14.0f));
+                iconView->DesiredWidth.SetValue(Optional<f32>(24.0f));
+                iconView->DesiredHeight.SetValue(Optional<f32>(24.0f));
                 row->AddView(iconView.Get());
                 auto label = MakeRef<ui::Label>(DefaultAllocator());
                 label->FontSize.SetValue(12.0f);
@@ -273,8 +273,19 @@ export namespace editor::app
                 {
                     return;
                 }
+                // Thumbnail wins; the type icon shows until one exists (the browser-grid
+                // pattern). Get() also SCHEDULES a missing thumbnail - it appears on the
+                // next rebind (scroll/filter/reopen); rows are passive re-queriers, like
+                // the inspector's picker slots.
+                RefPtr<ui::Drawable> thumbnail;
+                if (m_owner->m_context->Thumbnails() != nullptr)
+                {
+                    thumbnail = m_owner->m_context->Thumbnails()->Get(instance->Id());
+                }
                 iconView->Drawable =
-                    ui::DrawablePtr(EditorIcons::Get().ForAssetType(instance->TypeName()));
+                    thumbnail ? ui::DrawablePtr(thumbnail.Get())
+                              : ui::DrawablePtr(EditorIcons::Get().ForAssetType(
+                                    instance->TypeName()));
                 const bool favorite = m_owner->m_context->IsFavorite(instance->Id());
                 String text;
                 if (favorite)
