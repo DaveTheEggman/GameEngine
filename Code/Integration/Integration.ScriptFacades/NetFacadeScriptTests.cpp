@@ -58,7 +58,7 @@ TEST_CASE("net-facade: AngelScript reads the live session through the Net facade
     RegisterCoreTypes();
     net::RegisterNetScriptFacade();
 
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -90,7 +90,7 @@ TEST_CASE("net-facade: Luau reads the live session through the Net facade")
     RegisterCoreTypes();
     net::RegisterNetScriptFacade();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 

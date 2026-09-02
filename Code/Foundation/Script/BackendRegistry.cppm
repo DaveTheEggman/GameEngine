@@ -27,7 +27,9 @@ export namespace foundation::script
         String languageId;            // canonical lowercase id: u8"angelscript", u8"luau"
         String displayName;           // editor-facing: u8"AngelScript"
         Array<String> fileExtensions; // lowercase, no dot: { u8"as" }
-        Function<RefPtr<IScriptManager>()> create;
+        // The allocator becomes the manager's own (MakeRef records it; everything
+        // the manager creates inherits via MemoryAllocator()).
+        Function<RefPtr<IScriptManager>(IAllocator&)> create;
     };
 
     class ScriptBackendRegistry
@@ -92,7 +94,7 @@ export namespace foundation::script
 
     /// Create a manager for `languageId`; null (with a warning) when unknown.
     [[nodiscard]] inline RefPtr<IScriptManager>
-    CreateScriptManagerForLanguage(StringView languageId)
+    CreateScriptManagerForLanguage(StringView languageId, IAllocator& allocator)
     {
         const ScriptBackendDesc* backend = ScriptBackendRegistry::Get().FindByLanguage(languageId);
         if (backend == nullptr || !backend->create)
@@ -101,13 +103,14 @@ export namespace foundation::script
                                  languageId);
             return {};
         }
-        return backend->create();
+        return backend->create(allocator);
     }
 
     /// Create a manager for a script FILE by its extension. A path with an unknown or
     /// missing extension falls back to the sole registered backend (the common
     /// one-language project); ambiguity (several backends, no match) warns and fails.
-    [[nodiscard]] inline RefPtr<IScriptManager> CreateScriptManagerForFile(StringView path)
+    [[nodiscard]] inline RefPtr<IScriptManager> CreateScriptManagerForFile(StringView path,
+                                                                            IAllocator& allocator)
     {
         StringView extension;
         for (usize i = path.Size(); i-- > 0;)
@@ -127,13 +130,13 @@ export namespace foundation::script
         {
             if (const ScriptBackendDesc* backend = registry.FindByExtension(extension))
             {
-                return backend->create ? backend->create() : RefPtr<IScriptManager>{};
+                return backend->create ? backend->create(allocator) : RefPtr<IScriptManager>{};
             }
         }
         if (registry.All().Size() == 1)
         {
             const ScriptBackendDesc& sole = registry.All()[0];
-            return sole.create ? sole.create() : RefPtr<IScriptManager>{};
+            return sole.create ? sole.create(allocator) : RefPtr<IScriptManager>{};
         }
         LOG_WARNING(u8"Script",
                              u8"no script backend matches '{}' ({} backend(s) registered)", path,

@@ -46,7 +46,7 @@ TEST_CASE("integration.script: JsonValue's reflected surface is registered")
 TEST_CASE("integration.script: parse / query / build / stringify from AngelScript")
 {
     RegisterJsonTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -79,7 +79,7 @@ TEST_CASE("integration.script: parse / query / build / stringify from AngelScrip
 TEST_CASE("integration.script: parse / query / build / stringify from Luau")
 {
     RegisterJsonTypes();
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 

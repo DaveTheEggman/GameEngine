@@ -202,7 +202,7 @@ TEST_CASE("luau.cook: the cook stores loadable bytecode in the pack (the player 
     // Player path: a fresh Luau VM reconstructs the blob from the STORED bytes with no compiler
     // (CreateBlob + Serialize(read)), loads it, and instantiates the class - proving the pack
     // carries runnable bytecode, not just source.
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptBlob> blob = manager->CreateBlob();
     REQUIRE(blob.Get() != nullptr);
     {

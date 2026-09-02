@@ -463,7 +463,8 @@ namespace pipeline{
                 out.sourceName = String(assetName); // the source file identity (breakpoint key)
                 out.source = String(source);
 
-                RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"angelscript");
+                RefPtr<IScriptManager> manager =
+                    CreateScriptManagerForLanguage(u8"angelscript", DefaultAllocator());
                 if (manager.Get() == nullptr)
                 {
                     LOG_ERROR(u8"Script",
@@ -535,7 +536,8 @@ namespace pipeline{
                 // reconstructs it via CreateBlob + Serialize(read) + LoadBlob (no compiler, no
                 // metadata re-parse). Source stays on the record for dev-mode hot reload.
                 RefPtr<IScriptBlob> blob =
-                    foundation::script::angelscript::AngelScriptBlobFromModule(builder.GetModule());
+                    foundation::script::angelscript::AngelScriptBlobFromModule(builder.GetModule(),
+                                                                               DefaultAllocator());
                 if (blob.Get() != nullptr)
                 {
                     MemoryStream stream;

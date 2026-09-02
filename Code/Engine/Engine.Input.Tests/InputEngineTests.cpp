@@ -92,7 +92,7 @@ namespace
 #ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("input: the Input facade resolves PER-CONTEXT services (AngelScript)")
 {
-    DrivePerContextInput(foundation::script::angelscript::CreateScriptManager(),
+    DrivePerContextInput(foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator()),
                          u8"bool Down; double MoveY;\n"
                          u8"void main() {\n"
                          u8"  Down = Input::isDown(\"Jump\");\n"
@@ -105,7 +105,7 @@ TEST_CASE("input: the Input facade resolves PER-CONTEXT services (AngelScript)")
 #ifdef OPTION_HAS_LUAU
 TEST_CASE("input: the Input facade resolves PER-CONTEXT services (Luau)")
 {
-    DrivePerContextInput(foundation::script::CreateLuauScriptManager(),
+    DrivePerContextInput(foundation::script::CreateLuauScriptManager(DefaultAllocator()),
                          u8"Down = Input.isDown(\"Jump\")\n"
                          u8"MoveY = Input.valueY(\"Move\")\n",
                          u8"Input.pushSet(\"Menu\")\n");

@@ -115,7 +115,18 @@ tight cluster) per commit.
   WebSocketServerGateway / ClientSocket / HybridSocket take required
   allocators (per-client handshake parsers from the gateway's);
   SimDatagramNetwork backs its simulated sockets from a required allocator.
-  Then P3e script backends + misc foundation tail.
+  **P3e script backends DONE**: the backend
+  registry's create hook takes `IAllocator&`
+  (`CreateScriptManagerForLanguage/ForFile` thread the caller's); both
+  backends' entry factories take it and every context/object/blob/delegate
+  INHERITS the manager tree's allocator via `MemoryAllocator()` - the first
+  large-scale use of the inheritance idiom; `ScriptRunHost` roots its run's
+  tree with a required allocator; the AS BoxedVariant thunk boxes are a
+  documented process-scope bound (captureless engine callbacks).
+  Remaining P3 tail: the resource-factory family + misc
+  (Scene/Animation/Terrain/Particles/Geometry/Heightfield/Image/Input
+  .Resource factories, Physics, Shell.Desktop, Shaders.System) - same
+  factory pattern, next slice.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

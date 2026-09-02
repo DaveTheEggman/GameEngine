@@ -153,7 +153,7 @@ TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by 
           "through the resource seam (missing paths no-op, never fault)")
 {
     DriveAudioFacade(
-        foundation::script::angelscript::CreateScriptManager(),
+        foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator()),
         u8"bool Played; bool Spatial; bool Cue; bool Music; bool Missing; bool MissingAgain;\n"
         u8"void main() {\n"
         u8"  Played = Audio::playOneShot(\"sfx/beep\");\n"
@@ -171,7 +171,7 @@ TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by 
 TEST_CASE("audio-facade: the Luau Audio facade plays clips/cues/music by CONTENT PATH "
           "through the resource seam (missing paths no-op, never fault)")
 {
-    DriveAudioFacade(foundation::script::CreateLuauScriptManager(),
+    DriveAudioFacade(foundation::script::CreateLuauScriptManager(DefaultAllocator()),
                      u8"Played = Audio.playOneShot(\"sfx/beep\")\n"
                      u8"Spatial = Audio.playOneShot3D(\"sfx/beep\", 1, 2, 3)\n"
                      u8"Cue = Audio.playCue(\"sfx/steps\")\n"

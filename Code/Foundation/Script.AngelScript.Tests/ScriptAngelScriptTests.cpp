@@ -152,7 +152,7 @@ TEST_CASE("script: ScriptTypeName resolves the alias; FindScriptTypeNameCollisio
 
 TEST_CASE("angelscript: a scriptName alias binds the class under the alias, not the C++ name")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(AliasProbe::StaticType());
     manager->FinalizeTypes();
 
@@ -401,7 +401,7 @@ namespace
 
 TEST_CASE("angelscript: a facade Array<T> return crosses as a native array<T> (numeric + value element)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterBag(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -426,7 +426,7 @@ TEST_CASE("angelscript: a facade Array<T> return crosses as a native array<T> (n
 
 TEST_CASE("angelscript: a nested-value member is a borrow handle edited in place (unit 2b)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterHouse(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -444,7 +444,7 @@ TEST_CASE("angelscript: a nested-value member is a borrow handle edited in place
 
 TEST_CASE("angelscript: a UniquePtr (non-Object) container element is a borrow handle (unit 2b)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterHouse(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -464,7 +464,7 @@ TEST_CASE("angelscript: a UniquePtr (non-Object) container element is a borrow h
 
 TEST_CASE("angelscript: a polymorphic container member binds as script ops (count/at/add/removeAt)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterZoo(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -492,7 +492,7 @@ TEST_CASE("angelscript: a polymorphic container member binds as script ops (coun
 
 TEST_CASE("angelscript: a constructor-less reflected type is usable as a returned handle")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(Leaf::StaticType());        // no ctor - declared + props bound anyway
     manager->RegisterType(LeafFactory::StaticType()); // hands a Leaf@ back
     RefPtr<IScriptContext> ctx = manager->CreateContext();
@@ -514,7 +514,7 @@ TEST_CASE("angelscript: reflected value types support value assignment (Float3 p
     // All reflected types register as asOBJ_REF boxes; without a registered opAssign, `Float3 p = q;`
     // failed with "no appropriate opAssign". The generic opAssign copies the boxed value.
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
     REQUIRE(static_cast<bool>(ctx));
@@ -539,7 +539,7 @@ TEST_CASE("angelscript: reflected value types support value assignment (Float3 p
 
 TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (no double funnel)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     REQUIRE(static_cast<bool>(manager));
     manager->RegisterType(NumProbe::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext(); // defensively finalizes
@@ -567,7 +567,7 @@ TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (n
 
 TEST_CASE("angelscript: a reflected method marshals 9 args without truncating the trailing ones")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     REQUIRE(static_cast<bool>(manager));
     manager->RegisterType(NumProbe::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
@@ -590,7 +590,7 @@ TEST_CASE("angelscript: a reflected method marshals 9 args without truncating th
 
 TEST_CASE("angelscript: a reflected method marshals 16 args - the top of the raised cap")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     REQUIRE(static_cast<bool>(manager));
     manager->RegisterType(NumProbe::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
@@ -614,7 +614,7 @@ TEST_CASE("angelscript: a reflected method marshals 16 args - the top of the rai
 
 TEST_CASE("angelscript: a context runs valid source")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     REQUIRE(static_cast<bool>(manager));
 
     RefPtr<IScriptContext> ctx = manager->CreateContext();
@@ -635,7 +635,7 @@ TEST_CASE("angelscript: a context runs valid source")
 
 TEST_CASE("angelscript: string concatenates numbers (opAdd from RegisterStdString, no utils needed)")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(static_cast<bool>(ctx));
 
     // Documents that a HUD can build "Score: 1200" without RegisterStdStringUtils: the primitive
@@ -653,7 +653,7 @@ TEST_CASE("angelscript: string concatenates numbers (opAdd from RegisterStdStrin
 
 TEST_CASE("angelscript: a compile error is reported")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     const Status status = ctx->Load(u8"this is not valid angelscript @#$", u8"main");
     CHECK_FALSE(status.IsOk());
     CHECK(status.Code() == ErrorCode::InvalidArgument);
@@ -680,7 +680,7 @@ namespace
 
 TEST_CASE("angelscript: errors are surfaced to a handler")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     CapturingErrors errors;
     ctx->SetErrorHandler(&errors);
 
@@ -708,7 +708,7 @@ TEST_CASE("angelscript: errors are surfaced to a handler")
 
 TEST_CASE("angelscript: a runtime error is reported")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     const Status status =
         ctx->Load(u8"void main() { int zero = 0; int boom = 10 / zero; }\n", u8"main");
     CHECK_FALSE(status.IsOk());
@@ -719,7 +719,7 @@ TEST_CASE("angelscript: a runtime fault in a GLOBAL INITIALIZER is a Runtime err
 {
     // Build both compiles and runs global initializers; the backend classifies a
     // failed init as Runtime (not Compile) by Build's return code.
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     CapturingErrors errors;
     ctx->SetErrorHandler(&errors);
     const Status status = ctx->Load(u8"int Zero() { return 0; }\n"
@@ -733,7 +733,7 @@ TEST_CASE("angelscript: a runtime fault in a GLOBAL INITIALIZER is a Runtime err
 
 TEST_CASE("angelscript: each context is isolated")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RefPtr<IScriptContext> a = manager->CreateContext();
     RefPtr<IScriptContext> b = manager->CreateContext();
     CHECK(a.Get() != b.Get());
@@ -746,7 +746,7 @@ TEST_CASE("angelscript: each context is isolated")
 
 TEST_CASE("angelscript: read module globals as Variant")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(ctx->Load(u8"int Answer = 42;\n"
                       u8"string Name = \"engine\";\n"
                       u8"bool Flag = true;\n"
@@ -766,7 +766,7 @@ TEST_CASE("angelscript: SetGlobal writes typed module globals")
 {
     // AngelScript globals are
     // directly writable - the contract's SetGlobal is real here.
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(ctx->Load(u8"double Speed = 1;\n"
                       u8"string Tag = \"none\";\n"
                       u8"double ReadSpeed() { return Speed; }\n"
@@ -783,7 +783,7 @@ TEST_CASE("angelscript: SetGlobal writes typed module globals")
 TEST_CASE("angelscript: reflected value types are usable from script (construct + properties)")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager); // collect + FinalizeTypes (two-phase)
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -809,7 +809,7 @@ TEST_CASE("angelscript: reflected value types are usable from script (construct 
 TEST_CASE("angelscript: call reflected methods (static, instance, struct return, object args)")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -850,7 +850,7 @@ TEST_CASE("angelscript: call reflected methods (static, instance, struct return,
 TEST_CASE("angelscript: same-arity type overloads carry distinct script names (overloadedName)")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -877,7 +877,7 @@ TEST_CASE("angelscript: same-arity type overloads carry distinct script names (o
 TEST_CASE("angelscript: reflected math ops (Math statics, Float3/Quaternion vector ops)")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -903,7 +903,7 @@ TEST_CASE("angelscript: reflected math ops (Math statics, Float3/Quaternion vect
 TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
 
     const Array<ScriptApiType> api = manager->DescribeBoundApi();
@@ -946,7 +946,7 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
 
 TEST_CASE("angelscript: Object-derived type as a script-visible class")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(Widget::StaticType());           // register just the Object type
     RefPtr<IScriptContext> ctx = manager->CreateContext(); // defensively finalizes
 
@@ -972,7 +972,7 @@ TEST_CASE("angelscript: Object-derived type as a script-visible class")
 TEST_CASE("angelscript: a default-constructed reflected type")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -989,7 +989,7 @@ TEST_CASE("angelscript: a default-constructed reflected type")
 
 TEST_CASE("angelscript: call a script function with marshalled args")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(ctx->Load(u8"double add(double a, double b) { return a + b; }\n"
                       u8"string greeting() { return \"hi\"; }\n"
                       u8"string greet(string name) { return \"hi \" + name; }\n",
@@ -1017,7 +1017,7 @@ TEST_CASE("angelscript: call a script function with marshalled args")
 
 TEST_CASE("angelscript: instantiate a script class and invoke its methods")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(ctx->Load(u8"class Counter {\n"
                       u8"  double n;\n"
                       u8"  Counter(double start) { n = start; }\n"
@@ -1043,7 +1043,7 @@ TEST_CASE("angelscript: instantiate a script class and invoke its methods")
 
 TEST_CASE("angelscript: CreateInstance returns null for an unknown class")
 {
-    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+    RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
     REQUIRE(ctx->Load(u8"class Known { Known() {} }\n", u8"main").IsOk());
     CHECK_FALSE(static_cast<bool>(ctx->CreateInstance(u8"Missing", Span<Variant>{})));
 }
@@ -1052,7 +1052,7 @@ TEST_CASE("angelscript: a script object outlives the local context reference")
 {
     RefPtr<ScriptObject> obj;
     {
-        RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager()->CreateContext();
+        RefPtr<IScriptContext> ctx = angelscript::CreateScriptManager(foundation::core::DefaultAllocator())->CreateContext();
         REQUIRE(ctx->Load(u8"class Echo {\n"
                           u8"  Echo() {}\n"
                           u8"  double ping() { return 42; }\n"
@@ -1082,13 +1082,13 @@ TEST_CASE("angelscript: registry - both backends resolve side by side")
 
     // Extension dispatch creates the RIGHT manager: prove it by feeding each one
     // its own language's source.
-    RefPtr<IScriptManager> asManager = CreateScriptManagerForFile(u8"Scripts/game.as");
+    RefPtr<IScriptManager> asManager = CreateScriptManagerForFile(u8"Scripts/game.as", DefaultAllocator());
     REQUIRE(asManager.Get() != nullptr);
     RefPtr<IScriptContext> asCtx = asManager->CreateContext();
     CHECK(asCtx->Load(u8"double f() { return 1; }\n", u8"probe").IsOk());
     CHECK_FALSE(asCtx->Load(u8"local W = 1\n", u8"probe").IsOk()); // Luau source rejected
 
-    RefPtr<IScriptManager> luauManager = CreateScriptManagerForFile(u8"Scripts/game.luau");
+    RefPtr<IScriptManager> luauManager = CreateScriptManagerForFile(u8"Scripts/game.luau", DefaultAllocator());
     REQUIRE(luauManager.Get() != nullptr);
     RefPtr<IScriptContext> luauCtx = luauManager->CreateContext();
     CHECK(luauCtx->Load(u8"local A = 1\n", u8"main").IsOk());
@@ -1102,7 +1102,7 @@ TEST_CASE("angelscript: registry - both backends resolve side by side")
 // breakpoint set on ("Mover.as", line) stops AND CaptureStackFrames()[0].file == "Mover.as".
 TEST_CASE("angelscript: LoadBehaviorModule reports each class's sourceName as its section")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     REQUIRE(static_cast<bool>(manager));
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -1228,12 +1228,12 @@ TEST_CASE("angelscript: CERTIFIED - the backend conformance battery")
     dialect.debugLocalValue = u8"\"hit\"";
 
     foundation::script::conformance::RunScriptBackendConformance(
-        []() { return foundation::script::angelscript::CreateScriptManager(); }, dialect);
+        []() { return foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator()); }, dialect);
 }
 
 TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger + Bytecode; profiler absent (B4)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Coroutines));
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Delegates));
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
@@ -1245,7 +1245,7 @@ TEST_CASE("angelscript: declares Coroutines + Delegates + Debugger + Bytecode; p
 
 TEST_CASE("angelscript: bytecode capability - compile to blob, serialize, load in the player")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
 
     // COOK side: compile source (module-level functions) to an opaque bytecode blob.
     constexpr StringView kSource = u8"double add(double a, double b) { return a + b; }\n"
@@ -1278,13 +1278,13 @@ TEST_CASE("angelscript: bytecode capability - compile to blob, serialize, load i
 
 TEST_CASE("angelscript: CompileToBlob rejects a broken source at cook")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     CHECK_FALSE(manager->CompileToBlob(u8"int broken( {", u8"as.broken").HasValue());
 }
 
 TEST_CASE("angelscript: a script function is a native callback via IScriptDelegate (the real use)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(conformance::DelegateSignal::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -1335,7 +1335,7 @@ REFLECT_MEMBERS(ContextProbe, "rtti::script::test")
 
 TEST_CASE("angelscript: a delegate callback scopes its owning context (facades resolve services)")
 {
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(conformance::DelegateSignal::StaticType());
     manager->RegisterType(ContextProbe::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
@@ -1373,7 +1373,7 @@ TEST_CASE("angelscript: a METHOD delegate is a native callback via IScriptDelega
     // delegate already works above; this covers the bound-method form: it must reach
     // ValueFromArg -> MakeAngelScriptDelegateVariant and survive AddRef, then invoke on the
     // captured object so the object's field is mutated.
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     manager->RegisterType(conformance::DelegateSignal::StaticType());
     RefPtr<IScriptContext> ctx = manager->CreateContext();
     conformance::CapturedErrors errors;
@@ -1406,7 +1406,7 @@ TEST_CASE("angelscript: many engine lifecycles in one process (the cook pattern)
     // process-lifetime pin makes any sequence safe - this exercises the multi-engine path.
     for (int i = 0; i < 8; ++i)
     {
-        RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+        RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
         REQUIRE(manager.Get() != nullptr);
         manager->FinalizeTypes();
         RefPtr<IScriptContext> ctx = manager->CreateContext();

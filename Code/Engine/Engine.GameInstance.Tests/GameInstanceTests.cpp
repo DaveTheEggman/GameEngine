@@ -464,7 +464,7 @@ TEST_CASE("game-instance: run.loadSceneAsync -> ticket, polled to completion (Lu
     RegisterCoreTypes();
     engine::runtime::RegisterRunScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager();
+    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager(DefaultAllocator());
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
@@ -492,7 +492,7 @@ TEST_CASE("game-instance: run.loadSceneAsync -> ticket, polled to completion (An
     RegisterCoreTypes();
     engine::runtime::RegisterRunScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
@@ -546,7 +546,7 @@ TEST_CASE("game-instance: run.requestExit routes the exit code to the binding (A
     RegisterCoreTypes();
     engine::runtime::RegisterRunScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    RefPtr<script::IScriptManager> manager = foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 
@@ -569,7 +569,7 @@ TEST_CASE("game-instance: run.requestExit routes the exit code to the binding (L
     RegisterCoreTypes();
     engine::runtime::RegisterRunScriptFacade();
 
-    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager();
+    RefPtr<script::IScriptManager> manager = foundation::script::CreateLuauScriptManager(DefaultAllocator());
     foundation::script::RegisterReflectedTypes(*manager);
     RefPtr<script::IScriptContext> ctx = manager->CreateContext();
 

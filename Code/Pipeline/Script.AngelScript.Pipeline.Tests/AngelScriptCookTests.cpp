@@ -279,7 +279,7 @@ TEST_CASE("as.cook: the cook stores loadable bytecode in the pack (the player pa
 
     // Player path: a fresh AngelScript VM (SAME reflected registration - the shared registry)
     // reconstructs the blob from the stored bytes and LoadByteCodes it, no recompile.
-    RefPtr<IScriptManager> manager = foundation::script::angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = foundation::script::angelscript::CreateScriptManager(DefaultAllocator());
     RegisterCoreTypes();
     RegisterScriptFacadeReflection();
     RegisterReflectedTypes(*manager);

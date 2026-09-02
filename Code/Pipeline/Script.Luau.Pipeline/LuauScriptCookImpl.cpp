@@ -239,7 +239,8 @@ namespace pipeline{
                 out.source = String(source);
 
                 // The harvest VM comes from the registry, by LANGUAGE.
-                RefPtr<IScriptManager> manager = CreateScriptManagerForLanguage(u8"luau");
+                RefPtr<IScriptManager> manager =
+                    CreateScriptManagerForLanguage(u8"luau", DefaultAllocator());
                 if (manager.Get() == nullptr)
                 {
                     LOG_ERROR(u8"Script", u8"'{}': no Luau backend registered - cook failed",

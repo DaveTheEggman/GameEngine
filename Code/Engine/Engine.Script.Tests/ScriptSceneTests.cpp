@@ -173,7 +173,7 @@ namespace
         // drains it at frame top exactly like GameInstance / the editor page do.
         foundation::messaging::EventBus bus;
         scene::Scene scene{u8"script-test"};
-        ScriptRunHost host;
+        ScriptRunHost host{DefaultAllocator()};
         ScriptComponentManager* components = nullptr;
         ScriptSceneSystem* scripts = nullptr;
 
@@ -1026,7 +1026,7 @@ TEST_CASE("script.scene: run-host teardown after stop releases the context; a la
     // Behaviors in an unregistered language stay disabled with a clean error.
     RefPtr<ScriptClass> alien = MakeClass(u8"Alien", u8"whatever", {u8"onUpdate"});
     alien->language = String(u8"nolang");
-    ScriptRunHost host;
+    ScriptRunHost host(DefaultAllocator());
     CHECK(host.EnsureContext(u8"nolang") == nullptr);
     CHECK_FALSE(host.EnsureClassLoaded(*alien));
 }
@@ -2016,7 +2016,7 @@ TEST_CASE("script.scene: LUAU a behavior runs from cooked bytecode with no sourc
 
     // COOK the source to bytecode (a standalone Luau manager, as the cook does), store it on the
     // class, then STRIP the source - only the bytecode can drive the behavior now (the player).
-    RefPtr<IScriptManager> cooker = foundation::script::CreateLuauScriptManager();
+    RefPtr<IScriptManager> cooker = foundation::script::CreateLuauScriptManager(DefaultAllocator());
     Result<RefPtr<IScriptBlob>> blob = cooker->CompileToBlob(mover->source.AsView(), u8"Mover.luau");
     REQUIRE(blob.HasValue());
     MemoryStream cooked;

@@ -537,7 +537,9 @@ export namespace engine::runtime
         /// (m_game = nullptr) exactly like a faulting update(), and a debugger suspension is not a fault.
         void DispatchGameEvent(core::StringView eventName, const core::Variant& payload);
 
-        engine::script::ScriptRunHost m_runHost;    // owned: the game's script context
+        engine::script::ScriptRunHost m_runHost{
+            foundation::core::DefaultAllocator()}; // owned: the game's script context (process
+                                                   // root until the instance phase threads one)
         messaging::EventBus m_runEvents; // the run-scoped event bus (app-owned)
         scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;

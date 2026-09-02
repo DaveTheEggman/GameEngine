@@ -204,7 +204,7 @@ TEST_CASE("script.luau: Float3 maps to Luau's native vector (fast path - fields,
 {
     RegisterCoreTypes(); // reflects Float3 (patches TypeOf<Float3>)
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(TypeOf<Float3>()); // the class table: Float3.new / Float3.Dot / ...
     manager->RegisterType(VecHolder::StaticType());
     manager->FinalizeTypes();
@@ -307,7 +307,7 @@ TEST_CASE("script.luau: a facade Array<T> return crosses as a native table (nume
     RegisterArrayType<LuauRoom>();
     RegisterArrayType<String>();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(TypeOf<LuauRoom>());
     manager->RegisterType(LuauBag::StaticType());
     manager->FinalizeTypes();
@@ -347,7 +347,7 @@ TEST_CASE("script.luau: container members are owner ops - write-through, zero-ba
     RttiRegisterValue_LuauRoom();
     RegisterUniquePtrArrayType<LuauRoom>();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(TypeOf<LuauRoom>());
     manager->RegisterType(LuauShelf::StaticType());
     manager->FinalizeTypes();
@@ -397,7 +397,7 @@ REFLECT_MEMBERS(LuauAliasProbe, "rtti::luau::test")
 
 TEST_CASE("script.luau: a scriptName alias installs the class table under the alias, not the C++ name")
 {
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(LuauAliasProbe::StaticType());
     manager->FinalizeTypes();
 
@@ -413,7 +413,7 @@ TEST_CASE("script.luau: a scriptName alias installs the class table under the al
 TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
 {
     RegisterCoreTypes();
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(TypeOf<Float3>());
     manager->FinalizeTypes();
     RefPtr<IScriptContext> context = manager->CreateContext();
@@ -451,7 +451,7 @@ TEST_CASE("script.luau: resumable-thread call throughput (perf case - the execut
     // executor with debugging. This records the per-CALL cost of that executor - each
     // Call is a full thread acquire (pooled, no alloc after warmup) + xmove + resume + xmove-back.
     // The claim ("resume-vs-pcall entry, no allocation") is a number, not a hope.
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     REQUIRE(context->Load(u8"function noop(x) return x + 1 end\n", u8"luau.callperf").IsOk());
 
@@ -478,7 +478,7 @@ TEST_CASE("script.luau: a compile error reports its source line (not -1)")
         void OnError(const ScriptError& error) override { line = error.line; }
     } capture;
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     context->SetErrorHandler(&capture);
 
@@ -502,7 +502,7 @@ TEST_CASE("script.luau: LoadBehaviorModule loads each class as its OWN chunk (pe
         }
     } capture;
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     context->SetErrorHandler(&capture);
 
@@ -541,7 +541,7 @@ TEST_CASE("script.luau: step debugger breaks on a breakpoint, captures, and cont
         }
     } listener;
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Debugger));
     RefPtr<IScriptContext> context = manager->CreateContext();
 
@@ -630,7 +630,7 @@ namespace
 TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a call")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -679,7 +679,7 @@ TEST_CASE("script.luau: step debugger StepOver stays at the caller depth over a 
 TEST_CASE("script.luau: step debugger StepInto descends into the callee")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -736,7 +736,7 @@ TEST_CASE("script.luau: step debugger StepInto descends into the callee")
 TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Continue finishes it")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -795,7 +795,7 @@ TEST_CASE("script.luau: step debugger breaks inside a coroutine body, then Conti
 TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module reload")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -835,7 +835,7 @@ TEST_CASE("script.luau: a breakpoint keyed on (file, line) survives a module rel
 TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still fires on schedule")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RefPtr<IScriptContext> context = manager->CreateContext();
     UniquePtr<IScriptDebugger> debugger = manager->CreateDebugger();
     REQUIRE(debugger.Get() != nullptr);
@@ -880,7 +880,7 @@ TEST_CASE("script.luau: break in a coroutine, Continue to a wait, the wait still
 
 TEST_CASE("script.luau: LoadBehaviorModule consumes cooked bytecode with NO source (the player path)")
 {
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
 
     // COOK: compile the class to a blob and serialize it exactly as the cook stores
     // ScriptClass::bytecode (CompileToBlob -> Serialize -> the pack bytes).
@@ -918,7 +918,7 @@ TEST_CASE("script.luau: LoadBehaviorModule consumes cooked bytecode with NO sour
 TEST_CASE("script.luau: cooked bytecode stays debuggable - breakpoint + local capture via a consumed blob")
 {
     DebuggerStateCounter listener;
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
 
     // COOK the debug class to bytecode. CompileToBlob uses debugLevel 2 (matching the runtime
     // source path), so local NAMES survive the cook - consuming bytecode never degrades debugging.
@@ -980,7 +980,7 @@ TEST_CASE("script.luau: cooked bytecode stays debuggable - breakpoint + local ca
 
 TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load in the player")
 {
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     // Luau ships bytecode (the cook path): the Bytecode capability is declared.
     CHECK(HasScriptCapability(manager->Capabilities(), ScriptCapabilities::Bytecode));
 
@@ -1016,7 +1016,7 @@ TEST_CASE("script.luau: bytecode capability - compile at cook, serialize, load i
 
 TEST_CASE("script.luau: CompileToBlob rejects a broken source at cook (never reaches the player)")
 {
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     // luau_compile embeds the syntax error in the bytecode; CompileToBlob's validating load
     // catches it so the cook fails here rather than shipping an un-loadable chunk.
     CHECK_FALSE(manager->CompileToBlob(kCompileBroken, u8"luau.broken").HasValue());
@@ -1041,7 +1041,7 @@ TEST_CASE("script.luau: reflected enums - named tables + number marshalling both
 {
     RttiRegisterEnum_Facing();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     manager->RegisterType(TypeOf<Facing>());
     manager->RegisterType(Compass::StaticType());
     manager->FinalizeTypes();
@@ -1095,7 +1095,7 @@ TEST_CASE("script.luau: backend conformance battery")
     dialect.debugLocalName = u8"tag";
     dialect.debugLocalValue = u8"hit"; // Luau prints a string local's raw content (no quotes)
 
-    conformance::RunScriptBackendConformance([]() { return CreateLuauScriptManager(); },
+    conformance::RunScriptBackendConformance([]() { return CreateLuauScriptManager(DefaultAllocator()); },
                                              dialect);
 }
 

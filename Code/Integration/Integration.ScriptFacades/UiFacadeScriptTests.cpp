@@ -91,7 +91,7 @@ TEST_CASE("ui-facade: AngelScript pushes a screen, finds + drives typed controls
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
 
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -120,7 +120,7 @@ TEST_CASE("ui-facade: findLabel resolves through the stack's root (the only root
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
 
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -150,7 +150,7 @@ TEST_CASE("ui-facade: Luau pushes a screen, finds + drives typed controls, reads
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -178,7 +178,7 @@ TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; fir
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
 
-    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
@@ -221,7 +221,7 @@ TEST_CASE("ui-facade: Luau binds a button click to a script function; firing run
     RegisterCoreTypes();
     engine::uiscript::RegisterUiScriptSurface();
 
-    RefPtr<IScriptManager> manager = CreateLuauScriptManager();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
     RegisterReflectedTypes(*manager);
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 

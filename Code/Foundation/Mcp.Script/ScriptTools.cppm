@@ -73,7 +73,8 @@ namespace foundation::mcp::script_detail
         out.Set(u8"displayName", JsonValue::MakeString(backend.displayName));
 
         RefPtr<foundation::script::IScriptManager> manager =
-            foundation::script::CreateScriptManagerForLanguage(backend.languageId.AsView());
+            foundation::script::CreateScriptManagerForLanguage(backend.languageId.AsView(),
+                                                               core::DefaultAllocator());
         JsonValue types = JsonValue::MakeArray();
         if (manager.Get() != nullptr)
         {

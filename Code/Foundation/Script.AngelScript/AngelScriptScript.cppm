@@ -39,7 +39,7 @@ namespace core = foundation::core;
 
 export namespace foundation::script::angelscript
 {
-    [[nodiscard]] core::RefPtr<IScriptManager> CreateScriptManager();
+    [[nodiscard]] core::RefPtr<IScriptManager> CreateScriptManager(core::IAllocator& allocator);
 
     /// Registers AngelScript with the backend registry - the ONE
     /// line that makes the language available; consumers resolve by extension
@@ -74,5 +74,6 @@ export namespace foundation::script::angelscript
     /// built rather than recompile the raw source; this exposes that on the neutral blob seam so
     /// the cook stores + the runtime reconstructs bytecode identically to Luau. `module` is an
     /// `asIScriptModule*` as `void*` (SDK header stays out of the cook). Null on failure.
-    [[nodiscard]] core::RefPtr<IScriptBlob> AngelScriptBlobFromModule(void* module);
+    [[nodiscard]] core::RefPtr<IScriptBlob>
+    AngelScriptBlobFromModule(void* module, core::IAllocator& allocator);
 }

@@ -452,6 +452,9 @@ namespace foundation::script::angelscript
         core::i32 refCount = 1;
     };
 
+    // Boxes cross the AS engine through captureless generic-call thunks (no owner
+    // reachable at release) - a documented process-scope bound, like the reflection
+    // thunk ABI.
     inline BoxedVariant* NewBox(core::Variant value)
     {
         BoxedVariant* box = core::DefaultAllocator().New<BoxedVariant>();
@@ -592,7 +595,7 @@ namespace foundation::script::angelscript
             }
             for (Binding* binding : m_bindings)
             {
-                core::DefaultAllocator().Delete(binding);
+                MemoryAllocator().Delete(binding);
             }
         }
 
@@ -703,7 +706,7 @@ namespace foundation::script::angelscript
                 return core::Err(core::ErrorCode::InvalidArgument);
             }
             core::RefPtr<AngelScriptScriptBlob> blob =
-                core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator());
+                core::MakeRef<AngelScriptScriptBlob>(MemoryAllocator());
             ByteBufferStream stream(blob->Bytes());
             const int saved = module->SaveByteCode(&stream, /*stripDebugInfo=*/false);
             module->Discard();
@@ -718,7 +721,7 @@ namespace foundation::script::angelscript
         [[nodiscard]] core::RefPtr<IScriptBlob> CreateBlob() override
         {
             return core::RefPtr<IScriptBlob>(
-                core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator()).Get());
+                core::MakeRef<AngelScriptScriptBlob>(MemoryAllocator()).Get());
         }
 
         // A step debugger over this engine's contexts (suspension breakpoints + AS
@@ -1628,7 +1631,7 @@ namespace foundation::script::angelscript
 
         [[nodiscard]] Binding* MakeBinding(Binding binding)
         {
-            Binding* stored = core::DefaultAllocator().New<Binding>(binding);
+            Binding* stored = MemoryAllocator().New<Binding>(binding);
             m_bindings.PushBack(stored);
             return stored;
         }
@@ -3384,7 +3387,7 @@ namespace foundation::script::angelscript
         AngelScriptContext* context = static_cast<AngelScriptContext*>(current);
         core::RefPtr<AngelScriptManager> manager(&context->Manager());
         core::RefPtr<AngelScriptDelegate> delegate(core::MakeRef<AngelScriptDelegate>(
-            core::DefaultAllocator(), core::Move(manager), context, function));
+            context->MemoryAllocator(), core::Move(manager), context, function));
         // Track the borrowed context pointer so the context can Detach() it at close.
         context->TrackDelegate(delegate.Get());
         return core::Variant::From(core::RefPtr<IScriptDelegate>(delegate.Get()));
@@ -3806,7 +3809,7 @@ namespace foundation::script::angelscript
 
     core::UniquePtr<IScriptDebugger> AngelScriptManager::CreateDebugger()
     {
-        return core::MakeUnique<AngelScriptDebugger>(core::DefaultAllocator(), this);
+        return core::MakeUnique<AngelScriptDebugger>(MemoryAllocator(), this);
     }
 
     core::RefPtr<IScriptContext> AngelScriptManager::CreateContext()
@@ -3815,7 +3818,7 @@ namespace foundation::script::angelscript
         // without RegisterReflectedTypes having driven the two-phase emission.
         FinalizeTypes();
         return core::RefPtr<IScriptContext>(core::MakeRef<AngelScriptContext>(
-            core::DefaultAllocator(), core::RefPtr<AngelScriptManager>(this), m_nextContextId++));
+            MemoryAllocator(), core::RefPtr<AngelScriptManager>(this), m_nextContextId++));
     }
 
     core::RefPtr<ScriptObject> AngelScriptContext::CreateInstance(core::StringView className,
@@ -3907,13 +3910,12 @@ namespace foundation::script::angelscript
             return nullptr;
         }
         return core::RefPtr<ScriptObject>(core::MakeRef<AngelScriptObject>(
-            core::DefaultAllocator(), core::RefPtr<AngelScriptContext>(this), instance));
+            MemoryAllocator(), core::RefPtr<AngelScriptContext>(this), instance));
     }
 
-    core::RefPtr<IScriptManager> CreateScriptManager()
+    core::RefPtr<IScriptManager> CreateScriptManager(core::IAllocator& allocator)
     {
-        return core::RefPtr<IScriptManager>(
-            core::MakeRef<AngelScriptManager>(core::DefaultAllocator()));
+        return core::RefPtr<IScriptManager>(core::MakeRef<AngelScriptManager>(allocator));
     }
 
     core::StringView AngelScriptCoroutineModulePrelude() noexcept
@@ -3926,7 +3928,8 @@ namespace foundation::script::angelscript
         return static_cast<core::u32>(ANGELSCRIPT_VERSION);
     }
 
-    core::RefPtr<IScriptBlob> AngelScriptBlobFromModule(void* modulePtr)
+    core::RefPtr<IScriptBlob> AngelScriptBlobFromModule(void* modulePtr,
+                                                        core::IAllocator& allocator)
     {
         asIScriptModule* module = static_cast<asIScriptModule*>(modulePtr);
         if (module == nullptr)
@@ -3934,7 +3937,7 @@ namespace foundation::script::angelscript
             return core::RefPtr<IScriptBlob>{};
         }
         core::RefPtr<AngelScriptScriptBlob> blob =
-            core::MakeRef<AngelScriptScriptBlob>(core::DefaultAllocator());
+            core::MakeRef<AngelScriptScriptBlob>(allocator);
         ByteBufferStream stream(blob->Bytes());
         if (module->SaveByteCode(&stream, /*stripDebugInfo=*/false) < 0)
         {
@@ -3958,7 +3961,8 @@ namespace foundation::script::angelscript
         desc.languageId = core::String(u8"angelscript");
         desc.displayName = core::String(u8"AngelScript");
         desc.fileExtensions.PushBack(core::String(u8"as"));
-        desc.create = []() { return CreateScriptManager(); };
+        desc.create = [](core::IAllocator& allocator)
+        { return CreateScriptManager(allocator); };
         ScriptBackendRegistry::Get().Register(core::Move(desc));
     }
 }

@@ -186,7 +186,7 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     fake.languageId = String(u8"faketest");
     fake.displayName = String(u8"FakeTest");
     fake.fileExtensions.PushBack(String(u8"ftl"));
-    fake.create = []() -> RefPtr<IScriptManager> { return {}; };
+    fake.create = [](IAllocator&) -> RefPtr<IScriptManager> { return {}; };
     ScriptBackendRegistry::Get().Register(Move(fake));
 
     CookBed bed(u8"as_b3");

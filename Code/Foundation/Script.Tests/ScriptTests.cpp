@@ -164,7 +164,7 @@ TEST_CASE("script.backend: registry resolves by language and extension; file dis
     testLike.displayName = String(u8"TestLang");
     testLike.fileExtensions.PushBack(String(u8"tl"));
     int created = 0;
-    testLike.create = [&created]() -> RefPtr<IScriptManager>
+    testLike.create = [&created](IAllocator&) -> RefPtr<IScriptManager>
     {
         ++created;
         return RefPtr<IScriptManager>(MakeRef<FakeScriptManager>(DefaultAllocator()));
@@ -177,19 +177,19 @@ TEST_CASE("script.backend: registry resolves by language and extension; file dis
     CHECK(registry.FindByExtension(u8"lua") == nullptr);
 
     // Extension dispatch; unknown-extension fallback only when unambiguous.
-    RefPtr<IScriptManager> byFile = CreateScriptManagerForFile(u8"Scripts/game.tl");
+    RefPtr<IScriptManager> byFile = CreateScriptManagerForFile(u8"Scripts/game.tl", DefaultAllocator());
     CHECK(byFile.Get() != nullptr);
     CHECK(created == 1);
-    (void)CreateScriptManagerForLanguage(u8"testlang");
+    (void)CreateScriptManagerForLanguage(u8"testlang", DefaultAllocator());
     CHECK(created == 2);
-    CHECK(CreateScriptManagerForLanguage(u8"nosuch").Get() == nullptr);
+    CHECK(CreateScriptManagerForLanguage(u8"nosuch", DefaultAllocator()).Get() == nullptr);
 
     // Re-register REPLACES (idempotent by id) - no duplicate entries.
     ScriptBackendDesc again;
     again.languageId = String(u8"testlang");
     again.displayName = String(u8"TestLang2");
     again.fileExtensions.PushBack(String(u8"tl"));
-    again.create = []() -> RefPtr<IScriptManager> { return {}; };
+    again.create = [](IAllocator&) -> RefPtr<IScriptManager> { return {}; };
     registry.Register(Move(again));
     usize count = 0;
     for (const ScriptBackendDesc& d : registry.All())

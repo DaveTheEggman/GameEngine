@@ -252,6 +252,14 @@ export namespace engine::script
     class ScriptRunHost
     {
     public:
+        // The allocator (required - the owner decides) becomes the run's script
+        // manager tree root: every context/object/blob inherits it via
+        // MemoryAllocator().
+        explicit ScriptRunHost(foundation::core::IAllocator& allocator) noexcept
+            : m_allocator(&allocator)
+        {
+        }
+
         /// Extra per-context wiring (the host app exposes Input/Audio/Physics services).
         void SetContextConfigurator(Function<void(IScriptContext&)> configurator)
         {
@@ -317,7 +325,7 @@ export namespace engine::script
             // resolve identically at cook and at runtime. Both idempotent.
             RegisterCoreTypes();
             RegisterScriptFacadeReflection();
-            m_manager = CreateScriptManagerForLanguage(languageId);
+            m_manager = CreateScriptManagerForLanguage(languageId, *m_allocator);
             if (m_manager.Get() == nullptr)
             {
                 LOG_ERROR(u8"Script", u8"no script backend for language '{}'", languageId);
@@ -550,6 +558,7 @@ export namespace engine::script
         String m_language;
         RunScriptErrorSink m_errorSink;
         ScriptRuntimeBinding m_binding;
+        foundation::core::IAllocator* m_allocator;
         Function<void(IScriptContext&)> m_configurator;
         Array<RefPtr<ScriptClass>> m_loadedClasses; // the behaviors module's content
         Array<BehaviorModuleClass>
@@ -1792,8 +1801,10 @@ export namespace engine::script
             system.EnqueueContact(self, handler, Move(args));
         }
 
-        ScriptRunHost
-            m_ownedRunHost; // the DEFAULT run host (editor/editing scenes)
+        ScriptRunHost m_ownedRunHost{
+            foundation::core::DefaultAllocator()}; // the DEFAULT run host (editor/editing scenes;
+                                                   // process root until the subsystem phase
+                                                   // threads the runtime Context's)
         Array<SceneEntry> m_systems;
         Function<void(IScriptContext&)>
             m_configurator; // app services, applied to every host via ConfigureRunHost

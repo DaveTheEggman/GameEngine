@@ -405,7 +405,7 @@ namespace foundation::script
 
         [[nodiscard]] RefPtr<IScriptBlob> CreateBlob() override
         {
-            return RefPtr<IScriptBlob>(MakeRef<LuauScriptBlob>(DefaultAllocator()).Get());
+            return RefPtr<IScriptBlob>(MakeRef<LuauScriptBlob>(MemoryAllocator()).Get());
         }
 
         [[nodiscard]] Array<ScriptApiType> DescribeBoundApi() const override;
@@ -1165,7 +1165,7 @@ namespace foundation::script
             const int ref = lua_ref(state, -1);
             lua_pop(state, 1);
             RefPtr<LuauScriptDelegate> delegate = MakeRef<LuauScriptDelegate>(
-                DefaultAllocator(), this, m_state, ref);
+                MemoryAllocator(), this, m_state, ref);
             TrackDelegate(delegate.Get());
             return Variant::From<RefPtr<Object>>(RefPtr<Object>(delegate.Get()));
         }
@@ -2361,7 +2361,7 @@ namespace foundation::script
 
     UniquePtr<IScriptDebugger> LuauScriptManager::CreateDebugger()
     {
-        return MakeUnique<LuauDebugger>(DefaultAllocator(), this);
+        return MakeUnique<LuauDebugger>(MemoryAllocator(), this);
     }
 
     lua_State* LuauScriptContext::AcquireThread()
@@ -2500,7 +2500,7 @@ namespace foundation::script
         const int tableRef = lua_ref(m_state, -1);
         lua_pop(m_state, 1);
         return RefPtr<ScriptObject>(
-            MakeRef<LuauScriptObject>(DefaultAllocator(), RefPtr<LuauScriptContext>(this), tableRef)
+            MakeRef<LuauScriptObject>(MemoryAllocator(), RefPtr<LuauScriptContext>(this), tableRef)
                 .Get());
     }
 
@@ -2604,7 +2604,7 @@ namespace foundation::script
     RefPtr<IScriptContext> LuauScriptManager::CreateContext()
     {
         return RefPtr<IScriptContext>(
-            MakeRef<LuauScriptContext>(DefaultAllocator(), RefPtr<LuauScriptManager>(this)).Get());
+            MakeRef<LuauScriptContext>(MemoryAllocator(), RefPtr<LuauScriptManager>(this)).Get());
     }
 
     Result<RefPtr<IScriptBlob>> LuauScriptManager::CompileToBlob(StringView source,
@@ -2638,7 +2638,7 @@ namespace foundation::script
             return Err(ErrorCode::InvalidArgument);
         }
 
-        RefPtr<LuauScriptBlob> blob = MakeRef<LuauScriptBlob>(DefaultAllocator());
+        RefPtr<LuauScriptBlob> blob = MakeRef<LuauScriptBlob>(MemoryAllocator());
         blob->SetBytecode(reinterpret_cast<const byte*>(bytecode), bytecodeSize);
         free(bytecode);
         return RefPtr<IScriptBlob>(blob.Get());
@@ -2717,10 +2717,10 @@ export namespace foundation::script
 {
     /// The backend factory: a Luau IScriptManager (interpreter-only, longjmp error
     /// unwinding, sandboxed stdlib). Language id: "luau".
-    [[nodiscard]] core::RefPtr<IScriptManager> CreateLuauScriptManager()
+    [[nodiscard]] core::RefPtr<IScriptManager>
+    CreateLuauScriptManager(core::IAllocator& allocator)
     {
-        return core::RefPtr<IScriptManager>(
-            core::MakeRef<LuauScriptManager>(core::DefaultAllocator()).Get());
+        return core::RefPtr<IScriptManager>(core::MakeRef<LuauScriptManager>(allocator).Get());
     }
 
     /// The vendored Luau bytecode-format version (LBC_VERSION_TARGET). Bytecode is NOT stable
@@ -2750,7 +2750,8 @@ export namespace foundation::script
         desc.languageId = core::String(u8"luau");
         desc.displayName = core::String(u8"Luau");
         desc.fileExtensions.PushBack(core::String(u8"luau"));
-        desc.create = []() { return CreateLuauScriptManager(); };
+        desc.create = [](core::IAllocator& allocator)
+        { return CreateLuauScriptManager(allocator); };
         ScriptBackendRegistry::Get().Register(core::Move(desc));
     }
 
