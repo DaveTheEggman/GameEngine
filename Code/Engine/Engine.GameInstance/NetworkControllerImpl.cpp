@@ -54,7 +54,7 @@ namespace engine::runtime
 
     bool NetworkController::Connect(core::StringView host, u16 port)
     {
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
         // The SAME game script joins with the UDP port on every platform; the browser build
         // redirects to the host's gateway (port + 1 - the StartServer convention above).
         if (port != 0 && port != 0xFFFF)

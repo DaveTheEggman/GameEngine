@@ -98,7 +98,7 @@ export namespace foundation::net
         {
         }
 
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
         // Web runtime client: owns the browser's WebSocket connection (JoinServer on web).
         explicit NetworkManager(core::UniquePtr<WebSocketClientSocket> socket,
                                 const ReliableConfig& config = {})
@@ -122,7 +122,7 @@ export namespace foundation::net
         /// socket - the web build's Host paths reject cleanly instead of hanging.
         [[nodiscard]] static constexpr bool CanHost() noexcept
         {
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
             return false;
 #else
             return true;

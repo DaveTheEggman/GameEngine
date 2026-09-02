@@ -183,7 +183,7 @@ export namespace foundation::net
         return static_cast<u32>(e.value & 0xFFFFFFFFull);
     }
 
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
     /// The BROWSER side: one WebSocket connection to a native host's gateway, presented as
     /// an IDatagramSocket (each binary frame = one datagram; the single remote is
     /// kWebSocketServerEndpoint). The browser handshake is ASYNC - sends queue until the

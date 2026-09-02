@@ -6,7 +6,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
 #include <cstdio> // snprintf (the ws:// URL)
 #include <emscripten/websocket.h>
 #endif
@@ -694,7 +694,7 @@ namespace foundation::net
         }
     }
 
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
     // ---- the browser client socket -------------------------------------------------------
     // Callback-driven (emscripten/websocket.h); without pthreads the callbacks run on the
     // main-thread event loop, so the queues below need no locking. Sends before onopen
@@ -850,5 +850,5 @@ namespace foundation::net
         }
         return true;
     }
-#endif // __EMSCRIPTEN__
+#endif // PLATFORM_WEB
 }

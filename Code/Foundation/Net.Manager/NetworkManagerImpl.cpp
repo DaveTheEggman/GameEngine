@@ -88,7 +88,7 @@ namespace foundation::net
     core::UniquePtr<NetworkManager> NetworkManager::JoinServer(StringView host, u16 port,
                                                                const ReliableConfig& config)
     {
-#ifdef __EMSCRIPTEN__
+#if PLATFORM_WEB
         // Browsers have no UDP: join over a WebSocket to the host's gateway (`port` here is
         // the host's WEB SOCKET port). Sends buffer through the async browser handshake, so
         // the session's immediate connect packet is safe.
