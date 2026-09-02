@@ -105,8 +105,12 @@ tight cluster) per commit.
   TrueTypeFontService / ResourceFontService / FontFactory take required
   allocators; `ExpandR8ToRGBA8` allocates from a passed allocator. The
   global parser/baker slots (TrueTypeFonts / DFFonts / factory Shutdown)
-  stay process-root pairs by design. Then P3c audio, P3d net, P3e script
-  backends + misc.
+  stay process-root pairs by design. **P3c audio DONE**: AudioEngine takes a required
+  allocator; its Impl threads it through every voice/bus/effect-node/scene-
+  group/reverb allocation, miniaudio VFS bridge files record theirs, and the
+  three audio resource factories follow the required-allocator factory
+  pattern (DefaultApp creates them from the runtime Context's allocator).
+  Then P3d net, P3e script backends + misc.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

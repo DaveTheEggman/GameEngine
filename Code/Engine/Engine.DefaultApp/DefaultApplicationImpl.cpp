@@ -557,9 +557,15 @@ namespace engine::runtime
             host.Ctx().Allocator(), host.Ctx().Allocator());
         resources.AddFactory(m_navigationZoneFactory.Get());
         resources.AddFactory(&m_physicalMaterialFactory);
-        resources.AddFactory(&m_audioClipFactory);
-        resources.AddFactory(&m_busLayoutFactory);
-        resources.AddFactory(&m_soundCueFactory);
+        m_audioClipFactory = core::MakeUnique<foundation::audio::AudioClipFactory>(
+            host.Ctx().Allocator(), host.Ctx().Allocator());
+        m_busLayoutFactory = core::MakeUnique<foundation::audio::AudioBusLayoutFactory>(
+            host.Ctx().Allocator(), host.Ctx().Allocator());
+        m_soundCueFactory = core::MakeUnique<foundation::audio::SoundCueFactory>(
+            host.Ctx().Allocator(), host.Ctx().Allocator());
+        resources.AddFactory(m_audioClipFactory.Get());
+        resources.AddFactory(m_busLayoutFactory.Get());
+        resources.AddFactory(m_soundCueFactory.Get());
         resources.AddFactory(&m_scriptClassFactory);
         resources.AddFactory(&m_modelFactory);
         resources.AddFactory(&m_uiDocumentFactory);

@@ -88,6 +88,10 @@ export namespace foundation::audio
     class AudioClipFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit AudioClipFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AudioClip::StaticType();
@@ -117,7 +121,7 @@ export namespace foundation::audio
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildClip(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildClip(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             AudioClipSource* source = Cast<AudioClipSource>(object.Get());
@@ -126,7 +130,7 @@ export namespace foundation::audio
                 return RefPtr<Object>{};
             }
 
-            RefPtr<AudioClip> clip = MakeRef<AudioClip>(DefaultAllocator());
+            RefPtr<AudioClip> clip = MakeRef<AudioClip>(*m_allocator);
             clip->channels = source->channels;
             clip->sampleRate = source->sampleRate;
             clip->frameCount = source->frameCount;
@@ -141,8 +145,8 @@ export namespace foundation::audio
             if (source->stream)
             {
                 clip->streamSource = UniquePtr<IAudioStreamSource>(
-                    DefaultAllocator().New<ContentInstanceStreamSource>(instance),
-                    DefaultAllocator());
+                    m_allocator->New<ContentInstanceStreamSource>(instance),
+                    *m_allocator);
             }
             else
             {
@@ -165,6 +169,9 @@ export namespace foundation::audio
             }
             return clip;
         }
+
+    private:
+        IAllocator* m_allocator;
     };
 
     // ---- bus layout: cooked mixer data ----
@@ -244,6 +251,10 @@ export namespace foundation::audio
     class AudioBusLayoutFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit AudioBusLayoutFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AudioBusLayoutResource::StaticType();
@@ -259,10 +270,13 @@ export namespace foundation::audio
                 return RefPtr<Object>{};
             }
             RefPtr<AudioBusLayoutResource> resource =
-                MakeRef<AudioBusLayoutResource>(DefaultAllocator());
+                MakeRef<AudioBusLayoutResource>(*m_allocator);
             resource->layout = source->layout;
             return resource;
         }
+
+    private:
+        IAllocator* m_allocator;
     };
 
     // ---- sound cue: weighted-variant container, cooked ----
@@ -303,11 +317,16 @@ export namespace foundation::audio
             foundation::core::Serialize(ar, "volumeMin", volumeMin);
             foundation::core::Serialize(ar, "volumeMax", volumeMax);
         }
+
     };
 
     class SoundCueFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit SoundCueFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &SoundCue::StaticType();
@@ -322,7 +341,7 @@ export namespace foundation::audio
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<SoundCue> cue = MakeRef<SoundCue>(DefaultAllocator());
+            RefPtr<SoundCue> cue = MakeRef<SoundCue>(*m_allocator);
             cue->mode = static_cast<SoundCueMode>(source->mode);
             cue->pitchMin = source->pitchMin;
             cue->pitchMax = source->pitchMax;
@@ -340,6 +359,8 @@ export namespace foundation::audio
             }
             return cue;
         }
+
+        IAllocator* m_allocator;
     };
 
     // Registers the cooked record + product types (content-DB construction by type name).

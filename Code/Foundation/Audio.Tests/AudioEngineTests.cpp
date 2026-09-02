@@ -130,7 +130,7 @@ TEST_CASE("audio.codec: wav encode -> probe -> decode round-trip")
 
 TEST_CASE("audio.engine: headless construction, empty/invalid plays are safely rejected")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     CHECK(engine.IsHeadless());
     CHECK(engine.ActiveVoiceCount() == 0u);
 
@@ -160,7 +160,7 @@ TEST_CASE("audio.engine: headless construction, empty/invalid plays are safely r
 TEST_CASE("audio.engine: a one-shot plays, reaches its end, and reaps - the slot's "
           "generation invalidates the old handle on reuse")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(0.1f);
 
     const VoiceHandle first = engine.Play(clip);
@@ -187,7 +187,7 @@ TEST_CASE("audio.engine: a one-shot plays, reaches its end, and reaps - the slot
 TEST_CASE("audio.engine: stop always fades (~10 ms) then reaps - the fade-then-reap "
           "state machine is observable")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(0.5f);
     AudioPlayParams params;
     params.loop = true;
@@ -211,7 +211,7 @@ TEST_CASE("audio.engine: stop always fades (~10 ms) then reaps - the fade-then-r
 
 TEST_CASE("audio.engine: pause fades out but keeps the voice; resume fades back in")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(0.3f);
     AudioPlayParams params;
     params.loop = true;
@@ -242,7 +242,7 @@ TEST_CASE("audio.engine: pause fades out but keeps the voice; resume fades back 
 TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, then "
           "farthest same priority; all-higher pools reject the play")
 {
-    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
     RefPtr<AudioClip> clipA = MakeToneClip(2.0f);
     RefPtr<AudioClip> clipB = MakeToneClip(2.0f, 8000, 1);
     RefPtr<AudioClip> clipC = MakeToneClip(2.0f, 4000, 1);
@@ -288,7 +288,7 @@ TEST_CASE("audio.engine: steal policy - free slot, then lowest lower priority, t
 
 TEST_CASE("audio.engine: same-priority contention steals the voice FARTHEST from the listener")
 {
-    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
     engine.SetListenerTransform(Float3{0, 0, 0}, Float3{0, 0, -1}, Float3{0, 1, 0},
                                 Float3{0, 0, 0});
     RefPtr<AudioClip> clipNear = MakeToneClip(2.0f);
@@ -319,7 +319,7 @@ TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldes
 {
     AudioEngineSettings settings = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
     settings.dyingVoiceCapacity = 2;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     RefPtr<AudioClip> clips[4] = {MakeToneClip(1.0f), MakeToneClip(1.0f, 4000, 1),
                                   MakeToneClip(1.0f, 16000, 1), MakeToneClip(1.0f, 12000, 1)};
 
@@ -355,7 +355,7 @@ TEST_CASE("audio.engine: faded steal - the dying list is capacity-bounded (oldes
     // Capacity 0 = the legacy immediate cut.
     AudioEngineSettings immediate = HeadlessSettings(/*voiceCount=*/1, /*streamVoiceCount=*/0);
     immediate.dyingVoiceCapacity = 0;
-    AudioEngine hardEngine(immediate);
+    AudioEngine hardEngine(DefaultAllocator(), immediate);
     REQUIRE(hardEngine.Play(clips[0], params).IsValid());
     REQUIRE(hardEngine.Play(clips[1], params).IsValid());
     CHECK(hardEngine.DyingVoiceCount() == 0u);
@@ -366,7 +366,7 @@ TEST_CASE("audio.engine: recent-play dedupe merges same-clip plays inside the wi
 {
     AudioEngineSettings settings = HeadlessSettings();
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
     AudioPlayParams params;
     params.loop = true;
@@ -391,7 +391,7 @@ TEST_CASE("audio.engine: dedupe opt-out - persistent sources sharing a clip stay
     // one-shot window silently collapsed all-but-one emitter - the AudioPlayground bug).
     AudioEngineSettings settings = HeadlessSettings();
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
     AudioPlayParams params;
     params.loop = true;
@@ -425,7 +425,7 @@ TEST_CASE("audio.engine: dedupe opt-out - persistent sources sharing a clip stay
 
 TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position/looping)")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(0.5f);
     AudioPlayParams params;
     params.spatial = true;
@@ -461,7 +461,7 @@ TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position
 TEST_CASE("audio.engine: spatializing a stereo clip downmixes with a one-time warning "
           "(runtime mono-guard) and still plays")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> stereo = MakeToneClip(0.2f, 8000, 2);
     AudioPlayParams params;
     params.spatial = true;
@@ -476,7 +476,7 @@ TEST_CASE("audio.engine: spatializing a stereo clip downmixes with a one-time wa
 
 TEST_CASE("audio.engine: bus volumes and mutes are independent and re-appliable")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     CHECK(engine.BusVolume(AudioBus::Master) == doctest::Approx(1.0f));
     engine.SetBusVolume(AudioBus::Music, 0.3f);
     CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.3f));
@@ -491,7 +491,7 @@ TEST_CASE("audio.engine: bus volumes and mutes are independent and re-appliable"
 
 TEST_CASE("audio.engine: master volume defaults to 1, clamps at zero, allows boost")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     CHECK(engine.MasterVolume() == doctest::Approx(1.0f)); // fresh engine
 
     engine.SetMasterVolume(0.25f);
@@ -507,7 +507,7 @@ TEST_CASE("audio.engine: master volume defaults to 1, clamps at zero, allows boo
 TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in place, "
           "stop fades them out, destroy frees them immediately")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(1.0f);
     const u64 sceneGroup = engine.CreateSceneGroup();
     REQUIRE(sceneGroup != 0u);
@@ -550,7 +550,7 @@ TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in pl
 TEST_CASE("audio.engine: streamed clips play from an IAudioStreamSource through the "
           "stream voice pool (the pak-facing seam)")
 {
-    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/1));
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/1));
     const Array<i16> samples = MakeTone(0.5f, 8000, 1);
     Array<byte> wav;
     REQUIRE(EncodeWavFromPcm16(Span<const i16>(samples.Data(), samples.Size()), 1, 8000, wav));
@@ -598,7 +598,7 @@ TEST_CASE("audio.engine: streamed clips play from an IAudioStreamSource through 
 
 TEST_CASE("audio.engine: StopAll fades every voice out")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clipA = MakeToneClip(1.0f);
     RefPtr<AudioClip> clipB = MakeToneClip(1.0f, 4000, 1);
     AudioPlayParams params;
@@ -652,7 +652,7 @@ TEST_CASE("audio.waveform: peaks bucket the decoded signal; silence reads near z
 
 TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max] distance")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     engine.SetListenerTransform(Float3{0, 0, 0}, Float3{0, 0, -1}, Float3{0, 1, 0},
                                 Float3{0, 0, 0});
     RefPtr<AudioClip> clip = MakeToneClip(2.0f);
@@ -698,7 +698,7 @@ TEST_CASE("audio.engine: distance low-pass glides open -> floor across [min, max
 
 TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the new plays")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> trackA = MakeToneClip(3.0f);
     RefPtr<AudioClip> trackB = MakeToneClip(3.0f);
 
@@ -743,7 +743,7 @@ TEST_CASE("audio.engine: PlayMusic cross-fades - old voice fades out while the n
 
 TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect chains")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     layout.buses[static_cast<usize>(AudioBus::Music)].volume = 0.5f;
     layout.buses[static_cast<usize>(AudioBus::UI)].muted = true;
@@ -782,7 +782,7 @@ TEST_CASE("audio.engine: bus layout applies volumes/mutes and splices effect cha
 TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it "
           "advances with the mixer and wraps on loop")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     RefPtr<AudioClip> clip = MakeToneClip(1.0f); // 1 s one-shot
     AudioPlayParams params;
     params.allowDedupe = false;
@@ -835,7 +835,7 @@ TEST_CASE("audio.engine: VoiceStatus.cursorSeconds is the TRUE voice cursor - it
 TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices route by "
           "name, volume/mute/effects work like fixed buses")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     AudioNamedBus drums;
     drums.name = String(u8"drums");
@@ -898,7 +898,7 @@ TEST_CASE("audio.engine: named custom buses - layout realizes the tree, voices r
 TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update in "
           "place, removed buses re-home their voices to the fixed fallback")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     AudioNamedBus drums;
     drums.name = String(u8"drums");
@@ -948,7 +948,7 @@ TEST_CASE("audio.engine: a layout rebuild keeps voices ALIVE - kept buses update
 TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on Master, "
           "unknown parents warn, duplicates and fixed-name shadows are skipped")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     AudioNamedBus a;
     a.name = String(u8"a");
@@ -995,7 +995,7 @@ TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on M
 TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they bypass "
           "the scene child groups)")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     AudioNamedBus drums;
     drums.name = String(u8"drums");
@@ -1207,7 +1207,7 @@ TEST_CASE("audio.reverb: wet-only send mode - dry pinned to 0 passes NO dry sign
 TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, live "
           "scaling works, steal hands the splitter to the dying list")
 {
-    AudioEngine engine(HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings(/*voiceCount=*/2, /*streamVoiceCount=*/0));
     const u64 sceneGroup = engine.CreateSceneGroup();
     REQUIRE(sceneGroup != 0u);
 
@@ -1291,7 +1291,7 @@ TEST_CASE("audio.engine: per-voice reverb sends - splitter splices per voice, li
 
 TEST_CASE("audio.engine: a Reverb bus effect splices and the headless mixer survives it")
 {
-    AudioEngine engine(HeadlessSettings());
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
     AudioBusEffectDesc reverb;
     reverb.kind = AudioBusEffectKind::Reverb;

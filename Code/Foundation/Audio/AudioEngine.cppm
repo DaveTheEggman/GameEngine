@@ -256,7 +256,10 @@ export namespace foundation::audio
     class AudioEngine
     {
     public:
-        explicit AudioEngine(const AudioEngineSettings& settings = {});
+        // The allocator (required - the owner decides) backs voices, buses,
+        // effect nodes, scene groups, and the miniaudio VFS bridge.
+        explicit AudioEngine(core::IAllocator& allocator,
+                             const AudioEngineSettings& settings = {});
         ~AudioEngine();
         AudioEngine(const AudioEngine&) = delete;
         AudioEngine& operator=(const AudioEngine&) = delete;

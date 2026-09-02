@@ -842,7 +842,7 @@ export namespace engine::audio
     protected:
         void OnInit() override
         {
-            m_engine = MakeUnique<AudioEngine>(DefaultAllocator(), m_engineSettings);
+            m_engine = MakeUnique<AudioEngine>(DefaultAllocator(), DefaultAllocator(), m_engineSettings);
             for (const SceneEntry& entry : m_systems)
             {
                 entry.system->SetEngine(m_engine.Get()); // scenes created pre-init

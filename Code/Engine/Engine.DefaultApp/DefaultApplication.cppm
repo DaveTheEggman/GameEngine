@@ -247,9 +247,9 @@ export namespace engine::runtime
         // Allocator-threaded factory (needs the runtime Context's allocator, so it is
         // created in RegisterStandardFactories rather than default-constructed here).
         core::UniquePtr<foundation::navigation::NavigationZoneFactory> m_navigationZoneFactory;
-        foundation::audio::AudioClipFactory m_audioClipFactory;
-        foundation::audio::AudioBusLayoutFactory m_busLayoutFactory;
-        foundation::audio::SoundCueFactory m_soundCueFactory;
+        core::UniquePtr<foundation::audio::AudioClipFactory> m_audioClipFactory;
+        core::UniquePtr<foundation::audio::AudioBusLayoutFactory> m_busLayoutFactory;
+        core::UniquePtr<foundation::audio::SoundCueFactory> m_soundCueFactory;
         foundation::script::ScriptClassFactory m_scriptClassFactory;
         foundation::audio::AudioEngineSettings m_audioEngineSettings;
         foundation::model::ModelFactory m_modelFactory;

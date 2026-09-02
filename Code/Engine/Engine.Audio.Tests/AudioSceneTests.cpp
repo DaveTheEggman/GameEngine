@@ -66,6 +66,7 @@ namespace
 
         PlayScene()
             : engine(
+                  DefaultAllocator(),
                   []
                   {
                       AudioEngineSettings settings;
@@ -352,7 +353,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     AudioEngineSettings settings;
     settings.headless = true;
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     RegisterAudioComponentReflection();
     scene::Scene scene{u8"audio-dedupe"};
     scene.AddSystem<AudioSourceComponentManager>();
@@ -451,7 +452,7 @@ TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
 
     AudioEngineSettings engineSettings;
     engineSettings.headless = true;
-    AudioEngine engine(engineSettings);
+    AudioEngine engine(DefaultAllocator(), engineSettings);
     engine.SetBusVolume(AudioBus::Music, 0.25f);
     engine.SetBusMuted(AudioBus::Effects, true);
 
@@ -469,7 +470,7 @@ TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
     CHECK(user->muted[static_cast<usize>(AudioBus::Effects)]);
 
     // Applying onto a fresh engine reproduces the mixer state.
-    AudioEngine fresh(engineSettings);
+    AudioEngine fresh(DefaultAllocator(), engineSettings);
     ApplyAudioUserSettings(fresh, *user);
     CHECK(fresh.BusVolume(AudioBus::Music) == doctest::Approx(0.25f));
     CHECK(fresh.BusMuted(AudioBus::Effects));
@@ -598,7 +599,7 @@ TEST_CASE("audio.engine: listener slots honor the configured count and reject OO
     AudioEngineSettings settings;
     settings.headless = true;
     settings.listenerCount = 3;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     CHECK(engine.ListenerCount() == 3u);
     engine.SetListenerTransformIndexed(2, Float3{1, 2, 3}, Float3{0, 0, -1}, Float3{0, 1, 0},
                                        Float3{});

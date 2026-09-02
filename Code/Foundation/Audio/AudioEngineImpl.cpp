@@ -88,6 +88,7 @@ namespace foundation::audio
         struct BridgedFile
         {
             UniquePtr<IStream> stream;
+            IAllocator* allocator = nullptr; // frees this file in VfsClose
         };
 
         void FormatClipName(char* buffer, usize size, const char* prefix, const void* key)
@@ -127,12 +128,12 @@ namespace foundation::audio
         ma_node_vtable g_reverbNodeVtable = {ReverbNodeProcess, nullptr, 1, 1,
                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING};
 
-        [[nodiscard]] ReverbNode* CreateReverbNode(ma_engine& engine,
+        [[nodiscard]] ReverbNode* CreateReverbNode(IAllocator& allocator, ma_engine& engine,
                                                    const AudioReverbParams& params)
         {
-            auto* node = DefaultAllocator().New<ReverbNode>();
+            auto* node = allocator.New<ReverbNode>();
             node->channels = ma_engine_get_channels(&engine);
-            node->state = DefaultAllocator().New<FreeverbState>();
+            node->state = allocator.New<FreeverbState>();
             node->state->Initialize(ma_engine_get_sample_rate(&engine));
             node->state->SetParams(params);
             const ma_uint32 channels[1] = {node->channels};
@@ -143,22 +144,22 @@ namespace foundation::audio
             if (ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr, &node->base) !=
                 MA_SUCCESS)
             {
-                DefaultAllocator().Delete(node->state);
-                DefaultAllocator().Delete(node);
+                allocator.Delete(node->state);
+                allocator.Delete(node);
                 return nullptr;
             }
             return node;
         }
 
-        void DestroyReverbNode(ReverbNode* node)
+        void DestroyReverbNode(IAllocator& allocator, ReverbNode* node)
         {
             if (node == nullptr)
             {
                 return;
             }
             ma_node_uninit(&node->base, nullptr);
-            DefaultAllocator().Delete(node->state);
-            DefaultAllocator().Delete(node);
+            allocator.Delete(node->state);
+            allocator.Delete(node);
         }
     }
 
@@ -243,6 +244,7 @@ namespace foundation::audio
             Impl* impl = nullptr;
         };
 
+        IAllocator* allocator;
         AudioEngineSettings settings;
         bool headless = false;
         bool engineInitialized = false;
@@ -277,7 +279,7 @@ namespace foundation::audio
         };
         Array<DyingVoice> dyingVoices;
 
-        HashMap<u64, SceneGroupData*> sceneGroups; // owned via DefaultAllocator New/Delete
+        HashMap<u64, SceneGroupData*> sceneGroups; // owned via the engine allocator New/Delete
         u64 nextSceneGroupId = 1;
 
         HashMap<void*, RegisteredClip> registeredClips; // key = AudioClip*
@@ -311,15 +313,16 @@ namespace foundation::audio
             {
                 return MA_DOES_NOT_EXIST;
             }
-            auto* file = DefaultAllocator().New<BridgedFile>();
+            auto* file = impl->allocator->New<BridgedFile>();
             file->stream = Move(stream);
+            file->allocator = impl->allocator;
             *outFile = reinterpret_cast<ma_vfs_file>(file);
             return MA_SUCCESS;
         }
         static ma_result VfsClose(ma_vfs*, ma_vfs_file file)
         {
             auto* bridged = reinterpret_cast<BridgedFile*>(file);
-            DefaultAllocator().Delete(bridged);
+            bridged->allocator->Delete(bridged);
             return MA_SUCCESS;
         }
         static ma_result VfsRead(ma_vfs*, ma_vfs_file file, void* destination, size_t bytes,
@@ -391,7 +394,8 @@ namespace foundation::audio
 
         // ---------------- construction ----------------
 
-        explicit Impl(const AudioEngineSettings& engineSettings) : settings(engineSettings)
+        Impl(IAllocator& alloc, const AudioEngineSettings& engineSettings)
+            : allocator(&alloc), settings(engineSettings)
         {
             bridge.callbacks.onOpen = &VfsOpen;
             bridge.callbacks.onClose = &VfsClose;
@@ -492,18 +496,18 @@ namespace foundation::audio
                 {
                 case AudioBusEffectKind::Lowpass:
                     ma_lpf_node_uninit(static_cast<ma_lpf_node*>(effect.node), nullptr);
-                    DefaultAllocator().Delete(static_cast<ma_lpf_node*>(effect.node));
+                    allocator->Delete(static_cast<ma_lpf_node*>(effect.node));
                     break;
                 case AudioBusEffectKind::Highpass:
                     ma_hpf_node_uninit(static_cast<ma_hpf_node*>(effect.node), nullptr);
-                    DefaultAllocator().Delete(static_cast<ma_hpf_node*>(effect.node));
+                    allocator->Delete(static_cast<ma_hpf_node*>(effect.node));
                     break;
                 case AudioBusEffectKind::Delay:
                     ma_delay_node_uninit(static_cast<ma_delay_node*>(effect.node), nullptr);
-                    DefaultAllocator().Delete(static_cast<ma_delay_node*>(effect.node));
+                    allocator->Delete(static_cast<ma_delay_node*>(effect.node));
                     break;
                 case AudioBusEffectKind::Reverb:
-                    DestroyReverbNode(static_cast<ReverbNode*>(effect.node));
+                    DestroyReverbNode(*allocator, static_cast<ReverbNode*>(effect.node));
                     break;
                 case AudioBusEffectKind::None:
                     break;
@@ -551,12 +555,12 @@ namespace foundation::audio
                 {
                 case AudioBusEffectKind::Lowpass:
                 {
-                    auto* node = DefaultAllocator().New<ma_lpf_node>();
+                    auto* node = allocator->New<ma_lpf_node>();
                     ma_lpf_node_config config = ma_lpf_node_config_init(
                         channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
                     if (ma_lpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        DefaultAllocator().Delete(node);
+                        allocator->Delete(node);
                         continue;
                     }
                     effect.node = node;
@@ -564,12 +568,12 @@ namespace foundation::audio
                 }
                 case AudioBusEffectKind::Highpass:
                 {
-                    auto* node = DefaultAllocator().New<ma_hpf_node>();
+                    auto* node = allocator->New<ma_hpf_node>();
                     ma_hpf_node_config config = ma_hpf_node_config_init(
                         channels, sampleRate, Max(desc.frequencyHz, 10.0f), kLowpassOrder);
                     if (ma_hpf_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        DefaultAllocator().Delete(node);
+                        allocator->Delete(node);
                         continue;
                     }
                     effect.node = node;
@@ -577,14 +581,14 @@ namespace foundation::audio
                 }
                 case AudioBusEffectKind::Delay:
                 {
-                    auto* node = DefaultAllocator().New<ma_delay_node>();
+                    auto* node = allocator->New<ma_delay_node>();
                     const u32 delayFrames = static_cast<u32>(Max(desc.delaySeconds, 0.001f) *
                                                              static_cast<f32>(sampleRate));
                     ma_delay_node_config config = ma_delay_node_config_init(
                         channels, sampleRate, delayFrames, Clamp(desc.delayDecay, 0.0f, 0.99f));
                     if (ma_delay_node_init(graph, &config, nullptr, node) != MA_SUCCESS)
                     {
-                        DefaultAllocator().Delete(node);
+                        allocator->Delete(node);
                         continue;
                     }
                     effect.node = node;
@@ -596,7 +600,7 @@ namespace foundation::audio
                     params.roomSize = desc.roomSize;
                     params.damping = desc.damping;
                     params.wet = desc.wetLevel;
-                    ReverbNode* node = CreateReverbNode(engine, params);
+                    ReverbNode* node = CreateReverbNode(*allocator, engine, params);
                     if (node == nullptr)
                     {
                         continue;
@@ -691,7 +695,7 @@ namespace foundation::audio
                 AudioReverbParams params;
                 params.wet = 1.0f; // full tail; the SEND level is the voice's knob
                 params.dry = 0.0f; // wet-only: the dry path already reaches the bus
-                data.sendReverb = CreateReverbNode(engine, params);
+                data.sendReverb = CreateReverbNode(*allocator, engine, params);
                 if (data.sendReverb != nullptr &&
                     busGroupInitialized[static_cast<usize>(AudioBus::Effects)])
                 {
@@ -710,7 +714,7 @@ namespace foundation::audio
             {
                 ma_sound_group_uninit(&bus->group);
             }
-            DefaultAllocator().Delete(bus);
+            allocator->Delete(bus);
         }
 
         // Reconcile the live custom-bus set with the layout BY NAME: kept buses update
@@ -780,7 +784,7 @@ namespace foundation::audio
                 {
                     continue;
                 }
-                auto* bus = DefaultAllocator().New<CustomBusData>();
+                auto* bus = allocator->New<CustomBusData>();
                 bus->name = String(named->name.AsView());
                 bus->initialized = ma_sound_group_init(
                                        &engine, 0, &busGroups[static_cast<usize>(AudioBus::Master)],
@@ -1058,13 +1062,13 @@ namespace foundation::audio
             if (slot.lowpassNode != nullptr)
             {
                 ma_lpf_node_uninit(slot.lowpassNode, nullptr);
-                DefaultAllocator().Delete(slot.lowpassNode);
+                allocator->Delete(slot.lowpassNode);
                 slot.lowpassNode = nullptr;
             }
             if (slot.splitterNode != nullptr)
             {
                 ma_splitter_node_uninit(slot.splitterNode, nullptr);
-                DefaultAllocator().Delete(slot.splitterNode);
+                allocator->Delete(slot.splitterNode);
                 slot.splitterNode = nullptr;
             }
             ClearSlotBookkeeping(slot);
@@ -1122,12 +1126,12 @@ namespace foundation::audio
             if (dying.lowpass != nullptr)
             {
                 ma_lpf_node_uninit(dying.lowpass, nullptr);
-                DefaultAllocator().Delete(dying.lowpass);
+                allocator->Delete(dying.lowpass);
             }
             if (dying.splitter != nullptr)
             {
                 ma_splitter_node_uninit(dying.splitter, nullptr);
-                DefaultAllocator().Delete(dying.splitter);
+                allocator->Delete(dying.splitter);
             }
             dyingVoices.RemoveAt(index);
         }
@@ -1291,8 +1295,8 @@ namespace foundation::audio
                     ReleaseSlot(slot);
                 }
             }
-            DestroyReverbNode((*data)->reverb);
-            DestroyReverbNode((*data)->sendReverb);
+            DestroyReverbNode(*allocator, (*data)->reverb);
+            DestroyReverbNode(*allocator, (*data)->sendReverb);
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 if ((*data)->initialized[bus])
@@ -1300,7 +1304,7 @@ namespace foundation::audio
                     ma_sound_group_uninit(&(*data)->group[bus]);
                 }
             }
-            DefaultAllocator().Delete(*data);
+            allocator->Delete(*data);
             sceneGroups.Remove(sceneGroup);
         }
 
@@ -1313,8 +1317,8 @@ namespace foundation::audio
 
     // ---------------- public surface ----------------
 
-    AudioEngine::AudioEngine(const AudioEngineSettings& settings)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator(), settings))
+    AudioEngine::AudioEngine(IAllocator& allocator, const AudioEngineSettings& settings)
+        : m_impl(MakeUnique<Impl>(allocator, allocator, settings))
     {
     }
 
@@ -1538,7 +1542,7 @@ namespace foundation::audio
         // per-voice; 0 Hz = no node (the chain stays sound->group).
         if (params.spatial && params.distanceLowpassHz > 0.0f && group != nullptr)
         {
-            auto* node = DefaultAllocator().New<ma_lpf_node>();
+            auto* node = impl.allocator->New<ma_lpf_node>();
             ma_lpf_node_config config = ma_lpf_node_config_init(
                 ma_engine_get_channels(&impl.engine), ma_engine_get_sample_rate(&impl.engine),
                 impl.OpenCutoffHz(), Impl::kLowpassOrder);
@@ -1556,7 +1560,7 @@ namespace foundation::audio
             else
             {
                 ma_lpf_node_uninit(node, nullptr);
-                DefaultAllocator().Delete(node);
+                impl.allocator->Delete(node);
             }
         }
 
@@ -1572,13 +1576,13 @@ namespace foundation::audio
                 ma_node* tail = slot.lowpassNode != nullptr
                                     ? reinterpret_cast<ma_node*>(slot.lowpassNode)
                                     : reinterpret_cast<ma_node*>(slot.sound);
-                auto* splitter = DefaultAllocator().New<ma_splitter_node>();
+                auto* splitter = impl.allocator->New<ma_splitter_node>();
                 ma_splitter_node_config config =
                     ma_splitter_node_config_init(ma_engine_get_channels(&impl.engine));
                 if (ma_splitter_node_init(ma_engine_get_node_graph(&impl.engine), &config, nullptr,
                                           splitter) != MA_SUCCESS)
                 {
-                    DefaultAllocator().Delete(splitter);
+                    impl.allocator->Delete(splitter);
                 }
                 else if (ma_node_attach_output_bus(splitter, 0, group, 0) == MA_SUCCESS &&
                          ma_node_attach_output_bus(splitter, 1, sendReverb, 0) == MA_SUCCESS &&
@@ -1591,7 +1595,7 @@ namespace foundation::audio
                 else
                 {
                     ma_splitter_node_uninit(splitter, nullptr);
-                    DefaultAllocator().Delete(splitter);
+                    impl.allocator->Delete(splitter);
                 }
             }
         }
@@ -2067,7 +2071,7 @@ namespace foundation::audio
             return 0;
         }
         const u64 id = impl.nextSceneGroupId++;
-        impl.sceneGroups.InsertOrAssign(id, DefaultAllocator().New<SceneGroupData>());
+        impl.sceneGroups.InsertOrAssign(id, impl.allocator->New<SceneGroupData>());
         return id;
     }
 
@@ -2159,7 +2163,7 @@ namespace foundation::audio
             {
                 return; // no per-scene child group available
             }
-            data.reverb = CreateReverbNode(impl.engine, params);
+            data.reverb = CreateReverbNode(*impl.allocator, impl.engine, params);
             if (data.reverb == nullptr)
             {
                 return;

@@ -176,7 +176,7 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioClipFactory factory;
+    AudioClipFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
@@ -233,7 +233,7 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     REQUIRE(builder.Build(asset, ctx).IsOk());
     const Guid id = inst->Id();
 
-    AudioClipFactory factory;
+    AudioClipFactory factory(DefaultAllocator());
 
     ResourceManager syncManager(DefaultAllocator(), outputDb);
     syncManager.AddFactory(&factory);
@@ -306,7 +306,7 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
         ids.PushBack(inst->Id());
     }
 
-    AudioClipFactory factory;
+    AudioClipFactory factory(DefaultAllocator());
     JobSystem jobs(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb, &jobs);
     manager.AddFactory(&factory);
@@ -358,7 +358,7 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioClipFactory factory;
+    AudioClipFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
@@ -456,7 +456,7 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioClipFactory factory;
+    AudioClipFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
@@ -604,7 +604,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioBusLayoutFactory factory;
+    AudioBusLayoutFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioBusLayoutResource> layout =
@@ -624,7 +624,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     // The cooked layout applies to a live (headless) engine.
     AudioEngineSettings settings;
     settings.headless = true;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     engine.ApplyBusLayout(layout->layout);
     CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
     CHECK(engine.BusEffectCount(AudioBus::Effects) == 2u);
@@ -660,7 +660,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioBusLayoutFactory factory;
+    AudioBusLayoutFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioBusLayoutResource> layout =
@@ -678,7 +678,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     // The cooked tree realizes on a live (headless) engine.
     AudioEngineSettings settings;
     settings.headless = true;
-    AudioEngine engine(settings);
+    AudioEngine engine(DefaultAllocator(), settings);
     engine.ApplyBusLayout(layout->layout);
     CHECK(engine.NamedBusCount() == 2u);
     CHECK(engine.NamedBusEffectCount(u8"drums") == 1u);
@@ -827,8 +827,8 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     ctx.output = outputInstance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
-    AudioClipFactory clipFactory;
-    SoundCueFactory cueFactory;
+    AudioClipFactory clipFactory(DefaultAllocator());
+    SoundCueFactory cueFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&clipFactory);
     manager.AddFactory(&cueFactory);

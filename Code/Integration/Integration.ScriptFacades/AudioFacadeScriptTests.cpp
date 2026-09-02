@@ -103,8 +103,8 @@ namespace
         cueRecord.variants.PushBack(variant);
         REQUIRE(steps->WriteObject(cueRecord).IsOk());
 
-        AudioClipFactory clipFactory;
-        SoundCueFactory cueFactory;
+        AudioClipFactory clipFactory(foundation::core::DefaultAllocator());
+        SoundCueFactory cueFactory(foundation::core::DefaultAllocator());
         foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), db);
         manager.AddFactory(&clipFactory);
         manager.AddFactory(&cueFactory);
