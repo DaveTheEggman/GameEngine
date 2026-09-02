@@ -150,11 +150,11 @@ TEST_CASE("navigation: query paths around an obstacle and reports the unreachabl
                                          NavigationBakeParams{}, blob)
                 .IsOk());
 
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
     REQUIRE(mesh.IsValid());
 
-    NavigationMeshQuery query(mesh);
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
     REQUIRE(query.IsValid());
 
     // Straight line from (-8,0,0) to (8,0,0) passes through the box; the path must detour.
@@ -189,9 +189,9 @@ TEST_CASE("navigation: disconnected destination is reported incomplete, not fail
                                          Span<const u32>{indices.Data(), indices.Size()},
                                          NavigationBakeParams{}, blob)
                 .IsOk());
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
-    NavigationMeshQuery query(mesh);
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
     REQUIRE(query.IsValid());
 
     NavigationPath path;
@@ -211,7 +211,7 @@ TEST_CASE("navigation: DebugTriangles enumerates the live navmesh surface")
                                          Span<const u32>{indices.Data(), indices.Size()},
                                          NavigationBakeParams{}, blob)
                 .IsOk());
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
 
     Array<Float3> tris;
@@ -246,10 +246,10 @@ TEST_CASE("navigation: two agents cross head-on, both arrive, no hard overlap")
                                          Span<const u32>{indices.Data(), indices.Size()},
                                          NavigationBakeParams{}, blob)
                 .IsOk());
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
 
-    NavigationCrowd crowd(mesh, 4, 0.6f);
+    NavigationCrowd crowd(DefaultAllocator(), mesh, 4, 0.6f);
     REQUIRE(crowd.IsValid());
 
     NavigationAgentParams ap; // defaults: radius 0.6, maxSpeed 3.5
@@ -304,14 +304,14 @@ TEST_CASE("tiled bake: a large ground splits into tiles, paths span them, and it
     REQUIRE(blobA.Size() == blobB.Size()); // determinism holds for the tiled path too
     CHECK(std::memcmp(blobA.Data(), blobB.Data(), blobA.Size()) == 0);
 
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{blobA.Data(), blobA.Size()}).IsOk());
     REQUIRE(mesh.IsValid());
     CHECK(mesh.BakedAgentRadius() == doctest::Approx(params.agentRadius));
 
     // A corner-to-corner path crosses many tile boundaries; the stitched mesh must carry it
     // end to end.
-    NavigationMeshQuery query(mesh);
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
     REQUIRE(query.IsValid());
     NavigationPath path;
     REQUIRE(query.FindPath(Float3{-27, 0, -27}, Float3{27, 0, 27}, path).IsOk());
@@ -322,7 +322,7 @@ TEST_CASE("tiled bake: a large ground splits into tiles, paths span them, and it
     CHECK(std::abs(last.z - 27.0f) < 1.0f);
 
     // A crowd agent walks the span too (the runtime consumers see one seamless mesh).
-    NavigationCrowd crowd(mesh, 4, 0.6f);
+    NavigationCrowd crowd(DefaultAllocator(), mesh, 4, 0.6f);
     REQUIRE(crowd.IsValid());
     NavigationAgentParams agent;
     const i32 id = crowd.AddAgent(Float3{-27, 0, -27}, agent);
@@ -411,7 +411,7 @@ TEST_CASE("tiled bake: v1 single-tile blobs still load (the reader sniffs the ve
                                          Span<const u32>{indices.Data(), indices.Size()},
                                          params, v1)
                 .IsOk());
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
     CHECK(mesh.IsValid());
 }
@@ -559,10 +559,10 @@ TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh 
 
     // Live swap: a mesh loaded from the ORIGINAL blob takes the rebuilt tiles via
     // ReplaceTile and the path now detours around the new obstacle.
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{original.Data(), original.Size()}).IsOk());
     {
-        NavigationMeshQuery query(mesh);
+        NavigationMeshQuery query(DefaultAllocator(), mesh);
         NavigationPath before;
         REQUIRE(query.FindPath(Float3{0, 0, 4}, Float3{8, 0, 4}, before).IsOk());
         CHECK(before.complete);
@@ -585,7 +585,7 @@ TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh 
         }
     }
     {
-        NavigationMeshQuery query(mesh);
+        NavigationMeshQuery query(DefaultAllocator(), mesh);
         NavigationPath after;
         REQUIRE(query.FindPath(Float3{0, 0, 4}, Float3{8, 0, 4}, after).IsOk());
         CHECK(after.complete);
@@ -603,7 +603,7 @@ TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh 
                                          Span<const u32>{baseIndices.Data(), baseIndices.Size()},
                                          params, v1)
                 .IsOk());
-    NavigationMesh v1Mesh;
+    NavigationMesh v1Mesh(DefaultAllocator());
     REQUIRE(v1Mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
     Array<byte> dummy;
     const Status refused = v1Mesh.ReplaceTile(0, 0, Span<const byte>{dummy.Data(), 0});

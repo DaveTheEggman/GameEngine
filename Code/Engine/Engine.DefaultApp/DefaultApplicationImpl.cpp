@@ -552,7 +552,10 @@ namespace engine::runtime
         resources.AddFactory(&m_particleEffectFactory);
         resources.AddFactory(&m_inputMapFactory);
         resources.AddFactory(&m_collisionShapeFactory);
-        resources.AddFactory(&m_navigationZoneFactory);
+        // Navigation zone products allocate from the runtime's allocator authority.
+        m_navigationZoneFactory = core::MakeUnique<foundation::navigation::NavigationZoneFactory>(
+            host.Ctx().Allocator(), host.Ctx().Allocator());
+        resources.AddFactory(m_navigationZoneFactory.Get());
         resources.AddFactory(&m_physicalMaterialFactory);
         resources.AddFactory(&m_audioClipFactory);
         resources.AddFactory(&m_busLayoutFactory);

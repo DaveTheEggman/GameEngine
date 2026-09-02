@@ -158,12 +158,12 @@ namespace
 
     bool PathAcross(Span<const byte> blob, Float3 from, Float3 to)
     {
-        NavigationMesh mesh;
+        NavigationMesh mesh(DefaultAllocator());
         if (!mesh.Load(blob).IsOk() || !mesh.IsValid())
         {
             return false;
         }
-        NavigationMeshQuery query(mesh);
+        NavigationMeshQuery query(DefaultAllocator(), mesh);
         NavigationPath path;
         return query.FindPath(from, to, path).IsOk() && path.complete;
     }
@@ -214,12 +214,12 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
         REQUIRE(!asset->navMeshBlob.IsEmpty());
         readBack.navMeshBlob = asset->navMeshBlob;
     }
-    NavigationMesh mesh;
+    NavigationMesh mesh(DefaultAllocator());
     REQUIRE(mesh.Load(Span<const byte>{reinterpret_cast<const byte*>(readBack.navMeshBlob.Data()),
                                        readBack.navMeshBlob.Size()})
                 .IsOk());
     REQUIRE(mesh.IsValid());
-    NavigationMeshQuery query(mesh);
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
     NavigationPath path;
     REQUIRE(query.FindPath(Float3{-8, 0, 0}, Float3{8, 0, 0}, path).IsOk());
     CHECK(path.complete);

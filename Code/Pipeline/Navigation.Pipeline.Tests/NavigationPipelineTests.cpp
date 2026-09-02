@@ -129,7 +129,7 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
 
     // Load the runtime product through the factory and path across it.
     {
-        NavigationZoneFactory factory;
+        NavigationZoneFactory factory(DefaultAllocator());
         ResourceManager manager(outDb);
         manager.AddFactory(&factory);
         auto* outInstance = outDb.RootGroup()->GetInstance(u8"zone");
@@ -138,7 +138,7 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
         REQUIRE(zone);
         REQUIRE(zone->IsValid());
 
-        NavigationMeshQuery query(zone->mesh);
+        NavigationMeshQuery query(DefaultAllocator(), zone->mesh);
         REQUIRE(query.IsValid());
         NavigationPath path;
         REQUIRE(query.FindPath(Float3{-8, 0, 0}, Float3{8, 0, 0}, path).IsOk());

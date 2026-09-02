@@ -45,6 +45,10 @@ export namespace foundation::scene
         Scene(const Scene&) = delete;
         Scene& operator=(const Scene&) = delete;
 
+        // The scene's allocator authority: scene systems thread THIS (usually wrapped
+        // in a per-system TaggedAllocator) instead of reaching for the ambient default.
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         [[nodiscard]] StringView Name() const noexcept { return m_name.AsView(); }
         void SetName(StringView name) { m_name = String(name); }
 

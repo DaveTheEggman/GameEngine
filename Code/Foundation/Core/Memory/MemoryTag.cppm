@@ -16,6 +16,7 @@ export module foundation.core:memory_tag;
 
 import :base;
 import :allocator;
+import :array;
 
 export namespace foundation::core
 {
@@ -42,7 +43,9 @@ export namespace foundation::core
         {
             const char* names[kMaxMemoryTags]{};
             std::atomic<u64> bytes[kMaxMemoryTags]{};
+            std::atomic<u64> peaks[kMaxMemoryTags]{};
             std::atomic<u64> counts[kMaxMemoryTags]{};
+            std::atomic<u64> totals[kMaxMemoryTags]{};
             std::atomic<u32> registered{1}; // slot 0 reserved for Default
 
             MemoryTagRegistry() { names[0] = "Default"; }
@@ -105,9 +108,46 @@ export namespace foundation::core
     {
         return detail::MemoryTags().bytes[tag.value].load(std::memory_order_relaxed);
     }
+    [[nodiscard]] inline u64 MemoryTagPeakBytes(MemoryTag tag) noexcept
+    {
+        return detail::MemoryTags().peaks[tag.value].load(std::memory_order_relaxed);
+    }
     [[nodiscard]] inline u64 MemoryTagAllocations(MemoryTag tag) noexcept
     {
         return detail::MemoryTags().counts[tag.value].load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] inline u64 MemoryTagTotalAllocations(MemoryTag tag) noexcept
+    {
+        return detail::MemoryTags().totals[tag.value].load(std::memory_order_relaxed);
+    }
+
+    // One row of the memory report (a snapshot; counters advance concurrently).
+    struct MemoryTagReportRow
+    {
+        MemoryTag tag;
+        const char* name = "";
+        u64 liveBytes = 0;
+        u64 peakBytes = 0;
+        u64 liveAllocations = 0;
+        u64 totalAllocations = 0;
+    };
+
+    // Appends one row per registered tag, in registration order.
+    inline void MemoryTagReport(Array<MemoryTagReportRow>& out)
+    {
+        const u32 count = MemoryTagCount();
+        for (u32 i = 0; i < count && i < detail::kMaxMemoryTags; ++i)
+        {
+            const MemoryTag tag{i};
+            MemoryTagReportRow row;
+            row.tag = tag;
+            row.name = MemoryTagName(tag);
+            row.liveBytes = MemoryTagBytes(tag);
+            row.peakBytes = MemoryTagPeakBytes(tag);
+            row.liveAllocations = MemoryTagAllocations(tag);
+            row.totalAllocations = MemoryTagTotalAllocations(tag);
+            out.PushBack(row);
+        }
     }
 
     // Wraps an allocator and records per-tag byte/allocation totals. Thread-safe.
@@ -124,8 +164,17 @@ export namespace foundation::core
             void* user = detail::AllocWithHeader(*m_backing, size, alignment);
             if (user != nullptr)
             {
-                detail::MemoryTags().bytes[m_tag].fetch_add(size, std::memory_order_relaxed);
-                detail::MemoryTags().counts[m_tag].fetch_add(1, std::memory_order_relaxed);
+                detail::MemoryTagRegistry& registry = detail::MemoryTags();
+                const u64 live =
+                    registry.bytes[m_tag].fetch_add(size, std::memory_order_relaxed) + size;
+                registry.counts[m_tag].fetch_add(1, std::memory_order_relaxed);
+                registry.totals[m_tag].fetch_add(1, std::memory_order_relaxed);
+                u64 peak = registry.peaks[m_tag].load(std::memory_order_relaxed);
+                while (live > peak &&
+                       !registry.peaks[m_tag].compare_exchange_weak(peak, live,
+                                                                    std::memory_order_relaxed))
+                {
+                }
             }
             return user;
         }

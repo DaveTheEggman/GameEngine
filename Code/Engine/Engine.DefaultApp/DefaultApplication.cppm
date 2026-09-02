@@ -244,7 +244,9 @@ export namespace engine::runtime
         foundation::input::InputMapFactory m_inputMapFactory;
         foundation::physics::CollisionShapeFactory m_collisionShapeFactory;
         foundation::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
-        foundation::navigation::NavigationZoneFactory m_navigationZoneFactory;
+        // Allocator-threaded factory (needs the runtime Context's allocator, so it is
+        // created in RegisterStandardFactories rather than default-constructed here).
+        core::UniquePtr<foundation::navigation::NavigationZoneFactory> m_navigationZoneFactory;
         foundation::audio::AudioClipFactory m_audioClipFactory;
         foundation::audio::AudioBusLayoutFactory m_busLayoutFactory;
         foundation::audio::SoundCueFactory m_soundCueFactory;

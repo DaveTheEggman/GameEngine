@@ -102,6 +102,16 @@ export namespace foundation::core
             return m_control->strong.load(std::memory_order_relaxed);
         }
 
+        /// The allocator THIS object was created from (recorded by MakeRef). The allocator
+        /// inheritance idiom: code inside a ref-counted object allocates its children from
+        /// its own allocator - `MakeRef<Child>(MemoryAllocator())` - so the decision made at
+        /// the tree's root threads through the whole tree with no parameter plumbing.
+        [[nodiscard]] IAllocator& MemoryAllocator() const noexcept
+        {
+            DIAGNOSTIC_ASSERT(m_control != nullptr && m_control->allocator != nullptr);
+            return *m_control->allocator;
+        }
+
     protected:
         RefCounted() noexcept = default;
         virtual ~RefCounted() = default;

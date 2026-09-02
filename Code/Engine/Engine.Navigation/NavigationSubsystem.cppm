@@ -72,7 +72,14 @@ export namespace engine::navigation
         }
         [[nodiscard]] const BakeStageCache& BakeStages() const noexcept { return m_bakeStages; }
 
-        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
+        void OnSceneCreate(scene::Scene& scene) override
+        {
+            m_scene = &scene;
+            // Everything this system allocates (crowds, queries, their Detour impls)
+            // rolls up under the Navigation memory tag, backed by the scene's allocator.
+            m_allocator = MakeUnique<TaggedAllocator>(scene.Allocator(), scene.Allocator(),
+                                                      RegisterMemoryTag("Navigation"));
+        }
 
         void OnSceneStarted() override
         {
@@ -280,10 +287,11 @@ export namespace engine::navigation
                     const f32 radius =
                         product->mesh.BakedAgentRadius() > 0.0f ? product->mesh.BakedAgentRadius()
                                                                : 0.6f;
-                    rz.crowd = MakeUnique<nav::NavigationCrowd>(DefaultAllocator(), product->mesh,
-                                                               kMaxAgentsPerZone, radius);
-                    rz.query =
-                        MakeUnique<nav::NavigationMeshQuery>(DefaultAllocator(), product->mesh);
+                    rz.crowd = MakeUnique<nav::NavigationCrowd>(*m_allocator, *m_allocator,
+                                                                product->mesh, kMaxAgentsPerZone,
+                                                                radius);
+                    rz.query = MakeUnique<nav::NavigationMeshQuery>(*m_allocator, *m_allocator,
+                                                                    product->mesh);
                     z.runtimeIndex = static_cast<i32>(m_zones.Size());
                     m_zones.PushBack(Move(rz));
                 });
@@ -336,6 +344,7 @@ export namespace engine::navigation
         }
 
         scene::Scene* m_scene = nullptr;
+        UniquePtr<TaggedAllocator> m_allocator;
         Array<RuntimeZone> m_zones;
         NavigationSceneSettings m_settings;
         BakeStageCache m_bakeStages;

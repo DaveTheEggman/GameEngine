@@ -35,6 +35,11 @@ export namespace foundation::runtime
 
         [[nodiscard]] bool IsRunning() const noexcept { return m_running; }
 
+        // The runtime's allocator authority: subsystems thread THIS (usually
+        // wrapped in a per-system TaggedAllocator) instead of reaching for the
+        // ambient default.
+        [[nodiscard]] core::IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         // Constructs and registers a subsystem of type T (one per type). Returns
         // a borrowed pointer; the Context owns it. If the Context is already
         // running, the subsystem is brought up (Init + Ready) immediately.

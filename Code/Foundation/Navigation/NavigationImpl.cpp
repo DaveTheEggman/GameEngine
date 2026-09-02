@@ -891,7 +891,9 @@ namespace foundation::navigation
         }
     };
 
-    NavigationMesh::NavigationMesh() : m_impl(MakeUnique<Impl>(DefaultAllocator())) {}
+    NavigationMesh::NavigationMesh(IAllocator& allocator) : m_impl(MakeUnique<Impl>(allocator))
+    {
+    }
     NavigationMesh::~NavigationMesh() = default;
     NavigationMesh::NavigationMesh(NavigationMesh&&) noexcept = default;
     NavigationMesh& NavigationMesh::operator=(NavigationMesh&&) noexcept = default;
@@ -1148,8 +1150,8 @@ namespace foundation::navigation
         }
     };
 
-    NavigationMeshQuery::NavigationMeshQuery(const NavigationMesh& mesh)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+    NavigationMeshQuery::NavigationMeshQuery(IAllocator& allocator, const NavigationMesh& mesh)
+        : m_impl(MakeUnique<Impl>(allocator))
     {
         dtNavMesh* navMesh = static_cast<dtNavMesh*>(mesh.NativeHandle());
         if (navMesh == nullptr)
@@ -1271,8 +1273,9 @@ namespace foundation::navigation
         }
     };
 
-    NavigationCrowd::NavigationCrowd(const NavigationMesh& mesh, i32 maxAgents, f32 maxAgentRadius)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+    NavigationCrowd::NavigationCrowd(IAllocator& allocator, const NavigationMesh& mesh,
+                                     i32 maxAgents, f32 maxAgentRadius)
+        : m_impl(MakeUnique<Impl>(allocator))
     {
         dtNavMesh* navMesh = static_cast<dtNavMesh*>(mesh.NativeHandle());
         if (navMesh == nullptr || maxAgents <= 0)

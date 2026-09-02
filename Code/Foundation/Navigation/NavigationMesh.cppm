@@ -65,11 +65,11 @@ export namespace foundation::navigation
     };
 
     // A loaded single-tile navmesh (from NavigationMeshBuilder::Build output). Move-only; owns
-    // the Detour navmesh.
+    // the Detour navmesh. The allocator (required - the owner decides) backs the impl block.
     class NavigationMesh
     {
     public:
-        NavigationMesh();
+        explicit NavigationMesh(IAllocator& allocator);
         ~NavigationMesh();
         NavigationMesh(NavigationMesh&&) noexcept;
         NavigationMesh& operator=(NavigationMesh&&) noexcept;
@@ -110,7 +110,7 @@ export namespace foundation::navigation
     class NavigationMeshQuery
     {
     public:
-        explicit NavigationMeshQuery(const NavigationMesh& mesh);
+        NavigationMeshQuery(IAllocator& allocator, const NavigationMesh& mesh);
         ~NavigationMeshQuery();
         NavigationMeshQuery(NavigationMeshQuery&&) noexcept;
         NavigationMeshQuery& operator=(NavigationMeshQuery&&) noexcept;
@@ -139,7 +139,8 @@ export namespace foundation::navigation
     class NavigationCrowd
     {
     public:
-        NavigationCrowd(const NavigationMesh& mesh, i32 maxAgents, f32 maxAgentRadius);
+        NavigationCrowd(IAllocator& allocator, const NavigationMesh& mesh, i32 maxAgents,
+                        f32 maxAgentRadius);
         ~NavigationCrowd();
         NavigationCrowd(NavigationCrowd&&) noexcept;
         NavigationCrowd& operator=(NavigationCrowd&&) noexcept;

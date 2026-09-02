@@ -63,6 +63,8 @@ export namespace foundation::navigation
     {
         RTTI_OBJECT(NavigationZoneResource, Object)
     public:
+        explicit NavigationZoneResource(IAllocator& allocator) : mesh(allocator) {}
+
         NavigationMesh mesh;
         u32 bakedFrame = 0; // frame convention of the bake (kNavigationZoneFrameRigid = current)
 
@@ -72,6 +74,10 @@ export namespace foundation::navigation
     class NavigationZoneFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every zone product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit NavigationZoneFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &NavigationZoneResource::StaticType();
@@ -85,7 +91,8 @@ export namespace foundation::navigation
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<NavigationZoneResource> zone = MakeRef<NavigationZoneResource>(DefaultAllocator());
+            RefPtr<NavigationZoneResource> zone =
+                MakeRef<NavigationZoneResource>(*m_allocator, *m_allocator);
             zone->bakedFrame = source->bakedFrame;
             if (!source->navMeshBlob.IsEmpty())
             {
@@ -97,6 +104,9 @@ export namespace foundation::navigation
             }
             return zone;
         }
+
+    private:
+        IAllocator* m_allocator;
     };
 
     // Registers the cooked record + product types (content-DB construction by type name).

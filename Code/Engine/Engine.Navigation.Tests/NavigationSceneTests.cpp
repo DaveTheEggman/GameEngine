@@ -85,7 +85,7 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
         MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
-    NavigationZoneFactory factory;
+    NavigationZoneFactory factory(DefaultAllocator());
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
@@ -120,6 +120,10 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
     // Registered with the zone and given a crowd slot.
     CHECK(agent->zoneIndex >= 0);
     CHECK(agent->agentId >= 0);
+
+    // The scene system's crowd/query allocations roll up under the Navigation memory tag.
+    CHECK(MemoryTagBytes(RegisterMemoryTag("Navigation")) > 0u);
+    CHECK(MemoryTagAllocations(RegisterMemoryTag("Navigation")) > 0u);
 
     // Steer to the far side and step until arrival (12s @ 30 Hz).
     agent->navigate(5.0f, 0.0f, 0.0f);
@@ -165,7 +169,7 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
         src.bakedFrame = kNavigationZoneFrameRigid; // what NavigationBakeImpl stamps
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
-    NavigationZoneFactory factory;
+    NavigationZoneFactory factory(DefaultAllocator());
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
@@ -232,7 +236,7 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
         MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
-    NavigationZoneFactory factory;
+    NavigationZoneFactory factory(DefaultAllocator());
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 
@@ -303,7 +307,7 @@ TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arriv
         MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
-    NavigationZoneFactory factory;
+    NavigationZoneFactory factory(DefaultAllocator());
     ResourceManager manager(db);
     manager.AddFactory(&factory);
 

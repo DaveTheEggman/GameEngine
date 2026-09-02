@@ -948,7 +948,8 @@ namespace samples
                                 core::Span<const core::u32>{indices.Data(), indices.Size()},
                                 navigation::NavigationBakeParams{}, blob)
                                 .IsOk();
-            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(core::DefaultAllocator());
+            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(core::DefaultAllocator(),
+                                                                           core::DefaultAllocator());
             if (ok && !blob.IsEmpty())
             {
                 (void)m_navZone->mesh.Load(

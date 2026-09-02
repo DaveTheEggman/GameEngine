@@ -371,6 +371,7 @@ TEST_CASE("memory: TaggedAllocator records per-tag usage via the registry")
 
     const u64 beforeBytes = MemoryTagBytes(graphics);
     const u64 beforeCount = MemoryTagAllocations(graphics);
+    const u64 beforeTotal = MemoryTagTotalAllocations(graphics);
 
     TaggedAllocator gfx(DefaultAllocator(), graphics);
     void* a = gfx.Allocate(128, 16);
@@ -380,10 +381,54 @@ TEST_CASE("memory: TaggedAllocator records per-tag usage via the registry")
 
     CHECK(MemoryTagBytes(graphics) == beforeBytes + 192);
     CHECK(MemoryTagAllocations(graphics) == beforeCount + 2);
+    CHECK(MemoryTagTotalAllocations(graphics) == beforeTotal + 2);
+    CHECK(MemoryTagPeakBytes(graphics) >= beforeBytes + 192);
     CHECK(MemoryTagBytes(audio) == 0u); // other tags unaffected
 
     gfx.Free(a);
     gfx.Free(b);
     CHECK(MemoryTagBytes(graphics) == beforeBytes);
     CHECK(MemoryTagAllocations(graphics) == beforeCount);
+    // Peak and total survive frees.
+    CHECK(MemoryTagTotalAllocations(graphics) == beforeTotal + 2);
+    CHECK(MemoryTagPeakBytes(graphics) >= beforeBytes + 192);
+}
+
+TEST_CASE("memory: MemoryTagReport lists every registered tag")
+{
+    const MemoryTag reportTag = RegisterMemoryTag("TestReport");
+    TaggedAllocator tagged(DefaultAllocator(), reportTag);
+    void* block = tagged.Allocate(96, 16);
+    REQUIRE(block != nullptr);
+
+    Array<MemoryTagReportRow> rows;
+    MemoryTagReport(rows);
+    REQUIRE(rows.Size() == MemoryTagCount());
+    CHECK(std::strcmp(rows[0].name, "Default") == 0);
+
+    bool found = false;
+    for (const MemoryTagReportRow& row : rows)
+    {
+        if (row.tag.value == reportTag.value)
+        {
+            found = true;
+            CHECK(std::strcmp(row.name, "TestReport") == 0);
+            CHECK(row.liveBytes == 96u);
+            CHECK(row.peakBytes >= 96u);
+            CHECK(row.liveAllocations == 1u);
+            CHECK(row.totalAllocations == 1u);
+        }
+    }
+    CHECK(found);
+    tagged.Free(block);
+}
+
+TEST_CASE("memory: RefCounted::MemoryAllocator returns the creating allocator")
+{
+    TrackingAllocator tracker(DefaultAllocator());
+    {
+        RefPtr<Widget> widget = MakeRef<Widget>(tracker, 5);
+        CHECK(&widget->MemoryAllocator() == &tracker);
+    }
+    CHECK_FALSE(tracker.HasLeaks());
 }
