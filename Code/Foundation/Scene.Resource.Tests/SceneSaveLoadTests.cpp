@@ -46,7 +46,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
     RegisterSerializable<SceneDocument>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_scene_db");
+    NativeFileSystem mount(u8"scratch_scene_db", DefaultAllocator());
 
     Guid id;
     Guid heroId, foeId;
@@ -62,7 +62,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
         heroId = scene.GetEntityId(hero);
         foeId = scene.GetEntityId(foe);
 
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"level", SceneDocument::StaticType());
         id = inst->Id();
@@ -71,7 +71,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
 
     {
         // load into a fresh scene whose manager is injected first (as a subsystem would)
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);

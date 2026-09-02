@@ -53,12 +53,12 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
                     .IsOk());
     }
 
-    NativeFileSystem outMount(u8"scratch_imgpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_imgpipe_out_db", DefaultAllocator());
 
     // --- cook (tooling): ImageAsset -> ImageResource in the output DB ---
     Guid id;
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
         id = inst->Id();
@@ -68,7 +68,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
         asset.colorSpace = ImageColorSpace::Srgb;
 
         ImageAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
@@ -76,10 +76,10 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
     }
 
     // --- runtime load (device-free): cooked ImageResource via the manager ---
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     ImageFactory factory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
     Proxy<ImageResource> img = manager.Bind<ImageResource>(id);
@@ -114,15 +114,15 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     RegisterImageResource();
     RegisterImageAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_imgpipe_out_db");
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem outMount(u8"scratch_imgpipe_out_db", DefaultAllocator());
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"icon", ImageResource::StaticType());
 
     ImageAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     ImageAssetBuilder builder;
-    NativeFileSystem srcMount2(u8".");
+    NativeFileSystem srcMount2(u8".", DefaultAllocator());
     pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount2;
     ctx.output = inst;

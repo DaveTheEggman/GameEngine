@@ -59,10 +59,10 @@ namespace
 
 TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + the font pin)")
 {
-    foundation::vfs::NativeFileSystem mount(u8"scratch_defaultapp_factories");
-    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(u8"scratch_defaultapp_factories", foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                             u8".xasset");
-    foundation::resource::ResourceManager resources(db, nullptr);
+    foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db, nullptr);
     StubHost host;
 
     engine::runtime::DefaultApplication app;

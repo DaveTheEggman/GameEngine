@@ -62,8 +62,8 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
 
     model::RegisterModelResourceTypes(); // make the cooked types deserializable
 
-    vfs::NativeFileSystem mount(u8"scratch_modelimporter_test_db");
-    content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(), u8".rasset");
+    vfs::NativeFileSystem mount(u8"scratch_modelimporter_test_db", DefaultAllocator());
+    content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(), u8".rasset");
 
     // Cook the model file into the DB; get back the manifest (ModelResource) Guid.
     Guid modelGuid;
@@ -72,7 +72,7 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
     REQUIRE_FALSE(modelGuid.IsNil());
 
     // Bind the composite model: ModelFactory resolves its meshes via StaticMeshFactory.
-    resource::ResourceManager manager(db);
+    resource::ResourceManager manager(DefaultAllocator(), db);
     geometry::StaticMeshFactory meshFactory;
     model::ModelFactory modelFactory;
     manager.AddFactory(&meshFactory);
@@ -109,13 +109,13 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
 
     model::RegisterModelResourceTypes();
 
-    vfs::NativeFileSystem mount(u8"scratch_modelimporter_fox_db");
-    content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(), u8".rasset");
+    vfs::NativeFileSystem mount(u8"scratch_modelimporter_fox_db", DefaultAllocator());
+    content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(), u8".rasset");
 
     Guid modelGuid;
     REQUIRE(pipeline::LoadAndCook(fox, db, u8"Fox", modelGuid) == model::ModelLoadResult::Ok);
 
-    resource::ResourceManager manager(db);
+    resource::ResourceManager manager(DefaultAllocator(), db);
     geometry::StaticMeshFactory meshFactory;
     geometry::SkinnedMeshFactory skinnedFactory;
     model::ModelFactory modelFactory;
@@ -181,7 +181,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
         // Recursive best-effort cleanup of Content/Cooked/Sources/.cache trees.
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             Array<foundation::vfs::DirEntry> tops;
             if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {
@@ -251,8 +251,8 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     add(DefaultAllocator().New<pipeline::AnimationClipAssetBuilder>());
     add(DefaultAllocator().New<pipeline::ModelManifestAssetBuilder>());
 
-    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
-    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
+    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
     CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
 
     CookPlan plan = driver.Plan();
@@ -289,7 +289,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             Array<foundation::vfs::DirEntry> tops;
             if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {
@@ -366,7 +366,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             Array<foundation::vfs::DirEntry> tops;
             if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {
@@ -425,8 +425,8 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     add(DefaultAllocator().New<pipeline::AnimationClipAssetBuilder>());
     add(DefaultAllocator().New<pipeline::ModelManifestAssetBuilder>());
 
-    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
-    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
+    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
     CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
     CookPlan plan = driver.Plan();
     CookStats stats = driver.Execute(plan);
@@ -436,7 +436,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     // Device FIRST: it must outlive the manager's cached products (their destructors release
     // GPU objects through it).
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
-    resource::ResourceManager resources(project->CookedDb());
+    resource::ResourceManager resources(DefaultAllocator(), project->CookedDb());
     foundation::geometry::StaticMeshFactory meshFactory;
     foundation::materials::MaterialFactory materialFactory;
     foundation::texture::TextureFactory textureFactory(device);
@@ -627,7 +627,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             Array<foundation::vfs::DirEntry> tops;
             if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {
@@ -673,8 +673,8 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     add(DefaultAllocator().New<pipeline::AnimationClipAssetBuilder>());
     add(DefaultAllocator().New<pipeline::ModelManifestAssetBuilder>());
 
-    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView());
-    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView());
+    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
     CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
 
     // Duck has a texture (the crashing product kind). Import + cook generation 1.
@@ -891,7 +891,7 @@ namespace
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(foundation::core::PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(foundation::core::PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             foundation::core::Array<foundation::vfs::DirEntry> tops;
             if (!fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {
@@ -918,7 +918,7 @@ namespace
             }
             (void)foundation::core::RemoveDirectory(foundation::core::PathJoin(dir, sub).AsView());
         }
-        foundation::vfs::NativeFileSystem fs(dir);
+        foundation::vfs::NativeFileSystem fs(dir, foundation::core::DefaultAllocator());
         foundation::core::Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -1283,7 +1283,7 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
     {
         for (StringView sub : {u8"Content", u8"Cooked", u8"Sources", u8".cache"})
         {
-            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView());
+            foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(), foundation::core::DefaultAllocator());
             Array<foundation::vfs::DirEntry> tops;
             if (fs.AsEnumerable()->Enumerate(u8"", tops).IsOk())
             {

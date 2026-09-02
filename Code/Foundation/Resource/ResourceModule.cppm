@@ -258,9 +258,12 @@ export namespace foundation::resource
         // `jobs` is the shared JobSystem used for async decode (BindAsync). Null = async degrades
         // to a synchronous Bind, so every existing caller keeps working unchanged. The constructing
         // thread is recorded as the main thread (async finalize / Pump must run on it).
-        explicit ResourceManager(foundation::content::IContentDatabase& database,
-                                 JobSystem* jobs = nullptr) noexcept
-            : m_database(&database), m_jobs(jobs), m_mainThreadId(Thread::CurrentId())
+        // The allocator (required - the owner decides) backs resource handles and
+        // pending async loads.
+        ResourceManager(IAllocator& allocator, foundation::content::IContentDatabase& database,
+                        JobSystem* jobs = nullptr) noexcept
+            : m_allocator(&allocator), m_database(&database), m_jobs(jobs),
+              m_mainThreadId(Thread::CurrentId())
         {
         }
 
@@ -403,7 +406,7 @@ export namespace foundation::resource
                 }
                 return handle;
             }
-            RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
+            RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(*m_allocator);
             BuildInto(*handle, productType.id, id);
             SettleSyncState(*handle);
             m_handles.InsertOrAssign(id, handle);
@@ -444,7 +447,7 @@ export namespace foundation::resource
                 StartAsyncBuild(handle, productType.id, id);
                 return handle;
             }
-            RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(DefaultAllocator());
+            RefPtr<ResourceHandle> handle = MakeRef<ResourceHandle>(*m_allocator);
             m_handles.InsertOrAssign(id, handle);
             StartAsyncBuild(handle, productType.id, id);
             return handle;
@@ -723,7 +726,7 @@ export namespace foundation::resource
             handle->SetState(ResourceState::Pending);
             ClearForwardDeps(id);
 
-            UniquePtr<PendingLoad> pending = MakeUnique<PendingLoad>(DefaultAllocator());
+            UniquePtr<PendingLoad> pending = MakeUnique<PendingLoad>(*m_allocator);
             pending->handle = handle;
             pending->id = id;
             PendingLoad* record = pending.Get();
@@ -944,6 +947,7 @@ export namespace foundation::resource
             arr->PushBack(value);
         }
 
+        IAllocator* m_allocator;
         foundation::content::IContentDatabase* m_database;
         HashMap<TypeId, IResourceFactory*> m_factories;
         HashMap<Guid, RefPtr<ResourceHandle>> m_handles;

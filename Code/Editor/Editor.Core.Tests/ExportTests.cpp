@@ -157,16 +157,16 @@ namespace
         }
 
         // Consume the dist exactly like the player: manifest guid -> Bind<ScriptClass> from the pak.
-        foundation::vfs::NativeFileSystem distRoot(distDir);
+        foundation::vfs::NativeFileSystem distRoot(distDir, foundation::core::DefaultAllocator());
         engine::project::ProjectSettings manifest;
         REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
         CHECK(manifest.startupScriptId == scriptId);
 
         foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
         REQUIRE(pak.IsValid());
-        foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                               project::kCookedAssetExtension);
-        foundation::resource::ResourceManager resources(db);
+        foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db);
         script::ScriptClassFactory scriptFactory;
         resources.AddFactory(&scriptFactory);
 
@@ -292,7 +292,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     }
 
     // --- consume the dist exactly like Engine.Player's dist mode ---
-    foundation::vfs::NativeFileSystem distRoot(distDir);
+    foundation::vfs::NativeFileSystem distRoot(distDir, foundation::core::DefaultAllocator());
     engine::project::ProjectSettings manifest;
     REQUIRE(project::LoadProjectSettings(distRoot, manifest, project::kDistManifestFile).IsOk());
     CHECK(manifest.defaultScene == u8"Scenes/Main");
@@ -302,7 +302,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
 
     foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
 
     // The scene loads from the pak under its ORIGINAL guid/path, and its mesh ref resolves
@@ -324,7 +324,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     scene::Scene scene;
     auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     REQUIRE(scene::LoadScene(*sceneInstance, scene).IsOk());
-    foundation::resource::ResourceManager resources(db);
+    foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db);
     geometry::StaticMeshFactory meshFactory;
     resources.AddFactory(&meshFactory);
     scene::ResolveSceneResources(scene, resources);
@@ -348,7 +348,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
                                 u8"scratch_presets_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // Absent file => NotFound, so callers know to fall back to defaults.
     {
@@ -439,7 +439,7 @@ namespace
             {
                 return;
             }
-            foundation::resource::ResourceManager collector(db);
+            foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), db);
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
             scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
@@ -464,7 +464,7 @@ namespace
     void SetupHostTemplate(StringView toolDir, editor::TemplateRegistry& registry)
     {
         REQUIRE(CreateDirectory(toolDir));
-        foundation::vfs::NativeFileSystem toolFs(toolDir);
+        foundation::vfs::NativeFileSystem toolFs(toolDir, foundation::core::DefaultAllocator());
         SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
         registry.Refresh(StringView{}, nullptr, toolDir, &toolFs);
     }
@@ -475,7 +475,7 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     const String dir = TempDir(u8"scratch_template_test");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // template.xml round-trip, including the v2 (platform, config) axis: config + compiler + symbols[].
     editor::ExportTemplate t;
@@ -531,7 +531,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
     const String dir = TempDir(u8"scratch_template_v1_backcompat");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // A hand-written v1 manifest: the OLD schema (dataVersion 1, no config/compiler/symbols). This is
     // exactly what a pre-config-axis editor wrote; it must still load, defaulting config -> Release.
@@ -573,8 +573,8 @@ TEST_CASE("export: template registry resolves by id, by platform, and host-falls
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"foreign-template").AsView()));
 
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView(), foundation::core::DefaultAllocator());
 
     // One imported template for a NON-host platform, so the host-fallback check below is valid on
     // every host: if the import shared the host platform it would out-rank the synthesized host
@@ -632,8 +632,8 @@ TEST_CASE("export: an imported template out-ranks the synthesized host for the h
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"host-template").AsView()));
 
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView(), foundation::core::DefaultAllocator());
 
     // An imported template for the SAME platform AND config as this host build - so the exact-match
     // pass returns both, and the imported (non-host) bundle must win the tiebreak.
@@ -689,7 +689,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     // Fake host tool dir: a "player" + its runtime-libs listing one sidecar + the sidecar file.
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
     SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     SaveText(toolFs, u8"Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(toolFs, u8"libfoo.so", u8"foo\n");
@@ -709,7 +709,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
             .IsOk());
 
     // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
-    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
     CHECK(distFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
     CHECK(distFs.Exists(u8"libfoo.so"));
     CHECK(distFs.Exists(u8"Content.pak"));
@@ -742,7 +742,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     // An imported template for the host platform stamped with a DIFFERENT engine version.
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"old-template").AsView()));
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate old;
     old.id = String(TEMPLATE_ID_PREFIX u8"-old-engine");
     old.platform = String(GetHostPlatformName());
@@ -751,11 +751,11 @@ TEST_CASE("export: a template built against a different engine version warns but
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), old, u8"old-template/template.xml")
                 .IsOk());
     // The player file the driver stages from the template dir.
-    foundation::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView());
+    foundation::vfs::NativeFileSystem oldDirFs(PathJoin(rootDir.AsView(), u8"old-template").AsView(), foundation::core::DefaultAllocator());
     SaveText(oldDirFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
@@ -788,7 +788,7 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     REQUIRE(CreateDirectory(src.AsView()));
 
     // A source bundle: template.xml + a fake player + a sidecar.
-    foundation::vfs::NativeFileSystem srcFs(src.AsView());
+    foundation::vfs::NativeFileSystem srcFs(src.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate t;
     t.id = String(TEMPLATE_ID_PREFIX u8"-win64-import");
     t.platform = String(u8"Win64");
@@ -803,8 +803,8 @@ TEST_CASE("export: ImportTemplate installs a bundle the registry then resolves")
     CHECK(importedId == TEMPLATE_ID_PREFIX u8"-win64-import");
 
     // The registry over the root now resolves it (alongside the synthesized host template).
-    foundation::vfs::NativeFileSystem rootFs(root.AsView());
-    foundation::vfs::NativeFileSystem toolFs(src.AsView()); // any dir for the host template
+    foundation::vfs::NativeFileSystem rootFs(root.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem toolFs(src.AsView(), foundation::core::DefaultAllocator()); // any dir for the host template
     editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, src.AsView(), &toolFs);
     const editor::ExportTemplate* found = reg.FindById(TEMPLATE_ID_PREFIX u8"-win64-import");
@@ -839,7 +839,7 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     const String binDir = PathJoin(
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Release").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
-    foundation::vfs::NativeFileSystem binFs(binDir.AsView());
+    foundation::vfs::NativeFileSystem binFs(binDir.AsView(), foundation::core::DefaultAllocator());
     SaveText(binFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     SaveText(binFs, u8"Engine.Player.runtime-libs", u8"libfoo.so\n");
     SaveText(binFs, u8"libfoo.so", u8"foo\n");
@@ -858,7 +858,7 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(createdDir == PathJoin(root.AsView(), createdId.AsView()));
 
     // The bundle exists on disk: manifest + player + the sidecar.
-    foundation::vfs::NativeFileSystem bundleFs(createdDir.AsView());
+    foundation::vfs::NativeFileSystem bundleFs(createdDir.AsView(), foundation::core::DefaultAllocator());
     CHECK(bundleFs.Exists(u8"template.xml"));
     CHECK(bundleFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
     CHECK(bundleFs.Exists(u8"libfoo.so"));
@@ -873,8 +873,8 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(manifest.sidecars[0] == u8"libfoo.so");
 
     // The registry over the root now finds the created template.
-    foundation::vfs::NativeFileSystem rootFs(root.AsView());
-    foundation::vfs::NativeFileSystem toolFs(base.AsView()); // any dir for the host template
+    foundation::vfs::NativeFileSystem rootFs(root.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem toolFs(base.AsView(), foundation::core::DefaultAllocator()); // any dir for the host template
     editor::TemplateRegistry reg;
     reg.Refresh(root.AsView(), &rootFs, base.AsView(), &toolFs);
     const editor::ExportTemplate* found = reg.FindById(createdId.AsView());
@@ -900,7 +900,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
     const String binDir = PathJoin(
         PathJoin(PathJoin(base.AsView(), u8"Bin").AsView(), u8"Debug").AsView(), leaf.AsView());
     REQUIRE(CreateDirectories(binDir.AsView()));
-    foundation::vfs::NativeFileSystem binFs(binDir.AsView());
+    foundation::vfs::NativeFileSystem binFs(binDir.AsView(), foundation::core::DefaultAllocator());
     SaveText(binFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     // No runtime-libs manifest => no sidecars (an rpath-style build); the player alone still packages.
 
@@ -910,7 +910,7 @@ TEST_CASE("export: CreateTemplate --out mode writes a self-contained bundle to t
                 .IsOk());
     // ExportFolder writes straight into the given folder (zip it to distribute).
     CHECK(createdDir == outFolder);
-    foundation::vfs::NativeFileSystem bundleFs(outFolder.AsView());
+    foundation::vfs::NativeFileSystem bundleFs(outFolder.AsView(), foundation::core::DefaultAllocator());
     CHECK(bundleFs.Exists(u8"template.xml"));
     CHECK(bundleFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
 
@@ -947,7 +947,7 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     const auto writeTemplate = [&](StringView id, StringView cfg, StringView subdir)
     {
         REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), subdir).AsView()));
-        foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+        foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
         editor::ExportTemplate t;
         t.id = String(id);
         t.platform = plat;
@@ -960,8 +960,8 @@ TEST_CASE("export: FindBy resolves exact (platform,config) and falls back prefer
     writeTemplate(TEMPLATE_ID_PREFIX u8"-dbg", u8"Debug", u8"dbg");
     writeTemplate(TEMPLATE_ID_PREFIX u8"-rel", u8"Release", u8"rel");
 
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView(), foundation::core::DefaultAllocator());
     editor::TemplateRegistry reg;
     reg.Refresh(rootDir.AsView(), &rootFs, hostDir.AsView(), &hostFs);
 
@@ -1011,7 +1011,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     // An imported template with a player, one required sidecar, and one SYMBOL file.
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"sym-template").AsView()));
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate t;
     t.id = String(TEMPLATE_ID_PREFIX u8"-sym");
     t.platform = String(GetHostPlatformName());
@@ -1021,13 +1021,13 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), t, u8"sym-template/template.xml")
                 .IsOk());
     foundation::vfs::NativeFileSystem tmplDirFs(
-        PathJoin(rootDir.AsView(), u8"sym-template").AsView());
+        PathJoin(rootDir.AsView(), u8"sym-template").AsView(), DefaultAllocator());
     SaveText(tmplDirFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
     SaveText(tmplDirFs, u8"libfoo.so", u8"foo\n");
     SaveText(tmplDirFs, u8"Engine.Player.debug", u8"dwarf\n");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
@@ -1043,7 +1043,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
                                   &result)
                     .IsOk());
-        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
         CHECK(distFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
         CHECK(distFs.Exists(u8"libfoo.so"));                // required sidecar always staged
         CHECK_FALSE(distFs.Exists(u8"Engine.Player.debug")); // symbols stripped by default
@@ -1061,7 +1061,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
                                   &result)
                     .IsOk());
-        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+        foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
         CHECK(distFs.Exists(u8"Engine.Player.debug")); // opted in
         CHECK(result.filesStaged == 4u);              // player + shaders.dpak + sidecar + symbol
     }
@@ -1077,7 +1077,7 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
     const String dir = TempDir(u8"scratch_presets_v1");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // A hand-written v1 export_presets.xml (dataVersion 1, no config/stageSymbols on the preset).
     const StringView v1 = u8"<root>"
@@ -1127,7 +1127,7 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
     const String dir = TempDir(u8"scratch_editor_settings");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // First run: no file => NotFound, and the section is absent (reads as its defaults on access).
     {
@@ -1221,7 +1221,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);    // scene staged
     CHECK(db.GetInstance(meshRefId) != nullptr);  // referenced mesh kept
@@ -1241,7 +1241,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
         }
     }
     CHECK(droppedDead);
-    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
     CHECK(distFs.Exists(u8"export-report.txt")); // report written beside the dist
 
     // --- non-pruned (default) export: EVERYTHING ships, no report (escape hatch, no regression) ---
@@ -1256,12 +1256,12 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     foundation::vfs::PakFileSystem fullPak(
         PathJoin(fullResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(fullPak.IsValid());
-    foundation::content::ContentDatabase fullDb(fullPak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase fullDb(foundation::core::DefaultAllocator(), fullPak, BinarySerializerFactory(),
                                               project::kCookedAssetExtension);
     CHECK(fullDb.GetInstance(meshRefId) != nullptr);
     CHECK(fullDb.GetInstance(meshDeadId) != nullptr); // unreferenced ships when not pruning
     CHECK_FALSE(fullResult.pruning.pruned);
-    foundation::vfs::NativeFileSystem fullFs(fullResult.outputDir.AsView());
+    foundation::vfs::NativeFileSystem fullFs(fullResult.outputDir.AsView(), foundation::core::DefaultAllocator());
     CHECK_FALSE(fullFs.Exists(u8"export-report.txt"));
 
     NukeTree(projectDir.AsView());
@@ -1341,7 +1341,7 @@ TEST_CASE(
     foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(meshRefId) != nullptr);
@@ -1362,7 +1362,7 @@ TEST_CASE(
     foundation::vfs::PakFileSystem noHelpPak(
         PathJoin(noHelpResult.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(noHelpPak.IsValid());
-    foundation::content::ContentDatabase noHelpDb(noHelpPak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase noHelpDb(foundation::core::DefaultAllocator(), noHelpPak, BinarySerializerFactory(),
                                                 project::kCookedAssetExtension);
     CHECK(noHelpDb.GetInstance(meshDeadId) != nullptr); // fell back to pack-everything
     CHECK_FALSE(noHelpResult.pruning.pruned);
@@ -1469,7 +1469,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     foundation::vfs::PakFileSystem pak(
         PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
-    foundation::content::ContentDatabase db(pak, BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                           project::kCookedAssetExtension);
     CHECK(db.GetInstance(sceneId) != nullptr);
     CHECK(db.GetInstance(prefabId) != nullptr);     // prefab staged
@@ -1487,7 +1487,7 @@ TEST_CASE(
     const String dir = TempDir(u8"scratch_presets_controller");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     // First load, no file yet => seeded with the built-in default (one host-platform preset).
     editor::ExportPresetsController ctl;
@@ -1566,8 +1566,8 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     REQUIRE(CreateDirectory(hostDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), TEMPLATE_ID_PREFIX u8"-remove-me").AsView()));
 
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
-    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem hostFs(hostDir.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate t;
     t.id = String(TEMPLATE_ID_PREFIX u8"-remove-me");
     t.platform = String(u8"Win64");
@@ -1585,7 +1585,7 @@ TEST_CASE("export: RemoveTemplate deletes an installed bundle the registry then 
     // Remove the bundle dir; a fresh registry no longer sees it (host template remains).
     REQUIRE(editor::RemoveTemplate(rootDir.AsView(), TEMPLATE_ID_PREFIX u8"-remove-me").IsOk());
     {
-        foundation::vfs::NativeFileSystem rootFs2(rootDir.AsView());
+        foundation::vfs::NativeFileSystem rootFs2(rootDir.AsView(), foundation::core::DefaultAllocator());
         editor::TemplateRegistry reg;
         reg.Refresh(rootDir.AsView(), &rootFs2, hostDir.AsView(), &hostFs);
         CHECK(reg.FindById(TEMPLATE_ID_PREFIX u8"-remove-me") == nullptr);
@@ -1625,7 +1625,7 @@ TEST_CASE("export: ExportRootsSet membership toggle is idempotent and round-trip
     const String dir = TempDir(u8"scratch_export_roots_set");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     editor::ExportRootsSet set;
     CHECK(set.IsEmpty());
@@ -1787,7 +1787,7 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
     NukeTree(dir.AsView());
     NukeTree(dest.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
-    foundation::vfs::NativeFileSystem root(dir.AsView());
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
     SaveText(root, u8"Engine.Player.html", u8"<html>player page</html>");
     SaveText(root, u8"Engine.Player.js", u8"// glue");
@@ -1801,7 +1801,7 @@ TEST_CASE("export: template create recognizes a WEB build dir (player page + web
                                    editor::TemplateOutput::ExportFolder, &id, &outDir)
                 .IsOk());
 
-    foundation::vfs::NativeFileSystem out(outDir.AsView());
+    foundation::vfs::NativeFileSystem out(outDir.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate created;
     REQUIRE(editor::LoadTemplateManifest(out, created).IsOk());
     CHECK(created.platform == u8"Web");
@@ -1844,7 +1844,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     // An installed Web template (the shape `--template create <wasm build dir>` produces).
     REQUIRE(CreateDirectory(rootDir.AsView()));
     REQUIRE(CreateDirectory(PathJoin(rootDir.AsView(), u8"web-template").AsView()));
-    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView());
+    foundation::vfs::NativeFileSystem rootFs(rootDir.AsView(), foundation::core::DefaultAllocator());
     editor::ExportTemplate web;
     web.id = String(TEMPLATE_ID_PREFIX u8"-web-debug-test");
     web.platform = String(u8"Web");
@@ -1855,14 +1855,14 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     web.sidecars.PushBack(String(u8"serve.py"));
     REQUIRE(editor::SaveTemplateManifest(*rootFs.AsWritable(), web, u8"web-template/template.xml")
                 .IsOk());
-    foundation::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView());
+    foundation::vfs::NativeFileSystem webDirFs(PathJoin(rootDir.AsView(), u8"web-template").AsView(), foundation::core::DefaultAllocator());
     SaveText(webDirFs, u8"Engine.Player.html", u8"<html>player</html>");
     SaveText(webDirFs, u8"Engine.Player.js", u8"// glue");
     SaveText(webDirFs, u8"Engine.Player.wasm", u8"\0asm");
     SaveText(webDirFs, u8"serve.py", u8"# server");
 
     REQUIRE(CreateDirectory(toolDir.AsView()));
-    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
@@ -1878,7 +1878,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
             .IsOk());
 
     // The served folder: page + sidecars + content + the ENGINE shader pack.
-    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView());
+    foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
     CHECK(distFs.Exists(u8"Engine.Player.html"));
     CHECK(distFs.Exists(u8"Engine.Player.js"));
     CHECK(distFs.Exists(u8"Engine.Player.wasm"));
@@ -1985,7 +1985,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
         DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
 
     const auto readPak = [](StringView dir) {
-        foundation::vfs::NativeFileSystem fs(dir);
+        foundation::vfs::NativeFileSystem fs(dir, foundation::core::DefaultAllocator());
         UniquePtr<IStream> s = fs.Open(project::kDistContentPak, FileMode::Read);
         REQUIRE(static_cast<bool>(s));
         Array<byte> bytes;

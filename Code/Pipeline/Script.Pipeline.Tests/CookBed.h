@@ -74,10 +74,10 @@ namespace scriptpipe
             RemoveTree(outDir.AsView());
             REQUIRE(CreateDirectory(srcDir.AsView()));
             sources =
-                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView());
+                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), srcDir.AsView(), DefaultAllocator());
             output =
-                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView());
-            outputDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *output,
+                MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), outDir.AsView(), DefaultAllocator());
+            outputDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), DefaultAllocator(), *output,
                                                             BinarySerializerFactory(), u8".rasset");
         }
         ~CookBed()

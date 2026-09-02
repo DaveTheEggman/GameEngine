@@ -95,9 +95,11 @@ tight cluster) per commit.
   every node stores its creating allocator, the document's decision covers
   the whole tree, detached subtrees keep their creator's; XmlSerializer
   write mode takes the allocator backing its document; Settings store;
-  HttpServer + McpHttpHost). **P3a part 2 NEXT**: the ContentDatabase /
-  ResourceManager / NativeFileSystem trio (large mechanical sweep, ~400
-  mostly-test sites). Then P3b fonts, P3c audio, P3d net, P3e script
+  HttpServer + McpHttpHost). **P3a part 2 DONE**: the ContentDatabase /
+  ResourceManager / NativeFileSystem trio - required allocators back
+  group/instance nodes, resource handles + pending async loads, and file
+  streams/change sources; ~150 construction sites made explicit
+  (overwhelmingly test roots). Then P3b fonts, P3c audio, P3d net, P3e script
   backends + misc.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry

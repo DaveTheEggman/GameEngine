@@ -58,12 +58,12 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
     RegisterTextureResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"scratch_texfac_db");
+    NativeFileSystem mount(u8"scratch_texfac_db", DefaultAllocator());
     Guid id;
 
     // Author a cooked record + raw 2x2 RGBA pixels (the "data" stream).
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
@@ -91,10 +91,10 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
 
     // Load through the manager with a device-backed factory (Null backend).
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Texture> tex = manager.Bind<Texture>(id);
@@ -121,10 +121,10 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     RegisterTextureResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"scratch_texfac_db");
+    NativeFileSystem mount(u8"scratch_texfac_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"tex", TextureResource::StaticType());
         id = inst->Id();
@@ -149,19 +149,19 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     }
 
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
 
     // Synchronous reference product.
-    ResourceManager syncManager(db);
+    ResourceManager syncManager(DefaultAllocator(), db);
     syncManager.AddFactory(&factory);
     Proxy<Texture> a = syncManager.Bind<Texture>(id);
     REQUIRE(a);
 
     // Async: decode on a worker, finalize on the main thread via WaitAll.
     JobSystem jobs(DefaultAllocator());
-    ResourceManager asyncManager(db, &jobs);
+    ResourceManager asyncManager(DefaultAllocator(), db, &jobs);
     asyncManager.AddFactory(&factory);
     Proxy<Texture> b = asyncManager.BindAsync<Texture>(id);
     asyncManager.WaitAll();
@@ -188,10 +188,10 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     RemoveDirectory(u8"scratch_texfac_concurrent");
 
     constexpr int kCount = 12;
-    NativeFileSystem mount(u8"scratch_texfac_concurrent");
+    NativeFileSystem mount(u8"scratch_texfac_concurrent", DefaultAllocator());
     Array<Guid> ids;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         for (int i = 0; i < kCount; ++i)
         {
@@ -202,11 +202,11 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     }
 
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     TextureFactory factory(device);
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     Array<Proxy<Texture>> textures;

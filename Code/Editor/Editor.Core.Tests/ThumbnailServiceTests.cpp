@@ -98,7 +98,7 @@ namespace
         int generates = 0;
 
         explicit Fixture(StringView cacheDir, u64 hash = 0x77, bool failGenerate = false)
-            : db(NullMount(), nullptr, u8"asset"),
+            : db(DefaultAllocator(), NullMount(), nullptr, u8"asset"),
               instance(db, *db.RootGroup(), Guid{0x1111, 0x2222}, u8"Stub", u8"tests",
                        u8"StubAsset")
         {
@@ -124,7 +124,8 @@ namespace
         static foundation::vfs::NativeFileSystem& NullMount()
         {
             (void)CreateDirectory(u8"thumbs_empty_mount");
-            static foundation::vfs::NativeFileSystem fs{StringView(u8"thumbs_empty_mount")};
+            static foundation::vfs::NativeFileSystem fs{StringView(u8"thumbs_empty_mount"),
+                                                        DefaultAllocator()};
             return fs;
         }
     };
@@ -317,7 +318,7 @@ namespace
         Guid known{0x3333, 0x4444};
 
         explicit GpuFixture(StringView cacheDir, u64 hash = 0x99)
-            : db(Fixture::NullMount(), nullptr, u8"asset"),
+            : db(DefaultAllocator(), Fixture::NullMount(), nullptr, u8"asset"),
               instance(db, *db.RootGroup(), Guid{0x3333, 0x4444}, u8"StubGpu", u8"tests",
                        u8"StubGpuAsset")
         {
@@ -364,7 +365,8 @@ TEST_CASE("thumbnails: a scene-generated type queues ONE GPU job on miss (dedupe
     PumpLight(fx.jobs); // the PNG persist runs on the light lane
     bool fileExists = false;
     {
-        foundation::vfs::NativeFileSystem cache{StringView(u8"thumbs_gpu_queue")};
+        foundation::vfs::NativeFileSystem cache{StringView(u8"thumbs_gpu_queue"),
+                                                DefaultAllocator()};
         Array<foundation::vfs::DirEntry> entries;
         (void)cache.AsEnumerable()->Enumerate(u8"", entries);
         for (const auto& entry : entries)

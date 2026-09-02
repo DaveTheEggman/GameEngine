@@ -108,21 +108,21 @@ TEST_CASE("resource: bind builds a product from a source, with caching")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     // Bind: source -> product. Product is derived/lean (no editorNote field).
@@ -160,11 +160,11 @@ TEST_CASE("resource: unresolved binds are enumerable, and heal off the list")
     // leftover from a previous run would make the "missing" id resolve immediately.
     FileDelete(u8"scratch_resource_test_db/late.rasset");
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_resource_test_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_resource_test_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
@@ -207,21 +207,21 @@ TEST_CASE("resource: reload rebuilds the product and proxies see the new value")
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Material> p = manager.Bind<Material>(id);
@@ -268,21 +268,21 @@ TEST_CASE("resource: a factory-resolved child is an auto-recorded dependency")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"scratch_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db", DefaultAllocator());
 
     Guid parentId, childId;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId); // building parent Binds child
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Material> parent = manager.Bind<Material>(parentId); // builds parent -> binds child
@@ -307,23 +307,23 @@ TEST_CASE("resource: reload propagates transitively, each resource once")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"scratch_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db", DefaultAllocator());
 
     Guid a, b, c;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         a = MakeInstance(db, u8"a", 16);
         b = MakeInstance(db, u8"b", 32);
         c = MakeInstance(db, u8"c", 64);
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(a, b); // a -> b
     factory.bindMap.InsertOrAssign(b, c); // b -> c
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Material> pa = manager.Bind<Material>(a); // builds a -> b -> c
@@ -343,21 +343,21 @@ TEST_CASE("resource: a rebuild drops stale dependency edges")
     RegisterSerializable<MaterialResource>();
 
     RemoveDepTree();
-    NativeFileSystem mount(u8"scratch_resource_dep_db");
+    NativeFileSystem mount(u8"scratch_resource_dep_db", DefaultAllocator());
 
     Guid parentId, childId;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         childId = MakeInstance(db, u8"child", 64);
         parentId = MakeInstance(db, u8"parent", 32);
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
     factory.bindMap.InsertOrAssign(parentId, childId);
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Material> parent = manager.Bind<Material>(parentId);
@@ -478,9 +478,9 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     GlobalTypeRegistry().Register(Reentrant::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_res_reentry_db");
+    NativeFileSystem mount(u8"scratch_res_reentry_db", DefaultAllocator());
     (void)CreateDirectory(u8"scratch_res_reentry_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"A", ReentrantSource::StaticType());
@@ -492,7 +492,7 @@ TEST_CASE("resource: garbage collection survives destructor re-entry into the ma
     REQUIRE(a->WriteObject(sa).IsOk());
     REQUIRE(b->WriteObject(sb).IsOk());
 
-    ResourceManager resources(db);
+    ResourceManager resources(DefaultAllocator(), db);
     ReentrantFactory factory;
     resources.AddFactory(&factory);
 
@@ -578,9 +578,9 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     GlobalTypeRegistry().Register(Burst::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_res_rehash_db");
+    NativeFileSystem mount(u8"scratch_res_rehash_db", DefaultAllocator());
     (void)CreateDirectory(u8"scratch_res_rehash_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     BurstSource parentSource;
@@ -599,7 +599,7 @@ TEST_CASE("resource: reload survives the handle map rehashing mid-cascade")
     REQUIRE(parent != nullptr);
     REQUIRE(parent->WriteObject(parentSource).IsOk());
 
-    ResourceManager resources(db);
+    ResourceManager resources(DefaultAllocator(), db);
     BurstFactory factory;
     resources.AddFactory(&factory);
 
@@ -621,19 +621,19 @@ TEST_CASE("resource: the live-product report counts by type and flags cache-only
     RegisterSerializable<MaterialResource>();
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_resource_test_db");
+    NativeFileSystem mount(u8"scratch_resource_test_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* steel = db.RootGroup()->CreateInstance(u8"steel", MaterialResource::StaticType());
         id = steel->Id();
         WriteSource(db, id, 64, u8"pbr");
     }
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     MaterialFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Array<ResourceManager::LiveProductRow> rows;

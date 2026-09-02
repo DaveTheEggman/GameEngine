@@ -48,7 +48,8 @@ export namespace foundation::shaders
             }
             m_root = core::String(rootDirectory);
             m_mount = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(),
-                                                              rootDirectory);
+                                                              rootDirectory,
+                                                              core::DefaultAllocator());
 
             core::Array<vfs::DirEntry> entries;
             if (!m_mount->Enumerate(u8"", entries).IsOk())

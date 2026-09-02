@@ -168,7 +168,7 @@ export namespace foundation::vfs
                                    public IWatchableFileSystem
     {
     public:
-        explicit NativeFileSystem(StringView root, IAllocator& allocator = DefaultAllocator())
+        NativeFileSystem(StringView root, IAllocator& allocator)
             : m_root(root, allocator), m_allocator(&allocator)
         {
         }
@@ -206,7 +206,7 @@ export namespace foundation::vfs
         {
             if (!m_changeSource)
             {
-                m_changeSource = MakeUnique<NativeChangeSource>(DefaultAllocator(), *this);
+                m_changeSource = MakeUnique<NativeChangeSource>(*m_allocator, *this);
             }
             return m_changeSource.Get();
         }

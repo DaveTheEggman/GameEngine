@@ -114,7 +114,7 @@ export namespace editor::mcp
                 // Presets: the project's file, else the synthesized host preset.
                 editor::ExportPresetSet presets;
                 {
-                    vfs::NativeFileSystem projectFs(s->project->Directory());
+                    vfs::NativeFileSystem projectFs(s->project->Directory(), DefaultAllocator());
                     if (!editor::LoadExportPresets(projectFs, presets).IsOk())
                     {
                         editor::DefaultExportPresets(presets);
@@ -147,10 +147,10 @@ export namespace editor::mcp
                     UniquePtr<vfs::NativeFileSystem> rootFs;
                     if (DirectoryExists(templatesRoot.AsView()))
                     {
-                        rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(),
-                                                                   templatesRoot.AsView());
+                        rootFs = MakeUnique<vfs::NativeFileSystem>(
+                            DefaultAllocator(), templatesRoot.AsView(), DefaultAllocator());
                     }
-                    vfs::NativeFileSystem toolFs(hostToolDir.AsView());
+                    vfs::NativeFileSystem toolFs(hostToolDir.AsView(), DefaultAllocator());
                     templates.Refresh(templatesRoot.AsView(), rootFs.Get(), hostToolDir.AsView(),
                                       &toolFs);
                 }

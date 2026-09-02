@@ -32,7 +32,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -53,12 +53,12 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     const StringView dir = u8"scratch_pfxref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
 
     particles::RegisterParticleEffectResource();
 
     // Cook an effect with one 64-particle system into the content DB.
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
         particles::ParticleEffectResource resource;
@@ -71,7 +71,7 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
         effectId = inst->Id();
     }
 
-    resource::ResourceManager resources(cookedDb);
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
     particles::ParticleEffectFactory factory;
     resources.AddFactory(&factory);
 
@@ -133,10 +133,10 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
     const StringView dir = u8"scratch_pfxref_test_db2";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
 
     particles::RegisterParticleEffectResource();
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Guid effectId;
     {
         particles::ParticleEffectResource resource;
@@ -147,7 +147,7 @@ TEST_CASE("resource-ref: SetEffect(proxy) still attaches immediately (sample pat
         REQUIRE(inst->WriteObject(resource).IsOk());
         effectId = inst->Id();
     }
-    resource::ResourceManager resources(cookedDb);
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
     particles::ParticleEffectFactory factory;
     resources.AddFactory(&factory);
 

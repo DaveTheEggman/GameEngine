@@ -152,9 +152,9 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     RemoveDbTree(u8"scratch_audiopipe_src");
     RemoveDbTree(u8"scratch_audiopipe_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
     REQUIRE(CreateDirectory(u8"scratch_audiopipe_src"));
@@ -177,7 +177,7 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     AudioClipFactory factory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
     REQUIRE(clip);
@@ -212,9 +212,9 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     RemoveDbTree(u8"scratch_audioasync_src");
     RemoveDbTree(u8"scratch_audioasync_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioasync_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioasync_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioasync_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioasync_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.25f, 8000, 2);
     REQUIRE(CreateDirectory(u8"scratch_audioasync_src"));
@@ -235,13 +235,13 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
 
     AudioClipFactory factory;
 
-    ResourceManager syncManager(outputDb);
+    ResourceManager syncManager(DefaultAllocator(), outputDb);
     syncManager.AddFactory(&factory);
     Proxy<AudioClip> a = syncManager.Bind<AudioClip>(id);
     REQUIRE(a);
 
     JobSystem jobs(DefaultAllocator());
-    ResourceManager asyncManager(outputDb, &jobs);
+    ResourceManager asyncManager(DefaultAllocator(), outputDb, &jobs);
     asyncManager.AddFactory(&factory);
     Proxy<AudioClip> b = asyncManager.BindAsync<AudioClip>(id);
     asyncManager.WaitAll();
@@ -277,9 +277,9 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
     RemoveDbTree(u8"scratch_audioconc_src");
     RemoveDbTree(u8"scratch_audioconc_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioconc_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioconc_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audioconc_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audioconc_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
     REQUIRE(CreateDirectory(u8"scratch_audioconc_src"));
@@ -308,7 +308,7 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
 
     AudioClipFactory factory;
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(outputDb, &jobs);
+    ResourceManager manager(DefaultAllocator(), outputDb, &jobs);
     manager.AddFactory(&factory);
 
     Array<Proxy<AudioClip>> clips;
@@ -336,9 +336,9 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     RemoveDbTree(u8"scratch_audiopipe_stream_src");
     RemoveDbTree(u8"scratch_audiopipe_stream_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_stream_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_stream_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_stream_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_stream_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     const Array<byte> wav = MakeToneWav(0.5f);
     REQUIRE(CreateDirectory(u8"scratch_audiopipe_stream_src"));
@@ -359,7 +359,7 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     AudioClipFactory factory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
     REQUIRE(clip);
@@ -390,9 +390,9 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     RemoveDbTree(u8"scratch_audiopipe_bad_src");
     RemoveDbTree(u8"scratch_audiopipe_bad_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_bad_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bad_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_bad_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bad_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     Array<byte> garbage;
     for (int i = 0; i < 256; ++i)
@@ -424,9 +424,9 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     RemoveDbTree(u8"scratch_audiopipe_fx_src");
     RemoveDbTree(u8"scratch_audiopipe_fx_out");
 
-    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_fx_src");
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_fx_out");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem sourceMount(u8"scratch_audiopipe_fx_src", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_fx_out", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     // A quiet stereo tone with half a second of pure silence appended.
     Array<i16> samples = MakeTone(0.25f, 8000, 2, 0.1f);
@@ -457,7 +457,7 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     AudioClipFactory factory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioClip> clip = manager.Bind<AudioClip>(outputInstance->Id());
     REQUIRE(clip);
@@ -587,8 +587,8 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     RegisterAudioAssets();
     RemoveDbTree(u8"scratch_audiopipe_bus");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bus");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_bus", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
     asset.music.volume = 0.5f;
@@ -605,7 +605,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     AudioBusLayoutFactory factory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioBusLayoutResource> layout =
         manager.Bind<AudioBusLayoutResource>(outputInstance->Id());
@@ -639,8 +639,8 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     RegisterAudioAssets();
     RemoveDbTree(u8"scratch_audiopipe_named");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_named");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_named", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
     asset.custom[0].name = String(u8"drums");
@@ -661,7 +661,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     AudioBusLayoutFactory factory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&factory);
     Proxy<AudioBusLayoutResource> layout =
         manager.Bind<AudioBusLayoutResource>(outputInstance->Id());
@@ -693,8 +693,8 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     RegisterAudioAssets();
     RemoveDbTree(u8"scratch_audiopipe_cycle");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cycle");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cycle", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     AudioBusLayoutAsset asset;
     asset.custom[0].name = String(u8"a");
@@ -791,8 +791,8 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     RegisterAudioAssets();
     RemoveDbTree(u8"scratch_audiopipe_cue");
 
-    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cue");
-    content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outputMount(u8"scratch_audiopipe_cue", foundation::core::DefaultAllocator());
+    content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
     // Two cooked clips the cue references.
     const Array<byte> wav = MakeToneWav(0.1f, 8000, 1);
@@ -829,7 +829,7 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
 
     AudioClipFactory clipFactory;
     SoundCueFactory cueFactory;
-    ResourceManager manager(outputDb);
+    ResourceManager manager(DefaultAllocator(), outputDb);
     manager.AddFactory(&clipFactory);
     manager.AddFactory(&cueFactory);
     Proxy<SoundCue> cue = manager.Bind<SoundCue>(outputInstance->Id());

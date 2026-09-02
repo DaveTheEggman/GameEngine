@@ -67,7 +67,7 @@ export namespace editor
             {
                 return Status{ErrorCode::NotFound};
             }
-            vfs::NativeFileSystem root(directory);
+            vfs::NativeFileSystem root(directory, DefaultAllocator());
             if (root.Exists(kProjectManifestFile))
             {
                 return Status{ErrorCode::AlreadyExists};
@@ -92,7 +92,7 @@ export namespace editor
         // mount Content/ + Cooked/, and scan both content databases.
         [[nodiscard]] static UniquePtr<EditorProject> Open(StringView directory)
         {
-            vfs::NativeFileSystem root(directory);
+            vfs::NativeFileSystem root(directory, DefaultAllocator());
             ProjectSettings settings;
             if (!engine::project::LoadProjectSettings(root, settings).IsOk())
             {
@@ -168,7 +168,7 @@ export namespace editor
         // Persist the manifest (settings changed in the editor).
         [[nodiscard]] Status SaveSettings()
         {
-            vfs::NativeFileSystem root(m_directory.AsView());
+            vfs::NativeFileSystem root(m_directory.AsView(), DefaultAllocator());
             return WriteManifest(root, m_settings);
         }
 
@@ -181,7 +181,7 @@ export namespace editor
         // right-click "Always Export" toggle mutates the set).
         [[nodiscard]] Status SaveExportRoots()
         {
-            vfs::NativeFileSystem root(m_directory.AsView());
+            vfs::NativeFileSystem root(m_directory.AsView(), DefaultAllocator());
             vfs::IWritableFileSystem* writable = root.AsWritable();
             if (writable == nullptr)
             {
@@ -195,15 +195,17 @@ export namespace editor
         EditorProject(StringView directory, ProjectSettings& settings)
             : m_directory(directory),
               m_contentMount(MakeUnique<vfs::NativeFileSystem>(
-                  DefaultAllocator(), PathJoin(directory, kProjectContentDir).AsView())),
+                  DefaultAllocator(), PathJoin(directory, kProjectContentDir).AsView(),
+                  DefaultAllocator())),
               m_cookedMount(MakeUnique<vfs::NativeFileSystem>(
-                  DefaultAllocator(), PathJoin(directory, kProjectCookedDir).AsView())),
+                  DefaultAllocator(), PathJoin(directory, kProjectCookedDir).AsView(),
+                  DefaultAllocator())),
               m_sourceDb(MakeUnique<foundation::content::ContentDatabase>(
-                  DefaultAllocator(), *m_contentMount, foundation::xml::XmlSerializerFactory(),
-                  kSourceAssetExtension)),
+                  DefaultAllocator(), DefaultAllocator(), *m_contentMount,
+                  foundation::xml::XmlSerializerFactory(), kSourceAssetExtension)),
               m_cookedDb(MakeUnique<foundation::content::ContentDatabase>(
-                  DefaultAllocator(), *m_cookedMount, BinarySerializerFactory(),
-                  kCookedAssetExtension))
+                  DefaultAllocator(), DefaultAllocator(), *m_cookedMount,
+                  BinarySerializerFactory(), kCookedAssetExtension))
         {
             // Per-field move (ISerializable deletes copy/move) - EVERY ProjectSettings field
             // must appear here; a missed one silently drops manifest data on Open.
@@ -227,7 +229,7 @@ export namespace editor
             // flagged assets carries the file. A present-but-unreadable file leaves the set empty
             // (never blocks Open) - the export then over-includes (safe), never mis-prunes.
             {
-                vfs::NativeFileSystem root(directory);
+                vfs::NativeFileSystem root(directory, DefaultAllocator());
                 (void)LoadExportRoots(root, m_exportRoots);
             }
         }

@@ -46,12 +46,12 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid heightfieldId;
     Guid terrainId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         // A cooked heightfield the terrain will reference.
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
@@ -79,18 +79,18 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
         asset.castShadows = false;
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
@@ -125,14 +125,14 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid terrainId;
     u32 sliceSize = 0, mipCount = 0;
     Array<u8> cookedNormal; // the raw cooked normal stream (header + texels)
     bool ormStreamPresent = true;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
         RefPtr<hf::Heightfield> grid =
@@ -161,7 +161,7 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
         asset.paletteTileScales.PushBack(8.0f);
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
@@ -190,11 +190,11 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
     CHECK(cookedNormal[slice1 + 3] == 255);
 
     // Load: refs bound + ids round-trip; paletteData has the normal array but NOT the ORM array.
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
@@ -221,11 +221,11 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid terrainId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
         RefPtr<hf::Heightfield> grid =
@@ -246,7 +246,7 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
         asset.paletteTileScales.PushBack(4.0f);
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
@@ -255,11 +255,11 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
         CHECK_FALSE(static_cast<bool>(tInst->ReadData(kPaletteOrmStream)));
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
@@ -281,13 +281,13 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid terrainId;
     u32 sliceSize = 0, mipCount = 0;
     Array<u8> cookedHeight; // the raw cooked height stream (header + texels)
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
         RefPtr<hf::Heightfield> grid =
@@ -315,7 +315,7 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
         asset.paletteTileScales.PushBack(8.0f);
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
@@ -342,11 +342,11 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
     CHECK(cookedHeight[slice1 + 2] == 128);
     CHECK(cookedHeight[slice1 + 3] == 255);
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
@@ -372,13 +372,13 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid terrainId;
     u32 sliceSize = 0, mipCount = 0;
     Array<u8> cookedMask; // the raw cooked mask stream (header + texels)
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
         RefPtr<hf::Heightfield> grid =
@@ -403,7 +403,7 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
         asset.paletteTileScales.PushBack(8.0f);
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
@@ -430,11 +430,11 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
     CHECK(cookedMask[slice1 + 2] == 255);
     CHECK(cookedMask[slice1 + 3] == 255);
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 
@@ -456,11 +456,11 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
     RegisterTerrainAsset();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_terrainpipe_db");
+    NativeFileSystem outMount(u8"scratch_terrainpipe_db", DefaultAllocator());
 
     Guid terrainId;
     {
-        foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
         RefPtr<hf::Heightfield> grid =
@@ -483,7 +483,7 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
         withMask.paletteTileScales.PushBack(4.0f);
 
         TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = tInst;
@@ -502,11 +502,11 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
     }
 
     // The reloaded product must NOT report a mask (no stale array leaks into the runtime).
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 

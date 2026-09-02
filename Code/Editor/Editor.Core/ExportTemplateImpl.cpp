@@ -131,7 +131,7 @@ namespace editor
     // inline there.
     Status ImportTemplate(StringView srcDir, StringView templatesRoot, String* outId)
     {
-        vfs::NativeFileSystem srcFs(srcDir);
+        vfs::NativeFileSystem srcFs(srcDir, DefaultAllocator());
         ExportTemplate manifest;
         if (!LoadTemplateManifest(srcFs, manifest).IsOk() || manifest.id.IsEmpty())
         {

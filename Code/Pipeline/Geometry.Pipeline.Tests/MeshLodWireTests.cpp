@@ -64,10 +64,10 @@ TEST_CASE("mesh lod wire: v4 sidecar round-trip carries the chain; FillStatic sl
 {
     RegisterMeshAssets();
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_lod_db");
-    NativeFileSystem mount(u8"scratch_mesh_lod_db");
+    NativeFileSystem mount(u8"scratch_mesh_lod_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"fan", StaticMeshAsset::StaticType());
         id = inst->Id();
@@ -76,7 +76,7 @@ TEST_CASE("mesh lod wire: v4 sidecar round-trip carries the chain; FillStatic sl
         REQUIRE(WriteMeshAsset(*inst, asset).IsOk());
     }
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         foundation::content::Instance* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);

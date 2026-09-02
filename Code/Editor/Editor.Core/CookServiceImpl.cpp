@@ -47,10 +47,10 @@ namespace editor
         Shutdown();
         m_project = &project;
         m_builders = &builders;
-        m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
-                                                                project.SourcesRoot().AsView());
-        m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
-                                                              project.CacheRoot().AsView());
+        m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(
+            DefaultAllocator(), project.SourcesRoot().AsView(), DefaultAllocator());
+        m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(
+            DefaultAllocator(), project.CacheRoot().AsView(), DefaultAllocator());
         m_jobs = MakeUnique<JobSystem>(DefaultAllocator(), DefaultAllocator());
         m_driver =
             MakeUnique<CookDriver>(DefaultAllocator(), project.SourceDb(), project.CookedDb(),

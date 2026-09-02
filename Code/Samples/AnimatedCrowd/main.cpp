@@ -204,12 +204,12 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(
+                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir, core::DefaultAllocator());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), 
                 core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);

@@ -76,7 +76,7 @@ namespace editor::mcp::detail
         {
             return false;
         }
-        foundation::resource::ResourceManager collector(db); // no factories -> all binds unresolved
+        foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), db); // no factories -> all binds unresolved
         scene::ResolveSceneResources(scratch, collector);
         collector.CollectUnresolved(resources);
         scratch.ForEachPendingPrefabInstance([&prefabs](scene::Scene::PendingPrefabInstance& pending)
@@ -201,7 +201,7 @@ export namespace editor::mcp
                                       guidText.AsView()));
                 }
 
-                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView());
+                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView(), DefaultAllocator());
                 Array<detail::AssetUse> uses;
                 detail::CollectUses(db.RootGroup(), String(), id, db, *bld, sourcesMount, uses);
 

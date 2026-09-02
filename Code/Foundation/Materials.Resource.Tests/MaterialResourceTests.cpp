@@ -60,11 +60,11 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     GlobalTypeRegistry().Register(Material::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_mat_res_db");
+    NativeFileSystem mount(u8"scratch_mat_res_db", DefaultAllocator());
 
     Guid shaderId, matId;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
 
         auto* shaderInst =
@@ -92,13 +92,13 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
         REQUIRE(matInst->WriteObject(ms).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem system(*compiler, device);
     shaders::ShaderFactory shaderFactory(system);
     MaterialFactory materialFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&shaderFactory);
     manager.AddFactory(&materialFactory);
 
@@ -240,11 +240,11 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
 TEST_CASE("material source: sampler address modes round-trip (v2)")
 {
     using namespace foundation::materials;
-    NativeFileSystem mount(u8"scratch_mat_sampler_db");
+    NativeFileSystem mount(u8"scratch_mat_sampler_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         MaterialSource source;
         source.name = u8"wrapped";
@@ -256,7 +256,7 @@ TEST_CASE("material source: sampler address modes round-trip (v2)")
         REQUIRE(inst->WriteObject(source).IsOk());
     }
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         RefPtr<ISerializable> object = db.ReadObject(id);
         auto* read = Cast<MaterialSource>(object.Get());

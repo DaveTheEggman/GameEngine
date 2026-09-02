@@ -1219,7 +1219,7 @@ namespace editor::app
         // whether pruning is requested, and the job then reuses this copy instead of re-reading.
         m_exportPresets.presets.Clear();
         {
-            foundation::vfs::NativeFileSystem projectFs(project->Directory());
+            foundation::vfs::NativeFileSystem projectFs(project->Directory(), foundation::core::DefaultAllocator());
             if (!editor::LoadExportPresets(projectFs, m_exportPresets).IsOk())
             {
                 editor::DefaultExportPresets(m_exportPresets);
@@ -1258,9 +1258,9 @@ namespace editor::app
             [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
              reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
             {
-                foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
+                foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
                 foundation::vfs::NativeFileSystem rootFs(
-                    templatesRoot.AsView()); // imported templates
+                    templatesRoot.AsView(), foundation::core::DefaultAllocator()); // imported templates
                 editor::TemplateRegistry registry;
                 registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
                 const editor::ExportPresetSet& presets = *presetsPtr; // loaded on the main thread
@@ -1331,8 +1331,8 @@ namespace editor::app
     {
         const String toolDir = GetExecutableDirectory();
         const String templatesRoot = TemplatesRoot();
-        foundation::vfs::NativeFileSystem toolFs(toolDir.AsView());
-        foundation::vfs::NativeFileSystem rootFs(templatesRoot.AsView());
+        foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem rootFs(templatesRoot.AsView(), foundation::core::DefaultAllocator());
         out.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
     }
 
@@ -1392,7 +1392,7 @@ namespace editor::app
         {
             return;
         }
-        foundation::vfs::NativeFileSystem projectFs(m_project->Directory());
+        foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), foundation::core::DefaultAllocator());
         if (!m_presetsController.Save(*projectFs.AsWritable()).IsOk())
         {
             m_context.Notify(editor::NoticeKind::Error,
@@ -1654,7 +1654,7 @@ namespace editor::app
         }
 
         {
-            foundation::vfs::NativeFileSystem projectFs(m_project->Directory());
+            foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), foundation::core::DefaultAllocator());
             m_presetsController.Load(projectFs); // reflects edits persisted by the editor form
         }
 
@@ -2256,7 +2256,7 @@ namespace editor::app
         // preset manager receives at its startup).
         // Share the global JobSystem for async resource decode (task #123); null = sync loads.
         m_resources = MakeUnique<foundation::resource::ResourceManager>(
-            DefaultAllocator(), m_project->CookedDb(),
+            DefaultAllocator(), DefaultAllocator(), m_project->CookedDb(),
             HasGlobalJobSystem() ? &GlobalJobs() : nullptr);
         for (const auto& factory : m_resourceFactories)
         {

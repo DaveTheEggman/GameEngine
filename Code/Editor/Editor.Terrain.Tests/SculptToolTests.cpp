@@ -186,12 +186,12 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
     FileDelete(u8"scratch_sculpt_persist_db/hf.rasset");
     FileDelete(u8"scratch_sculpt_persist_db/hf.heights.bin");
     RemoveDirectory(dbDir);
-    NativeFileSystem mount(dbDir);
+    NativeFileSystem mount(dbDir, DefaultAllocator());
 
     // The SOURCE asset: an imported-style envelope (fileName set) proving the save converts it.
     Guid id;
     {
-        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                     u8".rasset");
         pipeline::RegisterHeightfieldAsset();
         foundation::heightfield::RegisterHeightfieldResourceTypes();
@@ -234,9 +234,9 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.rasset");
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.heights.bin");
     RemoveDirectory(cookedDir);
-    NativeFileSystem cookedMount(cookedDir);
+    NativeFileSystem cookedMount(cookedDir, DefaultAllocator());
     {
-        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                     u8".rasset");
         REQUIRE(sink.lastPersist(db).IsOk());
         content::Instance* inst = db.GetInstance(id);
@@ -247,7 +247,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
         CHECK(asset->fileName.View().IsEmpty()); // converted to embedded (sidecar = truth)
         CHECK(asset->size == 65);
 
-        content::ContentDatabase cookedDb(cookedMount,
+        content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
         content::Instance* cookedInst = cookedDb.RootGroup()->CreateInstanceWithId(
@@ -255,7 +255,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
         REQUIRE(cookedInst != nullptr);
 
         pipeline::HeightfieldAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst;
@@ -265,11 +265,11 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
 
     // Bind the cooked product through a FRESH db: the sculpt survived the re-cook.
     {
-        content::ContentDatabase cookedDb(cookedMount,
+        content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
         foundation::heightfield::HeightfieldFactory factory;
-        foundation::resource::ResourceManager manager(cookedDb);
+        foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), cookedDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<hf::Heightfield> cooked = manager.Bind<hf::Heightfield>(id);
         REQUIRE(cooked);

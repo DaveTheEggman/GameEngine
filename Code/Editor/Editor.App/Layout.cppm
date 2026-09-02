@@ -246,7 +246,7 @@ export namespace editor::app
     [[nodiscard]] inline Status LoadProjectEditorSettings(settings::Settings& store,
                                                           StringView directory)
     {
-        vfs::NativeFileSystem root(directory);
+        vfs::NativeFileSystem root(directory, DefaultAllocator());
         UniquePtr<IStream> stream = root.Open(kProjectEditorSettingsFile, FileMode::Read);
         if (!stream)
         {
@@ -265,7 +265,7 @@ export namespace editor::app
         {
             return s;
         }
-        vfs::NativeFileSystem root(directory);
+        vfs::NativeFileSystem root(directory, DefaultAllocator());
         vfs::IWritableFileSystem* writable = root.AsWritable();
         if (writable == nullptr)
         {

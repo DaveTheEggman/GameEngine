@@ -45,8 +45,8 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     RegisterUIResource();
     RegisterUIAssets();
     RemoveTree(u8"scratch_uipipe_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     // Document round-trip.
     auto* docInstance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
@@ -71,7 +71,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
 
     UIDocumentFactory documentFactory;
     UIThemeFactory themeFactory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&documentFactory);
     manager.AddFactory(&themeFactory);
     Proxy<UIDocument> document = manager.Bind<UIDocument>(docInstance->Id());
@@ -97,8 +97,8 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     RegisterUIResource();
     RegisterUIAssets();
     RemoveTree(u8"scratch_uipipe_bad_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_bad_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_bad_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
 
     pipeline::AssetBuildContext ctx;
@@ -129,8 +129,8 @@ TEST_CASE("ui.pipeline: a gamekit <screen> document validates at cook")
     RegisterUIResource();
     RegisterUIAssets();
     RemoveTree(u8"scratch_uipipe_screen_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_screen_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_screen_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"hud", UIDocumentSource::StaticType());
 
     UIDocumentAsset asset;
@@ -224,8 +224,8 @@ TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline 
     WriteText(looseDoc.AsView(), kUIDocumentStarter);
     WriteText(looseTheme.AsView(), kUIThemeStarter);
 
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_import_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_import_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     UIFileImporter importer;
     pipeline::ImportContext importCtx{String(sourcesRoot.AsView())};
@@ -274,10 +274,10 @@ TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the 
     WriteText(PathJoin(sourcesRoot, u8"doc.sml").AsView(), kUIDocumentStarter);
     WriteText(PathJoin(sourcesRoot, u8"theme.sss").AsView(), kUIThemeStarter);
 
-    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot);
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, foundation::core::DefaultAllocator());
     RemoveAll(u8"scratch_uipipe_linked_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_linked_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_linked_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     // Document: fileName points at doc.sml -> cooked markup equals the file text.
     auto* docInst = outDb.RootGroup()->CreateInstance(u8"doc", UIDocumentSource::StaticType());
@@ -330,8 +330,8 @@ TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
 {
     RegisterUIAssets();
     RemoveAll(u8"scratch_uipipe_legacy_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_legacy_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_legacy_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     auto* docInst = outDb.RootGroup()->CreateInstance(u8"doc", UIDocumentSource::StaticType());
     {
@@ -371,8 +371,8 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
     RegisterUIResource();
     RegisterUIAssets();
     RemoveDirectory(u8"scratch_uipipe_preview_db");
-    foundation::vfs::NativeFileSystem mount(u8"scratch_uipipe_preview_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_uipipe_preview_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
 
     // SOURCE round-trip: previewMarkup survives WriteObject -> ReadObject (v2).
     auto* src = db.RootGroup()->CreateInstance(u8"theme_src", UIThemeAsset::StaticType());

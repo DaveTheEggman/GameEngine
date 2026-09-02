@@ -83,10 +83,10 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
     const StringView dir = u8"scratch_fontfac_a8_db";
     RemoveTree(dir);
 
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
 
@@ -105,8 +105,8 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
                     .IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    ResourceManager manager(db);
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(DefaultAllocator(), db);
     FontFactory factory;
     manager.AddFactory(&factory);
 
@@ -149,10 +149,10 @@ TEST_CASE("font.factory: async load matches the sync product")
     RegisterFontResource();
     const StringView dir = u8"scratch_fontfac_async_db";
     RemoveTree(dir);
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -168,16 +168,16 @@ TEST_CASE("font.factory: async load matches the sync product")
                     .IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     FontFactory factory;
 
-    ResourceManager syncManager(db);
+    ResourceManager syncManager(DefaultAllocator(), db);
     syncManager.AddFactory(&factory);
     auto a = syncManager.Bind<Font>(id);
     REQUIRE(a);
 
     JobSystem jobs(DefaultAllocator());
-    ResourceManager asyncManager(db, &jobs);
+    ResourceManager asyncManager(DefaultAllocator(), db, &jobs);
     asyncManager.AddFactory(&factory);
     auto b = asyncManager.BindAsync<Font>(id);
     asyncManager.WaitAll();
@@ -203,12 +203,12 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
     RegisterFontResource();
     const StringView dir = u8"scratch_fontfac_conc_db";
     RemoveTree(dir);
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
 
     constexpr int kCount = 10;
     Array<Guid> ids;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         for (int i = 0; i < kCount; ++i)
         {
             char8_t name[8] = {u8'f', u8'n', u8't', static_cast<char8_t>(u8'0' + i / 10),
@@ -229,10 +229,10 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
         }
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     FontFactory factory;
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     Array<Proxy<Font>> fonts;
@@ -258,10 +258,10 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
     const StringView dir = u8"scratch_fontfac_df_db";
     RemoveTree(dir);
 
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
 
@@ -279,8 +279,8 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
                     .IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    ResourceManager manager(db);
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(DefaultAllocator(), db);
     FontFactory factory;
     manager.AddFactory(&factory);
 
@@ -305,10 +305,10 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
     const StringView dir = u8"scratch_fontsvc_db";
     RemoveTree(dir);
 
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -320,8 +320,8 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
                     .IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    ResourceManager manager(db);
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(DefaultAllocator(), db);
     FontFactory factory;
     manager.AddFactory(&factory);
     Proxy<Font> font = manager.Bind<Font>(id);
@@ -362,10 +362,10 @@ TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
     const StringView dir = u8"scratch_fontsvc_df_db";
     RemoveTree(dir);
 
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
@@ -377,8 +377,8 @@ TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
                     .IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    ResourceManager manager(db);
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    ResourceManager manager(DefaultAllocator(), db);
     FontFactory factory;
     manager.AddFactory(&factory);
     Proxy<Font> font = manager.Bind<Font>(id);

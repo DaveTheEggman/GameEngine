@@ -30,11 +30,11 @@ TEST_CASE("propanim.pipeline: asset cooks to the content DB, factory loads + sam
 
     FileDelete(u8"scratch_propanim_pipe_db/clip.rasset");
     RemoveDirectory(u8"scratch_propanim_pipe_db");
-    NativeFileSystem mount(u8"scratch_propanim_pipe_db");
+    NativeFileSystem mount(u8"scratch_propanim_pipe_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"clip", PropertyAnimationClipSource::StaticType());
         id = inst->Id();
@@ -68,9 +68,9 @@ TEST_CASE("propanim.pipeline: asset cooks to the content DB, factory loads + sam
     }
 
     // Load the cooked product through the runtime factory.
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     PropertyAnimationClipFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<PropertyAnimationClipResource> res = manager.Bind<PropertyAnimationClipResource>(id);

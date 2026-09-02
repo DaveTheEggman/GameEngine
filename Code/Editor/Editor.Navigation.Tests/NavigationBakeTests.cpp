@@ -34,7 +34,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -175,8 +175,8 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
     pipeline::RegisterNavigationZoneAsset();
     RemoveTree(u8"scratch_navbake_db");
 
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     auto* assetInstance =
         db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
     REQUIRE(assetInstance != nullptr);
@@ -237,8 +237,8 @@ TEST_CASE("editor.navigation: bake succeeds when the zone shares a SCALED entity
     pipeline::RegisterNavigationZoneAsset();
     RemoveTree(u8"scratch_navbake_scaled_db");
 
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_scaled_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_scaled_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     auto* assetInstance =
         db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
     REQUIRE(assetInstance != nullptr);

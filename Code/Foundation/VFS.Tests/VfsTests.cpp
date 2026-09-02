@@ -17,7 +17,7 @@ TEST_CASE("vfs: NativeFileSystem read + scheme-routed VirtualFileSystem")
     const byte data[] = {byte{7}, byte{8}, byte{9}};
     REQUIRE(WriteFile(file, Span<const byte>{data, ArrayCount(data)}).IsOk());
 
-    NativeFileSystem native(u8".");
+    NativeFileSystem native(u8".", DefaultAllocator());
     CHECK(native.Exists(u8"scratch_vfs_test.tmp"));
     CHECK_FALSE(native.Exists(u8"scratch_vfs_nope.xyz"));
     {
@@ -52,7 +52,7 @@ TEST_CASE("vfs: NativeFileSystem read + scheme-routed VirtualFileSystem")
 
 TEST_CASE("vfs: capability queries via As*()")
 {
-    NativeFileSystem native(u8".");
+    NativeFileSystem native(u8".", DefaultAllocator());
     IFileSystem& fs = native;
 
     REQUIRE(fs.AsEnumerable() != nullptr);
@@ -68,7 +68,7 @@ TEST_CASE("vfs: capability queries via As*()")
 
 TEST_CASE("vfs: writable + enumerable round-trip")
 {
-    NativeFileSystem native(u8".");
+    NativeFileSystem native(u8".", DefaultAllocator());
     IWritableFileSystem* w = native.AsWritable();
     IEnumerableFileSystem* e = native.AsEnumerable();
     REQUIRE(w != nullptr);
@@ -121,7 +121,7 @@ TEST_CASE("vfs: writable + enumerable round-trip")
 
 TEST_CASE("vfs: CreateDirectory persists an EMPTY directory (empty content group survives a rescan)")
 {
-    NativeFileSystem native(u8".");
+    NativeFileSystem native(u8".", DefaultAllocator());
     IWritableFileSystem* w = native.AsWritable();
     IEnumerableFileSystem* e = native.AsEnumerable();
     REQUIRE(w != nullptr);
@@ -158,7 +158,7 @@ TEST_CASE("vfs: CreateDirectory persists an EMPTY directory (empty content group
 
 TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
 {
-    NativeFileSystem native(u8".");
+    NativeFileSystem native(u8".", DefaultAllocator());
     IWritableFileSystem* w = native.AsWritable();
     IStatFileSystem* st = native.AsStat();
     REQUIRE(w != nullptr);
@@ -189,7 +189,7 @@ TEST_CASE("vfs: NativeFileSystem stat reports size + modified time")
 TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals")
 {
     const StringView dir = u8"scratch_vfs_watch_dir";
-    NativeFileSystem cleaner(dir);
+    NativeFileSystem cleaner(dir, DefaultAllocator());
     {
         Array<DirEntry> entries;
         if (cleaner.AsEnumerable()->Enumerate(u8"sub", entries).IsOk())
@@ -213,7 +213,7 @@ TEST_CASE("vfs: NativeFileSystem change source detects adds, edits, and removals
     }
     (void)CreateDirectory(dir);
 
-    NativeFileSystem fs(dir);
+    NativeFileSystem fs(dir, DefaultAllocator());
     IWatchableFileSystem* watchable = fs.AsWatchable();
     REQUIRE(watchable != nullptr);
     IChangeSource* source = watchable->ChangeSource();
@@ -365,7 +365,7 @@ TEST_CASE("vfs: data-root discovery via the .dataroot marker")
     CHECK(DataPath(u8"", u8"Assets/x.ttf") == String(u8"Assets/x.ttf"));
 
     // Remove the scratch files; ignore failure (the temp dir is discarded regardless).
-    NativeFileSystem scratch(base);
+    NativeFileSystem scratch(base, DefaultAllocator());
     if (IWritableFileSystem* w = scratch.AsWritable())
     {
         (void)w->Delete(u8"Data/.dataroot");

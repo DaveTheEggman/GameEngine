@@ -143,8 +143,8 @@ namespace
         String outDir(u8"scratch_scriptres_out_");
         outDir += language;
         RemoveDbTree(outDir.AsView());
-        foundation::vfs::NativeFileSystem outputMount(outDir.AsView());
-        content::ContentDatabase outputDb(outputMount, BinarySerializerFactory(), u8".rasset");
+        foundation::vfs::NativeFileSystem outputMount(outDir.AsView(), foundation::core::DefaultAllocator());
+        content::ContentDatabase outputDb(DefaultAllocator(), outputMount, BinarySerializerFactory(), u8".rasset");
 
         ScriptClassSource cooked;
         cooked.language = String(language);
@@ -179,7 +179,7 @@ namespace
         REQUIRE(instance->WriteObject(cooked).IsOk());
 
         ScriptClassFactory factory;
-        foundation::resource::ResourceManager manager(outputDb);
+        foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), outputDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<ScriptClass> product =
             manager.Bind<ScriptClass>(instance->Id());

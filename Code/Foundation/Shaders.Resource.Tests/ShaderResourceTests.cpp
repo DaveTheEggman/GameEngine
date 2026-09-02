@@ -53,11 +53,11 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
     GlobalTypeRegistry().Register(ShaderResource::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_shader_res_db");
+    NativeFileSystem mount(u8"scratch_shader_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
@@ -68,12 +68,12 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
         REQUIRE(inst->WriteObject(s).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     ShaderSystem system(*compiler, device);
     ShaderFactory factory(system);
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<ShaderResource> shader = manager.Bind<ShaderResource>(id);

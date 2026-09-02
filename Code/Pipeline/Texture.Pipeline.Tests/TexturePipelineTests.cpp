@@ -64,12 +64,12 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
                 .IsOk());
     }
 
-    NativeFileSystem outMount(u8"scratch_texpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_out_db", DefaultAllocator());
     Guid id;
 
     // --- cook (tooling): TextureAsset -> TextureResource in the output DB ---
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
         id = inst->Id();
@@ -81,7 +81,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
         TextureAssetBuilder builder;
         REQUIRE(builder.AssetType() == &TextureAsset::StaticType());
-        foundation::vfs::NativeFileSystem srcMount(u8".");
+        foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
@@ -90,10 +90,10 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
 
     // --- runtime load: cooked TextureResource -> live GPU Texture (model A) ---
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     TextureFactory factory(device);
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
     Proxy<Texture> tex = manager.Bind<Texture>(id);
@@ -128,15 +128,15 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     RegisterTextureResource();
     RegisterTextureAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_texpipe_out_db");
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem outMount(u8"scratch_texpipe_out_db", DefaultAllocator());
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"diffuse", TextureResource::StaticType());
 
     TextureAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     TextureAssetBuilder builder;
-    foundation::vfs::NativeFileSystem srcMount(u8".");
+    foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
     pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount;
     ctx.output = inst;
@@ -276,10 +276,10 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         CHECK(derived[5].AsView() == faceNames[5]);
     }
 
-    NativeFileSystem outMount(u8"scratch_texpipe_cube_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_cube_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"sky", TextureResource::StaticType());
         id = inst->Id();
@@ -295,7 +295,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
         builder.ScanDependencies(asset, scanCtx, deps);
         CHECK(deps.files.Size() == 5u); // the 5 non-+X faces (fileName is the implicit dep)
 
-        foundation::vfs::NativeFileSystem srcMount(u8".");
+        foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
@@ -304,10 +304,10 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
 
     // Runtime: the factory builds a real cube (6 layers, cube view, per-face upload).
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     TextureFactory factory(device);
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
     Proxy<Texture> tex = manager.Bind<Texture>(id);
@@ -337,8 +337,8 @@ TEST_CASE("texture.pipeline: mip chain cook - counts, sizes, and sRGB-correct av
                                  Function<u8(u32, u32, i32)> pixelAt, StringView dbDir,
                                  u32& outMipLevels, Array<u8>& outPayload) {
         (void)RemoveDirectoryRecursive(dbDir);
-        NativeFileSystem srcMount(dbDir);
-        foundation::content::ContentDatabase db(
+        NativeFileSystem srcMount(dbDir, DefaultAllocator());
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             srcMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* srcInst = db.RootGroup()->CreateInstance(u8"src", TextureAsset::StaticType());
         auto* outInst = db.RootGroup()->CreateInstance(u8"out", TextureResource::StaticType());
@@ -447,8 +447,8 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
                          rhi::TextureFormat& outFormat, u32& outMips, usize& outPayload) {
         const u32 w = 128, h = 128;
         (void)RemoveDirectoryRecursive(dbDir);
-        NativeFileSystem srcMount(dbDir);
-        foundation::content::ContentDatabase db(
+        NativeFileSystem srcMount(dbDir, DefaultAllocator());
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             srcMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* srcInst = db.RootGroup()->CreateInstance(u8"src", TextureAsset::StaticType());
         auto* outInst = db.RootGroup()->CreateInstance(u8"out", TextureResource::StaticType());

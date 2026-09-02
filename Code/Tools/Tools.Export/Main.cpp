@@ -135,7 +135,7 @@ namespace
             {
                 return;
             }
-            foundation::resource::ResourceManager collector(
+            foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), 
                 db); // no factories -> all binds unresolved
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
@@ -169,9 +169,10 @@ namespace
         UniquePtr<vfs::NativeFileSystem> rootFs;
         if (fs::is_directory(Cs(templatesRoot), ec))
         {
-            rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), templatesRoot);
+            rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), templatesRoot,
+                                                       DefaultAllocator());
         }
-        vfs::NativeFileSystem toolFs(toolDir);
+        vfs::NativeFileSystem toolFs(toolDir, DefaultAllocator());
         registry.Refresh(templatesRoot, rootFs.Get(), toolDir,
                          &toolFs); // reads runtime-libs synchronously
     }
@@ -368,7 +369,7 @@ int main(int argc, char** argv)
     // Presets: from <project>/export_presets.xml, else a synthesized host preset.
     editor::ExportPresetSet presets;
     {
-        vfs::NativeFileSystem projectFs(project->Directory());
+        vfs::NativeFileSystem projectFs(project->Directory(), DefaultAllocator());
         if (!editor::LoadExportPresets(projectFs, presets).IsOk())
         {
             editor::DefaultExportPresets(presets);

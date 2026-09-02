@@ -121,12 +121,12 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
     hf::RegisterHeightfieldResourceTypes();
     RegisterTerrainResourceTypes();
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_terrain_res_db");
+    NativeFileSystem mount(u8"scratch_terrain_res_db", DefaultAllocator());
 
     Guid heightfieldId;
     Guid terrainId;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         // A cooked heightfield.
         auto* hfInst = db.RootGroup()->CreateInstance(u8"hf", hf::HeightfieldSource::StaticType());
@@ -153,11 +153,11 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
         REQUIRE(tInst->WriteObject(tSrc).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     hf::HeightfieldFactory heightfieldFactory;
     TerrainFactory terrainFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
 

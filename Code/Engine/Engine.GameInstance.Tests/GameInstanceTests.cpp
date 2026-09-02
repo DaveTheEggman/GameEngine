@@ -956,7 +956,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     FileDelete(u8"scratch_gi_load_db/level.rasset");
     FileDelete(u8"scratch_gi_load_db/level.scene.bin");
     RemoveDirectory(u8"scratch_gi_load_db");
-    NativeFileSystem mount(u8"scratch_gi_load_db");
+    NativeFileSystem mount(u8"scratch_gi_load_db", DefaultAllocator());
 
     Guid sceneId;
     {
@@ -964,15 +964,15 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
         scene::Scene authored(u8"level");
         (void)authored.CreateEntity(u8"a");
         (void)authored.CreateEntity(u8"b");
-        content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"level", scene::SceneDocument::StaticType());
         sceneId = inst->Id();
         REQUIRE(scene::SaveScene(authored, *inst).IsOk());
     }
 
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
-    resource::ResourceManager resources(db);
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    resource::ResourceManager resources(DefaultAllocator(), db);
     auto* sceneInst = db.GetInstance(sceneId);
     REQUIRE(sceneInst != nullptr);
 

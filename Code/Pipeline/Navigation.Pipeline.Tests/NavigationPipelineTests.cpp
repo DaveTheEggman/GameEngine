@@ -27,7 +27,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -64,10 +64,10 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
     RemoveTree(u8"scratch_navpipe_src_db");
     RemoveTree(u8"scratch_navpipe_out_db");
 
-    foundation::vfs::NativeFileSystem srcMount(u8"scratch_navpipe_src_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_navpipe_out_db");
-    content::ContentDatabase srcDb(srcMount, BinarySerializerFactory(), u8".rasset");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem srcMount(u8"scratch_navpipe_src_db", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_navpipe_out_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase srcDb(DefaultAllocator(), srcMount, BinarySerializerFactory(), u8".rasset");
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     // Bake a navmesh blob from a ground plane.
     Array<Float3> verts;
@@ -130,7 +130,7 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
     // Load the runtime product through the factory and path across it.
     {
         NavigationZoneFactory factory(DefaultAllocator());
-        ResourceManager manager(outDb);
+        ResourceManager manager(DefaultAllocator(), outDb);
         manager.AddFactory(&factory);
         auto* outInstance = outDb.RootGroup()->GetInstance(u8"zone");
         REQUIRE(outInstance != nullptr);

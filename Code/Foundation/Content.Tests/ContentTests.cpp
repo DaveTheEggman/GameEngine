@@ -47,14 +47,14 @@ namespace
         RegisterSerializable<MaterialResource>();
 
         RemoveTree(dbDir);
-        NativeFileSystem mount(dbDir);
+        NativeFileSystem mount(dbDir, DefaultAllocator());
 
         Guid steelId;
         const byte extra[] = {byte{0xAB}, byte{0xCD}, byte{0xEF}};
 
         // --- author ---
         {
-            ContentDatabase db(mount, makeFactory(), ext);
+            ContentDatabase db(DefaultAllocator(), mount, makeFactory(), ext);
             Group* materials = db.RootGroup()->CreateGroup(u8"materials");
             REQUIRE(materials != nullptr);
 
@@ -74,7 +74,7 @@ namespace
 
         // --- reopen: a fresh database scans the mount from disk ---
         {
-            ContentDatabase db(mount, makeFactory(), ext);
+            ContentDatabase db(DefaultAllocator(), mount, makeFactory(), ext);
 
             Group* materials = db.RootGroup()->GetGroup(u8"materials");
             REQUIRE(materials != nullptr);
@@ -130,8 +130,8 @@ TEST_CASE("content: DeleteInstance removes envelope + stream sidecars + registra
 
     const StringView dir = u8"scratch_content_delete_db";
     RemoveTree(dir);
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
     foundation::content::Instance* steel =
@@ -172,8 +172,8 @@ TEST_CASE("content: Instance::DeleteData removes exactly one stream sidecar, ide
 
     const StringView dir = u8"scratch_content_deletedata_db";
     RemoveTree(dir);
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
     foundation::content::Instance* inst =
         db.RootGroup()->CreateInstance(u8"thing", MaterialResource::StaticType());
@@ -205,8 +205,8 @@ TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh gu
     RemoveTree(dir);
     FileDelete(JoinPath(dir, u8"materials/copper.xasset"));
     FileDelete(JoinPath(dir, u8"materials/copper.extra.bin"));
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
     foundation::content::Instance* steel =
@@ -263,8 +263,8 @@ TEST_CASE("content: RenameInstance moves envelope + sidecars; RenameGroup moves 
     FileDelete(JoinPath(dir, u8"metals/bronze.xasset"));
     FileDelete(JoinPath(dir, u8"metals/bronze.extra.bin"));
     RemoveDirectory(JoinPath(dir, u8"metals"));
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
     Group* materials = db.RootGroup()->CreateGroup(u8"materials");
     foundation::content::Instance* steel =
@@ -334,8 +334,8 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
     };
     scrub();
     {
-        NativeFileSystem mount(dir);
-        ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+        NativeFileSystem mount(dir, DefaultAllocator());
+        ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
         // outer/ { a (+sidecar), inner/ { b } } and an unrelated sibling instance.
         Group* outer = db.RootGroup()->CreateGroup(u8"outer");
@@ -380,8 +380,8 @@ TEST_CASE("content: DeleteGroup removes the whole subtree - files, directories, 
     }
     {
         // Rescan proves it: a fresh database over the same mount has no ghost of the group.
-        NativeFileSystem mount(dir);
-        ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+        NativeFileSystem mount(dir, DefaultAllocator());
+        ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
         CHECK(db.RootGroup()->GetGroup(u8"outer") == nullptr);
         CHECK(db.RootGroup()->GetInstance(u8"keep") != nullptr);
     }
@@ -400,10 +400,10 @@ TEST_CASE("content: instance guids are unique across database sessions")
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
 
-    NativeFileSystem mountA(dirA);
-    NativeFileSystem mountB(dirB);
-    ContentDatabase a(mountA, BinarySerializerFactory(), u8".rasset");
-    ContentDatabase b(mountB, BinarySerializerFactory(), u8".rasset");
+    NativeFileSystem mountA(dirA, DefaultAllocator());
+    NativeFileSystem mountB(dirB, DefaultAllocator());
+    ContentDatabase a(DefaultAllocator(), mountA, BinarySerializerFactory(), u8".rasset");
+    ContentDatabase b(DefaultAllocator(), mountB, BinarySerializerFactory(), u8".rasset");
 
     // Two fresh databases minting the same creation sequence must NOT agree on guids.
     Array<Guid> fromA;
@@ -441,8 +441,8 @@ TEST_CASE("content: UniqueInstanceName / UniqueGroupName - the one general dedup
 
     const StringView dir = u8"scratch_content_unique_name_db";
     RemoveTree(dir);
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Group* group = db.RootGroup()->CreateGroup(u8"materials");
     REQUIRE(group != nullptr);
 
@@ -484,9 +484,9 @@ TEST_CASE("content: the open scan reports envelope count + bytes opened (I4b ins
     // its own instances, so clean recursively or the previous run's envelopes pollute the
     // construction scan (otherwise envelopes==3 on the authoring db).
     (void)RemoveDirectoryRecursive(dir);
-    NativeFileSystem mount(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
     {
-        ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         Group* group = db.RootGroup()->CreateGroup(u8"assets");
         for (i32 i = 0; i < 3; ++i)
         {
@@ -502,7 +502,7 @@ TEST_CASE("content: the open scan reports envelope count + bytes opened (I4b ins
         CHECK(db.LastScanStats().envelopes == 0);
     }
     {
-        ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
+        ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         // The reopen scan touched all three envelopes and counted their full file sizes -
         // the number that prices the open-time header scan (XML DOM-parses whole files).
         CHECK(db.LastScanStats().envelopes == 3);
@@ -521,8 +521,8 @@ TEST_CASE("content: group children stay name-sorted through create and rename")
     RemoveDirectory(JoinPath(dir, u8"metals"));
     RemoveDirectory(JoinPath(dir, u8"steel"));
     RemoveDirectory(dir);
-    NativeFileSystem mount(dir);
-    ContentDatabase db(mount, BinarySerializerFactory(), u8".xasset");
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
 
     // Created deliberately out of order (and mixed case) - readdir/import order must not
     // leak into the surfaced order.

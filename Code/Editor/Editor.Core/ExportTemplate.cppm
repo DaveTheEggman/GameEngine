@@ -355,7 +355,7 @@ export namespace editor
                                                TemplateOutput mode, String* outId = nullptr,
                                                String* outDir = nullptr)
     {
-        vfs::NativeFileSystem configFs(configDir);
+        vfs::NativeFileSystem configFs(configDir, DefaultAllocator());
 
         ExportTemplate tmpl;
         SynthesizeHostTemplate(configDir, &configFs,
@@ -444,7 +444,7 @@ export namespace editor
         }
 
         tmpl.directory = bundleDir;
-        vfs::NativeFileSystem bundleFs(bundleDir.AsView());
+        vfs::NativeFileSystem bundleFs(bundleDir.AsView(), DefaultAllocator());
         if (Status s = SaveTemplateManifest(*bundleFs.AsWritable(), tmpl); !s.IsOk())
         {
             return s;

@@ -51,16 +51,16 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
     // --- author: write the two source files ---
     {
-        NativeFileSystem src(u8"scratch_shader_edit");
+        NativeFileSystem src(u8"scratch_shader_edit", DefaultAllocator());
         REQUIRE(src.Save(u8"lit.vs.hlsl", Bytes(kVtx)).IsOk());
         REQUIRE(src.Save(u8"lit.fs.hlsl", Bytes(kFrag)).IsOk());
     }
 
     // --- cook: ShaderAsset -> ShaderSource in the output DB ---
-    NativeFileSystem outMount(u8"scratch_shader_edit_db");
+    NativeFileSystem outMount(u8"scratch_shader_edit_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"lit", ShaderSource::StaticType());
         id = inst->Id();
@@ -70,7 +70,7 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
         ShaderAssetBuilder builder;
         REQUIRE(builder.AssetType() == &ShaderAsset::StaticType());
-        NativeFileSystem srcMount(u8"scratch_shader_edit");
+        NativeFileSystem srcMount(u8"scratch_shader_edit", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
@@ -79,7 +79,7 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
 
     // --- verify: read back the cooked ShaderSource ---
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         ShaderSource* cooked = Cast<ShaderSource>(object.Get());
@@ -97,8 +97,8 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
     RegisterShaderAsset();
     RemoveTree();
 
-    NativeFileSystem outMount(u8"scratch_shader_edit_db");
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem outMount(u8"scratch_shader_edit_db", DefaultAllocator());
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"missing", ShaderSource::StaticType());
 
@@ -107,7 +107,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
                            asset);
 
     ShaderAssetBuilder builder;
-    NativeFileSystem srcMount2(u8"scratch_shader_edit");
+    NativeFileSystem srcMount2(u8"scratch_shader_edit", DefaultAllocator());
     pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount2;
     ctx.output = inst;

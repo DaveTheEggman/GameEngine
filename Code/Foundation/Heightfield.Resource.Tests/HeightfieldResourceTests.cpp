@@ -49,11 +49,11 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
     RegisterHeightfieldResourceTypes();
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_hf_res_db");
+    NativeFileSystem mount(u8"scratch_hf_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"ramp", HeightfieldSource::StaticType());
         id = inst->Id();
@@ -65,10 +65,10 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
         REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*ramp)).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     HeightfieldFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Heightfield> hf = manager.Bind<Heightfield>(id);

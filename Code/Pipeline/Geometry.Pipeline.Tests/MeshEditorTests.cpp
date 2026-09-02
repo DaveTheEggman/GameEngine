@@ -39,11 +39,11 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     RegisterMeshAssets();
 
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_mesh_edit_db");
+    NativeFileSystem outMount(u8"scratch_mesh_edit_db", DefaultAllocator());
     Guid id;
 
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
@@ -60,7 +60,7 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
     }
 
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         StaticMeshSource* cooked = Cast<StaticMeshSource>(object.Get());
@@ -80,11 +80,11 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     RegisterMeshAssets();
 
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_mesh_edit_db");
+    NativeFileSystem outMount(u8"scratch_mesh_edit_db", DefaultAllocator());
     Guid id;
 
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst =
             outDb.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
@@ -109,7 +109,7 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
     }
 
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         SkinnedMeshSource* cooked = Cast<SkinnedMeshSource>(object.Get());
@@ -133,12 +133,12 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
     RegisterMeshAssets();
 
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_sidecar_db");
-    NativeFileSystem mount(u8"scratch_mesh_sidecar_db");
+    NativeFileSystem mount(u8"scratch_mesh_sidecar_db", DefaultAllocator());
     Guid id;
     usize originalVertexCount = 0;
 
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"sphere", StaticMeshAsset::StaticType());
@@ -161,7 +161,7 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
     }
 
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         foundation::content::Instance* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);
@@ -196,11 +196,11 @@ TEST_CASE("mesh editor: legacy inline envelopes (v<3) still load")
     RegisterMeshAssets();
 
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_inline_db");
-    NativeFileSystem mount(u8"scratch_mesh_inline_db");
+    NativeFileSystem mount(u8"scratch_mesh_inline_db", DefaultAllocator());
     Guid id;
 
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshAsset::StaticType());
         id = inst->Id();
@@ -212,7 +212,7 @@ TEST_CASE("mesh editor: legacy inline envelopes (v<3) still load")
         REQUIRE(inst->WriteObject(asset).IsOk());
     }
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         foundation::content::Instance* inst = db.GetInstance(id);
         REQUIRE(inst != nullptr);

@@ -1300,7 +1300,7 @@ void UISandbox::EnsureResourceProvider()
     }
     String uiRoot(assetDir);
     uiRoot += u8"/ui";
-    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView());
+    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView(), DefaultAllocator());
     m_resProvider = MakeUnique<ui::vfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
 }
 

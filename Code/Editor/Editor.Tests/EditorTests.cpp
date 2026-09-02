@@ -77,7 +77,7 @@ namespace
 
 TEST_CASE("editor: source files read through the VFS mount")
 {
-    foundation::vfs::NativeFileSystem mount(u8".");
+    foundation::vfs::NativeFileSystem mount(u8".", foundation::core::DefaultAllocator());
     const byte payload[3] = {byte{'a'}, byte{'b'}, byte{'c'}};
     REQUIRE(mount.AsWritable()->Save(u8"editor_vfs_src.txt", Span<const byte>(payload, 3)).IsOk());
 

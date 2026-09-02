@@ -45,8 +45,8 @@ namespace engine::player
         void OnStartup(runtime::IApplicationHost& host) override
         {
             namespace project = engine::project;
-            m_root = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
-                                                                 m_options.projectDir.AsView());
+            m_root = MakeUnique<foundation::vfs::NativeFileSystem>(
+                DefaultAllocator(), m_options.projectDir.AsView(), DefaultAllocator());
 
             // Dist layout wins when present (a staged dist can sit inside a project tree).
             if (m_root->Exists(project::kDistContentPak))
@@ -64,7 +64,7 @@ namespace engine::player
                     return;
                 }
                 m_contentDb = MakeUnique<foundation::content::ContentDatabase>(
-                    DefaultAllocator(), *m_pak, BinarySerializerFactory(),
+                    DefaultAllocator(), DefaultAllocator(), *m_pak, BinarySerializerFactory(),
                     project::kCookedAssetExtension);
                 m_sceneDb = m_contentDb.Get(); // scenes live IN the pak, binary like products
                 LOG_INFO(u8"Player", u8"dist mode ({} pak entries)", m_pak->EntryCount());
@@ -80,16 +80,18 @@ namespace engine::player
                 }
                 m_contentMount = MakeUnique<foundation::vfs::NativeFileSystem>(
                     DefaultAllocator(),
-                    PathJoin(m_options.projectDir.AsView(), project::kProjectContentDir).AsView());
+                    PathJoin(m_options.projectDir.AsView(), project::kProjectContentDir).AsView(),
+                    DefaultAllocator());
                 m_cookedMount = MakeUnique<foundation::vfs::NativeFileSystem>(
                     DefaultAllocator(),
-                    PathJoin(m_options.projectDir.AsView(), project::kProjectCookedDir).AsView());
+                    PathJoin(m_options.projectDir.AsView(), project::kProjectCookedDir).AsView(),
+                    DefaultAllocator());
                 m_sourceDb = MakeUnique<foundation::content::ContentDatabase>(
-                    DefaultAllocator(), *m_contentMount, foundation::xml::XmlSerializerFactory(),
-                    project::kSourceAssetExtension);
+                    DefaultAllocator(), DefaultAllocator(), *m_contentMount,
+                    foundation::xml::XmlSerializerFactory(), project::kSourceAssetExtension);
                 m_contentDb = MakeUnique<foundation::content::ContentDatabase>(
-                    DefaultAllocator(), *m_cookedMount, BinarySerializerFactory(),
-                    project::kCookedAssetExtension);
+                    DefaultAllocator(), DefaultAllocator(), *m_cookedMount,
+                    BinarySerializerFactory(), project::kCookedAssetExtension);
                 m_sceneDb = m_sourceDb.Get(); // authored scenes; products from the cooked DB
             }
             else
@@ -215,7 +217,8 @@ namespace engine::player
             {
                 engine::audio::RegisterAudioSettingsTypes();
                 foundation::vfs::NativeFileSystem userFs(
-                    foundation::core::GetUserDataDirectory().AsView());
+                    foundation::core::GetUserDataDirectory().AsView(),
+                    foundation::core::DefaultAllocator());
                 UniquePtr<IStream> stream =
                     userFs.Open(UserSettingsFileName().AsView(), FileMode::Read);
                 if (stream)
@@ -360,7 +363,7 @@ namespace engine::player
                     *Audio()->Engine(), store.Section<engine::audio::AudioUserSettings>());
                 const String dir = foundation::core::GetUserDataDirectory();
                 (void)foundation::core::CreateDirectory(dir.AsView());
-                foundation::vfs::NativeFileSystem userFs(dir.AsView());
+                foundation::vfs::NativeFileSystem userFs(dir.AsView(), foundation::core::DefaultAllocator());
                 MemoryStream buffer;
                 if (store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk())
                 {

@@ -52,10 +52,10 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
     RemoveTree(u8"scratch_physpipe_src_db");
     RemoveTree(u8"scratch_physpipe_out_db");
 
-    foundation::vfs::NativeFileSystem srcMount(u8"scratch_physpipe_src_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_out_db");
-    content::ContentDatabase srcDb(srcMount, BinarySerializerFactory(), u8".rasset");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem srcMount(u8"scratch_physpipe_src_db", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_out_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase srcDb(DefaultAllocator(), srcMount, BinarySerializerFactory(), u8".rasset");
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     // Source mesh asset: a unit cube captured into a StaticMeshSource.
     auto* meshInstance =
@@ -94,7 +94,7 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
 
         // Runtime load through the factory.
         CollisionShapeFactory factory;
-        ResourceManager manager(outDb);
+        ResourceManager manager(DefaultAllocator(), outDb);
         manager.AddFactory(&factory);
         Proxy<CollisionShape> shape = manager.Bind<CollisionShape>(outInstance->Id());
         REQUIRE(shape);
@@ -135,10 +135,10 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     RemoveTree(u8"scratch_physpipe_prod_db");
     RemoveTree(u8"scratch_physpipe_prodout_db");
 
-    foundation::vfs::NativeFileSystem prodMount(u8"scratch_physpipe_prod_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_prodout_db");
-    content::ContentDatabase prodDb(prodMount, BinarySerializerFactory(), u8".rasset");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem prodMount(u8"scratch_physpipe_prod_db", foundation::core::DefaultAllocator());
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_prodout_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase prodDb(DefaultAllocator(), prodMount, BinarySerializerFactory(), u8".rasset");
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     auto* meshInstance =
         prodDb.RootGroup()->CreateInstance(u8"cube", geometry::StaticMeshSource::StaticType());
@@ -163,7 +163,7 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     REQUIRE(builder.Build(asset, ctx).IsOk()); // was Status::InvalidArgument before the fix
 
     CollisionShapeFactory factory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
     Proxy<CollisionShape> shape = manager.Bind<CollisionShape>(outInstance->Id());
     REQUIRE(shape);
@@ -180,8 +180,8 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     RegisterPhysicsAssets();
     RemoveTree(u8"scratch_physpipe_mat_db");
 
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_mat_db");
-    content::ContentDatabase outDb(outMount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_physpipe_mat_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance =
         outDb.RootGroup()->CreateInstance(u8"surface", PhysicalMaterialSource::StaticType());
 
@@ -195,7 +195,7 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     REQUIRE(builder.Build(asset, ctx).IsOk());
 
     PhysicalMaterialFactory factory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
     Proxy<PhysicalMaterial> material = manager.Bind<PhysicalMaterial>(instance->Id());
     REQUIRE(material);

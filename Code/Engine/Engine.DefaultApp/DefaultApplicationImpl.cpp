@@ -528,7 +528,7 @@ namespace engine::runtime
             // Share the global JobSystem so migrated factories can decode off the main thread
             // (async resource loading, task #123); null when there is no pool = synchronous loads.
             m_ownedResources = core::MakeUnique<foundation::resource::ResourceManager>(
-                core::DefaultAllocator(), *m_contentDatabase,
+                core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDatabase,
                 core::HasGlobalJobSystem() ? &core::GlobalJobs() : nullptr);
         }
         foundation::resource::ResourceManager* resources = Resources();

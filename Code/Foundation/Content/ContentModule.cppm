@@ -179,8 +179,9 @@ export namespace foundation::content
     class ContentDatabase final : public IContentDatabase
     {
     public:
-        // `mount` must outlive the database and support enumerate + write.
-        explicit ContentDatabase(IFileSystem& mount, SerializerFactory factory,
+        // `mount` must outlive the database and support enumerate + write. The
+        // allocator (required - the owner decides) backs every group/instance node.
+        ContentDatabase(IAllocator& allocator, IFileSystem& mount, SerializerFactory factory,
                                  StringView fileExtension,
                                  SerializableRegistry& serializables = GlobalSerializableRegistry(),
                                  TypeRegistry& types = GlobalTypeRegistry());
@@ -189,11 +190,11 @@ export namespace foundation::content
         {
             for (Instance* instance : m_allInstances)
             {
-                DefaultAllocator().Delete(instance);
+                m_allocator->Delete(instance);
             }
             for (Group* group : m_allGroups)
             {
-                DefaultAllocator().Delete(group);
+                m_allocator->Delete(group);
             }
         }
 
@@ -311,7 +312,7 @@ export namespace foundation::content
 
         Group* NewGroup(Group* parent, StringView name)
         {
-            Group* group = DefaultAllocator().New<Group>(*this, parent, name);
+            Group* group = m_allocator->New<Group>(*this, parent, name);
             m_allGroups.PushBack(group);
             return group;
         }
@@ -320,7 +321,7 @@ export namespace foundation::content
                               StringView typeName)
         {
             Instance* instance =
-                DefaultAllocator().New<Instance>(*this, group, id, name, typeNs, typeName);
+                m_allocator->New<Instance>(*this, group, id, name, typeNs, typeName);
             m_allInstances.PushBack(instance);
             if (!id.IsNil())
             {
@@ -396,6 +397,7 @@ export namespace foundation::content
             (void)group.AddInstance(id, instanceName, typeNs.AsView(), typeName.AsView());
         }
 
+        IAllocator* m_allocator;
         IFileSystem* m_mount;
         SerializerFactory m_factory;
         String m_extension;

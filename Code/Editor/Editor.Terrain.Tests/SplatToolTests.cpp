@@ -437,12 +437,12 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
     FileDelete(u8"scratch_splat_persist_db/splat.pixels.bin");
     FileDelete(u8"scratch_splat_persist_db/splat.indices.bin");
     RemoveDirectory(dbDir);
-    NativeFileSystem mount(dbDir);
+    NativeFileSystem mount(dbDir, DefaultAllocator());
 
     // The SOURCE asset: imported-style (fileName set) with STALE dims - the raster is 32x32.
     Guid id;
     {
-        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                     u8".rasset");
         pipeline::RegisterSplatmapAsset();
         terrain::RegisterSplatmapResourceTypes();
@@ -485,9 +485,9 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
     FileDelete(u8"scratch_splat_persist_cooked/splat.pixels.bin");
     FileDelete(u8"scratch_splat_persist_cooked/splat.indices.bin");
     RemoveDirectory(cookedDir);
-    NativeFileSystem cookedMount(cookedDir);
+    NativeFileSystem cookedMount(cookedDir, DefaultAllocator());
     {
-        content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                     u8".rasset");
         REQUIRE(sink.lastPersist(db).IsOk());
         content::Instance* inst = db.GetInstance(id);
@@ -499,7 +499,7 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
         CHECK(asset->width == 32);               // dims synced to the painted raster
         CHECK(asset->height == 32);
 
-        content::ContentDatabase cookedDb(cookedMount,
+        content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
         content::Instance* cookedInst = cookedDb.RootGroup()->CreateInstanceWithId(
@@ -507,7 +507,7 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
         REQUIRE(cookedInst != nullptr);
 
         pipeline::SplatmapAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst;
@@ -517,11 +517,11 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
 
     // Bind the cooked product through a FRESH db: the paint (weights AND indices) survived.
     {
-        content::ContentDatabase cookedDb(cookedMount,
+        content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
         terrain::SplatWeightsFactory factory;
-        foundation::resource::ResourceManager manager(cookedDb);
+        foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), cookedDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<terrain::SplatWeights> cooked =
             manager.Bind<terrain::SplatWeights>(id);

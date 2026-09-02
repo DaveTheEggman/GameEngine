@@ -33,7 +33,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -54,12 +54,12 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     const StringView dir = u8"scratch_resref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
 
     // A cooked mesh product: a unit cube baked into a StaticMeshSource instance.
     GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
     RegisterSerializable<geometry::StaticMeshSource>();
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Guid meshId;
     {
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
@@ -72,7 +72,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
         meshId = inst->Id();
     }
 
-    resource::ResourceManager resources(cookedDb);
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
     geometry::StaticMeshFactory meshFactory;
     resources.AddFactory(&meshFactory);
 
@@ -269,11 +269,11 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     const StringView dir = u8"scratch_skinref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
 
     GlobalTypeRegistry().Register(geometry::SkinnedMeshSource::StaticType());
     RegisterSerializable<geometry::SkinnedMeshSource>();
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
 
     Guid meshId;
     {
@@ -299,7 +299,7 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
         meshId = inst->Id();
     }
 
-    resource::ResourceManager resources(cookedDb);
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
     geometry::StaticMeshFactory meshFactory;
     resources.AddFactory(&meshFactory);
 
@@ -328,9 +328,9 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     const StringView dir = u8"scratch_submesh_ref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
-    resource::ResourceManager resources(cookedDb);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
 
     const Guid matA{0xA1, 0x1};
     const Guid matB{0xB2, 0x2};

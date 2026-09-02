@@ -194,13 +194,13 @@ TEST_CASE("resource.async: BindAsync is pending until Pump finalizes it on the m
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed); // hold the decode closed
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 7, 0);
 
@@ -226,13 +226,13 @@ TEST_CASE("resource.async: concurrent BindAsync of one id shares a single decode
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed);
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 42, 0);
 
@@ -255,12 +255,12 @@ TEST_CASE("resource.async: a sync Bind of a pending id block-completes it to Rea
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory; // gate open: the sync upgrade waits on / drives the decode
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 99, 0);
 
@@ -280,13 +280,13 @@ TEST_CASE("resource.async: a failed decode settles the handle to Failed, no fina
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.failDecode = true;
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 1, 0);
 
@@ -303,8 +303,8 @@ TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build whe
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
 
     SUBCASE("un-migrated factory (SupportsAsync == false)")
@@ -312,7 +312,7 @@ TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build whe
         AsyncFactory factory;
         factory.supportsAsync = false;
         JobSystem jobs(DefaultAllocator());
-        ResourceManager manager(db, &jobs);
+        ResourceManager manager(DefaultAllocator(), db, &jobs);
         manager.AddFactory(&factory);
         const Guid id = MakeInstance(db, factory, u8"a", 5, 0);
 
@@ -327,7 +327,7 @@ TEST_CASE("resource.async: BindAsync falls back to a synchronous Ready build whe
     SUBCASE("no JobSystem")
     {
         AsyncFactory factory; // supports async, but the manager has no pool
-        ResourceManager manager(db);
+        ResourceManager manager(DefaultAllocator(), db);
         manager.AddFactory(&factory);
         const Guid id = MakeInstance(db, factory, u8"b", 6, 0);
 
@@ -344,13 +344,13 @@ TEST_CASE("resource.async: Pump respects its time budget and resumes on the next
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.finalizeSleepMs = 5; // each finalize (>1ms budget) => at most one per Pump
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     constexpr int kCount = 4;
@@ -377,8 +377,8 @@ TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     for (int i = 0; i < 3; ++i)
@@ -390,7 +390,7 @@ TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
     // to (cores - 1), which is 1 on a 2-core CI runner - too few, and the decodes deadlock. Pin
     // the worker count so the test does not depend on the host's core count.
     JobSystem jobs(DefaultAllocator(), 3);
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     const Guid id0 = MakeInstance(db, factory, u8"a", 10, 0);
@@ -430,12 +430,12 @@ TEST_CASE("resource.async: OnReady fires once on the main thread when the load b
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 3, 0);
 
@@ -460,13 +460,13 @@ TEST_CASE("resource.async: destroying the manager with an in-flight decode drain
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     JobSystem jobs(DefaultAllocator());
     {
-        ResourceManager manager(db, &jobs);
+        ResourceManager manager(DefaultAllocator(), db, &jobs);
         manager.AddFactory(&factory);
         const Guid id = MakeInstance(db, factory, u8"a", 1, 0);
         (void)manager.BindAsync<AsyncProduct>(id);
@@ -480,13 +480,13 @@ TEST_CASE("resource.async: Ref::Bind routes through BindAsync under an AsyncBind
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed); // hold the decode
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     const Guid id = MakeInstance(db, factory, u8"a", 5, 0);
 
@@ -513,8 +513,8 @@ TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
 {
     RegisterAsyncTypes();
     CleanDir(u8"scratch_async_db");
-    NativeFileSystem mount(u8"scratch_async_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     for (int i = 0; i < 3; ++i)
@@ -525,7 +525,7 @@ TEST_CASE("resource.async: AsyncLoadBatch reports progress as loads finalize")
     // low-core host (a default JobSystem is (cores - 1), i.e. 1 on a 2-core CI runner). See the
     // FIFO-order test above for the same reasoning.
     JobSystem jobs(DefaultAllocator(), 3);
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     const Guid a = MakeInstance(db, factory, u8"a", 1, 0);
@@ -600,13 +600,13 @@ TEST_CASE("resource.async: a settling child RELOADS its dependents (the material
     RegisterAsyncTypes();
     GlobalTypeRegistry().Register(ParentProduct::StaticType());
     CleanDir(u8"scratch_async_cascade_db");
-    NativeFileSystem mount(u8"scratch_async_cascade_db");
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem mount(u8"scratch_async_cascade_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AsyncFactory factory;
     factory.gates[0].store(false, std::memory_order_relaxed); // child decode held closed
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
     ParentFactory parentFactory;
     parentFactory.childId = MakeInstance(db, factory, u8"child", 7, 0);

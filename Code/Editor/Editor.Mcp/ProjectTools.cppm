@@ -299,8 +299,8 @@ export namespace editor::mcp
                 // persists the pipeline DB through these); the source/cooked DBs are already open.
                 const String sourcesRoot = s->project->SourcesRoot();
                 const String cacheRoot = s->project->CacheRoot();
-                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView());
-                vfs::NativeFileSystem cacheMount(cacheRoot.AsView());
+                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), DefaultAllocator());
+                vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), DefaultAllocator());
                 pipeline::CookDriver driver(s->project->SourceDb(), s->project->CookedDb(), *bld,
                                             &sourcesMount, &cacheMount, nullptr); // serial (no jobs)
                 pipeline::CookPlan plan = driver.Plan(force);

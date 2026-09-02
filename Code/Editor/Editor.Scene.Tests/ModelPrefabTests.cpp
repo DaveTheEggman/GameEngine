@@ -27,7 +27,7 @@ namespace
 {
     void RemoveTreeMP(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -69,8 +69,8 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     const StringView dir = u8"scratch_model_prefab_test_db";
     RemoveTreeMP(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
 
     // Hand-authored manifest: root node + a multi-material static mesh node + a skinned node.
     const Guid meshStatic{0x51, 0x1};
@@ -205,8 +205,8 @@ TEST_CASE("model-scene: manifest -> standalone scene; regeneration reuses the in
     const StringView dir = u8"scratch_model_scene_test_db";
     RemoveTreeMP(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
 
     // Root node + a single static-mesh child node (Crate -> Root -> Body).
     const Guid meshStatic{0x51, 0x1};

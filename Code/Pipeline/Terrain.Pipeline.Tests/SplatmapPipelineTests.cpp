@@ -44,7 +44,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_splatpipe_db");
+    NativeFileSystem outMount(u8"scratch_splatpipe_db", DefaultAllocator());
 
     // Author a painted top-K raster the cook will carry.
     RefPtr<SplatWeights> authored = MakeRef<SplatWeights>(DefaultAllocator(), 16, 16);
@@ -53,7 +53,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
 
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount,
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                                 foundation::core::BinarySerializerFactory(),
                                                 u8".rasset");
         // Cook in place into ONE instance (product guid == source guid): the source sidecars feed
@@ -68,7 +68,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
         sa.width = 16;
         sa.height = 16;
         SplatmapAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst;
@@ -76,11 +76,11 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount,
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
     SplatWeightsFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId); // bind by the SOURCE guid
@@ -99,11 +99,11 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_splatpipe_db");
+    NativeFileSystem outMount(u8"scratch_splatpipe_db", DefaultAllocator());
 
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount,
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                                 foundation::core::BinarySerializerFactory(),
                                                 u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
@@ -113,7 +113,7 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
         sa.height = 8;
 
         SplatmapAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst;
@@ -121,11 +121,11 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount,
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
     SplatWeightsFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
     REQUIRE(loaded);
@@ -141,7 +141,7 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_splatpipe_db");
+    NativeFileSystem outMount(u8"scratch_splatpipe_db", DefaultAllocator());
 
     // A legacy 4-fixed-layer texel whose sum drifted: (100, 60, 40, 0), sum 200. The old shader
     // normalized, so the true shares are 0.5 / 0.3 / 0.2.
@@ -156,7 +156,7 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
 
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount,
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                                 foundation::core::BinarySerializerFactory(),
                                                 u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
@@ -171,7 +171,7 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
         sa.width = 8;
         sa.height = 8;
         SplatmapAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst;
@@ -179,11 +179,11 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount,
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
     SplatWeightsFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
     REQUIRE(loaded);
@@ -225,10 +225,10 @@ TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics an
                                  image::io::ImageFileFormat::PNG)
                 .IsOk());
 
-    NativeFileSystem outMount(u8"scratch_splatimg_db");
+    NativeFileSystem outMount(u8"scratch_splatimg_db", DefaultAllocator());
     Guid splatId;
     {
-        foundation::content::ContentDatabase db(outMount,
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                                 foundation::core::BinarySerializerFactory(),
                                                 u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"s", SplatWeightsSource::StaticType());
@@ -236,18 +236,18 @@ TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics an
         SplatmapAsset sa;
         sa.fileName = foundation::vfs::SourcePath(u8"splat.png");
         SplatmapAssetBuilder builder;
-        NativeFileSystem srcMount(u8"scratch_splatimg");
+        NativeFileSystem srcMount(u8"scratch_splatimg", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(sa, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount,
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
     SplatWeightsFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
     REQUIRE(loaded);
@@ -311,11 +311,11 @@ TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE
                                  image::io::ImageFileFormat::PNG)
                 .IsOk());
 
-    NativeFileSystem srcDbMount(u8"scratch_palette_srcdb");
-    NativeFileSystem cookDbMount(u8"scratch_palette_cookdb");
+    NativeFileSystem srcDbMount(u8"scratch_palette_srcdb", DefaultAllocator());
+    NativeFileSystem cookDbMount(u8"scratch_palette_cookdb", DefaultAllocator());
     Guid terrainId;
     {
-        foundation::content::ContentDatabase sourceDb(
+        foundation::content::ContentDatabase sourceDb(foundation::core::DefaultAllocator(), 
             srcDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         // The albedo SOURCE envelope (fileName -> the png above).
         auto* albedoInst =
@@ -325,7 +325,7 @@ TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE
         REQUIRE(albedoInst->WriteObject(texSrc).IsOk());
 
         // The COOKED db carries no TextureAsset for that guid (production truth).
-        foundation::content::ContentDatabase cookedDb(
+        foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), 
             cookDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* product =
             cookedDb.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
@@ -337,7 +337,7 @@ TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE
         ta.paletteTextureSize = 64;
 
         pipeline::TerrainAssetBuilder builder;
-        NativeFileSystem srcMount(u8"scratch_palette_src");
+        NativeFileSystem srcMount(u8"scratch_palette_src", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = product;
@@ -348,7 +348,7 @@ TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE
 
     // The cooked palette sidecar's slice must carry the ORANGE, at every sampled mip.
     {
-        foundation::content::ContentDatabase cookedDb(
+        foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), 
             cookDbMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         foundation::content::Instance* inst = cookedDb.GetInstance(terrainId);
         REQUIRE(inst != nullptr);

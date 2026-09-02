@@ -1111,8 +1111,8 @@ namespace
                 RegisterParticleEffectAsset(); // register cooked/asset/module types + serializable factories
 
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir);
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(
+                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir, core::DefaultAllocator());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), 
                 core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
 
@@ -1132,7 +1132,7 @@ namespace
 
             // LOAD: bind the cooked resource back through the manager + factory (runtime path).
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_pfxFactory);
             m_cookedProxy = m_resources->Bind<particles::ParticleEffectResource>(inst->Id());
             if (!m_cookedProxy)

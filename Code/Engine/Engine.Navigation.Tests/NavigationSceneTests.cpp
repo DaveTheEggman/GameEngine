@@ -30,7 +30,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -72,8 +72,8 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
     RemoveTree(u8"scratch_navscene_db");
 
     // A content DB holding the cooked zone, bound through the factory.
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Array<byte> blob;
     BakeGroundZone(blob);
     auto* zoneInstance =
@@ -86,7 +86,7 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
     NavigationZoneFactory factory(DefaultAllocator());
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     // Scene: nav managers + subsystem, a zone entity at the origin, an agent at (-5,0,0).
@@ -155,8 +155,8 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
     RegisterNavigationComponentReflection();
     RemoveTree(u8"scratch_navscene_scaled_db");
 
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_scaled_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_scaled_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Array<byte> blob;
     BakeGroundZone(blob);
     auto* zoneInstance =
@@ -170,7 +170,7 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
     NavigationZoneFactory factory(DefaultAllocator());
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     scene::Scene scene(u8"nav-scaled");
@@ -223,8 +223,8 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
     RegisterNavigationComponentReflection();
     RemoveTree(u8"scratch_navscene_legacy_db");
 
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_legacy_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_legacy_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Array<byte> blob;
     BakeGroundZone(blob);
     auto* zoneInstance =
@@ -237,7 +237,7 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
     NavigationZoneFactory factory(DefaultAllocator());
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     // Scaled entity + legacy bake -> the zone is refused (agent gets no slot).
@@ -294,8 +294,8 @@ TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arriv
     RegisterNavigationComponentReflection();
     RemoveTree(u8"scratch_navspeed_db");
 
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navspeed_db");
-    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navspeed_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Array<byte> blob;
     BakeGroundZone(blob);
     auto* zoneInstance =
@@ -308,7 +308,7 @@ TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arriv
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
     NavigationZoneFactory factory(DefaultAllocator());
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     scene::Scene scene(u8"nav");

@@ -915,7 +915,7 @@ export namespace editor
             const bool loaded = scene::LoadScene(instance, scratch).IsOk();
             if (loaded)
             {
-                foundation::resource::ResourceManager collector(
+                foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), 
                     db); // no factories -> all binds unresolved
                 scene::ResolveSceneResources(scratch, collector);
                 collector.CollectUnresolved(outResources);

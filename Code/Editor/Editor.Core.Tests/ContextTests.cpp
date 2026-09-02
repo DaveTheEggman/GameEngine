@@ -132,8 +132,8 @@ TEST_CASE("editor-context: open, focus, and close pages")
 
     const StringView dir = u8"scratch_editor_test_ctx_db";
     RemoveDbTree(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
 
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
@@ -214,8 +214,8 @@ TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregi
     RegisterTestTypes();
     const StringView dir = u8"scratch_editor_test_ctx_intercept";
     RemoveDbTree(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);
@@ -293,8 +293,8 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
 
     const StringView dir = u8"scratch_editor_test_ctx_undo_db";
     RemoveDbTree(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);
@@ -452,8 +452,8 @@ TEST_CASE("editor-context: pending asset-edit registry (register/replace/nil, dr
 {
     const StringView dir = u8"scratch_editor_test_assetedit_db";
     RemoveDbTree(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
-    foundation::content::ContentDatabase db(mount, foundation::xml::XmlSerializerFactory(),
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
 
     EditorContext ctx;

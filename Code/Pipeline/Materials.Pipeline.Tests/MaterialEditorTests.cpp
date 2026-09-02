@@ -40,12 +40,12 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
     RemoveTree();
 
     Guid shaderId{0x1122334455667788ull, 0x99aabbccddeeff00ull};
-    NativeFileSystem outMount(u8"scratch_mat_edit_db");
+    NativeFileSystem outMount(u8"scratch_mat_edit_db", DefaultAllocator());
     Guid id;
 
     // --- cook: author a material, import into an asset, build into the output DB ---
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"lit", MaterialSource::StaticType());
         id = inst->Id();
@@ -70,7 +70,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     // --- verify: read back the cooked MaterialSource ---
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         RefPtr<ISerializable> object = outDb.ReadObject(id);
         MaterialSource* cooked = Cast<MaterialSource>(object.Get());

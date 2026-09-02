@@ -67,12 +67,12 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     RegisterParticleEffectResource();
     RemoveTree();
 
-    NativeFileSystem mount(u8"scratch_pfx_db");
+    NativeFileSystem mount(u8"scratch_pfx_db", DefaultAllocator());
     Guid id;
 
     // Cook: author the effect into a ParticleEffectResource record and write it to the DB.
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"effect", ParticleEffectResource::StaticType());
@@ -84,10 +84,10 @@ TEST_CASE("particles.pipeline: code effect -> cook -> Bind reconstructs an equiv
     }
 
     // Load: bind the cooked resource back through the manager + factory.
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<ParticleEffectResource> res = manager.Bind<ParticleEffectResource>(id);

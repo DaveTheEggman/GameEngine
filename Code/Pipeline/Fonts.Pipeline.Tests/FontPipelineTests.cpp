@@ -53,10 +53,10 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
     RemoveTree();
     REQUIRE(StageSourceFont());
 
-    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
         id = inst->Id();
@@ -75,17 +75,17 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
         FontAssetBuilder builder;
         REQUIRE(builder.AssetType() == &FontAsset::StaticType());
         REQUIRE(builder.ProductType() == &FontResource::StaticType());
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     FontFactory factory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
     Proxy<Font> font = manager.Bind<Font>(id);
@@ -124,10 +124,10 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
     RemoveTree();
     REQUIRE(StageSourceFont());
 
-    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase outDb(
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
         id = inst->Id();
@@ -142,17 +142,17 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
         asset.atlasHeight = 256;
 
         FontAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     FontFactory factory;
-    ResourceManager manager(outDb);
+    ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
     Proxy<Font> font = manager.Bind<Font>(id);
@@ -183,15 +183,15 @@ TEST_CASE("font.pipeline: builder fails on a missing source file")
 {
     RegisterFontAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_fontpipe_out_db");
-    foundation::content::ContentDatabase outDb(outMount, foundation::core::BinarySerializerFactory(),
+    NativeFileSystem outMount(u8"scratch_fontpipe_out_db", DefaultAllocator());
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
     auto* inst = outDb.RootGroup()->CreateInstance(u8"uifont", FontResource::StaticType());
 
     FontAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.ttf");
     FontAssetBuilder builder;
-    NativeFileSystem srcMount(u8".");
+    NativeFileSystem srcMount(u8".", DefaultAllocator());
     pipeline::AssetBuildContext ctx;
     ctx.sources = &srcMount;
     ctx.output = inst;

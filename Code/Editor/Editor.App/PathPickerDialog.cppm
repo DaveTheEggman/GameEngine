@@ -186,7 +186,7 @@ export namespace editor::app
         // Recursive walk from the root; `m_files` keeps root-relative paths.
         void CollectFiles(StringView rootPath)
         {
-            foundation::vfs::NativeFileSystem fs(rootPath);
+            foundation::vfs::NativeFileSystem fs(rootPath, foundation::core::DefaultAllocator());
             auto* enumerable = fs.AsEnumerable();
             if (enumerable == nullptr)
             {

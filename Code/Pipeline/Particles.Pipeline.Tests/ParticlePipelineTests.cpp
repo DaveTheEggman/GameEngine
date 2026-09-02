@@ -42,12 +42,12 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     RegisterParticleEffectAsset();
     RemoveTree();
 
-    NativeFileSystem mount(u8"scratch_pfx_edit_db");
+    NativeFileSystem mount(u8"scratch_pfx_edit_db", DefaultAllocator());
     Guid id;
 
     // Author the effect in an asset, then cook it via the builder into the DB instance.
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst =
             db.RootGroup()->CreateInstance(u8"smoke", ParticleEffectResource::StaticType());
@@ -73,10 +73,10 @@ TEST_CASE("particles.pipeline: authored asset -> Build() -> cooked resource -> B
     }
 
     // Load the cooked resource back.
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<ParticleEffectResource> res = manager.Bind<ParticleEffectResource>(id);
@@ -109,11 +109,11 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     FileDelete(u8"scratch_pfx_ref_db/effect.rasset");
     RemoveDirectory(u8"scratch_pfx_ref_db");
 
-    NativeFileSystem mount(u8"scratch_pfx_ref_db");
+    NativeFileSystem mount(u8"scratch_pfx_ref_db", DefaultAllocator());
     Guid effectId, texId;
 
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
 
         // Cook a texture the effect will reference.
@@ -150,11 +150,11 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
 
     // Load with both factories so the effect's Create can Bind the referenced texture.
     rhi::null::NullDevice device{DefaultAllocator()};
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory pfxFactory;
     foundation::texture::TextureFactory texFactory(device);
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&pfxFactory);
     manager.AddFactory(&texFactory);
 

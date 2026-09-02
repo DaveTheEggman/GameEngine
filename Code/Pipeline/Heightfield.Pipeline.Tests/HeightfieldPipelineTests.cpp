@@ -42,21 +42,22 @@ namespace
     {
         Guid id;
         {
-            foundation::content::ContentDatabase db(
+            foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
                 outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
             auto* inst = db.RootGroup()->CreateInstance(u8"hf", HeightfieldSource::StaticType());
             id = inst->Id();
 
             HeightfieldAssetBuilder builder;
-            NativeFileSystem srcMount(u8".");
+            NativeFileSystem srcMount(u8".", DefaultAllocator());
             pipeline::AssetBuildContext ctx;
             ctx.sources = &srcMount;
             ctx.output = inst;
             REQUIRE(builder.Build(asset, ctx).IsOk());
         }
         outDb = new foundation::content::ContentDatabase(
-            outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
-        outManager = new ResourceManager(*outDb);
+            foundation::core::DefaultAllocator(), outMount,
+            foundation::core::BinarySerializerFactory(), u8".rasset");
+        outManager = new ResourceManager(foundation::core::DefaultAllocator(), *outDb);
         outManager->AddFactory(&factory);
         return outManager->Bind<Heightfield>(id);
     }
@@ -84,7 +85,7 @@ TEST_CASE("heightfield.pipeline: a blank asset cooks a flat grid")
     RegisterHeightfieldResourceTypes();
     RegisterHeightfieldAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db", DefaultAllocator());
 
     HeightfieldAsset asset; // no fileName -> blank
     asset.size = 65;
@@ -114,7 +115,7 @@ TEST_CASE("heightfield.pipeline: an invalid size snaps to the next valid one")
     RegisterHeightfieldResourceTypes();
     RegisterHeightfieldAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db", DefaultAllocator());
 
     HeightfieldAsset asset; // no fileName
     asset.size = 100; // not 64k+1 -> snaps to 129
@@ -156,7 +157,7 @@ TEST_CASE("heightfield.pipeline: a heightmap image cooks into the grid (16-bit p
                     .IsOk());
     }
 
-    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db", DefaultAllocator());
     HeightfieldAsset asset;
     asset.fileName = SourcePath(u8"scratch_hfpipe_src.png");
     asset.size = 65;
@@ -192,7 +193,7 @@ TEST_CASE("heightfield cook: degenerate extents snap to legal values")
     RegisterHeightfieldResourceTypes();
     RegisterHeightfieldAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db", DefaultAllocator());
 
     HeightfieldAsset asset;
     asset.size = 65;
@@ -227,7 +228,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
     RegisterHeightfieldResourceTypes();
     RegisterHeightfieldAsset();
     RemoveTree();
-    NativeFileSystem outMount(u8"scratch_hfpipe_out_db");
+    NativeFileSystem outMount(u8"scratch_hfpipe_out_db", DefaultAllocator());
 
     // The authored (sculpted) grid the sidecar carries.
     RefPtr<Heightfield> authored =
@@ -259,14 +260,14 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
             outMount, foundation::core::BinarySerializerFactory(), u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"hf", HeightfieldSource::StaticType());
         id = inst->Id();
         REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*authored)).IsOk());
 
         HeightfieldAssetBuilder builder;
-        NativeFileSystem srcMount(u8".");
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
         pipeline::AssetBuildContext ctx;
         ctx.sources = &srcMount;
         ctx.source = inst; // the authored sidecar lives on the source instance
@@ -274,10 +275,10 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(outMount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
     HeightfieldFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<Heightfield> hf = manager.Bind<Heightfield>(id);
 

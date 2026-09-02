@@ -98,7 +98,7 @@ TEST_CASE("project-registry: remove deletes a row; the section round-trips the s
     // Round-trip through the fs-explicit editor-settings helpers (the store's real backend).
     const StringView dir = u8"scratch_registry_roundtrip_test";
     (void)CreateDirectory(dir);
-    vfs::NativeFileSystem fs(dir);
+    vfs::NativeFileSystem fs(dir, DefaultAllocator());
     REQUIRE(SaveEditorSettings(*fs.AsWritable(), store).IsOk());
 
     settings::Settings loaded(foundation::core::DefaultAllocator());

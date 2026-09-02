@@ -212,13 +212,13 @@ namespace
                 (void)CreateDirectory(PathJoin(root.AsView(), dir).AsView());
             }
             contentFs = MakeUnique<vfs::NativeFileSystem>(
-                DefaultAllocator(), PathJoin(root.AsView(), u8"Content").AsView());
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Content").AsView(), DefaultAllocator());
             cookedFs = MakeUnique<vfs::NativeFileSystem>(
-                DefaultAllocator(), PathJoin(root.AsView(), u8"Cooked").AsView());
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Cooked").AsView(), DefaultAllocator());
             sourcesFs = MakeUnique<vfs::NativeFileSystem>(
-                DefaultAllocator(), PathJoin(root.AsView(), u8"Sources").AsView());
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Sources").AsView(), DefaultAllocator());
             cacheFs = MakeUnique<vfs::NativeFileSystem>(
-                DefaultAllocator(), PathJoin(root.AsView(), u8"Cache").AsView());
+                DefaultAllocator(), PathJoin(root.AsView(), u8"Cache").AsView(), DefaultAllocator());
             OpenDbs();
 
             builders.Register(UniquePtr<IAssetBuilder>(DefaultAllocator().New<CookWidgetBuilder>(),
@@ -235,9 +235,9 @@ namespace
 
         void OpenDbs()
         {
-            sourceDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *contentFs,
+            sourceDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), DefaultAllocator(), *contentFs,
                                                             BinarySerializerFactory(), u8".xasset");
-            cookedDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), *cookedFs,
+            cookedDb = MakeUnique<content::ContentDatabase>(DefaultAllocator(), DefaultAllocator(), *cookedFs,
                                                             BinarySerializerFactory(), u8".rasset");
         }
 
@@ -308,7 +308,7 @@ namespace
             // Best-effort recursive cleanup through the native mounts.
             for (StringView dir : {u8"Content", u8"Cooked", u8"Sources", u8"Cache"})
             {
-                vfs::NativeFileSystem fs(PathJoin(root.AsView(), dir).AsView());
+                vfs::NativeFileSystem fs(PathJoin(root.AsView(), dir).AsView(), DefaultAllocator());
                 Array<vfs::DirEntry> entries;
                 if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
                 {
@@ -596,9 +596,9 @@ TEST_CASE("cook variant axis: target cook recooks variant products + copies inva
     // --- a per-target cooked DB + its own cook cache ---
     (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
     (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
-    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
-    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
-    content::ContentDatabase targetDb(targetCookedFs, BinarySerializerFactory(), u8".rasset");
+    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView(), DefaultAllocator());
+    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView(), DefaultAllocator());
+    content::ContentDatabase targetDb(DefaultAllocator(), targetCookedFs, BinarySerializerFactory(), u8".rasset");
 
     CookTarget astc{String(u8"web-astc"), /*bc*/ false, /*astc*/ true, /*etc2*/ false};
     CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
@@ -654,9 +654,9 @@ TEST_CASE("cook variant axis: an invariant product that READS variant content re
 
     (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
     (void)CreateDirectory(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
-    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView());
-    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView());
-    content::ContentDatabase targetDb(targetCookedFs, BinarySerializerFactory(), u8".rasset");
+    vfs::NativeFileSystem targetCookedFs(PathJoin(fx.root.AsView(), u8"Cooked-astc").AsView(), DefaultAllocator());
+    vfs::NativeFileSystem targetCacheFs(PathJoin(fx.root.AsView(), u8"Cache-astc").AsView(), DefaultAllocator());
+    content::ContentDatabase targetDb(DefaultAllocator(), targetCookedFs, BinarySerializerFactory(), u8".rasset");
 
     CookTarget astc{String(u8"web-astc"), false, true, false};
     CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);

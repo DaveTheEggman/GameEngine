@@ -37,11 +37,11 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
@@ -52,10 +52,10 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<StaticMesh> cube = manager.Bind<StaticMesh>(id);
@@ -77,10 +77,10 @@ TEST_CASE("static mesh resource: async load matches the sync product")
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db", DefaultAllocator());
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
@@ -90,17 +90,17 @@ TEST_CASE("static mesh resource: async load matches the sync product")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
 
-    ResourceManager syncManager(db);
+    ResourceManager syncManager(DefaultAllocator(), db);
     syncManager.AddFactory(&factory);
     Proxy<StaticMesh> a = syncManager.Bind<StaticMesh>(id);
     REQUIRE(a);
 
     JobSystem jobs(DefaultAllocator());
-    ResourceManager asyncManager(db, &jobs);
+    ResourceManager asyncManager(DefaultAllocator(), db, &jobs);
     asyncManager.AddFactory(&factory);
     Proxy<StaticMesh> b = asyncManager.BindAsync<StaticMesh>(id);
     asyncManager.WaitAll();
@@ -125,12 +125,12 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
     GlobalTypeRegistry().Register(StaticMesh::StaticType());
 
     RemoveDirectory(u8"scratch_mesh_conc_db");
-    NativeFileSystem mount(u8"scratch_mesh_conc_db");
+    NativeFileSystem mount(u8"scratch_mesh_conc_db", DefaultAllocator());
 
     constexpr int kCount = 10;
     Array<Guid> ids;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
         StaticMeshSource src;
@@ -146,11 +146,11 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
         }
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
     JobSystem jobs(DefaultAllocator());
-    ResourceManager manager(db, &jobs);
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
 
     Array<Proxy<StaticMesh>> meshes;
@@ -180,11 +180,11 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
     GlobalTypeRegistry().Register(SkinnedMesh::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_mesh_res_db");
+    NativeFileSystem mount(u8"scratch_mesh_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skinned", SkinnedMeshSource::StaticType());
         id = inst->Id();
@@ -209,10 +209,10 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     SkinnedMeshFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<SkinnedMesh> mesh = manager.Bind<SkinnedMesh>(id);

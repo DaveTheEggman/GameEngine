@@ -86,8 +86,8 @@ int main(int argc, char** argv)
     // only (no device/GPU/world), idempotent.
     engine::RegisterAllScriptFacades();
 
-    vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView());
-    vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());
+    vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView(), DefaultAllocator());
+    vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView(), DefaultAllocator());
     JobSystem jobs(DefaultAllocator()); // cook tool composition root
 
     pipeline::CookProgress progress;
@@ -135,9 +135,9 @@ int main(int argc, char** argv)
         (void)CreateDirectory(PathJoin(project->Directory(), u8".cache").AsView());
         (void)CreateDirectory(cacheDir.AsView());
 
-        vfs::NativeFileSystem targetCookedMount(cookedDir.AsView());
-        vfs::NativeFileSystem targetCacheMount(cacheDir.AsView());
-        foundation::content::ContentDatabase targetDb(targetCookedMount, BinarySerializerFactory(),
+        vfs::NativeFileSystem targetCookedMount(cookedDir.AsView(), DefaultAllocator());
+        vfs::NativeFileSystem targetCacheMount(cacheDir.AsView(), DefaultAllocator());
+        foundation::content::ContentDatabase targetDb(foundation::core::DefaultAllocator(), targetCookedMount, BinarySerializerFactory(),
                                                       u8".rasset");
 
         const pipeline::CookStats targetStats = pipeline::CookForTarget(

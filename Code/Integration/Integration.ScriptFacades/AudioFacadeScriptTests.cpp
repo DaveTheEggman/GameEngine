@@ -76,8 +76,8 @@ namespace
         FileDelete(u8"scratch_audio_scriptdb/sfx/steps.rasset");
         RemoveDirectory(u8"scratch_audio_scriptdb/sfx");
         RemoveDirectory(dir);
-        foundation::vfs::NativeFileSystem mount(dir);
-        foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+        foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
         foundation::content::Group* sfx = db.RootGroup()->CreateGroup(u8"sfx");
         REQUIRE(sfx != nullptr);
 
@@ -105,7 +105,7 @@ namespace
 
         AudioClipFactory clipFactory;
         SoundCueFactory cueFactory;
-        foundation::resource::ResourceManager manager(db);
+        foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), db);
         manager.AddFactory(&clipFactory);
         manager.AddFactory(&cueFactory);
 

@@ -119,7 +119,7 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
     RemoveProjectTree(dir);
     REQUIRE(CreateDirectory(dir));
     {
-        foundation::vfs::NativeFileSystem root(dir);
+        foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
         const StringView garbage = u8"<root><string name=\"name\">P</string></root>";
         REQUIRE(root.AsWritable()
                     ->Save(u8"Project.xml",
@@ -287,7 +287,7 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
     // engineVersion key) still opens - Serialize's `ar.Version() >= 2` branch skips the
     // missing field; the next save upgrades the file to v2 with the stamp.
     {
-        foundation::vfs::NativeFileSystem root(dir);
+        foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
         engine::project::ProjectSettings v1;
         v1.name = String(u8"P");
         v1.defaultScene = String(u8"Scenes/S");

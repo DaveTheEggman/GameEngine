@@ -75,7 +75,7 @@ TEST_CASE("gui-vfs: loads and decodes a real image (BMP round-trip)")
     const StringView file(u8"gui_vfs_roundtrip.bmp");
     REQUIRE(image::io::SaveImage(src, file, image::io::ImageFileFormat::BMP).IsOk());
 
-    vfs::NativeFileSystem fs(u8"."); // rooted at the test working directory
+    vfs::NativeFileSystem fs(u8".", DefaultAllocator()); // rooted at the test working directory
     gui::vfs::VfsResourceProvider provider(&fs);
 
     const image::ImageData* loaded = provider.LoadImage(file);

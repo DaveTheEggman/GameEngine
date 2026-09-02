@@ -30,7 +30,7 @@ namespace
 {
     void RemoveTree(StringView root)
     {
-        foundation::vfs::NativeFileSystem fs(root);
+        foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
         Array<foundation::vfs::DirEntry> entries;
         if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
         {
@@ -67,7 +67,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     const StringView dir = u8"scratch_animref_test_db";
     RemoveTree(dir);
     (void)CreateDirectory(dir);
-    foundation::vfs::NativeFileSystem mount(dir);
+    foundation::vfs::NativeFileSystem mount(dir, foundation::core::DefaultAllocator());
 
     GlobalTypeRegistry().Register(animation::SkeletonSource::StaticType());
     RegisterSerializable<animation::SkeletonSource>();
@@ -75,7 +75,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     RegisterSerializable<animation::AnimationClipSource>();
 
     // Cook a skeleton + a clip into the content DB (the products a model import fans out).
-    foundation::content::ContentDatabase cookedDb(mount, BinarySerializerFactory(), u8".rasset");
+    foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Guid skeletonId;
     Guid clipId;
     {
@@ -106,7 +106,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
         clipId = inst->Id();
     }
 
-    resource::ResourceManager resources(cookedDb);
+    resource::ResourceManager resources(DefaultAllocator(), cookedDb);
     animation::SkeletonFactory skeletonFactory;
     animation::AnimationClipFactory clipFactory;
     resources.AddFactory(&skeletonFactory);

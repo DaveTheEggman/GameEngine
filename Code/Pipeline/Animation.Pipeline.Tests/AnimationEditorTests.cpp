@@ -31,11 +31,11 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
 
     FileDelete(u8"scratch_anim_ed_db/skel.rasset");
     RemoveDirectory(u8"scratch_anim_ed_db");
-    NativeFileSystem mount(u8"scratch_anim_ed_db");
+    NativeFileSystem mount(u8"scratch_anim_ed_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
@@ -63,10 +63,10 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     SkeletonFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Skeleton> skel = manager.Bind<Skeleton>(id);

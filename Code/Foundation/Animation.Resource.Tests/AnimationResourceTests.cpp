@@ -53,11 +53,11 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
     GlobalTypeRegistry().Register(Skeleton::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"skel", SkeletonSource::StaticType());
         id = inst->Id();
@@ -69,10 +69,10 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     SkeletonFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<Skeleton> skel = manager.Bind<Skeleton>(id);
@@ -97,11 +97,11 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
     GlobalTypeRegistry().Register(AnimationClip::StaticType());
 
     RemoveTree();
-    NativeFileSystem mount(u8"scratch_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db", DefaultAllocator());
 
     Guid id;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"clip", AnimationClipSource::StaticType());
         id = inst->Id();
@@ -118,10 +118,10 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
         REQUIRE(inst->WriteObject(src).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AnimationClipFactory factory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
     Proxy<AnimationClip> clip = manager.Bind<AnimationClip>(id);
@@ -160,11 +160,11 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
     FileDelete(u8"scratch_anim_res_db/walk.rasset");
     FileDelete(u8"scratch_anim_res_db/graph.rasset");
     RemoveDirectory(u8"scratch_anim_res_db");
-    NativeFileSystem mount(u8"scratch_anim_res_db");
+    NativeFileSystem mount(u8"scratch_anim_res_db", DefaultAllocator());
 
     Guid graphId;
     {
-        foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
 
         // A clip resource the graph will reference by id.
@@ -200,11 +200,11 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
         REQUIRE(graphInst->WriteObject(gsrc).IsOk());
     }
 
-    foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     AnimationClipFactory clipFactory;
     AnimationGraphFactory graphFactory;
-    ResourceManager manager(db);
+    ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&clipFactory);
     manager.AddFactory(&graphFactory);
 

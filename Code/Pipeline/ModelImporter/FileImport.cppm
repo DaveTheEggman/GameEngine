@@ -550,7 +550,7 @@ export namespace pipeline
             }
             const StringView dir = originalPath.SubStr(0, dirEnd);
 
-            foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView());
+            foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView(), foundation::core::DefaultAllocator());
             const StringView key = u8"\"uri\"";
             for (usize i = 0; i + key.Size() < text.Size(); ++i)
             {

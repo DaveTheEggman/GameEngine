@@ -183,8 +183,7 @@ export namespace editor::mcp
                     return Err(String(u8"no project is open (call project_open first)"));
                 }
                 content::ContentDatabase& db = s->project->SourceDb();
-                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView());
-
+                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView(), DefaultAllocator());
                 // The reference + deserializability sweep.
                 detail::HealthSweep sweep;
                 detail::SweepHealth(db.RootGroup(), db, *bld, sourcesMount, sweep);
@@ -216,8 +215,8 @@ export namespace editor::mcp
                 // Cook state: plan only (no build) + the persisted records' failure flags.
                 const String sourcesRoot = s->project->SourcesRoot();
                 const String cacheRoot = s->project->CacheRoot();
-                vfs::NativeFileSystem planSources(sourcesRoot.AsView());
-                vfs::NativeFileSystem cacheMount(cacheRoot.AsView());
+                vfs::NativeFileSystem planSources(sourcesRoot.AsView(), DefaultAllocator());
+                vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), DefaultAllocator());
                 pipeline::CookDriver driver(db, s->project->CookedDb(), *bld, &planSources,
                                             &cacheMount, nullptr);
                 pipeline::CookPlan plan = driver.Plan(/*force=*/false);

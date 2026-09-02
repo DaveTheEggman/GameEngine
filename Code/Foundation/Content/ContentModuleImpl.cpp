@@ -21,11 +21,13 @@ using namespace foundation::vfs;
 
 namespace foundation::content
 {
-    ContentDatabase::ContentDatabase(IFileSystem& mount, SerializerFactory factory,
-                                     StringView fileExtension, SerializableRegistry& serializables,
-                                     TypeRegistry& types)
-        : m_mount(&mount), m_factory(static_cast<SerializerFactory&&>(factory)),
-          m_extension(fileExtension), m_serializables(&serializables), m_types(&types)
+    ContentDatabase::ContentDatabase(IAllocator& allocator, IFileSystem& mount,
+                                     SerializerFactory factory, StringView fileExtension,
+                                     SerializableRegistry& serializables, TypeRegistry& types)
+        : m_allocator(&allocator), m_mount(&mount),
+          m_factory(static_cast<SerializerFactory&&>(factory)), m_extension(fileExtension),
+          m_serializables(&serializables), m_types(&types), m_allGroups(allocator),
+          m_allInstances(allocator)
     {
         std::random_device entropy;
         const u64 seed =
@@ -691,7 +693,7 @@ namespace foundation::content
                 break;
             }
         }
-        DefaultAllocator().Delete(instance);
+        m_allocator->Delete(instance);
         return Status{};
     }
 
@@ -757,7 +759,7 @@ namespace foundation::content
                 break;
             }
         }
-        DefaultAllocator().Delete(&group);
+        m_allocator->Delete(&group);
         return Status{};
     }
 }
