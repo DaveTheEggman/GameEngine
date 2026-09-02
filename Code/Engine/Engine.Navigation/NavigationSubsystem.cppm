@@ -112,6 +112,20 @@ export namespace engine::navigation
                         return;
                     }
                     RuntimeZone& rz = m_zones[static_cast<usize>(a.zoneIndex)];
+                    // Live steering-profile changes (setSpeed / navigateAt / an inspector
+                    // edit) push into the crowd - value-compared, so unchanged agents are
+                    // one float compare each.
+                    if (a.maxSpeed != a.appliedSpeed || a.maxAcceleration != a.appliedAcceleration)
+                    {
+                        nav::NavigationAgentParams params;
+                        params.radius = a.radius;
+                        params.height = a.height;
+                        params.maxSpeed = a.maxSpeed;
+                        params.maxAcceleration = a.maxAcceleration;
+                        rz.crowd->SetAgentParams(a.agentId, params);
+                        a.appliedSpeed = a.maxSpeed;
+                        a.appliedAcceleration = a.maxAcceleration;
+                    }
                     if (a.targetDirty)
                     {
                         const Float3 local = TransformPoint(a.target, rz.invWorld);
@@ -148,6 +162,14 @@ export namespace engine::navigation
                     const Float3 worldPos = TransformPoint(localPos, rz.world);
                     a.desiredVelocity = TransformDirection(localVel, rz.world);
 
+                    // Introspection cache: the crowd's internals, readable from scripts and
+                    // drawn by the debug overlay (WHY is this agent not moving?).
+                    const nav::NavigationAgentState st = rz.crowd->AgentState(a.agentId);
+                    a.crowdState = static_cast<u8>(st.state);
+                    a.crowdTargetState = static_cast<u8>(st.targetState);
+                    a.crowdDesiredSpeed = st.desiredSpeed;
+                    a.pathCorners = st.cornerCount;
+
                     if (a.moveEntity && a.hasTarget)
                     {
                         // NOTE: assumes an unparented agent (local transform == world). A
@@ -162,7 +184,15 @@ export namespace engine::navigation
                         const f32 dx = worldPos.x - a.target.x;
                         const f32 dz = worldPos.z - a.target.z;
                         a.remainingDistance = Sqrt(dx * dx + dz * dz);
-                        a.finished = a.remainingDistance < (a.radius + 0.1f);
+                        const bool wasFinished = a.finished;
+                        a.finished = a.remainingDistance < (a.radius + 0.1f + a.stopDistance);
+                        // Arrival radius: on reaching the ring, STOP steering - otherwise the
+                        // crowd keeps pushing the agent onto the exact point the radius was
+                        // meant to keep it away from. navigate() re-arms.
+                        if (!wasFinished && a.finished && a.stopDistance > 0.0f)
+                        {
+                            rz.crowd->ClearTarget(a.agentId);
+                        }
                     }
                 });
         }
@@ -266,6 +296,8 @@ export namespace engine::navigation
                     ap.maxSpeed = a.maxSpeed;
                     ap.maxAcceleration = a.maxAcceleration;
                     a.agentId = rz.crowd->AddAgent(local, ap);
+                    a.appliedSpeed = a.maxSpeed; // the live-change compare starts in sync
+                    a.appliedAcceleration = a.maxAcceleration;
                 });
         }
 

@@ -30,6 +30,31 @@ export namespace foundation::navigation
         bool complete = false;
     };
 
+    // A live crowd agent's introspection snapshot (AgentState). The values are OUR stable
+    // contract, remapped from Detour's internals - safe for scripts and tools to key on.
+    enum class NavAgentCrowdState : u8
+    {
+        Invalid = 0, // not a live agent
+        Walking = 1, // steering on the mesh
+        OffMesh = 2, // traversing an off-mesh connection
+    };
+    enum class NavAgentTargetState : u8
+    {
+        None = 0,       // no move request
+        Requesting = 1, // pathfind queued/running (any Detour in-flight stage)
+        Valid = 2,      // moving on a valid corridor
+        Velocity = 3,   // velocity-driven (no corridor)
+        Failed = 4,     // pathfind failed
+    };
+    struct NavigationAgentState
+    {
+        bool valid = false;
+        NavAgentCrowdState state = NavAgentCrowdState::Invalid;
+        NavAgentTargetState targetState = NavAgentTargetState::None;
+        f32 desiredSpeed = 0.0f; // the crowd's current speed intent (<= maxSpeed)
+        i32 cornerCount = 0;     // corridor corners still ahead (path progress hint)
+    };
+
     // Per-agent steering profile for the crowd.
     struct NavigationAgentParams
     {
@@ -122,6 +147,10 @@ export namespace foundation::navigation
         [[nodiscard]] i32 AddAgent(Float3 position, const NavigationAgentParams& params);
         void RemoveAgent(i32 agentId);
 
+        // Update a LIVE agent's steering profile (speed/acceleration/radius/height) - per-call
+        // speed control without remove/re-add. No-op for invalid agents.
+        void SetAgentParams(i32 agentId, const NavigationAgentParams& params);
+
         // Steer the agent toward `target` (snapped to the nearest polygon). False if the agent
         // is invalid or the target has no polygon within the search box.
         [[nodiscard]] bool SetTarget(i32 agentId, Float3 target);
@@ -132,6 +161,10 @@ export namespace foundation::navigation
         [[nodiscard]] Float3 AgentPosition(i32 agentId) const;
         [[nodiscard]] Float3 AgentVelocity(i32 agentId) const;
         [[nodiscard]] bool IsAgentValid(i32 agentId) const;
+
+        // The live agent's internals (state machine, move-request stage, speed intent, path
+        // progress) - the debugging window into WHY an agent is or is not moving.
+        [[nodiscard]] NavigationAgentState AgentState(i32 agentId) const;
 
     private:
         struct Impl;

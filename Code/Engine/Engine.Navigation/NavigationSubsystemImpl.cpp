@@ -76,11 +76,40 @@ namespace engine::navigation
                     agents->ForEach(
                         [&](NavAgentComponent& agent, foundation::scene::EntityHandle entity)
                         {
-                            if (!agent.hasTarget)
+                            const Float3 position = scene.GetWorldPosition(entity);
+                            if (agent.hasTarget)
+                            {
+                                draw.DrawLine(position, agent.target, pathColor);
+                            }
+                            if (agent.agentId < 0)
                             {
                                 return;
                             }
-                            draw.DrawLine(scene.GetWorldPosition(entity), agent.target, pathColor);
+                            // The introspection overlay: crowd state + move-request stage +
+                            // live speed intent, floating above the agent - the "why is it
+                            // not moving" answer without opening anything.
+                            static constexpr StringView kStates[] = {u8"invalid", u8"walking",
+                                                                     u8"offmesh"};
+                            static constexpr StringView kTargets[] = {
+                                u8"none", u8"requesting", u8"valid", u8"velocity", u8"failed"};
+                            const StringView state =
+                                kStates[agent.crowdState < 3 ? agent.crowdState : 0];
+                            const StringView target =
+                                kTargets[agent.crowdTargetState < 5 ? agent.crowdTargetState
+                                                                    : 0];
+                            // One-decimal speed (the formatter has no precision specs).
+                            const f32 tenths =
+                                static_cast<f32>(
+                                    static_cast<i32>(agent.crowdDesiredSpeed * 10.0f)) /
+                                10.0f;
+                            const String label =
+                                Format(u8"{} [{}] {}u/s", state, target, tenths);
+                            const Color labelColor =
+                                (agent.crowdTargetState == 4) // failed = red at a glance
+                                    ? Color{1.0f, 0.35f, 0.30f, 1.0f}
+                                    : pathColor;
+                            draw.DrawText3D(position + Float3{0, agent.height + 0.3f, 0},
+                                            label.AsView(), labelColor);
                         });
                 }
             }
@@ -133,15 +162,25 @@ namespace engine::navigation
     {
         builder.Attribute("displayName", String(u8"Nav Agent"))
             .Attribute("category", String(u8"Navigation"))
-            .DataVersion(1)
+            .DataVersion(2) // v2: stopDistance
             .Property<&NavAgentComponent::radius>("radius")
             .Property<&NavAgentComponent::height>("height")
             .Property<&NavAgentComponent::maxSpeed>("maxSpeed")
             .Property<&NavAgentComponent::maxAcceleration>("maxAcceleration")
+            .Property<&NavAgentComponent::stopDistance>("stopDistance")
             .Property<&NavAgentComponent::moveEntity>("moveEntity")
             // Runtime API (Track A): NavAgent.of(entity) -> a re-resolving handle.
             .Method<&foundation::script::ComponentOf<NavAgentComponent>, NavAgentComponent>("of")
             .Method<&NavAgentComponent::navigate>("navigate", {"x", "y", "z"})
+            .Method<&NavAgentComponent::navigateAt>("navigateAt",
+                                                    {"x", "y", "z", "speed", "stopDistance"})
+            .Method<&NavAgentComponent::setSpeed>("setSpeed", {"speed"})
+            .Method<&NavAgentComponent::setStopDistance>("setStopDistance", {"distance"})
+            .Method<&NavAgentComponent::speed>("speed")
+            .Method<&NavAgentComponent::state>("state")
+            .Method<&NavAgentComponent::targetState>("targetState")
+            .Method<&NavAgentComponent::desiredSpeed>("desiredSpeed")
+            .Method<&NavAgentComponent::corners>("corners")
             .Method<&NavAgentComponent::stop>("stop")
             .Method<&NavAgentComponent::finishedNav>("finished")
             .Method<&NavAgentComponent::remaining>("remaining")

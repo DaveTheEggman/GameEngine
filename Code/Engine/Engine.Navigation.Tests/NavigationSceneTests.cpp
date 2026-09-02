@@ -283,3 +283,99 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
 
     RemoveTree(u8"scratch_navscene_legacy_db");
 }
+
+TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arrives short")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navspeed_db");
+
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navspeed_db");
+    content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance =
+        db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory;
+    ResourceManager manager(db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(u8"nav");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zoneComp =
+        scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zoneComp.extents = Float3{15, 10, 15};
+    zoneComp.zone.SetId(zoneInstance->Id());
+    zoneComp.zone.Bind(manager);
+    REQUIRE(zoneComp.zone.Get() != nullptr);
+
+    // SLOW agent: a lower per-call speed covers less ground in the same steps.
+    scene::EntityHandle slowEntity = scene.CreateEntity(u8"slow");
+    scene.SetLocalPosition(slowEntity, Float3{-5, 0, -2});
+    NavAgentComponent* slow = &scene.GetSystem<NavAgentComponentManager>()->Add(slowEntity);
+
+    // ARRIVE agent: navigateAt with a stop distance parks on the ring, not the point.
+    scene::EntityHandle arriveEntity = scene.CreateEntity(u8"arrive");
+    scene.SetLocalPosition(arriveEntity, Float3{-5, 0, 2});
+    NavAgentComponent* arrive = &scene.GetSystem<NavAgentComponentManager>()->Add(arriveEntity);
+
+    scene.UpdateTransforms();
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+    REQUIRE(slow->agentId >= 0);
+    REQUIRE(arrive->agentId >= 0);
+
+    slow->setSpeed(0.8f); // live change - the tick pushes it into the crowd
+    slow->navigate(5.0f, 0.0f, -2.0f);
+    arrive->navigateAt(5.0f, 0.0f, 2.0f, 3.5f, 2.5f);
+
+    for (int step = 0; step < 90; ++step) // 3 seconds
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+
+    // 3s at 0.8 u/s cannot cross 10 units; the default 3.5 u/s agent with a 2.5 stop ring
+    // has already parked.
+    const Float3 slowPos = scene.GetWorldPosition(slowEntity);
+    CHECK_FALSE(slow->finished);
+    CHECK(slowPos.x < 0.0f);        // well short of the target
+    CHECK(slowPos.x > -4.5f);       // but moving
+
+    CHECK(arrive->finished);
+    const Float3 arrivePos = scene.GetWorldPosition(arriveEntity);
+    const f32 dx = arrivePos.x - 5.0f;
+    const f32 dz = arrivePos.z - 2.0f;
+    const f32 distance = Sqrt(dx * dx + dz * dz);
+    CHECK(distance > 1.2f); // parked on the ring, NOT on the point
+    CHECK(distance < 3.5f);
+    CHECK(arrive->remaining() > 1.2f);
+
+    // Introspection (Lumix parity): the still-moving agent reads as WALKING on a VALID
+    // move request with a live speed intent; the parked one has released its target.
+    CHECK(slow->state() == 1);       // NavAgentCrowdState::Walking
+    CHECK(slow->targetState() == 2); // NavAgentTargetState::Valid
+    CHECK(slow->desiredSpeed() > 0.0f);
+    CHECK(slow->desiredSpeed() < 1.0f); // capped by the per-call speed
+    CHECK(arrive->state() == 1);
+    CHECK(arrive->targetState() == 0); // arrival ClearTarget -> None
+
+    // Raising the slow agent's speed mid-run applies live: it now finishes the crossing.
+    slow->setSpeed(6.0f);
+    for (int step = 0; step < 240 && !slow->finished; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    CHECK(slow->finished);
+
+    scene.SetSimulationEnabled(false);
+    scene.Stop();
+    RemoveTree(u8"scratch_navspeed_db");
+}

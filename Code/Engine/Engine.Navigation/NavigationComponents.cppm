@@ -54,6 +54,10 @@ export namespace engine::navigation
         f32 height = 2.0f;
         f32 maxSpeed = 3.5f;
         f32 maxAcceleration = 8.0f;
+        // Arrival radius: the agent counts as finished (and stops steering) within this
+        // distance of the target - "walk NEAR the door", follow-at-distance, surround
+        // behaviors. 0 = the legacy walk-onto-the-point arrival.
+        f32 stopDistance = 0.0f;
         // MoveEntity (default): the agent writes the entity transform from crowd output.
         // ReportOnly: the entity is NOT moved; script/physics reads the desired velocity instead.
         bool moveEntity = true;
@@ -68,6 +72,14 @@ export namespace engine::navigation
         bool finished = true;
         f32 remainingDistance = 0.0f;
         Float3 desiredVelocity{0, 0, 0}; // crowd steering output (world space), for ReportOnly
+        f32 appliedSpeed = -1.0f;        // steering profile last pushed into the crowd - the
+        f32 appliedAcceleration = -1.0f; // tick re-applies on ANY change (script or inspector)
+        // Introspection cache (filled from the crowd each tick; see the foundation enums):
+        u8 crowdState = 0;       // NavAgentCrowdState: 0 invalid, 1 walking, 2 off-mesh
+        u8 crowdTargetState = 0; // NavAgentTargetState: 0 none, 1 requesting, 2 valid,
+                                 // 3 velocity, 4 failed
+        f32 crowdDesiredSpeed = 0.0f; // the crowd's current speed intent
+        i32 pathCorners = 0;          // corridor corners ahead (path progress hint)
 
         // --- reflected runtime API (script: NavAgent.of(entity).navigate(x,y,z) ...) ---
         // Steer toward a world-space destination.
@@ -86,6 +98,23 @@ export namespace engine::navigation
             stopRequested = true;
             finished = true;
         }
+        // Per-call speed control (Lumix parity): applies to the LIVE crowd agent next tick.
+        void setSpeed(f32 speed) { maxSpeed = speed; }
+        void setStopDistance(f32 distance) { stopDistance = distance; }
+        [[nodiscard]] f32 speed() const { return maxSpeed; }
+        // navigate + speed + arrival radius in one call (the common scripted move order).
+        void navigateAt(f32 x, f32 y, f32 z, f32 moveSpeed, f32 arriveDistance)
+        {
+            maxSpeed = moveSpeed;
+            stopDistance = arriveDistance;
+            navigate(x, y, z);
+        }
+        // Introspection (Lumix parity): WHY an agent is/is not moving. Numeric contracts
+        // (the enums above) - stable for script logic and logging.
+        [[nodiscard]] i32 state() const { return static_cast<i32>(crowdState); }
+        [[nodiscard]] i32 targetState() const { return static_cast<i32>(crowdTargetState); }
+        [[nodiscard]] f32 desiredSpeed() const { return crowdDesiredSpeed; }
+        [[nodiscard]] i32 corners() const { return pathCorners; }
         [[nodiscard]] bool finishedNav() const { return finished; }
         [[nodiscard]] f32 remaining() const { return remainingDistance; }
         [[nodiscard]] f32 velocityX() const { return desiredVelocity.x; }
@@ -133,6 +162,10 @@ export namespace engine::navigation
         foundation::core::Serialize(ar, "maxSpeed", c.maxSpeed);
         foundation::core::Serialize(ar, "maxAcceleration", c.maxAcceleration);
         foundation::core::Serialize(ar, "moveEntity", c.moveEntity);
+        if (ar.Version() >= 2) // v2: arrival radius (stopDistance)
+        {
+            foundation::core::Serialize(ar, "stopDistance", c.stopDistance);
+        }
     }
 
     class NavMeshZoneComponentManager final

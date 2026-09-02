@@ -586,6 +586,63 @@ namespace foundation::navigation
         return m_impl->crowd->addAgent(pos, &ap);
     }
 
+    NavigationAgentState NavigationCrowd::AgentState(i32 agentId) const
+    {
+        NavigationAgentState out;
+        if (m_impl->crowd == nullptr || agentId < 0)
+        {
+            return out;
+        }
+        const dtCrowdAgent* agent = m_impl->crowd->getAgent(agentId);
+        if (agent == nullptr || !agent->active)
+        {
+            return out;
+        }
+        out.valid = true;
+        switch (agent->state)
+        {
+        case DT_CROWDAGENT_STATE_WALKING: out.state = NavAgentCrowdState::Walking; break;
+        case DT_CROWDAGENT_STATE_OFFMESH: out.state = NavAgentCrowdState::OffMesh; break;
+        default: out.state = NavAgentCrowdState::Invalid; break;
+        }
+        switch (agent->targetState)
+        {
+        case DT_CROWDAGENT_TARGET_NONE: out.targetState = NavAgentTargetState::None; break;
+        case DT_CROWDAGENT_TARGET_VALID: out.targetState = NavAgentTargetState::Valid; break;
+        case DT_CROWDAGENT_TARGET_VELOCITY:
+            out.targetState = NavAgentTargetState::Velocity;
+            break;
+        case DT_CROWDAGENT_TARGET_FAILED: out.targetState = NavAgentTargetState::Failed; break;
+        default: // REQUESTING / WAITING_FOR_QUEUE / WAITING_FOR_PATH - all "in flight"
+            out.targetState = NavAgentTargetState::Requesting;
+            break;
+        }
+        out.desiredSpeed = agent->desiredSpeed;
+        out.cornerCount = agent->ncorners;
+        return out;
+    }
+
+    void NavigationCrowd::SetAgentParams(i32 agentId, const NavigationAgentParams& params)
+    {
+        if (m_impl->crowd == nullptr || agentId < 0)
+        {
+            return;
+        }
+        const dtCrowdAgent* agent = m_impl->crowd->getAgent(agentId);
+        if (agent == nullptr || !agent->active)
+        {
+            return;
+        }
+        dtCrowdAgentParams ap = agent->params; // keep the flags/avoidance the add configured
+        ap.radius = params.radius;
+        ap.height = params.height;
+        ap.maxSpeed = params.maxSpeed;
+        ap.maxAcceleration = params.maxAcceleration;
+        ap.collisionQueryRange = params.radius * 12.0f;
+        ap.pathOptimizationRange = params.radius * 30.0f;
+        m_impl->crowd->updateAgentParameters(agentId, &ap);
+    }
+
     void NavigationCrowd::RemoveAgent(i32 agentId)
     {
         if (m_impl->crowd != nullptr && agentId >= 0)
