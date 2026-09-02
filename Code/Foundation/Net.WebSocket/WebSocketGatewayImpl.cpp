@@ -436,7 +436,8 @@ namespace foundation::net
             bool dead = false;
         };
 
-        explicit Impl(u16 port) : listener(port) {}
+        Impl(IAllocator& alloc, u16 port) : allocator(&alloc), listener(port) {}
+        IAllocator* allocator;
 
         TcpListener listener;
         Array<Client> clients;
@@ -598,8 +599,8 @@ namespace foundation::net
         }
     };
 
-    WebSocketServerGateway::WebSocketServerGateway(u16 port)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator(), port))
+    WebSocketServerGateway::WebSocketServerGateway(IAllocator& allocator, u16 port)
+        : m_impl(MakeUnique<Impl>(allocator, allocator, port))
     {
     }
     WebSocketServerGateway::~WebSocketServerGateway() = default;
@@ -626,7 +627,7 @@ namespace foundation::net
             client.id = impl.nextClientId++;
             client.socket = static_cast<TcpSocket&&>(accepted);
             client.handshake = MakeUnique<http::HttpMessageParser>(
-                DefaultAllocator(), http::HttpMessageParser::Mode::Request, usize{4096});
+                *impl.allocator, http::HttpMessageParser::Mode::Request, usize{4096});
             impl.clients.PushBack(static_cast<Impl::Client&&>(client));
         }
         for (Impl::Client& client : impl.clients)
@@ -756,8 +757,8 @@ namespace foundation::net
         }
     };
 
-    WebSocketClientSocket::WebSocketClientSocket(StringView host, u16 port)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+    WebSocketClientSocket::WebSocketClientSocket(IAllocator& allocator, StringView host, u16 port)
+        : m_impl(MakeUnique<Impl>(allocator))
     {
         if (!emscripten_websocket_is_supported())
         {

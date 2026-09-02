@@ -43,7 +43,7 @@ namespace
 
 TEST_CASE("session: roles are set by StartServer / Connect")
 {
-    net::SimDatagramNetwork network;
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator());
     net::NetSession server(*network.CreateSocket());
     net::NetSession client(*network.CreateSocket());
     CHECK(server.Role() == net::NetRole::None);
@@ -59,7 +59,7 @@ TEST_CASE("session: server tracks connected clients; disconnect updates the regi
 {
     net::SimConditions sim;
     sim.latencyMs = 20.0f;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetSession server(*sv);
     net::NetSession clientA(*network.CreateSocket());
@@ -94,7 +94,7 @@ TEST_CASE("session: client clock syncs to the server's authoritative time (RTT-a
 {
     net::SimConditions sim;
     sim.latencyMs = 40.0f; // ~80ms RTT
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetSession server(*sv);
     net::NetSession client(*network.CreateSocket());
@@ -128,7 +128,7 @@ TEST_CASE("session: Broadcast reaches every client; BroadcastExcept skips one")
 {
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetSession server(*sv);
     net::NetSession clientA(*network.CreateSocket());

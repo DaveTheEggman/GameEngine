@@ -18,7 +18,7 @@ TEST_CASE("net-manager: server + client connect, and an RPC routes through the m
     sim.latencyMs = 20.0f;
     sim.lossPct = 0.2f;
     sim.seed = 3;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
@@ -77,13 +77,13 @@ TEST_CASE(
     // network, no externally-owned socket) - two NetworkManagers in one process talking over real
     // loopback, exactly the in-editor server<->client scenario.
     UniquePtr<net::NetworkManager> server =
-        net::NetworkManager::HostServer(/*port=*/0, /*dedicated=*/true);
+        net::NetworkManager::HostServer(DefaultAllocator(), /*port=*/0, /*dedicated=*/true);
     REQUIRE(static_cast<bool>(server));
     CHECK(server->Session().IsServer());
     CHECK(server->BoundPort() != 0u); // OS-assigned, surfaced so a client can reach it
 
     UniquePtr<net::NetworkManager> client =
-        net::NetworkManager::JoinServer(u8"127.0.0.1", server->BoundPort());
+        net::NetworkManager::JoinServer(DefaultAllocator(), u8"127.0.0.1", server->BoundPort());
     REQUIRE(static_cast<bool>(client));
     CHECK(client->Session().IsClient());
     CHECK(client->BoundPort() != server->BoundPort()); // distinct ephemeral port
@@ -136,7 +136,7 @@ TEST_CASE("net-manager: the Net facade type registers")
 TEST_CASE("net-startup: role=None yields an inactive runtime (single-player)")
 {
     net::NetworkStartup cfg; // role defaults to None
-    net::NetworkRuntime rt = net::StartNetworking(cfg);
+    net::NetworkRuntime rt = net::StartNetworking(DefaultAllocator(), cfg);
     CHECK_FALSE(rt.IsActive());
     CHECK(rt.socket.Get() == nullptr);
     CHECK(rt.manager.Get() == nullptr);
@@ -149,7 +149,7 @@ TEST_CASE(
     serverCfg.role = net::NetworkRole::Server;
     serverCfg.dedicated = true;
     serverCfg.listenPort = 0; // OS-assigned
-    net::NetworkRuntime server = net::StartNetworking(serverCfg);
+    net::NetworkRuntime server = net::StartNetworking(DefaultAllocator(), serverCfg);
     REQUIRE(server.IsActive());
     REQUIRE(server.socket->IsOpen());
     CHECK(server.manager->Session().IsServer());
@@ -158,7 +158,7 @@ TEST_CASE(
     clientCfg.role = net::NetworkRole::Client;
     clientCfg.serverHost = String(u8"127.0.0.1");
     clientCfg.serverPort = server.socket->BoundPort(); // connect to the server's actual port
-    net::NetworkRuntime client = net::StartNetworking(clientCfg);
+    net::NetworkRuntime client = net::StartNetworking(DefaultAllocator(), clientCfg);
     REQUIRE(client.IsActive());
     CHECK(client.manager->Session().IsClient());
 

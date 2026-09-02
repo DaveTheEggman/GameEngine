@@ -36,7 +36,7 @@ namespace
         net::ReliableTransport server;
 
         explicit Fixture(const net::SimConditions& sim, const net::ReliableConfig& cfg = {})
-            : net(sim), sa(net.CreateSocket()), sb(net.CreateSocket()), client(*sa, cfg),
+            : net(foundation::core::DefaultAllocator(), sim), sa(net.CreateSocket()), sb(net.CreateSocket()), client(*sa, cfg),
               server(*sb, cfg)
         {
         }
@@ -327,7 +327,7 @@ TEST_CASE("reliable: resend is RTT-timed, not per-tick (no flooding for an unack
     net::ReliableConfig cfg;
     cfg.minResendMs = 50.0f;
     cfg.keepAliveMs = 100.0f;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sa = network.CreateSocket();
     net::IDatagramSocket* sb = network.CreateSocket();
     CountingSocket counting(sa);

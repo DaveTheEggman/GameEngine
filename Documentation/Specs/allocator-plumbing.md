@@ -110,7 +110,12 @@ tight cluster) per commit.
   group/reverb allocation, miniaudio VFS bridge files record theirs, and the
   three audio resource factories follow the required-allocator factory
   pattern (DefaultApp creates them from the runtime Context's allocator).
-  Then P3d net, P3e script backends + misc.
+  **P3d net DONE**: HostServer / JoinServer /
+  StartNetworking take the caller's allocator (sockets + managers ride it);
+  WebSocketServerGateway / ClientSocket / HybridSocket take required
+  allocators (per-client handshake parsers from the gateway's);
+  SimDatagramNetwork backs its simulated sockets from a required allocator.
+  Then P3e script backends + misc foundation tail.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

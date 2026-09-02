@@ -113,10 +113,12 @@ export namespace foundation::net
         // (0 = OS-assigned; read BoundPort() after); JoinServer binds ephemeral and connects to
         // host:port. These are how a running game goes online (the Net facade calls them).
         [[nodiscard]] static core::UniquePtr<NetworkManager>
-        HostServer(u16 port, bool dedicated = false, const ReliableConfig& config = {},
+        HostServer(core::IAllocator& allocator, u16 port, bool dedicated = false,
+                   const ReliableConfig& config = {},
                    u16 webSocketPort = 0); // != 0: ALSO accept browser clients over ws://
         [[nodiscard]] static core::UniquePtr<NetworkManager>
-        JoinServer(core::StringView host, u16 port, const ReliableConfig& config = {});
+        JoinServer(core::IAllocator& allocator, core::StringView host, u16 port,
+                   const ReliableConfig& config = {});
 
         /// Whether THIS build can host a session at all. Browsers cannot listen on any
         /// socket - the web build's Host paths reject cleanly instead of hanging.
@@ -447,7 +449,8 @@ export namespace foundation::net
     // Open the socket, build the manager, and enter the role (StartServer / ConnectTo). Returns an
     // empty NetworkRuntime for role==None. Registers the Net script facade as a side effect when a
     // role is entered (idempotent), so the facade is bound wherever networking is actually used.
-    [[nodiscard]] NetworkRuntime StartNetworking(const NetworkStartup& config);
+    [[nodiscard]] NetworkRuntime StartNetworking(core::IAllocator& allocator,
+                                                 const NetworkStartup& config);
 
     /// Register the Net facade type (call before a script manager is created, like
     /// RegisterScriptFacadeReflection). Idempotent.

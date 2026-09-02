@@ -140,7 +140,9 @@ export namespace foundation::net
     {
     public:
         /// Bind the listener (port 0 = OS-assigned; read BoundPort()). Check IsOpen().
-        explicit WebSocketServerGateway(u16 port);
+        // The allocator (required - the owner decides) backs the impl + per-client
+        // handshake parsers.
+        WebSocketServerGateway(IAllocator& allocator, u16 port);
         ~WebSocketServerGateway();
         WebSocketServerGateway(const WebSocketServerGateway&) = delete;
         WebSocketServerGateway& operator=(const WebSocketServerGateway&) = delete;
@@ -194,7 +196,7 @@ export namespace foundation::net
     {
     public:
         /// Connect to ws://host:port (dotted-quad or hostname - the browser resolves).
-        WebSocketClientSocket(StringView host, u16 port);
+        WebSocketClientSocket(IAllocator& allocator, StringView host, u16 port);
         ~WebSocketClientSocket() override;
         WebSocketClientSocket(const WebSocketClientSocket&) = delete;
         WebSocketClientSocket& operator=(const WebSocketClientSocket&) = delete;
@@ -219,8 +221,8 @@ export namespace foundation::net
     public:
         /// Bind the UDP socket on `udpPort` and the WS listener on `webSocketPort`
         /// (either may be 0 = OS-assigned). Check IsOpen().
-        WebSocketHybridSocket(u16 udpPort, u16 webSocketPort)
-            : m_udp(udpPort), m_gateway(webSocketPort)
+        WebSocketHybridSocket(IAllocator& allocator, u16 udpPort, u16 webSocketPort)
+            : m_udp(udpPort), m_gateway(allocator, webSocketPort)
         {
         }
 

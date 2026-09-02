@@ -95,12 +95,16 @@ export namespace foundation::net
     class SimDatagramNetwork
     {
     public:
-        explicit SimDatagramNetwork(const SimConditions& sim = {}) : m_sim(sim), m_rng(sim.seed) {}
+        // The allocator (required - the owner decides) backs the simulated sockets.
+        explicit SimDatagramNetwork(IAllocator& allocator, const SimConditions& sim = {})
+            : m_allocator(&allocator), m_sim(sim), m_rng(sim.seed)
+        {
+        }
 
         // Create a socket with a fresh endpoint (value = 1,2,3,...). The network owns it.
         [[nodiscard]] IDatagramSocket* CreateSocket()
         {
-            auto sock = MakeUnique<SimDatagramSocket>(DefaultAllocator());
+            auto sock = MakeUnique<SimDatagramSocket>(*m_allocator);
             sock->m_net = this;
             sock->m_endpoint = DatagramEndpoint{m_nextEndpoint++};
             SimDatagramSocket* raw = sock.Get();
@@ -205,6 +209,7 @@ export namespace foundation::net
                                            : 0.0f;
         }
 
+        IAllocator* m_allocator;
         SimConditions m_sim;
         Random m_rng;
         f64 m_nowMs = 0.0;

@@ -43,7 +43,7 @@ TEST_CASE("net-scene-system: replication rides the scene fixed lane (server -> c
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
     sim.seed = 11;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
@@ -111,7 +111,7 @@ TEST_CASE("net-scene-system: a scene whose fixed lane does not run sends no delt
 
     net::SimConditions sim;
     sim.seed = 5;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
@@ -175,7 +175,7 @@ TEST_CASE("net-subsystem: the transport pump drives every enumerated endpoint pe
     // production lane), a server + client connect purely because the subsystem pumps them - no
     // DriveNetwork, no app fan-out.
     foundation::net::RegisterReplicationComponents();
-    net::SimDatagramNetwork network;
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator());
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());

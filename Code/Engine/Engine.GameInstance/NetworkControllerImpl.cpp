@@ -28,7 +28,8 @@ namespace engine::runtime
         // hosts (tests/tools) stay UDP-only.
         const u16 webSocketPort =
             (port != 0 && port != 0xFFFF) ? static_cast<u16>(port + 1) : u16{0};
-        m_net = net::NetworkManager::HostServer(port, dedicated, {}, webSocketPort);
+        m_net = net::NetworkManager::HostServer(foundation::core::DefaultAllocator(), port,
+                                                dedicated, {}, webSocketPort);
         if (!m_net)
         {
             LOG_ERROR(u8"App", u8"failed to open a server socket on port {}", port);
@@ -62,7 +63,7 @@ namespace engine::runtime
             port = static_cast<u16>(port + 1);
         }
 #endif
-        m_net = net::NetworkManager::JoinServer(host, port);
+        m_net = net::NetworkManager::JoinServer(foundation::core::DefaultAllocator(), host, port);
         if (!m_net)
         {
             LOG_ERROR(u8"App", u8"failed to open a client socket");

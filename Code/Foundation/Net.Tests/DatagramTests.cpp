@@ -31,7 +31,7 @@ TEST_CASE("datagram: a datagram routes A->B after latency, carrying the sender e
 {
     net::SimConditions sim;
     sim.latencyMs = 25.0f;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* a = network.CreateSocket();
     net::IDatagramSocket* b = network.CreateSocket();
 
@@ -54,7 +54,7 @@ TEST_CASE("datagram: loss drops datagrams (deterministic under a fixed seed)")
     net::SimConditions sim;
     sim.lossPct = 0.5f;
     sim.seed = 999;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* a = network.CreateSocket();
     net::IDatagramSocket* b = network.CreateSocket();
 
@@ -78,7 +78,7 @@ TEST_CASE("datagram: loss drops datagrams (deterministic under a fixed seed)")
 
 TEST_CASE("datagram: sockets get distinct endpoints")
 {
-    net::SimDatagramNetwork network;
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator());
     net::IDatagramSocket* a = network.CreateSocket();
     net::IDatagramSocket* b = network.CreateSocket();
     net::IDatagramSocket* c = network.CreateSocket();

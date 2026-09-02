@@ -23,7 +23,7 @@ namespace
         net::PeerId serverPeer = net::kInvalidPeer;
 
         explicit Pair(const net::SimConditions& sim = {})
-            : network(sim), sv(network.CreateSocket()), server(*sv), client(*network.CreateSocket())
+            : network(foundation::core::DefaultAllocator(), sim), sv(network.CreateSocket()), server(*sv), client(*network.CreateSocket())
         {
             server.StartServer();
             serverPeer = client.Connect(sv->LocalEndpoint());
@@ -95,7 +95,7 @@ TEST_CASE("rpc: server CallAll reaches every client; unregistered ids are ignore
 {
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetSession server(*sv);
     net::NetSession a(*network.CreateSocket());

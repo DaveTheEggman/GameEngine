@@ -54,7 +54,7 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     sim.latencyMs = 15.0f;
     sim.lossPct = 0.1f;
     sim.seed = 7;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
@@ -127,7 +127,7 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     net::SimConditions sim;
     sim.latencyMs = 15.0f;
     sim.seed = 11;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
@@ -193,7 +193,7 @@ TEST_CASE("net-manager: a shared authored scene matches by stable id (no duplica
 
     net::SimConditions sim;
     sim.seed = 21;
-    net::SimDatagramNetwork network(sim);
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
     net::IDatagramSocket* sv = network.CreateSocket();
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());

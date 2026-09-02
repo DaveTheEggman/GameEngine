@@ -346,7 +346,7 @@ namespace
 
 TEST_CASE("websocket: gateway - a client upgrades, exchanges binary frames, and pings")
 {
-    net::WebSocketServerGateway gateway(0);
+    net::WebSocketServerGateway gateway(DefaultAllocator(), 0);
     REQUIRE(gateway.IsOpen());
     REQUIRE(gateway.BoundPort() != 0u);
 
@@ -440,7 +440,7 @@ TEST_CASE("websocket: gateway - a client upgrades, exchanges binary frames, and 
 
 TEST_CASE("websocket: garbage on the accept socket is rejected, not crashed on")
 {
-    net::WebSocketServerGateway gateway(0);
+    net::WebSocketServerGateway gateway(DefaultAllocator(), 0);
     REQUIRE(gateway.IsOpen());
 
     net::TcpSocket rogue = net::TcpSocket::Connect(u8"127.0.0.1", gateway.BoundPort());
@@ -469,7 +469,7 @@ TEST_CASE("websocket: garbage on the accept socket is rejected, not crashed on")
 
 TEST_CASE("websocket: hybrid socket - UDP and WS peers arrive as distinct datagram endpoints")
 {
-    net::WebSocketHybridSocket hybrid(0, 0);
+    net::WebSocketHybridSocket hybrid(DefaultAllocator(), 0, 0);
     REQUIRE(hybrid.IsOpen());
     REQUIRE(hybrid.BoundPort() != 0u);
     REQUIRE(hybrid.WebSocketBoundPort() != 0u);

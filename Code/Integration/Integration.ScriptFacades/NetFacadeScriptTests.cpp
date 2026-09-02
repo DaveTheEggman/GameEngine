@@ -32,7 +32,8 @@ namespace
     // per-instance in the runtime tests); NetEndpoint() hands the facade the live server.
     struct ServerFixture final : net::INetworkController
     {
-        net::SimDatagramNetwork network{net::SimConditions{}};
+        net::SimDatagramNetwork network{foundation::core::DefaultAllocator(),
+                                        net::SimConditions{}};
         net::NetworkManager server{*network.CreateSocket()};
         net::NetScriptBinding binding;
         ServerFixture()

@@ -50,7 +50,7 @@ namespace foundation::net
         (void)once;
     }
 
-    core::UniquePtr<NetworkManager> NetworkManager::HostServer(u16 port, bool dedicated,
+    core::UniquePtr<NetworkManager> NetworkManager::HostServer(IAllocator& allocator, u16 port, bool dedicated,
                                                                const ReliableConfig& config,
                                                                u16 webSocketPort)
     {
@@ -63,29 +63,29 @@ namespace foundation::net
             // Hybrid host: native peers over UDP + browser peers through the WS gateway,
             // one session behind one datagram socket.
             UniquePtr<WebSocketHybridSocket> hybrid =
-                MakeUnique<WebSocketHybridSocket>(DefaultAllocator(), port, webSocketPort);
+                MakeUnique<WebSocketHybridSocket>(allocator, allocator, port, webSocketPort);
             if (!hybrid->IsOpen())
             {
                 return {};
             }
             UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
-                DefaultAllocator(), static_cast<UniquePtr<WebSocketHybridSocket>&&>(hybrid),
+                allocator, static_cast<UniquePtr<WebSocketHybridSocket>&&>(hybrid),
                 config);
             manager->StartServer(dedicated);
             return manager;
         }
-        UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), port);
+        UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(allocator, port);
         if (!socket->IsOpen())
         {
             return {};
         } // caller logs + runs offline
         UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
-            DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+            allocator, static_cast<UniquePtr<UdpSocket>&&>(socket), config);
         manager->StartServer(dedicated);
         return manager;
     }
 
-    core::UniquePtr<NetworkManager> NetworkManager::JoinServer(StringView host, u16 port,
+    core::UniquePtr<NetworkManager> NetworkManager::JoinServer(IAllocator& allocator, StringView host, u16 port,
                                                                const ReliableConfig& config)
     {
 #if PLATFORM_WEB
@@ -93,31 +93,31 @@ namespace foundation::net
         // the host's WEB SOCKET port). Sends buffer through the async browser handshake, so
         // the session's immediate connect packet is safe.
         UniquePtr<WebSocketClientSocket> socket =
-            MakeUnique<WebSocketClientSocket>(DefaultAllocator(), host, port);
+            MakeUnique<WebSocketClientSocket>(allocator, allocator, host, port);
         if (!socket->IsOpen())
         {
             return {};
         }
         UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
-            DefaultAllocator(), static_cast<UniquePtr<WebSocketClientSocket>&&>(socket),
+            allocator, static_cast<UniquePtr<WebSocketClientSocket>&&>(socket),
             config);
         manager->ConnectTo(kWebSocketServerEndpoint);
         return manager;
 #else
         UniquePtr<UdpSocket> socket =
-            MakeUnique<UdpSocket>(DefaultAllocator(), u16{0}); // ephemeral
+            MakeUnique<UdpSocket>(allocator, u16{0}); // ephemeral
         if (!socket->IsOpen())
         {
             return {};
         }
         UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
-            DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
+            allocator, static_cast<UniquePtr<UdpSocket>&&>(socket), config);
         manager->ConnectTo(ResolveEndpoint(host, port));
         return manager;
 #endif
     }
 
-    NetworkRuntime StartNetworking(const NetworkStartup& config)
+    NetworkRuntime StartNetworking(IAllocator& allocator, const NetworkStartup& config)
     {
         NetworkRuntime runtime;
         if (config.role == NetworkRole::None)
@@ -129,9 +129,9 @@ namespace foundation::net
         RegisterNetScriptFacade();
 
         // Server binds the listen port; a client binds ephemeral (0) unless a port is forced.
-        runtime.socket = MakeUnique<UdpSocket>(DefaultAllocator(), config.listenPort);
+        runtime.socket = MakeUnique<UdpSocket>(allocator, config.listenPort);
         runtime.manager =
-            MakeUnique<NetworkManager>(DefaultAllocator(), *runtime.socket, config.reliable);
+            MakeUnique<NetworkManager>(allocator, *runtime.socket, config.reliable);
 
         if (config.role == NetworkRole::Server)
         {
