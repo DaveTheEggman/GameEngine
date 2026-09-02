@@ -666,7 +666,7 @@ export namespace pipeline
                 }
                 sw = foundation::terrain::MigrateLegacySplatmap(
                     img.PixelData(), static_cast<i32>(img.Width()),
-                    static_cast<i32>(img.Height()));
+                    static_cast<i32>(img.Height()), DefaultAllocator());
             }
             else
             {
@@ -693,7 +693,8 @@ export namespace pipeline
                 else if (weights.Size() == expected && indices.IsEmpty())
                 {
                     sw = foundation::terrain::MigrateLegacySplatmap(
-                        Span<const u8>{weights.Data(), weights.Size()}, w, h);
+                        Span<const u8>{weights.Data(), weights.Size()}, w, h,
+                        DefaultAllocator());
                 }
                 else
                 {

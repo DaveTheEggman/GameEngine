@@ -162,7 +162,12 @@ export namespace foundation::texture
     class TextureFactory final : public IResourceFactory
     {
     public:
-        explicit TextureFactory(rhi::Device& device) noexcept : m_device(&device) {}
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        TextureFactory(IAllocator& allocator, rhi::Device& device) noexcept
+            : m_allocator(&allocator), m_device(&device)
+        {
+        }
 
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
@@ -188,7 +193,7 @@ export namespace foundation::texture
 
         [[nodiscard]] RefPtr<Object> DecodeStage(foundation::content::Instance& instance) override
         {
-            RefPtr<DecodedTexture> decoded = MakeRef<DecodedTexture>(DefaultAllocator());
+            RefPtr<DecodedTexture> decoded = MakeRef<DecodedTexture>((*m_allocator));
             decoded->record = instance.ReadObject();
             if (Cast<TextureResource>(decoded->record.Get()) == nullptr)
             {
@@ -357,7 +362,7 @@ export namespace foundation::texture
             rhi::Sampler* sampler = nullptr;
             (void)m_device->CreateSampler(sd, sampler);
 
-            RefPtr<Texture> product = MakeRef<Texture>(DefaultAllocator());
+            RefPtr<Texture> product = MakeRef<Texture>((*m_allocator));
             product->Adopt(m_device, texture, view, sampler, res->width, res->height, res->format,
                            isCube);
             return product;
@@ -386,6 +391,7 @@ export namespace foundation::texture
             return rhi::AddressMode::Repeat;
         }
 
+        IAllocator* m_allocator;
         rhi::Device* m_device;
     };
 

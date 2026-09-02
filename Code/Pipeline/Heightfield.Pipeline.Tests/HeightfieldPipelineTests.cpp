@@ -93,7 +93,7 @@ TEST_CASE("heightfield.pipeline: a blank asset cooks a flat grid")
     asset.minY = -2.0f;
     asset.maxY = 12.0f;
 
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager* manager = nullptr;
     foundation::content::ContentDatabase* db = nullptr;
     Proxy<Heightfield> hf = CookAndBind(asset, outMount, factory, manager, db);
@@ -121,7 +121,7 @@ TEST_CASE("heightfield.pipeline: an invalid size snaps to the next valid one")
     asset.size = 100; // not 64k+1 -> snaps to 129
     asset.worldSize = Float2{64.0f, 64.0f};
 
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager* manager = nullptr;
     foundation::content::ContentDatabase* db = nullptr;
     Proxy<Heightfield> hf = CookAndBind(asset, outMount, factory, manager, db);
@@ -165,7 +165,7 @@ TEST_CASE("heightfield.pipeline: a heightmap image cooks into the grid (16-bit p
     asset.minY = 0.0f;
     asset.maxY = 10.0f;
 
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager* manager = nullptr;
     foundation::content::ContentDatabase* db = nullptr;
     Proxy<Heightfield> hf = CookAndBind(asset, outMount, factory, manager, db);
@@ -201,7 +201,7 @@ TEST_CASE("heightfield cook: degenerate extents snap to legal values")
     asset.minY = 5.0f;
     asset.maxY = 5.0f; // closed range
 
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager* manager = nullptr;
     foundation::content::ContentDatabase* db = nullptr;
     Proxy<Heightfield> hf = CookAndBind(asset, outMount, factory, manager, db);
@@ -277,7 +277,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<Heightfield> hf = manager.Bind<Heightfield>(id);

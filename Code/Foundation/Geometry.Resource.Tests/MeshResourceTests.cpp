@@ -54,7 +54,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    StaticMeshFactory factory;
+    StaticMeshFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -92,7 +92,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    StaticMeshFactory factory;
+    StaticMeshFactory factory(DefaultAllocator());
 
     ResourceManager syncManager(DefaultAllocator(), db);
     syncManager.AddFactory(&factory);
@@ -148,7 +148,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    StaticMeshFactory factory;
+    StaticMeshFactory factory(DefaultAllocator());
     JobSystem jobs(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
@@ -211,7 +211,7 @@ TEST_CASE("skinned mesh resource: round-trips the static + skinning streams")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    SkinnedMeshFactory factory;
+    SkinnedMeshFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 

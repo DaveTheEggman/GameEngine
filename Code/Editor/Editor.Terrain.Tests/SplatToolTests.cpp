@@ -520,7 +520,7 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
         content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-        terrain::SplatWeightsFactory factory;
+        terrain::SplatWeightsFactory factory(DefaultAllocator());
         foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), cookedDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<terrain::SplatWeights> cooked =

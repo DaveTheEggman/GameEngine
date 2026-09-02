@@ -155,8 +155,8 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);

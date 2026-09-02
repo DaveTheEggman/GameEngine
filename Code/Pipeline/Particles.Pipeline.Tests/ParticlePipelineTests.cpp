@@ -153,7 +153,7 @@ TEST_CASE("particles.pipeline: Build resolves a texture path ref -> cooked GUID 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     ParticleEffectFactory pfxFactory;
-    foundation::texture::TextureFactory texFactory(device);
+    foundation::texture::TextureFactory texFactory(DefaultAllocator(), device);
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&pfxFactory);
     manager.AddFactory(&texFactory);

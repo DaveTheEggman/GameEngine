@@ -73,7 +73,7 @@ TEST_CASE("import glTF -> cooked ModelResource round-trips through the resource 
 
     // Bind the composite model: ModelFactory resolves its meshes via StaticMeshFactory.
     resource::ResourceManager manager(DefaultAllocator(), db);
-    geometry::StaticMeshFactory meshFactory;
+    geometry::StaticMeshFactory meshFactory(DefaultAllocator());
     model::ModelFactory modelFactory;
     manager.AddFactory(&meshFactory);
     manager.AddFactory(&modelFactory);
@@ -116,11 +116,11 @@ TEST_CASE("import skinned glTF -> cooked skeleton + animations + skinned mesh")
     REQUIRE(pipeline::LoadAndCook(fox, db, u8"Fox", modelGuid) == model::ModelLoadResult::Ok);
 
     resource::ResourceManager manager(DefaultAllocator(), db);
-    geometry::StaticMeshFactory meshFactory;
-    geometry::SkinnedMeshFactory skinnedFactory;
+    geometry::StaticMeshFactory meshFactory(DefaultAllocator());
+    geometry::SkinnedMeshFactory skinnedFactory(DefaultAllocator());
     model::ModelFactory modelFactory;
-    foundation::animation::SkeletonFactory skeletonFactory;
-    foundation::animation::AnimationClipFactory clipFactory;
+    foundation::animation::SkeletonFactory skeletonFactory(DefaultAllocator());
+    foundation::animation::AnimationClipFactory clipFactory(DefaultAllocator());
     manager.AddFactory(&meshFactory);
     manager.AddFactory(&skinnedFactory);
     manager.AddFactory(&modelFactory);
@@ -437,9 +437,9 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     // GPU objects through it).
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
     resource::ResourceManager resources(DefaultAllocator(), project->CookedDb());
-    foundation::geometry::StaticMeshFactory meshFactory;
+    foundation::geometry::StaticMeshFactory meshFactory(DefaultAllocator());
     foundation::materials::MaterialFactory materialFactory;
-    foundation::texture::TextureFactory textureFactory(device);
+    foundation::texture::TextureFactory textureFactory(DefaultAllocator(), device);
     resources.AddFactory(&meshFactory);
     resources.AddFactory(&materialFactory);
     resources.AddFactory(&textureFactory);

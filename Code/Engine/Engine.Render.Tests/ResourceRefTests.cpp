@@ -73,7 +73,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     }
 
     resource::ResourceManager resources(DefaultAllocator(), cookedDb);
-    geometry::StaticMeshFactory meshFactory;
+    geometry::StaticMeshFactory meshFactory(DefaultAllocator());
     resources.AddFactory(&meshFactory);
 
     // Author a scene whose MeshComponent references the mesh BY GUID only.
@@ -300,7 +300,7 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     }
 
     resource::ResourceManager resources(DefaultAllocator(), cookedDb);
-    geometry::StaticMeshFactory meshFactory;
+    geometry::StaticMeshFactory meshFactory(DefaultAllocator());
     resources.AddFactory(&meshFactory);
 
     MeshComponent mc;

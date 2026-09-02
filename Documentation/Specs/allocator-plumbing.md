@@ -123,10 +123,15 @@ tight cluster) per commit.
   large-scale use of the inheritance idiom; `ScriptRunHost` roots its run's
   tree with a required allocator; the AS BoxedVariant thunk boxes are a
   documented process-scope bound (captureless engine callbacks).
-  Remaining P3 tail: the resource-factory family + misc
-  (Scene/Animation/Terrain/Particles/Geometry/Heightfield/Image/Input
-  .Resource factories, Physics, Shell.Desktop, Shaders.System) - same
-  factory pattern, next slice.
+  **P3f resource factories DONE**: StaticMesh/
+  SkinnedMesh/Skeleton/AnimationClip/AnimationGraph/ScriptClass/Terrain/
+  SplatWeights/Heightfield/Texture factories take required allocators;
+  DefaultApp creates them all from the runtime Context's allocator; the
+  cooked-record Build helpers (Heightfield::Build, SplatWeightsSource::
+  Build, MigrateLegacySplatmap) allocate their products from a passed
+  allocator. Remaining P3 misc: Scene.Resource internals, Physics,
+  Shell.Desktop, Shaders.System, Xml.Serialization bound tail - fold into
+  P5/P6 or a small mop-up slice.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

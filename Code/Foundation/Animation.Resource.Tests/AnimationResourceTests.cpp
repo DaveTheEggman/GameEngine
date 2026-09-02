@@ -71,7 +71,7 @@ TEST_CASE("skeleton resource: round-trips through the resource manager")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    SkeletonFactory factory;
+    SkeletonFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -120,7 +120,7 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    AnimationClipFactory factory;
+    AnimationClipFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -202,8 +202,8 @@ TEST_CASE("animation graph resource: composite - resolves clip refs through the 
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    AnimationClipFactory clipFactory;
-    AnimationGraphFactory graphFactory;
+    AnimationClipFactory clipFactory(DefaultAllocator());
+    AnimationGraphFactory graphFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&clipFactory);
     manager.AddFactory(&graphFactory);

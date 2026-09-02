@@ -105,6 +105,10 @@ export namespace foundation::animation
     class SkeletonFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit SkeletonFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &Skeleton::StaticType();
@@ -119,10 +123,13 @@ export namespace foundation::animation
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<Skeleton> skel = MakeRef<Skeleton>(DefaultAllocator());
+            RefPtr<Skeleton> skel = MakeRef<Skeleton>((*m_allocator));
             src->FillSkeleton(*skel);
             return skel;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     // ---- animation clip ------------------------------------------------------------------------
@@ -280,6 +287,10 @@ export namespace foundation::animation
     class AnimationClipFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit AnimationClipFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationClip::StaticType();
@@ -294,10 +305,13 @@ export namespace foundation::animation
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<AnimationClip> clip = MakeRef<AnimationClip>(DefaultAllocator());
+            RefPtr<AnimationClip> clip = MakeRef<AnimationClip>((*m_allocator));
             src->FillClip(*clip);
             return clip;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     // ---- animation graph (authored, composite) -------------------------------------------------
@@ -533,6 +547,10 @@ export namespace foundation::animation
     class AnimationGraphFactory final : public resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit AnimationGraphFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationGraph::StaticType();
@@ -546,10 +564,13 @@ export namespace foundation::animation
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<AnimationGraph> graph = MakeRef<AnimationGraph>(DefaultAllocator());
+            RefPtr<AnimationGraph> graph = MakeRef<AnimationGraph>((*m_allocator));
             src->BuildInto(manager, *graph);
             return graph;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     RTTI_DEFINE_OBJECT(SkeletonSource, "rtti::animation")

@@ -233,12 +233,12 @@ export namespace engine::runtime
         // engine.integration so the two subsystems stay mutually independent.
         engine::integration::ScriptPhysicsContactBridge m_contactBridge;
 
-        foundation::geometry::StaticMeshFactory m_meshFactory;
-        foundation::geometry::SkinnedMeshFactory m_skinnedMeshFactory;
+        core::UniquePtr<foundation::geometry::StaticMeshFactory> m_meshFactory;
+        core::UniquePtr<foundation::geometry::SkinnedMeshFactory> m_skinnedMeshFactory;
         foundation::materials::MaterialFactory m_materialFactory;
-        foundation::animation::SkeletonFactory m_skeletonFactory;
-        foundation::animation::AnimationClipFactory m_animationClipFactory;
-        foundation::animation::AnimationGraphFactory m_animationGraphFactory;
+        core::UniquePtr<foundation::animation::SkeletonFactory> m_skeletonFactory;
+        core::UniquePtr<foundation::animation::AnimationClipFactory> m_animationClipFactory;
+        core::UniquePtr<foundation::animation::AnimationGraphFactory> m_animationGraphFactory;
         foundation::propertyanimation::PropertyAnimationClipFactory m_propertyAnimationClipFactory;
         foundation::particles::ParticleEffectFactory m_particleEffectFactory;
         foundation::input::InputMapFactory m_inputMapFactory;
@@ -250,7 +250,7 @@ export namespace engine::runtime
         core::UniquePtr<foundation::audio::AudioClipFactory> m_audioClipFactory;
         core::UniquePtr<foundation::audio::AudioBusLayoutFactory> m_busLayoutFactory;
         core::UniquePtr<foundation::audio::SoundCueFactory> m_soundCueFactory;
-        foundation::script::ScriptClassFactory m_scriptClassFactory;
+        core::UniquePtr<foundation::script::ScriptClassFactory> m_scriptClassFactory;
         foundation::audio::AudioEngineSettings m_audioEngineSettings;
         foundation::model::ModelFactory m_modelFactory;
         foundation::ui::UIDocumentFactory m_uiDocumentFactory;
@@ -260,9 +260,9 @@ export namespace engine::runtime
         core::UniquePtr<foundation::fonts::FontFactory> m_fontFactory; // cooked default-UI font
         // Terrain resource factories (CPU - no device): the heightfield grid, the terrain bundle
         // (resolves heightfield/splatmap/albedo sub-refs), and the RGBA8 splatmap raster.
-        foundation::heightfield::HeightfieldFactory m_heightfieldFactory;
-        foundation::terrain::TerrainFactory m_terrainFactory;
-        foundation::terrain::SplatWeightsFactory m_splatmapFactory;
+        core::UniquePtr<foundation::heightfield::HeightfieldFactory> m_heightfieldFactory;
+        core::UniquePtr<foundation::terrain::TerrainFactory> m_terrainFactory;
+        core::UniquePtr<foundation::terrain::SplatWeightsFactory> m_splatmapFactory;
         core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;

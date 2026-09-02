@@ -542,12 +542,25 @@ namespace engine::runtime
     void DefaultApplication::RegisterStandardFactories(foundation::resource::ResourceManager& resources,
                                                        IApplicationHost& host)
     {
-        resources.AddFactory(&m_meshFactory);
-        resources.AddFactory(&m_skinnedMeshFactory);
+        core::IAllocator& factoryAllocator = host.Ctx().Allocator();
+        m_meshFactory =
+            core::MakeUnique<foundation::geometry::StaticMeshFactory>(factoryAllocator,
+                                                                      factoryAllocator);
+        m_skinnedMeshFactory =
+            core::MakeUnique<foundation::geometry::SkinnedMeshFactory>(factoryAllocator,
+                                                                       factoryAllocator);
+        m_skeletonFactory = core::MakeUnique<foundation::animation::SkeletonFactory>(
+            factoryAllocator, factoryAllocator);
+        m_animationClipFactory = core::MakeUnique<foundation::animation::AnimationClipFactory>(
+            factoryAllocator, factoryAllocator);
+        m_animationGraphFactory = core::MakeUnique<foundation::animation::AnimationGraphFactory>(
+            factoryAllocator, factoryAllocator);
+        resources.AddFactory(m_meshFactory.Get());
+        resources.AddFactory(m_skinnedMeshFactory.Get());
         resources.AddFactory(&m_materialFactory);
-        resources.AddFactory(&m_skeletonFactory);
-        resources.AddFactory(&m_animationClipFactory);
-        resources.AddFactory(&m_animationGraphFactory);
+        resources.AddFactory(m_skeletonFactory.Get());
+        resources.AddFactory(m_animationClipFactory.Get());
+        resources.AddFactory(m_animationGraphFactory.Get());
         resources.AddFactory(&m_propertyAnimationClipFactory);
         resources.AddFactory(&m_particleEffectFactory);
         resources.AddFactory(&m_inputMapFactory);
@@ -566,7 +579,9 @@ namespace engine::runtime
         resources.AddFactory(m_audioClipFactory.Get());
         resources.AddFactory(m_busLayoutFactory.Get());
         resources.AddFactory(m_soundCueFactory.Get());
-        resources.AddFactory(&m_scriptClassFactory);
+        m_scriptClassFactory = core::MakeUnique<foundation::script::ScriptClassFactory>(
+            factoryAllocator, factoryAllocator);
+        resources.AddFactory(m_scriptClassFactory.Get());
         resources.AddFactory(&m_modelFactory);
         resources.AddFactory(&m_uiDocumentFactory);
         resources.AddFactory(&m_uiThemeFactory);
@@ -576,15 +591,21 @@ namespace engine::runtime
         // Terrain: the CPU factories (grid / bundle / splat raster) so a cooked Terrain binds. The
         // GPU sub-resources (layer albedos) still resolve through the device-gated texture factory
         // below; the splatmap is CPU now (engine.terrain derives its GPU texture).
-        resources.AddFactory(&m_heightfieldFactory);
-        resources.AddFactory(&m_terrainFactory);
-        resources.AddFactory(&m_splatmapFactory);
+        m_heightfieldFactory = core::MakeUnique<foundation::heightfield::HeightfieldFactory>(
+            factoryAllocator, factoryAllocator);
+        m_terrainFactory = core::MakeUnique<foundation::terrain::TerrainFactory>(factoryAllocator,
+                                                                                 factoryAllocator);
+        m_splatmapFactory = core::MakeUnique<foundation::terrain::SplatWeightsFactory>(
+            factoryAllocator, factoryAllocator);
+        resources.AddFactory(m_heightfieldFactory.Get());
+        resources.AddFactory(m_terrainFactory.Get());
+        resources.AddFactory(m_splatmapFactory.Get());
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             if (!m_textureFactory)
             {
                 m_textureFactory = core::MakeUnique<foundation::texture::TextureFactory>(
-                    core::DefaultAllocator(), *gfx->Raw());
+                    factoryAllocator, factoryAllocator, *gfx->Raw());
             }
             resources.AddFactory(m_textureFactory.Get());
         }

@@ -178,7 +178,7 @@ namespace
         REQUIRE(instance != nullptr);
         REQUIRE(instance->WriteObject(cooked).IsOk());
 
-        ScriptClassFactory factory;
+        ScriptClassFactory factory(DefaultAllocator());
         foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), outputDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<ScriptClass> product =

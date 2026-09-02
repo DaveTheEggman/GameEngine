@@ -300,6 +300,10 @@ export namespace foundation::script
     class ScriptClassFactory final : public foundation::resource::IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit ScriptClassFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &ScriptClass::StaticType();
@@ -314,7 +318,7 @@ export namespace foundation::script
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<ScriptClass> product = MakeRef<ScriptClass>(DefaultAllocator());
+            RefPtr<ScriptClass> product = MakeRef<ScriptClass>((*m_allocator));
             product->language = source->language;
             product->className = source->className;
             product->sourceName = source->sourceName;
@@ -326,6 +330,9 @@ export namespace foundation::script
             product->BuildProfileName();
             return product;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     // Registers the cooked record + product types (content-DB construction by type name).

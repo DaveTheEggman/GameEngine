@@ -172,7 +172,8 @@ TEST_CASE("splat weights: legacy migration renormalizes by the old sum (R2)")
         legacy[t * 4 + 3] = 0;
     }
     RefPtr<SplatWeights> sw =
-        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4);
+        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
+                              DefaultAllocator());
     REQUIRE(sw.Get() != nullptr);
     REQUIRE(!sw->IsEmpty());
     // Old layer 1 -> palette 0 at 0.3 of 255 = 77; old layer 2 -> palette 1 at 0.2 = 51.
@@ -195,7 +196,8 @@ TEST_CASE("splat weights: legacy migration maps the SeedLayer0 raster to pure ba
         legacy[t * 4 + 0] = 255;
     }
     RefPtr<SplatWeights> sw =
-        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4);
+        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
+                              DefaultAllocator());
     REQUIRE(sw.Get() != nullptr);
     CHECK(sw->BaseWeight(2, 2) == 255);
     CHECK(SlotSum(*sw, 2, 2) == 0);
@@ -212,13 +214,14 @@ TEST_CASE("splat weights: cooked source round-trips both rasters")
     CHECK(src.height == 8);
 
     RefPtr<SplatWeights> restored =
-        src.Build(SplatWeightsSource::IndexBlob(sw), SplatWeightsSource::WeightBlob(sw));
+        src.Build(SplatWeightsSource::IndexBlob(sw), SplatWeightsSource::WeightBlob(sw),
+                  DefaultAllocator());
     REQUIRE(restored.Get() != nullptr);
     CHECK(restored->WeightOfLayer(4, 4, 9) == sw.WeightOfLayer(4, 4, 9));
     CHECK(restored->SlotIndex(4, 4, 0) == sw.SlotIndex(4, 4, 0));
 
     // A blob-size mismatch yields an EMPTY raster, never a malformed one.
-    RefPtr<SplatWeights> bad = src.Build(Span<const byte>{}, SplatWeightsSource::WeightBlob(sw));
+    RefPtr<SplatWeights> bad = src.Build(Span<const byte>{}, SplatWeightsSource::WeightBlob(sw), DefaultAllocator());
     REQUIRE(bad.Get() != nullptr);
     CHECK(bad->IsEmpty());
 }

@@ -88,8 +88,8 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
@@ -192,8 +192,8 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
     // Load: refs bound + ids round-trip; paletteData has the normal array but NOT the ORM array.
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
@@ -257,8 +257,8 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
@@ -344,8 +344,8 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
@@ -432,8 +432,8 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);
@@ -504,8 +504,8 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
     // The reloaded product must NOT report a mask (no stale array leaks into the runtime).
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    hf::HeightfieldFactory heightfieldFactory;
-    TerrainFactory terrainFactory;
+    hf::HeightfieldFactory heightfieldFactory(DefaultAllocator());
+    TerrainFactory terrainFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&heightfieldFactory);
     manager.AddFactory(&terrainFactory);

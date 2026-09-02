@@ -69,19 +69,21 @@ export namespace foundation::heightfield
         /// Build the runtime product from this metadata + the sidecar sample bytes. Returns an empty
         /// grid if the cooked data is inconsistent (invalid size, or a blob that does not match
         /// size*size*2) rather than a malformed grid.
-        [[nodiscard]] RefPtr<Heightfield> Build(Span<const byte> blob) const
+        // The runtime product is allocated from `allocator` (caller-owned).
+        [[nodiscard]] RefPtr<Heightfield> Build(Span<const byte> blob,
+                                                IAllocator& allocator) const
         {
             if (!IsValidSize(size))
             {
-                return MakeRef<Heightfield>(DefaultAllocator());
+                return MakeRef<Heightfield>(allocator);
             }
             const usize expected = static_cast<usize>(size) * static_cast<usize>(size) * sizeof(Height);
             if (blob.Size() != expected)
             {
-                return MakeRef<Heightfield>(DefaultAllocator());
+                return MakeRef<Heightfield>(allocator);
             }
             RefPtr<Heightfield> hf =
-                MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY, maxY);
+                MakeRef<Heightfield>(allocator, size, worldSize, minY, maxY);
             MemCopy(hf->Samples().Data(), blob.Data(), expected);
             return hf;
         }
@@ -93,6 +95,10 @@ export namespace foundation::heightfield
     class HeightfieldFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit HeightfieldFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &Heightfield::StaticType();
@@ -113,7 +119,7 @@ export namespace foundation::heightfield
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildFrom(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildFrom(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             HeightfieldSource* src = Cast<HeightfieldSource>(object.Get());
@@ -134,8 +140,13 @@ export namespace foundation::heightfield
                     }
                 }
             }
-            return src->Build(Span<const byte>(reinterpret_cast<const byte*>(blob.Data()), blob.Size()));
+            return src->Build(
+                Span<const byte>(reinterpret_cast<const byte*>(blob.Data()), blob.Size()),
+                (*m_allocator));
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     /// Register the heightfield resource types (product + cooked source) so the content DB can

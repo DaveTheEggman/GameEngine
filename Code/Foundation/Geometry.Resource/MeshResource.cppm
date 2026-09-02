@@ -264,6 +264,10 @@ export namespace foundation::geometry
     class StaticMeshFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit StaticMeshFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &StaticMesh::StaticType();
@@ -284,7 +288,7 @@ export namespace foundation::geometry
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildMesh(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildMesh(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             // A SkinnedMeshSource IS-A StaticMeshSource, so a Ref<StaticMesh> can legitimately bind
@@ -292,7 +296,7 @@ export namespace foundation::geometry
             // would silently drop the skin stream and the mesh could never animate.
             if (SkinnedMeshSource* skinned = Cast<SkinnedMeshSource>(object.Get()))
             {
-                RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
+                RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>((*m_allocator));
                 skinned->FillSkinned(*mesh);
                 return mesh;
             }
@@ -301,16 +305,23 @@ export namespace foundation::geometry
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>((*m_allocator));
             src->FillStatic(*mesh);
             return mesh;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     // Builds a SkinnedMeshSource into a runtime SkinnedMesh. Pure-CPU (see StaticMeshFactory).
     class SkinnedMeshFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit SkinnedMeshFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &SkinnedMesh::StaticType();
@@ -331,7 +342,7 @@ export namespace foundation::geometry
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildMesh(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildMesh(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             SkinnedMeshSource* src = Cast<SkinnedMeshSource>(object.Get());
@@ -339,10 +350,13 @@ export namespace foundation::geometry
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>(DefaultAllocator());
+            RefPtr<SkinnedMesh> mesh = MakeRef<SkinnedMesh>((*m_allocator));
             src->FillSkinned(*mesh);
             return mesh;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     // v4 = LOD chain gated on version >= 4 (SerializeStatic). This is the authority for the COOKED

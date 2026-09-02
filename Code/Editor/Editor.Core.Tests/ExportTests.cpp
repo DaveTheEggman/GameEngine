@@ -167,7 +167,7 @@ namespace
         foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), pak, BinarySerializerFactory(),
                                               project::kCookedAssetExtension);
         foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db);
-        script::ScriptClassFactory scriptFactory;
+        script::ScriptClassFactory scriptFactory(DefaultAllocator());
         resources.AddFactory(&scriptFactory);
 
         foundation::resource::Proxy<script::ScriptClass> proxy =
@@ -325,7 +325,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     REQUIRE(scene::LoadScene(*sceneInstance, scene).IsOk());
     foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db);
-    geometry::StaticMeshFactory meshFactory;
+    geometry::StaticMeshFactory meshFactory(DefaultAllocator());
     resources.AddFactory(&meshFactory);
     scene::ResolveSceneResources(scene, resources);
 

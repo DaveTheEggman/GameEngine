@@ -67,7 +67,7 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    HeightfieldFactory factory;
+    HeightfieldFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -95,7 +95,7 @@ TEST_CASE("heightfield resource: FromHeightfield / Build reproduces the grid dir
     const Span<const byte> blob = HeightfieldSource::HeightBlob(*ramp);
     CHECK(blob.Size() == 65u * 65u * sizeof(Height));
 
-    RefPtr<Heightfield> built = src.Build(blob);
+    RefPtr<Heightfield> built = src.Build(blob, DefaultAllocator());
     REQUIRE(built);
     CHECK(built->Size() == 65);
     CHECK(built->MaxY() == doctest::Approx(10.0f));
@@ -126,7 +126,7 @@ TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, neve
         src.maxY = 10.0f;
         bytes.Resize(64u * 64u * sizeof(Height));
         RefPtr<Heightfield> built =
-            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()));
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()), DefaultAllocator());
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }
@@ -138,7 +138,7 @@ TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, neve
         src.maxY = 10.0f;
         bytes.Resize(10); // wrong length
         RefPtr<Heightfield> built =
-            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()));
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()), DefaultAllocator());
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }

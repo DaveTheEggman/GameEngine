@@ -92,7 +92,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
     ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
@@ -306,7 +306,7 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
     ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 

@@ -79,7 +79,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
-    SplatWeightsFactory factory;
+    SplatWeightsFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -124,7 +124,7 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
-    SplatWeightsFactory factory;
+    SplatWeightsFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
@@ -182,7 +182,7 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
-    SplatWeightsFactory factory;
+    SplatWeightsFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
@@ -246,7 +246,7 @@ TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics an
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                             foundation::core::BinarySerializerFactory(),
                                             u8".rasset");
-    SplatWeightsFactory factory;
+    SplatWeightsFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
     Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);

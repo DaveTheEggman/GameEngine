@@ -236,6 +236,10 @@ export namespace foundation::terrain
     class TerrainFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit TerrainFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override { return &TerrainResource::StaticType(); }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
@@ -247,7 +251,7 @@ export namespace foundation::terrain
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<TerrainResource> terrain = MakeRef<TerrainResource>(DefaultAllocator());
+            RefPtr<TerrainResource> terrain = MakeRef<TerrainResource>((*m_allocator));
             terrain->castShadows = src->castShadows;
             terrain->heightBlendContrast = src->heightBlendContrast;
             // Stamp each ref's serialized identity (its source guid) as well as binding the proxy:
@@ -311,7 +315,7 @@ export namespace foundation::terrain
             Array<u8> texels;
             if (ReadArrayStream(instance, kPaletteStream, hdr, texels))
             {
-                RefPtr<TerrainPaletteData> palette = MakeRef<TerrainPaletteData>(DefaultAllocator());
+                RefPtr<TerrainPaletteData> palette = MakeRef<TerrainPaletteData>((*m_allocator));
                 palette->sliceSize = hdr[0];
                 palette->mipCount = hdr[1];
                 palette->sliceCount = hdr[2];
@@ -382,6 +386,9 @@ export namespace foundation::terrain
             outTexels.Resize(texelBytes);
             return stream->Read(outTexels.Data(), static_cast<u64>(texelBytes)) == texelBytes;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     /// Register the terrain resource types (product + cooked source) for load.

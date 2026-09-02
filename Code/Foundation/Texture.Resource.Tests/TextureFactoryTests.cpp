@@ -93,7 +93,7 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
@@ -112,7 +112,7 @@ TEST_CASE("texture.factory: rejects an instance whose object isn't a TextureReso
 {
     RegisterTextureResource();
     rhi::null::NullDevice device{DefaultAllocator()};
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
     CHECK(factory.ProductType() == &Texture::StaticType());
 }
 
@@ -151,7 +151,7 @@ TEST_CASE("texture.factory: async load produces the same product as the sync loa
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
 
     // Synchronous reference product.
     ResourceManager syncManager(DefaultAllocator(), db);
@@ -204,7 +204,7 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    TextureFactory factory(device);
+    TextureFactory factory(DefaultAllocator(), device);
     JobSystem jobs(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);

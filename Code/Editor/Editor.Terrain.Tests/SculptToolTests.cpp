@@ -268,7 +268,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
         content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), cookedMount,
                                           foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-        foundation::heightfield::HeightfieldFactory factory;
+        foundation::heightfield::HeightfieldFactory factory(DefaultAllocator());
         foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), cookedDb);
         manager.AddFactory(&factory);
         foundation::resource::Proxy<hf::Heightfield> cooked = manager.Bind<hf::Heightfield>(id);

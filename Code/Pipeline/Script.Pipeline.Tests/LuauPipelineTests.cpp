@@ -48,7 +48,7 @@ TEST_CASE("script.pipeline: full harvest round-trip (luau) - source -> cook -> f
     content::Instance* instance = nullptr;
     REQUIRE(bed.Cook(u8"multi.luau", u8"luau", instance).IsOk());
 
-    ScriptClassFactory factory;
+    ScriptClassFactory factory(DefaultAllocator());
     foundation::resource::ResourceManager manager(foundation::core::DefaultAllocator(), *bed.outputDb);
     manager.AddFactory(&factory);
     foundation::resource::Proxy<ScriptClass> product = manager.Bind<ScriptClass>(instance->Id());

@@ -65,7 +65,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
-    SkeletonFactory factory;
+    SkeletonFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 

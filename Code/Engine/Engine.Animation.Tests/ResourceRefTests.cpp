@@ -107,8 +107,8 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     }
 
     resource::ResourceManager resources(DefaultAllocator(), cookedDb);
-    animation::SkeletonFactory skeletonFactory;
-    animation::AnimationClipFactory clipFactory;
+    animation::SkeletonFactory skeletonFactory(DefaultAllocator());
+    animation::AnimationClipFactory clipFactory(DefaultAllocator());
     resources.AddFactory(&skeletonFactory);
     resources.AddFactory(&clipFactory);
 

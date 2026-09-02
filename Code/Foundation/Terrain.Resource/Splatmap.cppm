@@ -620,14 +620,15 @@ export namespace foundation::terrain
     /// normalized layer-0 share exactly - visual parity wherever the old sum drifted from 255.
     /// A zero-sum texel (the old zero-sum guard rendered layer 0) becomes pure base - same look.
     [[nodiscard]] inline RefPtr<SplatWeights> MigrateLegacySplatmap(Span<const u8> legacyRgba,
-                                                                    i32 width, i32 height)
+                                                                    i32 width, i32 height,
+                                                                    IAllocator& allocator)
     {
         if (width <= 0 || height <= 0 ||
             legacyRgba.Size() != static_cast<usize>(width) * static_cast<usize>(height) * 4u)
         {
-            return MakeRef<SplatWeights>(DefaultAllocator());
+            return MakeRef<SplatWeights>(allocator);
         }
-        RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(DefaultAllocator(), width, height);
+        RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(allocator, width, height);
         Span<u8> idx = sw->Indices();
         Span<u8> wts = sw->Weights();
         const usize texels = static_cast<usize>(width) * static_cast<usize>(height);
@@ -700,19 +701,20 @@ export namespace foundation::terrain
         /// Build the runtime product from this metadata + the two sidecar blobs. Inconsistent
         /// data (bad dims, blob size mismatch) yields an empty raster rather than a malformed one.
         [[nodiscard]] RefPtr<SplatWeights> Build(Span<const byte> indexBlob,
-                                                 Span<const byte> weightBlob) const
+                                                 Span<const byte> weightBlob,
+                                                 IAllocator& allocator) const
         {
             if (width <= 0 || height <= 0)
             {
-                return MakeRef<SplatWeights>(DefaultAllocator());
+                return MakeRef<SplatWeights>(allocator);
             }
             const usize expected =
                 static_cast<usize>(width) * static_cast<usize>(height) * kSplatSlotCount;
             if (indexBlob.Size() != expected || weightBlob.Size() != expected)
             {
-                return MakeRef<SplatWeights>(DefaultAllocator());
+                return MakeRef<SplatWeights>(allocator);
             }
-            RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(DefaultAllocator(), width, height);
+            RefPtr<SplatWeights> sw = MakeRef<SplatWeights>(allocator, width, height);
             MemCopy(sw->Indices().Data(), indexBlob.Data(), expected);
             MemCopy(sw->Weights().Data(), weightBlob.Data(), expected);
             return sw;
@@ -731,6 +733,10 @@ export namespace foundation::terrain
     class SplatWeightsFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit SplatWeightsFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &SplatWeights::StaticType();
@@ -770,7 +776,7 @@ export namespace foundation::terrain
             return blob;
         }
 
-        [[nodiscard]] static RefPtr<Object> BuildFrom(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildFrom(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             SplatWeightsSource* src = Cast<SplatWeightsSource>(object.Get());
@@ -786,12 +792,16 @@ export namespace foundation::terrain
             {
                 // Legacy cooked splatmap (single raster, fixed-layer semantics): migrate.
                 return MigrateLegacySplatmap(Span<const u8>{weights.Data(), weights.Size()},
-                                             src->width, src->height);
+                                             src->width, src->height, *m_allocator);
             }
             return src->Build(
                 Span<const byte>{reinterpret_cast<const byte*>(indices.Data()), indices.Size()},
-                Span<const byte>{reinterpret_cast<const byte*>(weights.Data()), weights.Size()});
+                Span<const byte>{reinterpret_cast<const byte*>(weights.Data()), weights.Size()},
+                *m_allocator);
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     /// Register the splat-weights resource types (product + cooked source) for load.

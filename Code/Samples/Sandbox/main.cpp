@@ -503,7 +503,7 @@ namespace
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    core::DefaultAllocator(), *gfx->Raw());
+                    core::DefaultAllocator(), core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             model::RegisterModelResourceTypes(); // make the cooked types deserializable
@@ -1702,11 +1702,11 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        geometry::StaticMeshFactory m_meshFactory;
-        geometry::SkinnedMeshFactory m_skinnedMeshFactory;
+        geometry::StaticMeshFactory m_meshFactory{foundation::core::DefaultAllocator()};
+        geometry::SkinnedMeshFactory m_skinnedMeshFactory{foundation::core::DefaultAllocator()};
         materials::MaterialFactory m_materialFactory;
-        animation::SkeletonFactory m_skeletonFactory;
-        animation::AnimationClipFactory m_clipFactory;
+        animation::SkeletonFactory m_skeletonFactory{foundation::core::DefaultAllocator()};
+        animation::AnimationClipFactory m_clipFactory{foundation::core::DefaultAllocator()};
         core::UniquePtr<texture::TextureFactory> m_textureFactory; // needs the device
         resource::Proxy<texture::Texture>
             m_logoTex; // sprite-demo logo (kept alive for its GPU view)
