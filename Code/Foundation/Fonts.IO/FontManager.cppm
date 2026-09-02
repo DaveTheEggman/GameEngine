@@ -26,8 +26,11 @@ export namespace foundation::fonts
     class FontManager
     {
     public:
-        explicit FontManager(FontLoadOptions defaultOptions = FontLoadOptions::Default())
-            : m_defaultOptions(defaultOptions)
+        // The allocator (required - the owner decides) backs every loaded font,
+        // atlas, shaper aggregate, and the cache entries.
+        explicit FontManager(IAllocator& allocator,
+                             FontLoadOptions defaultOptions = FontLoadOptions::Default())
+            : m_allocator(&allocator), m_defaultOptions(defaultOptions)
         {
         }
 
@@ -59,29 +62,31 @@ export namespace foundation::fonts
             FontLoadOptions options = m_defaultOptions;
             options.pixelHeight = pixelHeight;
 
-            Result<IFont*, FontLoadResult> parsed = FontParserFactory::ParseFromFile(path, options);
+            Result<IFont*, FontLoadResult> parsed =
+                FontParserFactory::ParseFromFile(path, options, *m_allocator);
             if (!parsed.HasValue())
                 return nullptr;
             IFont* font = parsed.Value();
 
-            Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, options);
+            Result<IFontAtlas*, FontLoadResult> baked =
+                FontAtlasBakerFactory::Bake(*font, options, *m_allocator);
             if (!baked.HasValue())
             {
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(font);
                 return nullptr;
             }
             IFontAtlas* atlas = baked.Value();
 
             ITextShaper* shaper = m_shaperFactory ? m_shaperFactory() : nullptr;
 
-            CachedFont* entry = DefaultAllocator().New<CachedFont>(font, atlas, shaper);
+            CachedFont* entry = m_allocator->New<CachedFont>(*m_allocator, font, atlas, shaper);
 
             // Insert with a double-check: another thread may have loaded it.
             {
                 ScopedLock<Mutex> lock(m_lock);
                 if (CachedFont** existing = m_cache.Find(lookupKey))
                 {
-                    DefaultAllocator().Delete(entry); // frees font/atlas/shaper too
+                    m_allocator->Delete(entry); // frees font/atlas/shaper too
                     (*existing)->refCount++;
                     return *existing;
                 }
@@ -117,7 +122,7 @@ export namespace foundation::fonts
             for (const FontCacheKey& key : toRemove)
             {
                 if (CachedFont** found = m_cache.Find(key))
-                    DefaultAllocator().Delete(*found);
+                    m_allocator->Delete(*found);
                 m_cache.Remove(key);
             }
         }
@@ -127,7 +132,7 @@ export namespace foundation::fonts
         {
             ScopedLock<Mutex> lock(m_lock);
             for (const auto& entry : m_cache)
-                DefaultAllocator().Delete(entry.value);
+                m_allocator->Delete(entry.value);
             m_cache.Clear();
         }
 
@@ -148,12 +153,13 @@ export namespace foundation::fonts
         void DeleteCache()
         {
             for (const auto& entry : m_cache)
-                DefaultAllocator().Delete(entry.value);
+                m_allocator->Delete(entry.value);
             m_cache.Clear();
         }
 
         Mutex m_lock;
         HashMap<FontCacheKey, CachedFont*> m_cache;
+        IAllocator* m_allocator;
         FontLoadOptions m_defaultOptions;
         Function<ITextShaper*()> m_shaperFactory;
     };

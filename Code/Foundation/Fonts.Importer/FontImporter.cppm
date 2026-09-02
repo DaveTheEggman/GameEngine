@@ -27,14 +27,19 @@ export namespace foundation::fonts
     class BakedFontData
     {
     public:
-        BakedFontData(BakedFont* font, BakedFontAtlas* atlas) : font(font), atlas(atlas) {}
+        // `allocator` is the one font/atlas were allocated from (the Bake caller's
+        // decision) - the pair frees through it.
+        BakedFontData(IAllocator& allocator, BakedFont* font, BakedFontAtlas* atlas)
+            : font(font), atlas(atlas), m_allocator(&allocator)
+        {
+        }
 
         ~BakedFontData()
         {
             if (font != nullptr)
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(font);
             if (atlas != nullptr)
-                DefaultAllocator().Delete(atlas);
+                m_allocator->Delete(atlas);
         }
 
         BakedFontData(const BakedFontData&) = delete;
@@ -52,6 +57,9 @@ export namespace foundation::fonts
 
         BakedFont* font = nullptr;
         BakedFontAtlas* atlas = nullptr;
+
+    private:
+        IAllocator* m_allocator;
     };
 
     class FontImporter
@@ -60,8 +68,10 @@ export namespace foundation::fonts
         // Bake a font from raw TTF/OTF/TTC bytes. Caller owns the returned
         // BakedFontData (delete it or call TakeOwnership). Errors cleanly on
         // bad input.
+        // The returned BakedFontData (and the font/atlas it owns) is allocated from
+        // `allocator`; the caller frees it through the same allocator.
         [[nodiscard]] static Result<BakedFontData*, FontLoadResult>
-        Bake(Span<const u8> data, FontLoadOptions options = FontLoadOptions::Default())
+        Bake(Span<const u8> data, FontLoadOptions options, IAllocator& allocator)
         {
             // Reuse TrueTypeFont as the parser; it owns its byte buffer, so
             // copy the input into a fresh array.
@@ -70,32 +80,32 @@ export namespace foundation::fonts
             if (data.Size() != 0)
                 MemCopy(bytesCopy.Data(), data.Data(), data.Size());
 
-            TrueTypeFont* ttFont = DefaultAllocator().New<TrueTypeFont>();
+            TrueTypeFont* ttFont = allocator.New<TrueTypeFont>();
             const FontLoadResult initResult =
                 ttFont->Initialize(Move(bytesCopy), options.pixelHeight);
             if (initResult != FontLoadResult::Success)
             {
-                DefaultAllocator().Delete(ttFont);
+                allocator.Delete(ttFont);
                 return Err(initResult);
             }
 
-            TrueTypeFontAtlas* ttAtlas = DefaultAllocator().New<TrueTypeFontAtlas>();
+            TrueTypeFontAtlas* ttAtlas = allocator.New<TrueTypeFontAtlas>();
             const FontLoadResult atlasResult = ttAtlas->Create(*ttFont, options);
             if (atlasResult != FontLoadResult::Success)
             {
-                DefaultAllocator().Delete(ttAtlas);
-                DefaultAllocator().Delete(ttFont);
+                allocator.Delete(ttAtlas);
+                allocator.Delete(ttFont);
                 return Err(atlasResult);
             }
 
             // Build the baked font from the parsed metrics.
-            BakedFont* baked = DefaultAllocator().New<BakedFont>();
+            BakedFont* baked = allocator.New<BakedFont>();
             baked->SetFamilyName(ttFont->FamilyName());
             baked->SetPixelHeight(ttFont->PixelHeight());
             baked->SetMetrics(ttFont->Metrics());
 
             // Copy the rasterized pixels into the baked atlas.
-            BakedFontAtlas* bakedAtlas = DefaultAllocator().New<BakedFontAtlas>();
+            BakedFontAtlas* bakedAtlas = allocator.New<BakedFontAtlas>();
             const u32 atlasW = ttAtlas->Width();
             const u32 atlasH = ttAtlas->Height();
             const Span<const u8> srcPixels = ttAtlas->PixelData();
@@ -137,10 +147,10 @@ export namespace foundation::fonts
                 }
             }
 
-            DefaultAllocator().Delete(ttAtlas);
-            DefaultAllocator().Delete(ttFont);
+            allocator.Delete(ttAtlas);
+            allocator.Delete(ttFont);
 
-            return DefaultAllocator().New<BakedFontData>(baked, bakedAtlas);
+            return allocator.New<BakedFontData>(allocator, baked, bakedAtlas);
         }
     };
 }

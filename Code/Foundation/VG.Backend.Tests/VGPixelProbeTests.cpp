@@ -537,7 +537,7 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     REQUIRE(!ttf.IsEmpty());
 
     // Path A: the TTF service (rasterize-on-demand; the dev-tree path - ground truth).
-    fonts::TrueTypeFontService ttfService;
+    fonts::TrueTypeFontService ttfService(DefaultAllocator());
     REQUIRE(ttfService.LoadFont(u8"Roboto",
                                 StringView(reinterpret_cast<const char8_t*>(
                                     BUILTIN_TEST_FONT_PATH))) == fonts::FontLoadResult::Success);
@@ -561,7 +561,8 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     fonts::FontLoadOptions options = fonts::FontLoadOptions::Default();
     options.pixelHeight = servedSize;
     auto bakedResult = fonts::FontImporter::Bake(
-        Span<const u8>(reinterpret_cast<const u8*>(ttf.Data()), ttf.Size()), options);
+        Span<const u8>(reinterpret_cast<const u8*>(ttf.Data()), ttf.Size()), options,
+        DefaultAllocator());
     REQUIRE(bakedResult.HasValue());
     fonts::BakedFont* bakedFont = nullptr;
     fonts::BakedFontAtlas* bakedAtlas = nullptr;
@@ -578,12 +579,13 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
         entry.pixelHeight = servedSize;
         entry.font = UniquePtr<fonts::BakedFont>(bakedFont, DefaultAllocator());
         entry.atlasImage = UniquePtr<image::OwnedImageData>(
-            fonts::FontAtlasTexture::ExpandR8ToRGBA8(bakedAtlas), DefaultAllocator());
+            fonts::FontAtlasTexture::ExpandR8ToRGBA8(bakedAtlas, DefaultAllocator()),
+            DefaultAllocator());
         entry.atlas = UniquePtr<fonts::IFontAtlas>(bakedAtlas, DefaultAllocator());
         REQUIRE(entry.atlasImage);
         product->AddEntry(Move(entry));
     }
-    fonts::ResourceFontService bakedService;
+    fonts::ResourceFontService bakedService(DefaultAllocator());
     bakedService.AddFont(product.Get());
     fonts::CachedFont* cookedFont = bakedService.GetFont(u8"Roboto", servedSize);
     REQUIRE(cookedFont != nullptr);

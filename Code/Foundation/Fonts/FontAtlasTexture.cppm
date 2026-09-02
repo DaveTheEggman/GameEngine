@@ -23,10 +23,10 @@ export namespace foundation::fonts
     class FontAtlasTexture
     {
     public:
-        // Returns a heap OwnedImageData (caller deletes), or null if the atlas has
-        // no usable pixel data.
+        // Returns a heap OwnedImageData allocated from `allocator` (caller deletes
+        // through the SAME allocator), or null if the atlas has no usable pixel data.
         [[nodiscard]] static foundation::image::OwnedImageData*
-        ExpandR8ToRGBA8(const IFontAtlas* atlas)
+        ExpandR8ToRGBA8(const IFontAtlas* atlas, IAllocator& allocator)
         {
             if (atlas == nullptr)
             {
@@ -55,7 +55,7 @@ export namespace foundation::fonts
                 rgba[i * 4 + 2] = 255;   // B
                 rgba[i * 4 + 3] = r8[i]; // A = coverage
             }
-            return DefaultAllocator().New<foundation::image::OwnedImageData>(
+            return allocator.New<foundation::image::OwnedImageData>(
                 w, h, foundation::image::PixelFormat::RGBA8,
                 Span<const u8>(rgba.Data(), rgba.Size()));
         }

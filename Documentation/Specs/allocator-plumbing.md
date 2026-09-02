@@ -99,7 +99,13 @@ tight cluster) per commit.
   ResourceManager / NativeFileSystem trio - required allocators back
   group/instance nodes, resource handles + pending async loads, and file
   streams/change sources; ~150 construction sites made explicit
-  (overwhelmingly test roots). Then P3b fonts, P3c audio, P3d net, P3e script
+  (overwhelmingly test roots). **P3b fonts DONE**: parse/bake APIs take the caller's
+  `IAllocator&` (the returned font/atlas/BakedFontData is freed through the
+  same allocator - `CachedFont`/`BakedFontData` record it); FontManager /
+  TrueTypeFontService / ResourceFontService / FontFactory take required
+  allocators; `ExpandR8ToRGBA8` allocates from a passed allocator. The
+  global parser/baker slots (TrueTypeFonts / DFFonts / factory Shutdown)
+  stay process-root pairs by design. Then P3c audio, P3d net, P3e script
   backends + misc.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry

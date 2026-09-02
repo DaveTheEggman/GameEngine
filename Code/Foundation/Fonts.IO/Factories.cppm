@@ -78,32 +78,32 @@ export namespace foundation::fonts
         }
 
         [[nodiscard]] static Result<IFont*, FontLoadResult>
-        ParseFromFile(StringView filePath, FontLoadOptions options = FontLoadOptions::Default())
+        ParseFromFile(StringView filePath, FontLoadOptions options, IAllocator& allocator)
         {
             IFontParser* parser = GetParserForExtension(PathExtension(filePath));
             if (parser == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return parser->ParseFromFile(filePath, options);
+            return parser->ParseFromFile(filePath, options, allocator);
         }
 
         [[nodiscard]] static Result<IFont*, FontLoadResult>
-        ParseFromMemory(Span<const u8> data, StringView formatHint,
-                        FontLoadOptions options = FontLoadOptions::Default())
+        ParseFromMemory(Span<const u8> data, StringView formatHint, FontLoadOptions options,
+                        IAllocator& allocator)
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return parser->ParseFromMemory(data, options);
+            return parser->ParseFromMemory(data, options, allocator);
         }
 
         [[nodiscard]] static Result<IFont*, FontLoadResult>
-        ParseFromStream(IStream& stream, StringView formatHint,
-                        FontLoadOptions options = FontLoadOptions::Default())
+        ParseFromStream(IStream& stream, StringView formatHint, FontLoadOptions options,
+                        IAllocator& allocator)
         {
             IFontParser* parser = GetParserForExtension(formatHint);
             if (parser == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return parser->ParseFromStream(stream, options);
+            return parser->ParseFromStream(stream, options, allocator);
         }
 
         [[nodiscard]] static usize ParserCount() { return ParserStore().Size(); }
@@ -174,22 +174,22 @@ export namespace foundation::fonts
         }
 
         [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
-        Bake(IFont& font, FontLoadOptions options = FontLoadOptions::Default())
+        Bake(IFont& font, FontLoadOptions options, IAllocator& allocator)
         {
             IFontAtlasBaker* baker = GetBakerForFont(font, options);
             if (baker == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return baker->Bake(font, options);
+            return baker->Bake(font, options, allocator);
         }
 
         [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
-        BakeFromExtension(StringView fileExtension, IFont& font,
-                          FontLoadOptions options = FontLoadOptions::Default())
+        BakeFromExtension(StringView fileExtension, IFont& font, FontLoadOptions options,
+                          IAllocator& allocator)
         {
             IFontAtlasBaker* baker = GetBakerForExtension(fileExtension);
             if (baker == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return baker->Bake(font, options);
+            return baker->Bake(font, options, allocator);
         }
 
         [[nodiscard]] static usize BakerCount() { return BakerStore().Size(); }

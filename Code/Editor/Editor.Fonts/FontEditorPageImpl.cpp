@@ -247,7 +247,7 @@ namespace editor
                 return;
             }
             Result<fonts::IFontAtlas*, fonts::FontLoadResult> baked =
-                fonts::FontAtlasBakerFactory::Bake(font, options);
+                fonts::FontAtlasBakerFactory::Bake(font, options, DefaultAllocator());
             if (!baked.HasValue())
             {
                 return;
@@ -285,7 +285,7 @@ namespace editor
         else
         {
             Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
-                fonts::FontImporter::Bake(fontBytes, options);
+                fonts::FontImporter::Bake(fontBytes, options, DefaultAllocator());
             if (!baked.HasValue())
             {
                 return;
@@ -293,7 +293,8 @@ namespace editor
             UniquePtr<fonts::BakedFontData> data(baked.Value(), DefaultAllocator());
             outcome.glyphs = data->atlas->Regions().Size();
             outcome.image = UniquePtr<image::OwnedImageData>(
-                fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas), DefaultAllocator());
+                fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas, DefaultAllocator()),
+                DefaultAllocator());
         }
     }
 

@@ -105,8 +105,11 @@ export namespace foundation::fonts
         ITextShaper* shaper = nullptr;
         i32 refCount = 1;
 
-        CachedFont(IFont* f, IFontAtlas* a, ITextShaper* s = nullptr) noexcept
-            : font(f), atlas(a), shaper(s)
+        // `allocator` is the one font/atlas/shaper were allocated from (the parse/
+        // bake caller's decision) - the aggregate frees them through it.
+        CachedFont(IAllocator& allocator, IFont* f, IFontAtlas* a,
+                   ITextShaper* s = nullptr) noexcept
+            : font(f), atlas(a), shaper(s), m_allocator(&allocator)
         {
         }
 
@@ -114,20 +117,25 @@ export namespace foundation::fonts
         {
             if (shaper != nullptr)
             {
-                DefaultAllocator().Delete(shaper);
+                m_allocator->Delete(shaper);
             }
             if (atlas != nullptr)
             {
-                DefaultAllocator().Delete(atlas);
+                m_allocator->Delete(atlas);
             }
             if (font != nullptr)
             {
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(font);
             }
         }
 
         CachedFont(const CachedFont&) = delete;
         CachedFont& operator=(const CachedFont&) = delete;
+
+        [[nodiscard]] IAllocator& MemoryAllocator() const noexcept { return *m_allocator; }
+
+    private:
+        IAllocator* m_allocator;
     };
 
     // Provides fonts (loading/caching/atlas textures) to drawing/UI systems.

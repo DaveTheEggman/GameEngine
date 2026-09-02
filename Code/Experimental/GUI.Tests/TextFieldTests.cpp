@@ -203,7 +203,7 @@ TEST_CASE("textfield: change callback fires on edits")
 
 TEST_CASE("textfield: mouse press focuses and places the caret at the nearest boundary")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr); // 6px/byte
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr); // 6px/byte
     auto root = Make<SceneNode>();
     root->SetSize(core::Float2{200.0f, 100.0f});
     auto f = Make<TextField>();
@@ -229,7 +229,7 @@ TEST_CASE("textfield: mouse press focuses and places the caret at the nearest bo
 
 TEST_CASE("textfield: caret draws only while focused")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     auto f = Make<TextField>();
     f->SetSize(core::Float2{100.0f, 24.0f});
     f->SetFont(&cf);
@@ -308,7 +308,7 @@ namespace
     {
         core::RefPtr<SceneNode> root = Make<SceneNode>();
         core::RefPtr<TextField> field = Make<TextField>();
-        fonts::CachedFont font{NewMock(), nullptr, nullptr};
+        fonts::CachedFont font{core::DefaultAllocator(), NewMock(), nullptr, nullptr};
 
         explicit Fixture(core::StringView value = {})
         {

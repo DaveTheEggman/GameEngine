@@ -84,7 +84,8 @@ namespace
     class MockFontService : public fonts::IFontService
     {
     public:
-        fonts::CachedFont font{core::DefaultAllocator().New<MockFont>(), nullptr, nullptr};
+        fonts::CachedFont font{core::DefaultAllocator(), core::DefaultAllocator().New<MockFont>(),
+                               nullptr, nullptr};
         core::String lastFamily;
         core::f32 lastSize = 0.0f;
 

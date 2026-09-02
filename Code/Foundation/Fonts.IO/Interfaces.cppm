@@ -35,18 +35,20 @@ export namespace foundation::fonts
         // Quick predicate over the extension list.
         [[nodiscard]] virtual bool SupportsExtension(StringView fileExtension) const = 0;
 
-        // Canonical entry point: parse from a borrowed stream (not retained).
+        // Canonical entry point: parse from a borrowed stream (not retained). The
+        // returned font is allocated from `allocator` - the caller owns it and must
+        // free it through the SAME allocator (CachedFont records it).
         [[nodiscard]] virtual Result<IFont*, FontLoadResult>
-        ParseFromStream(IStream& stream, FontLoadOptions options) = 0;
+        ParseFromStream(IStream& stream, FontLoadOptions options, IAllocator& allocator) = 0;
 
         // Parse from an in-memory byte span.
         [[nodiscard]] virtual Result<IFont*, FontLoadResult>
-        ParseFromMemory(Span<const u8> data, FontLoadOptions options) = 0;
+        ParseFromMemory(Span<const u8> data, FontLoadOptions options, IAllocator& allocator) = 0;
 
         // Parse from a file on disk. Engine and packaged-game callers should prefer
         // the VFS-aware stream path.
         [[nodiscard]] virtual Result<IFont*, FontLoadResult>
-        ParseFromFile(StringView filePath, FontLoadOptions options) = 0;
+        ParseFromFile(StringView filePath, FontLoadOptions options, IAllocator& allocator) = 0;
     };
 
     // Bakes a parsed IFont into a renderable IFontAtlas. Implementations
@@ -73,8 +75,9 @@ export namespace foundation::fonts
             return CanBake(font);
         }
 
-        // Produce a new atlas for the font + options. Caller takes ownership.
-        [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
-                                                                       FontLoadOptions options) = 0;
+        // Produce a new atlas for the font + options, allocated from `allocator`.
+        // Caller takes ownership and frees through the same allocator.
+        [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult>
+        Bake(IFont& font, FontLoadOptions options, IAllocator& allocator) = 0;
     };
 }

@@ -259,6 +259,10 @@ export namespace foundation::fonts
     class FontFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every font product this factory creates (required -
+        // the application that registers the factory decides).
+        explicit FontFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &Font::StaticType();
@@ -286,7 +290,7 @@ export namespace foundation::fonts
         }
 
     private:
-        [[nodiscard]] static RefPtr<Object> BuildFont(foundation::content::Instance& instance)
+        [[nodiscard]] RefPtr<Object> BuildFont(foundation::content::Instance& instance) const
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             FontResource* res = Cast<FontResource>(object.Get());
@@ -311,7 +315,7 @@ export namespace foundation::fonts
                 }
             }
 
-            RefPtr<Font> product = MakeRef<Font>(DefaultAllocator());
+            RefPtr<Font> product = MakeRef<Font>(*m_allocator);
             product->SetFamily(res->family.AsView());
 
             for (const FontResourceEntry& e : res->entries)
@@ -320,7 +324,7 @@ export namespace foundation::fonts
                 entry.pixelHeight = e.pixelHeight;
 
                 // The rasterizer-free IFont.
-                entry.font = MakeUnique<BakedFont>(DefaultAllocator());
+                entry.font = MakeUnique<BakedFont>(*m_allocator);
                 entry.font->SetFamilyName(res->family.AsView());
                 entry.font->SetPixelHeight(e.pixelHeight);
                 entry.font->SetMetrics(
@@ -345,7 +349,7 @@ export namespace foundation::fonts
 
                 if (res->pixels == FontResourcePixels::DistanceField)
                 {
-                    auto atlas = MakeUnique<DFFontAtlas>(DefaultAllocator());
+                    auto atlas = MakeUnique<DFFontAtlas>(*m_allocator);
                     atlas->SetPixelRange(e.dfPixelRange);
                     atlas->SetWhitePixelUV(e.whitePixelU, e.whitePixelV);
                     for (const FontResourceRegion& r : e.regions)
@@ -354,7 +358,7 @@ export namespace foundation::fonts
                     }
                     // RGBA8 MSDF channels, LINEAR (geometric data, not color).
                     entry.atlasImage = MakeUnique<image::OwnedImageData>(
-                        DefaultAllocator(), e.atlasWidth, e.atlasHeight,
+                        *m_allocator, e.atlasWidth, e.atlasHeight,
                         image::PixelFormat::RGBA8,
                         Span<const u8>(slice.Data(), slice.Size()),
                         image::ImageColorSpace::Linear);
@@ -363,7 +367,7 @@ export namespace foundation::fonts
                 }
                 else
                 {
-                    auto atlas = MakeUnique<BakedFontAtlas>(DefaultAllocator());
+                    auto atlas = MakeUnique<BakedFontAtlas>(*m_allocator);
                     atlas->SetWhitePixelUV(e.whitePixelU, e.whitePixelV);
                     atlas->SetOversample(e.oversampleX, e.oversampleY);
                     for (const FontResourceRegion& r : e.regions)
@@ -373,7 +377,7 @@ export namespace foundation::fonts
                     atlas->SetPixels(e.atlasWidth, e.atlasHeight, Move(slice));
                     // Same RGBA8 expansion the TTF service performs for coverage atlases.
                     entry.atlasImage = UniquePtr<image::OwnedImageData>(
-                        FontAtlasTexture::ExpandR8ToRGBA8(atlas.Get()), DefaultAllocator());
+                        FontAtlasTexture::ExpandR8ToRGBA8(atlas.Get(), *m_allocator), *m_allocator);
                     entry.atlas = Move(atlas); // converting move: BakedFontAtlas -> IFontAtlas
                 }
 
@@ -390,6 +394,8 @@ export namespace foundation::fonts
             }
             return product;
         }
+
+        IAllocator* m_allocator;
     };
 
     // IFontService over bound Font PRODUCTS - the GUID-addressable runtime font path
@@ -405,7 +411,9 @@ export namespace foundation::fonts
     class ResourceFontService final : public IFontService
     {
     public:
-        ResourceFontService() = default;
+        // The allocator (required - the owner decides) backs cache aggregates,
+        // shapers, and scaled views this service creates.
+        explicit ResourceFontService(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
         ~ResourceFontService() override { Clear(); }
         ResourceFontService(const ResourceFontService&) = delete;
         ResourceFontService& operator=(const ResourceFontService&) = delete;
@@ -421,7 +429,7 @@ export namespace foundation::fonts
                         entry.cached->font = nullptr;  // product-owned
                         entry.cached->atlas = nullptr; // product-owned
                     }
-                    DefaultAllocator().Delete(entry.cached); // frees shaper (+ owned views)
+                    m_allocator->Delete(entry.cached); // frees shaper (+ owned views)
                 }
             }
             m_entries.Clear();
@@ -448,9 +456,9 @@ export namespace foundation::fonts
                 Entry entry;
                 entry.family = String(font->Family());
                 entry.pixelHeight = productEntry.pixelHeight;
-                entry.cached = DefaultAllocator().New<CachedFont>(
-                    productEntry.font.Get(), productEntry.atlas.Get(),
-                    DefaultAllocator().New<TrueTypeTextShaper>());
+                entry.cached = m_allocator->New<CachedFont>(
+                    *m_allocator, productEntry.font.Get(), productEntry.atlas.Get(),
+                    m_allocator->New<TrueTypeTextShaper>());
                 entry.image = productEntry.atlasImage.Get();
                 m_entries.PushBack(Move(entry));
             }
@@ -563,11 +571,11 @@ export namespace foundation::fonts
             entry.ownsViews = true;
 
             auto* fontView =
-                DefaultAllocator().New<ScaledFontView>(*base.cached->font, pixelHeight);
-            auto* atlasView = DefaultAllocator().New<ScaledFontAtlasView>(*base.cached->atlas,
+                m_allocator->New<ScaledFontView>(*base.cached->font, pixelHeight);
+            auto* atlasView = m_allocator->New<ScaledFontAtlasView>(*base.cached->atlas,
                                                                           fontView->Scale());
-            entry.cached = DefaultAllocator().New<CachedFont>(
-                fontView, atlasView, DefaultAllocator().New<TrueTypeTextShaper>());
+            entry.cached = m_allocator->New<CachedFont>(
+                *m_allocator, fontView, atlasView, m_allocator->New<TrueTypeTextShaper>());
 
             CachedFont* result = entry.cached;
             m_entries.PushBack(Move(entry));
@@ -596,6 +604,7 @@ export namespace foundation::fonts
             return best;
         }
 
+        IAllocator* m_allocator;
         Array<Entry> m_entries;
         Array<RefPtr<Object>> m_keepAlive; // strong refs on registered products (see AddFont)
         String m_defaultFamily;

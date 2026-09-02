@@ -84,7 +84,7 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
 
     foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 
@@ -151,7 +151,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
 
     foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount, foundation::core::BinarySerializerFactory(),
                                              u8".rasset");
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&factory);
 

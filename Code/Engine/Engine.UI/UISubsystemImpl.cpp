@@ -479,7 +479,8 @@ namespace engine::ui
     {
         MarkupLoader::Initialize();
         foundation::ui::gamekit::RegisterGamekitMarkup(); // the `<screen>` element for authored screens
-        m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(DefaultAllocator());
+        m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(DefaultAllocator(),
+                                                                     DefaultAllocator());
         StringView fontPath = m_fontPath.AsView();
         if (fontPath.IsEmpty())
         {
@@ -1854,7 +1855,8 @@ namespace engine::ui
             m_context.SetFontService(m_fonts.Get());
             return;
         }
-        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(DefaultAllocator());
+        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(DefaultAllocator(),
+                                                                             DefaultAllocator());
         m_resourceFonts->AddFont(font);
         m_context.SetFontService(m_resourceFonts.Get());
         LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",

@@ -48,7 +48,8 @@ TEST_CASE("importer: bake produces glyphs, metrics, atlas regions")
     REQUIRE(ReadFontBytes(bytes));
 
     Result<BakedFontData*, FontLoadResult> result =
-        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), FontLoadOptions::Default());
+        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), FontLoadOptions::Default(),
+                           DefaultAllocator());
     REQUIRE(result.HasValue());
     BakedFontData* baked = result.Value();
 
@@ -82,7 +83,7 @@ TEST_CASE("importer: baked atlas matches requested dimensions")
     opts.lastCodepoint = static_cast<i32>('Z');
 
     Result<BakedFontData*, FontLoadResult> result =
-        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), opts);
+        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), opts, DefaultAllocator());
     REQUIRE(result.HasValue());
     BakedFontData* baked = result.Value();
 
@@ -101,7 +102,8 @@ TEST_CASE("importer: bake fails cleanly on garbage bytes")
         junk[i] = 0xAB;
 
     Result<BakedFontData*, FontLoadResult> result =
-        FontImporter::Bake(Span<const u8>(junk.Data(), junk.Size()), FontLoadOptions::Default());
+        FontImporter::Bake(Span<const u8>(junk.Data(), junk.Size()), FontLoadOptions::Default(),
+                           DefaultAllocator());
     CHECK_FALSE(result.HasValue());
 }
 
@@ -111,7 +113,8 @@ TEST_CASE("importer: TakeOwnership nulls the BakedFontData fields")
     REQUIRE(ReadFontBytes(bytes));
 
     Result<BakedFontData*, FontLoadResult> result =
-        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), FontLoadOptions::Default());
+        FontImporter::Bake(Span<const u8>(bytes.Data(), bytes.Size()), FontLoadOptions::Default(),
+                           DefaultAllocator());
     REQUIRE(result.HasValue());
     BakedFontData* bakedData = result.Value();
 

@@ -255,7 +255,9 @@ export namespace engine::runtime
         foundation::model::ModelFactory m_modelFactory;
         foundation::ui::UIDocumentFactory m_uiDocumentFactory;
         foundation::ui::UIThemeFactory m_uiThemeFactory;
-        foundation::fonts::FontFactory m_fontFactory; // cooked default-UI font (fonts triad)
+        // Allocator-threaded factory (created in RegisterStandardFactories, like the
+        // navigation zone factory).
+        core::UniquePtr<foundation::fonts::FontFactory> m_fontFactory; // cooked default-UI font
         // Terrain resource factories (CPU - no device): the heightfield grid, the terrain bundle
         // (resolves heightfield/splatmap/albedo sub-refs), and the RGBA8 splatmap raster.
         foundation::heightfield::HeightfieldFactory m_heightfieldFactory;

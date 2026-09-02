@@ -52,18 +52,18 @@ export namespace foundation::fonts
                    options.atlasMode == AtlasMode::Coverage;
         }
 
-        [[nodiscard]] Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
-                                                               FontLoadOptions options) override
+        [[nodiscard]] Result<IFontAtlas*, FontLoadResult>
+        Bake(IFont& font, FontLoadOptions options, IAllocator& allocator) override
         {
             if (font.BackendTypeId() != kTrueTypeFontTypeId)
                 return Err(FontLoadResult::UnsupportedFormat);
             const TrueTypeFont& ttf = static_cast<const TrueTypeFont&>(font);
 
-            TrueTypeFontAtlas* atlas = DefaultAllocator().New<TrueTypeFontAtlas>();
+            TrueTypeFontAtlas* atlas = allocator.New<TrueTypeFontAtlas>();
             const FontLoadResult result = atlas->Create(ttf, options);
             if (result != FontLoadResult::Success)
             {
-                DefaultAllocator().Delete(atlas);
+                allocator.Delete(atlas);
                 return Err(result);
             }
             return static_cast<IFontAtlas*>(atlas);

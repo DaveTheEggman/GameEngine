@@ -61,7 +61,7 @@ namespace
 
 TEST_CASE("text: measurement uses font metrics")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr); // owns + deletes the mock on scope exit
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr); // owns + deletes the mock on scope exit
     Text t{core::StringView(u8"Hello"), &cf};
     CHECK(t.GetWidth() == doctest::Approx(30.0f)); // 5 * 6
     CHECK(t.GetLineHeight() == doctest::Approx(12.0f));
@@ -92,7 +92,7 @@ TEST_CASE("text: string/color/alignment accessors")
 
 TEST_CASE("text: alignment within bounds")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     Text t{core::StringView(u8"Hello"), &cf}; // width 30, height 12
     const Rect bounds{0.0f, 0.0f, 100.0f, 50.0f};
 
@@ -119,7 +119,7 @@ TEST_CASE("text: draw guards - no font or empty produces no geometry")
     noFont.Draw(dc, core::Float2{0.0f, 0.0f});
     CHECK(ctx.GetBatch().vertices.Size() == 0);
 
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     Text empty{core::StringView(u8""), &cf};
     empty.Draw(dc, core::Float2{0.0f, 0.0f});
     CHECK(ctx.GetBatch().vertices.Size() == 0);
@@ -127,7 +127,7 @@ TEST_CASE("text: draw guards - no font or empty produces no geometry")
 
 TEST_CASE("text: word wrap breaks at whitespace to fit the width")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr); // 6px/byte, 12px line height
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr); // 6px/byte, 12px line height
     Text t{core::StringView(u8"hello world foo"), &cf};
     t.SetWordWrap(true);
 
@@ -144,7 +144,7 @@ TEST_CASE("text: word wrap breaks at whitespace to fit the width")
 
 TEST_CASE("text: explicit newlines always break")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     Text t{core::StringView(u8"a\nbc\nd"), &cf};
     t.SetWordWrap(true);
 
@@ -158,7 +158,7 @@ TEST_CASE("text: explicit newlines always break")
 
 TEST_CASE("text: a word longer than the width takes its own line (overflows)")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     Text t{core::StringView(u8"abcdefghij k"), &cf}; // first word 10 bytes = 60px
     t.SetWordWrap(true);
 
@@ -171,7 +171,7 @@ TEST_CASE("text: a word longer than the width takes its own line (overflows)")
 
 TEST_CASE("text: word wrap draws one DrawText per non-empty line")
 {
-    fonts::CachedFont cf(NewMock(), nullptr, nullptr);
+    fonts::CachedFont cf(core::DefaultAllocator(), NewMock(), nullptr, nullptr);
     Text t{core::StringView(u8"hello world foo"), &cf};
     t.SetWordWrap(true);
 

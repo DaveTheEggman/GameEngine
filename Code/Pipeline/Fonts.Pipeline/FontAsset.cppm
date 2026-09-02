@@ -201,7 +201,8 @@ export namespace pipeline{
                                           FontResource& resource, Array<u8>& pixels)
         {
             Result<BakedFontData*, FontLoadResult> baked =
-                FontImporter::Bake(fontBytes, OptionsFor(fa, size, /*distanceField*/ false));
+                FontImporter::Bake(fontBytes, OptionsFor(fa, size, /*distanceField*/ false),
+                                   DefaultAllocator());
             if (!baked.HasValue())
             {
                 return Status{ErrorCode::InvalidArgument};
@@ -269,7 +270,8 @@ export namespace pipeline{
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(font, options);
+            Result<IFontAtlas*, FontLoadResult> baked =
+                FontAtlasBakerFactory::Bake(font, options, DefaultAllocator());
             if (!baked.HasValue())
             {
                 return Status{ErrorCode::NotSupported}; // no DF baker (msdfgen missing?)

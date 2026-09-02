@@ -35,7 +35,8 @@ namespace
     {
         const String path = AssetPath("/roboto/Roboto-Regular.ttf");
         Result<IFont*, FontLoadResult> parsed =
-            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
+            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default(),
+                                             DefaultAllocator());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
 }
@@ -81,7 +82,8 @@ TEST_CASE("ttf.loader: parser factory errors with no parsers")
 {
     FontParserFactory::Shutdown();
     Result<IFont*, FontLoadResult> result =
-        FontParserFactory::ParseFromFile(u8"nonexistent.ttf", FontLoadOptions::Default());
+        FontParserFactory::ParseFromFile(u8"nonexistent.ttf", FontLoadOptions::Default(),
+                                         DefaultAllocator());
     CHECK_FALSE(result.HasValue());
     CHECK(result.Error() == FontLoadResult::UnsupportedFormat);
 }
@@ -164,7 +166,7 @@ TEST_CASE("ttf.atlas: creation + dimensions")
     REQUIRE(font != nullptr);
 
     Result<IFontAtlas*, FontLoadResult> baked =
-        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 
@@ -184,7 +186,7 @@ TEST_CASE("ttf.atlas: Contains respects the codepoint range")
     REQUIRE(font != nullptr);
 
     Result<IFontAtlas*, FontLoadResult> baked =
-        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 
@@ -208,7 +210,7 @@ TEST_CASE("ttf.atlas: GetGlyphQuad")
     REQUIRE(font != nullptr);
 
     Result<IFontAtlas*, FontLoadResult> baked =
-        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default());
+        FontAtlasBakerFactory::Bake(*font, FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
 

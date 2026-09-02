@@ -79,7 +79,7 @@ export namespace editor
             Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
                 fonts::FontImporter::Bake(
                     Span<const u8>(reinterpret_cast<const u8*>(payload.Data()), payload.Size()),
-                    options);
+                    options, DefaultAllocator());
             if (!baked.HasValue())
             {
                 return Status{ErrorCode::InvalidArgument};

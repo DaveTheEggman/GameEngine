@@ -107,7 +107,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(DefaultAllocator(), db);
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     manager.AddFactory(&factory);
 
     auto proxy = manager.Bind<Font>(id);
@@ -169,7 +169,7 @@ TEST_CASE("font.factory: async load matches the sync product")
     }
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
 
     ResourceManager syncManager(DefaultAllocator(), db);
     syncManager.AddFactory(&factory);
@@ -230,7 +230,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
     }
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     JobSystem jobs(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), db, &jobs);
     manager.AddFactory(&factory);
@@ -281,7 +281,7 @@ TEST_CASE("font.factory: cooked MSDF FontResource keeps range + linear RGBA")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(DefaultAllocator(), db);
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     manager.AddFactory(&factory);
 
     auto proxy = manager.Bind<Font>(id);
@@ -322,12 +322,12 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(DefaultAllocator(), db);
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     manager.AddFactory(&factory);
     Proxy<Font> font = manager.Bind<Font>(id);
     REQUIRE(font);
 
-    ResourceFontService service;
+    ResourceFontService service(DefaultAllocator());
     service.AddFont(font.Get());
     CHECK(service.DefaultFontFamily() == u8"TestFamily");
 
@@ -379,12 +379,12 @@ TEST_CASE("font.service: DF families synthesize cached per-size scaled views")
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     ResourceManager manager(DefaultAllocator(), db);
-    FontFactory factory;
+    FontFactory factory(DefaultAllocator());
     manager.AddFactory(&factory);
     Proxy<Font> font = manager.Bind<Font>(id);
     REQUIRE(font);
 
-    ResourceFontService service;
+    ResourceFontService service(DefaultAllocator());
     service.AddFont(font.Get());
 
     // Baked sizes resolve to the products themselves (no view wrapping).

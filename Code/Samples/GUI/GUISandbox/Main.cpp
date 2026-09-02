@@ -230,7 +230,8 @@ Status GUISandbox::OnInit()
     if (m_device->CreateFence(0, m_fence) != ErrorCode::Ok)
         return ErrorCode::Unknown;
 
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
+                                                           DefaultAllocator());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH));

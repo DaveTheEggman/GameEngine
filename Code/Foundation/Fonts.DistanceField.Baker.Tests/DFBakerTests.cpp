@@ -35,7 +35,7 @@ namespace
         TrueTypeFontParser parser;
         const String path = AssetPath("/roboto/Roboto-Regular.ttf");
         Result<IFont*, FontLoadResult> parsed =
-            parser.ParseFromFile(path.AsView(), FontLoadOptions::Default());
+            parser.ParseFromFile(path.AsView(), FontLoadOptions::Default(), DefaultAllocator());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
 
@@ -114,7 +114,7 @@ TEST_CASE("df.baker: MSDF glyph orientation matches the coverage path (not verti
     cov.pixelHeight = 48.0f;
     cov.atlasWidth = cov.atlasHeight = 1024;
     TrueTypeFontAtlasBaker covBaker;
-    Result<IFontAtlas*, FontLoadResult> covR = covBaker.Bake(*font, cov);
+    Result<IFontAtlas*, FontLoadResult> covR = covBaker.Bake(*font, cov, DefaultAllocator());
     REQUIRE(covR.HasValue());
     IFontAtlas* coverage = covR.Value();
 
@@ -122,7 +122,7 @@ TEST_CASE("df.baker: MSDF glyph orientation matches the coverage path (not verti
     df.pixelHeight = 48.0f;
     df.atlasWidth = df.atlasHeight = 1024;
     DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df);
+    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* msdf = dfR.Value();
 
@@ -157,7 +157,7 @@ TEST_CASE("df.baker: descender glyphs keep their tail (g/q not clipped like a)")
     df.pixelHeight = 48.0f;
     df.atlasWidth = df.atlasHeight = 1024;
     DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df);
+    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* msdf = dfR.Value();
 
@@ -193,7 +193,7 @@ TEST_CASE("df.baker: blank glyphs (space) get an advance-only region")
     df.lastCodepoint = 126;
     df.atlasWidth = df.atlasHeight = 1024;
     DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df);
+    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* atlas = dfR.Value();
 

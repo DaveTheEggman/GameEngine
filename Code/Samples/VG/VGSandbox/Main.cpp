@@ -172,7 +172,8 @@ Status VGSandbox::OnInit()
         return ErrorCode::Unknown;
 
     // Fonts (Roboto at three sizes). Text is skipped if the font isn't available.
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
+                                                           DefaultAllocator());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH));

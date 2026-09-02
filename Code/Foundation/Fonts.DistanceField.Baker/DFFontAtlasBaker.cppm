@@ -93,8 +93,8 @@ export namespace foundation::fonts
                    opts.atlasMode == AtlasMode::DistanceField;
         }
 
-        [[nodiscard]] Result<IFontAtlas*, FontLoadResult> Bake(IFont& font,
-                                                               FontLoadOptions options) override
+        [[nodiscard]] Result<IFontAtlas*, FontLoadResult>
+        Bake(IFont& font, FontLoadOptions options, IAllocator& allocator) override
         {
             if (!CanBake(font, options))
                 return Err(FontLoadResult::UnsupportedFormat);
@@ -120,7 +120,7 @@ export namespace foundation::fonts
             Array<u8> pixels(static_cast<usize>(atlasW) * atlasH * 4);
             MemSet(pixels.Data(), 0, pixels.Size());
 
-            DFFontAtlas* atlas = DefaultAllocator().New<DFFontAtlas>();
+            DFFontAtlas* atlas = allocator.New<DFFontAtlas>();
             atlas->SetPixelRange(static_cast<f32>(pxRange));
 
             RowPacker packer;
@@ -225,7 +225,7 @@ export namespace foundation::fonts
 
             if (!anyGlyphs)
             {
-                DefaultAllocator().Delete(atlas);
+                allocator.Delete(atlas);
                 return Err(FontLoadResult::NoGlyphsFound);
             }
 

@@ -33,7 +33,8 @@ namespace
     {
         const String path = AssetPath("/roboto/Roboto-Regular.ttf");
         Result<IFont*, FontLoadResult> parsed =
-            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default());
+            FontParserFactory::ParseFromFile(path, FontLoadOptions::Default(),
+                                             DefaultAllocator());
         return parsed.HasValue() ? parsed.Value() : nullptr;
     }
 

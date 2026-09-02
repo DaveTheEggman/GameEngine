@@ -33,15 +33,18 @@ namespace
             return ext == StringView(u8".fake");
         }
 
-        Result<IFont*, FontLoadResult> ParseFromStream(IStream&, FontLoadOptions) override
+        Result<IFont*, FontLoadResult> ParseFromStream(IStream&, FontLoadOptions,
+                                                       IAllocator&) override
         {
             return Make();
         }
-        Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8>, FontLoadOptions) override
+        Result<IFont*, FontLoadResult> ParseFromMemory(Span<const u8>, FontLoadOptions,
+                                                       IAllocator&) override
         {
             return Make();
         }
-        Result<IFont*, FontLoadResult> ParseFromFile(StringView, FontLoadOptions) override
+        Result<IFont*, FontLoadResult> ParseFromFile(StringView, FontLoadOptions,
+                                                     IAllocator&) override
         {
             return Make();
         }
@@ -73,7 +76,7 @@ namespace
         }
         bool CanBake(const IFont&) const override { return true; }
 
-        Result<IFontAtlas*, FontLoadResult> Bake(IFont&, FontLoadOptions) override
+        Result<IFontAtlas*, FontLoadResult> Bake(IFont&, FontLoadOptions, IAllocator&) override
         {
             BakedFontAtlas* a = DefaultAllocator().New<BakedFontAtlas>();
             return static_cast<IFontAtlas*>(a);
@@ -95,13 +98,15 @@ TEST_CASE("io.factories: parser registration + extension dispatch")
 
     // Unknown extension -> UnsupportedFormat.
     Result<IFont*, FontLoadResult> miss =
-        FontParserFactory::ParseFromMemory(Span<const u8>(), u8".nope");
+        FontParserFactory::ParseFromMemory(Span<const u8>(), u8".nope",
+                                           FontLoadOptions::Default(), DefaultAllocator());
     CHECK_FALSE(miss.HasValue());
     CHECK(miss.Error() == FontLoadResult::UnsupportedFormat);
 
     // Known extension -> a parsed font (caller owns it).
     Result<IFont*, FontLoadResult> hit =
-        FontParserFactory::ParseFromMemory(Span<const u8>(), u8".fake");
+        FontParserFactory::ParseFromMemory(Span<const u8>(), u8".fake",
+                                           FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(hit.HasValue());
     CHECK(hit.Value()->HasGlyph(static_cast<i32>('A')));
     DefaultAllocator().Delete(hit.Value());
@@ -119,17 +124,20 @@ TEST_CASE("io.factories: baker dispatch by extension and by font")
     BakedFont font;
     CHECK(FontAtlasBakerFactory::GetBakerForFont(font) != nullptr);
 
-    Result<IFontAtlas*, FontLoadResult> byFont = FontAtlasBakerFactory::Bake(font);
+    Result<IFontAtlas*, FontLoadResult> byFont =
+        FontAtlasBakerFactory::Bake(font, FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(byFont.HasValue());
     DefaultAllocator().Delete(byFont.Value());
 
     Result<IFontAtlas*, FontLoadResult> byExt =
-        FontAtlasBakerFactory::BakeFromExtension(u8".fake", font);
+        FontAtlasBakerFactory::BakeFromExtension(u8".fake", font,
+                                                 FontLoadOptions::Default(), DefaultAllocator());
     REQUIRE(byExt.HasValue());
     DefaultAllocator().Delete(byExt.Value());
 
     Result<IFontAtlas*, FontLoadResult> miss =
-        FontAtlasBakerFactory::BakeFromExtension(u8".nope", font);
+        FontAtlasBakerFactory::BakeFromExtension(u8".nope", font,
+                                                 FontLoadOptions::Default(), DefaultAllocator());
     CHECK_FALSE(miss.HasValue());
 
     FontAtlasBakerFactory::Shutdown();
@@ -142,7 +150,7 @@ TEST_CASE("io.manager: cache hit, refcount, clear")
     FontParserFactory::RegisterParser(DefaultAllocator().New<FakeParser>());
     FontAtlasBakerFactory::RegisterBaker(DefaultAllocator().New<FakeBaker>());
 
-    FontManager manager;
+    FontManager manager(DefaultAllocator());
     CHECK(manager.CacheCount() == 0);
     CHECK_FALSE(manager.IsCached(u8"font.fake", 16));
 

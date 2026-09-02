@@ -31,8 +31,11 @@ export namespace foundation::fonts
     public:
         // `fileSystem` is optional + non-owning. When set, LoadFont treats the
         // locator as a path opened through it; otherwise as a disk path.
-        explicit TrueTypeFontService(foundation::vfs::IFileSystem* fileSystem = nullptr)
-            : m_fileSystem(fileSystem)
+        // The allocator (required - the owner decides) backs fonts, atlases,
+        // shapers, cache entries, and atlas textures this service creates.
+        explicit TrueTypeFontService(IAllocator& allocator,
+                                     foundation::vfs::IFileSystem* fileSystem = nullptr)
+            : m_allocator(&allocator), m_fileSystem(fileSystem)
         {
             TrueTypeFonts::Initialize();
         }
@@ -62,7 +65,7 @@ export namespace foundation::fonts
 
                 const StringView ext = PathExtension(locator);
                 Result<IFont*, FontLoadResult> parsed =
-                    FontParserFactory::ParseFromStream(*stream, ext, options);
+                    FontParserFactory::ParseFromStream(*stream, ext, options, *m_allocator);
                 if (!parsed.HasValue())
                     return parsed.Error();
                 font = parsed.Value();
@@ -70,7 +73,7 @@ export namespace foundation::fonts
             else
             {
                 Result<IFont*, FontLoadResult> parsed =
-                    FontParserFactory::ParseFromFile(locator, options);
+                    FontParserFactory::ParseFromFile(locator, options, *m_allocator);
                 if (!parsed.HasValue())
                     return parsed.Error();
                 font = parsed.Value();
@@ -89,11 +92,11 @@ export namespace foundation::fonts
             copy.Resize(bytes.Size());
             if (bytes.Size() != 0)
                 MemCopy(copy.Data(), bytes.Data(), bytes.Size());
-            TrueTypeFont* font = DefaultAllocator().New<TrueTypeFont>();
+            TrueTypeFont* font = m_allocator->New<TrueTypeFont>();
             const FontLoadResult parsed = font->Initialize(Move(copy), options.pixelHeight);
             if (parsed != FontLoadResult::Success)
             {
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(font);
                 return parsed;
             }
             return CacheFont(familyName, font, options);
@@ -164,14 +167,14 @@ export namespace foundation::fonts
             bool sharedTexture = false; // scaled-view entry: texture belongs to the base entry
         };
 
-        static void DeleteEntry(FontEntry* entry)
+        void DeleteEntry(FontEntry* entry)
         {
             if (entry == nullptr)
                 return;
-            DefaultAllocator().Delete(entry->cachedFont); // frees font/atlas/shaper
+            m_allocator->Delete(entry->cachedFont); // frees font/atlas/shaper
             if (!entry->sharedTexture)
-                DefaultAllocator().Delete(entry->texture);
-            DefaultAllocator().Delete(entry);
+                m_allocator->Delete(entry->texture);
+            m_allocator->Delete(entry);
         }
 
         // ASCII case-insensitive family compare (matches Sedulous's ignore-case).
@@ -199,14 +202,14 @@ export namespace foundation::fonts
                                                    f32 pixelHeight)
         {
             auto* fontView =
-                DefaultAllocator().New<ScaledFontView>(*base.cachedFont->font, pixelHeight);
-            auto* atlasView = DefaultAllocator().New<ScaledFontAtlasView>(
+                m_allocator->New<ScaledFontView>(*base.cachedFont->font, pixelHeight);
+            auto* atlasView = m_allocator->New<ScaledFontAtlasView>(
                 *base.cachedFont->atlas, fontView->Scale());
-            ITextShaper* shaper = DefaultAllocator().New<TrueTypeTextShaper>();
+            ITextShaper* shaper = m_allocator->New<TrueTypeTextShaper>();
             CachedFont* cachedFont =
-                DefaultAllocator().New<CachedFont>(fontView, atlasView, shaper);
+                m_allocator->New<CachedFont>(*m_allocator, fontView, atlasView, shaper);
 
-            FontEntry* entry = DefaultAllocator().New<FontEntry>();
+            FontEntry* entry = m_allocator->New<FontEntry>();
             entry->family = String(familyName);
             entry->pixelHeight = pixelHeight;
             entry->cachedFont = cachedFont;
@@ -220,10 +223,11 @@ export namespace foundation::fonts
         // entry. Takes ownership of `font`; deletes it on any failure.
         FontLoadResult CacheFont(StringView familyName, IFont* font, FontLoadOptions options)
         {
-            Result<IFontAtlas*, FontLoadResult> baked = FontAtlasBakerFactory::Bake(*font, options);
+            Result<IFontAtlas*, FontLoadResult> baked =
+                FontAtlasBakerFactory::Bake(*font, options, *m_allocator);
             if (!baked.HasValue())
             {
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(font);
                 return baked.Error();
             }
             IFontAtlas* atlas = baked.Value();
@@ -233,21 +237,22 @@ export namespace foundation::fonts
             // Coverage atlases are single-channel R8 and expand to RGBA8 as before.
             foundation::image::OwnedImageData* texture =
                 (atlas->Mode() == AtlasMode::DistanceField)
-                    ? DefaultAllocator().New<foundation::image::OwnedImageData>(
+                    ? m_allocator->New<foundation::image::OwnedImageData>(
                           atlas->Width(), atlas->Height(), foundation::image::PixelFormat::RGBA8,
                           atlas->PixelData(), foundation::image::ImageColorSpace::Linear)
-                    : FontAtlasTexture::ExpandR8ToRGBA8(atlas);
+                    : FontAtlasTexture::ExpandR8ToRGBA8(atlas, *m_allocator);
             if (texture == nullptr)
             {
-                DefaultAllocator().Delete(atlas);
-                DefaultAllocator().Delete(font);
+                m_allocator->Delete(atlas);
+                m_allocator->Delete(font);
                 return FontLoadResult::OutOfMemory;
             }
 
-            ITextShaper* shaper = DefaultAllocator().New<TrueTypeTextShaper>();
-            CachedFont* cachedFont = DefaultAllocator().New<CachedFont>(font, atlas, shaper);
+            ITextShaper* shaper = m_allocator->New<TrueTypeTextShaper>();
+            CachedFont* cachedFont =
+                m_allocator->New<CachedFont>(*m_allocator, font, atlas, shaper);
 
-            FontEntry* entry = DefaultAllocator().New<FontEntry>();
+            FontEntry* entry = m_allocator->New<FontEntry>();
             entry->family = String(familyName);
             entry->pixelHeight = options.pixelHeight;
             entry->cachedFont = cachedFont;
@@ -289,6 +294,7 @@ export namespace foundation::fonts
             return best;
         }
 
+        IAllocator* m_allocator;
         foundation::vfs::IFileSystem* m_fileSystem = nullptr; // non-owning
         Array<FontEntry*> m_fonts;
         String m_defaultFontFamily = String(u8"Default");

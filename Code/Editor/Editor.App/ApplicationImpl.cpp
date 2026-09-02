@@ -158,7 +158,8 @@ namespace editor::app
         // family: the Preferences override -> the dev-tree compile define -> the
         // exe-EMBEDDED Roboto (a relocated editor must never come up textless). Every
         // failure is LOUD - the old silent (void)LoadFont left a blank editor with no clue.
-        m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+        m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
+                                                               DefaultAllocator());
         String fontPath = m_config.fontPath;
         String monoFontPath = m_config.monoFontPath;
         if (const editor::EditorFontSettings* fontPrefs =

@@ -1036,7 +1036,8 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
     m_height = mainRw->Window().Height();
 
     // Fonts (CPU rasterization; no device needed).
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
+                                                           DefaultAllocator());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH));
