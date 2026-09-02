@@ -129,9 +129,14 @@ tight cluster) per commit.
   DefaultApp creates them all from the runtime Context's allocator; the
   cooked-record Build helpers (Heightfield::Build, SplatWeightsSource::
   Build, MigrateLegacySplatmap) allocate their products from a passed
-  allocator. Remaining P3 misc: Scene.Resource internals, Physics,
-  Shell.Desktop, Shaders.System, Xml.Serialization bound tail - fold into
-  P5/P6 or a small mop-up slice.
+  allocator. **P3g mop-up DONE**: SDL3 shell (CreateShell +
+  window/gamepad/dialog managers thread the entry point's allocator; dialog
+  contexts record theirs for the SDL C callback), PhysicsWorld (Jolt system/
+  temp-allocator/job boxes), ShaderSystemHost + FileShaderSourceProvider,
+  Primitives::* take the caller's allocator, Scene.Resource prefab records/
+  snapshots/serializer scratch ride scene.Allocator(). Particles' asset-
+  definition types and the sniffing-reader scratch stay under the
+  reflection/serializer bounds.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

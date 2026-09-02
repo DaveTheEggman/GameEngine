@@ -46,7 +46,11 @@ export namespace foundation::shaders
     class ShaderSystemHost
     {
     public:
-        ShaderSystemHost() = default;
+        // The allocator (required - the owner decides) backs the shader system,
+        // provider, and cooked packs.
+        explicit ShaderSystemHost(core::IAllocator& allocator) noexcept : m_allocator(&allocator)
+        {
+        }
         ~ShaderSystemHost() { Shutdown(); }
         ShaderSystemHost(const ShaderSystemHost&) = delete;
         ShaderSystemHost& operator=(const ShaderSystemHost&) = delete;
@@ -95,8 +99,8 @@ export namespace foundation::shaders
             }
 
             m_shaders = (m_compiler != nullptr)
-                            ? MakeUnique<ShaderSystem>(DefaultAllocator(), *m_compiler, device)
-                            : MakeUnique<ShaderSystem>(DefaultAllocator(), device);
+                            ? MakeUnique<ShaderSystem>(*m_allocator, *m_compiler, device)
+                            : MakeUnique<ShaderSystem>(*m_allocator, device);
 
             if (havePack)
             {
@@ -112,7 +116,7 @@ export namespace foundation::shaders
                     rhi::LogErrorf("ShaderSystemHost: pack mode requested but no usable "
                                    "shaders.dpak found - falling back to dev compilation");
                 }
-                m_provider = MakeUnique<FileShaderSourceProvider>(DefaultAllocator());
+                m_provider = MakeUnique<FileShaderSourceProvider>(*m_allocator, *m_allocator);
                 if (m_provider->Initialize(root).IsOk())
                 {
                     m_shaders->SetSourceProvider(m_provider.Get());
@@ -187,7 +191,7 @@ export namespace foundation::shaders
                 {
                     continue;
                 }
-                UniquePtr<CookedShaderPack> pack = MakeUnique<CookedShaderPack>(DefaultAllocator());
+                UniquePtr<CookedShaderPack> pack = MakeUnique<CookedShaderPack>(*m_allocator);
                 if (pack->Read(file).IsOk() && !pack->IsEmpty())
                 {
                     m_pack = Move(pack);
@@ -200,6 +204,7 @@ export namespace foundation::shaders
         Compiler* m_compiler = nullptr; // owned (Destroy()); null in pack/dist mode
         UniquePtr<CookedShaderPack> m_pack;
         UniquePtr<FileShaderSourceProvider> m_provider;
+        core::IAllocator* m_allocator;
         UniquePtr<ShaderSystem> m_shaders;
     };
 }

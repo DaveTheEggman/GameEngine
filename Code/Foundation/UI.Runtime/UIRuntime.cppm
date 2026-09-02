@@ -1054,7 +1054,7 @@ export namespace foundation::ui::runtime
         rhi::ShaderModule* m_dfFs = nullptr; // MSDF text fragment (borrowed; null = no DF pipeline)
         shell::IShell* m_shell;             // borrowed
         fonts::IFontService* m_fonts;       // borrowed
-        shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+        shaders::ShaderSystemHost m_shaderHost{foundation::core::DefaultAllocator()}; // owns the ShaderSystem + the VG modules
         rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_fs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient (borrowed)

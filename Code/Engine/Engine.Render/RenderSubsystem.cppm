@@ -297,7 +297,7 @@ export namespace engine::render
         u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init)
         // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider
         // with hot reload otherwise). m_shaders caches its ShaderSystem for the passes to borrow.
-        shaders::ShaderSystemHost m_shaderHost;
+        shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()};
         shaders::ShaderSystem* m_shaders = nullptr;
         UniquePtr<materials::PipelineStateCache> m_psoCache;
         UniquePtr<materials::MaterialSystem> m_materialSystem;

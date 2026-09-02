@@ -179,7 +179,7 @@ namespace editor
                 }
                 if (!m_sphere)
                 {
-                    m_sphere = geometry::Primitives::Sphere(1.0f, 48, 24);
+                    m_sphere = geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 48, 24);
                 }
                 m_proxy = resources.Bind<materials::Material>(id);
                 materials::Material* material = m_proxy ? m_proxy.Get() : nullptr;

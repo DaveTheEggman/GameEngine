@@ -112,7 +112,7 @@ namespace
     Probe RenderTerrainProbe(rhi::Device& device, const ProbeCfg& cfg)
     {
         Probe probe;
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                           BUILTIN_ENGINE_SHADER_DIR))))
         {
@@ -479,7 +479,7 @@ namespace
     ShadowProbe RenderShadowProbe(rhi::Device& device, bool shadowsEnabled)
     {
         ShadowProbe probe;
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                           BUILTIN_ENGINE_SHADER_DIR))))
         {

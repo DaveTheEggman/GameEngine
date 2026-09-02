@@ -47,7 +47,7 @@ namespace
 
 TEST_CASE("physics: a dynamic box falls under gravity and comes to rest on the floor")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     BodyDesc drop = BoxAt(5.0f);
     drop.userData = 42;
@@ -70,7 +70,7 @@ TEST_CASE("physics: a dynamic box falls under gravity and comes to rest on the f
 
 TEST_CASE("physics: a heightfield collider - a sphere rests on it, off-footprint falls through")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
 
     // A flat 65x65 heightfield at world Y = 2, 64x64 footprint centred on origin, static.
     constexpr u32 n = 65;
@@ -125,7 +125,7 @@ TEST_CASE("physics: a heightfield collider - a sphere rests on it, off-footprint
 
 TEST_CASE("physics: static-static never pairs; dynamic collides with static")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     // A static box INSIDE the floor: no contact events from the overlapping statics.
     BodyDesc buried = BoxAt(0.0f, MotionKind::Static);
@@ -157,7 +157,7 @@ TEST_CASE("physics: static-static never pairs; dynamic collides with static")
 
 TEST_CASE("physics: triggers sense without colliding")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
 
     BodyDesc sensor;
@@ -202,7 +202,7 @@ TEST_CASE("physics: triggers sense without colliding")
 
 TEST_CASE("physics: compound bodies build and simulate")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
 
     // A dumbbell: two spheres offset on x - lands and rests HIGHER than a bare sphere
@@ -232,7 +232,7 @@ TEST_CASE("physics: compound bodies build and simulate")
 
 TEST_CASE("physics: ray casts hit the nearest body with user data + normal")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     BodyDesc target = BoxAt(0.5f, MotionKind::Static);
     target.userData = 99;
@@ -251,7 +251,7 @@ TEST_CASE("physics: ray casts hit the nearest body with user data + normal")
 
 TEST_CASE("physics: kinematic bodies follow MoveKinematic with velocity")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc platform = BoxAt(0.0f, MotionKind::Kinematic);
     platform.layer = PhysicsLayer::Kinematic;
     const BodyId body = world.CreateBody(platform);
@@ -273,7 +273,7 @@ TEST_CASE("physics: kinematic bodies follow MoveKinematic with velocity")
 
 TEST_CASE("physics: point query finds containing bodies")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc box = BoxAt(0.0f, MotionKind::Static);
     const BodyId body = world.CreateBody(box);
     Array<BodyId> hits;
@@ -287,7 +287,7 @@ TEST_CASE("physics: point query finds containing bodies")
 
 TEST_CASE("physics: sphere overlap finds intersecting bodies (deduped) + honors the group mask")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc a = BoxAt(0.0f, MotionKind::Static); // at the origin, group 0
     const BodyId bodyA = world.CreateBody(a);
     BodyDesc b = BoxAt(0.0f, MotionKind::Static);
@@ -331,7 +331,7 @@ TEST_CASE("physics: sphere overlap finds intersecting bodies (deduped) + honors 
 
 TEST_CASE("physics: a BOX query shape overlaps too (not only spheres)")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     const BodyId body = world.CreateBody(BoxAt(0.0f, MotionKind::Static)); // 0.5-half box at origin
     QueryShape box;
     box.kind = ShapeKind::Box;
@@ -349,7 +349,7 @@ TEST_CASE("physics: a BOX query shape overlaps too (not only spheres)")
 
 TEST_CASE("physics: shape cast sweeps a sphere onto the nearest body (earlier than a ray)")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     BodyDesc target = BoxAt(0.5f, MotionKind::Static); // spans y in [0,1], top face at y=1.0
     target.userData = 42;
@@ -401,7 +401,7 @@ TEST_CASE("physics: cooked convex hull simulates like a box")
     REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
     REQUIRE(!blob.IsEmpty());
 
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     BodyDesc drop;
     drop.position = Float3{0.0f, 5.0f, 0.0f};
@@ -438,7 +438,7 @@ TEST_CASE("physics: cooked triangle mesh carries per-face material slots to ray 
     REQUIRE(CookTriangleMesh(Span<const Float3>(positions, 4), Span<const u32>(indices, 6),
                              Span<const u32>(slots, 2), blob));
 
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc ground;
     ground.motion = MotionKind::Static;
     ground.layer = PhysicsLayer::Static;
@@ -474,7 +474,7 @@ TEST_CASE("physics: cooked shapes scale; garbage blobs fail gracefully")
     const Array<Float3> corners = CubeCorners(0.5f);
     REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
 
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
     BodyDesc drop;
     drop.position = Float3{0.0f, 5.0f, 0.0f};
@@ -514,7 +514,7 @@ TEST_CASE("physics: cooked shapes scale; garbage blobs fail gracefully")
 
 TEST_CASE("physics: an infinite plane catches bodies anywhere within its half extent")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc ground;
     ground.motion = MotionKind::Static;
     ground.layer = PhysicsLayer::Static;
@@ -546,7 +546,7 @@ TEST_CASE("physics: an infinite plane catches bodies anywhere within its half ex
 
 TEST_CASE("physics: a fixed joint to the world holds a body against gravity")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc drop = BoxAt(3.0f);
     const BodyId body = world.CreateBody(drop);
     JointDesc joint;
@@ -576,7 +576,7 @@ TEST_CASE("physics: a fixed joint to the world holds a body against gravity")
 
 TEST_CASE("physics: a motorized hinge spins its body at the target velocity")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     world.SetGravity(Float3{0.0f, 0.0f, 0.0f});
     BodyDesc blade = BoxAt(2.0f);
     blade.shapes[0].halfExtents = Float3{1.5f, 0.1f, 0.1f};
@@ -616,7 +616,7 @@ TEST_CASE("physics: a motorized hinge spins its body at the target velocity")
 
 TEST_CASE("physics: a distance joint to a world anchor makes a pendulum rope")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     BodyDesc bob;
     ShapeDesc bobShape;
     bobShape.kind = ShapeKind::Sphere;
@@ -646,7 +646,7 @@ TEST_CASE("physics: a distance joint to a world anchor makes a pendulum rope")
 
 TEST_CASE("physics: a slider joint constrains travel to its axis and limits")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     world.SetGravity(Float3{0.0f, 0.0f, 0.0f});
     BodyDesc cart = BoxAt(1.0f);
     const BodyId body = world.CreateBody(cart);
@@ -676,7 +676,7 @@ TEST_CASE("physics: a slider joint constrains travel to its axis and limits")
 
 TEST_CASE("physics: the character walks, climbs steps, and pushes light bodies")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     (void)world.CreateBody(FloorDesc());
 
     // A 0.3-high ledge ahead (within stepUp 0.4), running x in [2, 10].
@@ -746,7 +746,7 @@ TEST_CASE("physics: continuous collision stops a fast body a discrete body tunne
     // the sphere jumps clean across the wall in one step; LinearCast sweeps and stops.
     const auto fire = [](bool continuous) -> f32
     {
-        PhysicsWorld world;
+        PhysicsWorld world(DefaultAllocator());
         BodyDesc wall;
         wall.motion = MotionKind::Static;
         wall.layer = PhysicsLayer::Static;
@@ -786,7 +786,7 @@ TEST_CASE("physics: continuous collision stops a fast body a discrete body tunne
 
 TEST_CASE("physics: an explicit mass override wins over the density-derived mass")
 {
-    PhysicsWorld world;
+    PhysicsWorld world(DefaultAllocator());
     // Density path: a unit-ish box at 1000 kg/m^3 has a known mass (volume * density).
     BodyDesc byDensity = BoxAt(1.0f);
     const BodyId dense = world.CreateBody(byDensity);

@@ -62,7 +62,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     foundation::content::ContentDatabase cookedDb(foundation::core::DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
     Guid meshId;
     {
-        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         geometry::StaticMeshSource source;
         geometry::StaticMeshSource::FromMesh(*cube, source);
         foundation::content::Instance* inst = cookedDb.RootGroup()->CreateInstance(
@@ -124,7 +124,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     // the new product through its handle - no re-resolve pass. (Pointer equality is not a
     // valid signal: the allocator may reuse the freed block.)
     {
-        RefPtr<geometry::StaticMesh> bigger = geometry::Primitives::Cube(2.0f);
+        RefPtr<geometry::StaticMesh> bigger = geometry::Primitives::Cube(DefaultAllocator(), 2.0f);
         geometry::StaticMeshSource source;
         geometry::StaticMeshSource::FromMesh(*bigger, source);
         REQUIRE(cookedDb.GetInstance(meshId)->WriteObject(source).IsOk());
@@ -140,7 +140,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
 
 TEST_CASE("resource-ref: direct objects win over proxies and skip serialization")
 {
-    RefPtr<geometry::StaticMesh> procedural = geometry::Primitives::Cube(2.0f);
+    RefPtr<geometry::StaticMesh> procedural = geometry::Primitives::Cube(DefaultAllocator(), 2.0f);
 
     MeshComponent mc;
     mc.mesh = procedural; // the sample/procedural path: plain RefPtr assignment
@@ -278,7 +278,7 @@ TEST_CASE("resource-ref: a Ref<StaticMesh> bound to a SKINNED product keeps the 
     Guid meshId;
     {
         // A skinned cube: the static cube's streams + one skinning entry per vertex.
-        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         RefPtr<geometry::SkinnedMesh> skinned = MakeRef<geometry::SkinnedMesh>(DefaultAllocator());
         skinned->vertices = cube->vertices;
         skinned->indices = cube->indices;

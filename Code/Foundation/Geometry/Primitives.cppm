@@ -26,9 +26,9 @@ export namespace foundation::geometry
     {
     public:
         // A unit quad in the XY plane (two triangles), facing +Z.
-        [[nodiscard]] static RefPtr<StaticMesh> Quad(f32 width = 1.0f, f32 height = 1.0f)
+        [[nodiscard]] static RefPtr<StaticMesh> Quad(IAllocator& allocator, f32 width = 1.0f, f32 height = 1.0f)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const f32 hw = width * 0.5f, hh = height * 0.5f;
             const u32 white = 0xFFFFFFFFu;
             mesh->vertices.PushBack(StaticMeshVertex{Float3{-hw, -hh, 0}, Float3{0, 0, 1},
@@ -50,9 +50,9 @@ export namespace foundation::geometry
         }
 
         // An axis-aligned cube of edge `size`, 24 verts (hard per-face normals).
-        [[nodiscard]] static RefPtr<StaticMesh> Cube(f32 size = 1.0f)
+        [[nodiscard]] static RefPtr<StaticMesh> Cube(IAllocator& allocator, f32 size = 1.0f)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const f32 h = size * 0.5f;
             mesh->indices.Resize(36); // 6 faces x 2 triangles x 3 indices
             // 6 faces: (origin corner, edge-u, edge-v, normal)
@@ -73,10 +73,10 @@ export namespace foundation::geometry
         }
 
         // A flat grid in the XZ plane, `width` x `depth`, subdivided.
-        [[nodiscard]] static RefPtr<StaticMesh> Plane(f32 width = 1.0f, f32 depth = 1.0f,
+        [[nodiscard]] static RefPtr<StaticMesh> Plane(IAllocator& allocator, f32 width = 1.0f, f32 depth = 1.0f,
                                                       u32 xSegments = 1, u32 zSegments = 1)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const u32 xs = xSegments < 1 ? 1 : xSegments, zs = zSegments < 1 ? 1 : zSegments;
             const u32 white = 0xFFFFFFFFu;
             for (u32 z = 0; z <= zs; ++z)
@@ -106,10 +106,10 @@ export namespace foundation::geometry
         }
 
         // A UV sphere of `radius` with `segments` longitudes and `rings` latitudes.
-        [[nodiscard]] static RefPtr<StaticMesh> Sphere(f32 radius = 0.5f, u32 segments = 32,
+        [[nodiscard]] static RefPtr<StaticMesh> Sphere(IAllocator& allocator, f32 radius = 0.5f, u32 segments = 32,
                                                        u32 rings = 16)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const u32 seg = segments < 3 ? 3 : segments, rng = rings < 2 ? 2 : rings;
             const u32 white = 0xFFFFFFFFu;
             for (u32 r = 0; r <= rng; ++r)
@@ -147,10 +147,10 @@ export namespace foundation::geometry
         // A capped cylinder of `radius` x `height` about the Y axis. Ported from SedulousEngine
         // MeshBuilder.CreateCylinder: caps have hard axial normals (own vertex rings), the side wall
         // has radial normals (duplicated seam column at u=0/1 for clean UVs).
-        [[nodiscard]] static RefPtr<StaticMesh> Cylinder(f32 radius = 0.5f, f32 height = 1.0f,
+        [[nodiscard]] static RefPtr<StaticMesh> Cylinder(IAllocator& allocator, f32 radius = 0.5f, f32 height = 1.0f,
                                                          u32 segments = 32)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const u32 seg = segments < 3 ? 3 : segments;
             const u32 white = 0xFFFFFFFFu;
             const f32 hh = height * 0.5f;
@@ -219,10 +219,10 @@ export namespace foundation::geometry
 
         // A cone of `radius` x `height` about the Y axis (apex at +Y). Ported from SedulousEngine
         // MeshBuilder.CreateCone (slanted side normals; separate flat-normal ring for the base cap).
-        [[nodiscard]] static RefPtr<StaticMesh> Cone(f32 radius = 0.5f, f32 height = 1.0f,
+        [[nodiscard]] static RefPtr<StaticMesh> Cone(IAllocator& allocator, f32 radius = 0.5f, f32 height = 1.0f,
                                                      u32 segments = 32)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const u32 seg = segments < 3 ? 3 : segments;
             const u32 white = 0xFFFFFFFFu;
             const f32 hh = height * 0.5f;
@@ -270,10 +270,10 @@ export namespace foundation::geometry
 
         // A torus about the Y axis: ring `radius`, tube `tubeRadius`. Ported from SedulousEngine
         // MeshBuilder.CreateTorus (same (a,b,c)/(b,d,c) outward winding as Sphere).
-        [[nodiscard]] static RefPtr<StaticMesh> Torus(f32 radius = 1.0f, f32 tubeRadius = 0.3f,
+        [[nodiscard]] static RefPtr<StaticMesh> Torus(IAllocator& allocator, f32 radius = 1.0f, f32 tubeRadius = 0.3f,
                                                       u32 segments = 32, u32 tubeSegments = 16)
         {
-            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(DefaultAllocator());
+            RefPtr<StaticMesh> mesh = MakeRef<StaticMesh>(allocator);
             const u32 seg = segments < 3 ? 3 : segments, tseg = tubeSegments < 3 ? 3 : tubeSegments;
             const u32 white = 0xFFFFFFFFu;
             for (u32 i = 0; i <= seg; ++i)

@@ -140,7 +140,7 @@ private:
     }
 
     // Render plumbing (mirrors VGSandbox).
-    shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+    shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()}; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader

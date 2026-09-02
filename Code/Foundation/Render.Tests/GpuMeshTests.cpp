@@ -22,7 +22,7 @@ TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
     rhi::null::NullDevice device{DefaultAllocator()};
     GpuMeshCache cache(device);
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
 
     const GpuMesh* g = cache.GetOrUpload(cube.Get());
     REQUIRE(g != nullptr);
@@ -38,7 +38,7 @@ TEST_CASE("mesh GPU cache: uploads on first use, reuses after, frees on clear")
     CHECK(cache.Size() == 1);
 
     // a different mesh is a distinct entry
-    RefPtr<geometry::StaticMesh> sphere = geometry::Primitives::Sphere(1.0f, 8, 4);
+    RefPtr<geometry::StaticMesh> sphere = geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 8, 4);
     const GpuMesh* s = cache.GetOrUpload(sphere.Get());
     REQUIRE(s != nullptr);
     CHECK(s->indexCount == sphere->IndexCount());

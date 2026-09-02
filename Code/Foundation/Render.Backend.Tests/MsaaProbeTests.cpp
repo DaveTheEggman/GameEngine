@@ -56,7 +56,7 @@ namespace
     testsupport::CapturedImage RenderMsaa(rhi::Device& device, const MsaaConfig& cfg)
     {
         testsupport::CapturedImage out;
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                          BUILTIN_ENGINE_SHADER_DIR))))
         {
@@ -98,7 +98,7 @@ namespace
 
             // A bright white cube, ROTATED so its silhouette is diagonal (long edges = a clear
             // coverage signal), on a black clear. Flat bright ambient - no lights needed.
-            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(2.2f);
+            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(DefaultAllocator(), 2.2f);
             RefPtr<materials::Material> cubeMat =
                 materials::CreatePBR(u8"msaa.cube", Float4{1, 1, 1, 1}, 0.0f, 0.6f);
             ExtractedScene scene;

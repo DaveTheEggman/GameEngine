@@ -41,7 +41,7 @@ namespace
     Pixels RenderScene(rhi::Device& device, RecordFn&& record, u32 sampleCount = 1)
     {
         Pixels out;
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                          BUILTIN_ENGINE_SHADER_DIR))))
         {

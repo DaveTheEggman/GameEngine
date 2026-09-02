@@ -119,7 +119,7 @@ namespace
     testsupport::CapturedImage RenderTexturedCube(rhi::Device& device, rhi::TextureView* albedo)
     {
         testsupport::CapturedImage out;
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                          BUILTIN_ENGINE_SHADER_DIR))))
         {
@@ -138,7 +138,7 @@ namespace
             REQUIRE(tonemap.Initialize().IsOk());
             RenderFrame frame(device, registry, 2, nullptr, &tonemap);
 
-            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(3.2f);
+            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(DefaultAllocator(), 3.2f);
             RefPtr<materials::Material> mat =
                 materials::CreateUnlit(u8"bc.probe", Float4{1, 1, 1, 1});
             mat->SetDefaultTexture(u8"AlbedoMap", albedo);

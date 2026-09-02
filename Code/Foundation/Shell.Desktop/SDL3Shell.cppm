@@ -105,6 +105,10 @@ export namespace foundation::shell
     class SDL3WindowManager final : public IWindowManager
     {
     public:
+        explicit SDL3WindowManager(core::IAllocator& allocator) noexcept : m_allocator(&allocator)
+        {
+        }
+
         [[nodiscard]] core::Result<IWindow*> CreateWindow(const WindowSettings& settings) override;
 
         void DestroyWindow(IWindow* window) override;
@@ -130,6 +134,7 @@ export namespace foundation::shell
         // DestroyWindow() is a no-op for null/unknown windows. Checked by pointer identity, NOT id:
         // a window from another manager can share an id, and acting on it would corrupt bookkeeping.
         [[nodiscard]] bool Owns(IWindow* window) const noexcept;
+        core::IAllocator* m_allocator;
 
         core::Array<core::UniquePtr<SDL3Window>> m_owned;
         core::Array<IWindow*> m_live;
@@ -267,6 +272,9 @@ export namespace foundation::shell
     class SDL3InputManager final : public IInputManager
     {
     public:
+        explicit SDL3InputManager(core::IAllocator& allocator) noexcept : m_allocator(&allocator)
+        {
+        }
         ~SDL3InputManager() override { ReleaseDevices(); }
 
         // Frees all SDL-owned input resources (open gamepads, system cursors).
@@ -306,6 +314,7 @@ export namespace foundation::shell
         SDL3Keyboard m_keyboard;
         SDL3Mouse m_mouse;
         SDL3Touch m_touch;
+        core::IAllocator* m_allocator;
         core::Array<core::UniquePtr<SDL3Gamepad>> m_gamepads;
         core::Array<InputEvent> m_events; // this frame's event stream
         core::u32 m_hoverWindow = 0;      // window under the pointer
@@ -319,7 +328,10 @@ export namespace foundation::shell
     class SDL3DialogService final : public IDialogService
     {
     public:
-        explicit SDL3DialogService(SDL3WindowManager& windows) noexcept : m_windows(&windows) {}
+        SDL3DialogService(core::IAllocator& allocator, SDL3WindowManager& windows) noexcept
+            : m_allocator(&allocator), m_windows(&windows)
+        {
+        }
 
         void ShowOpenFile(DialogResultCallback callback, core::Span<const FileFilter> filters,
                           core::StringView defaultPath, bool allowMultiple,
@@ -338,6 +350,7 @@ export namespace foundation::shell
         // Trampoline callback are file-local helpers in SDL3ShellImpl.cpp.
         [[nodiscard]] SDL_Window* ParentHandle(core::u32 id) const noexcept;
 
+        core::IAllocator* m_allocator;
         SDL3WindowManager* m_windows;
     };
 
@@ -348,7 +361,9 @@ export namespace foundation::shell
         // client-side decorations to a window backed by a GPU surface, so a plain
         // window comes up bare on GNOME/Mutter. Sdl3WindowFlags() flags every
         // window as Vulkan on Linux (skipped under the "dummy" driver) to fix it.
-        explicit SDL3Shell(const WindowSettings& settings = {}) noexcept;
+        // The allocator (required - the entry point decides) backs windows,
+        // gamepads, and dialog contexts.
+        SDL3Shell(core::IAllocator& allocator, const WindowSettings& settings = {}) noexcept;
         ~SDL3Shell() override;
 
         SDL3Shell(const SDL3Shell&) = delete;
@@ -379,19 +394,20 @@ export namespace foundation::shell
         // SDL mouse button number (1-based) minus 1 -> MouseButton (Left/Middle/Right/X1/X2).
         static MouseButton MapMouseButton(core::u32 idx) noexcept;
 
+        core::IAllocator* m_allocator = nullptr; // FIRST: managers below init from it
         SDL3WindowManager m_windows;
         SDL3InputManager m_input;
-        SDL3DialogService m_dialogs{
-            m_windows}; // ctor takes m_windows (declared above -> init order OK)
+        SDL3DialogService m_dialogs; // ctor takes m_windows (declared above -> init order OK)
         bool m_initialized = false;
         bool m_running = true;
         core::Array<DroppedFile> m_droppedFiles; // queued during ProcessEvents, drained per frame
     };
 
     // Factory the APP_MAIN entry point calls to create the shell.
-    [[nodiscard]] core::UniquePtr<IShell> CreateShell(const WindowSettings& settings = {})
+    [[nodiscard]] core::UniquePtr<IShell> CreateShell(core::IAllocator& allocator,
+                                                      const WindowSettings& settings = {})
     {
-        IShell* shell = core::DefaultAllocator().New<SDL3Shell>(settings);
-        return core::UniquePtr<IShell>(shell, core::DefaultAllocator());
+        IShell* shell = allocator.New<SDL3Shell>(allocator, settings);
+        return core::UniquePtr<IShell>(shell, allocator);
     }
 }

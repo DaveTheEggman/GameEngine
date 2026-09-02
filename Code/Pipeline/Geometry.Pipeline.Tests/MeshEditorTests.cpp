@@ -48,7 +48,7 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
         auto* inst = outDb.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
-        RefPtr<StaticMesh> cube = Primitives::Cube(1.0f);
+        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 1.0f);
         StaticMeshAsset asset;
         MeshImporter::Import(*cube, asset);
 
@@ -144,7 +144,7 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
             db.RootGroup()->CreateInstance(u8"sphere", StaticMeshAsset::StaticType());
         id = inst->Id();
 
-        RefPtr<StaticMesh> sphere = Primitives::Sphere(1.0f, 32, 32); // real bulk
+        RefPtr<StaticMesh> sphere = Primitives::Sphere(DefaultAllocator(), 1.0f, 32, 32); // real bulk
         StaticMeshAsset asset;
         MeshImporter::Import(*sphere, asset);
         originalVertexCount = asset.source.vertexBlob.Size();
@@ -204,7 +204,7 @@ TEST_CASE("mesh editor: legacy inline envelopes (v<3) still load")
             mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshAsset::StaticType());
         id = inst->Id();
-        RefPtr<StaticMesh> cube = Primitives::Cube(1.0f);
+        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 1.0f);
         StaticMeshAsset asset;
         MeshImporter::Import(*cube, asset);
         // The LEGACY write path: flag false -> geometry inline in the envelope (what every

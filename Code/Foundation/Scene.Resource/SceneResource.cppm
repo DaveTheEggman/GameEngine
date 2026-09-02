@@ -297,7 +297,7 @@ export namespace foundation::scene
         [[nodiscard]] inline UniquePtr<Scene::PendingPrefabInstance>
         ComputeInstanceDeltas(Scene& scene, Scene::PrefabInstanceState& state)
         {
-            auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+            auto pending = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
             pending->prefabId = state.prefabId;
             EntityHandle root = scene.FindEntity(state.rootEntityId);
             EntityHandle parent =
@@ -1322,7 +1322,7 @@ export namespace foundation::scene
 
         // Sources are TEXT: diffable, mergeable, hand-editable.
         // Export staging transcodes to the binary wire for the player.
-        foundation::xml::XmlSerializer ser(foundation::core::DefaultAllocator());
+        foundation::xml::XmlSerializer ser(scene.Allocator());
         SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, true,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())
@@ -1380,7 +1380,7 @@ export namespace foundation::scene
         // Referenced + no settings: nested instances persist as ref+delta RECORDS - the
         // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
         // like scene saves (export transcodes).
-        foundation::xml::XmlSerializer ser(foundation::core::DefaultAllocator());
+        foundation::xml::XmlSerializer ser(scene.Allocator());
         SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())
@@ -1413,7 +1413,7 @@ export namespace foundation::scene
             {
                 return UniquePtr<SceneSnapshot>{};
             }
-            UniquePtr<SceneSnapshot> snapshot = MakeUnique<SceneSnapshot>(DefaultAllocator());
+            UniquePtr<SceneSnapshot> snapshot = MakeUnique<SceneSnapshot>(scene.Allocator());
             const Span<const byte> bytes = buffer.Bytes();
             snapshot->m_blob.Reserve(bytes.Size());
             for (byte b : bytes)

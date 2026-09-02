@@ -249,7 +249,7 @@ namespace editor
         }
 
         m_sphere = scenePtr->CreateEntity(u8"PreviewSphere");
-        m_previewMesh = foundation::geometry::Primitives::Sphere(1.0f, 48, 24);
+        m_previewMesh = foundation::geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 48, 24);
         if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             engine::render::MeshComponent& mc = meshes->Add(m_sphere);
@@ -418,22 +418,22 @@ namespace editor
         switch (m_previewShape)
         {
         case 1:
-            m_previewMesh = geometry::Primitives::Cube(1.4f);
+            m_previewMesh = geometry::Primitives::Cube(DefaultAllocator(), 1.4f);
             break;
         case 2:
-            m_previewMesh = geometry::Primitives::Plane(2.0f, 2.0f);
+            m_previewMesh = geometry::Primitives::Plane(DefaultAllocator(), 2.0f, 2.0f);
             break;
         case 3:
-            m_previewMesh = geometry::Primitives::Cylinder(0.7f, 1.6f, 48);
+            m_previewMesh = geometry::Primitives::Cylinder(DefaultAllocator(), 0.7f, 1.6f, 48);
             break;
         case 4:
-            m_previewMesh = geometry::Primitives::Torus(0.8f, 0.35f, 48, 24);
+            m_previewMesh = geometry::Primitives::Torus(DefaultAllocator(), 0.8f, 0.35f, 48, 24);
             break;
         case 5:
-            m_previewMesh = geometry::Primitives::Cone(0.8f, 1.6f, 48);
+            m_previewMesh = geometry::Primitives::Cone(DefaultAllocator(), 0.8f, 1.6f, 48);
             break;
         default:
-            m_previewMesh = geometry::Primitives::Sphere(1.0f, 48, 24);
+            m_previewMesh = geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 48, 24);
             break;
         }
         mc->mesh.SetId(Guid{});

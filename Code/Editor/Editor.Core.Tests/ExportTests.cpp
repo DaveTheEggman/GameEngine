@@ -233,7 +233,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
             meshes->CreateInstance(u8"Cube", pipeline::StaticMeshAsset::StaticType());
         REQUIRE(meshAsset != nullptr);
         pipeline::StaticMeshAsset asset;
-        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(DefaultAllocator(), 2.0f), asset);
         REQUIRE(meshAsset->WriteObject(asset).IsOk());
         meshId = meshAsset->Id();
 
@@ -454,7 +454,7 @@ namespace
             group.CreateInstance(name, pipeline::StaticMeshAsset::StaticType());
         REQUIRE(inst != nullptr);
         pipeline::StaticMeshAsset asset;
-        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(2.0f), asset);
+        pipeline::MeshImporter::Import(*geometry::Primitives::Cube(DefaultAllocator(), 2.0f), asset);
         REQUIRE(inst->WriteObject(asset).IsOk());
         return inst->Id();
     }

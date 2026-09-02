@@ -519,7 +519,7 @@ namespace foundation::scene
             {
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
-                    auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+                    auto pending = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
                     detail::ReadPrefabRecord(ar, scene, *pending, wireNested, text, streamVersion);
                     scene.AddPendingPrefabInstance(
                         static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(pending));
@@ -585,7 +585,7 @@ namespace foundation::scene
                 } // misparse guard
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
-                    auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
+                    auto state = MakeUnique<Scene::PrefabInstanceState>(scene.Allocator());
                     detail::SerializeGuid(ar, "prefab", state->prefabId, streamVersion);
                     detail::SerializeGuid(ar, "root", state->rootEntityId, streamVersion);
                     if (expandedNested)
@@ -657,7 +657,7 @@ namespace foundation::scene
             BinarySerializer ar(out, SerializeMode::Write);
             return detail::CapturePrefabBody(ar, false, scene, root);
         }
-        foundation::xml::XmlSerializer ar(foundation::core::DefaultAllocator());
+        foundation::xml::XmlSerializer ar(scene.Allocator());
         const Status body = detail::CapturePrefabBody(ar, true, scene, root);
         if (!body.IsOk())
         {
@@ -759,7 +759,7 @@ namespace foundation::scene
         String name;
         foundation::core::Serialize(ar, "name", name);
 
-        auto state = MakeUnique<Scene::PrefabInstanceState>(DefaultAllocator());
+        auto state = MakeUnique<Scene::PrefabInstanceState>(scene.Allocator());
         state->prefabId = prefabId;
 
         u32 entityCount = 0;
@@ -993,7 +993,7 @@ namespace foundation::scene
         Array<UniquePtr<Scene::PendingPrefabInstance>> records;
         for (u32 n = 0; n < recordCount && ar.IsOk(); ++n)
         {
-            auto record = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+            auto record = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
             detail::ReadPrefabRecord(ar, scene, *record, wireNested, text, streamVersion);
             records.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(record));
         }
@@ -1293,7 +1293,7 @@ namespace foundation::scene
             return detail::ComputeInstanceDeltas(scene, state);
         }
 
-        auto pending = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+        auto pending = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
         pending->prefabId = state.prefabId;
         EntityHandle liveRoot = scene.FindEntity(state.rootEntityId);
         EntityHandle parent =
@@ -1404,7 +1404,7 @@ namespace foundation::scene
             BinarySerializer ar(out, SerializeMode::Write);
             return detail::CaptureInstanceAsTemplateBody(ar, false, scene, state, resolver);
         }
-        foundation::xml::XmlSerializer ar(foundation::core::DefaultAllocator());
+        foundation::xml::XmlSerializer ar(scene.Allocator());
         const Status body = detail::CaptureInstanceAsTemplateBody(ar, true, scene, state, resolver);
         if (!body.IsOk())
         {
@@ -1454,7 +1454,7 @@ namespace foundation::scene
         Array<Guid> subRoots;
         for (Scene::PrefabInstanceState* nested : contained)
         {
-            auto sub = MakeUnique<Scene::PendingPrefabInstance>(DefaultAllocator());
+            auto sub = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
             sub->prefabId = nested->prefabId;
             sub->sourceIds = nested->sourceIds;
             sub->liveIds = nested->liveIds;

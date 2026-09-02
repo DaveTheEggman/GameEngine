@@ -74,7 +74,7 @@ int main(int /*argc*/, char** /*argv*/)
     ws.width = 800;
     ws.height = 600;
 
-    auto shell = shell::CreateShell(ws);
+    auto shell = shell::CreateShell(foundation::core::DefaultAllocator(), ws);
     if (shell.Get() == nullptr || shell->MainWindow() == nullptr)
     {
         core::ConsoleWrite(u8"MultiWindow: shell/window init failed.\n");

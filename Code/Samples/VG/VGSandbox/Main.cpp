@@ -91,7 +91,7 @@ private:
         return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH)).IsEmpty();
     }
 
-    shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules
+    shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()}; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_dfFs = nullptr;         // MSDF distance-field fragment shader

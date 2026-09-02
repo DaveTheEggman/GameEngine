@@ -62,7 +62,7 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
         srcDb.RootGroup()->CreateInstance(u8"cube", pipeline::StaticMeshAsset::StaticType());
     {
         pipeline::StaticMeshAsset meshAsset;
-        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         geometry::StaticMeshSource::FromMesh(*cube, meshAsset.source);
         REQUIRE(meshInstance->WriteObject(meshAsset).IsOk());
     }
@@ -104,7 +104,7 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
         CHECK(shape->outline.Size() % 3 == 0);
 
         // The blob drives a real body. Meshes must be static; hulls may fall.
-        PhysicsWorld world;
+        PhysicsWorld world(DefaultAllocator());
         BodyDesc desc;
         desc.motion =
             kind == CollisionCookKind::ConvexHull ? MotionKind::Dynamic : MotionKind::Static;
@@ -144,7 +144,7 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
         prodDb.RootGroup()->CreateInstance(u8"cube", geometry::StaticMeshSource::StaticType());
     {
         geometry::StaticMeshSource meshSource;
-        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         geometry::StaticMeshSource::FromMesh(*cube, meshSource);
         REQUIRE(meshInstance->WriteObject(meshSource).IsOk());
     }

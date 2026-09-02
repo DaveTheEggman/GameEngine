@@ -183,7 +183,7 @@ export namespace extensions::imgui
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
-        shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the ImGui modules
+        shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()}; // owns the ShaderSystem + the ImGui modules
         UniquePtr<ImguiRenderer> m_renderer;
         ImGuiContext* m_context = nullptr;
         u32 m_width = 1280,

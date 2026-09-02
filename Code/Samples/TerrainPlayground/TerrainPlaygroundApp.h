@@ -153,7 +153,7 @@ namespace samples
             if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
             {
                 engine::render::MeshComponent& mc = meshes->Add(m_caster);
-                mc.mesh = geometry::Primitives::Sphere(kCasterRadius);
+                mc.mesh = geometry::Primitives::Sphere(DefaultAllocator(), kCasterRadius);
                 mc.SetMaterial(materials::CreatePBR(u8"caster", core::Float4{0.9f, 0.3f, 0.2f, 1.0f},
                                                     0.0f, 0.5f));
             }

@@ -75,7 +75,8 @@ extern "C" const char* BuildStamp();
         ::foundation::core::GlobalLogger().AddSink(&appConsoleSink);                            \
         LOG_INFO(u8"Build", u8"Client build {}",                                        \
                           reinterpret_cast<const char8_t*>(BuildStamp()));                 \
-        auto shell = ::foundation::shell::CreateShell();                                             \
+        auto shell =                                                                               \
+            ::foundation::shell::CreateShell(::foundation::core::DefaultAllocator());                                             \
         ::foundation::graphics::GraphicsDeviceDesc appGpuDesc{};                                \
         appGpuDesc.backend =                                                                  \
             ::foundation::graphics::SelectBackendFromArguments(argc, argv);                          \

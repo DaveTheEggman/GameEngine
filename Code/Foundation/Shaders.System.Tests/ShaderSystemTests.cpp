@@ -247,7 +247,7 @@ TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
-        FileShaderSourceProvider provider;
+        FileShaderSourceProvider provider{DefaultAllocator()};
         REQUIRE(provider.Initialize(u8"shader_canon_corpus").IsOk());
 
         ShaderSystem ss(*compiler, device);
@@ -305,7 +305,7 @@ TEST_CASE("shader system host: dev-first policy - a nearby pack does not silentl
 
     {
         // Automatic: dev is possible (DXC + root), so the pack must NOT take over.
-        ShaderSystemHost host;
+        ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, u8"host_dev_root"))
         {
             MESSAGE("DXC unavailable; skipping");
@@ -319,14 +319,14 @@ TEST_CASE("shader system host: dev-first policy - a nearby pack does not silentl
         // Explicit opt-in: ForcePack loads a nearby pack. LoadPack scans the EXECUTABLE
         // directory before the cwd, and a dev machine may legitimately have a cooked pack
         // beside the test binary - so assert pack mode, not which pack won.
-        ShaderSystemHost host;
+        ShaderSystemHost host{DefaultAllocator()};
         REQUIRE(host.Initialize(device, u8"host_dev_root", ShaderPackPolicy::ForcePack));
         CHECK(host.UsingPack());
         CHECK(host.PackVariantCount() >= 1u);
     }
     {
         // ForceDev ignores the pack even when the root is missing (registered-only mode).
-        ShaderSystemHost host;
+        ShaderSystemHost host{DefaultAllocator()};
         REQUIRE(host.Initialize(device, u8"no_such_root_zzz", ShaderPackPolicy::ForceDev));
         CHECK_FALSE(host.UsingPack());
     }

@@ -43,7 +43,7 @@ TEST_CASE("index buffer: format, set/get, raw size")
 
 TEST_CASE("static mesh: generated normals + tangents + bounds on a quad")
 {
-    RefPtr<StaticMesh> mesh = Primitives::Quad(2.0f, 2.0f);
+    RefPtr<StaticMesh> mesh = Primitives::Quad(DefaultAllocator(), 2.0f, 2.0f);
     REQUIRE(mesh);
     CHECK(mesh->VertexCount() == 4);
     CHECK(mesh->IndexCount() == 6);
@@ -111,14 +111,14 @@ TEST_CASE("skinned mesh IS-A static mesh: static stream is substitutable")
 
 TEST_CASE("primitives: cube + sphere + plane are well-formed")
 {
-    RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
+    RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 2.0f);
     REQUIRE(cube);
     CHECK(cube->VertexCount() == 24); // 4 verts x 6 faces (hard normals)
     CHECK(cube->IndexCount() == 36);
     CHECK(cube->bounds.min.x == doctest::Approx(-1.0f));
     CHECK(cube->bounds.max.z == doctest::Approx(1.0f));
 
-    RefPtr<StaticMesh> sphere = Primitives::Sphere(1.0f, 16, 8);
+    RefPtr<StaticMesh> sphere = Primitives::Sphere(DefaultAllocator(), 1.0f, 16, 8);
     REQUIRE(sphere);
     CHECK(sphere->IndexCount() == 16 * 8 * 6);
     // every surface point is ~radius from the origin
@@ -127,7 +127,7 @@ TEST_CASE("primitives: cube + sphere + plane are well-formed")
         CHECK(Length(v.position) == doctest::Approx(1.0f).epsilon(0.01));
     }
 
-    RefPtr<StaticMesh> plane = Primitives::Plane(4.0f, 4.0f, 2, 2);
+    RefPtr<StaticMesh> plane = Primitives::Plane(DefaultAllocator(), 4.0f, 4.0f, 2, 2);
     REQUIRE(plane);
     CHECK(plane->VertexCount() == 9); // (2+1) x (2+1)
     CHECK(plane->IndexCount() == 2 * 2 * 6);
@@ -135,7 +135,7 @@ TEST_CASE("primitives: cube + sphere + plane are well-formed")
 
 TEST_CASE("primitives: cylinder + cone + torus are well-formed (Sedulous ports)")
 {
-    RefPtr<StaticMesh> cyl = Primitives::Cylinder(0.5f, 2.0f, 16);
+    RefPtr<StaticMesh> cyl = Primitives::Cylinder(DefaultAllocator(), 0.5f, 2.0f, 16);
     REQUIRE(cyl);
     CHECK(cyl->VertexCount() == 1 + 16 + 1 + 16 + (16 + 1) * 2);
     CHECK(cyl->IndexCount() == 16 * 3 * 2 + 16 * 6);
@@ -150,14 +150,14 @@ TEST_CASE("primitives: cylinder + cone + torus are well-formed (Sedulous ports)"
         CHECK(Abs(v.position.y) == doctest::Approx(1.0f));
     }
 
-    RefPtr<StaticMesh> cone = Primitives::Cone(0.5f, 1.0f, 16);
+    RefPtr<StaticMesh> cone = Primitives::Cone(DefaultAllocator(), 0.5f, 1.0f, 16);
     REQUIRE(cone);
     CHECK(cone->VertexCount() == 1 + 16 + 1 + 16);
     CHECK(cone->IndexCount() == 16 * 6);
     CHECK(cone->bounds.max.y == doctest::Approx(0.5f));
     CHECK(cone->bounds.min.y == doctest::Approx(-0.5f));
 
-    RefPtr<StaticMesh> torus = Primitives::Torus(1.0f, 0.25f, 16, 8);
+    RefPtr<StaticMesh> torus = Primitives::Torus(DefaultAllocator(), 1.0f, 0.25f, 16, 8);
     REQUIRE(torus);
     CHECK(torus->VertexCount() == (16 + 1) * (8 + 1));
     CHECK(torus->IndexCount() == 16 * 8 * 6);

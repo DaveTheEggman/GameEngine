@@ -166,7 +166,7 @@ namespace engine::ui
     // Per-target-format VG pipeline (backbuffer vs viewport formats differ).
     struct UISubsystem::RenderState
     {
-        foundation::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
+        foundation::shaders::ShaderSystemHost shaderHost{DefaultAllocator()}; // owns the ShaderSystem + VG modules
         rhi::Device* device = nullptr;
         rhi::ShaderModule* vertexShader = nullptr;       // borrowed from shaderHost
         rhi::ShaderModule* fragmentShader = nullptr;     // borrowed from shaderHost

@@ -585,16 +585,16 @@ namespace foundation::physics
         Array<Float2> characterSteps;                      // (stepUp, stepDown) per slot
     };
 
-    PhysicsWorld::PhysicsWorld(const PhysicsWorldSettings& settings)
+    PhysicsWorld::PhysicsWorld(core::IAllocator& allocator, const PhysicsWorldSettings& settings)
     {
         AcquireJolt();
-        m_impl = MakeUnique<Impl>(DefaultAllocator());
+        m_impl = MakeUnique<Impl>(allocator);
         m_impl->tempAllocator =
-            MakeUnique<JPH::TempAllocatorImpl>(DefaultAllocator(), 10 * 1024 * 1024);
+            MakeUnique<JPH::TempAllocatorImpl>(allocator, 10 * 1024 * 1024);
         m_impl->jobSystem = MakeUnique<JPH::JobSystemThreadPool>(
-            DefaultAllocator(), JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
+            allocator, JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
             static_cast<int>(JPH::thread::hardware_concurrency()) - 1);
-        m_impl->system = MakeUnique<JPH::PhysicsSystem>(DefaultAllocator());
+        m_impl->system = MakeUnique<JPH::PhysicsSystem>(allocator);
         for (u32 i = 0; i < kCollisionGroupCount; ++i)
         {
             m_impl->pairFilter.groupCollides[i] = settings.groupCollides[i];

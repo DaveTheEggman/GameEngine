@@ -165,7 +165,7 @@ int main(int argc, char** argv)
     ws.title = u8"Player";
     ws.width = 1280;
     ws.height = 720;
-    auto shellPtr = shell::CreateShell(ws);
+    auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
         std::fprintf(stderr, "Engine.Player: failed to create the OS shell/window\n");

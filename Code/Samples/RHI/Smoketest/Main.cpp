@@ -56,7 +56,7 @@ int main(int /*argc*/, char** /*argv*/)
     ws.title = u8"RHI Smoketest";
     ws.width = 1280;
     ws.height = 720;
-    UniquePtr<shell::IShell> plat = shell::CreateShell(ws);
+    UniquePtr<shell::IShell> plat = shell::CreateShell(DefaultAllocator(), ws);
     if (!plat || plat->MainWindow() == nullptr)
     {
         std::fprintf(stderr, "shell/window init failed\n");

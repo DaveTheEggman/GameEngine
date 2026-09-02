@@ -46,7 +46,7 @@ TEST_CASE("static mesh resource: cube round-trips through the resource manager")
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
 
-        RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
+        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 2.0f);
         StaticMeshSource src;
         StaticMeshSource::FromMesh(*cube, src);
         REQUIRE(inst->WriteObject(src).IsOk());
@@ -84,7 +84,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
                                               u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshSource::StaticType());
         id = inst->Id();
-        RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
+        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 2.0f);
         StaticMeshSource src;
         StaticMeshSource::FromMesh(*cube, src);
         REQUIRE(inst->WriteObject(src).IsOk());
@@ -132,7 +132,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
     {
         foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
                                               u8".rasset");
-        RefPtr<StaticMesh> cube = Primitives::Cube(2.0f);
+        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 2.0f);
         StaticMeshSource src;
         StaticMeshSource::FromMesh(*cube, src);
         for (int i = 0; i < kCount; ++i)

@@ -108,7 +108,7 @@ namespace
                 scene::EntityHandle floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(floor, core::Float3{0.0f, 0.0f, 0.0f});
                 engine::render::MeshComponent& mc = meshes->Add(floor);
-                mc.mesh = geometry::Primitives::Plane(80.0f, 80.0f);
+                mc.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), 80.0f, 80.0f);
                 mc.SetMaterial(materials::CreatePBR(
                     u8"floor", core::Float4{0.20f, 0.22f, 0.26f, 1.0f}, 0.0f, 0.8f));
             }
@@ -161,7 +161,7 @@ namespace
                 m_scene->SetLocalPosition(m_debrisEmitter, CellPos(1));
                 engine::particles::ParticleEffectComponent& dc = pmgr->Add(m_debrisEmitter);
                 dc.SetEffect(m_debris);
-                dc.mesh = geometry::Primitives::Cube(1.0f);
+                dc.mesh = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.0f);
                 dc.material = materials::CreatePBR(
                     u8"shards-solid", core::Float4{0.35f, 0.6f, 0.9f, 1.0f}, 0.1f, 0.5f);
                 dc.meshScale = 0.5f;
@@ -170,7 +170,7 @@ namespace
                 m_scene->SetLocalPosition(m_glowEmitter, CellPos(2));
                 engine::particles::ParticleEffectComponent& gc = pmgr->Add(m_glowEmitter);
                 gc.SetEffect(m_meshGlow);
-                gc.mesh = geometry::Primitives::Cube(1.0f);
+                gc.mesh = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.0f);
                 gc.meshScale = 0.5f;
                 {
                     // Additive PBR material -> the extractor routes these to the Transparent pass.
@@ -211,7 +211,7 @@ namespace
                     scene::EntityHandle ob = m_scene->CreateEntity(u8"obstacle");
                     m_scene->SetLocalPosition(ob, obstacle);
                     engine::render::MeshComponent& omc = meshes->Add(ob);
-                    omc.mesh = geometry::Primitives::Sphere(obRadius);
+                    omc.mesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), obRadius);
                     omc.SetMaterial(materials::CreatePBR(
                         u8"obstacle", core::Float4{0.7f, 0.7f, 0.72f, 1.0f}, 0.1f, 0.4f));
                 }
@@ -1257,7 +1257,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = shell::CreateShell();
+    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
     graphics::GraphicsDeviceDesc gpuDesc{};
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

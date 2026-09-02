@@ -273,13 +273,13 @@ namespace
                 return;
             }
 
-            core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.5f);
+            core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 0.5f);
 
             // A ground slab (static) for a sense of place.
             {
                 scene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(ground, core::Float3{0.0f, -0.6f, 0.0f});
-                core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(1.0f);
+                core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.0f);
                 engine::render::MeshComponent& mc = meshes->Add(ground);
                 mc.mesh = slab;
                 mc.SetMaterial(materials::CreatePBR(
@@ -395,7 +395,7 @@ int main(int argc, char** argv)
 
     static core::ConsoleSink appConsoleSink;
     core::GlobalLogger().AddSink(&appConsoleSink);
-    auto shell = shell::CreateShell();
+    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
     graphics::GraphicsDeviceDesc appGpuDesc{};
     appGpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto appGpu = graphics::CreateGraphicsDevice(appGpuDesc);

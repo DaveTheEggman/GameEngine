@@ -72,7 +72,7 @@ TEST_CASE("file provider: manifest scan, stem/stage mapping, lazy fetch")
     WriteFile(root / "shared.hlsli", "// helper only\n");
     WriteFile(root / "readme.txt", "not a shader\n");
 
-    FileShaderSourceProvider provider;
+    FileShaderSourceProvider provider{DefaultAllocator()};
     REQUIRE(provider.Initialize(u8"shader_provider_scan").IsOk());
     CHECK(provider.ShaderFileCount() == 3); // .hlsli and .txt are not shader entries
 
@@ -95,7 +95,7 @@ TEST_CASE("file provider: manifest scan, stem/stage mapping, lazy fetch")
     CHECK_FALSE(provider.FetchSource(u8"tonemap", ShaderStage::Compute, source));
     CHECK_FALSE(provider.FetchSource(u8"nope", ShaderStage::Fragment, source));
 
-    FileShaderSourceProvider missing;
+    FileShaderSourceProvider missing{DefaultAllocator()};
     CHECK(missing.Initialize(u8"shader_provider_does_not_exist") == ErrorCode::NotFound);
 }
 
@@ -118,7 +118,7 @@ TEST_CASE("shader system: pulls source from the provider; includes resolve; "
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
-        FileShaderSourceProvider provider;
+        FileShaderSourceProvider provider{DefaultAllocator()};
         REQUIRE(provider.Initialize(u8"shader_provider_sys").IsOk());
 
         ShaderSystem ss(*compiler, device);
@@ -157,7 +157,7 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
-        FileShaderSourceProvider provider;
+        FileShaderSourceProvider provider{DefaultAllocator()};
         REQUIRE(provider.Initialize(u8"shader_provider_reload").IsOk());
 
         ShaderSystem ss(*compiler, device);
@@ -198,7 +198,7 @@ TEST_CASE("file provider: reload detection with an absolute root")
     std::filesystem::create_directories(root);
     WriteFile(root / "hot.ps.hlsl", kRedPS);
 
-    FileShaderSourceProvider provider;
+    FileShaderSourceProvider provider{DefaultAllocator()};
     const std::string rootStr = root.string();
     REQUIRE(provider.Initialize(StringView(reinterpret_cast<const char8_t*>(rootStr.c_str()),
                                            rootStr.size()))

@@ -65,7 +65,7 @@ namespace
         // ENV_WEBGPU_WGSL=1) runs the probe on the cooked pack - i.e. the BROWSER'S
         // WGSL shader path on wgpu-native, so an ingestion-convention divergence between
         // the SPIR-V and WGSL frontends shows up right here, locally.
-        shaders::ShaderSystemHost host;
+        shaders::ShaderSystemHost host{DefaultAllocator()};
         if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
                                          BUILTIN_ENGINE_SHADER_DIR))))
         {
@@ -97,8 +97,8 @@ namespace
 
             // The asymmetric scene: bright white cube ABOVE eye level (projects into the TOP
             // half), dim wide ground plane below. Flat bright ambient - no lights needed.
-            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(1.6f);
-            RefPtr<geometry::StaticMesh> planeMesh = geometry::Primitives::Plane(24.0f, 24.0f);
+            RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(DefaultAllocator(), 1.6f);
+            RefPtr<geometry::StaticMesh> planeMesh = geometry::Primitives::Plane(DefaultAllocator(), 24.0f, 24.0f);
             RefPtr<materials::Material> cubeMat =
                 materials::CreatePBR(u8"probe.cube", Float4{1, 1, 1, 1}, 0.0f, 0.6f);
             RefPtr<materials::Material> planeMat =

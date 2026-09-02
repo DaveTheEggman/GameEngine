@@ -287,7 +287,7 @@ TEST_CASE("mesh optimize: the builder runs the pass (cooked cube stays a cube)")
     // The builder-level guarantee: counts survive (the existing cook test pins them),
     // and the cooked triangle set equals the source's - through the REAL Build path.
     RegisterMeshAssets();
-    RefPtr<StaticMesh> cube = Primitives::Cube(1.0f);
+    RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 1.0f);
     StaticMeshAsset asset;
     MeshImporter::Import(*cube, asset);
     const std::vector<Tri> before = TriangleSet(asset.source, 0);

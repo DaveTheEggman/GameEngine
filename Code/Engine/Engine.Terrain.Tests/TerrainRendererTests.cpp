@@ -31,7 +31,7 @@ namespace
 {
     shaders::FileShaderSourceProvider& EngineShaderProvider()
     {
-        static shaders::FileShaderSourceProvider provider;
+        static shaders::FileShaderSourceProvider provider{DefaultAllocator()};
         static bool initialized = false;
         if (!initialized)
         {

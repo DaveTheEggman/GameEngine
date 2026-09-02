@@ -27,6 +27,7 @@ namespace foundation::shell
     // ---- file-local SDL helpers, PIMPL'd out of SDL3Shell.cppm (sec 3.2 / sec 10.6) ----
     struct Context
     {
+        core::IAllocator* allocator = nullptr; // frees this box in the SDL dialog callback
         DialogResultCallback callback;
         core::Array<core::String> filterStrings; // keeps the SDL_DialogFileFilter char* data alive
         core::Array<SDL_DialogFileFilter> sdlFilters;
@@ -35,7 +36,7 @@ namespace foundation::shell
 
     static SDL_WindowFlags Sdl3WindowFlags(const WindowSettings& settings) noexcept;
     static SDL_SystemCursor MapSystemCursor(CursorType cursor) noexcept;
-    static Context* MakeContext(DialogResultCallback&& callback,
+    static Context* MakeContext(core::IAllocator& allocator, DialogResultCallback&& callback,
                                 core::Span<const FileFilter> filters, core::StringView defaultPath);
     static void SDLCALL Trampoline(void* userdata, const char* const* filelist, int filter);
     static KeyCode MapKeyCode(SDL_Scancode sc) noexcept;
@@ -89,7 +90,9 @@ namespace foundation::shell
         return flags;
     }
 
-    SDL3Shell::SDL3Shell(const WindowSettings& settings) noexcept
+    SDL3Shell::SDL3Shell(core::IAllocator& allocator, const WindowSettings& settings) noexcept
+        : m_allocator(&allocator), m_windows(allocator), m_input(allocator),
+          m_dialogs(allocator, m_windows)
     {
         SDL_SetMainReady();
         if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
@@ -261,7 +264,7 @@ namespace foundation::shell
                                   static_cast<int>(settings.y));
         }
 
-        auto wrapped = core::MakeUnique<SDL3Window>(core::DefaultAllocator(), window);
+        auto wrapped = core::MakeUnique<SDL3Window>(*m_allocator, window);
         IWindow* borrowed = wrapped.Get();
         m_owned.PushBack(static_cast<core::UniquePtr<SDL3Window>&&>(wrapped));
         m_live.PushBack(borrowed);
@@ -707,7 +710,7 @@ namespace foundation::shell
                 ? core::String(core::StringView(reinterpret_cast<const core::utf8char*>(n)))
                 : core::String{};
         const core::i32 index = static_cast<core::i32>(m_gamepads.Size());
-        m_gamepads.PushBack(core::MakeUnique<SDL3Gamepad>(core::DefaultAllocator(), pad, id, index,
+        m_gamepads.PushBack(core::MakeUnique<SDL3Gamepad>(*m_allocator, pad, id, index,
                                                           static_cast<core::String&&>(name)));
     }
 
@@ -745,7 +748,8 @@ namespace foundation::shell
                                          core::u32 parentWindowId)
     {
         Context* ctx =
-            MakeContext(static_cast<DialogResultCallback&&>(callback), filters, defaultPath);
+            MakeContext(*m_allocator, static_cast<DialogResultCallback&&>(callback), filters,
+                        defaultPath);
         SDL_ShowOpenFileDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
                                ctx->sdlFilters.IsEmpty() ? nullptr : ctx->sdlFilters.Data(),
                                static_cast<int>(ctx->sdlFilters.Size()),
@@ -760,7 +764,8 @@ namespace foundation::shell
                                          core::StringView defaultPath, core::u32 parentWindowId)
     {
         Context* ctx =
-            MakeContext(static_cast<DialogResultCallback&&>(callback), filters, defaultPath);
+            MakeContext(*m_allocator, static_cast<DialogResultCallback&&>(callback), filters,
+                        defaultPath);
         SDL_ShowSaveFileDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
                                ctx->sdlFilters.IsEmpty() ? nullptr : ctx->sdlFilters.Data(),
                                static_cast<int>(ctx->sdlFilters.Size()),
@@ -773,7 +778,8 @@ namespace foundation::shell
                                            core::StringView defaultPath, bool allowMultiple,
                                            core::u32 parentWindowId)
     {
-        Context* ctx = MakeContext(static_cast<DialogResultCallback&&>(callback), {}, defaultPath);
+        Context* ctx = MakeContext(*m_allocator, static_cast<DialogResultCallback&&>(callback),
+                                   {}, defaultPath);
         SDL_ShowOpenFolderDialog(&Trampoline, ctx, ParentHandle(parentWindowId),
                                  ctx->defaultPath.IsEmpty()
                                      ? nullptr
@@ -812,10 +818,11 @@ namespace foundation::shell
         return (w != nullptr) ? w->Handle() : nullptr;
     }
 
-    static Context* MakeContext(DialogResultCallback&& callback,
+    static Context* MakeContext(core::IAllocator& allocator, DialogResultCallback&& callback,
                                 core::Span<const FileFilter> filters, core::StringView defaultPath)
     {
-        Context* ctx = core::DefaultAllocator().New<Context>();
+        Context* ctx = allocator.New<Context>();
+        ctx->allocator = &allocator;
         ctx->callback = static_cast<DialogResultCallback&&>(callback);
         ctx->defaultPath = core::String(defaultPath); // null-terminated copy for the C API
         // Fill filterStrings FIRST (so the array stops growing), THEN alias sdlFilters at them -
@@ -851,7 +858,7 @@ namespace foundation::shell
         {
             ctx->callback(core::Span<const core::String>(paths.Data(), paths.Size()));
         }
-        core::DefaultAllocator().Delete(ctx);
+        ctx->allocator->Delete(ctx);
     }
 
     void SDL3Shell::ProcessEvents()

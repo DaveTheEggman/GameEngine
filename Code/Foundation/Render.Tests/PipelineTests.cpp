@@ -34,7 +34,7 @@ namespace
     // tests wire the same dev file provider the RenderSubsystem does.
     shaders::FileShaderSourceProvider& EngineShaderProvider()
     {
-        static shaders::FileShaderSourceProvider provider;
+        static shaders::FileShaderSourceProvider provider{DefaultAllocator()};
         static bool initialized = false;
         if (!initialized)
         {
@@ -137,7 +137,7 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
     // a scene snapshot: one cube at the origin
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     ExtractedScene scene;
@@ -186,7 +186,7 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     registry.Register(&meshRenderer);
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
@@ -239,7 +239,7 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
 
         // 300 distinct materials (one shared mesh) -> 300 singleton draws (no batching) -> over
         // the parallel-emit threshold, so emission fans out across the job system's worker pools.
-        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+        RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         Array<RefPtr<materials::Material>> mats; // keep the materials alive for the frame
         ExtractedScene scene;
         for (int n = 0; n < 300; ++n)
@@ -329,7 +329,7 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     REQUIRE(shadows.Initialize().IsOk());
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2, nullptr, nullptr, &shadows);
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
     const auto addCube = [&](ExtractedScene& scene)
@@ -589,7 +589,7 @@ TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO buil
     registry.Register(&meshRenderer);
     RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> unlit = materials::CreateUnlit(u8"flat", Float4{1, 0, 0, 1});
     CHECK(unlit->shaderName == u8"unlit");
     CHECK(unlit->FindProperty(u8"BaseColor") != nullptr);

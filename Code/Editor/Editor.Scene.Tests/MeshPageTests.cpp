@@ -19,7 +19,7 @@ namespace geometry = foundation::geometry;
 
 TEST_CASE("MeshStatLines reports counts, bounds, skinning, and per-submesh rows")
 {
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(2.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 2.0f);
     REQUIRE(cube.Get() != nullptr);
 
     Array<String> lines = editor::MeshStatLines(*cube);
@@ -62,7 +62,7 @@ TEST_CASE("MeshStatLines reports counts, bounds, skinning, and per-submesh rows"
 
 TEST_CASE("MeshStatLines counts match the mesh geometry")
 {
-    RefPtr<geometry::StaticMesh> sphere = geometry::Primitives::Sphere(0.5f, 16, 12);
+    RefPtr<geometry::StaticMesh> sphere = geometry::Primitives::Sphere(DefaultAllocator(), 0.5f, 16, 12);
     REQUIRE(sphere.Get() != nullptr);
     REQUIRE(sphere->VertexCount() > 0);
     REQUIRE(sphere->IndexCount() > 0);
@@ -91,7 +91,7 @@ TEST_CASE("MeshStatLines counts match the mesh geometry")
 
 TEST_CASE("MeshStatLines reports the LOD chain (levels, per-level triangles, thresholds)")
 {
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     REQUIRE(cube.Get() != nullptr);
     // Fake a 2-level chain: level 1 reuses the first 12 indices as its range.
     cube->lodCount = 2;
@@ -121,7 +121,7 @@ TEST_CASE("MeshStatLines reports the LOD chain (levels, per-level triangles, thr
     CHECK(sawLod1);
 
     // Chainless meshes show no LOD block.
-    RefPtr<geometry::StaticMesh> plain = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> plain = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     for (const String& line : editor::MeshStatLines(*plain))
     {
         CHECK(line.AsView() != StringView(u8"LOD levels: 1"));

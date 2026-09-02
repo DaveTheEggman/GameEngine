@@ -44,7 +44,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     CameraComponent& cam = cameras->Add(camEntity);
     cam.aspect = 1.0f;
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
@@ -101,7 +101,7 @@ TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary c
     auto* meshes = scene.AddSystem<MeshComponentManager>();
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
-    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad();
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad(DefaultAllocator());
 
     scene::EntityHandle visible = scene.CreateEntity();
     {
@@ -155,7 +155,7 @@ namespace
                        RefPtr<materials::Material>& material)
     {
         auto* meshes = scene.AddSystem<MeshComponentManager>();
-        mesh = geometry::Primitives::Quad();
+        mesh = geometry::Primitives::Quad(DefaultAllocator());
         material = materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
         for (int i = 0; i < n; ++i)
         {
@@ -222,7 +222,7 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
     scene::Scene scene;
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
-    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad();
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad(DefaultAllocator());
     RefPtr<materials::Material> glass =
         materials::MaterialBuilder(u8"glass").Shader(u8"forward").Transparent().Build();
 
@@ -245,7 +245,7 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
 {
     scene::Scene scene(u8"world");
     auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
 
     // A fresh component is seeded with ONE identity instance (editor workflow: assign a mesh,
     // see it render at the entity), and instances compose with the entity's world transform.
@@ -329,7 +329,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     scene::Scene scene(u8"world");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
-    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> matA =
         materials::MaterialBuilder(u8"a").Shader(u8"forward").Build();
     RefPtr<materials::Material> matB =
@@ -707,7 +707,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     auto* lights = scene.AddSystem<LightComponentManager>();
     auto* probes = scene.AddSystem<ReflectionProbeComponentManager>();
 
-    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Cube(1.0f);
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
 
     scene::EntityHandle parent = scene.CreateEntity(u8"parent");
     meshes->Add(parent).mesh = mesh;

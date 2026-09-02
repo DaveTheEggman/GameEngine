@@ -34,6 +34,12 @@ export namespace foundation::shaders
     class FileShaderSourceProvider final : public IShaderSourceProvider
     {
     public:
+        // The allocator (required - the owner decides) backs the VFS mount.
+        explicit FileShaderSourceProvider(core::IAllocator& allocator) noexcept
+            : m_allocator(&allocator)
+        {
+        }
+
         /// PollChanges is called once per frame; only every Nth call actually stat-sweeps
         /// (the sweep is O(files)). ~1 second at 60 fps - dev hot reload, not a race.
         static constexpr core::u32 PollEveryNCalls = 60;
@@ -47,9 +53,8 @@ export namespace foundation::shaders
                 return core::ErrorCode::NotFound;
             }
             m_root = core::String(rootDirectory);
-            m_mount = core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(),
-                                                              rootDirectory,
-                                                              core::DefaultAllocator());
+            m_mount = core::MakeUnique<vfs::NativeFileSystem>(*m_allocator, rootDirectory,
+                                                              *m_allocator);
 
             core::Array<vfs::DirEntry> entries;
             if (!m_mount->Enumerate(u8"", entries).IsOk())
@@ -234,6 +239,7 @@ export namespace foundation::shaders
         }
 
         core::String m_root;
+        core::IAllocator* m_allocator;
         core::UniquePtr<vfs::NativeFileSystem> m_mount;
         vfs::IChangeSource* m_changes = nullptr; // owned by the mount
         core::Array<Entry> m_entries;

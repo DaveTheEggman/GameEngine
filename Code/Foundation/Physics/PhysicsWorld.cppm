@@ -288,7 +288,10 @@ export namespace foundation::physics
     class PhysicsWorld
     {
     public:
-        explicit PhysicsWorld(const PhysicsWorldSettings& settings = {});
+        // The allocator (required - the owner decides) backs the Jolt system,
+        // temp allocator, and job system boxes.
+        explicit PhysicsWorld(core::IAllocator& allocator,
+                              const PhysicsWorldSettings& settings = {});
         ~PhysicsWorld();
         PhysicsWorld(const PhysicsWorld&) = delete;
         PhysicsWorld& operator=(const PhysicsWorld&) = delete;

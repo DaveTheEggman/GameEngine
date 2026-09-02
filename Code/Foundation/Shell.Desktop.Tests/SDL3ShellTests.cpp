@@ -59,7 +59,7 @@ TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
     settings.width = 640;
     settings.height = 480;
 
-    SDL3Shell shell(settings);
+    SDL3Shell shell(DefaultAllocator(), settings);
     if (shell.MainWindow() == nullptr)
     {
         MESSAGE("SDL video init/window creation unavailable; skipping");
@@ -87,7 +87,7 @@ TEST_CASE("shell.desktop: SDL3 shell creates a window and reports state")
 
 TEST_CASE("shell.desktop: a window-close event stops the shell")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -108,7 +108,7 @@ TEST_CASE("shell.desktop: a window-close event stops the shell")
 
 TEST_CASE("shell.desktop: keyboard events drive double-buffered key state")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -154,7 +154,7 @@ TEST_CASE("shell.desktop: keyboard events drive double-buffered key state")
 
 TEST_CASE("shell.desktop: mouse motion and buttons are tracked")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -200,7 +200,7 @@ TEST_CASE("shell.desktop: mouse motion and buttons are tracked")
 
 TEST_CASE("shell.desktop: cursor state is settable")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -226,7 +226,7 @@ TEST_CASE("shell.desktop: cursor state is settable")
 
 TEST_CASE("shell.desktop: input exposes a gamepad list")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -241,7 +241,7 @@ TEST_CASE("shell.desktop: input exposes a gamepad list")
 
 TEST_CASE("shell.desktop: RequestExit stops the shell")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -253,7 +253,7 @@ TEST_CASE("shell.desktop: RequestExit stops the shell")
 
 TEST_CASE("shell.desktop: RunApplication drives the app until it exits")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;
@@ -276,7 +276,7 @@ TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable"
     settings.y = 48;
     settings.borderless = true; // exercise the borderless-flag creation path
 
-    SDL3Shell shell(settings);
+    SDL3Shell shell(DefaultAllocator(), settings);
     if (shell.MainWindow() == nullptr)
     {
         MESSAGE("SDL video init/window creation unavailable; skipping");
@@ -306,7 +306,7 @@ TEST_CASE("shell.desktop: window geometry accessors + global mouse are callable"
 
 TEST_CASE("shell.desktop: keypad and function scancodes map (KP_ENTER was silently Unknown)")
 {
-    SDL3Shell shell;
+    SDL3Shell shell(DefaultAllocator());
     if (shell.MainWindow() == nullptr)
     {
         return;

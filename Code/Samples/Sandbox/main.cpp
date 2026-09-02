@@ -201,20 +201,20 @@ namespace
                 m_floorEntity = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floorEntity, core::Float3{0.0f, 0.0f, 0.0f});
                 engine::render::MeshComponent& fmc = meshes->Add(m_floorEntity);
-                fmc.mesh = geometry::Primitives::Plane(120.0f, 120.0f);
+                fmc.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), 120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
                 // Metallic/roughness are LIVE-tweakable from the Environment window (SSR eye test).
                 ApplyFloorMaterial();
 
-                core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(0.35f);
+                core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/ 8.0f, /*instanced*/ false);
 
                 // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) - a static
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
                 constexpr core::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
-                core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(kBoxSize);
+                core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), kBoxSize);
                 core::RefPtr<materials::Material> boxMat = materials::CreatePBR(
                     u8"lit", core::Float4{0.85f, 0.55f, 0.2f, 1.0f}, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k)
@@ -233,7 +233,7 @@ namespace
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr core::f32 kBallR = 1.25f;
                 core::RefPtr<geometry::StaticMesh> ball =
-                    geometry::Primitives::Sphere(kBallR, 24, 12);
+                    geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), kBallR, 24, 12);
                 // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
                 // so the probe reflection goes mirror-sharp -> blurry - showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k)
@@ -1726,7 +1726,7 @@ namespace
 
 int main(int argc, char** argv)
 {
-    auto shell = shell::CreateShell();
+    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
     graphics::GraphicsDeviceDesc gpuDesc{};
     gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);

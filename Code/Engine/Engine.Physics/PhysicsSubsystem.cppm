@@ -135,7 +135,7 @@ export namespace engine::physics
             {
                 settings.groupCollides[i] = m_settings.groupCollides[i];
             }
-            m_world = MakeUnique<PhysicsWorld>(DefaultAllocator(), settings);
+            m_world = MakeUnique<PhysicsWorld>(DefaultAllocator(), DefaultAllocator(), settings);
             BuildBodies();
             BuildJoints();
             BuildCharacters();

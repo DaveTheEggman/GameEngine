@@ -151,7 +151,7 @@ namespace
                 m_floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -7.0f, 0.0f});
                 engine::render::MeshComponent& fmc = meshes->Add(m_floor);
-                fmc.mesh = geometry::Primitives::Plane(kFloorBaseSize, kFloorBaseSize);
+                fmc.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), kFloorBaseSize, kFloorBaseSize);
                 fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{0.5f, 0.5f, 0.53f, 1.0f},
                                                      0.0f, 0.65f));
             }
@@ -997,7 +997,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = shell::CreateShell();
+    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
     graphics::GraphicsDeviceDesc gpuDesc{};
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

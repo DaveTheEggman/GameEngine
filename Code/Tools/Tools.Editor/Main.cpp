@@ -194,12 +194,12 @@ namespace
             RefPtr<geometry::StaticMesh> (*make)();
         };
         static const Entry entries[] = {
-            {u8"Cube", []() { return geometry::Primitives::Cube(); }},
-            {u8"Sphere", []() { return geometry::Primitives::Sphere(); }},
-            {u8"Plane", []() { return geometry::Primitives::Plane(); }},
-            {u8"Cylinder", []() { return geometry::Primitives::Cylinder(); }},
-            {u8"Cone", []() { return geometry::Primitives::Cone(); }},
-            {u8"Torus", []() { return geometry::Primitives::Torus(); }},
+            {u8"Cube", []() { return geometry::Primitives::Cube(DefaultAllocator()); }},
+            {u8"Sphere", []() { return geometry::Primitives::Sphere(DefaultAllocator()); }},
+            {u8"Plane", []() { return geometry::Primitives::Plane(DefaultAllocator()); }},
+            {u8"Cylinder", []() { return geometry::Primitives::Cylinder(DefaultAllocator()); }},
+            {u8"Cone", []() { return geometry::Primitives::Cone(DefaultAllocator()); }},
+            {u8"Torus", []() { return geometry::Primitives::Torus(DefaultAllocator()); }},
         };
         for (const Entry& e : entries)
         {
@@ -303,11 +303,11 @@ namespace
         }
 
         // 3) Primitive meshes (the same creator path as File > New > Primitives).
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", foundation::geometry::Primitives::Cube(),
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", foundation::geometry::Primitives::Cube(DefaultAllocator()),
                                           nullptr);
         (void)CreatePrimitiveMeshInstance(ctx, u8"Sphere",
-                                          foundation::geometry::Primitives::Sphere(), nullptr);
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(),
+                                          foundation::geometry::Primitives::Sphere(DefaultAllocator()), nullptr);
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(DefaultAllocator()),
                                           nullptr);
 
         LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
@@ -840,7 +840,7 @@ int main(int argc, char** argv)
     ws.width = 1600;
     ws.height = 900;
 
-    auto shellPtr = shell::CreateShell(ws);
+    auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
         std::fprintf(stderr, "Tools.Editor: failed to create the OS shell/window\n");

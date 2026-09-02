@@ -151,7 +151,7 @@ export namespace samples::framework
         ws.width = m_width;
         ws.height = m_height;
 
-        m_shellOwner = shell::CreateShell(ws);
+        m_shellOwner = shell::CreateShell(DefaultAllocator(), ws);
         m_shell = m_shellOwner.Get();
         if (m_shell == nullptr || m_shell->MainWindow() == nullptr)
         {

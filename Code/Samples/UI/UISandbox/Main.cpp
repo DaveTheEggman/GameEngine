@@ -3253,7 +3253,7 @@ int main(int argc, char** argv)
     ws.width = 820;
     ws.height = 720;
 
-    auto shellPtr = shell::CreateShell(ws);
+    auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
         return 1;
