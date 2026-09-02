@@ -183,6 +183,37 @@ export namespace foundation::net
         return static_cast<u32>(e.value & 0xFFFFFFFFull);
     }
 
+#ifdef __EMSCRIPTEN__
+    /// The BROWSER side: one WebSocket connection to a native host's gateway, presented as
+    /// an IDatagramSocket (each binary frame = one datagram; the single remote is
+    /// kWebSocketServerEndpoint). The browser handshake is ASYNC - sends queue until the
+    /// socket opens, so the session's immediate connect packet survives the open latency.
+    inline constexpr DatagramEndpoint kWebSocketServerEndpoint{kWebSocketEndpointBit | 1ull};
+
+    class WebSocketClientSocket final : public IDatagramSocket
+    {
+    public:
+        /// Connect to ws://host:port (dotted-quad or hostname - the browser resolves).
+        WebSocketClientSocket(StringView host, u16 port);
+        ~WebSocketClientSocket() override;
+        WebSocketClientSocket(const WebSocketClientSocket&) = delete;
+        WebSocketClientSocket& operator=(const WebSocketClientSocket&) = delete;
+
+        [[nodiscard]] bool IsOpen() const noexcept; // created (may still be connecting)
+
+        void Send(const DatagramEndpoint& to, Span<const byte> data) override;
+        [[nodiscard]] bool Receive(DatagramEndpoint& from, Array<byte>& out) override;
+        [[nodiscard]] DatagramEndpoint LocalEndpoint() const override
+        {
+            return DatagramEndpoint{kWebSocketEndpointBit | 2ull};
+        }
+
+    private:
+        struct Impl;
+        UniquePtr<Impl> m_impl;
+    };
+#endif
+
     class WebSocketHybridSocket final : public IDatagramSocket
     {
     public:

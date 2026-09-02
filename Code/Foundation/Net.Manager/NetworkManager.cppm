@@ -98,6 +98,16 @@ export namespace foundation::net
         {
         }
 
+#ifdef __EMSCRIPTEN__
+        // Web runtime client: owns the browser's WebSocket connection (JoinServer on web).
+        explicit NetworkManager(core::UniquePtr<WebSocketClientSocket> socket,
+                                const ReliableConfig& config = {})
+            : m_ownedSocket(static_cast<core::UniquePtr<WebSocketClientSocket>&&>(socket)),
+              m_session(*m_ownedSocket, config)
+        {
+        }
+#endif
+
         // Runtime endpoint construction: open a real UDP socket and enter a role in one step. Returns
         // null if the socket fails to open (the caller logs + runs offline). HostServer binds `port`
         // (0 = OS-assigned; read BoundPort() after); JoinServer binds ephemeral and connects to

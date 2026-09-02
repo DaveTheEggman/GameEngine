@@ -88,6 +88,22 @@ namespace foundation::net
     core::UniquePtr<NetworkManager> NetworkManager::JoinServer(StringView host, u16 port,
                                                                const ReliableConfig& config)
     {
+#ifdef __EMSCRIPTEN__
+        // Browsers have no UDP: join over a WebSocket to the host's gateway (`port` here is
+        // the host's WEB SOCKET port). Sends buffer through the async browser handshake, so
+        // the session's immediate connect packet is safe.
+        UniquePtr<WebSocketClientSocket> socket =
+            MakeUnique<WebSocketClientSocket>(DefaultAllocator(), host, port);
+        if (!socket->IsOpen())
+        {
+            return {};
+        }
+        UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
+            DefaultAllocator(), static_cast<UniquePtr<WebSocketClientSocket>&&>(socket),
+            config);
+        manager->ConnectTo(kWebSocketServerEndpoint);
+        return manager;
+#else
         UniquePtr<UdpSocket> socket =
             MakeUnique<UdpSocket>(DefaultAllocator(), u16{0}); // ephemeral
         if (!socket->IsOpen())
@@ -98,6 +114,7 @@ namespace foundation::net
             DefaultAllocator(), static_cast<UniquePtr<UdpSocket>&&>(socket), config);
         manager->ConnectTo(ResolveEndpoint(host, port));
         return manager;
+#endif
     }
 
     NetworkRuntime StartNetworking(const NetworkStartup& config)

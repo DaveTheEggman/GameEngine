@@ -6,6 +6,10 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#ifdef __EMSCRIPTEN__
+#include <cstdio> // snprintf (the ws:// URL)
+#include <emscripten/websocket.h>
+#endif
 
 module foundation.net.websocket;
 
@@ -689,4 +693,162 @@ namespace foundation::net
             }
         }
     }
+
+#ifdef __EMSCRIPTEN__
+    // ---- the browser client socket -------------------------------------------------------
+    // Callback-driven (emscripten/websocket.h); without pthreads the callbacks run on the
+    // main-thread event loop, so the queues below need no locking. Sends before onopen
+    // BUFFER - the session fires its connect packet immediately, well inside the WS
+    // handshake latency.
+
+    struct WebSocketClientSocket::Impl
+    {
+        EMSCRIPTEN_WEBSOCKET_T socket = 0;
+        bool open = false;
+        bool failed = false;
+        Array<Array<byte>> pendingSends; // queued until onopen
+        Array<Array<byte>> received;
+        usize receivedHead = 0;
+
+        static EM_BOOL OnOpen(int, const EmscriptenWebSocketOpenEvent*, void* user)
+        {
+            auto* impl = static_cast<Impl*>(user);
+            impl->open = true;
+            for (const Array<byte>& payload : impl->pendingSends)
+            {
+                (void)emscripten_websocket_send_binary(
+                    impl->socket, const_cast<byte*>(payload.Data()),
+                    static_cast<u32>(payload.Size()));
+            }
+            impl->pendingSends.Clear();
+            return EM_TRUE;
+        }
+
+        static EM_BOOL OnMessage(int, const EmscriptenWebSocketMessageEvent* event, void* user)
+        {
+            auto* impl = static_cast<Impl*>(user);
+            if (event->isText)
+            {
+                return EM_TRUE; // the wire is binary; ignore stray text
+            }
+            Array<byte> payload;
+            payload.Reserve(event->numBytes);
+            for (u32 i = 0; i < event->numBytes; ++i)
+            {
+                payload.PushBack(static_cast<byte>(event->data[i]));
+            }
+            impl->received.PushBack(static_cast<Array<byte>&&>(payload));
+            return EM_TRUE;
+        }
+
+        static EM_BOOL OnError(int, const EmscriptenWebSocketErrorEvent*, void* user)
+        {
+            static_cast<Impl*>(user)->failed = true;
+            return EM_TRUE;
+        }
+
+        static EM_BOOL OnClose(int, const EmscriptenWebSocketCloseEvent*, void* user)
+        {
+            auto* impl = static_cast<Impl*>(user);
+            impl->open = false;
+            impl->failed = true;
+            return EM_TRUE;
+        }
+    };
+
+    WebSocketClientSocket::WebSocketClientSocket(StringView host, u16 port)
+        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+    {
+        if (!emscripten_websocket_is_supported())
+        {
+            m_impl->failed = true;
+            return;
+        }
+        char url[256];
+        usize cursor = 0;
+        const auto append = [&](StringView text)
+        {
+            for (usize i = 0; i < text.Size() && cursor + 1 < sizeof(url); ++i)
+            {
+                url[cursor++] = static_cast<char>(text[i]);
+            }
+        };
+        append(u8"ws://");
+        append(host);
+        append(u8":");
+        char portText[8];
+        const int written = snprintf(portText, sizeof(portText), "%u",
+                                     static_cast<unsigned>(port));
+        for (int i = 0; i < written && cursor + 1 < sizeof(url); ++i)
+        {
+            url[cursor++] = portText[i];
+        }
+        url[cursor] = '\0';
+        EmscriptenWebSocketCreateAttributes attributes = {url, nullptr, EM_TRUE};
+        m_impl->socket = emscripten_websocket_new(&attributes);
+        if (m_impl->socket <= 0)
+        {
+            m_impl->failed = true;
+            return;
+        }
+        emscripten_websocket_set_onopen_callback(m_impl->socket, m_impl.Get(), Impl::OnOpen);
+        emscripten_websocket_set_onmessage_callback(m_impl->socket, m_impl.Get(),
+                                                    Impl::OnMessage);
+        emscripten_websocket_set_onerror_callback(m_impl->socket, m_impl.Get(), Impl::OnError);
+        emscripten_websocket_set_onclose_callback(m_impl->socket, m_impl.Get(), Impl::OnClose);
+    }
+
+    WebSocketClientSocket::~WebSocketClientSocket()
+    {
+        if (m_impl->socket > 0)
+        {
+            emscripten_websocket_close(m_impl->socket, 1000, "bye");
+            emscripten_websocket_delete(m_impl->socket);
+        }
+    }
+
+    bool WebSocketClientSocket::IsOpen() const noexcept
+    {
+        return m_impl->socket > 0 && !m_impl->failed;
+    }
+
+    void WebSocketClientSocket::Send(const DatagramEndpoint&, Span<const byte> data)
+    {
+        if (m_impl->failed || m_impl->socket <= 0)
+        {
+            return;
+        }
+        if (!m_impl->open)
+        {
+            Array<byte> copy;
+            copy.Reserve(data.Size());
+            for (byte b : data)
+            {
+                copy.PushBack(b);
+            }
+            m_impl->pendingSends.PushBack(static_cast<Array<byte>&&>(copy));
+            return;
+        }
+        (void)emscripten_websocket_send_binary(m_impl->socket,
+                                               const_cast<byte*>(data.Data()),
+                                               static_cast<u32>(data.Size()));
+    }
+
+    bool WebSocketClientSocket::Receive(DatagramEndpoint& from, Array<byte>& out)
+    {
+        Impl& impl = *m_impl;
+        if (impl.receivedHead >= impl.received.Size())
+        {
+            return false;
+        }
+        from = kWebSocketServerEndpoint;
+        out = static_cast<Array<byte>&&>(impl.received[impl.receivedHead++]);
+        if (impl.receivedHead >= impl.received.Size())
+        {
+            impl.received.Clear();
+            impl.receivedHead = 0;
+        }
+        return true;
+    }
+#endif // __EMSCRIPTEN__
 }
