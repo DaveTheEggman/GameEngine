@@ -43,7 +43,7 @@ namespace foundation::runtime
     // the returning stack.
     inline ApplicationHost& WebHost()
     {
-        static ApplicationHost host;
+        static ApplicationHost host(core::DefaultAllocator()); // process composition root
         return host;
     }
     inline WebLoopState& WebLoop()

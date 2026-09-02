@@ -2218,7 +2218,7 @@ namespace editor::app
 
         // The per-project editor-state STORE (one structured file: dock layout, favorites,
         // open pages, per-page prefs). Absent on a fresh project - sections read as defaults.
-        m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(DefaultAllocator());
+        m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(DefaultAllocator(), DefaultAllocator());
         const Status projectLoaded = LoadProjectEditorSettings(
             *m_projectEditorSettings, m_project->EditorStateRoot().AsView());
         if (!projectLoaded.IsOk() && projectLoaded.Code() != ErrorCode::NotFound)

@@ -45,7 +45,7 @@ namespace
 
 TEST_CASE("xml.write: simple element")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     doc.AppendChild(doc.CreateElement(u8"root"));
     String output;
     doc.WriteTo(output);
@@ -54,7 +54,7 @@ TEST_CASE("xml.write: simple element")
 
 TEST_CASE("xml.write: element with content")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->AppendChild(doc.CreateTextNode(u8"Hello"));
     doc.AppendChild(root);
@@ -65,7 +65,7 @@ TEST_CASE("xml.write: element with content")
 
 TEST_CASE("xml.write: nested elements (compact)")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     XmlElement* child = doc.CreateElement(u8"child");
     child->AppendChild(doc.CreateElement(u8"grandchild"));
@@ -80,7 +80,7 @@ TEST_CASE("xml.write: nested elements (compact)")
 
 TEST_CASE("xml.write: attributes")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->SetAttribute(u8"id", u8"123");
     root->SetAttribute(u8"name", u8"test");
@@ -93,7 +93,7 @@ TEST_CASE("xml.write: attributes")
 
 TEST_CASE("xml.write: text escaping")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->AppendChild(doc.CreateTextNode(u8"a < b & c > d"));
     doc.AppendChild(root);
@@ -104,7 +104,7 @@ TEST_CASE("xml.write: text escaping")
 
 TEST_CASE("xml.write: attribute escaping")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->SetAttribute(u8"value", u8"a\"b'c<d>e&f");
     doc.AppendChild(root);
@@ -119,7 +119,7 @@ TEST_CASE("xml.write: attribute escaping")
 
 TEST_CASE("xml.write: compact mode")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->AppendChild(doc.CreateElement(u8"child"));
     doc.AppendChild(root);
@@ -134,7 +134,7 @@ TEST_CASE("xml.write: compact mode")
 
 TEST_CASE("xml.write: indentation")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->AppendChild(doc.CreateElement(u8"child"));
     doc.AppendChild(root);
@@ -150,7 +150,7 @@ TEST_CASE("xml.write: indentation")
 TEST_CASE("xml.write: CDATA + comment + PI")
 {
     {
-        XmlDocument doc;
+        XmlDocument doc(foundation::core::DefaultAllocator());
         XmlElement* root = doc.CreateElement(u8"root");
         root->AppendChild(doc.CreateCDataSection(u8"<special> & content"));
         doc.AppendChild(root);
@@ -159,7 +159,7 @@ TEST_CASE("xml.write: CDATA + comment + PI")
         CHECK(Contains(output, u8"<![CDATA[<special> & content]]>"));
     }
     {
-        XmlDocument doc;
+        XmlDocument doc(foundation::core::DefaultAllocator());
         XmlElement* root = doc.CreateElement(u8"root");
         root->AppendChild(doc.CreateComment(u8" this is a comment "));
         doc.AppendChild(root);
@@ -168,7 +168,7 @@ TEST_CASE("xml.write: CDATA + comment + PI")
         CHECK(Contains(output, u8"<!-- this is a comment -->"));
     }
     {
-        XmlDocument doc;
+        XmlDocument doc(foundation::core::DefaultAllocator());
         XmlElement* root = doc.CreateElement(u8"root");
         root->AppendChild(doc.CreateProcessingInstruction(u8"php", u8"echo 'hello';"));
         doc.AppendChild(root);
@@ -180,8 +180,8 @@ TEST_CASE("xml.write: CDATA + comment + PI")
 
 TEST_CASE("xml.write: declaration (with/without)")
 {
-    XmlDocument doc;
-    doc.AppendChild(DefaultAllocator().New<XmlDeclaration>(
+    XmlDocument doc(foundation::core::DefaultAllocator());
+    doc.AppendChild(DefaultAllocator().New<XmlDeclaration>(DefaultAllocator(), 
         StringView(u8"1.0"), StringView(u8"utf-8"), StringView(u8"")));
     doc.AppendChild(doc.CreateElement(u8"root"));
     String output;
@@ -189,8 +189,8 @@ TEST_CASE("xml.write: declaration (with/without)")
     CHECK(
         StringView(output).StartsWith(StringView(u8"<?xml version=\"1.0\" encoding=\"utf-8\"?>")));
 
-    XmlDocument doc2;
-    doc2.AppendChild(DefaultAllocator().New<XmlDeclaration>(
+    XmlDocument doc2(foundation::core::DefaultAllocator());
+    doc2.AppendChild(DefaultAllocator().New<XmlDeclaration>(DefaultAllocator(), 
         StringView(u8"1.0"), StringView(u8"utf-8"), StringView(u8"")));
     doc2.AppendChild(doc2.CreateElement(u8"root"));
     String output2;
@@ -207,12 +207,12 @@ TEST_CASE("xml.write: round-trip")
     </book>
 </catalog>)xml";
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(xml) == XmlResult::Ok);
     String output;
     doc.WriteTo(output);
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(output) == XmlResult::Ok);
     CHECK(doc2.RootElement()->TagName() == StringView(u8"catalog"));
     XmlElement* book = doc2.RootElement()->GetFirstChildElement(u8"book");
@@ -227,7 +227,7 @@ TEST_CASE("xml.write: round-trip")
 
 TEST_CASE("xml.write: ToXml(element)")
 {
-    XmlElement elem(u8"test");
+    XmlElement elem(DefaultAllocator(), u8"test");
     elem.SetAttribute(u8"id", u8"1");
     elem.SetTextContent(u8"content");
     String output;
@@ -252,7 +252,7 @@ TEST_CASE("xml.write: EscapeText / EscapeAttributeValue")
 
 TEST_CASE("xml.write: custom indent string")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"root");
     root->AppendChild(doc.CreateElement(u8"child"));
     doc.AppendChild(root);
@@ -265,7 +265,7 @@ TEST_CASE("xml.write: custom indent string")
 
 TEST_CASE("xml.write: mixed content")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     XmlElement* root = doc.CreateElement(u8"p");
     root->AppendChild(doc.CreateTextNode(u8"Hello "));
     XmlElement* bold = doc.CreateElement(u8"b");

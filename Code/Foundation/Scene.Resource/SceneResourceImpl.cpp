@@ -657,7 +657,7 @@ namespace foundation::scene
             BinarySerializer ar(out, SerializeMode::Write);
             return detail::CapturePrefabBody(ar, false, scene, root);
         }
-        foundation::xml::XmlSerializer ar;
+        foundation::xml::XmlSerializer ar(foundation::core::DefaultAllocator());
         const Status body = detail::CapturePrefabBody(ar, true, scene, root);
         if (!body.IsOk())
         {
@@ -1404,7 +1404,7 @@ namespace foundation::scene
             BinarySerializer ar(out, SerializeMode::Write);
             return detail::CaptureInstanceAsTemplateBody(ar, false, scene, state, resolver);
         }
-        foundation::xml::XmlSerializer ar;
+        foundation::xml::XmlSerializer ar(foundation::core::DefaultAllocator());
         const Status body = detail::CaptureInstanceAsTemplateBody(ar, true, scene, state, resolver);
         if (!body.IsOk())
         {

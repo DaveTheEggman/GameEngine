@@ -220,7 +220,7 @@ namespace engine::player
                     userFs.Open(UserSettingsFileName().AsView(), FileMode::Read);
                 if (stream)
                 {
-                    foundation::settings::Settings store;
+                    foundation::settings::Settings store(foundation::core::DefaultAllocator());
                     if (store.Load(*stream, foundation::xml::XmlSerializerFactory()).IsOk())
                     {
                         if (const auto* audio = store.Find<engine::audio::AudioUserSettings>())
@@ -355,7 +355,7 @@ namespace engine::player
             // Persist the user's mixer state (see the startup load).
             if (Audio() != nullptr && Audio()->Engine() != nullptr)
             {
-                foundation::settings::Settings store;
+                foundation::settings::Settings store(foundation::core::DefaultAllocator());
                 engine::audio::CaptureAudioUserSettings(
                     *Audio()->Engine(), store.Section<engine::audio::AudioUserSettings>());
                 const String dir = foundation::core::GetUserDataDirectory();

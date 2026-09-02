@@ -23,6 +23,10 @@ export namespace foundation::core
         Array() noexcept : m_allocator(&DefaultAllocator()) {}
         explicit Array(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
+        // The allocator backing this array - owners thread it into work done ON
+        // the array's behalf (scratch, workers) so those allocations share the decision.
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         // Sized construction: `count` value-initialized elements.
         explicit Array(usize count, IAllocator& allocator = DefaultAllocator())
             : m_allocator(&allocator)

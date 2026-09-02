@@ -188,7 +188,7 @@ namespace editor
         ui::MarkupLoader::Initialize();
         // Diagnostics for the PREVIEW-MARKUP editor (the SSS editor has no line info from the loader).
         {
-            foundation::xml::XmlDocument probe;
+            foundation::xml::XmlDocument probe(foundation::core::DefaultAllocator());
             const foundation::xml::XmlResult result = probe.Parse(m_previewMarkup.AsView());
             Array<ui::toolkit::CodeDiagnostic> diagnostics;
             if (foundation::xml::IsError(result))

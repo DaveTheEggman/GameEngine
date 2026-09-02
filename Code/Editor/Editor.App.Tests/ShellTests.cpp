@@ -86,7 +86,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     RegisterEditorProjectSettingsTypes();
     UniquePtr<ui::toolkit::DockLayoutNode> before = shell.Docks()->ExportLayout();
     REQUIRE(static_cast<bool>(before));
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     REQUIRE(shell.SaveLayout(store).IsOk());
     REQUIRE(SaveProjectEditorSettings(store, dir).IsOk());
     CHECK(FileExists(PathJoin(dir, kProjectEditorSettingsFile)));
@@ -95,7 +95,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     // tree matches the saved one again.
     shell.Docks()->UndockPanel(shell.AssetsPanel());
     CHECK(shell.Docks()->FindPanelById(u8"assets") != nullptr); // still registered while undocked
-    foundation::settings::Settings loaded;
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
     REQUIRE(LoadProjectEditorSettings(loaded, dir).IsOk());
     REQUIRE(shell.RestoreLayout(loaded).IsOk());
     UniquePtr<ui::toolkit::DockLayoutNode> after = shell.Docks()->ExportLayout();
@@ -153,7 +153,7 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
     EditorShell shell;
     shell.Build(ctx, nullptr, 640, 480);
     // A store with no captured snapshot (and a directory with no store file) both = NotFound.
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     CHECK(shell.RestoreLayout(store).Code() == ErrorCode::NotFound);
     CHECK(LoadProjectEditorSettings(store, dir).Code() == ErrorCode::NotFound);
 
@@ -169,19 +169,19 @@ TEST_CASE("editor-layout: the asset browser list/grid view mode round-trips thro
 
     // Default is list (gridMode false); a fresh store reads the default.
     {
-        foundation::settings::Settings store;
+        foundation::settings::Settings store(foundation::core::DefaultAllocator());
         CHECK_FALSE(store.Section<EditorAssetBrowserSettings>().gridMode);
     }
 
     // Toggle to grid, persist, and load back through the same file the app writes.
     {
-        foundation::settings::Settings store;
+        foundation::settings::Settings store(foundation::core::DefaultAllocator());
         store.Section<EditorAssetBrowserSettings>().gridMode = true;
         store.MarkChanged<EditorAssetBrowserSettings>();
         REQUIRE(SaveProjectEditorSettings(store, dir).IsOk());
     }
     {
-        foundation::settings::Settings loaded;
+        foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
         REQUIRE(LoadProjectEditorSettings(loaded, dir).IsOk());
         const EditorAssetBrowserSettings* section = loaded.Find<EditorAssetBrowserSettings>();
         REQUIRE(section != nullptr);

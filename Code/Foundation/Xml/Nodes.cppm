@@ -49,10 +49,14 @@ export namespace foundation::xml
             while (child != nullptr)
             {
                 XmlNode* next = child->m_nextSibling;
-                DefaultAllocator().Delete(child);
+                child->m_allocator->Delete(child);
                 child = next;
             }
         }
+
+        // The allocator this node was created from - the whole tree shares the
+        // document's decision; detached subtrees keep their creator's.
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
 
         XmlNode(const XmlNode&) = delete;
         XmlNode& operator=(const XmlNode&) = delete;
@@ -207,7 +211,7 @@ export namespace foundation::xml
                 child->m_parent = nullptr;
                 child->m_prevSibling = nullptr;
                 child->m_nextSibling = nullptr;
-                DefaultAllocator().Delete(child);
+                child->m_allocator->Delete(child);
                 child = next;
             }
             m_firstChild = nullptr;
@@ -219,9 +223,13 @@ export namespace foundation::xml
         virtual void GetOuterXml(String& output) const = 0;
 
     protected:
-        explicit XmlNode(XmlNodeType nodeType) : m_nodeType(nodeType) {}
+        XmlNode(IAllocator& allocator, XmlNodeType nodeType)
+            : m_allocator(&allocator), m_nodeType(nodeType)
+        {
+        }
 
     private:
+        IAllocator* m_allocator;
         XmlNodeType m_nodeType;
         XmlNode* m_parent = nullptr;
         XmlNode* m_firstChild = nullptr;
@@ -263,8 +271,11 @@ export namespace foundation::xml
     class XmlText final : public XmlNode
     {
     public:
-        XmlText() : XmlNode(XmlNodeType::Text) {}
-        explicit XmlText(StringView text) : XmlNode(XmlNodeType::Text) { SetText(text); }
+        explicit XmlText(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::Text) {}
+        XmlText(IAllocator& allocator, StringView text) : XmlNode(allocator, XmlNodeType::Text)
+        {
+            SetText(text);
+        }
 
         [[nodiscard]] StringView Text() const { return m_text; }
         [[nodiscard]] bool IsWhitespace() const { return m_isWhitespace; }
@@ -309,8 +320,11 @@ export namespace foundation::xml
     class XmlCData final : public XmlNode
     {
     public:
-        XmlCData() : XmlNode(XmlNodeType::CData) {}
-        explicit XmlCData(StringView data) : XmlNode(XmlNodeType::CData) { m_data = String(data); }
+        explicit XmlCData(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::CData) {}
+        XmlCData(IAllocator& allocator, StringView data) : XmlNode(allocator, XmlNodeType::CData)
+        {
+            m_data = String(data);
+        }
 
         [[nodiscard]] StringView Data() const { return m_data; }
         void SetData(StringView data) { m_data = String(data); }
@@ -332,8 +346,9 @@ export namespace foundation::xml
     class XmlComment final : public XmlNode
     {
     public:
-        XmlComment() : XmlNode(XmlNodeType::Comment) {}
-        explicit XmlComment(StringView text) : XmlNode(XmlNodeType::Comment)
+        explicit XmlComment(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::Comment) {}
+        XmlComment(IAllocator& allocator, StringView text)
+            : XmlNode(allocator, XmlNodeType::Comment)
         {
             m_text = String(text);
         }
@@ -358,9 +373,14 @@ export namespace foundation::xml
     class XmlDeclaration final : public XmlNode
     {
     public:
-        XmlDeclaration() : XmlNode(XmlNodeType::Declaration) {}
-        XmlDeclaration(StringView version, StringView encoding, StringView standalone)
-            : XmlNode(XmlNodeType::Declaration), m_version(version), m_encoding(encoding),
+        explicit XmlDeclaration(IAllocator& allocator)
+            : XmlNode(allocator, XmlNodeType::Declaration)
+        {
+        }
+        XmlDeclaration(IAllocator& allocator, StringView version, StringView encoding,
+                       StringView standalone)
+            : XmlNode(allocator, XmlNodeType::Declaration), m_version(version),
+              m_encoding(encoding),
               m_standalone(standalone)
         {
         }
@@ -403,9 +423,13 @@ export namespace foundation::xml
     class XmlProcessingInstruction final : public XmlNode
     {
     public:
-        XmlProcessingInstruction() : XmlNode(XmlNodeType::ProcessingInstruction) {}
-        XmlProcessingInstruction(StringView target, StringView data)
-            : XmlNode(XmlNodeType::ProcessingInstruction), m_target(target), m_data(data)
+        explicit XmlProcessingInstruction(IAllocator& allocator)
+            : XmlNode(allocator, XmlNodeType::ProcessingInstruction)
+        {
+        }
+        XmlProcessingInstruction(IAllocator& allocator, StringView target, StringView data)
+            : XmlNode(allocator, XmlNodeType::ProcessingInstruction), m_target(target),
+              m_data(data)
         {
         }
 
@@ -438,15 +462,19 @@ export namespace foundation::xml
     class XmlAttribute final : public XmlNode
     {
     public:
-        XmlAttribute() : XmlNode(XmlNodeType::Attribute) {}
-        XmlAttribute(StringView name, StringView value) : XmlNode(XmlNodeType::Attribute)
+        explicit XmlAttribute(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::Attribute)
+        {
+        }
+        XmlAttribute(IAllocator& allocator, StringView name, StringView value)
+            : XmlNode(allocator, XmlNodeType::Attribute)
         {
             SetName(name);
             m_value = String(value);
         }
-        XmlAttribute(StringView prefix, StringView localName, StringView namespaceUri,
+        XmlAttribute(IAllocator& allocator, StringView prefix, StringView localName,
+                     StringView namespaceUri,
                      StringView value)
-            : XmlNode(XmlNodeType::Attribute)
+            : XmlNode(allocator, XmlNodeType::Attribute)
         {
             SetQualifiedName(prefix, localName, namespaceUri);
             m_value = String(value);
@@ -525,13 +553,15 @@ export namespace foundation::xml
     class XmlElement final : public XmlNode
     {
     public:
-        XmlElement() : XmlNode(XmlNodeType::Element) {}
-        explicit XmlElement(StringView tagName) : XmlNode(XmlNodeType::Element)
+        explicit XmlElement(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::Element) {}
+        XmlElement(IAllocator& allocator, StringView tagName)
+            : XmlNode(allocator, XmlNodeType::Element)
         {
             SetTagName(tagName);
         }
-        XmlElement(StringView prefix, StringView localName, StringView namespaceUri)
-            : XmlNode(XmlNodeType::Element)
+        XmlElement(IAllocator& allocator, StringView prefix, StringView localName,
+                   StringView namespaceUri)
+            : XmlNode(allocator, XmlNodeType::Element)
         {
             SetQualifiedName(prefix, localName, namespaceUri);
         }
@@ -540,7 +570,7 @@ export namespace foundation::xml
         {
             for (XmlAttribute* attr : m_attributes)
             {
-                DefaultAllocator().Delete(attr);
+                attr->Allocator().Delete(attr);
             }
         }
 
@@ -649,7 +679,7 @@ export namespace foundation::xml
                     return;
                 }
             }
-            XmlAttribute* attr = DefaultAllocator().New<XmlAttribute>(name, value);
+            XmlAttribute* attr = Allocator().New<XmlAttribute>(Allocator(), name, value);
             attr->SetOwnerElement(this);
             m_attributes.PushBack(attr);
             if (attr->IsNamespaceDeclaration())
@@ -669,7 +699,8 @@ export namespace foundation::xml
                     return;
                 }
             }
-            XmlAttribute* attr = DefaultAllocator().New<XmlAttribute>(
+            XmlAttribute* attr = Allocator().New<XmlAttribute>(
+                Allocator(),
                 StringView(prefix), StringView(localName), namespaceUri, value);
             attr->SetOwnerElement(this);
             m_attributes.PushBack(attr);
@@ -681,7 +712,7 @@ export namespace foundation::xml
                 if (m_attributes[i]->Name() == attr->Name())
                 {
                     m_attributes[i]->SetOwnerElement(nullptr);
-                    DefaultAllocator().Delete(m_attributes[i]);
+                    m_attributes[i]->Allocator().Delete(m_attributes[i]);
                     m_attributes.RemoveAt(i);
                     break;
                 }
@@ -700,7 +731,7 @@ export namespace foundation::xml
                 if (m_attributes[i]->Name() == name)
                 {
                     m_attributes[i]->SetOwnerElement(nullptr);
-                    DefaultAllocator().Delete(m_attributes[i]);
+                    m_attributes[i]->Allocator().Delete(m_attributes[i]);
                     m_attributes.RemoveAt(i);
                     return;
                 }
@@ -714,7 +745,7 @@ export namespace foundation::xml
                     m_attributes[i]->LocalName() == localName)
                 {
                     m_attributes[i]->SetOwnerElement(nullptr);
-                    DefaultAllocator().Delete(m_attributes[i]);
+                    m_attributes[i]->Allocator().Delete(m_attributes[i]);
                     m_attributes.RemoveAt(i);
                     return;
                 }
@@ -738,7 +769,7 @@ export namespace foundation::xml
             for (XmlAttribute* a : m_attributes)
             {
                 a->SetOwnerElement(nullptr);
-                DefaultAllocator().Delete(a);
+                a->Allocator().Delete(a);
             }
             m_attributes.Clear();
             m_localNamespaces.Clear();
@@ -877,7 +908,7 @@ export namespace foundation::xml
             ClearChildren();
             if (!text.IsEmpty())
             {
-                AppendChild(DefaultAllocator().New<XmlText>(text));
+                AppendChild(Allocator().New<XmlText>(Allocator(), text));
             }
         }
 

@@ -56,7 +56,7 @@ namespace
 TEST_CASE("project-registry: touch inserts most-recent-first, dedupes, and caps")
 {
     RegisterProjectRegistryTypes();
-    settings::Settings store;
+    settings::Settings store(foundation::core::DefaultAllocator());
 
     TouchRecentProject(store, u8"/projects/a", u8"A", u8"0.1.0");
     TouchRecentProject(store, u8"/projects/b", u8"B", u8"0.1.0");
@@ -87,7 +87,7 @@ TEST_CASE("project-registry: touch inserts most-recent-first, dedupes, and caps"
 TEST_CASE("project-registry: remove deletes a row; the section round-trips the settings store")
 {
     RegisterProjectRegistryTypes();
-    settings::Settings store;
+    settings::Settings store(foundation::core::DefaultAllocator());
     TouchRecentProject(store, u8"/projects/keep", u8"Keep", u8"0.1.0");
     TouchRecentProject(store, u8"/projects/drop", u8"Drop", u8"0.1.0");
 
@@ -101,7 +101,7 @@ TEST_CASE("project-registry: remove deletes a row; the section round-trips the s
     vfs::NativeFileSystem fs(dir);
     REQUIRE(SaveEditorSettings(*fs.AsWritable(), store).IsOk());
 
-    settings::Settings loaded;
+    settings::Settings loaded(foundation::core::DefaultAllocator());
     REQUIRE(LoadEditorSettings(fs, loaded).IsOk());
     const RecentProjectsSettings& reg = loaded.Section<RecentProjectsSettings>();
     REQUIRE(reg.entries.Size() == 1u);
@@ -178,7 +178,7 @@ TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
 TEST_CASE("project-manager controller: open gates + prompt copy + registry pass-through")
 {
     RegisterProjectRegistryTypes();
-    settings::Settings store;
+    settings::Settings store(foundation::core::DefaultAllocator());
     ProjectManagerController controller(store);
 
     // Not a project.
@@ -285,7 +285,7 @@ TEST_CASE("editor.settings: a store with EVERY section round-trips (registry sur
 {
     RegisterEditorSettingsTypes();
     RegisterProjectRegistryTypes();
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     store.Section<EditorUiSettings>().uiScale = 1.2f;
     TouchRecentProject(store, u8"/proj/a", u8"A", u8"0.1.0");
 
@@ -293,7 +293,7 @@ TEST_CASE("editor.settings: a store with EVERY section round-trips (registry sur
     REQUIRE(store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
     (void)buffer.Seek(0, SeekOrigin::Begin);
 
-    foundation::settings::Settings loaded;
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
     REQUIRE(loaded.Load(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
     const RecentProjectsSettings* reg = loaded.Find<RecentProjectsSettings>();
     REQUIRE(reg != nullptr);

@@ -97,7 +97,7 @@ namespace
 TEST_CASE("client: Start configures the app, starts subsystems, then launches")
 {
     LifecycleApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
     host.Start(app);
 
     REQUIRE(app.order.Size() == 3u);
@@ -116,7 +116,7 @@ TEST_CASE("client: Start configures the app, starts subsystems, then launches")
 TEST_CASE("client: Tick drives Context phases with a fixed-step accumulator")
 {
     LifecycleApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
     host.Start(app);
 
     host.Tick(0.25f); // accumulator 0.25 < 0.5 -> no fixed step
@@ -172,7 +172,7 @@ namespace
 TEST_CASE("client: maxFrameTime clamps a large delta")
 {
     ClampApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
     host.Start(app);
 
     // The runner clamps to Settings().maxFrameTime before calling Tick.
@@ -190,7 +190,7 @@ TEST_CASE("client: maxFrameTime clamps a large delta")
 TEST_CASE("client: RequestExit stops a manual run loop")
 {
     LifecycleApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
     host.Start(app);
 
     int frames = 0;
@@ -224,7 +224,7 @@ TEST_CASE("client: the host borrows the shell and exposes it to the app")
 {
     MockShell shell;
     PlatformApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
 
     host.Start(app, &shell);
     CHECK(app.seenShell == &shell); // visible during Configure
@@ -256,7 +256,7 @@ TEST_CASE("client: with a graphics device, every window renders each Tick")
     UniquePtr<GraphicsDevice>& gd = created.Value();
 
     RenderApp app;
-    ApplicationHost host;
+    ApplicationHost host(DefaultAllocator());
     host.Start(app, &shell, gd.Get());
 
     CHECK(host.Windows().Size() == 2u); // main (from Start) + the one opened in OnStartup

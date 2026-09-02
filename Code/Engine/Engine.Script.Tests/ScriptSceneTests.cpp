@@ -2348,7 +2348,7 @@ namespace
     // the script subsystem itself keeps no physics dependency.
     struct ContactWorld
     {
-        runtime::Context ctx;
+        runtime::Context ctx{DefaultAllocator()};
         engine::scene::SceneSubsystem* scenes = nullptr;
         engine::physics::PhysicsSubsystem* physics = nullptr;
         ScriptSubsystem* scripts = nullptr;
@@ -2518,7 +2518,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
           "(contact-listener registration is guarded)")
 {
     namespace runtime = foundation::runtime;
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);

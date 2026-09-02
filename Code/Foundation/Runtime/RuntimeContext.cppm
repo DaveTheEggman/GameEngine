@@ -23,7 +23,7 @@ export namespace foundation::runtime
     class Context
     {
     public:
-        explicit Context(core::IAllocator& allocator = core::DefaultAllocator()) noexcept
+        explicit Context(core::IAllocator& allocator) noexcept
             : m_allocator(&allocator)
         {
         }

@@ -240,7 +240,7 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     Proxy<AudioClip> a = syncManager.Bind<AudioClip>(id);
     REQUIRE(a);
 
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager asyncManager(outputDb, &jobs);
     asyncManager.AddFactory(&factory);
     Proxy<AudioClip> b = asyncManager.BindAsync<AudioClip>(id);
@@ -307,7 +307,7 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
     }
 
     AudioClipFactory factory;
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager manager(outputDb, &jobs);
     manager.AddFactory(&factory);
 

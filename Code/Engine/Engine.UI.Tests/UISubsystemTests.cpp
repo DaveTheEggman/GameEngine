@@ -45,7 +45,7 @@ namespace
 
 TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -105,7 +105,7 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 
 TEST_CASE("ui.subsystem: an effectively-inactive entity's canvas goes Gone (and back)")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -192,7 +192,7 @@ TEST_CASE("ui.subsystem: canvas component serialization round-trips")
 
 TEST_CASE("ui.subsystem: billboards project through the scene camera and park behind it")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -278,7 +278,7 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
 
 TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and stays topmost")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -323,7 +323,7 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
 
 TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -374,7 +374,7 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
 
 TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer modal")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -460,7 +460,7 @@ namespace
 
 TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -539,7 +539,7 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
 
 TEST_CASE("ui.subsystem: preview roots live in the context but never on the screen root")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -572,7 +572,7 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
 
 TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; despawn sweeps")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -665,7 +665,7 @@ TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; d
 TEST_CASE(
     "ui.subsystem: ReferenceResolution scaler lays out at the reference size and scales to fit")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -768,7 +768,7 @@ namespace
 
 TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME follows focus")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -841,7 +841,7 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
 
 TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay out of the tiers")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -941,7 +941,7 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
 TEST_CASE(
     "ui.subsystem: the project-default theme swaps the context stylesheet (GameTheme fallback)")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>();
     ctx.Startup();
@@ -977,7 +977,7 @@ TEST_CASE("ui.subsystem: removing a canvas or billboard COMPONENT sweeps its tre
     // The user's exact repro: add a ui.Canvas in the editor, see it render, REMOVE the
     // component (entity stays) - the UI must disappear. Same for billboards, whose
     // layer needed its own sweep.
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1090,7 +1090,7 @@ namespace
 
 TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS scene")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1188,7 +1188,7 @@ TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS sc
 
 TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (editor policy)")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1266,7 +1266,7 @@ TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (ed
 
 TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture override")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1378,7 +1378,7 @@ TEST_CASE("ui.worldpanel: ray/uv math - front and back hits, edges, parallel mis
 TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite, and "
           "takes a ray-routed click")
 {
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1507,7 +1507,7 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
     // CanvasHostView stretches every document to the viewport; the doc root must stay
     // hit-TRANSPARENT or one HUD eats the pointer everywhere: consumption reads true on
     // empty space (crate clicks die) and the scene root outbids every world panel.
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);
@@ -1586,7 +1586,7 @@ TEST_CASE("ui.subsystem: a press over EMPTY space never consumes the pointer "
     // click published a consumed mask for the press duration, gating gameplay input
     // (PhysicsPlayground's LMB crate shove polls IsButtonPressed on exactly the press
     // frame, so it was gated 100% of the time while the HUD kept working).
-    runtime::Context ctx;
+    runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);

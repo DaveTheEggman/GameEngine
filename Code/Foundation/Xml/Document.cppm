@@ -37,7 +37,8 @@ export namespace foundation::xml
     class XmlDocument final : public XmlNode
     {
     public:
-        XmlDocument() : XmlNode(XmlNodeType::Document) {}
+        // The allocator (required - the owner decides) backs every node in this tree.
+        explicit XmlDocument(IAllocator& allocator) : XmlNode(allocator, XmlNodeType::Document) {}
 
         // Tracks declaration + root element as children are appended.
         void AppendChild(XmlNode* child) override
@@ -88,39 +89,39 @@ export namespace foundation::xml
         // --- factory ---
         [[nodiscard]] XmlElement* CreateElement(StringView name)
         {
-            return DefaultAllocator().New<XmlElement>(name);
+            return Allocator().New<XmlElement>(Allocator(), name);
         }
         [[nodiscard]] XmlElement* CreateElement(StringView prefix, StringView localName,
                                                 StringView namespaceUri)
         {
-            return DefaultAllocator().New<XmlElement>(prefix, localName, namespaceUri);
+            return Allocator().New<XmlElement>(Allocator(), prefix, localName, namespaceUri);
         }
         [[nodiscard]] XmlAttribute* CreateAttribute(StringView name)
         {
-            return DefaultAllocator().New<XmlAttribute>(name, StringView(u8""));
+            return Allocator().New<XmlAttribute>(Allocator(), name, StringView(u8""));
         }
         [[nodiscard]] XmlAttribute* CreateAttribute(StringView prefix, StringView localName,
                                                     StringView namespaceUri)
         {
-            return DefaultAllocator().New<XmlAttribute>(prefix, localName, namespaceUri,
+            return Allocator().New<XmlAttribute>(Allocator(), prefix, localName, namespaceUri,
                                                         StringView(u8""));
         }
         [[nodiscard]] XmlText* CreateTextNode(StringView text)
         {
-            return DefaultAllocator().New<XmlText>(text);
+            return Allocator().New<XmlText>(Allocator(), text);
         }
         [[nodiscard]] XmlCData* CreateCDataSection(StringView data)
         {
-            return DefaultAllocator().New<XmlCData>(data);
+            return Allocator().New<XmlCData>(Allocator(), data);
         }
         [[nodiscard]] XmlComment* CreateComment(StringView text)
         {
-            return DefaultAllocator().New<XmlComment>(text);
+            return Allocator().New<XmlComment>(Allocator(), text);
         }
         [[nodiscard]] XmlProcessingInstruction* CreateProcessingInstruction(StringView target,
                                                                             StringView data)
         {
-            return DefaultAllocator().New<XmlProcessingInstruction>(target, data);
+            return Allocator().New<XmlProcessingInstruction>(Allocator(), target, data);
         }
 
         // --- queries ---
@@ -314,19 +315,19 @@ export namespace foundation::xml
             Advance(text, 5);
             SkipWhitespace(text);
 
-            XmlDeclaration* declaration = DefaultAllocator().New<XmlDeclaration>();
+            XmlDeclaration* declaration = Allocator().New<XmlDeclaration>(Allocator());
 
             // version (required)
             if (!text.StartsWith(StringView(u8"version")))
             {
-                DefaultAllocator().Delete(declaration);
+                Allocator().Delete(declaration);
                 return XmlResult::DeclarationVersion;
             }
             Advance(text, 7);
             SkipWhitespace(text);
             if (text.IsEmpty() || text[0] != u8'=')
             {
-                DefaultAllocator().Delete(declaration);
+                Allocator().Delete(declaration);
                 return XmlResult::DeclarationVersion;
             }
             Advance(text, 1);
@@ -335,7 +336,7 @@ export namespace foundation::xml
             usize versionLen = 0;
             if (XmlLexer::ReadAttributeValue(text, versionLen, versionStr) != XmlResult::Ok)
             {
-                DefaultAllocator().Delete(declaration);
+                Allocator().Delete(declaration);
                 return XmlResult::DeclarationVersion;
             }
             Advance(text, versionLen);
@@ -349,7 +350,7 @@ export namespace foundation::xml
                 SkipWhitespace(text);
                 if (text.IsEmpty() || text[0] != u8'=')
                 {
-                    DefaultAllocator().Delete(declaration);
+                    Allocator().Delete(declaration);
                     return XmlResult::DeclarationInvalid;
                 }
                 Advance(text, 1);
@@ -358,7 +359,7 @@ export namespace foundation::xml
                 usize encodingLen = 0;
                 if (XmlLexer::ReadAttributeValue(text, encodingLen, encodingStr) != XmlResult::Ok)
                 {
-                    DefaultAllocator().Delete(declaration);
+                    Allocator().Delete(declaration);
                     return XmlResult::DeclarationInvalid;
                 }
                 Advance(text, encodingLen);
@@ -373,7 +374,7 @@ export namespace foundation::xml
                 SkipWhitespace(text);
                 if (text.IsEmpty() || text[0] != u8'=')
                 {
-                    DefaultAllocator().Delete(declaration);
+                    Allocator().Delete(declaration);
                     return XmlResult::DeclarationInvalid;
                 }
                 Advance(text, 1);
@@ -383,7 +384,7 @@ export namespace foundation::xml
                 if (XmlLexer::ReadAttributeValue(text, standaloneLen, standaloneStr) !=
                     XmlResult::Ok)
                 {
-                    DefaultAllocator().Delete(declaration);
+                    Allocator().Delete(declaration);
                     return XmlResult::DeclarationInvalid;
                 }
                 Advance(text, standaloneLen);
@@ -393,7 +394,7 @@ export namespace foundation::xml
 
             if (!text.StartsWith(StringView(u8"?>")))
             {
-                DefaultAllocator().Delete(declaration);
+                Allocator().Delete(declaration);
                 return XmlResult::DeclarationInvalid;
             }
             Advance(text, 2);
@@ -417,12 +418,12 @@ export namespace foundation::xml
             }
             Advance(text, nameLen);
 
-            XmlElement* element = DefaultAllocator().New<XmlElement>(StringView(tagName));
+            XmlElement* element = Allocator().New<XmlElement>(Allocator(), StringView(tagName));
 
             const XmlResult attrResult = ParseAttributes(text, element);
             if (attrResult != XmlResult::Ok)
             {
-                DefaultAllocator().Delete(element);
+                Allocator().Delete(element);
                 return attrResult;
             }
 
@@ -437,7 +438,7 @@ export namespace foundation::xml
 
             if (text.IsEmpty() || text[0] != u8'>')
             {
-                DefaultAllocator().Delete(element);
+                Allocator().Delete(element);
                 return XmlResult::TagUnclosed;
             }
             Advance(text, 1);
@@ -613,7 +614,7 @@ export namespace foundation::xml
                 return XmlResult::Ok;
             }
 
-            parent->AppendChild(DefaultAllocator().New<XmlText>(StringView(content)));
+            parent->AppendChild(Allocator().New<XmlText>(Allocator(), StringView(content)));
             return XmlResult::Ok;
         }
 
@@ -632,7 +633,7 @@ export namespace foundation::xml
                 return r;
             }
             Advance(text, len);
-            parent->AppendChild(DefaultAllocator().New<XmlCData>(StringView(content)));
+            parent->AppendChild(Allocator().New<XmlCData>(Allocator(), StringView(content)));
             return XmlResult::Ok;
         }
 
@@ -651,7 +652,7 @@ export namespace foundation::xml
                 return r;
             }
             Advance(text, len);
-            parent->AppendChild(DefaultAllocator().New<XmlComment>(StringView(content)));
+            parent->AppendChild(Allocator().New<XmlComment>(Allocator(), StringView(content)));
             return XmlResult::Ok;
         }
 
@@ -692,7 +693,7 @@ export namespace foundation::xml
             {
                 return XmlResult::DeclarationPosition;
             }
-            parent->AppendChild(DefaultAllocator().New<XmlProcessingInstruction>(StringView(target),
+            parent->AppendChild(Allocator().New<XmlProcessingInstruction>(Allocator(), StringView(target),
                                                                                  StringView(data)));
             return XmlResult::Ok;
         }

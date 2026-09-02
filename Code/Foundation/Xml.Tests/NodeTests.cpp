@@ -13,13 +13,13 @@ namespace
 {
     XmlElement* NewElem(const char8_t* n)
     {
-        return DefaultAllocator().New<XmlElement>(StringView(n));
+        return DefaultAllocator().New<XmlElement>(DefaultAllocator(), StringView(n));
     }
 }
 
 TEST_CASE("xml.node: element creation")
 {
-    XmlElement elem(u8"test");
+    XmlElement elem(DefaultAllocator(), u8"test");
     CHECK(elem.TagName() == StringView(u8"test"));
     CHECK(elem.LocalName() == StringView(u8"test"));
     CHECK(elem.Prefix().IsEmpty());
@@ -28,7 +28,7 @@ TEST_CASE("xml.node: element creation")
 
 TEST_CASE("xml.node: element creation with namespace")
 {
-    XmlElement elem(u8"ns", u8"test", u8"http://example.com");
+    XmlElement elem(DefaultAllocator(), u8"ns", u8"test", u8"http://example.com");
     CHECK(elem.TagName() == StringView(u8"ns:test"));
     CHECK(elem.LocalName() == StringView(u8"test"));
     CHECK(elem.Prefix() == StringView(u8"ns"));
@@ -37,7 +37,7 @@ TEST_CASE("xml.node: element creation with namespace")
 
 TEST_CASE("xml.node: attribute manipulation")
 {
-    XmlElement elem(u8"test");
+    XmlElement elem(DefaultAllocator(), u8"test");
     elem.SetAttribute(u8"id", u8"123");
     elem.SetAttribute(u8"name", u8"value");
     CHECK(elem.AttributeCount() == 2u);
@@ -58,7 +58,7 @@ TEST_CASE("xml.node: attribute manipulation")
 
 TEST_CASE("xml.node: child manipulation")
 {
-    XmlElement parent(u8"parent");
+    XmlElement parent(DefaultAllocator(), u8"parent");
     XmlElement* child1 = NewElem(u8"child1");
     XmlElement* child2 = NewElem(u8"child2");
     XmlElement* child3 = NewElem(u8"child3");
@@ -93,10 +93,10 @@ TEST_CASE("xml.node: child manipulation")
 
 TEST_CASE("xml.node: tree navigation")
 {
-    XmlElement root(u8"root");
+    XmlElement root(DefaultAllocator(), u8"root");
     XmlElement* child1 = NewElem(u8"child");
     XmlElement* child2 = NewElem(u8"child");
-    XmlText* text = DefaultAllocator().New<XmlText>(u8"text");
+    XmlText* text = DefaultAllocator().New<XmlText>(DefaultAllocator(), u8"text");
     XmlElement* child3 = NewElem(u8"other");
 
     root.AppendChild(child1);
@@ -116,7 +116,7 @@ TEST_CASE("xml.node: tree navigation")
 
 TEST_CASE("xml.node: child enumeration")
 {
-    XmlElement parent(u8"parent");
+    XmlElement parent(DefaultAllocator(), u8"parent");
     parent.AppendChild(NewElem(u8"child1"));
     parent.AppendChild(NewElem(u8"child2"));
     parent.AppendChild(NewElem(u8"child3"));
@@ -132,9 +132,9 @@ TEST_CASE("xml.node: child enumeration")
 
 TEST_CASE("xml.node: GetChildElements")
 {
-    XmlElement parent(u8"parent");
+    XmlElement parent(DefaultAllocator(), u8"parent");
     parent.AppendChild(NewElem(u8"item"));
-    parent.AppendChild(DefaultAllocator().New<XmlText>(u8"text"));
+    parent.AppendChild(DefaultAllocator().New<XmlText>(DefaultAllocator(), u8"text"));
     parent.AppendChild(NewElem(u8"item"));
     parent.AppendChild(NewElem(u8"other"));
 
@@ -148,7 +148,7 @@ TEST_CASE("xml.node: GetChildElements")
 
 TEST_CASE("xml.node: GetDescendantElements")
 {
-    XmlElement root(u8"root");
+    XmlElement root(DefaultAllocator(), u8"root");
     XmlElement* child1 = NewElem(u8"item");
     XmlElement* child2 = NewElem(u8"container");
     XmlElement* grandchild = NewElem(u8"item");
@@ -165,7 +165,7 @@ TEST_CASE("xml.node: GetDescendantElements")
 
 TEST_CASE("xml.node: text content")
 {
-    XmlElement elem(u8"test");
+    XmlElement elem(DefaultAllocator(), u8"test");
     elem.SetTextContent(u8"Hello World");
     CHECK(elem.HasChildren());
     CHECK(elem.ChildCount() == 1u);
@@ -182,18 +182,18 @@ TEST_CASE("xml.node: text content")
 
 TEST_CASE("xml.node: text node")
 {
-    XmlText text(u8"Hello");
+    XmlText text(DefaultAllocator(), u8"Hello");
     CHECK(text.Text() == StringView(u8"Hello"));
     CHECK_FALSE(text.IsWhitespace());
     text.AppendText(u8" World");
     CHECK(text.Text() == StringView(u8"Hello World"));
-    XmlText wsText(u8"   \t\n");
+    XmlText wsText(DefaultAllocator(), u8"   \t\n");
     CHECK(wsText.IsWhitespace());
 }
 
 TEST_CASE("xml.node: CData node")
 {
-    XmlCData cdata(u8"<special> & content");
+    XmlCData cdata(DefaultAllocator(), u8"<special> & content");
     CHECK(cdata.Data() == StringView(u8"<special> & content"));
     CHECK(cdata.NodeType() == XmlNodeType::CData);
     String xml;
@@ -203,7 +203,7 @@ TEST_CASE("xml.node: CData node")
 
 TEST_CASE("xml.node: comment node")
 {
-    XmlComment comment(u8"This is a comment");
+    XmlComment comment(DefaultAllocator(), u8"This is a comment");
     CHECK(comment.Text() == StringView(u8"This is a comment"));
     CHECK(comment.NodeType() == XmlNodeType::Comment);
     String xml;
@@ -216,7 +216,7 @@ TEST_CASE("xml.node: comment node")
 
 TEST_CASE("xml.node: declaration node")
 {
-    XmlDeclaration decl(u8"1.0", u8"utf-8", u8"yes");
+    XmlDeclaration decl(DefaultAllocator(), u8"1.0", u8"utf-8", u8"yes");
     CHECK(decl.Version() == StringView(u8"1.0"));
     CHECK(decl.Encoding() == StringView(u8"utf-8"));
     CHECK(decl.Standalone() == StringView(u8"yes"));
@@ -228,7 +228,7 @@ TEST_CASE("xml.node: declaration node")
 
 TEST_CASE("xml.node: processing instruction node")
 {
-    XmlProcessingInstruction pi(u8"target", u8"data content");
+    XmlProcessingInstruction pi(DefaultAllocator(), u8"target", u8"data content");
     CHECK(pi.Target() == StringView(u8"target"));
     CHECK(pi.Data() == StringView(u8"data content"));
     CHECK(pi.NodeType() == XmlNodeType::ProcessingInstruction);
@@ -239,14 +239,14 @@ TEST_CASE("xml.node: processing instruction node")
 
 TEST_CASE("xml.node: attribute node")
 {
-    XmlAttribute attr(u8"name", u8"value");
+    XmlAttribute attr(DefaultAllocator(), u8"name", u8"value");
     CHECK(attr.Name() == StringView(u8"name"));
     CHECK(attr.Value() == StringView(u8"value"));
     CHECK(attr.LocalName() == StringView(u8"name"));
     CHECK(attr.Prefix().IsEmpty());
     CHECK_FALSE(attr.IsNamespaceDeclaration());
 
-    XmlAttribute nsAttr(u8"xmlns:ns", u8"http://example.com");
+    XmlAttribute nsAttr(DefaultAllocator(), u8"xmlns:ns", u8"http://example.com");
     nsAttr.SetName(u8"xmlns:ns");
     nsAttr.SetValue(u8"http://example.com");
     CHECK(nsAttr.IsNamespaceDeclaration());
@@ -255,7 +255,7 @@ TEST_CASE("xml.node: attribute node")
 
 TEST_CASE("xml.node: owner document")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><child/></root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->OwnerDocument() == &doc);
     CHECK(doc.RootElement()->FirstChild()->OwnerDocument() == &doc);
@@ -263,7 +263,7 @@ TEST_CASE("xml.node: owner document")
 
 TEST_CASE("xml.node: remove from parent")
 {
-    XmlElement parent(u8"parent");
+    XmlElement parent(DefaultAllocator(), u8"parent");
     XmlElement* child = NewElem(u8"child");
     parent.AppendChild(child);
     CHECK(child->Parent() == &parent);
@@ -275,7 +275,7 @@ TEST_CASE("xml.node: remove from parent")
 
 TEST_CASE("xml.node: insert after")
 {
-    XmlElement parent(u8"parent");
+    XmlElement parent(DefaultAllocator(), u8"parent");
     XmlElement* child1 = NewElem(u8"child1");
     XmlElement* child2 = NewElem(u8"child2");
     XmlElement* child3 = NewElem(u8"child3");
@@ -289,7 +289,7 @@ TEST_CASE("xml.node: insert after")
 
 TEST_CASE("xml.node: namespace declaration")
 {
-    XmlElement elem(u8"root");
+    XmlElement elem(DefaultAllocator(), u8"root");
     elem.SetAttribute(u8"xmlns", u8"http://default.example.com");
     elem.SetAttribute(u8"xmlns:ns", u8"http://ns.example.com");
     CHECK(elem.ResolveNamespacePrefix(u8"") == StringView(u8"http://default.example.com"));

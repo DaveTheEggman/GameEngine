@@ -43,7 +43,9 @@ export namespace foundation::runtime
     class ApplicationHost final : public IApplicationHost
     {
     public:
-        ApplicationHost() = default;
+        // The allocator (required - the entry point decides) becomes the runtime
+        // Context's allocator authority for every subsystem this host runs.
+        explicit ApplicationHost(core::IAllocator& allocator) noexcept : m_context(allocator) {}
         ~ApplicationHost() override = default;
 
         ApplicationHost(const ApplicationHost&) = delete;

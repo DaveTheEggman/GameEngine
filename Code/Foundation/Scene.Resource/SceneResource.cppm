@@ -159,7 +159,7 @@ export namespace foundation::scene
 
         private:
             SceneStreamEncoding m_encoding = SceneStreamEncoding::Binary;
-            foundation::xml::XmlDocument m_doc;
+            foundation::xml::XmlDocument m_doc{foundation::core::DefaultAllocator()};
             UniquePtr<BinarySerializer> m_binary;
             UniquePtr<foundation::xml::XmlSerializer> m_xml;
         };
@@ -1322,7 +1322,7 @@ export namespace foundation::scene
 
         // Sources are TEXT: diffable, mergeable, hand-editable.
         // Export staging transcodes to the binary wire for the player.
-        foundation::xml::XmlSerializer ser;
+        foundation::xml::XmlSerializer ser(foundation::core::DefaultAllocator());
         SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, true,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())
@@ -1380,7 +1380,7 @@ export namespace foundation::scene
         // Referenced + no settings: nested instances persist as ref+delta RECORDS - the
         // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
         // like scene saves (export transcodes).
-        foundation::xml::XmlSerializer ser;
+        foundation::xml::XmlSerializer ser(foundation::core::DefaultAllocator());
         SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())

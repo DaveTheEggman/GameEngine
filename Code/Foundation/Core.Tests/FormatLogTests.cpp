@@ -164,7 +164,7 @@ TEST_CASE("format: wide and utf8 string arguments")
 
 TEST_CASE("log: RingLogSink keeps the most recent records")
 {
-    RingLogSink ring(3);
+    RingLogSink ring(3, DefaultAllocator());
     CHECK(ring.Count() == 0u);
 
     for (int i = 0; i < 5; ++i)

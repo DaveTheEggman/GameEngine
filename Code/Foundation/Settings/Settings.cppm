@@ -29,7 +29,12 @@ export namespace foundation::settings
     class Settings
     {
     public:
-        Settings() = default;
+        // The allocator (required - the owner decides) backs the lazily-created
+        // sections and the section map.
+        explicit Settings(IAllocator& allocator) noexcept
+            : m_allocator(&allocator), m_sections(allocator)
+        {
+        }
         Settings(const Settings&) = delete;
         Settings& operator=(const Settings&) = delete;
 
@@ -43,7 +48,7 @@ export namespace foundation::settings
             {
                 return static_cast<T&>(*existing->Get());
             }
-            RefPtr<ISerializable> obj = MakeRef<T>(DefaultAllocator());
+            RefPtr<ISerializable> obj = MakeRef<T>(*m_allocator);
             T& ref = static_cast<T&>(*obj.Get());
             m_sections.InsertOrAssign(id, static_cast<RefPtr<ISerializable>&&>(obj));
             return ref;
@@ -270,6 +275,7 @@ export namespace foundation::settings
         };
 
     private:
+        IAllocator* m_allocator;
         HashMap<TypeId, RefPtr<ISerializable>> m_sections;
         Array<UnknownSection> m_unknownSections;
         Function<void(StringView)> m_onChanged;

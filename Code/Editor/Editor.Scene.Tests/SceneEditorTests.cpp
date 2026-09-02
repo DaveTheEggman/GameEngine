@@ -408,7 +408,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     const Guid sceneA{1, 2};
     const Guid sceneB{3, 4};
 
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     // No entry yet -> the caller's fallback (the page's current state) is returned untouched.
     const SceneViewPref fb{sceneA, true, false};
     CHECK(LoadSceneViewPref(&store, sceneA, fb).showGrid == true);
@@ -430,7 +430,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     MemoryStream buf;
     REQUIRE(store.Save(buf, foundation::xml::XmlSerializerFactory()).IsOk());
     (void)buf.Seek(0, SeekOrigin::Begin);
-    foundation::settings::Settings loaded;
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
     REQUIRE(loaded.Load(buf, foundation::xml::XmlSerializerFactory()).IsOk());
     CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showGrid == false);
     CHECK(LoadSceneViewPref(&loaded, sceneA, fb).showLodOverlay == true);
@@ -449,7 +449,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     MemoryStream buf3;
     REQUIRE(loaded.Save(buf3, foundation::xml::XmlSerializerFactory()).IsOk());
     (void)buf3.Seek(0, SeekOrigin::Begin);
-    foundation::settings::Settings reloaded;
+    foundation::settings::Settings reloaded(foundation::core::DefaultAllocator());
     REQUIRE(reloaded.Load(buf3, foundation::xml::XmlSerializerFactory()).IsOk());
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showColliders == true);
     CHECK(LoadSceneViewPref(&reloaded, sceneB, fb).showColliders == false);

@@ -212,7 +212,7 @@ TEST_CASE("threading: SharedMutex allows shared reads and exclusive writes")
 
 TEST_CASE("threading: JobSystem runs all submitted jobs")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
     CHECK(jobs.WorkerCount() == 4u);
 
     Atomic<i64> sum{0};
@@ -234,9 +234,28 @@ TEST_CASE("threading: JobSystem runs all submitted jobs")
     CHECK(sum.load() == expected);
 }
 
+TEST_CASE("threading: JobSystem allocates deques and job boxes from ITS allocator")
+{
+    TrackingAllocator tracker(DefaultAllocator());
+    {
+        JobSystem jobs(tracker, 2);
+        CHECK(tracker.TotalAllocations() > 0u); // worker deques came from the tracker
+
+        Atomic<int> ran{0};
+        for (int i = 0; i < 8; ++i)
+        {
+            jobs.Submit([&ran]() { ran.fetch_add(1); });
+        }
+        jobs.WaitForAll();
+        CHECK(ran.load() == 8);
+    }
+    // Deques + every job closure box returned to the tracker - a leak check per pool.
+    CHECK_FALSE(tracker.HasLeaks());
+}
+
 TEST_CASE("threading: JobSystem default pool runs everything (caller participates)")
 {
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     Atomic<int> done{0};
     for (int i = 0; i < 50; ++i)
     {
@@ -248,7 +267,7 @@ TEST_CASE("threading: JobSystem default pool runs everything (caller participate
 
 TEST_CASE("threading: ParallelFor covers the whole range exactly once")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
 
     const u32 sizes[] = {0u, 1u, 3u, 1000u, 99999u};
     for (u32 n : sizes)
@@ -274,7 +293,7 @@ TEST_CASE("threading: ParallelFor covers the whole range exactly once")
 
 TEST_CASE("threading: dependencies - SubmitAfter runs only once its counter reaches 0")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
     constexpr int kWork = 200;
 
     Atomic<int> work{0};
@@ -300,7 +319,7 @@ TEST_CASE("threading: dependencies - SubmitAfter runs only once its counter reac
 
 TEST_CASE("threading: Wait(Counter) participates until the counter is satisfied")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
     Counter done{50};
     Atomic<int> n{0};
     for (int i = 0; i < 50; ++i)
@@ -314,7 +333,7 @@ TEST_CASE("threading: Wait(Counter) participates until the counter is satisfied"
 
 TEST_CASE("threading: worker slots are distinct and in range")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
     CHECK(jobs.SlotCount() == jobs.WorkerCount() + 1u);
 
     // Every body invocation reports a slot in [0, SlotCount()); record which slots were used.
@@ -348,7 +367,7 @@ TEST_CASE("threading: worker slots are distinct and in range")
 
 TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation)")
 {
-    JobSystem jobs(4);
+    JobSystem jobs(DefaultAllocator(), 4);
     Atomic<i64> total{0};
     // A ParallelFor whose body runs another ParallelFor - a worker that Waits on the inner
     // loop participates in running it, so no worker is parked while work remains.

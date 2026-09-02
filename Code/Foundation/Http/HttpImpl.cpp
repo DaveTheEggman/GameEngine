@@ -460,7 +460,7 @@ namespace foundation::http
     {
         Stop();
         m_config = config;
-        m_listener = MakeUnique<net::TcpListener>(DefaultAllocator(), config.port);
+        m_listener = MakeUnique<net::TcpListener>(*m_allocator, config.port);
         if (!m_listener->IsOpen())
         {
             m_listener = nullptr;
@@ -555,7 +555,7 @@ namespace foundation::http
             if (sent == static_cast<i64>(headText.Size()))
             {
                 RefPtr<SseStream> stream =
-                    MakeRef<SseStream>(DefaultAllocator(), Move(connection.socket));
+                    MakeRef<SseStream>(*m_allocator, Move(connection.socket));
                 m_streams.PushBack(stream);
                 if (m_streamHandler)
                 {
@@ -585,7 +585,7 @@ namespace foundation::http
             {
                 continue; // socket closes on scope exit = refused
             }
-            m_connections.PushBack(MakeUnique<Connection>(DefaultAllocator(), Move(accepted),
+            m_connections.PushBack(MakeUnique<Connection>(*m_allocator, Move(accepted),
                                                           m_config.maxBodyBytes));
         }
 

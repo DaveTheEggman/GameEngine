@@ -51,7 +51,7 @@ namespace editor
                                                                 project.SourcesRoot().AsView());
         m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
                                                               project.CacheRoot().AsView());
-        m_jobs = MakeUnique<JobSystem>(DefaultAllocator());
+        m_jobs = MakeUnique<JobSystem>(DefaultAllocator(), DefaultAllocator());
         m_driver =
             MakeUnique<CookDriver>(DefaultAllocator(), project.SourceDb(), project.CookedDb(),
                                    builders, m_sources.Get(), m_cache.Get(), m_jobs.Get());

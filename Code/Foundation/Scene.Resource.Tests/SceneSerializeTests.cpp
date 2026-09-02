@@ -1665,7 +1665,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     health->Get(wheel)->value = 77.0f; // an override that must survive every hop
 
     // Hop 1: XML text.
-    foundation::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     REQUIRE(xmlOut.IsOk());
@@ -1744,7 +1744,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
 
     // Stability: re-saving the loaded scene as XML reproduces the SAME text - saves can
     // never generate noise diffs.
-    foundation::xml::XmlSerializer xmlAgain;
+    foundation::xml::XmlSerializer xmlAgain(foundation::core::DefaultAllocator());
     SerializeScene(xmlAgain, loaded, nullptr, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text2;
@@ -1761,7 +1761,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     health->Add(a).value = 1.0f;
     health->Add(b).value = 2.0f;
 
-    foundation::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
@@ -1819,7 +1819,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     EntityHandle wheel = SpawnPrefab(scene, innerStream, innerId);
     REQUIRE(wheel.IsAssigned());
     health->Get(wheel)->value = 55.0f;
-    foundation::xml::XmlSerializer xmlOut;
+    foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
     SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
@@ -1965,7 +1965,7 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
 
     // --- 1) a fresh save uses the proper forms: full transform names + canonical guids ---
     {
-        foundation::xml::XmlSerializer xmlOut;
+        foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
         SerializeScene(xmlOut, author, nullptr, ScenePrefabMode::Referenced, true,
                        foundation::scene::detail::SceneStreamEncoding::Text);
         REQUIRE(xmlOut.IsOk());
@@ -1985,7 +1985,7 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
 
     // --- 2) a legacy v2 XML stream (hi/lo guid fields, pos/rot/scl keys) still loads ---
     // Replicates the exact wire shapes the v2 writer produced.
-    foundation::xml::XmlSerializer legacyOut;
+    foundation::xml::XmlSerializer legacyOut(foundation::core::DefaultAllocator());
     auto legacyGuid = [](ISerializer& ar, const char* key, Guid g)
     {
         ar.Key(key);

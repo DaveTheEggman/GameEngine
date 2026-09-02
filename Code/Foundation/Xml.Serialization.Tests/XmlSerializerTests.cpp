@@ -43,7 +43,7 @@ TEST_CASE("xml.serialize: scalar + string round-trip")
 {
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         i32 a = -42;
         u32 b = 7u;
         f32 c = 1.5f;
@@ -62,7 +62,7 @@ TEST_CASE("xml.serialize: scalar + string round-trip")
     CHECK(Contains(out, u8"<i32 name=\"a\">-42</i32>"));
     CHECK(Contains(out, u8"<string name=\"s\">hello world</string>"));
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
     i32 a = 0;
@@ -87,14 +87,14 @@ TEST_CASE("xml.serialize: nested object (Float3) round-trip")
 {
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         Float3 v{1.0f, 2.5f, -3.0f};
         Serialize(w, "pos", v);
         w.GetOutput(out);
     }
     CHECK(Contains(out, u8"<object name=\"pos\">"));
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
     Float3 v{};
@@ -109,7 +109,7 @@ TEST_CASE("xml.serialize: dynamic array round-trip")
 {
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         Array<i32> nums;
         nums.PushBack(10);
         nums.PushBack(20);
@@ -119,7 +119,7 @@ TEST_CASE("xml.serialize: dynamic array round-trip")
     }
     CHECK(Contains(out, u8"<array name=\"nums\" count=\"3\">"));
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
     Array<i32> nums;
@@ -135,7 +135,7 @@ TEST_CASE("xml.serialize: array of objects round-trip")
 {
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         Array<Float2> pts;
         pts.PushBack(Float2{1.0f, 2.0f});
         pts.PushBack(Float2{3.0f, 4.0f});
@@ -143,7 +143,7 @@ TEST_CASE("xml.serialize: array of objects round-trip")
         w.GetOutput(out);
     }
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
     Array<Float2> pts;
@@ -162,12 +162,12 @@ TEST_CASE("xml.serialize: Float4x4 (positional float array) round-trip")
     m.Data()[3] = 9.0f; // tweak one element
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         Serialize(w, "xform", m);
         w.GetOutput(out);
     }
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(out) == XmlResult::Ok);
     XmlSerializer r(doc);
     Float4x4 m2{};
@@ -181,7 +181,7 @@ TEST_CASE("xml.serialize: Float4x4 (positional float array) round-trip")
 
 TEST_CASE("xml.serialize: missing field reports error on read")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><i32 name=\"a\">1</i32></root>") == XmlResult::Ok);
     XmlSerializer r(doc);
     i32 missing = 0;
@@ -225,13 +225,13 @@ TEST_CASE("xml.serialize: array of keyed structs round-trips each element distin
 
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         foundation::core::Serialize(w, "nodes", nodes);
         REQUIRE(w.IsOk());
         w.GetOutput(out);
     }
 
-    XmlDocument parsed;
+    XmlDocument parsed(foundation::core::DefaultAllocator());
     REQUIRE(parsed.Parse(out.AsView()) == XmlResult::Ok);
     XmlSerializer r(parsed);
     Array<FlatNode> loaded;
@@ -256,7 +256,7 @@ TEST_CASE("xml.serialize: BeginFramedRegion/EndFramedRegion are no-ops (identica
 {
     String framed;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         w.BeginObject();
         w.BeginFramedRegion();
         w.Key("v");
@@ -270,7 +270,7 @@ TEST_CASE("xml.serialize: BeginFramedRegion/EndFramedRegion are no-ops (identica
     }
     String unframed;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         w.BeginObject();
         w.Key("v");
         {
@@ -288,7 +288,7 @@ TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-inject
     // Author a section: typeName + a framed payload object {v=42}.
     String out;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         w.BeginObject();
         w.Key("typeName");
         {
@@ -312,7 +312,7 @@ TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-inject
     // Read as a build that does NOT know "Foo": capture the framed remainder as raw bytes.
     Array<u8> captured;
     {
-        XmlDocument doc;
+        XmlDocument doc(foundation::core::DefaultAllocator());
         REQUIRE(doc.Parse(out) == XmlResult::Ok);
         XmlSerializer r(doc);
         r.BeginObject();
@@ -332,7 +332,7 @@ TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-inject
     // Re-emit the captured payload into a fresh section.
     String out2;
     {
-        XmlSerializer w;
+        XmlSerializer w(foundation::core::DefaultAllocator());
         w.BeginObject();
         w.Key("typeName");
         {
@@ -348,7 +348,7 @@ TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-inject
 
     // A build that DOES know "Foo" recovers v=42 from the re-emitted section.
     {
-        XmlDocument doc;
+        XmlDocument doc(foundation::core::DefaultAllocator());
         REQUIRE(doc.Parse(out2) == XmlResult::Ok);
         XmlSerializer r(doc);
         r.BeginObject();

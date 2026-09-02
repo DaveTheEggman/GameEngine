@@ -176,7 +176,7 @@ TEST_CASE("font.factory: async load matches the sync product")
     auto a = syncManager.Bind<Font>(id);
     REQUIRE(a);
 
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager asyncManager(db, &jobs);
     asyncManager.AddFactory(&factory);
     auto b = asyncManager.BindAsync<Font>(id);
@@ -231,7 +231,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
 
     foundation::content::ContentDatabase db(mount, BinarySerializerFactory(), u8".rasset");
     FontFactory factory;
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager manager(db, &jobs);
     manager.AddFactory(&factory);
 

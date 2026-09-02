@@ -51,6 +51,16 @@ One OWNERSHIP TREE of allocators, rooted at the process:
   above.
 - **Tests** construct their own root (tracking) allocator in TestMain and
   pass it explicitly - which also turns every suite into a leak check.
+- **Fixed function-pointer ABIs measured during P2** stay unthreaded until
+  their owning phase (or permanently, if the owner never materializes):
+  the reflection container thunks (`createElement` and friends - shape is
+  `(Instance&, usize, TypeInfo&)` across the whole reflected ecosystem),
+  the `SerializableFactory` create-by-name path (deserialized object graphs
+  - the ContentDatabase seam can add an allocator overload in P3 if
+  worthwhile), and the `SerializerFactory` lambda the content DB stores.
+  `Thread`'s closure box is a construction-time transient of a value-shaped
+  primitive - same family as `Function`'s defaulted parameter (the value
+  bound).
 
 ## Phase plan (Core-up, the code-standard-cleanup discipline)
 
@@ -68,13 +78,27 @@ tight cluster) per commit.
   `IAllocator&`; the scene system owns a tagged "navigation" allocator).
   Small (5 sites) but exercises every idiom; the template for all later
   phases.
-- **P2 - Foundation/Core consumers**: Core's own internals (registries,
-  reflection builders) + Core.Tests roots. Removes the `Context` ctor
-  default (the first compile-breaking sweep with wide fan-out).
+- **P2 - Foundation/Core consumers** (DONE): `Context` ctor default REMOVED
+  (the first compile-breaking sweep - hosts, runners, editor embed, ~40 test
+  sites all made explicit); `ApplicationHost` takes the entry point's
+  allocator and threads it into its Context; `JobSystem` takes a required
+  allocator backing its worker deques AND every job closure box (leak-checked
+  per pool in tests); `RingLogSink` default removed; `Array::Allocator()`
+  accessor added (owners thread "allocate like my container" decisions - the
+  tiled nav bake's scoped pool now shares its output blob's allocator).
+  Registries/reflection builders measured and BOUNDED instead (see the
+  deliberate bounds above).
 - **P3 - Foundation services**: Xml, Settings, Content, VFS, Http, Net*,
   Audio, Fonts*, Image/Texture/Geometry resource stacks. Each service
   object takes `IAllocator&`; owners thread from Context or their own
-  owner.
+  owner. Lands as sub-sweeps: **P3a data backbone part 1 DONE** (XML DOM -
+  every node stores its creating allocator, the document's decision covers
+  the whole tree, detached subtrees keep their creator's; XmlSerializer
+  write mode takes the allocator backing its document; Settings store;
+  HttpServer + McpHttpHost). **P3a part 2 NEXT**: the ContentDatabase /
+  ResourceManager / NativeFileSystem trio (large mechanical sweep, ~400
+  mostly-test sites). Then P3b fonts, P3c audio, P3d net, P3e script
+  backends + misc.
 - **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
   inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
   the tree's allocator; control bodies switch `DefaultAllocator()` ->

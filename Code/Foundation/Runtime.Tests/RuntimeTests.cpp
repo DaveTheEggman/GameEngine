@@ -58,7 +58,7 @@ namespace
 
 TEST_CASE("runtime: time scale clamps at zero and defaults to realtime")
 {
-    foundation::runtime::Context ctx;
+    foundation::runtime::Context ctx(foundation::core::DefaultAllocator());
     CHECK(ctx.TimeScale() == 1.0f);
     ctx.SetTimeScale(0.5f);
     CHECK(ctx.TimeScale() == 0.5f);
@@ -125,7 +125,7 @@ TEST_CASE("runtime: fixed stepper - exact cadence, alpha, and the hitch clamp")
 
 TEST_CASE("runtime: register, look up, and own subsystems by type")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     CHECK_FALSE(ctx.HasSubsystem<Sys<1>>());
 
     Sys<1>* a = ctx.AddSubsystem<Sys<1>>(0, nullptr);
@@ -140,7 +140,7 @@ TEST_CASE("runtime: register, look up, and own subsystems by type")
 
 TEST_CASE("runtime: startup / shutdown lifecycle")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     Sys<1>* a = ctx.AddSubsystem<Sys<1>>(0, nullptr);
     CHECK_FALSE(a->IsInitialized());
     CHECK_FALSE(ctx.IsRunning());
@@ -160,7 +160,7 @@ TEST_CASE("runtime: startup / shutdown lifecycle")
 TEST_CASE("runtime: frame phases run in UpdateOrder")
 {
     Array<int> log;
-    Context ctx;
+    Context ctx(DefaultAllocator());
     Sys<2>* high = ctx.AddSubsystem<Sys<2>>(5, &log);  // runs later
     Sys<1>* low = ctx.AddSubsystem<Sys<1>>(-10, &log); // runs earlier
 
@@ -182,7 +182,7 @@ TEST_CASE("runtime: Dispose shuts down running subsystems")
 {
     int shutdowns = 0;
     {
-        Context ctx;
+        Context ctx(DefaultAllocator());
         Sys<1>* a = ctx.AddSubsystem<Sys<1>>(0, nullptr);
         ctx.Startup();
         CHECK(a->IsInitialized());
@@ -196,7 +196,7 @@ TEST_CASE("runtime: register a caller-owned subsystem; Context does not destroy 
 {
     Sys<1> owned(0, nullptr); // lives on the stack; Context must not free it
     {
-        Context ctx;
+        Context ctx(DefaultAllocator());
         Sys<1>* registered = ctx.RegisterSubsystem<Sys<1>>(&owned);
         CHECK(registered == &owned);
         CHECK(ctx.GetSubsystem<Sys<1>>() == &owned);
@@ -212,7 +212,7 @@ TEST_CASE("runtime: register a caller-owned subsystem; Context does not destroy 
 
 TEST_CASE("runtime: subsystems registered after Startup come up immediately")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     ctx.Startup();
     CHECK(ctx.IsRunning());
 
@@ -227,7 +227,7 @@ TEST_CASE("runtime: subsystems registered after Startup come up immediately")
 
 TEST_CASE("runtime: RemoveSubsystem shuts down, unregisters, and destroys owned")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     ctx.AddSubsystem<Sys<1>>(0, nullptr);
     ctx.AddSubsystem<Sys<2>>(0, nullptr);
     ctx.Startup();
@@ -260,7 +260,7 @@ namespace
 
 TEST_CASE("runtime: PluginHost::Add registers a static plugin's subsystem")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     StaticTestPlugin plugin;
     {
         PluginHost host(ctx);
@@ -282,7 +282,7 @@ TEST_CASE("runtime: PluginHost::Add registers a static plugin's subsystem")
 
 TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     {
         PluginHost host(ctx);
 
@@ -313,7 +313,7 @@ TEST_CASE("runtime: PluginHost::Load loads a plugin from a shared library")
 
 TEST_CASE("runtime: PluginHost::Load reports failure for a missing library")
 {
-    Context ctx;
+    Context ctx(DefaultAllocator());
     PluginHost host(ctx);
     auto result = host.Load(u8"./definitely-not-a-real-plugin.so");
     CHECK_FALSE(result.HasValue());
@@ -334,7 +334,7 @@ namespace
 
     struct NullOuterHost final : foundation::runtime::IApplicationHost
     {
-        foundation::runtime::Context editorContext;
+        foundation::runtime::Context editorContext{DefaultAllocator()};
         foundation::runtime::Context& Ctx() noexcept override { return editorContext; }
         foundation::shell::IShell* Shell() noexcept override { return nullptr; }
         foundation::graphics::GraphicsDevice* Graphics() noexcept override { return nullptr; }
@@ -353,7 +353,7 @@ namespace
 TEST_CASE("embedded host routes Ctx to the runtime context and exit to the embedder")
 {
     NullOuterHost outer;
-    foundation::runtime::Context runtimeContext;
+    foundation::runtime::Context runtimeContext(DefaultAllocator());
     foundation::runtime::EmbeddedApplicationHost embedded(outer, runtimeContext);
 
     // The hosted app configures into the EMBEDDED context, not the editor's.

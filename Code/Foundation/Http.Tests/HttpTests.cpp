@@ -100,7 +100,7 @@ TEST_CASE("http: parser - close-delimited response body")
 
 TEST_CASE("http: loopback - one-shot request/response, 404, and bad request")
 {
-    HttpServer server;
+    HttpServer server(DefaultAllocator());
     REQUIRE(server.Start(HttpServerConfig{}));
     const u16 port = server.BoundPort();
     REQUIRE(port != 0);
@@ -219,7 +219,7 @@ TEST_CASE("http: loopback - one-shot request/response, 404, and bad request")
 
 TEST_CASE("http: loopback - a Server-Sent Events stream delivers events as they are written")
 {
-    HttpServer server;
+    HttpServer server(DefaultAllocator());
     REQUIRE(server.Start(HttpServerConfig{}));
     const u16 port = server.BoundPort();
     server.SetHandler([](const HttpRequest&) { return HttpResponse::EventStream(); });

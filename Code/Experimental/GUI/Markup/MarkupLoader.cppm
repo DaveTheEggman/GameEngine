@@ -155,7 +155,7 @@ export namespace experimental::gui
         // unknown root element.
         [[nodiscard]] RefPtr<Node> LoadFromString(core::StringView markup)
         {
-            xml::XmlDocument document;
+            xml::XmlDocument document(foundation::core::DefaultAllocator());
             if (document.Parse(markup) != xml::XmlResult::Ok)
                 return {};
             xml::XmlElement* root = FirstElementChild(document);

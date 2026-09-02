@@ -44,7 +44,10 @@ export namespace foundation::mcp
     class McpHttpHost
     {
     public:
-        explicit McpHttpHost(McpServer& server) : m_server(&server) {}
+        McpHttpHost(core::IAllocator& allocator, McpServer& server)
+            : m_server(&server), m_http(allocator)
+        {
+        }
         ~McpHttpHost() { Stop(); }
         McpHttpHost(const McpHttpHost&) = delete;
         McpHttpHost& operator=(const McpHttpHost&) = delete;

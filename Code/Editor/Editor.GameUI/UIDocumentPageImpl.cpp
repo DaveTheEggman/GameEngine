@@ -188,7 +188,7 @@ namespace editor
         // editor wants the failing LINE as an Error marker.
         ui::MarkupLoader::Initialize();
         {
-            foundation::xml::XmlDocument probe;
+            foundation::xml::XmlDocument probe(foundation::core::DefaultAllocator());
             const foundation::xml::XmlResult result = probe.Parse(m_markup.AsView());
             Array<ui::toolkit::CodeDiagnostic> diagnostics;
             if (foundation::xml::IsError(result))

@@ -31,7 +31,7 @@ export namespace foundation::core
     class RingLogSink final : public ILogSink
     {
     public:
-        explicit RingLogSink(usize capacity, IAllocator& allocator = DefaultAllocator())
+        RingLogSink(usize capacity, IAllocator& allocator)
             : m_records(capacity, allocator)
         {
         }

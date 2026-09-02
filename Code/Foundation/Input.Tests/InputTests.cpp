@@ -59,12 +59,12 @@ TEST_CASE("input: map round-trips through binary AND xml serializers")
         verify(loaded);
     }
     {
-        foundation::xml::XmlSerializer writer;
+        foundation::xml::XmlSerializer writer(foundation::core::DefaultAllocator());
         SerializeInputMap(writer, map);
         REQUIRE(writer.IsOk());
         String text;
         writer.GetOutput(text);
-        foundation::xml::XmlDocument doc;
+        foundation::xml::XmlDocument doc(foundation::core::DefaultAllocator());
         REQUIRE(doc.Parse(text.AsView()) == foundation::xml::XmlResult::Ok);
         foundation::xml::XmlSerializer reader(doc);
         InputMap loaded;
@@ -287,13 +287,13 @@ TEST_CASE("input: rebind overlay - apply over a pristine copy, clear restores, p
         replacement.PushBack(k);
         overlay.Set(u8"Gameplay", u8"Jump", static_cast<Array<Binding>&&>(replacement));
     }
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     store.Section<InputBindingOverrides>().overrides =
         overlay.overrides; // sections are non-copyable objects
     MemoryStream file;
     REQUIRE(store.Save(file, BinarySerializerFactory()).IsOk());
     (void)file.Seek(0, SeekOrigin::Begin);
-    foundation::settings::Settings loadedStore;
+    foundation::settings::Settings loadedStore(foundation::core::DefaultAllocator());
     REQUIRE(loadedStore.Load(file, BinarySerializerFactory()).IsOk());
     const InputBindingOverrides* loaded = loadedStore.Find<InputBindingOverrides>();
     REQUIRE(loaded != nullptr);

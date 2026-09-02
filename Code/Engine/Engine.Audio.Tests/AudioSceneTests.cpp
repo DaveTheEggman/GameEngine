@@ -455,13 +455,13 @@ TEST_CASE("audio.settings: user volumes capture -> store round-trip -> apply")
     engine.SetBusVolume(AudioBus::Music, 0.25f);
     engine.SetBusMuted(AudioBus::Effects, true);
 
-    foundation::settings::Settings store;
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
     CaptureAudioUserSettings(engine, store.Section<AudioUserSettings>());
 
     MemoryStream buffer;
     REQUIRE(store.Save(buffer, BinarySerializerFactory()).IsOk());
     (void)buffer.Seek(0, SeekOrigin::Begin);
-    foundation::settings::Settings loaded;
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
     REQUIRE(loaded.Load(buffer, BinarySerializerFactory()).IsOk());
     const AudioUserSettings* user = loaded.Find<AudioUserSettings>();
     REQUIRE(user != nullptr);

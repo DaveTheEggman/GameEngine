@@ -66,7 +66,7 @@ TEST_CASE("mcp.http: an McpServer over HTTP - the exchange, every refusal, and 2
                             return out;
                         });
 
-    McpHttpHost host(server);
+    McpHttpHost host(DefaultAllocator(), server);
     CHECK(!host.Start(McpHttpConfig{0, String()})); // an empty token never serves
     REQUIRE(host.Start(McpHttpConfig{0, String(u8"sekrit")}));
     const u16 port = host.BoundPort();
@@ -142,7 +142,7 @@ TEST_CASE("mcp.http: an McpServer over HTTP - the exchange, every refusal, and 2
 TEST_CASE("mcp.http: the SSE event channel - connect, broadcast, receive, sweep")
 {
     McpServer server;
-    McpHttpHost host(server);
+    McpHttpHost host(DefaultAllocator(), server);
     REQUIRE(host.Start(McpHttpConfig{0, String(u8"sekrit")}));
     const u16 port = host.BoundPort();
 

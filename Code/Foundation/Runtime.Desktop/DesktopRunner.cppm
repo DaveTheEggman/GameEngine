@@ -32,7 +32,7 @@ export namespace foundation::runtime
     inline int RunApplication(IApplication& app, shell::IShell& shell,
                               GraphicsDevice* graphics = nullptr)
     {
-        ApplicationHost host;
+        ApplicationHost host(core::DefaultAllocator()); // process composition root
         host.Start(app, &shell, graphics);
         core::TimePoint previous = core::Clock::Now();
         while (shell.IsRunning() && host.IsRunning())

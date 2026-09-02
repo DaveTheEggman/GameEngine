@@ -282,7 +282,7 @@ namespace editor
     {
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
         foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
-        JobSystem jobs;
+        JobSystem jobs(DefaultAllocator()); // export tool root
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);
         CookPlan plan = driver.PlanFor(planRoots, rebuild);
@@ -390,7 +390,7 @@ namespace editor
         hostRecords.Load(cacheMount);
 
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
-        JobSystem jobs;
+        JobSystem jobs(DefaultAllocator()); // export tool root
         usize failed = 0;
         for (const ContentVariant& v : variants)
         {
@@ -640,7 +640,7 @@ namespace editor
         }
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView());
         foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView());
-        JobSystem jobs;
+        JobSystem jobs(DefaultAllocator()); // export tool root
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);
         CookPlan plan = driver.Plan(rebuild);

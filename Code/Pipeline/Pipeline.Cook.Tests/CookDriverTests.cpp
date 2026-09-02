@@ -555,7 +555,7 @@ TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
         ids.PushBack(fx.AddWidget(name.AsView(), i));
     }
 
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     CookDriver driver(*fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(), fx.cacheFs.Get(),
                       &jobs);
 

@@ -1131,21 +1131,21 @@ TEST_CASE("export: EditorExportSettings round-trips through the editor settings 
 
     // First run: no file => NotFound, and the section is absent (reads as its defaults on access).
     {
-        settings::Settings store;
+        settings::Settings store(foundation::core::DefaultAllocator());
         CHECK_FALSE(editor::LoadEditorSettings(root, store).IsOk());
         CHECK(store.Find<editor::EditorExportSettings>() == nullptr);
     }
 
     // Author a store with a custom templates root and persist it.
     {
-        settings::Settings store;
+        settings::Settings store(foundation::core::DefaultAllocator());
         store.Section<editor::EditorExportSettings>().templatesRoot = String(u8"/shared/templates");
         REQUIRE(editor::SaveEditorSettings(*root.AsWritable(), store).IsOk());
     }
 
     // Load it back into a fresh store - the override survives the XML round-trip.
     {
-        settings::Settings store;
+        settings::Settings store(foundation::core::DefaultAllocator());
         REQUIRE(editor::LoadEditorSettings(root, store).IsOk());
         const editor::EditorExportSettings* s = store.Find<editor::EditorExportSettings>();
         REQUIRE(s != nullptr);

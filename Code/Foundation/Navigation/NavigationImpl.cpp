@@ -788,7 +788,7 @@ namespace foundation::navigation
         };
         if (params.parallelBake && tileTotal > 1)
         {
-            JobSystem jobs; // scoped pool: bakes are rare editor operations
+            JobSystem jobs(outData.Allocator()); // scoped pool serving the caller's blob
             jobs.ParallelFor(tileTotal, bakeIndex, 1);
         }
         else

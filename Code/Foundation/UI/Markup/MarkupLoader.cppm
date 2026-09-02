@@ -41,7 +41,7 @@ export namespace foundation::ui
                                                          UIContext* context = nullptr,
                                                          Array<String>* warnings = nullptr)
         {
-            xml::XmlDocument doc;
+            xml::XmlDocument doc(foundation::core::DefaultAllocator());
             if (xml::IsError(doc.Parse(xmlText)))
             {
                 return {};

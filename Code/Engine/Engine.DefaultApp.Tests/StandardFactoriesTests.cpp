@@ -53,7 +53,7 @@ namespace
         void RequestExit(int) override {}
 
     private:
-        runtime::Context m_context;
+        runtime::Context m_context{DefaultAllocator()};
     };
 }
 

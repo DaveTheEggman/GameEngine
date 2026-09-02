@@ -99,7 +99,7 @@ TEST_CASE("static mesh resource: async load matches the sync product")
     Proxy<StaticMesh> a = syncManager.Bind<StaticMesh>(id);
     REQUIRE(a);
 
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager asyncManager(db, &jobs);
     asyncManager.AddFactory(&factory);
     Proxy<StaticMesh> b = asyncManager.BindAsync<StaticMesh>(id);
@@ -149,7 +149,7 @@ TEST_CASE("static mesh resource: many concurrent async decodes run without a rac
     foundation::content::ContentDatabase db(mount, foundation::core::BinarySerializerFactory(),
                                           u8".rasset");
     StaticMeshFactory factory;
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator());
     ResourceManager manager(db, &jobs);
     manager.AddFactory(&factory);
 

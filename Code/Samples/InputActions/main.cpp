@@ -259,7 +259,7 @@ namespace
             core::MemoryStream stream;
             (void)stream.Write(bytes.Value().Data(), bytes.Value().Size());
             (void)stream.Seek(0, core::SeekOrigin::Begin);
-            foundation::settings::Settings store;
+            foundation::settings::Settings store(foundation::core::DefaultAllocator());
             if (store.Load(stream, foundation::xml::XmlSerializerFactory()).IsOk())
             {
                 if (const auto* section = store.Find<input::InputBindingOverrides>())
@@ -272,7 +272,7 @@ namespace
 
         void SaveOverlay()
         {
-            foundation::settings::Settings store;
+            foundation::settings::Settings store(foundation::core::DefaultAllocator());
             store.Section<input::InputBindingOverrides>().overrides = m_overlay.overrides;
             core::MemoryStream stream;
             if (store.Save(stream, foundation::xml::XmlSerializerFactory()).IsOk())

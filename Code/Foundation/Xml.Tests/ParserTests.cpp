@@ -11,13 +11,13 @@ using namespace foundation::xml;
 
 TEST_CASE("xml.parse: empty + self-closing element")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root></root>") == XmlResult::Ok);
     REQUIRE(doc.RootElement() != nullptr);
     CHECK(doc.RootElement()->TagName() == StringView(u8"root"));
     CHECK_FALSE(doc.RootElement()->HasChildren());
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<root/>") == XmlResult::Ok);
     CHECK(doc2.RootElement()->TagName() == StringView(u8"root"));
     CHECK_FALSE(doc2.RootElement()->HasChildren());
@@ -25,7 +25,7 @@ TEST_CASE("xml.parse: empty + self-closing element")
 
 TEST_CASE("xml.parse: element with text")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root>Hello World</root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->HasChildren());
     String text;
@@ -35,7 +35,7 @@ TEST_CASE("xml.parse: element with text")
 
 TEST_CASE("xml.parse: element with attributes")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root id=\"123\" name=\"test\"/>") == XmlResult::Ok);
     CHECK(doc.RootElement()->AttributeCount() == 2u);
     CHECK(doc.RootElement()->GetAttribute(u8"id") == StringView(u8"123"));
@@ -44,7 +44,7 @@ TEST_CASE("xml.parse: element with attributes")
 
 TEST_CASE("xml.parse: nested elements")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><child1/><child2><grandchild/></child2></root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->ChildCount() == 2u);
     CHECK(doc.RootElement()->GetFirstChildElement(u8"child1") != nullptr);
@@ -56,12 +56,12 @@ TEST_CASE("xml.parse: nested elements")
 
 TEST_CASE("xml.parse: declaration")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<?xml version=\"1.0\"?><root/>") == XmlResult::Ok);
     REQUIRE(doc.Declaration() != nullptr);
     CHECK(doc.Declaration()->Version() == StringView(u8"1.0"));
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><root/>") ==
             XmlResult::Ok);
     CHECK(doc2.Declaration()->Version() == StringView(u8"1.0"));
@@ -71,7 +71,7 @@ TEST_CASE("xml.parse: declaration")
 
 TEST_CASE("xml.parse: CDATA")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><![CDATA[<special> & content]]></root>") == XmlResult::Ok);
     CHECK(doc.RootElement()->HasChildren());
     String text;
@@ -81,7 +81,7 @@ TEST_CASE("xml.parse: CDATA")
 
 TEST_CASE("xml.parse: comment")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><!-- this is a comment --></root>") == XmlResult::Ok);
     bool found = false;
     for (XmlNode* child : doc.RootElement()->Children())
@@ -94,7 +94,7 @@ TEST_CASE("xml.parse: comment")
     }
     CHECK(found);
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     XmlParseSettings settings = XmlParseSettings::Default();
     settings.IgnoreComments = true;
     REQUIRE(doc2.Parse(u8"<root><!-- comment --></root>", settings) == XmlResult::Ok);
@@ -103,7 +103,7 @@ TEST_CASE("xml.parse: comment")
 
 TEST_CASE("xml.parse: processing instruction")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root><?target data?></root>") == XmlResult::Ok);
     bool found = false;
     for (XmlNode* child : doc.RootElement()->Children())
@@ -121,25 +121,25 @@ TEST_CASE("xml.parse: processing instruction")
 
 TEST_CASE("xml.parse: mixed content + preserve whitespace")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root>text1<child/>text2</root>") == XmlResult::Ok);
 
     XmlParseSettings settings = XmlParseSettings::Default();
     settings.PreserveWhitespace = true;
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<root>text1<child/>text2</root>", settings) == XmlResult::Ok);
     CHECK(doc2.RootElement()->ChildCount() == 3u);
 }
 
 TEST_CASE("xml.parse: built-in entities + char refs")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root>&amp;&lt;&gt;&apos;&quot;</root>") == XmlResult::Ok);
     String text;
     doc.RootElement()->GetTextContent(text);
     CHECK(text == StringView(u8"&<>'\""));
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<root>&#65;&#x42;</root>") == XmlResult::Ok);
     String text2;
     doc2.RootElement()->GetTextContent(text2);
@@ -148,12 +148,12 @@ TEST_CASE("xml.parse: built-in entities + char refs")
 
 TEST_CASE("xml.parse: namespaces")
 {
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root xmlns=\"http://example.com\"/>") == XmlResult::Ok);
     CHECK(doc.RootElement()->HasAttribute(u8"xmlns"));
     CHECK(doc.RootElement()->GetAttribute(u8"xmlns") == StringView(u8"http://example.com"));
 
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<ns:root xmlns:ns=\"http://example.com\"/>") == XmlResult::Ok);
     CHECK(doc2.RootElement()->TagName() == StringView(u8"ns:root"));
     CHECK(doc2.RootElement()->Prefix() == StringView(u8"ns"));
@@ -163,39 +163,39 @@ TEST_CASE("xml.parse: namespaces")
 TEST_CASE("xml.parse: error cases")
 {
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root></other>") == XmlResult::TagMismatch);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root id=\"1\" id=\"2\"/>") == XmlResult::AttributeDuplicate);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root><child></root>") == XmlResult::TagMismatch);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root1/><root2/>") == XmlResult::MultipleRoots);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"") == XmlResult::NoRootElement);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<!-- comment only -->") == XmlResult::NoRootElement);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root>&unknown;</root>") == XmlResult::EntityUnknown);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root><![CDATA[unclosed</root>") == XmlResult::CDataUnclosed);
     }
     {
-        XmlDocument d;
+        XmlDocument d(foundation::core::DefaultAllocator());
         CHECK(d.Parse(u8"<root><!-- unclosed</root>") == XmlResult::CommentUnclosed);
     }
 }
@@ -204,12 +204,12 @@ TEST_CASE("xml.parse: whitespace handling")
 {
     XmlParseSettings settings = XmlParseSettings::Default();
     settings.PreserveWhitespace = false;
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(u8"<root>  <child/>  </root>", settings) == XmlResult::Ok);
     CHECK(doc.RootElement()->ChildCount() == 1u);
 
     settings.PreserveWhitespace = true;
-    XmlDocument doc2;
+    XmlDocument doc2(foundation::core::DefaultAllocator());
     REQUIRE(doc2.Parse(u8"<root>  <child/>  </root>", settings) == XmlResult::Ok);
     CHECK(doc2.RootElement()->ChildCount() == 3u);
 }
@@ -231,7 +231,7 @@ TEST_CASE("xml.parse: complex document")
     </book>
 </catalog>)xml";
 
-    XmlDocument doc;
+    XmlDocument doc(foundation::core::DefaultAllocator());
     REQUIRE(doc.Parse(xml) == XmlResult::Ok);
     REQUIRE(doc.Declaration() != nullptr);
     CHECK(doc.RootElement()->TagName() == StringView(u8"catalog"));

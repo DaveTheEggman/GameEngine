@@ -88,7 +88,7 @@ int main(int argc, char** argv)
 
     vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView());
     vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView());
-    JobSystem jobs;
+    JobSystem jobs(DefaultAllocator()); // cook tool composition root
 
     pipeline::CookProgress progress;
     progress.onItem = [](usize done, usize total, StringView path, bool ok)

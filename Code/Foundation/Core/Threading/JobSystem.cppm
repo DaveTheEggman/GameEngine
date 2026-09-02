@@ -54,7 +54,7 @@ export namespace foundation::core
         struct JobItem
         {
             void (*invoke)(void*) = nullptr;
-            void (*destroy)(void*) = nullptr;
+            void (*destroy)(void*, IAllocator&) = nullptr; // frees data from the pool's allocator
             void* data = nullptr;
             Counter* signal = nullptr;
         };
@@ -84,9 +84,13 @@ export namespace foundation::core
     class JobSystem
     {
     public:
-        // workerCount == 0 picks (logical cores - 1). A pool of 0 workers is valid: every
-        // Wait/ParallelFor then runs inline on the calling thread (single-threaded fallback).
-        explicit JobSystem(u32 workerCount = 0)
+        // The allocator (required - the owner decides) backs the worker deques and the
+        // per-job closure boxes. workerCount == 0 picks (logical cores - 1). A pool of 0
+        // workers is valid: every Wait/ParallelFor then runs inline on the calling thread
+        // (single-threaded fallback).
+        explicit JobSystem(IAllocator& allocator, u32 workerCount = 0)
+            : m_allocator(&allocator), m_deques(allocator), m_external(allocator),
+              m_workers(allocator)
         {
             u32 count = workerCount;
             if (count == 0)
@@ -97,7 +101,7 @@ export namespace foundation::core
             m_workerCount = count;
             for (u32 i = 0; i < count; ++i)
             {
-                m_deques.PushBack(MakeUnique<Deque>(DefaultAllocator()));
+                m_deques.PushBack(MakeUnique<Deque>(*m_allocator));
             }
             for (u32 i = 0; i < count; ++i)
             {
@@ -259,10 +263,11 @@ export namespace foundation::core
         [[nodiscard]] detail::JobItem MakeJob(Fn&& fn, Counter* signal)
         {
             using Stored = std::decay_t<Fn>;
-            Stored* held = DefaultAllocator().New<Stored>(static_cast<Fn&&>(fn));
-            return detail::JobItem{[](void* p) { (*static_cast<Stored*>(p))(); }, [](void* p)
-                                   { DefaultAllocator().Delete(static_cast<Stored*>(p)); }, held,
-                                   signal};
+            Stored* held = m_allocator->New<Stored>(static_cast<Fn&&>(fn));
+            return detail::JobItem{[](void* p) { (*static_cast<Stored*>(p))(); },
+                                   [](void* p, IAllocator& allocator)
+                                   { allocator.Delete(static_cast<Stored*>(p)); },
+                                   held, signal};
         }
 
         // Push a job onto a deque (the submitter's own if it is a worker, else round-robin)
@@ -368,7 +373,7 @@ export namespace foundation::core
         void RunJob(const detail::JobItem& job)
         {
             job.invoke(job.data);
-            job.destroy(job.data);
+            job.destroy(job.data, *m_allocator);
 
             // Handle the completion signal (and schedule its dependents) BEFORE dropping
             // this job from m_pending - a continuation is added to m_pending before its
@@ -457,6 +462,7 @@ export namespace foundation::core
             return slot;
         }
 
+        IAllocator* m_allocator;
         u32 m_workerCount = 0;
         Array<UniquePtr<Deque>> m_deques; // one per worker
         Mutex m_externalMutex;
@@ -489,7 +495,9 @@ export namespace foundation::core
     {
         if (detail::g_globalJobs == nullptr)
         {
-            detail::g_globalJobs = DefaultAllocator().New<JobSystem>(workerCount);
+            // Process-root decision: the engine-wide pool lives on the system allocator
+            // (this accessor pair IS a composition root, like DefaultAllocator itself).
+            detail::g_globalJobs = DefaultAllocator().New<JobSystem>(DefaultAllocator(), workerCount);
         }
     }
 

@@ -187,7 +187,9 @@ export namespace foundation::http
     class HttpServer
     {
     public:
-        HttpServer() = default;
+        // The allocator (required - the owner decides) backs the listener,
+        // connections, and SSE streams.
+        explicit HttpServer(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
         ~HttpServer() { Stop(); }
         HttpServer(const HttpServer&) = delete;
         HttpServer& operator=(const HttpServer&) = delete;
@@ -228,6 +230,7 @@ export namespace foundation::http
         static void WriteResponse(foundation::net::TcpSocket& socket, const HttpResponse& r);
 
         HttpServerConfig m_config;
+        IAllocator* m_allocator;
         UniquePtr<foundation::net::TcpListener> m_listener;
         Array<UniquePtr<Connection>> m_connections;
         Array<RefPtr<SseStream>> m_streams; // server-side refs; swept when closed

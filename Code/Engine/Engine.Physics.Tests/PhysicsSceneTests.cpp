@@ -960,7 +960,7 @@ import foundation.scene.resource;
 TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore) terminates")
 {
     namespace runtime = foundation::runtime;
-    runtime::Context ctx;
+    runtime::Context ctx(DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     scene::SceneManager sm;
     scenes->RegisterManager(&sm);

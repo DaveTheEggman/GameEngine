@@ -44,7 +44,7 @@ namespace
 
 TEST_CASE("settings: a fresh section reads its struct defaults")
 {
-    settings::Settings s;
+    settings::Settings s(foundation::core::DefaultAllocator());
     CHECK(s.SectionCount() == 0u);
     CHECK(s.Find<GameSettings>() == nullptr);
 
@@ -61,7 +61,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
     MemoryStream stream;
     {
-        settings::Settings s;
+        settings::Settings s(foundation::core::DefaultAllocator());
         GameSettings& g = s.Section<GameSettings>();
         g.profile = String(u8"hardcore");
         g.locale = String(u8"fr");
@@ -70,7 +70,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
     REQUIRE(stream.Seek(0, SeekOrigin::Begin) == 0);
     {
-        settings::Settings s;
+        settings::Settings s(foundation::core::DefaultAllocator());
         REQUIRE(s.Load(stream, BinarySerializerFactory()).IsOk());
         const GameSettings* g = s.Find<GameSettings>();
         REQUIRE(g != nullptr);
@@ -81,7 +81,7 @@ TEST_CASE("settings: sections round-trip through the (binary) serializer factory
 
 TEST_CASE("settings: MarkChanged fires OnChanged with the section type name")
 {
-    settings::Settings s;
+    settings::Settings s(foundation::core::DefaultAllocator());
     String changed;
     s.OnChanged([&](StringView name) { changed = String(name); });
 
@@ -157,7 +157,7 @@ namespace
     {
         MemoryStream stored;
         {
-            settings::Settings src;
+            settings::Settings src(foundation::core::DefaultAllocator());
             src.Section<SecA>().a = 10;
             src.Section<SecX>().x = 42;
             src.Section<SecX>().tag = String(u8"keepme");
@@ -171,7 +171,7 @@ namespace
             SerializableRegistry ser;
             RegisterAB(types, ser); // X is NOT registered here
 
-            settings::Settings mid;
+            settings::Settings mid(foundation::core::DefaultAllocator());
             REQUIRE(stored.Seek(0, SeekOrigin::Begin) == 0);
             REQUIRE(mid.Load(stored, make(), types, ser).IsOk()); // unknown X must NOT abort the store
             CHECK(mid.SectionCount() == 2u);        // A + B loaded
@@ -191,7 +191,7 @@ namespace
             types.Register(SecX::StaticType()); // now X is known
             RegisterSerializable<SecX>(ser);
 
-            settings::Settings dst;
+            settings::Settings dst(foundation::core::DefaultAllocator());
             REQUIRE(resaved.Seek(0, SeekOrigin::Begin) == 0);
             REQUIRE(dst.Load(resaved, make(), types, ser).IsOk());
             CHECK(dst.UnknownSectionCount() == 0u); // all resolved now
@@ -220,7 +220,7 @@ TEST_CASE("settings: repeated Load/Save does not duplicate a preserved unknown s
 {
     MemoryStream stored;
     {
-        settings::Settings src;
+        settings::Settings src(foundation::core::DefaultAllocator());
         src.Section<SecA>().a = 1;
         src.Section<SecX>().x = 7;
         REQUIRE(src.Save(stored, BinarySerializerFactory()).IsOk());
@@ -233,7 +233,7 @@ TEST_CASE("settings: repeated Load/Save does not duplicate a preserved unknown s
         types.Register(SecA::StaticType());
         RegisterSerializable<SecA>(ser);
 
-        settings::Settings s;
+        settings::Settings s(foundation::core::DefaultAllocator());
         REQUIRE(stored.Seek(0, SeekOrigin::Begin) == 0);
         REQUIRE(s.Load(stored, BinarySerializerFactory(), types, ser).IsOk());
         CHECK(s.UnknownSectionCount() == 1u);

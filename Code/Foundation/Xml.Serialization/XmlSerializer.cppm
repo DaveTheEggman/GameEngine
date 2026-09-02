@@ -34,8 +34,10 @@ export namespace foundation::xml
     class XmlSerializer final : public Serializer
     {
     public:
-        // Write mode: builds a fresh document rooted at <root>.
-        XmlSerializer() : Serializer(SerializeMode::Write)
+        // Write mode: builds a fresh document rooted at <root>; the allocator
+        // (required - the owner decides) backs the whole node tree.
+        explicit XmlSerializer(IAllocator& allocator)
+            : Serializer(SerializeMode::Write), m_doc(allocator)
         {
             XmlElement* root = m_doc.CreateElement(u8"root");
             m_doc.AppendChild(root);
@@ -43,7 +45,8 @@ export namespace foundation::xml
         }
 
         // Read mode: reads from an already-parsed document (caller owns it).
-        explicit XmlSerializer(XmlDocument& source) : Serializer(SerializeMode::Read)
+        explicit XmlSerializer(XmlDocument& source)
+            : Serializer(SerializeMode::Read), m_doc(source.Allocator())
         {
             m_readStack.PushBack(ReadScope{source.RootElement(), nullptr});
             ResetCursor(m_readStack[0]);
@@ -236,7 +239,7 @@ export namespace foundation::xml
                 wrapped +=
                     StringView(reinterpret_cast<const utf8char*>(blob.Data()), blob.Size());
                 wrapped += StringView(u8"</__frame__>");
-                XmlDocument scratch;
+                XmlDocument scratch(m_doc.Allocator());
                 if (scratch.Parse(wrapped.AsView()) != XmlResult::Ok)
                 {
                     Fail(ErrorCode::Internal);
@@ -594,7 +597,7 @@ export namespace foundation::xml
             return true;
         }
 
-        XmlDocument m_doc; // owned (write mode)
+        XmlDocument m_doc; // owned (write mode; allocator from the ctor)
         XmlElement* m_writeCurrent = nullptr;
         Array<XmlElement*> m_writeStack;
         Array<ReadScope> m_readStack; // read mode
@@ -608,10 +611,12 @@ export namespace foundation::xml
     {
         struct XmlReadSerializerContext final : SerializerContext
         {
-            XmlDocument doc;
+            XmlDocument doc{DefaultAllocator()}; // SerializerFactory ABI bound
             XmlSerializer* xmlSer = nullptr;
 
-            explicit XmlReadSerializerContext(IStream& stream)
+            // SerializerFactory's fixed (IStream&, SerializeMode) ABI is a documented
+            // bound - the contexts root on the process allocator.
+            explicit XmlReadSerializerContext(IStream& stream) : doc(DefaultAllocator())
             {
                 const u64 sz = stream.Size();
                 Array<utf8char> buf(static_cast<usize>(sz));
@@ -638,7 +643,7 @@ export namespace foundation::xml
 
             explicit XmlWriteSerializerContext()
             {
-                xmlSer = DefaultAllocator().New<XmlSerializer>();
+                xmlSer = DefaultAllocator().New<XmlSerializer>(DefaultAllocator());
                 serializer = xmlSer;
             }
 
