@@ -22,6 +22,17 @@
 > now review-capable.
 > NOT yet: previews, presets/inference. User visual verify owed on BOTH
 > dialogs.
+>
+> TRAKTOR REVIEW RULINGS (user 2026-09-01, from reading MeshAssetEditor):
+> - AGREED: a MANIFEST EDITOR PAGE for ModelManifestAsset (plan list +
+>   settings + Reimport button) - Traktor's edit-any-time ergonomics on
+>   top of our fan-out model. Future slice.
+> - REJECTED: rasterized-image preview - previews stay the LIVE 3D
+>   direction when built.
+> - REJECTED: filter-expression / wiring-grid organization - keep our
+>   list + checkboxes.
+> - FIXED (defe87d4): batch file list used Buttons (active file
+>   unreadable) -> BatchFileRow, a selectable row with accent highlight.
 
 > DRAFT for discussion (user + Fable, 2026-08-31). Nothing here is scheduled;
 > the user wants ONE well-planned improvement pass over import UX rather than
