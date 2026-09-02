@@ -330,6 +330,61 @@ export namespace editor::app
         RefPtr<ImportPlanView> m_planView;
     };
 
+    /// A selectable source-file row in the batch list: SELECTION is drawn (accent fill), not
+    /// implied - a Button per file could not show which file's detail was active. Hosts the
+    /// enable checkbox / name label / importer dropdown as children; clicks the children do
+    /// not consume (the label, blank space) select the row via the bubble phase.
+    class BatchFileRow final : public ui::FlexLayout
+    {
+        RTTI_OBJECT(BatchFileRow, ui::FlexLayout)
+    public:
+        Function<void()> OnSelect;
+
+        BatchFileRow()
+        {
+            Direction = ui::Orientation::Horizontal;
+            Spacing = 4.0f;
+        }
+
+        void SetSelected(bool selected)
+        {
+            if (m_selected != selected)
+            {
+                m_selected = selected;
+                InvalidateVisual(); // highlight only - geometry unchanged
+            }
+        }
+        [[nodiscard]] bool IsSelected() const noexcept { return m_selected; }
+
+        void OnDraw(ui::UIDrawContext& ctx) override
+        {
+            if (m_selected)
+            {
+                const Color accent = ResolveStyleColor(
+                    ui::StyleProperty::AccentColor,
+                    Color{60.0f / 255.0f, 120.0f / 255.0f, 200.0f / 255.0f, 100.0f / 255.0f});
+                ctx.VG().FillRoundedRect(Rectangle{0, 0, Width(), Height()}, 3.0f,
+                                         Color{accent.r, accent.g, accent.b, 0.35f});
+            }
+            ui::FlexLayout::OnDraw(ctx);
+        }
+
+        void OnMouseDown(ui::MouseEventArgs& e) override
+        {
+            if (e.Button == ui::MouseButton::Left)
+            {
+                if (OnSelect)
+                {
+                    OnSelect();
+                }
+                e.Handled = true;
+            }
+        }
+
+    private:
+        bool m_selected = false;
+    };
+
     /// One review session for a whole DROP (the import-workflow ruling: one dialog per drop,
     /// always). Left: the source files - enable checkbox, name, and an importer dropdown
     /// where more than one importer claims the extension (this ABSORBS the old
@@ -487,9 +542,10 @@ export namespace editor::app
             for (usize i = 0; i < m_files.Size(); ++i)
             {
                 FileEntry* entry = &m_files[i];
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                row->Direction = ui::Orientation::Horizontal;
-                row->Spacing = 4.0f;
+                auto row = MakeRef<BatchFileRow>(DefaultAllocator());
+                row->OnSelect = [self, i]() { self->SelectFile(i); };
+                row->SetSelected(i == m_selected);
+                m_fileRows.PushBack(row);
                 auto check = MakeRef<ui::CheckBox>(DefaultAllocator(), u8"", entry->enabled);
                 check->OnCheckedChanged.Add(
                     [self, entry](ui::CheckBox*, bool checked)
@@ -503,10 +559,10 @@ export namespace editor::app
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(check.Get(), lp);
                 }
-                auto name = MakeRef<ui::Button>(DefaultAllocator(),
-                                                pipeline::FileNameOf(entry->path.AsView()));
-                name->FontSize.SetValue(Optional<f32>{12.0f});
-                name->OnClick.Add([self, i](ui::ButtonBase*) { self->SelectFile(i); });
+                auto name = MakeRef<ui::Label>(DefaultAllocator(),
+                                               pipeline::FileNameOf(entry->path.AsView()));
+                name->FontSize.SetValue(12.0f);
+                name->Ellipsis.SetValue(true);
                 {
                     auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
                     lp->Grow = 1.0f;
@@ -557,7 +613,15 @@ export namespace editor::app
                 return;
             }
             SyncSelectedNames(); // keep this file's rename edits before switching away
+            if (m_selected < m_fileRows.Size())
+            {
+                m_fileRows[m_selected]->SetSelected(false);
+            }
             m_selected = index;
+            if (m_selected < m_fileRows.Size())
+            {
+                m_fileRows[m_selected]->SetSelected(true);
+            }
             QueueRebuildDetail();
         }
 
@@ -699,11 +763,13 @@ export namespace editor::app
         usize m_selected = 0;
         RefPtr<ui::Label> m_destinationText;
         RefPtr<ui::FlexLayout> m_detail;
-        RefPtr<ImportPlanView> m_planView; // the SELECTED file's plan view
+        RefPtr<ImportPlanView> m_planView;       // the SELECTED file's plan view
+        Array<RefPtr<BatchFileRow>> m_fileRows;  // parallel to m_files (selection highlight)
         ui::Button* m_importButton = nullptr;
     };
 
     RTTI_DEFINE_OBJECT(ImportPlanView, "rtti::editor::editor::app")
+    RTTI_DEFINE_OBJECT(BatchFileRow, "rtti::editor::editor::app")
     RTTI_DEFINE_OBJECT(ImportOptionsDialog, "rtti::editor::editor::app")
     RTTI_DEFINE_OBJECT(BatchImportDialog, "rtti::editor::editor::app")
 }
