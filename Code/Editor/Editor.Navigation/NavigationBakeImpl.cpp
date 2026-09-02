@@ -219,7 +219,10 @@ namespace editor::navigation
             params.agentMaxSlopeDegrees = zone->agentMaxSlopeDegrees;
 
             Array<byte> blob;
-            const Status baked = nav::NavigationMeshBuilder::Build(
+            // TILED (the Lumix-parity build): small zones come out as one tile; large ones
+            // split, and the per-tile primitive can regenerate a single tile later. v1
+            // single-tile blobs still load (the reader sniffs the version).
+            const Status baked = nav::NavigationMeshBuilder::BuildTiled(
                 Span<const Float3>{verts.Data(), verts.Size()},
                 Span<const u32>{indices.Data(), indices.Size()}, params, blob);
             if (baked.IsOk() && !blob.IsEmpty())

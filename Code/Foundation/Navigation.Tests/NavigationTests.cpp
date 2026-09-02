@@ -286,3 +286,132 @@ TEST_CASE("navigation: two agents cross head-on, both arrive, no hard overlap")
     // They avoided each other rather than passing through (radii sum 1.2; allow steering slack).
     CHECK(minSeparation > 0.5f);
 }
+
+TEST_CASE("tiled bake: a large ground splits into tiles, paths span them, and it is deterministic")
+{
+    // 60x60 ground at cellSize 0.3 / tileCells 64 = 19.2u tiles -> a 4x4 grid.
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -30.0f, 30.0f, -30.0f, 30.0f);
+    const Span<const Float3> vspan{verts.Data(), verts.Size()};
+    const Span<const u32> ispan{indices.Data(), indices.Size()};
+    NavigationBakeParams params;
+
+    Array<byte> blobA;
+    Array<byte> blobB;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, params, blobA).IsOk());
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, params, blobB).IsOk());
+    REQUIRE(blobA.Size() == blobB.Size()); // determinism holds for the tiled path too
+    CHECK(std::memcmp(blobA.Data(), blobB.Data(), blobA.Size()) == 0);
+
+    NavigationMesh mesh;
+    REQUIRE(mesh.Load(Span<const byte>{blobA.Data(), blobA.Size()}).IsOk());
+    REQUIRE(mesh.IsValid());
+    CHECK(mesh.BakedAgentRadius() == doctest::Approx(params.agentRadius));
+
+    // A corner-to-corner path crosses many tile boundaries; the stitched mesh must carry it
+    // end to end.
+    NavigationMeshQuery query(mesh);
+    REQUIRE(query.IsValid());
+    NavigationPath path;
+    REQUIRE(query.FindPath(Float3{-27, 0, -27}, Float3{27, 0, 27}, path).IsOk());
+    CHECK(path.complete);
+    REQUIRE(path.corners.Size() >= 2u);
+    const Float3 last = path.corners[path.corners.Size() - 1];
+    CHECK(std::abs(last.x - 27.0f) < 1.0f);
+    CHECK(std::abs(last.z - 27.0f) < 1.0f);
+
+    // A crowd agent walks the span too (the runtime consumers see one seamless mesh).
+    NavigationCrowd crowd(mesh, 4, 0.6f);
+    REQUIRE(crowd.IsValid());
+    NavigationAgentParams agent;
+    const i32 id = crowd.AddAgent(Float3{-27, 0, -27}, agent);
+    REQUIRE(id >= 0);
+    REQUIRE(crowd.SetTarget(id, Float3{27, 0, 27}));
+    for (int step = 0; step < 150; ++step) // 5s at 3.5u/s ~ 12u along the diagonal
+    {
+        crowd.Update(1.0f / 30.0f);
+    }
+    const Float3 pos = crowd.AgentPosition(id);
+    CHECK(pos.x > -20.0f); // moving toward the far corner across tile seams
+    CHECK(pos.z > -20.0f);
+}
+
+TEST_CASE("tiled bake: BuildTileAt regenerates a tile byte-identical to the full bake's")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -30.0f, 30.0f, -30.0f, 30.0f);
+    const Span<const Float3> vspan{verts.Data(), verts.Size()};
+    const Span<const u32> ispan{indices.Data(), indices.Size()};
+    NavigationBakeParams params;
+
+    Array<byte> blob;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, params, blob).IsOk());
+
+    // Walk the blob to the record for tile (1, 2).
+    struct BlobHeaderMirror
+    {
+        u32 magic, version;
+        f32 agentRadius, agentHeight;
+        u32 navDataSize;
+    };
+    struct TiledInfoMirror
+    {
+        f32 origin[3], tileWorldSize;
+        i32 countX, countY;
+        u32 tileCount;
+    };
+    struct TileRecordMirror
+    {
+        i32 tx, ty;
+        u32 dataSize;
+    };
+    const byte* cursor = blob.Data() + sizeof(BlobHeaderMirror);
+    TiledInfoMirror info;
+    std::memcpy(&info, cursor, sizeof(info));
+    cursor += sizeof(info);
+    REQUIRE(info.countX == 4);
+    REQUIRE(info.countY == 4);
+    REQUIRE(info.tileCount >= 16u - 4u); // most tiles hold ground
+
+    bool found = false;
+    for (u32 i = 0; i < info.tileCount; ++i)
+    {
+        TileRecordMirror record;
+        std::memcpy(&record, cursor, sizeof(record));
+        cursor += sizeof(record);
+        if (record.tx == 1 && record.ty == 2)
+        {
+            Array<byte> regenerated;
+            REQUIRE(NavigationMeshBuilder::BuildTileAt(vspan, ispan, params, 1, 2, regenerated)
+                        .IsOk());
+            REQUIRE(regenerated.Size() == static_cast<usize>(record.dataSize));
+            CHECK(std::memcmp(regenerated.Data(), cursor, record.dataSize) == 0);
+            found = true;
+            break;
+        }
+        cursor += record.dataSize;
+    }
+    CHECK(found);
+
+    // Out-of-grid coordinates are rejected, not crashed on.
+    Array<byte> bogus;
+    CHECK_FALSE(NavigationMeshBuilder::BuildTileAt(vspan, ispan, params, 99, 0, bogus).IsOk());
+}
+
+TEST_CASE("tiled bake: v1 single-tile blobs still load (the reader sniffs the version)")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -5.0f, 5.0f, -5.0f, 5.0f);
+    NavigationBakeParams params;
+    Array<byte> v1;
+    REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
+                                         Span<const u32>{indices.Data(), indices.Size()},
+                                         params, v1)
+                .IsOk());
+    NavigationMesh mesh;
+    REQUIRE(mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
+    CHECK(mesh.IsValid());
+}
