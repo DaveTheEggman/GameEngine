@@ -150,6 +150,9 @@ namespace editor::app
         }
 
         LoadEditorSettings(); // per-user prefs FIRST: the font paths below honor them
+        // Domains reach their OWN sections through the context (the contributed-settings
+        // seam); the app stays ignorant of their shapes.
+        m_context.SetUserEditorSettings(&m_editorSettings);
 
         // Fonts (CPU rasterization/baking; no device needed). Path resolution chain per
         // family: the Preferences override -> the dev-tree compile define -> the

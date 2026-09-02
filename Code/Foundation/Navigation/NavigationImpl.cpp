@@ -578,6 +578,175 @@ namespace foundation::navigation
         return BuildOneTile(vertices, indices, params, grid, tileX, tileY, outTileData);
     }
 
+    Status NavigationMeshBuilder::BuildTileInGrid(Span<const Float3> vertices,
+                                                  Span<const u32> indices,
+                                                  const NavigationBakeParams& params,
+                                                  const NavigationTileGridDesc& gridDesc,
+                                                  i32 tileX, i32 tileY, Array<byte>& outTileData)
+    {
+        outTileData.Clear();
+        if (vertices.IsEmpty() || indices.IsEmpty() || (indices.Size() % 3u) != 0u ||
+            gridDesc.tileWorldSize <= 0.0f || gridDesc.countX <= 0 || gridDesc.countY <= 0)
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        // XZ anchoring comes from the RECORDED grid; the vertical range from the CURRENT
+        // geometry (a rebake may add taller/lower content without invalidating the grid).
+        TileGrid grid;
+        grid.bmin[0] = gridDesc.origin.x;
+        grid.bmin[2] = gridDesc.origin.z;
+        grid.tileWorldSize = gridDesc.tileWorldSize;
+        grid.countX = gridDesc.countX;
+        grid.countY = gridDesc.countY;
+        const float* verts = reinterpret_cast<const float*>(vertices.Data());
+        grid.bmin[1] = verts[1];
+        grid.bmax[1] = verts[1];
+        for (usize i = 1; i < vertices.Size(); ++i)
+        {
+            grid.bmin[1] = rcMin(grid.bmin[1], verts[i * 3 + 1]);
+            grid.bmax[1] = rcMax(grid.bmax[1], verts[i * 3 + 1]);
+        }
+        grid.bmax[0] = grid.bmin[0] + static_cast<f32>(grid.countX) * grid.tileWorldSize;
+        grid.bmax[2] = grid.bmin[2] + static_cast<f32>(grid.countY) * grid.tileWorldSize;
+        return BuildOneTile(vertices, indices, params, grid, tileX, tileY, outTileData);
+    }
+
+    bool ReadTiledBlobGrid(Span<const byte> blob, NavigationTileGridDesc& out)
+    {
+        if (blob.Size() < sizeof(BlobHeader) + sizeof(TiledBlobInfo))
+        {
+            return false;
+        }
+        BlobHeader header;
+        std::memcpy(&header, blob.Data(), sizeof(BlobHeader));
+        if (header.magic != kBlobMagic || header.version != kBlobVersionTiled)
+        {
+            return false;
+        }
+        TiledBlobInfo info;
+        std::memcpy(&info, blob.Data() + sizeof(BlobHeader), sizeof(TiledBlobInfo));
+        out.origin = Float3{info.origin[0], info.origin[1], info.origin[2]};
+        out.tileWorldSize = info.tileWorldSize;
+        out.countX = info.tileCountX;
+        out.countY = info.tileCountY;
+        return out.tileWorldSize > 0.0f && out.countX > 0 && out.countY > 0;
+    }
+
+    bool PatchTiledNavMeshBlob(Array<byte>& blob, i32 tileX, i32 tileY,
+                               Span<const byte> tileData)
+    {
+        if (blob.Size() < sizeof(BlobHeader) + sizeof(TiledBlobInfo))
+        {
+            return false;
+        }
+        BlobHeader header;
+        std::memcpy(&header, blob.Data(), sizeof(BlobHeader));
+        if (header.magic != kBlobMagic || header.version != kBlobVersionTiled)
+        {
+            return false;
+        }
+        TiledBlobInfo info;
+        std::memcpy(&info, blob.Data() + sizeof(BlobHeader), sizeof(TiledBlobInfo));
+
+        // Walk the records, copying every OTHER tile verbatim; the target tile's record is
+        // replaced (or omitted for empty tileData); a previously-absent tile INSERTS in
+        // row-major position so a patched blob stays byte-identical to a full rebake.
+        Array<byte> out;
+        out.Reserve(blob.Size() + tileData.Size());
+        const auto append = [&out](const void* bytes, usize size)
+        {
+            const byte* p = static_cast<const byte*>(bytes);
+            for (usize i = 0; i < size; ++i)
+            {
+                out.PushBack(p[i]);
+            }
+        };
+        const auto appendTarget = [&]()
+        {
+            if (tileData.IsEmpty())
+            {
+                return; // removal
+            }
+            TileRecord record;
+            record.tileX = tileX;
+            record.tileY = tileY;
+            record.dataSize = static_cast<u32>(tileData.Size());
+            append(&record, sizeof(TileRecord));
+            append(tileData.Data(), tileData.Size());
+        };
+        const i64 targetOrder =
+            static_cast<i64>(tileY) * static_cast<i64>(info.tileCountX) + tileX;
+
+        const byte* cursor = blob.Data() + sizeof(BlobHeader) + sizeof(TiledBlobInfo);
+        const byte* end = blob.Data() + blob.Size();
+        u32 written = 0;
+        bool placed = false;
+        for (u32 i = 0; i < info.tileCount; ++i)
+        {
+            if (end - cursor < static_cast<isize>(sizeof(TileRecord)))
+            {
+                return false;
+            }
+            TileRecord record;
+            std::memcpy(&record, cursor, sizeof(TileRecord));
+            if (end - cursor <
+                static_cast<isize>(sizeof(TileRecord) + record.dataSize))
+            {
+                return false;
+            }
+            const i64 order = static_cast<i64>(record.tileY) *
+                                  static_cast<i64>(info.tileCountX) +
+                              record.tileX;
+            if (!placed && order >= targetOrder)
+            {
+                appendTarget();
+                placed = true;
+                if (!tileData.IsEmpty())
+                {
+                    ++written;
+                }
+                if (order == targetOrder)
+                {
+                    cursor += sizeof(TileRecord) + record.dataSize; // the replaced original
+                    continue;
+                }
+            }
+            append(cursor, sizeof(TileRecord) + record.dataSize);
+            cursor += sizeof(TileRecord) + record.dataSize;
+            ++written;
+        }
+        if (!placed)
+        {
+            appendTarget();
+            if (!tileData.IsEmpty())
+            {
+                ++written;
+            }
+        }
+        if (written == 0)
+        {
+            return false; // a blob with zero tiles would not load
+        }
+
+        info.tileCount = written;
+        header.navDataSize =
+            static_cast<u32>(sizeof(TiledBlobInfo) + out.Size());
+        blob.Clear();
+        blob.Reserve(sizeof(BlobHeader) + sizeof(TiledBlobInfo) + out.Size());
+        const auto appendBlob = [&blob](const void* bytes, usize size)
+        {
+            const byte* p = static_cast<const byte*>(bytes);
+            for (usize i = 0; i < size; ++i)
+            {
+                blob.PushBack(p[i]);
+            }
+        };
+        appendBlob(&header, sizeof(BlobHeader));
+        appendBlob(&info, sizeof(TiledBlobInfo));
+        appendBlob(out.Data(), out.Size());
+        return true;
+    }
+
     Status NavigationMeshBuilder::BuildTiled(Span<const Float3> vertices,
                                              Span<const u32> indices,
                                              const NavigationBakeParams& params,
@@ -596,32 +765,75 @@ namespace foundation::navigation
             return Status{ErrorCode::InvalidArgument};
         }
 
+        // Tiles are independent, so they may bake across workers; ASSEMBLY stays row-major,
+        // so the blob is byte-identical parallel or serial (the toggle trades latency only).
+        // Stages capture per-tile and concatenate in the same order for the same reason.
+        const u32 tileTotal = static_cast<u32>(grid.countX) * static_cast<u32>(grid.countY);
+        Array<Array<byte>> tileResults;
+        tileResults.Resize(tileTotal);
+        Array<Status> tileStatuses;
+        Array<NavigationBakeStages> tileStages;
+        tileStatuses.Resize(tileTotal, Status{ErrorCode::NotFound});
+        if (outStages != nullptr)
+        {
+            tileStages.Resize(tileTotal);
+        }
+        const auto bakeIndex = [&](u32 index)
+        {
+            const i32 tx = static_cast<i32>(index % static_cast<u32>(grid.countX));
+            const i32 ty = static_cast<i32>(index / static_cast<u32>(grid.countX));
+            tileStatuses[index] = BuildOneTile(
+                vertices, indices, params, grid, tx, ty, tileResults[index],
+                (outStages != nullptr) ? &tileStages[index] : nullptr);
+        };
+        if (params.parallelBake && tileTotal > 1)
+        {
+            JobSystem jobs; // scoped pool: bakes are rare editor operations
+            jobs.ParallelFor(tileTotal, bakeIndex, 1);
+        }
+        else
+        {
+            for (u32 i = 0; i < tileTotal; ++i)
+            {
+                bakeIndex(i);
+            }
+        }
+
         Array<TileRecord> records;
         Array<Array<byte>> tiles;
         usize payloadBytes = 0;
-        for (i32 ty = 0; ty < grid.countY; ++ty) // row-major: the deterministic order
+        for (u32 index = 0; index < tileTotal; ++index) // row-major: the deterministic order
         {
-            for (i32 tx = 0; tx < grid.countX; ++tx)
+            const Status tileStatus = tileStatuses[index];
+            // Stages append for OK and NotFound alike - an empty tile still rasterized spans
+            // (that emptiness is exactly what the overlay is for debugging).
+            if (outStages != nullptr &&
+                (tileStatus.IsOk() || tileStatus.Code() == ErrorCode::NotFound))
             {
-                Array<byte> tileData;
-                const Status tileStatus =
-                    BuildOneTile(vertices, indices, params, grid, tx, ty, tileData, outStages);
-                if (tileStatus.Code() == ErrorCode::NotFound)
+                for (const Float3& v : tileStages[index].contourLines)
                 {
-                    continue; // empty tile
+                    outStages->contourLines.PushBack(v);
                 }
-                if (!tileStatus.IsOk())
+                for (const Float3& v : tileStages[index].walkableSamples)
                 {
-                    return tileStatus;
+                    outStages->walkableSamples.PushBack(v);
                 }
-                TileRecord record;
-                record.tileX = tx;
-                record.tileY = ty;
-                record.dataSize = static_cast<u32>(tileData.Size());
-                payloadBytes += sizeof(TileRecord) + tileData.Size();
-                records.PushBack(record);
-                tiles.PushBack(static_cast<Array<byte>&&>(tileData));
             }
+            if (tileStatus.Code() == ErrorCode::NotFound)
+            {
+                continue; // empty tile
+            }
+            if (!tileStatus.IsOk())
+            {
+                return tileStatus;
+            }
+            TileRecord record;
+            record.tileX = static_cast<i32>(index % static_cast<u32>(grid.countX));
+            record.tileY = static_cast<i32>(index / static_cast<u32>(grid.countX));
+            record.dataSize = static_cast<u32>(tileResults[index].Size());
+            payloadBytes += sizeof(TileRecord) + tileResults[index].Size();
+            records.PushBack(record);
+            tiles.PushBack(static_cast<Array<byte>&&>(tileResults[index]));
         }
         if (records.IsEmpty())
         {
@@ -816,6 +1028,47 @@ namespace foundation::navigation
         impl.navMesh = mesh;
         impl.agentRadius = header.agentRadius;
         impl.agentHeight = header.agentHeight;
+        return Status{};
+    }
+
+    Status NavigationMesh::ReplaceTile(i32 tileX, i32 tileY, Span<const byte> tileData)
+    {
+        dtNavMesh* mesh = m_impl->navMesh;
+        if (mesh == nullptr)
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        // Only a multi-tile mesh (v2 blob) has a grid arbitrary tiles can land on.
+        if (mesh->getParams()->maxTiles <= 1)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
+        const dtTileRef existing = mesh->getTileRefAt(tileX, tileY, 0);
+        if (existing != 0)
+        {
+            if (dtStatusFailed(mesh->removeTile(existing, nullptr, nullptr)))
+            {
+                return Status{ErrorCode::Internal};
+            }
+        }
+        if (tileData.IsEmpty())
+        {
+            return Status{}; // removal only
+        }
+        unsigned char* bytes =
+            static_cast<unsigned char*>(dtAlloc(tileData.Size(), DT_ALLOC_PERM));
+        if (bytes == nullptr)
+        {
+            return Status{ErrorCode::OutOfMemory};
+        }
+        std::memcpy(bytes, tileData.Data(), tileData.Size());
+        const dtStatus added = mesh->addTile(bytes, static_cast<int>(tileData.Size()),
+                                             DT_TILE_FREE_DATA, 0, nullptr);
+        if (dtStatusFailed(added))
+        {
+            dtFree(bytes);
+            return Status{ErrorCode::Internal};
+        }
         return Status{};
     }
 

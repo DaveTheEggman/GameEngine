@@ -35,12 +35,27 @@ export namespace foundation::navigation
         // 64 @ 0.3 = 19.2u tiles - small zones stay 1 tile, big ones split (and a future
         // partial rebake regenerates one tile, not the zone).
         u32 tileCells = 64;
+        // Bake tiles across worker threads (tiles are independent; assembly stays row-major,
+        // so the OUTPUT IS BYTE-IDENTICAL either way - the toggle trades bake latency only).
+        bool parallelBake = true;
     };
 
     // OPT-IN bake-stage capture (Lumix-parity diagnostics): the intermediate Recast data a
     // failed or surprising bake is debugged with. Zone-local space, ready for debug draw.
     // The LIVE dtNavMesh draw stays the ground truth for what queries run on - stages show
     // how the bake ARRIVED there (where spans rasterized, where contours went).
+    // A tiled blob's grid, for partial rebakes (ReadTiledBlobGrid / BuildTileInGrid).
+    struct NavigationTileGridDesc
+    {
+        // XZ anchor the tiles align to (the ORIGINAL bake's geometry min corner). The
+        // VERTICAL range is always taken from the current geometry - a rebake may add
+        // taller/lower content without invalidating the grid.
+        Float3 origin{0, 0, 0};
+        f32 tileWorldSize = 0.0f;
+        i32 countX = 0;
+        i32 countY = 0;
+    };
+
     struct NavigationBakeStages
     {
         // Simplified region contours: line-segment PAIRS (i, i+1 per segment).
@@ -82,5 +97,27 @@ export namespace foundation::navigation
                                                 Span<const u32> indices,
                                                 const NavigationBakeParams& params, i32 tileX,
                                                 i32 tileY, Array<byte>& outTileData);
+
+        // PARTIAL REBAKE support: rebuild one tile against an EXPLICIT grid (the grid a
+        // previous bake's blob recorded) instead of deriving it from the current geometry
+        // bounds - edited geometry may shift the bounds, and a patched tile must stay on the
+        // original grid or it lands in the wrong place. A patched blob is byte-identical to
+        // a FULL rebake when the geometry's VERTICAL envelope is unchanged (tile headers
+        // record it); a grown envelope patches CORRECTLY but far tiles' header bytes differ.
+        [[nodiscard]] static Status BuildTileInGrid(Span<const Float3> vertices,
+                                                    Span<const u32> indices,
+                                                    const NavigationBakeParams& params,
+                                                    const NavigationTileGridDesc& grid,
+                                                    i32 tileX, i32 tileY,
+                                                    Array<byte>& outTileData);
     };
+
+    /// The tile grid a v2 (tiled) blob was baked on. False for v1/invalid blobs.
+    [[nodiscard]] bool ReadTiledBlobGrid(Span<const byte> blob, NavigationTileGridDesc& out);
+
+    /// Replace tile (tileX, tileY)'s record in a v2 blob (insert when absent; EMPTY tileData
+    /// removes the record). Every other tile's bytes are untouched, so a patched blob equals
+    /// the full rebake of the same edited geometry byte-for-byte. False for v1/invalid blobs.
+    [[nodiscard]] bool PatchTiledNavMeshBlob(Array<byte>& blob, i32 tileX, i32 tileY,
+                                             Span<const byte> tileData);
 }

@@ -1076,7 +1076,9 @@ namespace editor
                         return;
                     }
                     const editor::navigation::BakeResult result =
-                        editor::navigation::BakeNavigationZone(edit->Scene(), entity, *target);
+                        editor::navigation::BakeNavigationZone(
+                            edit->Scene(), entity, *target,
+                            editor::navigation::ParallelBakeEnabled(*editor));
                     if (result.baked)
                     {
                         editor->Notify(NoticeKind::Success,

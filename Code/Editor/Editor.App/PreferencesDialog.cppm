@@ -108,6 +108,45 @@ export namespace editor::app
                 column->AddView(note.Get());
             }
 
+            // Domain-contributed categories (EditorContext::RegisterEditorSettingsContribution):
+            // the app hardcodes nothing - each domain's fields render generically here and
+            // write through their own closures (usually into the domain's user-store section).
+            for (const editor::EditorContext::EditorSettingsContribution& contribution :
+                 context.EditorSettingsContributions())
+            {
+                auto header = MakeRef<ui::Label>(DefaultAllocator(),
+                                                 contribution.category.AsView());
+                header->FontSize.SetValue(13.0f);
+                column->AddView(header.Get());
+                for (const editor::EditorContext::EditorSettingsBoolField& field :
+                     contribution.bools)
+                {
+                    const bool current = field.get ? field.get() : false;
+                    auto check =
+                        MakeRef<ui::CheckBox>(DefaultAllocator(), field.label.AsView(), current);
+                    check->FontSize.SetValue(12.0f);
+                    if (!field.description.IsEmpty())
+                    {
+                        check->TooltipText = String(field.description);
+                    }
+                    // Function is move-only: capture the FIELD (context-owned, stable -
+                    // registrations happen at boot, before any dialog opens).
+                    const editor::EditorContext::EditorSettingsBoolField* fieldPtr = &field;
+                    check->OnCheckedChanged.Add(
+                        [fieldPtr](ui::CheckBox*, bool checked)
+                        {
+                            if (fieldPtr->set)
+                            {
+                                fieldPtr->set(checked);
+                            }
+                        });
+                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    lp->Width = ui::SizeSpec::Match();
+                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    column->AddView(check.Get(), lp);
+                }
+            }
+
             // Scroll the preferences column so it can grow without spilling over the modal button
             // row (the Dialog gives content a fixed Grow-shared area above the buttons). User feedback.
             auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());

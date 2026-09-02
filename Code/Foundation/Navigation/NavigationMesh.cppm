@@ -85,6 +85,12 @@ export namespace foundation::navigation
         [[nodiscard]] f32 BakedAgentRadius() const noexcept;
         [[nodiscard]] f32 BakedAgentHeight() const noexcept;
 
+        // PARTIAL REBAKE: swap one tile of a LOADED TILED navmesh (remove + add) with fresh
+        // Detour tile data (BuildTileInGrid output). Empty data = remove the tile. Fails for
+        // v1 single-tile meshes (their grid cannot place arbitrary tiles) and invalid data.
+        // Queries/crowds over this mesh see the change immediately.
+        [[nodiscard]] Status ReplaceTile(i32 tileX, i32 tileY, Span<const byte> tileData);
+
         // Append the navmesh's walkable triangles (in navmesh-local space, 3 verts per triangle)
         // to `out` for debug draw. Drawn from the LIVE dtNavMesh, so it reflects exactly what
         // queries path on (catches load/version/transform drift a bake-time outline would mask).

@@ -25,6 +25,8 @@ import engine.navigation;
 import foundation.navigation;
 import foundation.navigation.resource; // kNavigationZoneFrameRigid (the bake stamp)
 import navigation.pipeline;
+import editor.core;
+import foundation.settings;
 
 using namespace foundation::core;
 
@@ -48,6 +50,50 @@ namespace editor::navigation
             }
             return out;
         }
+    }
+
+    void RegisterNavigationEditorSettingsTypes()
+    {
+        GlobalTypeRegistry().Register(NavigationEditorSettings::StaticType());
+        RegisterSerializable<NavigationEditorSettings>();
+    }
+
+    void RegisterNavigationEditorSettings(editor::EditorContext& context)
+    {
+        RegisterNavigationEditorSettingsTypes(); // idempotent belt for odd boot orders
+
+        editor::EditorContext* ctx = &context;
+        editor::EditorContext::EditorSettingsContribution contribution;
+        contribution.category = String(u8"Navigation");
+        editor::EditorContext::EditorSettingsBoolField parallel;
+        parallel.label = String(u8"Parallel navmesh bake");
+        parallel.description = String(
+            u8"Bake navmesh tiles across worker threads. The output is byte-identical either "
+            u8"way - this only trades bake latency.");
+        parallel.get = [ctx]() { return ParallelBakeEnabled(*ctx); };
+        parallel.set = [ctx](bool value)
+        {
+            if (foundation::settings::Settings* store = ctx->UserEditorSettings())
+            {
+                store->Section<NavigationEditorSettings>().parallelBake = value;
+                store->MarkChanged<NavigationEditorSettings>();
+            }
+        };
+        contribution.bools.PushBack(
+            static_cast<editor::EditorContext::EditorSettingsBoolField&&>(parallel));
+        context.RegisterEditorSettingsContribution(
+            static_cast<editor::EditorContext::EditorSettingsContribution&&>(contribution));
+    }
+
+    bool ParallelBakeEnabled(const editor::EditorContext& context)
+    {
+        foundation::settings::Settings* store = context.UserEditorSettings();
+        if (store == nullptr)
+        {
+            return true; // headless/tests: the default
+        }
+        const NavigationEditorSettings* section = store->Find<NavigationEditorSettings>();
+        return section == nullptr || section->parallelBake;
     }
 
     usize CollectNavigationGeometry(scene::Scene& scene, scene::EntityHandle zoneEntity,
@@ -188,7 +234,7 @@ namespace editor::navigation
     }
 
     BakeResult BakeNavigationZone(scene::Scene& scene, scene::EntityHandle zoneEntity,
-                                  foundation::content::Instance& targetAsset)
+                                  foundation::content::Instance& targetAsset, bool parallelBake)
     {
         BakeResult result;
         auto* zones = scene.GetSystem<engine::navigation::NavMeshZoneComponentManager>();
@@ -217,6 +263,7 @@ namespace editor::navigation
             params.agentHeight = zone->agentHeight;
             params.agentMaxClimb = zone->agentMaxClimb;
             params.agentMaxSlopeDegrees = zone->agentMaxSlopeDegrees;
+            params.parallelBake = parallelBake; // the domain-contributed editor setting
 
             Array<byte> blob;
             // TILED (the Lumix-parity build): small zones come out as one tile; large ones
@@ -250,4 +297,124 @@ namespace editor::navigation
         }
         return result;
     }
+
+
+    RegionRebakeResult RebakeNavigationZoneRegion(scene::Scene& scene,
+                                                  scene::EntityHandle zoneEntity,
+                                                  foundation::content::Instance& targetAsset,
+                                                  Float3 worldMin, Float3 worldMax,
+                                                  bool parallelBake)
+    {
+        RegionRebakeResult result;
+        auto* zones = scene.GetSystem<engine::navigation::NavMeshZoneComponentManager>();
+        engine::navigation::NavMeshZoneComponent* zone =
+            (zones != nullptr) ? zones->Get(zoneEntity) : nullptr;
+        if (zone == nullptr)
+        {
+            return result;
+        }
+
+        // The existing blob's grid anchors the patch; no tiled blob = full-bake fallback
+        // (also the migration path for v1 assets).
+        pipeline::NavigationZoneAsset asset;
+        nav::NavigationTileGridDesc grid;
+        const bool haveTiled =
+            pipeline::EnsureNavMeshLoaded(targetAsset, asset).IsOk() &&
+            !asset.navMeshBlob.IsEmpty() &&
+            nav::ReadTiledBlobGrid(
+                Span<const byte>{reinterpret_cast<const byte*>(asset.navMeshBlob.Data()),
+                                 asset.navMeshBlob.Size()},
+                grid);
+        if (!haveTiled)
+        {
+            const BakeResult full =
+                BakeNavigationZone(scene, zoneEntity, targetAsset, parallelBake);
+            result.rebaked = full.baked;
+            result.fullBake = true;
+            return result;
+        }
+
+        Array<Float3> verts;
+        Array<u32> indices;
+        if (CollectNavigationGeometry(scene, zoneEntity, zone->extents, zone->cellSize, verts,
+                                      indices) == 0)
+        {
+            return result; // nothing to bake against - leave the asset alone
+        }
+
+        nav::NavigationBakeParams params;
+        params.cellSize = zone->cellSize;
+        params.cellHeight = zone->cellHeight;
+        params.agentRadius = zone->agentRadius;
+        params.agentHeight = zone->agentHeight;
+        params.agentMaxClimb = zone->agentMaxClimb;
+        params.agentMaxSlopeDegrees = zone->agentMaxSlopeDegrees;
+        params.parallelBake = parallelBake;
+
+        // The edited region in ZONE-LOCAL space (the grid's frame), padded by the bake's
+        // border apron so tiles whose border overlapped the edit also refresh.
+        const Float4x4 zoneInv = Inverse(RigidPart(scene.GetWorldMatrix(zoneEntity)));
+        AABB region = AABB::Empty();
+        for (int i = 0; i < 8; ++i)
+        {
+            const Float3 corner{(i & 1) ? worldMax.x : worldMin.x,
+                                (i & 2) ? worldMax.y : worldMin.y,
+                                (i & 4) ? worldMax.z : worldMin.z};
+            region.Expand(TransformPoint(corner, zoneInv));
+        }
+        const f32 apron =
+            (Ceil(params.agentRadius / params.cellSize) + 3.0f) * params.cellSize;
+
+        const i32 tx0 = Clamp(
+            static_cast<i32>(Floor((region.min.x - apron - grid.origin.x) / grid.tileWorldSize)),
+            0, grid.countX - 1);
+        const i32 tx1 = Clamp(
+            static_cast<i32>(Floor((region.max.x + apron - grid.origin.x) / grid.tileWorldSize)),
+            0, grid.countX - 1);
+        const i32 ty0 = Clamp(
+            static_cast<i32>(Floor((region.min.z - apron - grid.origin.z) / grid.tileWorldSize)),
+            0, grid.countY - 1);
+        const i32 ty1 = Clamp(
+            static_cast<i32>(Floor((region.max.z + apron - grid.origin.z) / grid.tileWorldSize)),
+            0, grid.countY - 1);
+
+        Array<byte> blob;
+        blob.Resize(asset.navMeshBlob.Size());
+        MemCopy(blob.Data(), asset.navMeshBlob.Data(), asset.navMeshBlob.Size());
+
+        const Span<const Float3> vspan{verts.Data(), verts.Size()};
+        const Span<const u32> ispan{indices.Data(), indices.Size()};
+        for (i32 ty = ty0; ty <= ty1; ++ty)
+        {
+            for (i32 tx = tx0; tx <= tx1; ++tx)
+            {
+                Array<byte> tileData;
+                const Status tileStatus =
+                    nav::NavigationMeshBuilder::BuildTileInGrid(vspan, ispan, params, grid, tx,
+                                                                ty, tileData);
+                if (!tileStatus.IsOk() && tileStatus.Code() != ErrorCode::NotFound)
+                {
+                    return result; // a hard bake failure leaves the asset untouched
+                }
+                // NotFound = the tile is now empty -> the patch REMOVES its record.
+                if (!nav::PatchTiledNavMeshBlob(
+                        blob, tx, ty, Span<const byte>{tileData.Data(), tileData.Size()}))
+                {
+                    return result;
+                }
+                ++result.tilesRebuilt;
+            }
+        }
+
+        asset.navMeshBlob.Resize(blob.Size());
+        MemCopy(asset.navMeshBlob.Data(), blob.Data(), blob.Size());
+        asset.bakedFrame = nav::kNavigationZoneFrameRigid;
+        if (!pipeline::WriteNavigationZoneAsset(targetAsset, asset).IsOk())
+        {
+            return result;
+        }
+        result.rebaked = true;
+        return result;
+    }
+
 }

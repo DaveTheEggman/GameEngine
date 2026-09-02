@@ -211,6 +211,47 @@ export namespace editor
                 OnProjectEditorSettingsSaveRequested();
             }
         }
+
+        /// The PER-USER editor settings store (<user-data>/editor.settings.xml). Borrowed;
+        /// the app owns it and sets it at boot. Domains keep their OWN typed sections in it
+        /// (Section<T>() + MarkChanged) - the app never learns their shapes.
+        void SetUserEditorSettings(foundation::settings::Settings* store) noexcept
+        {
+            m_userEditorSettings = store;
+        }
+        [[nodiscard]] foundation::settings::Settings* UserEditorSettings() const noexcept
+        {
+            return m_userEditorSettings;
+        }
+
+        // --- domain-contributed editor settings -------------------------------------------
+        // A DOMAIN (navigation, terrain, ...) registers a category of preference fields; the
+        // Preferences dialog renders every contribution generically - the app hardcodes
+        // nothing. Fields carry get/set closures, so where the value lives (usually the
+        // domain's own section in UserEditorSettings) stays the domain's business. v1 =
+        // bool fields (grow kinds as domains need them).
+        struct EditorSettingsBoolField
+        {
+            String label;
+            String description; // tooltip (empty = none)
+            Function<bool()> get;
+            Function<void(bool)> set;
+        };
+        struct EditorSettingsContribution
+        {
+            String category; // dialog group header ("Navigation")
+            Array<EditorSettingsBoolField> bools;
+        };
+        void RegisterEditorSettingsContribution(EditorSettingsContribution contribution)
+        {
+            m_settingsContributions.PushBack(
+                static_cast<EditorSettingsContribution&&>(contribution));
+        }
+        [[nodiscard]] const Array<EditorSettingsContribution>&
+        EditorSettingsContributions() const noexcept
+        {
+            return m_settingsContributions;
+        }
         [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
@@ -399,6 +440,8 @@ export namespace editor
         ThumbnailService* m_thumbnails = nullptr; // borrowed (app-owned)
         foundation::resource::ResourceManager* m_resources = nullptr; // borrowed (app-owned)
         foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
+        foundation::settings::Settings* m_userEditorSettings = nullptr;    // borrowed (app-owned)
+        Array<EditorSettingsContribution> m_settingsContributions;
         pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;

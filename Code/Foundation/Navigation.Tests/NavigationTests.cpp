@@ -457,3 +457,155 @@ TEST_CASE("tiled bake: stage capture yields contours + walkable span samples in-
     REQUIRE(plain.Size() == blob.Size());
     CHECK(std::memcmp(plain.Data(), blob.Data(), plain.Size()) == 0);
 }
+
+TEST_CASE("tiled bake: parallel and serial produce byte-identical blobs (the toggle is latency-only)")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -30.0f, 30.0f, -30.0f, 30.0f);
+    AddBox(verts, indices, -2, 2, -2, 2, 3.0f);
+    const Span<const Float3> vspan{verts.Data(), verts.Size()};
+    const Span<const u32> ispan{indices.Data(), indices.Size()};
+
+    NavigationBakeParams serialParams;
+    serialParams.parallelBake = false;
+    NavigationBakeParams parallelParams;
+    parallelParams.parallelBake = true;
+
+    Array<byte> serial;
+    Array<byte> parallel;
+    NavigationBakeStages serialStages;
+    NavigationBakeStages parallelStages;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, serialParams, serial, &serialStages)
+                .IsOk());
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, parallelParams, parallel,
+                                              &parallelStages)
+                .IsOk());
+    REQUIRE(serial.Size() == parallel.Size());
+    CHECK(std::memcmp(serial.Data(), parallel.Data(), serial.Size()) == 0);
+    // Stage capture concatenates row-major either way.
+    REQUIRE(serialStages.contourLines.Size() == parallelStages.contourLines.Size());
+    REQUIRE(serialStages.walkableSamples.Size() == parallelStages.walkableSamples.Size());
+    for (usize i = 0; i < serialStages.contourLines.Size(); ++i)
+    {
+        CHECK(serialStages.contourLines[i] == parallelStages.contourLines[i]);
+    }
+}
+
+TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh swaps them")
+{
+    // Original scene: open ground + a reference box in a corner (so the VERTICAL envelope
+    // is already 0..3 - byte-parity with a full rebake requires an unchanged envelope; a
+    // patch that grows it is still CORRECT, just not byte-equal in far tiles' headers).
+    // Edit: a second box dropped inside another tile's area.
+    Array<Float3> baseVerts;
+    Array<u32> baseIndices;
+    AddGround(baseVerts, baseIndices, -30.0f, 30.0f, -30.0f, 30.0f);
+    AddBox(baseVerts, baseIndices, -26.0f, -22.0f, -26.0f, -22.0f, 3.0f);
+
+    Array<Float3> editedVerts = baseVerts;
+    Array<u32> editedIndices = baseIndices;
+    AddBox(editedVerts, editedIndices, 2.0f, 6.0f, 2.0f, 6.0f, 3.0f);
+
+    NavigationBakeParams params;
+    params.parallelBake = false; // determinism is pinned elsewhere; keep this test focused
+
+    Array<byte> original;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(
+                Span<const Float3>{baseVerts.Data(), baseVerts.Size()},
+                Span<const u32>{baseIndices.Data(), baseIndices.Size()}, params, original)
+                .IsOk());
+
+    // The recorded grid anchors the patch.
+    NavigationTileGridDesc grid;
+    REQUIRE(ReadTiledBlobGrid(Span<const byte>{original.Data(), original.Size()}, grid));
+    REQUIRE(grid.countX == 4);
+    REQUIRE(grid.countY == 4);
+
+    // Rebuild EVERY tile the edit region (plus the bake apron) touches, patching in place.
+    const f32 apron = (Ceil(params.agentRadius / params.cellSize) + 3.0f) * params.cellSize;
+    const Span<const Float3> ev{editedVerts.Data(), editedVerts.Size()};
+    const Span<const u32> ei{editedIndices.Data(), editedIndices.Size()};
+    Array<byte> patched = original;
+    const auto tileOf = [&](f32 v, f32 origin) {
+        return static_cast<i32>(std::floor((v - origin) / grid.tileWorldSize));
+    };
+    const i32 tx0 = std::max(0, tileOf(2.0f - apron, grid.origin.x));
+    const i32 tx1 = std::min(grid.countX - 1, tileOf(6.0f + apron, grid.origin.x));
+    const i32 ty0 = std::max(0, tileOf(2.0f - apron, grid.origin.z));
+    const i32 ty1 = std::min(grid.countY - 1, tileOf(6.0f + apron, grid.origin.z));
+    usize rebuilt = 0;
+    for (i32 ty = ty0; ty <= ty1; ++ty)
+    {
+        for (i32 tx = tx0; tx <= tx1; ++tx)
+        {
+            Array<byte> tile;
+            const Status s = NavigationMeshBuilder::BuildTileInGrid(ev, ei, params, grid, tx,
+                                                                    ty, tile);
+            REQUIRE((s.IsOk() || s.Code() == ErrorCode::NotFound));
+            REQUIRE(PatchTiledNavMeshBlob(patched, tx, ty,
+                                          Span<const byte>{tile.Data(), tile.Size()}));
+            ++rebuilt;
+        }
+    }
+    CHECK(rebuilt >= 1u);
+
+    // THE guarantee: the patched blob is byte-identical to a full rebake of the edited
+    // geometry (same grid: the box sits inside the original bounds).
+    Array<byte> full;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(ev, ei, params, full).IsOk());
+    REQUIRE(patched.Size() == full.Size());
+    CHECK(std::memcmp(patched.Data(), full.Data(), patched.Size()) == 0);
+
+    // Live swap: a mesh loaded from the ORIGINAL blob takes the rebuilt tiles via
+    // ReplaceTile and the path now detours around the new obstacle.
+    NavigationMesh mesh;
+    REQUIRE(mesh.Load(Span<const byte>{original.Data(), original.Size()}).IsOk());
+    {
+        NavigationMeshQuery query(mesh);
+        NavigationPath before;
+        REQUIRE(query.FindPath(Float3{0, 0, 4}, Float3{8, 0, 4}, before).IsOk());
+        CHECK(before.complete);
+        f32 maxAbsZBefore = 0.0f;
+        for (const Float3& c : before.corners)
+        {
+            maxAbsZBefore = std::max(maxAbsZBefore, std::abs(c.z - 4.0f));
+        }
+        CHECK(maxAbsZBefore < 1.0f); // straight through where the box will be
+    }
+    for (i32 ty = ty0; ty <= ty1; ++ty)
+    {
+        for (i32 tx = tx0; tx <= tx1; ++tx)
+        {
+            Array<byte> tile;
+            const Status s = NavigationMeshBuilder::BuildTileInGrid(ev, ei, params, grid, tx,
+                                                                    ty, tile);
+            REQUIRE((s.IsOk() || s.Code() == ErrorCode::NotFound));
+            REQUIRE(mesh.ReplaceTile(tx, ty, Span<const byte>{tile.Data(), tile.Size()}).IsOk());
+        }
+    }
+    {
+        NavigationMeshQuery query(mesh);
+        NavigationPath after;
+        REQUIRE(query.FindPath(Float3{0, 0, 4}, Float3{8, 0, 4}, after).IsOk());
+        CHECK(after.complete);
+        f32 detour = 0.0f;
+        for (const Float3& c : after.corners)
+        {
+            detour = std::max(detour, std::abs(c.z - 4.0f));
+        }
+        CHECK(detour > 1.5f); // routed around the freshly patched-in box
+    }
+
+    // v1 meshes refuse ReplaceTile (no grid for arbitrary tiles).
+    Array<byte> v1;
+    REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{baseVerts.Data(), baseVerts.Size()},
+                                         Span<const u32>{baseIndices.Data(), baseIndices.Size()},
+                                         params, v1)
+                .IsOk());
+    NavigationMesh v1Mesh;
+    REQUIRE(v1Mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
+    Array<byte> dummy;
+    const Status refused = v1Mesh.ReplaceTile(0, 0, Span<const byte>{dummy.Data(), 0});
+    CHECK_FALSE(refused.IsOk());
+}
