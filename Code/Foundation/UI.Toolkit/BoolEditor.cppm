@@ -57,7 +57,7 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<CheckBox> checkBox = MakeRef<CheckBox>(DefaultAllocator());
+            RefPtr<CheckBox> checkBox = MakeRef<CheckBox>(MemoryAllocator());
             m_checkBox = checkBox.Get();
             m_checkBox->IsChecked.SetValue(m_value);
             BoolEditor* self = this;

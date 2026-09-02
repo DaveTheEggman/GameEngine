@@ -510,29 +510,29 @@ export namespace foundation::ui::toolkit
 
     inline ColorPicker::ColorPicker()
     {
-        RefPtr<SVSquare> sv = MakeRef<SVSquare>(DefaultAllocator(), this);
+        RefPtr<SVSquare> sv = MakeRef<SVSquare>(MemoryAllocator(), this);
         m_svSquare = sv.Get();
         AddView(sv.Get());
 
-        RefPtr<HueStripView> hue = MakeRef<HueStripView>(DefaultAllocator(), this);
+        RefPtr<HueStripView> hue = MakeRef<HueStripView>(MemoryAllocator(), this);
         m_hueStrip = hue.Get();
         AddView(hue.Get());
 
-        RefPtr<AlphaStripView> alpha = MakeRef<AlphaStripView>(DefaultAllocator(), this);
+        RefPtr<AlphaStripView> alpha = MakeRef<AlphaStripView>(MemoryAllocator(), this);
         m_alphaStrip = alpha.Get();
         AddView(alpha.Get());
 
-        RefPtr<ColorView> prevCur = MakeRef<ColorView>(DefaultAllocator());
+        RefPtr<ColorView> prevCur = MakeRef<ColorView>(MemoryAllocator());
         prevCur->Color.SetValue(Color::White);
         m_previewCurrent = prevCur.Get();
         AddView(prevCur.Get());
 
-        RefPtr<ColorView> prevOrig = MakeRef<ColorView>(DefaultAllocator());
+        RefPtr<ColorView> prevOrig = MakeRef<ColorView>(MemoryAllocator());
         prevOrig->Color.SetValue(Color::White);
         m_previewOriginal = prevOrig.Get();
         AddView(prevOrig.Get());
 
-        RefPtr<EditText> hex = MakeRef<EditText>(DefaultAllocator());
+        RefPtr<EditText> hex = MakeRef<EditText>(MemoryAllocator());
         hex->SetPlaceholder(u8"#RRGGBB");
         hex->MaxLength.SetValue(7);
         m_hexInput = hex.Get();
@@ -545,7 +545,7 @@ export namespace foundation::ui::toolkit
 
         auto makeRgbField = [this]() -> RefPtr<NumericField>
         {
-            RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            RefPtr<NumericField> f = MakeRef<NumericField>(MemoryAllocator());
             f->SetMin(0);
             f->SetMax(255);
             f->SetStep(1);

@@ -60,7 +60,7 @@ namespace
 TEST_CASE("font-family: ResolveStyleFontFamily_Fallback_UsesFontServiceDefault")
 {
     // No cascade rule + no inline override -> falls through to the font service's DefaultFontFamily.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     StubFontService fontService;
@@ -75,7 +75,7 @@ TEST_CASE("font-family: ResolveStyleFontFamily_Fallback_UsesFontServiceDefault")
 
 TEST_CASE("font-family: ResolveStyleFontFamily_CascadeWinsOverFontServiceDefault")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     StubFontService fontService;
@@ -92,7 +92,7 @@ TEST_CASE("font-family: ResolveStyleFontFamily_CascadeWinsOverFontServiceDefault
 
 TEST_CASE("font-family: ResolveStyleFontFamily_InstanceOverride_Wins")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -107,7 +107,7 @@ TEST_CASE("font-family: ResolveStyleFontFamily_InstanceOverride_Wins")
 TEST_CASE("font-family: ResolveStyleFontFamily_EmptyOverride_DefersToCascade")
 {
     // Beef's null override -> our empty StringView: an empty per-instance override defers to the cascade.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -121,7 +121,7 @@ TEST_CASE("font-family: ResolveStyleFontFamily_EmptyOverride_DefersToCascade")
 
 TEST_CASE("font-family: Resolution_InlineFontFamilyBeatsContextSheet")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -145,7 +145,7 @@ TEST_CASE("font-service: DrawRootView pushes the context's CURRENT service into 
     // DrawRootView does not re-assert the context's service, the VG asks the STALE service for
     // atlases of CachedFonts it never created - null, silent skip, invisible text in the
     // built game (masked in the source tree, where the stale service is the working one).
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
 

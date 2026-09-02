@@ -204,7 +204,8 @@ namespace editor
         }
         Array<String> warnings;
         RefPtr<ui::View> parsed =
-            ui::MarkupLoader::LoadFromString(m_markup.AsView(), nullptr, &warnings);
+            ui::MarkupLoader::LoadFromString(DefaultAllocator(), m_markup.AsView(), nullptr,
+                                             &warnings);
         if (parsed.Get() == nullptr)
         {
             m_status->SetText(u8"Parse FAILED - showing the last good preview.");

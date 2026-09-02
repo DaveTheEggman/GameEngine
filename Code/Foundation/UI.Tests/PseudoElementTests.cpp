@@ -51,7 +51,7 @@ namespace
 
     core::RefPtr<StyleSheet> LoadSSS(StringView src)
     {
-        StyleSheetLoader loader;
+        StyleSheetLoader loader(DefaultAllocator());
         return loader.Load(src);
     }
 }
@@ -115,7 +115,7 @@ TEST_CASE("pseudo-element: Specificity_Full")
 
 TEST_CASE("pseudo-element: ResolvePart_Basic")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -142,7 +142,7 @@ TEST_CASE("pseudo-element: ResolvePart_Basic")
 
 TEST_CASE("pseudo-element: ResolvePart_WithState")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -174,7 +174,7 @@ TEST_CASE("pseudo-element: ResolvePart_WithState")
 
 TEST_CASE("pseudo-element: ResolvePart_DoesNotInherit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -194,7 +194,7 @@ TEST_CASE("pseudo-element: ResolvePart_DoesNotInherit")
 
 TEST_CASE("pseudo-element: ResolvePart_SubtypeMatching")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -210,7 +210,7 @@ TEST_CASE("pseudo-element: ResolvePart_SubtypeMatching")
 
 TEST_CASE("pseudo-element: ResolvePart_ClassSelector")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -236,7 +236,7 @@ TEST_CASE("pseudo-element: ResolvePart_ClassSelector")
 
 TEST_CASE("pseudo-element: ResolvePart_Cascade")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -272,7 +272,7 @@ TEST_CASE("pseudo-element: SSS_PseudoElement_Parses")
 
     CHECK(sheet->RuleCount() == 2);
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(sheet);
@@ -338,7 +338,7 @@ TEST_CASE("pseudo-element: SSS_PseudoElement_WithDrawable")
         }
     )");
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(sheet);
@@ -355,7 +355,7 @@ TEST_CASE("pseudo-element: SSS_PseudoElement_WithDrawable")
 TEST_CASE("pseudo-element: SSS_PseudoElement_WithPaletteVariable")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.SetPaletteVariable(u8"accent", Rgb(61, 174, 233, 255));
 
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
@@ -364,7 +364,7 @@ TEST_CASE("pseudo-element: SSS_PseudoElement_WithPaletteVariable")
         }
     )");
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     ctx.SetStyleSheet(sheet);
@@ -384,7 +384,7 @@ TEST_CASE("pseudo-element: SSS_PseudoElement_WithPaletteVariable")
 
 TEST_CASE("pseudo-element: ElementRule_DoesNotMatchPseudoQuery")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);

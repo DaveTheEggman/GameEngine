@@ -195,7 +195,7 @@ namespace
 
 TEST_CASE("focus: SetFocus_ViewBecomesFocused")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -207,7 +207,7 @@ TEST_CASE("focus: SetFocus_ViewBecomesFocused")
 
 TEST_CASE("focus: SetFocus_OldViewLosesFocus")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable();
@@ -223,7 +223,7 @@ TEST_CASE("focus: SetFocus_OldViewLosesFocus")
 
 TEST_CASE("focus: ClearFocus_NoViewFocused")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -236,7 +236,7 @@ TEST_CASE("focus: ClearFocus_NoViewFocused")
 
 TEST_CASE("focus: SaveRestore_RestoresFocusWithSource")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -252,7 +252,7 @@ TEST_CASE("focus: SaveRestore_RestoresFocusWithSource")
 
 TEST_CASE("focus: SaveRestore_EachEntryIndependent_OutOfOrderCloseCannotCrossRestore")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable();
@@ -279,7 +279,7 @@ TEST_CASE("focus: SaveRestore_EachEntryIndependent_OutOfOrderCloseCannotCrossRes
 
 TEST_CASE("focus: SaveRestore_SkipsDeletedView")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -294,7 +294,7 @@ TEST_CASE("focus: SaveRestore_SkipsDeletedView")
 
 TEST_CASE("focus: SaveRestore_SkipsViewDisabledWhilePopupWasOpen")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -309,7 +309,7 @@ TEST_CASE("focus: SaveRestore_SkipsViewDisabledWhilePopupWasOpen")
 
 TEST_CASE("focus-visible: pointer focus is HELD but not DRAWN; keyboard focus draws")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -328,7 +328,7 @@ TEST_CASE("focus-visible: pointer focus is HELD but not DRAWN; keyboard focus dr
 
 TEST_CASE("focus-visible: modal restore brings a pointer-focused view back RINGLESS")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -343,7 +343,7 @@ TEST_CASE("focus-visible: modal restore brings a pointer-focused view back RINGL
 
 TEST_CASE("focus: Capture_SetAndRelease")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -358,7 +358,7 @@ TEST_CASE("focus: Capture_SetAndRelease")
 
 TEST_CASE("focus: OnViewDeleted_ClearsFocusAndCapture")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto view = Focusable();
@@ -373,7 +373,7 @@ TEST_CASE("focus: OnViewDeleted_ClearsFocusAndCapture")
 
 TEST_CASE("focus: FocusNext_CyclesThroughTabStops")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable();
@@ -395,7 +395,7 @@ TEST_CASE("focus: FocusNext_CyclesThroughTabStops")
 
 TEST_CASE("focus: FocusPrev_CyclesBackward")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable();
@@ -410,7 +410,7 @@ TEST_CASE("focus: FocusPrev_CyclesBackward")
 
 TEST_CASE("focus: FocusNext_SkipsNonTabStop")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable();
@@ -428,7 +428,7 @@ TEST_CASE("focus: FocusNext_SkipsNonTabStop")
 
 TEST_CASE("focus: IsFocusWithin_AncestorOfFocused")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -445,7 +445,7 @@ TEST_CASE("focus: IsFocusWithin_AncestorOfFocused")
 
 TEST_CASE("capture: MouseDown_CapturePhase_ParentSeesFirst")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -462,7 +462,7 @@ TEST_CASE("capture: MouseDown_CapturePhase_ParentSeesFirst")
 
 TEST_CASE("capture: MouseDown_CaptureBlocks_TargetNotReached")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -481,7 +481,7 @@ TEST_CASE("capture: MouseDown_CaptureBlocks_TargetNotReached")
 
 TEST_CASE("capture: MouseDown_PhaseFieldSet")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto child = core::MakeRef<PhaseTrackingView>(core::DefaultAllocator());
@@ -497,7 +497,7 @@ TEST_CASE("dispatch: target that frees itself during MouseUp does not UAF the di
     // Regression for the Input Map "Listen" crash: a click handler destroyed the clicked button
     // in-line, then FireClick/DispatchMouseUp dereferenced the freed view. DispatchMouseUp now pins
     // the target for the whole capture/target/bubble sequence, so a self-freeing handler is safe.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -522,7 +522,7 @@ TEST_CASE("dispatch: target that frees itself during MouseUp does not UAF the di
 
 TEST_CASE("capture: KeyDown_CapturePhase_Works")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -540,7 +540,7 @@ TEST_CASE("capture: KeyDown_CapturePhase_Works")
 
 TEST_CASE("capture: KeyDown_CaptureBlocks")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto parent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -559,7 +559,7 @@ TEST_CASE("capture: KeyDown_CaptureBlocks")
 
 TEST_CASE("capture: DeepHierarchy_CaptureOrder")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto grandparent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -580,7 +580,7 @@ TEST_CASE("capture: DeepHierarchy_CaptureOrder")
 
 TEST_CASE("capture: DeepHierarchy_MidCapture_Blocks")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto grandparent = core::MakeRef<PhaseTrackingGroup>(core::DefaultAllocator());
@@ -604,7 +604,7 @@ TEST_CASE("capture: DeepHierarchy_MidCapture_Blocks")
 
 TEST_CASE("shortcut: Global_Fires")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     bool fired = false;
@@ -616,7 +616,7 @@ TEST_CASE("shortcut: Global_Fires")
 
 TEST_CASE("shortcut: Global_WrongKey_DoesNotFire")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     bool fired = false;
@@ -627,7 +627,7 @@ TEST_CASE("shortcut: Global_WrongKey_DoesNotFire")
 
 TEST_CASE("shortcut: Global_WrongModifiers_DoesNotFire")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     bool fired = false;
@@ -638,7 +638,7 @@ TEST_CASE("shortcut: Global_WrongModifiers_DoesNotFire")
 
 TEST_CASE("shortcut: Scoped_FiresWhenInScope")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto panel = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -655,7 +655,7 @@ TEST_CASE("shortcut: Scoped_FiresWhenInScope")
 
 TEST_CASE("shortcut: Scoped_DoesNotFireWhenOutOfScope")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto panelA = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -674,7 +674,7 @@ TEST_CASE("shortcut: Scoped_DoesNotFireWhenOutOfScope")
 
 TEST_CASE("shortcut: Remove_StopsShortcut")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     bool fired = false;
@@ -687,7 +687,7 @@ TEST_CASE("shortcut: Remove_StopsShortcut")
 
 TEST_CASE("shortcut: ScopedRemoved_OnViewDelete")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto panel = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -702,7 +702,7 @@ TEST_CASE("shortcut: ScopedRemoved_OnViewDelete")
 
 TEST_CASE("shortcut: Scoped_PriorityOverGlobal")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto panel = core::MakeRef<TestGroup>(core::DefaultAllocator());
@@ -724,7 +724,7 @@ TEST_CASE("shortcut: Scoped_PriorityOverGlobal")
 
 TEST_CASE("directional: MoveFocus_Down")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto top = Focusable(100, 30);
@@ -740,7 +740,7 @@ TEST_CASE("directional: MoveFocus_Down")
 
 TEST_CASE("directional: MoveFocus_Up")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto top = Focusable(100, 30);
@@ -756,7 +756,7 @@ TEST_CASE("directional: MoveFocus_Up")
 
 TEST_CASE("directional: MoveFocus_LeftRight")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto left = Focusable(100, 30);
@@ -775,7 +775,7 @@ TEST_CASE("directional: MoveFocus_LeftRight")
 
 TEST_CASE("directional: MoveFocus_NoCandidate")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto only = Focusable(100, 30);
@@ -788,7 +788,7 @@ TEST_CASE("directional: MoveFocus_NoCandidate")
 
 TEST_CASE("directional: MoveFocus_PrefersClosest")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto top = Focusable(100, 30);
@@ -807,7 +807,7 @@ TEST_CASE("directional: MoveFocus_PrefersClosest")
 
 TEST_CASE("directional: MoveFocus_ExplicitOverride")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto a = Focusable(100, 30);
@@ -827,7 +827,7 @@ TEST_CASE("directional: MoveFocus_ExplicitOverride")
 
 TEST_CASE("directional: MoveFocus_NoFocused_ReturnsFalse")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->AddView(Focusable().Get());
@@ -836,7 +836,7 @@ TEST_CASE("directional: MoveFocus_NoFocused_ReturnsFalse")
 
 TEST_CASE("directional: OnCancel_BubblesToParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     bool parentCancelCalled = false;
@@ -872,7 +872,7 @@ TEST_CASE("keys: Return_DispatchesBeforeActivation")
         void OnActivate() override { ++activations; }
     };
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     ctx.AddRootView(root.Get());
     auto probe = core::MakeRef<ReturnProbe>(core::DefaultAllocator());
@@ -913,7 +913,7 @@ TEST_CASE("keys: Tab_DispatchesToWantsTabKeyViews")
         }
     };
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     ctx.AddRootView(root.Get());
     auto editor = core::MakeRef<TabProbe>(core::DefaultAllocator());

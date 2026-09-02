@@ -92,7 +92,7 @@ namespace
 
 TEST_CASE("FloatingPanel: layout clamps X/Y so the whole panel stays inside the parent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -118,7 +118,7 @@ TEST_CASE("FloatingPanel: layout clamps X/Y so the whole panel stays inside the 
 
 TEST_CASE("FloatingPanel: the panel follows a shrinking parent back inside")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -147,7 +147,7 @@ TEST_CASE("FloatingPanel: the panel follows a shrinking parent back inside")
 
 TEST_CASE("FloatingPanel: a collapsed panel clamps against its header height")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -174,7 +174,7 @@ TEST_CASE("FloatingPanel: a collapsed panel clamps against its header height")
 
 TEST_CASE("FloatingPanel: negative X/Y clamps to the parent origin")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());

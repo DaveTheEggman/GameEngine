@@ -46,7 +46,7 @@ export namespace foundation::ui
         explicit ToggleButton(StringView text)
         {
             Wire();
-            m_content = core::MakeRef<Label>(core::DefaultAllocator(), text);
+            m_content = core::MakeRef<Label>(MemoryAllocator(), text);
         }
 
         [[nodiscard]] View* Content() const noexcept { return m_content.Get(); }

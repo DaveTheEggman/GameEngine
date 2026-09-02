@@ -35,21 +35,21 @@ TEST_CASE("dialog: Dialog_DefaultResult")
 
 TEST_CASE("dialog: Alert_Factory")
 {
-    auto dlg = Dialog::Alert(u8"Title", u8"Message");
+    auto dlg = Dialog::Alert(DefaultAllocator(), u8"Title", u8"Message");
     CHECK(!dlg->Title.IsEmpty());
     CHECK(dlg->Title == u8"Title");
 }
 
 TEST_CASE("dialog: Confirm_Factory")
 {
-    auto dlg = Dialog::Confirm(u8"Confirm", u8"Are you sure?");
+    auto dlg = Dialog::Confirm(DefaultAllocator(), u8"Confirm", u8"Are you sure?");
     CHECK(!dlg->Title.IsEmpty());
     CHECK(dlg->Title == u8"Confirm");
 }
 
 TEST_CASE("dialog: Show_SetsInitialKeyboardFocus_InsideTheDialog")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
@@ -72,7 +72,7 @@ TEST_CASE("dialog: Show_SetsInitialKeyboardFocus_InsideTheDialog")
 
 TEST_CASE("dialog: Close_FiresOnClosed")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
@@ -102,7 +102,7 @@ TEST_CASE("dialog: Close_FiresOnClosed")
 
 TEST_CASE("dialog: Show_CreatesModalPopup")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
@@ -121,7 +121,7 @@ TEST_CASE("dialog: Show_CreatesModalPopup")
 
 TEST_CASE("dialog: NoneButton_IsCallerManaged")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 

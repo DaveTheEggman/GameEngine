@@ -37,24 +37,26 @@ export namespace foundation::ui
         explicit SVGDrawable(vg::svg::SVGDocument document) : m_document(Move(document)) {}
 
         /// Create from an SVG string. Returns an empty RefPtr on parse failure.
-        [[nodiscard]] static RefPtr<SVGDrawable> FromString(StringView svgContent)
+        [[nodiscard]] static RefPtr<SVGDrawable> FromString(IAllocator& allocator,
+                                                    StringView svgContent)
         {
             Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue())
             {
-                return MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
+                return MakeRef<SVGDrawable>(allocator, Move(result.Value()));
             }
             return {};
         }
 
         /// Create from an SVG string with a tint applied.
-        [[nodiscard]] static RefPtr<SVGDrawable> FromString(StringView svgContent, Color tint)
+        [[nodiscard]] static RefPtr<SVGDrawable> FromString(IAllocator& allocator,
+                                                    StringView svgContent, Color tint)
         {
             Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue())
             {
                 RefPtr<SVGDrawable> d =
-                    MakeRef<SVGDrawable>(DefaultAllocator(), Move(result.Value()));
+                    MakeRef<SVGDrawable>(allocator, Move(result.Value()));
                 d->TintColor = tint;
                 return d;
             }
@@ -104,12 +106,13 @@ export namespace foundation::ui
 
         explicit BakedSVGDrawable(vg::svg::SVGDocument document) : SVGDrawable(Move(document)) {}
 
-        [[nodiscard]] static RefPtr<BakedSVGDrawable> FromString(StringView svgContent)
+        [[nodiscard]] static RefPtr<BakedSVGDrawable> FromString(IAllocator& allocator,
+                                                    StringView svgContent)
         {
             Result<vg::svg::SVGDocument> result = vg::svg::SVGLoader::Load(svgContent);
             if (result.HasValue())
             {
-                return MakeRef<BakedSVGDrawable>(DefaultAllocator(), Move(result.Value()));
+                return MakeRef<BakedSVGDrawable>(allocator, Move(result.Value()));
             }
             return {};
         }

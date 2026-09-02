@@ -74,7 +74,7 @@ export namespace foundation::ui
     protected:
         LayoutParamsPtr CreateDefaultLayoutParams() override
         {
-            return MakeRef<FlexLayoutParams>(DefaultAllocator());
+            return MakeRef<FlexLayoutParams>(MemoryAllocator());
         }
 
         void OnMeasure(BoxConstraints constraints) override

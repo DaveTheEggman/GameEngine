@@ -243,7 +243,8 @@ namespace editor::app
                              fonts::FontLoadOptions::ExtendedLatin(), Span<const u8>{});
         }
         EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)
-        m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(),
+        m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), DefaultAllocator(),
+                                                   *host.Graphics(),
                                                    *host.Shell(), *m_fontService);
         m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(),
                                                                             host, *m_uiHost);
@@ -254,7 +255,7 @@ namespace editor::app
         // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
         // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
         const foundation::ui::ThemePalette palette = foundation::ui::ThemePalette::GraphiteOrange();
-        m_styleSheet = foundation::ui::RoundedDarkTheme::Create(palette);
+        m_styleSheet = foundation::ui::RoundedDarkTheme::Create(DefaultAllocator(), palette);
         // The window CLEAR color comes from the same palette: any surface the chrome doesn't
         // cover (the project-manager screen most of all) must read as the theme's background,
         // not the UIHost's hard-coded near-black default.

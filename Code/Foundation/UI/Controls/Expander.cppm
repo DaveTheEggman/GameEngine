@@ -117,7 +117,7 @@ export namespace foundation::ui
             IsFocusable = true;
             HeaderHeight.SetOwner(this);
             ContentSpacing.SetOwner(this);
-            RefPtr<ExpanderHeader> header = MakeRef<ExpanderHeader>(DefaultAllocator(), this);
+            RefPtr<ExpanderHeader> header = MakeRef<ExpanderHeader>(MemoryAllocator(), this);
             m_header = header.Get();
             AddView(header.Get());
         }

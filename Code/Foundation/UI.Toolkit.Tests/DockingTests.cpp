@@ -26,7 +26,7 @@ TEST_CASE("docking: DockablePanel_Title")
 
 TEST_CASE("docking: DockablePanel_SetContent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     ctx.AddRootView(root.Get());
     auto panel = MakeRef<DockablePanel>(DefaultAllocator(), StringView(u8"Test"));
@@ -145,7 +145,7 @@ TEST_CASE("docking: DockableWindow_DetachPanel")
 
 TEST_CASE("docking: DockManager_AddPanel")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -167,7 +167,7 @@ TEST_CASE("docking: DockManager_AddPanel")
 
 TEST_CASE("docking: DockManager_DockPanel_Center")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -186,7 +186,7 @@ TEST_CASE("docking: DockManager_DockPanel_Center")
 
 TEST_CASE("docking: DockManager_DockPanel_Split")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -211,7 +211,7 @@ TEST_CASE("docking: DockManager_DockPanel_Split")
 // selection and its editor calls ActivatePanel by hand.
 TEST_CASE("docking: DockPanel_Center_ActivatesDockedTab")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -323,7 +323,7 @@ TEST_CASE("docking: DraggableTreeView_DropIntoZones")
 // clicks (its group's SetSelectedIndex early-outs, so tab selection can't re-announce it).
 TEST_CASE("docking: press inside panel content activates the panel")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -447,7 +447,7 @@ TEST_CASE("docking: float window inherits host chrome policy")
     const bool chromeModes[] = {true, false};
     for (const bool chrome : chromeModes)
     {
-        UIContext ctx;
+        UIContext ctx{DefaultAllocator()};
         auto root = MakeRef<RootView>(DefaultAllocator());
         root->ViewportSize = Float2{800, 600};
         ctx.AddRootView(root.Get());
@@ -492,7 +492,7 @@ TEST_CASE("docking: float window inherits host chrome policy")
 // close interceptor (dirty-page veto) applies to chromed windows exactly like the drawn X.
 TEST_CASE("docking: OS close request respects the panel close interceptor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());

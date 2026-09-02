@@ -27,7 +27,7 @@ static core::RefPtr<TestView> MakeView(f32 w = 50.0f, f32 h = 30.0f)
 
 TEST_CASE("tab-view: AddTab_SelectsFirst")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -41,7 +41,7 @@ TEST_CASE("tab-view: AddTab_SelectsFirst")
 
 TEST_CASE("tab-view: SwitchTab")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -62,7 +62,7 @@ TEST_CASE("tab-view: SwitchTab")
 
 TEST_CASE("tab-view: TabChangedEvent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -80,7 +80,7 @@ TEST_CASE("tab-view: TabChangedEvent")
 
 TEST_CASE("tab-view: RemoveTab")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -97,7 +97,7 @@ TEST_CASE("tab-view: RemoveTab")
 
 TEST_CASE("tab-view: RemoveTab_AdjustsSelection")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -113,7 +113,7 @@ TEST_CASE("tab-view: RemoveTab_AdjustsSelection")
 
 TEST_CASE("tab-view: KeyboardNavigation")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -143,7 +143,7 @@ TEST_CASE("tab-view: KeyboardNavigation")
 // Hover state after the mouse moves away; this verifies our OnMouseLeave fix.
 TEST_CASE("tab-view: HoverClearsOnMouseLeave")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -168,7 +168,7 @@ TEST_CASE("tab-view: HoverClearsOnMouseLeave")
 
 TEST_CASE("tab-view: SelectingHiddenTabScrollsItIntoView")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -195,7 +195,7 @@ TEST_CASE("tab-view: SelectingHiddenTabScrollsItIntoView")
 
 TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();
@@ -224,7 +224,7 @@ TEST_CASE("tab-view: WheelScrollsOverflowingStrip")
 
 TEST_CASE("tab-view: WheelIgnoredWithoutOverflow")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto tabs = MakeTabs();

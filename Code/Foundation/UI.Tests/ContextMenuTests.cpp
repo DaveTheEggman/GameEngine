@@ -30,7 +30,7 @@ TEST_CASE("context-menu: MenuItem_Properties")
 
 TEST_CASE("context-menu: MenuItem_CreateSeparator")
 {
-    auto item = MenuItem::CreateSeparator();
+    auto item = MenuItem::CreateSeparator(DefaultAllocator());
     CHECK(item->IsSeparator);
     CHECK(item->Label.IsEmpty());
     CHECK(!item->Action);
@@ -89,7 +89,7 @@ TEST_CASE("context-menu: Show resets the stale hover highlight")
     menu->OnMouseMove(move);
     REQUIRE(menu->HoveredIndex() >= 0);
 
-    UIContext ctx; // no active root: Show early-outs, but AFTER clearing the hover
+    UIContext ctx{DefaultAllocator()}; // no active root: Show early-outs, but AFTER clearing the hover
     menu->Show(&ctx, 0.0f, 0.0f);
     CHECK(menu->HoveredIndex() == -1);
 }

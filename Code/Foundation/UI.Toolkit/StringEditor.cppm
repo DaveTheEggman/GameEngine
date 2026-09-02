@@ -79,7 +79,7 @@ export namespace foundation::ui::toolkit
         RefPtr<View> CreateEditorView() override
         {
             RefPtr<StringEditorEditText> editText =
-                MakeRef<StringEditorEditText>(DefaultAllocator(), this);
+                MakeRef<StringEditorEditText>(MemoryAllocator(), this);
             m_editText = editText.Get();
             m_editText->SetText(m_value);
             StringEditor* self = this;

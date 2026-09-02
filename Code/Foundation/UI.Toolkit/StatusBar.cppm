@@ -40,10 +40,10 @@ export namespace foundation::ui::toolkit
         {
             if (m_defaultLabel == nullptr)
             {
-                RefPtr<Label> label = MakeRef<Label>(DefaultAllocator());
+                RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
                 m_defaultLabel = label.Get();
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Match();
                 lp->Height = SizeSpec::Match();
                 lp->Grow = 1.0f;
@@ -55,10 +55,10 @@ export namespace foundation::ui::toolkit
         /// Add a named section label. Returns the borrowed Label for customization.
         Label* AddSection(StringView text)
         {
-            RefPtr<Label> label = MakeRef<Label>(DefaultAllocator());
+            RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
             label->FontSize.SetValue(12.0f);
             label->SetText(text);
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
             lp->Height = SizeSpec::Match();
             Label* raw = label.Get();
             AddView(label.Get(), lp);

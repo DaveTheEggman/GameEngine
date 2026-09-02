@@ -99,7 +99,7 @@ export namespace foundation::ui::viewport
             {
                 const ContentFit fit{Rectangle{0, 0, 1, 1}, Float2{1, 1}, m_fitMode};
                 m_surface =
-                    MakeUnique<shell::InputSurface>(DefaultAllocator(), input, windowId, fit);
+                    MakeUnique<shell::InputSurface>(MemoryAllocator(), input, windowId, fit);
             }
         }
 
@@ -426,7 +426,7 @@ export namespace foundation::ui::viewport
             m_depthState = rhi::ResourceState::Undefined;
 
             // The identity key the VGRenderer maps to the external color view (dimensions only, no pixels).
-            m_imageRef = MakeUnique<image::ImageDataRef>(DefaultAllocator(), width, height);
+            m_imageRef = MakeUnique<image::ImageDataRef>(MemoryAllocator(), width, height);
 
             rhi::TextureDesc colorDesc =
                 rhi::TextureDesc::RenderTarget(m_colorFormat, width, height, 1, u8"ViewportColor");

@@ -19,7 +19,8 @@ TEST_CASE("toolkit-themeextension: AppliesRulesForBothPalettes")
 
     // Dark palette (default) -> isDark branch.
     {
-        StyleSheet sheet;
+        RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+        StyleSheet& sheet = *sheetRef;
         const usize before = sheet.RuleCount();
         ext.Apply(sheet, ThemePalette::Dark());
         CHECK(sheet.RuleCount() > before);
@@ -27,7 +28,8 @@ TEST_CASE("toolkit-themeextension: AppliesRulesForBothPalettes")
 
     // Light palette -> the !isDark branch of every control block runs without crashing.
     {
-        StyleSheet sheet;
+        RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+        StyleSheet& sheet = *sheetRef;
         ext.Apply(sheet, ThemePalette::Light());
         CHECK(sheet.RuleCount() > 0);
     }

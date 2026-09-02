@@ -19,7 +19,7 @@ namespace foundation::ui
 {
     TooltipManager::TooltipManager(UIContext* context) : m_context(context)
     {
-        m_tooltipView = MakeRef<TooltipView>(DefaultAllocator());
+        m_tooltipView = MakeRef<TooltipView>(m_context->Allocator());
     }
 
     TooltipManager::~TooltipManager()
@@ -146,7 +146,7 @@ namespace foundation::ui
                 return;
             }
 
-            RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), text);
+            RefPtr<Label> label = MakeRef<Label>(m_context->Allocator(), text);
             m_tooltipView->SetContent(label.Get());
         }
 

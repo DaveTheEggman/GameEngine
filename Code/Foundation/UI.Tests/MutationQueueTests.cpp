@@ -75,7 +75,7 @@ TEST_CASE("mutation-queue: Drain_HandlesReentrantEnqueue")
 
 TEST_CASE("mutation-queue: Drain_IntegratedWithBeginFrame")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     int counter = 0;
     ctx.MutationQueueRef().QueueAction([&counter]() { counter++; });
     ctx.BeginFrame(0.016f);
@@ -84,7 +84,7 @@ TEST_CASE("mutation-queue: Drain_IntegratedWithBeginFrame")
 
 TEST_CASE("mutation-queue: QueueDelete_PreventsDoubleDelete")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 

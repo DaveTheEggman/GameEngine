@@ -27,7 +27,7 @@ static core::RefPtr<TreeView> MakeTree()
 
 TEST_CASE("tree-view: SetAdapter_ShowsRootItems")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     SimpleTreeAdapter adapter;
@@ -194,7 +194,7 @@ TEST_CASE("tree-view: SetAdapter_Null_Detaches")
 // nodeId and fires OnItemKeyDown.
 TEST_CASE("tree-view: FocusedInternalList_KeyBubbles_To_OnItemKeyDown")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     ctx.AddRootView(root.Get());
 

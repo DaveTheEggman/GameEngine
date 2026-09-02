@@ -64,7 +64,7 @@ TEST_CASE("editable-label: StartsInLabelMode")
 
 TEST_CASE("editable-label: BeginEditTransitions")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();
@@ -82,7 +82,7 @@ TEST_CASE("editable-label: BeginEditTransitions")
 
 TEST_CASE("editable-label: CommitEditFiresEvent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();
@@ -115,7 +115,7 @@ TEST_CASE("editable-label: CommitEditFiresEvent")
 
 TEST_CASE("editable-label: CancelEditRestoresText")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();
@@ -139,7 +139,7 @@ TEST_CASE("editable-label: CancelEditRestoresText")
 
 TEST_CASE("editable-label: EmptyTextRejected")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();
@@ -165,7 +165,7 @@ TEST_CASE("editable-label: EmptyTextRejected")
 
 TEST_CASE("editable-label: ValidateRenameCalled")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();
@@ -201,7 +201,7 @@ TEST_CASE("editable-label: DoubleClickToEditDefault")
 
 TEST_CASE("editable-label: UnchangedTextRejected")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto el = MakeLabel();

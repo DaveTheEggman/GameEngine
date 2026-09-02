@@ -62,9 +62,9 @@ export namespace foundation::ui
         {
         }
 
-        static UniquePtr<MenuItem> CreateSeparator()
+        static UniquePtr<MenuItem> CreateSeparator(IAllocator& allocator)
         {
-            UniquePtr<MenuItem> item = MakeUnique<MenuItem>(DefaultAllocator());
+            UniquePtr<MenuItem> item = MakeUnique<MenuItem>(allocator);
             item->IsSeparator = true;
             return item;
         }
@@ -87,16 +87,16 @@ export namespace foundation::ui
         void AddItem(StringView label, Function<void()> action, bool enabled = true)
         {
             m_items.PushBack(
-                MakeUnique<MenuItem>(DefaultAllocator(), label, Move(action), enabled));
+                MakeUnique<MenuItem>(MemoryAllocator(), label, Move(action), enabled));
         }
 
-        void AddSeparator() { m_items.PushBack(MenuItem::CreateSeparator()); }
+        void AddSeparator() { m_items.PushBack(MenuItem::CreateSeparator(MemoryAllocator())); }
 
         MenuItem* AddSubmenu(StringView label)
         {
-            UniquePtr<MenuItem> item = MakeUnique<MenuItem>(DefaultAllocator());
+            UniquePtr<MenuItem> item = MakeUnique<MenuItem>(MemoryAllocator());
             item->Label = String(label);
-            RefPtr<ContextMenu> submenu = MakeRef<ContextMenu>(DefaultAllocator());
+            RefPtr<ContextMenu> submenu = MakeRef<ContextMenu>(MemoryAllocator());
             submenu->m_parentMenu = this;
             item->Submenu = submenu;
             MenuItem* raw = item.Get();

@@ -207,7 +207,7 @@ namespace foundation::ui
 
         // Create adorner with final offset values.
         RefPtr<DragAdorner> adorner =
-            MakeRef<DragAdorner>(DefaultAllocator(), visual.Get(), AdornerOffsetX, AdornerOffsetY);
+            MakeRef<DragAdorner>(m_context->Allocator(), visual.Get(), AdornerOffsetX, AdornerOffsetY);
         m_adorner = adorner.Get();
 
         // Show adorner via PopupLayer.

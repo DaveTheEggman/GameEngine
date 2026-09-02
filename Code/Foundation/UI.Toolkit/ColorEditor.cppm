@@ -77,7 +77,7 @@ export namespace foundation::ui::toolkit
         RefPtr<View> CreateEditorView() override
         {
             RefPtr<ClickableColorSwatch> swatch =
-                MakeRef<ClickableColorSwatch>(DefaultAllocator(), this);
+                MakeRef<ClickableColorSwatch>(MemoryAllocator(), this);
             m_swatch = swatch.Get();
             m_swatch->Color.SetValue(m_value);
             m_swatch->Cursor = CursorType::Hand;
@@ -103,7 +103,7 @@ export namespace foundation::ui::toolkit
         const core::Color originalColor = editor->m_value;
         editor->BeginEdit();
 
-        RefPtr<ColorPicker> picker = MakeRef<ColorPicker>(DefaultAllocator());
+        RefPtr<ColorPicker> picker = MakeRef<ColorPicker>(MemoryAllocator());
         picker->SetColor(editor->m_value);
         picker->SetOriginalColor(editor->m_value);
         picker->OnColorChanged.Add(
@@ -118,7 +118,7 @@ export namespace foundation::ui::toolkit
                 editor->NotifyValueChanged();
             });
 
-        RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), StringView(u8"Color Picker"));
+        RefPtr<Dialog> dialog = MakeRef<Dialog>(MemoryAllocator(), StringView(u8"Color Picker"));
         dialog->SetContent(picker.Get());
         dialog->AddButton(u8"OK", DialogResult::OK);
         dialog->AddButton(u8"Cancel", DialogResult::Cancel);

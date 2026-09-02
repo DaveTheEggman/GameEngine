@@ -33,7 +33,10 @@ export namespace foundation::ui
             p.PrimaryAccent = Color{64.0f / 255.0f, 200.0f / 255.0f, 190.0f / 255.0f, 1.0f};
             return p;
         }
-        [[nodiscard]] static RefPtr<StyleSheet> Create() { return DarkTheme::Create(Palette()); }
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator)
+        {
+            return DarkTheme::Create(allocator, Palette());
+        }
     };
 
     // The built-in LIGHT variant: the LightTheme shape
@@ -48,6 +51,9 @@ export namespace foundation::ui
             p.PrimaryAccent = Color{22.0f / 255.0f, 142.0f / 255.0f, 134.0f / 255.0f, 1.0f};
             return p;
         }
-        [[nodiscard]] static RefPtr<StyleSheet> Create() { return LightTheme::Create(Palette()); }
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator)
+        {
+            return LightTheme::Create(allocator, Palette());
+        }
     };
 }

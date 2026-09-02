@@ -72,7 +72,7 @@ export namespace foundation::ui
             WantsArrowKeys = true;
             ItemHeight.SetOwner(this);
             ListView* self = this;
-            m_scrollBar = MakeRef<ScrollBar>(DefaultAllocator(), false);
+            m_scrollBar = MakeRef<ScrollBar>(MemoryAllocator(), false);
             m_scrollBar->Parent = this;
             m_scrollBar->OnValueChanged.Add(
                 Event<void(ScrollBar*, f32)>::Handler{[self](ScrollBar*, f32 val)

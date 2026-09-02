@@ -432,3 +432,33 @@ TEST_CASE("memory: RefCounted::MemoryAllocator returns the creating allocator")
     }
     CHECK_FALSE(tracker.HasLeaks());
 }
+
+namespace
+{
+    // The inheritance idiom inside a CONSTRUCTOR: the parent builds its child from its
+    // own allocator while the parent itself is still being constructed (the pending-
+    // control handoff makes MemoryAllocator() valid in ctor bodies).
+    struct NestedParent : RefCounted
+    {
+        RefPtr<Widget> child;
+        IAllocator* seenInCtor = nullptr;
+
+        NestedParent()
+            : child(MakeRef<Widget>(MemoryAllocator(), 42)), seenInCtor(&MemoryAllocator())
+        {
+        }
+    };
+}
+
+TEST_CASE("memory: MemoryAllocator works inside constructors (nested MakeRef inherits)")
+{
+    TrackingAllocator tracker(DefaultAllocator());
+    {
+        RefPtr<NestedParent> parent = MakeRef<NestedParent>(tracker);
+        CHECK(parent->seenInCtor == &tracker);
+        REQUIRE(parent->child.Get() != nullptr);
+        CHECK(&parent->child->MemoryAllocator() == &tracker); // child inherited the tree root
+        CHECK(parent->child->value == 42);
+    }
+    CHECK_FALSE(tracker.HasLeaks()); // parent + nested child both returned to the tracker
+}

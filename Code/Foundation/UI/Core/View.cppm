@@ -750,7 +750,7 @@ export namespace foundation::ui
         {
             if (!m_inlineSheet)
             {
-                m_inlineSheet = MakeRef<StyleSheet>(DefaultAllocator());
+                m_inlineSheet = MakeRef<StyleSheet>(MemoryAllocator());
             }
             return *m_inlineSheet;
         }
@@ -902,7 +902,7 @@ export namespace foundation::ui
     protected:
         virtual LayoutParamsPtr CreateDefaultLayoutParams()
         {
-            return MakeRef<::foundation::ui::LayoutParams>(DefaultAllocator());
+            return MakeRef<::foundation::ui::LayoutParams>(MemoryAllocator());
         }
 
         /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.
@@ -1142,9 +1142,12 @@ export namespace foundation::ui
             Animating // ticking the AnimationManager; tree mutations from onComplete defer to the queue
         };
 
-        UIContext()
-            : m_inputManager(this), m_focusManager(this), m_shortcutManager(this),
-              m_tooltipManager(this), m_dragDropManager(this)
+        // The allocator (required - the host decides) is the whole UI tree's root:
+        // every view, drawable, and style object created under this context inherits
+        // it (views via MemoryAllocator(), managers via Allocator()).
+        explicit UIContext(IAllocator& allocator)
+            : m_allocator(&allocator), m_inputManager(this), m_focusManager(this),
+              m_shortcutManager(this, allocator), m_tooltipManager(this), m_dragDropManager(this)
         {
         }
         // (m_animationManager is default-constructed - it holds no back-pointer to the context.)
@@ -1159,6 +1162,8 @@ export namespace foundation::ui
 
         UIContext(const UIContext&) = delete;
         UIContext& operator=(const UIContext&) = delete;
+
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
 
         [[nodiscard]] Phase CurrentPhase() const noexcept { return m_phase; }
         [[nodiscard]] bool NeedsRedraw() const noexcept { return m_needsRedraw; }
@@ -1418,6 +1423,7 @@ export namespace foundation::ui
         Array<RootView*> m_rootViews; // non-owning
         RootView* m_activeInputRoot = nullptr;
         MutationQueue m_mutationQueue;
+        IAllocator* m_allocator;
         InputManager m_inputManager;
         FocusManager m_focusManager;
         ShortcutManager m_shortcutManager;

@@ -34,7 +34,8 @@ static image::OwnedImageData MakeTestImage(u32 w, u32 h, u8 r, u8 g, u8 b)
 
 TEST_CASE("theme-atlas: ThemeAtlas_CreateImageDrawable")
 {
-    ThemeAtlas atlas;
+    core::RefPtr<ThemeAtlas> atlasRef = core::MakeRef<ThemeAtlas>(DefaultAllocator());
+    ThemeAtlas& atlas = *atlasRef;
     image::OwnedImageData img = MakeTestImage(32, 32, 255, 0, 0);
 
     atlas.AddImage(u8"button", &img);
@@ -47,7 +48,8 @@ TEST_CASE("theme-atlas: ThemeAtlas_CreateImageDrawable")
 
 TEST_CASE("theme-atlas: ThemeAtlas_CreateNineSliceDrawable")
 {
-    ThemeAtlas atlas;
+    core::RefPtr<ThemeAtlas> atlasRef = core::MakeRef<ThemeAtlas>(DefaultAllocator());
+    ThemeAtlas& atlas = *atlasRef;
     image::OwnedImageData img = MakeTestImage(32, 32, 255, 0, 0);
 
     atlas.AddImage(u8"panel", &img);
@@ -62,14 +64,16 @@ TEST_CASE("theme-atlas: ThemeAtlas_CreateNineSliceDrawable")
 
 TEST_CASE("theme-atlas: ThemeAtlas_CreateDrawable_BeforeBuild_ReturnsNull")
 {
-    ThemeAtlas atlas;
+    core::RefPtr<ThemeAtlas> atlasRef = core::MakeRef<ThemeAtlas>(DefaultAllocator());
+    ThemeAtlas& atlas = *atlasRef;
     core::RefPtr<AtlasImageDrawable> drawable = atlas.CreateImageDrawable(u8"missing");
     CHECK(!drawable);
 }
 
 TEST_CASE("theme-atlas: ThemeAtlas_CreateStateDrawable")
 {
-    ThemeAtlas atlas;
+    core::RefPtr<ThemeAtlas> atlasRef = core::MakeRef<ThemeAtlas>(DefaultAllocator());
+    ThemeAtlas& atlas = *atlasRef;
     image::OwnedImageData imgNormal = MakeTestImage(16, 16, 200, 200, 200);
     image::OwnedImageData imgHover = MakeTestImage(16, 16, 220, 220, 220);
 
@@ -86,7 +90,8 @@ TEST_CASE("theme-atlas: ThemeAtlas_CreateStateDrawable")
 
 TEST_CASE("theme-atlas: ThemeAtlas_MultipleImages_AllPackable")
 {
-    ThemeAtlas atlas;
+    core::RefPtr<ThemeAtlas> atlasRef = core::MakeRef<ThemeAtlas>(DefaultAllocator());
+    ThemeAtlas& atlas = *atlasRef;
     image::OwnedImageData img1 = MakeTestImage(64, 64, 255, 0, 0);
     image::OwnedImageData img2 = MakeTestImage(32, 32, 0, 255, 0);
     image::OwnedImageData img3 = MakeTestImage(48, 48, 0, 0, 255);

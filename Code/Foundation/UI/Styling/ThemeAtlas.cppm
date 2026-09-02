@@ -83,7 +83,7 @@ export namespace foundation::ui
 
             const image::RectI& r = *region;
             return MakeRef<AtlasImageDrawable>(
-                DefaultAllocator(), m_builder.Atlas(),
+                MemoryAllocator(), m_builder.Atlas(),
                 Rectangle{static_cast<f32>(r.x), static_cast<f32>(r.y), static_cast<f32>(r.width),
                           static_cast<f32>(r.height)},
                 tint);
@@ -106,7 +106,7 @@ export namespace foundation::ui
 
             const image::RectI& r = *region;
             return MakeRef<AtlasNineSliceDrawable>(
-                DefaultAllocator(), m_builder.Atlas(),
+                MemoryAllocator(), m_builder.Atlas(),
                 Rectangle{static_cast<f32>(r.x), static_cast<f32>(r.y), static_cast<f32>(r.width),
                           static_cast<f32>(r.height)},
                 slices, tint, expand);
@@ -117,7 +117,7 @@ export namespace foundation::ui
         CreateStateDrawable(Span<const StateImageEntry> stateImages, image::NineSlice slices = {},
                             Color tint = Color::White, Thickness expand = {})
         {
-            RefPtr<StateListDrawable> stateList = MakeRef<StateListDrawable>(DefaultAllocator());
+            RefPtr<StateListDrawable> stateList = MakeRef<StateListDrawable>(MemoryAllocator());
 
             for (const StateImageEntry& entry : stateImages)
             {

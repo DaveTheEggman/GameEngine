@@ -29,7 +29,7 @@ static core::RefPtr<TestGroup> MakeTestGroup()
 
 TEST_CASE("view: View_HasUniqueId")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -45,7 +45,7 @@ TEST_CASE("view: View_HasUniqueId")
 
 TEST_CASE("view: View_ParentSetOnAdd")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -56,7 +56,7 @@ TEST_CASE("view: View_ParentSetOnAdd")
 
 TEST_CASE("view: View_ContextSetOnAttach")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -67,7 +67,7 @@ TEST_CASE("view: View_ContextSetOnAttach")
 
 TEST_CASE("view: View_ContextClearedOnRemove")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -80,7 +80,7 @@ TEST_CASE("view: View_ContextClearedOnRemove")
 
 TEST_CASE("view: View_RootProperty")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -114,7 +114,7 @@ TEST_CASE("view: View_Layout_SetsBounds")
 
 TEST_CASE("view: View_Invalidate_MarksRedraw")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -132,7 +132,7 @@ TEST_CASE("view: View_Invalidate_MarksRedraw")
 
 TEST_CASE("view: View_Visibility_GoneSkipsMeasure")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -146,7 +146,7 @@ TEST_CASE("view: View_Visibility_GoneSkipsMeasure")
 
 TEST_CASE("view: View_UserData_SetAndGet")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -176,7 +176,7 @@ TEST_CASE("view: View_UserData_TypedRetrieval")
 
 TEST_CASE("view: View_LocalToScreen_NestedViews")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -195,7 +195,7 @@ TEST_CASE("view: View_LocalToScreen_NestedViews")
 
 TEST_CASE("view: View_ScreenToLocal_NestedViews")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -214,7 +214,7 @@ TEST_CASE("view: View_ScreenToLocal_NestedViews")
 
 TEST_CASE("view: View_IsEffectivelyEnabled_WalksParents")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -239,7 +239,7 @@ TEST_CASE("view: View_GetControlState_Disabled")
 
 TEST_CASE("view: View_EffectiveCursor_InheritsFromParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -255,7 +255,7 @@ TEST_CASE("view: View_EffectiveCursor_InheritsFromParent")
 
 TEST_CASE("view: View_EffectiveCursor_ChildOverridesParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 

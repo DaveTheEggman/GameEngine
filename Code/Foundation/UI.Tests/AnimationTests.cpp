@@ -271,7 +271,7 @@ TEST_CASE("animation: Manager_CancelAll")
 
 TEST_CASE("animation: Manager_CancelForView")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
@@ -290,7 +290,7 @@ TEST_CASE("animation: Manager_CancelForView")
 
 TEST_CASE("animation: Manager_AutoCancelOnViewDelete")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 

@@ -78,7 +78,7 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(DefaultAllocator());
+            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(MemoryAllocator());
             row->Direction = Orientation::Horizontal;
             row->Spacing = 4.0f;
 
@@ -102,7 +102,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(x.Get(), GrowParams());
+            row->AddView(x.Get(), GrowParams(MemoryAllocator()));
 
             RefPtr<VectorNumericField> y =
                 MakeField(1, StringView(u8"Y"), AxisColors::Y, m_value.y);
@@ -122,7 +122,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(y.Get(), GrowParams());
+            row->AddView(y.Get(), GrowParams(MemoryAllocator()));
 
             RefPtr<VectorNumericField> z =
                 MakeField(2, StringView(u8"Z"), AxisColors::Z, m_value.z);
@@ -142,7 +142,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(z.Get(), GrowParams());
+            row->AddView(z.Get(), GrowParams(MemoryAllocator()));
 
             RefPtr<VectorNumericField> w =
                 MakeField(3, StringView(u8"W"), AxisColors::W, m_value.w);
@@ -162,7 +162,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(w.Get(), GrowParams());
+            row->AddView(w.Get(), GrowParams(MemoryAllocator()));
 
             return row;
         }
@@ -172,7 +172,7 @@ export namespace foundation::ui::toolkit
                                              f32 initial)
         {
             RefPtr<VectorNumericField> f =
-                MakeRef<VectorNumericField>(DefaultAllocator(), this, axis);
+                MakeRef<VectorNumericField>(MemoryAllocator(), this, axis);
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(m_min);
@@ -180,14 +180,14 @@ export namespace foundation::ui::toolkit
             f->SetStep(m_step);
             f->SetDecimalPlaces(3);
             f->SetValue(initial);
-            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
+            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(MemoryAllocator(), axisText, axisColor);
             f->SetPrefix(label.Get());
             return f;
         }
 
-        static RefPtr<FlexLayoutParams> GrowParams()
+        static RefPtr<FlexLayoutParams> GrowParams(IAllocator& allocator)
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(allocator);
             lp->Grow = 1.0f;
             return lp;
         }

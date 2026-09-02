@@ -79,19 +79,22 @@ export namespace foundation::ui
     class SSSParser
     {
     public:
-        SSSParser(Array<Token> tokens, HashMap<String, Color>* palette,
+        SSSParser(IAllocator& allocator, Array<Token> tokens, HashMap<String, Color>* palette,
                   HashMap<String, String>* svgRegistry,
                   HashMap<String, const image::ImageData*>* imageRegistry,
                   IResourceProvider* resourceProvider, String basePath)
-            : m_tokens(Move(tokens)), m_palette(palette), m_svgRegistry(svgRegistry),
+            : m_allocator(&allocator), m_tokens(Move(tokens)), m_palette(palette),
+              m_svgRegistry(svgRegistry),
               m_imageRegistry(imageRegistry), m_resourceProvider(resourceProvider),
               m_basePath(Move(basePath))
         {
         }
 
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         RefPtr<StyleSheet> Parse()
         {
-            m_sheetOwner = MakeRef<StyleSheet>(DefaultAllocator());
+            m_sheetOwner = MakeRef<StyleSheet>((*m_allocator));
             m_sheet = m_sheetOwner.Get();
             m_pos = 0;
 
@@ -222,7 +225,7 @@ export namespace foundation::ui
             }
             // Color literal as ColorDrawable
             const Color color = ParseColorValue();
-            RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(DefaultAllocator(), color);
+            RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>((*m_allocator), color);
             sheet.OwnDrawable(d);
             return d;
         }
@@ -401,7 +404,7 @@ export namespace foundation::ui
                     if (found)
                         importBase = String(rp.SubStr(0, lastSlash + 1));
 
-                    SSSParser importParser(Move(importTokens), m_palette, m_svgRegistry,
+                    SSSParser importParser(*m_allocator, Move(importTokens), m_palette, m_svgRegistry,
                                            m_imageRegistry, m_resourceProvider, Move(importBase));
                     RefPtr<StyleSheet> importSheet = importParser.Parse();
                     m_sheet->MergeFrom(*importSheet);
@@ -414,7 +417,7 @@ export namespace foundation::ui
         void ParseRule()
         {
             // Selector: Type.class.class:state:state { ... }
-            RefPtr<StyleRule> rule = MakeRef<StyleRule>(DefaultAllocator());
+            RefPtr<StyleRule> rule = MakeRef<StyleRule>((*m_allocator));
 
             // Type selector
             if (Peek().Kind == TokenKind::Ident)
@@ -849,6 +852,7 @@ export namespace foundation::ui
             MatchSemicolon();
         }
 
+        IAllocator* m_allocator;
         Array<Token> m_tokens;
         i32 m_pos = 0;
         HashMap<String, Color>* m_palette = nullptr;
@@ -920,7 +924,7 @@ export namespace foundation::ui
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
                      const Color color = parser.ParseColorArg();
-                     RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(DefaultAllocator(), color);
+                     RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(parser.Allocator(), color);
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -957,7 +961,7 @@ export namespace foundation::ui
                      }
 
                      RefPtr<RoundedRectDrawable> d = MakeRef<RoundedRectDrawable>(
-                         DefaultAllocator(), fillColor, radii, borderColor, borderWidth);
+                         parser.Allocator(), fillColor, radii, borderColor, borderWidth);
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -996,7 +1000,7 @@ export namespace foundation::ui
                      parser.MatchComma();
                      const Color c2 = parser.ParseColorArg();
                      RefPtr<GradientDrawable> d =
-                         MakeRef<GradientDrawable>(DefaultAllocator(), c1, c2, dir);
+                         MakeRef<GradientDrawable>(parser.Allocator(), c1, c2, dir);
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -1005,7 +1009,7 @@ export namespace foundation::ui
         Register(u8"state-list",
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
-                     RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(DefaultAllocator());
+                     RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(parser.Allocator());
                      sheet.OwnDrawable(sl);
 
                      while (!parser.IsAtRParen())
@@ -1031,7 +1035,7 @@ export namespace foundation::ui
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
                      const Color baseColor = parser.ParseColorArg();
-                     RefPtr<StateListDrawable> sl = Palette::CreateStateColors(baseColor);
+                     RefPtr<StateListDrawable> sl = Palette::CreateStateColors(parser.Allocator(), baseColor);
                      sheet.OwnDrawable(sl);
                      return sl;
                  });
@@ -1054,7 +1058,7 @@ export namespace foundation::ui
                              radii = parser.ParseCornerRadiiValue();
                      }
                      RefPtr<StateListDrawable> sl =
-                         Palette::CreateStateRounded(baseColor, radii);
+                         Palette::CreateStateRounded(parser.Allocator(), baseColor, radii);
                      sheet.OwnDrawable(sl);
                      return sl;
                  });
@@ -1063,7 +1067,7 @@ export namespace foundation::ui
         Register(u8"layer",
                  [](SSSParser& parser, StyleSheet& sheet) -> RefPtr<Drawable>
                  {
-                     RefPtr<LayerDrawable> ld = MakeRef<LayerDrawable>(DefaultAllocator());
+                     RefPtr<LayerDrawable> ld = MakeRef<LayerDrawable>(parser.Allocator());
                      sheet.OwnDrawable(ld);
 
                      while (!parser.IsAtRParen())
@@ -1094,7 +1098,7 @@ export namespace foundation::ui
                          l = parser.ParseFloatValue();
 
                      RefPtr<InsetDrawable> d = MakeRef<InsetDrawable>(
-                         DefaultAllocator(), Move(inner), Thickness{l, t, r, b});
+                         parser.Allocator(), Move(inner), Thickness{l, t, r, b});
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -1141,9 +1145,9 @@ export namespace foundation::ui
 
                      RefPtr<SVGDrawable> d;
                      if (tint.HasValue())
-                         d = SVGDrawable::FromString(svgText.Value(), tint.Value());
+                         d = SVGDrawable::FromString(parser.Allocator(), svgText.Value(), tint.Value());
                      else
-                         d = SVGDrawable::FromString(svgText.Value());
+                         d = SVGDrawable::FromString(parser.Allocator(), svgText.Value());
 
                      if (d)
                          sheet.OwnDrawable(d);
@@ -1173,7 +1177,7 @@ export namespace foundation::ui
                          return nullptr;
 
                      RefPtr<ImageDrawable> d =
-                         MakeRef<ImageDrawable>(DefaultAllocator(), imageData, tint);
+                         MakeRef<ImageDrawable>(parser.Allocator(), imageData, tint);
                      sheet.OwnDrawable(d);
                      return d;
                  });
@@ -1217,7 +1221,7 @@ export namespace foundation::ui
                          return nullptr;
 
                      RefPtr<NineSliceDrawable> d =
-                         MakeRef<NineSliceDrawable>(DefaultAllocator(), imageData, slices, tint);
+                         MakeRef<NineSliceDrawable>(parser.Allocator(), imageData, slices, tint);
                      sheet.OwnDrawable(d);
                      return d;
                  });

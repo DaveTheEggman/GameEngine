@@ -30,7 +30,7 @@ static core::RefPtr<TestGroup> MakeTestGroup()
 
 TEST_CASE("uicontext: AddRootView_RegistersAndSetsActive")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     ctx.AddRootView(root.Get());
 
@@ -41,7 +41,7 @@ TEST_CASE("uicontext: AddRootView_RegistersAndSetsActive")
 
 TEST_CASE("uicontext: AddRootView_FirstBecomesActive")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root1 = MakeRoot();
     core::RefPtr<RootView> root2 = MakeRoot();
 
@@ -53,7 +53,7 @@ TEST_CASE("uicontext: AddRootView_FirstBecomesActive")
 
 TEST_CASE("uicontext: RemoveRootView_UpdatesActive")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root1 = MakeRoot();
     core::RefPtr<RootView> root2 = MakeRoot();
 
@@ -67,7 +67,7 @@ TEST_CASE("uicontext: RemoveRootView_UpdatesActive")
 
 TEST_CASE("uicontext: RemoveRootView_ClearsContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     ctx.AddRootView(root.Get());
     ctx.RemoveRootView(root.Get());
@@ -79,7 +79,7 @@ TEST_CASE("uicontext: RemoveRootView_ClearsContext")
 
 TEST_CASE("uicontext: Register_ViewLookupByIdWorks")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -91,7 +91,7 @@ TEST_CASE("uicontext: Register_ViewLookupByIdWorks")
 
 TEST_CASE("uicontext: Register_TypedLookup")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -103,7 +103,7 @@ TEST_CASE("uicontext: Register_TypedLookup")
 
 TEST_CASE("uicontext: Unregister_LookupReturnsNull")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -118,7 +118,7 @@ TEST_CASE("uicontext: Unregister_LookupReturnsNull")
 
 TEST_CASE("uicontext: AttachView_RegistersSubtree")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -134,7 +134,7 @@ TEST_CASE("uicontext: AttachView_RegistersSubtree")
 
 TEST_CASE("uicontext: DetachView_UnregistersSubtree")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -152,7 +152,7 @@ TEST_CASE("uicontext: DetachView_UnregistersSubtree")
 
 TEST_CASE("uicontext: BeginFrame_UpdatesTime")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     ctx.BeginFrame(0.016f);
     CHECK(ctx.DeltaTime() == doctest::Approx(0.016f));
     CHECK(ctx.TotalTime() == doctest::Approx(0.016f));
@@ -163,13 +163,13 @@ TEST_CASE("uicontext: BeginFrame_UpdatesTime")
 
 TEST_CASE("uicontext: DpiScale_DefaultsTo1")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     CHECK(ctx.DpiScale() == 1.0f);
 }
 
 TEST_CASE("uicontext: DpiScale_FromActiveRoot")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     root->DpiScale = 2.0f;
     ctx.AddRootView(root.Get());
@@ -179,7 +179,7 @@ TEST_CASE("uicontext: DpiScale_FromActiveRoot")
 
 TEST_CASE("uicontext: Managers_CreatedByDefault")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     CHECK(ctx.GetInputManager() != nullptr);
     CHECK(ctx.GetFocusManager() != nullptr);
     CHECK(ctx.DragDrop() != nullptr);

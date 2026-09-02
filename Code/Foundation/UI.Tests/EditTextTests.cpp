@@ -37,7 +37,7 @@ static core::i32 CharCount(StringView v) { return static_cast<core::i32>(core::U
 
 TEST_CASE("edit-text: TextGetSet")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -52,7 +52,7 @@ TEST_CASE("edit-text: TextGetSet")
 
 TEST_CASE("edit-text: OnTextChangedFires")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -71,7 +71,7 @@ TEST_CASE("edit-text: OnTextChangedFires")
 
 TEST_CASE("edit-text: MaxLengthEnforced")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -89,7 +89,7 @@ TEST_CASE("edit-text: MaxLengthEnforced")
 
 TEST_CASE("edit-text: InputFilterBlocksInvalid")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -106,7 +106,7 @@ TEST_CASE("edit-text: InputFilterBlocksInvalid")
 
 TEST_CASE("edit-text: IsReadOnlyPreventsModification")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -145,7 +145,7 @@ TEST_CASE("edit-text: MultilineProperty")
 
 TEST_CASE("edit-text: CursorMovement")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -168,7 +168,7 @@ TEST_CASE("edit-text: CursorMovement")
 
 TEST_CASE("edit-text: SelectAll")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -184,7 +184,7 @@ TEST_CASE("edit-text: SelectAll")
 
 TEST_CASE("edit-text: DeleteBackspace")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -200,7 +200,7 @@ TEST_CASE("edit-text: DeleteBackspace")
 
 TEST_CASE("edit-text: DeleteForward")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -216,7 +216,7 @@ TEST_CASE("edit-text: DeleteForward")
 // Undo/Redo (not in the upstream test file; consecutive inserts coalesce into one undo entry).
 TEST_CASE("edit-text: UndoRedo")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -240,7 +240,7 @@ TEST_CASE("edit-text: UndoRedo")
 // OnEditingFinished fires on focus loss (the blur-commit hook); OnSubmit stays Enter/activate-only.
 TEST_CASE("edit-text: OnEditingFinished_FiresOnceOnBlur_NoSubmit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -268,7 +268,7 @@ TEST_CASE("edit-text: OnEditingFinished_FiresOnceOnBlur_NoSubmit")
 // OnCommit: Enter fires it; blur fires it only when the text changed since focus gain.
 TEST_CASE("edit-text: OnCommit_FiresOnEnterAndChangedBlur_NotUntouchedBlur")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto edit = MakeEdit();
@@ -304,7 +304,7 @@ TEST_CASE("edit-text: OnCommit_FiresOnEnterAndChangedBlur_NotUntouchedBlur")
 
 TEST_CASE("edit-text: PasswordBox_DisplayTextIsMasked")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto pw = MakePassword();

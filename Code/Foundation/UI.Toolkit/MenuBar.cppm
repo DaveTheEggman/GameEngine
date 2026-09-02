@@ -40,7 +40,7 @@ export namespace foundation::ui::toolkit
         {
             MenuEntry entry;
             entry.Title = String(title);
-            entry.Menu = MakeRef<ContextMenu>(DefaultAllocator());
+            entry.Menu = MakeRef<ContextMenu>(MemoryAllocator());
             ContextMenu* raw = entry.Menu.Get();
             m_menus.PushBack(Move(entry));
             Invalidate();

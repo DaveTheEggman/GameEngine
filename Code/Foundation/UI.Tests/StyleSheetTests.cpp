@@ -192,7 +192,7 @@ TEST_CASE("stylesheet: Palette_ComputeDisabled_Faded")
 TEST_CASE("stylesheet: Palette_CreateStateColors_AllStatesSet")
 {
     core::RefPtr<StateListDrawable> sl =
-        Palette::CreateStateColors(Color{80.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f});
+        Palette::CreateStateColors(DefaultAllocator(), Color{80.0f / 255.0f, 80.0f / 255.0f, 80.0f / 255.0f, 1.0f});
     CHECK(sl->Get(ControlState::Normal) != nullptr);
     CHECK(sl->Get(ControlState::Hover) != nullptr);
     CHECK(sl->Get(ControlState::Pressed) != nullptr);
@@ -226,7 +226,7 @@ namespace
 
 TEST_CASE("stylesheet: Resolve_NoSheet_ReturnsNone")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -239,7 +239,7 @@ TEST_CASE("stylesheet: Resolve_NoSheet_ReturnsNone")
 
 TEST_CASE("stylesheet: Resolve_TypeMatch")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -252,7 +252,7 @@ TEST_CASE("stylesheet: Resolve_TypeMatch")
 
 TEST_CASE("stylesheet: Resolve_TypeMismatch_ReturnsDefault")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -264,7 +264,7 @@ TEST_CASE("stylesheet: Resolve_TypeMismatch_ReturnsDefault")
 
 TEST_CASE("stylesheet: Resolve_ClassMatch")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -277,7 +277,7 @@ TEST_CASE("stylesheet: Resolve_ClassMatch")
 
 TEST_CASE("stylesheet: Resolve_ClassMismatch_ReturnsDefault")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -290,7 +290,7 @@ TEST_CASE("stylesheet: Resolve_ClassMismatch_ReturnsDefault")
 
 TEST_CASE("stylesheet: Resolve_ClassIsCaseSensitive")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -303,7 +303,7 @@ TEST_CASE("stylesheet: Resolve_ClassIsCaseSensitive")
 
 TEST_CASE("stylesheet: Specificity_ClassBeatsType")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -317,7 +317,7 @@ TEST_CASE("stylesheet: Specificity_ClassBeatsType")
 
 TEST_CASE("stylesheet: Specificity_TypePlusStateBeatsType")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -332,7 +332,7 @@ TEST_CASE("stylesheet: Specificity_TypePlusStateBeatsType")
 
 TEST_CASE("stylesheet: Specificity_ClassPlusStateBeatsClass")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -348,7 +348,7 @@ TEST_CASE("stylesheet: Specificity_ClassPlusStateBeatsClass")
 
 TEST_CASE("stylesheet: Specificity_StateOnlyMatchesCurrentState")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -362,7 +362,7 @@ TEST_CASE("stylesheet: Specificity_StateOnlyMatchesCurrentState")
 
 TEST_CASE("stylesheet: Resolve_Drawable")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -377,11 +377,11 @@ TEST_CASE("stylesheet: Resolve_Drawable")
 
 TEST_CASE("stylesheet: Resolve_StateListDrawable")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    RefPtr<Drawable> sl = Palette::CreateStateColors(Rgb(60, 60, 60));
+    RefPtr<Drawable> sl = Palette::CreateStateColors(DefaultAllocator(), Rgb(60, 60, 60));
     sheet->OwnDrawable(sl);
     sheet->ForType(&TestView::StaticType()).Set(StyleProperty::Background, sl);
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
@@ -391,7 +391,7 @@ TEST_CASE("stylesheet: Resolve_StateListDrawable")
 
 TEST_CASE("stylesheet: Resolve_Thickness")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -404,7 +404,7 @@ TEST_CASE("stylesheet: Resolve_Thickness")
 
 TEST_CASE("stylesheet: Resolve_Bool")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -418,7 +418,7 @@ TEST_CASE("stylesheet: Resolve_Bool")
 
 TEST_CASE("stylesheet: Inheritance_TextColorInheritsFromParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -435,7 +435,7 @@ TEST_CASE("stylesheet: Inheritance_TextColorInheritsFromParent")
 
 TEST_CASE("stylesheet: Inheritance_FontSizeInheritsFromParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -449,7 +449,7 @@ TEST_CASE("stylesheet: Inheritance_FontSizeInheritsFromParent")
 
 TEST_CASE("stylesheet: Inheritance_ChildOverridesParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -465,7 +465,7 @@ TEST_CASE("stylesheet: Inheritance_ChildOverridesParent")
 
 TEST_CASE("stylesheet: Inheritance_BackgroundDoesNotInherit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -481,7 +481,7 @@ TEST_CASE("stylesheet: Inheritance_BackgroundDoesNotInherit")
 
 TEST_CASE("stylesheet: Inheritance_PaddingDoesNotInherit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -495,7 +495,7 @@ TEST_CASE("stylesheet: Inheritance_PaddingDoesNotInherit")
 
 TEST_CASE("stylesheet: TypeMatch_IncludesSubtypes")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -507,7 +507,7 @@ TEST_CASE("stylesheet: TypeMatch_IncludesSubtypes")
 
 TEST_CASE("stylesheet: Rule_MultipleProperties")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -527,11 +527,11 @@ TEST_CASE("stylesheet: RefCounted_SharedBetweenContexts")
     RefPtr<StyleSheet> sheet = core::MakeRef<StyleSheet>(core::DefaultAllocator());
     sheet->ForType(&TestView::StaticType()).Set(StyleProperty::FontSize, 18.0f);
 
-    UIContext ctx1;
+    UIContext ctx1{DefaultAllocator()};
     auto root1 = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx1, root1.Get());
     ctx1.SetStyleSheet(sheet);
-    UIContext ctx2;
+    UIContext ctx2{DefaultAllocator()};
     auto root2 = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx2, root2.Get());
     ctx2.SetStyleSheet(sheet);
@@ -549,7 +549,7 @@ TEST_CASE("stylesheet: RefCounted_SharedBetweenContexts")
 
 TEST_CASE("stylesheet: RefCounted_ReplacingSheetReleasesOld")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     RefPtr<StyleSheet> sheet1 = core::MakeRef<StyleSheet>(core::DefaultAllocator());
@@ -567,7 +567,7 @@ TEST_CASE("stylesheet: RefCounted_ReplacingSheetReleasesOld")
 
 TEST_CASE("stylesheet: ForAll_RuleMatchesEveryView")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -584,7 +584,7 @@ TEST_CASE("stylesheet: ForAll_RuleMatchesEveryView")
 
 TEST_CASE("stylesheet: ForAll_LosesSpecificityToTypedRule")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);

@@ -51,7 +51,7 @@ TEST_CASE("popup-layer: RootView_HasPopupLayer")
 
 TEST_CASE("popup-layer: RootView_PopupLayerIsLastChild")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     PopupLayer* pl = root->GetPopupLayer();
@@ -61,7 +61,7 @@ TEST_CASE("popup-layer: RootView_PopupLayerIsLastChild")
 
 TEST_CASE("popup-layer: RootView_PopupLayerStaysLast")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     PopupLayer* pl = root->GetPopupLayer();
@@ -73,7 +73,7 @@ TEST_CASE("popup-layer: RootView_PopupLayerStaysLast")
 
 TEST_CASE("popup-layer: ShowPopup_IncreasesCount")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -85,7 +85,7 @@ TEST_CASE("popup-layer: ShowPopup_IncreasesCount")
 
 TEST_CASE("popup-layer: ClosePopup_DecreasesCount")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -98,7 +98,7 @@ TEST_CASE("popup-layer: ClosePopup_DecreasesCount")
 
 TEST_CASE("popup-layer: ShowPopup_OwnedView_UnregisteredOnClose")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -113,7 +113,7 @@ TEST_CASE("popup-layer: ShowPopup_OwnedView_UnregisteredOnClose")
 
 TEST_CASE("popup-layer: ShowPopup_NotOwned_NotDeletedOnClose")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -126,7 +126,7 @@ TEST_CASE("popup-layer: ShowPopup_NotOwned_NotDeletedOnClose")
 
 TEST_CASE("popup-layer: ShowPopup_NotifiesOwner")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -143,7 +143,7 @@ TEST_CASE("popup-layer: ShowPopup_NotifiesOwner")
 
 TEST_CASE("popup-layer: Modal_HasModalPopup")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -156,7 +156,7 @@ TEST_CASE("popup-layer: Modal_HasModalPopup")
 
 TEST_CASE("popup-layer: Modal_HitTestBlocksBackground")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 800, 600);
     LayoutPass(ctx, root.Get());
@@ -173,7 +173,7 @@ TEST_CASE("popup-layer: Modal_HitTestBlocksBackground")
 
 TEST_CASE("popup-layer: HandleClickOutside_ClosesCloseOnClick")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -187,7 +187,7 @@ TEST_CASE("popup-layer: HandleClickOutside_ClosesCloseOnClick")
 
 TEST_CASE("popup-layer: ShowPopup_PushesFocus")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -205,7 +205,7 @@ TEST_CASE("popup-layer: ShowPopup_PushesFocus")
 
 TEST_CASE("popup-layer: ClosePopup_PopsFocus")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -223,7 +223,7 @@ TEST_CASE("popup-layer: ClosePopup_PopsFocus")
 
 TEST_CASE("popup-layer: focus scope - Tab is TRAPPED inside an open focus-taking popup")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -262,7 +262,7 @@ TEST_CASE("popup-layer: focus scope - Tab is TRAPPED inside an open focus-taking
 
 TEST_CASE("popup-layer: out-of-LIFO-order close never cross-restores another popup's focus")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};
@@ -288,7 +288,7 @@ TEST_CASE("popup-layer: out-of-LIFO-order close never cross-restores another pop
 
 TEST_CASE("popup-layer: a popup anchored low is clamped to the space below it")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     root->ViewportSize = Float2{800, 600};

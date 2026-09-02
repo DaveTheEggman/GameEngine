@@ -37,11 +37,12 @@ export namespace foundation::ui
         /// registration (id attributes) via the tree it is attached to. `warnings`, when given, collects
         /// diagnostics for constructs the loader would otherwise drop SILENTLY - unknown child elements
         /// and unrecognized attributes (the cook surfaces these; authoring typos die loud, not quiet).
-        [[nodiscard]] static RefPtr<View> LoadFromString(StringView xmlText,
+        [[nodiscard]] static RefPtr<View> LoadFromString(IAllocator& allocator,
+                                                         StringView xmlText,
                                                          UIContext* context = nullptr,
                                                          Array<String>* warnings = nullptr)
         {
-            xml::XmlDocument doc(foundation::core::DefaultAllocator());
+            xml::XmlDocument doc(allocator);
             if (xml::IsError(doc.Parse(xmlText)))
             {
                 return {};
@@ -53,7 +54,7 @@ export namespace foundation::ui
                 return {};
             }
 
-            return BuildView(rootElem, nullptr, StringView{}, context, warnings);
+            return BuildView(allocator, rootElem, nullptr, StringView{}, context, warnings);
         }
 
         /// Initialize the markup system. Call once at startup.
@@ -61,7 +62,8 @@ export namespace foundation::ui
 
     private:
         /// Build a View from an XML element, recursing into children.
-        [[nodiscard]] static RefPtr<View> BuildView(xml::XmlElement* element, ViewGroup* parent,
+        [[nodiscard]] static RefPtr<View> BuildView(IAllocator& allocator,
+                                                    xml::XmlElement* element, ViewGroup* parent,
                                                     StringView parentTagName, UIContext* context,
                                                     Array<String>* warnings = nullptr)
         {
@@ -74,7 +76,7 @@ export namespace foundation::ui
                 return {};
             }
 
-            RefPtr<View> view = MarkupRegistry::CreateView(tagName);
+            RefPtr<View> view = MarkupRegistry::CreateView(tagName, allocator);
             if (!view)
             {
                 return {};
@@ -84,7 +86,7 @@ export namespace foundation::ui
             RefPtr<LayoutParams> lp;
             if (parentTagName.Size() > 0 && MarkupRegistry::IsLayoutRegistered(parentTagName))
             {
-                lp = MarkupRegistry::CreateLayoutParams(parentTagName);
+                lp = MarkupRegistry::CreateLayoutParams(parentTagName, allocator);
             }
 
             ApplyAttributes(element, tagName, view.Get(), parentTagName, lp.Get(), context,
@@ -105,7 +107,7 @@ export namespace foundation::ui
                     {
                         xml::XmlElement* childElem = static_cast<xml::XmlElement*>(childNode);
                         RefPtr<View> childView =
-                            BuildView(childElem, viewGroup, tagName, context, warnings);
+                            BuildView(allocator, childElem, viewGroup, tagName, context, warnings);
                         if (childView)
                         {
                             viewGroup->AddView(childView.Get());

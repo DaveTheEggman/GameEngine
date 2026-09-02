@@ -13,7 +13,7 @@
 //
 // Port taxes: Beef `typeof(X)` -> `&X::StaticType()`; byte `Color(r,g,b,a)` -> float core::Color (the
 // palette is float, so `p.Background.R < 128` -> `p.Background.r < 0.5f`); `new RoundedRectDrawable(...)`
-// -> `MakeRef<RoundedRectDrawable>(DefaultAllocator(), ...)` handed to sheet.OwnDrawable.
+// -> `MakeRef<RoundedRectDrawable>(sheet.MemoryAllocator(), ...)` handed to sheet.OwnDrawable.
 
 module;
 #include "Core/Prelude.h"
@@ -92,7 +92,7 @@ export namespace foundation::ui::toolkit
             // because dark and light chrome derive in DIFFERENT directions per control (a variable
             // swap cannot express "darken here on dark, lighten here on light").
             const bool isDark = p.Background.r < 0.5f;
-            StyleSheetLoader loader;
+            StyleSheetLoader loader(sheet.MemoryAllocator());
             loader.SetPalette(p);
             RefPtr<StyleSheet> parsed = loader.Load(isDark ? EmbeddedToolkitThemes::Dark()
                                                            : EmbeddedToolkitThemes::Light());
@@ -122,7 +122,7 @@ export namespace foundation::ui::toolkit
                 const core::Color headerBg =
                     isDark ? Palette::Darken(p.Surface, 0.1f) : Palette::Darken(p.Surface, 0.05f);
                 RefPtr<RoundedRectDrawable> headerDrawable =
-                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), headerBg, 0.0f);
+                    MakeRef<RoundedRectDrawable>(sheet.MemoryAllocator(), headerBg, 0.0f);
                 sheet.OwnDrawable(headerDrawable);
                 sheet.ForType(&DockablePanel::StaticType())
                     .Set(StyleProperty::TextColor, p.Text)
@@ -164,9 +164,9 @@ export namespace foundation::ui::toolkit
                 // RoundedRectDrawables so DockTabGroup can mask their top corners to the theme's
                 // resolved CornerRadius (rounded in the rounded theme, square/0 in the flat one).
                 RefPtr<RoundedRectDrawable> activeTabD =
-                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), activeTab, 0.0f);
+                    MakeRef<RoundedRectDrawable>(sheet.MemoryAllocator(), activeTab, 0.0f);
                 RefPtr<RoundedRectDrawable> hoverTabD =
-                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), hoverTab, 0.0f);
+                    MakeRef<RoundedRectDrawable>(sheet.MemoryAllocator(), hoverTab, 0.0f);
                 sheet.OwnDrawable(activeTabD);
                 sheet.OwnDrawable(hoverTabD);
                 sheet
@@ -198,7 +198,7 @@ export namespace foundation::ui::toolkit
             // === DockableWindow ===
             {
                 RefPtr<RoundedRectDrawable> dwBg = MakeRef<RoundedRectDrawable>(
-                    DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                    sheet.MemoryAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
                 sheet.OwnDrawable(dwBg);
                 sheet.ForType(&DockableWindow::StaticType()).Set(StyleProperty::Background, dwBg);
             }
@@ -251,7 +251,7 @@ export namespace foundation::ui::toolkit
 
             // === BreadcrumbBar === (RoundedRectDrawable so it can round to the theme CornerRadius)
             RefPtr<RoundedRectDrawable> breadcrumbBg = MakeRef<RoundedRectDrawable>(
-                DefaultAllocator(), isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface, 0.0f);
+                sheet.MemoryAllocator(), isDark ? Palette::Darken(p.Surface, 0.1f) : p.Surface, 0.0f);
             sheet.OwnDrawable(breadcrumbBg);
             sheet.ForType(&BreadcrumbBar::StaticType())
                 .Set(StyleProperty::Background, breadcrumbBg)

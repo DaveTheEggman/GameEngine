@@ -90,24 +90,25 @@ export namespace foundation::ui::toolkit
         Event<void(AggregatingVectorField*)> OnEditEnded;
 
     protected:
-        static RefPtr<FlexLayoutParams> GrowMatchParams()
+        static RefPtr<FlexLayoutParams> GrowMatchParams(IAllocator& allocator)
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(allocator);
             lp->Grow = 1.0f;
             lp->Height = SizeSpec::Match();
             return lp;
         }
 
-        static RefPtr<NumericField> MakeField(StringView axisText, Color axisColor)
+        static RefPtr<NumericField> MakeField(IAllocator& allocator, StringView axisText,
+                                              Color axisColor)
         {
-            RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            RefPtr<NumericField> f = MakeRef<NumericField>(allocator);
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(-1e6);
             f->SetMax(1e6);
             f->SetStep(0.1);
             f->SetDecimalPlaces(3);
-            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
+            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(allocator, axisText, axisColor);
             f->SetPrefix(label.Get());
             return f;
         }
@@ -176,8 +177,8 @@ export namespace foundation::ui::toolkit
             Direction = Orientation::Horizontal;
             Spacing = 4.0f;
 
-            RefPtr<NumericField> x = MakeField(StringView(u8"X"), AxisColors::X);
-            RefPtr<NumericField> y = MakeField(StringView(u8"Y"), AxisColors::Y);
+            RefPtr<NumericField> x = MakeField(MemoryAllocator(), StringView(u8"X"), AxisColors::X);
+            RefPtr<NumericField> y = MakeField(MemoryAllocator(), StringView(u8"Y"), AxisColors::Y);
             m_x = x.Get();
             m_y = y.Get();
 
@@ -204,8 +205,8 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
 
-            AddView(m_x, GrowMatchParams());
-            AddView(m_y, GrowMatchParams());
+            AddView(m_x, GrowMatchParams(MemoryAllocator()));
+            AddView(m_y, GrowMatchParams(MemoryAllocator()));
         }
 
         void SetRange(f64 min, f64 max)
@@ -272,9 +273,9 @@ export namespace foundation::ui::toolkit
             Direction = Orientation::Horizontal;
             Spacing = 4.0f;
 
-            RefPtr<NumericField> x = MakeField(StringView(u8"X"), AxisColors::X);
-            RefPtr<NumericField> y = MakeField(StringView(u8"Y"), AxisColors::Y);
-            RefPtr<NumericField> z = MakeField(StringView(u8"Z"), AxisColors::Z);
+            RefPtr<NumericField> x = MakeField(MemoryAllocator(), StringView(u8"X"), AxisColors::X);
+            RefPtr<NumericField> y = MakeField(MemoryAllocator(), StringView(u8"Y"), AxisColors::Y);
+            RefPtr<NumericField> z = MakeField(MemoryAllocator(), StringView(u8"Z"), AxisColors::Z);
             m_x = x.Get();
             m_y = y.Get();
             m_z = z.Get();
@@ -312,9 +313,9 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_y);
             WireChildEditEvents(m_z);
 
-            AddView(m_x, GrowMatchParams());
-            AddView(m_y, GrowMatchParams());
-            AddView(m_z, GrowMatchParams());
+            AddView(m_x, GrowMatchParams(MemoryAllocator()));
+            AddView(m_y, GrowMatchParams(MemoryAllocator()));
+            AddView(m_z, GrowMatchParams(MemoryAllocator()));
         }
 
         void SetRange(f64 min, f64 max)
@@ -388,10 +389,10 @@ export namespace foundation::ui::toolkit
             Direction = Orientation::Horizontal;
             Spacing = 4.0f;
 
-            RefPtr<NumericField> x = MakeField(StringView(u8"X"), AxisColors::X);
-            RefPtr<NumericField> y = MakeField(StringView(u8"Y"), AxisColors::Y);
-            RefPtr<NumericField> z = MakeField(StringView(u8"Z"), AxisColors::Z);
-            RefPtr<NumericField> w = MakeField(StringView(u8"W"), AxisColors::W);
+            RefPtr<NumericField> x = MakeField(MemoryAllocator(), StringView(u8"X"), AxisColors::X);
+            RefPtr<NumericField> y = MakeField(MemoryAllocator(), StringView(u8"Y"), AxisColors::Y);
+            RefPtr<NumericField> z = MakeField(MemoryAllocator(), StringView(u8"Z"), AxisColors::Z);
+            RefPtr<NumericField> w = MakeField(MemoryAllocator(), StringView(u8"W"), AxisColors::W);
             m_x = x.Get();
             m_y = y.Get();
             m_z = z.Get();
@@ -440,10 +441,10 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_z);
             WireChildEditEvents(m_w);
 
-            AddView(m_x, GrowMatchParams());
-            AddView(m_y, GrowMatchParams());
-            AddView(m_z, GrowMatchParams());
-            AddView(m_w, GrowMatchParams());
+            AddView(m_x, GrowMatchParams(MemoryAllocator()));
+            AddView(m_y, GrowMatchParams(MemoryAllocator()));
+            AddView(m_z, GrowMatchParams(MemoryAllocator()));
+            AddView(m_w, GrowMatchParams(MemoryAllocator()));
         }
 
         void SetRange(f64 min, f64 max)
@@ -527,9 +528,9 @@ export namespace foundation::ui::toolkit
             Direction = Orientation::Horizontal;
             Spacing = 4.0f;
 
-            RefPtr<NumericField> x = MakeEulerField(StringView(u8"X"), AxisColors::X);
-            RefPtr<NumericField> y = MakeEulerField(StringView(u8"Y"), AxisColors::Y);
-            RefPtr<NumericField> z = MakeEulerField(StringView(u8"Z"), AxisColors::Z);
+            RefPtr<NumericField> x = MakeEulerField(MemoryAllocator(), StringView(u8"X"), AxisColors::X);
+            RefPtr<NumericField> y = MakeEulerField(MemoryAllocator(), StringView(u8"Y"), AxisColors::Y);
+            RefPtr<NumericField> z = MakeEulerField(MemoryAllocator(), StringView(u8"Z"), AxisColors::Z);
             m_x = x.Get();
             m_y = y.Get();
             m_z = z.Get();
@@ -569,9 +570,9 @@ export namespace foundation::ui::toolkit
 
             SyncToFields();
 
-            AddView(m_x, GrowMatchParams());
-            AddView(m_y, GrowMatchParams());
-            AddView(m_z, GrowMatchParams());
+            AddView(m_x, GrowMatchParams(MemoryAllocator()));
+            AddView(m_y, GrowMatchParams(MemoryAllocator()));
+            AddView(m_z, GrowMatchParams(MemoryAllocator()));
         }
 
         void SetRange(f64 min, f64 max)
@@ -625,16 +626,17 @@ export namespace foundation::ui::toolkit
             m_syncing = false;
         }
 
-        static RefPtr<NumericField> MakeEulerField(StringView axisText, Color axisColor)
+        static RefPtr<NumericField> MakeEulerField(IAllocator& allocator, StringView axisText,
+                                                   Color axisColor)
         {
-            RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            RefPtr<NumericField> f = MakeRef<NumericField>(allocator);
             f->AddClass(u8"property-field");
             f->ShowSpinButtons.SetValue(false);
             f->SetMin(-360);
             f->SetMax(360);
             f->SetStep(1);
             f->SetDecimalPlaces(2);
-            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(DefaultAllocator(), axisText, axisColor);
+            RefPtr<AxisLabel> label = MakeRef<AxisLabel>(allocator, axisText, axisColor);
             f->SetPrefix(label.Get());
             return f;
         }

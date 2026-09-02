@@ -83,7 +83,7 @@ TEST_CASE("numeric-field: OnValueChangedFires")
 
 TEST_CASE("numeric-field: DecimalPlacesFormatting")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto nf = MakeField();
@@ -112,7 +112,7 @@ TEST_CASE("numeric-field: DecimalPlacesFormatting")
 
 TEST_CASE("numeric-field: InputFilterRejectsLetters")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto nf = MakeField();
@@ -147,7 +147,7 @@ TEST_CASE("numeric-field: ShowSpinButtonsDefault")
 TEST_CASE("numeric-field: SelectAllOnFocus")
 {
     // Focusing the field (tab or click) selects the whole value for a replacing edit.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto nf = MakeField();

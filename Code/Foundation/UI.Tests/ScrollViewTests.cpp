@@ -32,7 +32,7 @@ static core::RefPtr<TestView> MakeContent(f32 w, f32 h)
 
 TEST_CASE("scroll-view: ContentLargerThanViewport")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();
@@ -47,7 +47,7 @@ TEST_CASE("scroll-view: ContentLargerThanViewport")
 
 TEST_CASE("scroll-view: ScrollClamps")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();
@@ -65,7 +65,7 @@ TEST_CASE("scroll-view: ScrollClamps")
 
 TEST_CASE("scroll-view: ScrollTo")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();
@@ -80,7 +80,7 @@ TEST_CASE("scroll-view: ScrollTo")
 
 TEST_CASE("scroll-view: ScrollToTop")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();
@@ -96,7 +96,7 @@ TEST_CASE("scroll-view: ScrollToTop")
 
 TEST_CASE("scroll-view: ScrollToBottom")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();
@@ -111,7 +111,7 @@ TEST_CASE("scroll-view: ScrollToBottom")
 
 TEST_CASE("scroll-view: NeverPolicy_NoBar")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 100);
     auto scroll = MakeScroll();

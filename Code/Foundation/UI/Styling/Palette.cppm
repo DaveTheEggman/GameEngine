@@ -70,39 +70,41 @@ export namespace foundation::ui
         }
 
         /// StateListDrawable of ColorDrawables, auto-generating hover/pressed/disabled/focused variants.
-        [[nodiscard]] static RefPtr<StateListDrawable> CreateStateColors(Color baseColor)
+        [[nodiscard]] static RefPtr<StateListDrawable> CreateStateColors(IAllocator& allocator,
+                                                                         Color baseColor)
         {
-            RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(DefaultAllocator());
-            sl->Set(ControlState::Normal, MakeRef<ColorDrawable>(DefaultAllocator(), baseColor));
+            RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(allocator);
+            sl->Set(ControlState::Normal, MakeRef<ColorDrawable>(allocator, baseColor));
             sl->Set(ControlState::Hover,
-                    MakeRef<ColorDrawable>(DefaultAllocator(), ComputeHover(baseColor)));
+                    MakeRef<ColorDrawable>(allocator, ComputeHover(baseColor)));
             sl->Set(ControlState::Pressed,
-                    MakeRef<ColorDrawable>(DefaultAllocator(), ComputePressed(baseColor)));
+                    MakeRef<ColorDrawable>(allocator, ComputePressed(baseColor)));
             sl->Set(ControlState::Disabled,
-                    MakeRef<ColorDrawable>(DefaultAllocator(), ComputeDisabled(baseColor)));
+                    MakeRef<ColorDrawable>(allocator, ComputeDisabled(baseColor)));
             sl->Set(ControlState::Focused,
-                    MakeRef<ColorDrawable>(DefaultAllocator(), ComputeFocused(baseColor)));
+                    MakeRef<ColorDrawable>(allocator, ComputeFocused(baseColor)));
             return sl;
         }
 
         /// StateListDrawable of RoundedRectDrawables with per-corner radii.
-        [[nodiscard]] static RefPtr<StateListDrawable> CreateStateRounded(Color baseColor,
+        [[nodiscard]] static RefPtr<StateListDrawable> CreateStateRounded(IAllocator& allocator,
+                                                                          Color baseColor,
                                                                           vg::CornerRadii radii)
         {
-            RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(DefaultAllocator());
+            RefPtr<StateListDrawable> sl = MakeRef<StateListDrawable>(allocator);
             sl->Set(ControlState::Normal,
-                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), baseColor, radii));
+                    MakeRef<RoundedRectDrawable>(allocator, baseColor, radii));
             sl->Set(ControlState::Hover, MakeRef<RoundedRectDrawable>(
-                                             DefaultAllocator(), ComputeHover(baseColor), radii));
+                                             allocator, ComputeHover(baseColor), radii));
             sl->Set(
                 ControlState::Pressed,
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), ComputePressed(baseColor), radii));
+                MakeRef<RoundedRectDrawable>(allocator, ComputePressed(baseColor), radii));
             sl->Set(ControlState::Disabled,
-                    MakeRef<RoundedRectDrawable>(DefaultAllocator(), ComputeDisabled(baseColor),
+                    MakeRef<RoundedRectDrawable>(allocator, ComputeDisabled(baseColor),
                                                  radii));
             sl->Set(
                 ControlState::Focused,
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), ComputeFocused(baseColor), radii));
+                MakeRef<RoundedRectDrawable>(allocator, ComputeFocused(baseColor), radii));
             return sl;
         }
     };

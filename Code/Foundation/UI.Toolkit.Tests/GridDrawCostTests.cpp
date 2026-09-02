@@ -33,7 +33,7 @@ namespace
 
 TEST_CASE("propertygrid: off-screen rows tessellate no geometry (blank-UI ceiling regression)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -83,7 +83,7 @@ TEST_CASE("propertygrid: off-screen rows tessellate no geometry (blank-UI ceilin
 // with its row count (the generic asset form marks every array group collapsed).
 TEST_CASE("propertygrid: a default-collapsed category costs no layout or draw")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());

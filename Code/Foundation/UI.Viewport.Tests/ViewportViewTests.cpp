@@ -51,7 +51,8 @@ TEST_CASE(
         renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
             .IsOk());
 
-    ViewportView view;
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
     CHECK(view.IsFocusable);     // input target
     CHECK_FALSE(view.IsReady()); // no targets before layout
     view.Initialize(&device, &renderer, /*input*/ nullptr, /*windowId*/ 0);
@@ -86,7 +87,8 @@ TEST_CASE("ui.viewport: RenderContent fires the callback bracketed by transition
 {
     rhi::null::NullDevice device{DefaultAllocator()};
 
-    ViewportView view;
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
     view.Initialize(&device, /*renderer*/ nullptr, nullptr, 0);
     view.Layout(0.0f, 0.0f, 64.0f, 64.0f);
     REQUIRE(view.IsReady());
@@ -127,7 +129,8 @@ TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
     {
-        ViewportView view;
+        auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
         view.Initialize(&device, &renderer, nullptr, 0);
         view.Layout(0.0f, 0.0f, 128.0f, 96.0f);
         CHECK(view.RenderWidth() == 128u);
@@ -157,7 +160,8 @@ TEST_CASE("ui.viewport: AttachToWindow re-registers into a new renderer (undock 
     REQUIRE(rendererA.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
     REQUIRE(rendererB.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
-    ViewportView view;
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
     view.Initialize(&device, &rendererA, nullptr, 0);
     view.Layout(0.0f, 0.0f, 100.0f, 100.0f);
     REQUIRE(view.IsReady());
@@ -189,7 +193,8 @@ TEST_CASE("ui.viewport: AttachToWindow re-registers into a new renderer (undock 
 
 TEST_CASE("ui.viewport: default fit mode is Stretch; SetFitMode updates it")
 {
-    ViewportView view;
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
     CHECK(view.GetFitMode() == FitMode::Stretch);
     view.SetFitMode(FitMode::Letterbox);
     CHECK(view.GetFitMode() == FitMode::Letterbox);
@@ -199,7 +204,8 @@ TEST_CASE("ui.viewport: owns the RT formats (HDR default) + SetFormats recreates
 {
     rhi::null::NullDevice device{DefaultAllocator()};
 
-    ViewportView view;
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
     CHECK(view.ColorFormat() == rhi::TextureFormat::RGBA16Float);
     CHECK(view.DepthFormat() == rhi::TextureFormat::Depth32Float);
 
@@ -273,7 +279,7 @@ TEST_CASE("ui.viewport: HostKeyboardFocusElsewhere - only a focused NON-viewport
     auto view = MakeRef<ViewportView>(DefaultAllocator());
     CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // unattached (no context): never yields
 
-    ui::UIContext ctx;
+    ui::UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<ui::RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800.0f, 600.0f};
     ctx.AddRootView(root.Get());

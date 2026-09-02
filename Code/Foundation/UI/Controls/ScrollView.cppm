@@ -72,13 +72,13 @@ export namespace foundation::ui
             ScrollBarThickness.SetOwner(this);
 
             ScrollView* self = this;
-            m_vBar = MakeRef<ScrollBar>(DefaultAllocator(), false);
+            m_vBar = MakeRef<ScrollBar>(MemoryAllocator(), false);
             m_vBar->Visibility = VisibilityValue::Gone;
             m_vBar->BarThickness = ScrollBarThickness.Value();
             m_vBar->OnValueChanged.Add(Event<void(ScrollBar*, f32)>::Handler{
                 [self](ScrollBar*, f32 val) { self->SetScrollY(val); }});
 
-            m_hBar = MakeRef<ScrollBar>(DefaultAllocator(), true);
+            m_hBar = MakeRef<ScrollBar>(MemoryAllocator(), true);
             m_hBar->Visibility = VisibilityValue::Gone;
             m_hBar->BarThickness = ScrollBarThickness.Value();
             m_hBar->OnValueChanged.Add(Event<void(ScrollBar*, f32)>::Handler{

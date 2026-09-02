@@ -26,7 +26,10 @@ export namespace foundation::ui
     class ShortcutManager
     {
     public:
-        explicit ShortcutManager(UIContext* context) : m_context(context) {}
+        ShortcutManager(UIContext* context, IAllocator& allocator)
+            : m_context(context), m_allocator(&allocator)
+        {
+        }
 
         /// Register a shortcut (takes ownership).
         void Add(RefPtr<Shortcut> shortcut) { m_shortcuts.PushBack(Move(shortcut)); }
@@ -34,7 +37,7 @@ export namespace foundation::ui
         /// Register a global shortcut (fires regardless of focus). Returns a borrowed pointer.
         Shortcut* AddGlobal(KeyCode key, KeyModifiers modifiers, Function<void()> action)
         {
-            RefPtr<Shortcut> s = MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action),
+            RefPtr<Shortcut> s = MakeRef<Shortcut>(*m_allocator, key, modifiers, Move(action),
                                                    static_cast<View*>(nullptr));
             Shortcut* ptr = s.Get();
             m_shortcuts.PushBack(Move(s));
@@ -46,7 +49,7 @@ export namespace foundation::ui
                             View* scope)
         {
             RefPtr<Shortcut> s =
-                MakeRef<Shortcut>(DefaultAllocator(), key, modifiers, Move(action), scope);
+                MakeRef<Shortcut>(*m_allocator, key, modifiers, Move(action), scope);
             Shortcut* ptr = s.Get();
             m_shortcuts.PushBack(Move(s));
             return ptr;
@@ -86,6 +89,7 @@ export namespace foundation::ui
         static bool IsInScope(View* view, View* scope); // defined in impl unit
 
         UIContext* m_context = nullptr;
+        IAllocator* m_allocator = nullptr;
         Array<RefPtr<Shortcut>> m_shortcuts;
     };
 }

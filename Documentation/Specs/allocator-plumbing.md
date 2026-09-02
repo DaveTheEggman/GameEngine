@@ -137,11 +137,20 @@ tight cluster) per commit.
   snapshots/serializer scratch ride scene.Allocator(). Particles' asset-
   definition types and the sniffing-reader scratch stay under the
   reflection/serializer bounds.
-- **P4 - UI cluster** (the bulk: ~1,000 first-party sites + tests): the
-  inheritance idiom does the heavy lifting - `UIContext`/`RootView` carry
-  the tree's allocator; control bodies switch `DefaultAllocator()` ->
-  `MemoryAllocator()`; hosts (UIHost, editor app, samples) decide roots.
-  Toolkit + Gamekit ride the same sweep.
+- **P4 - UI cluster** (CORE DONE): the pending-control handoff in MakeRef
+  makes `MemoryAllocator()` valid INSIDE constructors (thread-local park:
+  the RefCounted base ctor adopts the control before the derived body runs
+  - covered by a nested-ctor leak test), so control bodies AND ctors switch
+  `DefaultAllocator()` -> `MemoryAllocator()` wholesale. `UIContext` takes
+  the host's allocator (its managers thread it); `UIHost` roots the whole
+  UI; static factories (themes, Palette, SVG drawables, Dialog, markup
+  view/params factories, StyleSheetLoader/SSSParser) take the caller's
+  allocator - the markup factory ABI is now
+  `RefPtr<View>(*)(IAllocator&)`. The ThemeIconSet glyph cache stays a
+  documented process-global. Toolkit + Gamekit + Runtime + Viewport rode
+  the same sweep; stack-constructed RefCounted views in tests moved to
+  MakeRef (the assert catches them loudly). Editor pages/hosts currently
+  pass process roots - P6 re-decides those.
 - **P5 - Engine subsystems**: render/physics/animation/terrain/particles/
   scene managers - each subsystem tags; scene systems receive the scene's
   allocator (Scene itself converts here, owning a per-scene tag).

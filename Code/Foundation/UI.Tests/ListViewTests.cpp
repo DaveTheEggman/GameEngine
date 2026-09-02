@@ -26,7 +26,7 @@ static core::RefPtr<ListView> MakeList()
 
 TEST_CASE("list-view: NoAdapter_NoViews")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     auto lv = MakeList();
@@ -46,7 +46,7 @@ TEST_CASE("list-view: IsFocusable")
 
 TEST_CASE("list-view: SetAdapter_CreatesVisibleViews")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
@@ -62,7 +62,7 @@ TEST_CASE("list-view: SetAdapter_CreatesVisibleViews")
 
 TEST_CASE("list-view: ScrollBy_ClampsBounds")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
@@ -81,7 +81,7 @@ TEST_CASE("list-view: ScrollBy_ClampsBounds")
 
 TEST_CASE("list-view: GetItemAtY")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(100);
@@ -132,7 +132,7 @@ TEST_CASE("list-view: NotifyDataChanged_PrunesOutOfRangeSelection")
 
 TEST_CASE("list-view: AdapterObserver_OnDataSetChanged")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     SimpleListAdapter adapter(10);
@@ -177,7 +177,7 @@ namespace
 
 TEST_CASE("list-view: NotifyRangeChanged rebinds only the named visible item, in place")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     BindCountingAdapter adapter(100);
@@ -205,7 +205,7 @@ TEST_CASE("list-view: NotifyRangeChanged rebinds only the named visible item, in
 
 TEST_CASE("damage: visual-only invalidation redraws WITHOUT layout damage")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 200, 300);
     auto view = core::MakeRef<foundation::ui::tests::TestView>(core::DefaultAllocator(), 50.0f,

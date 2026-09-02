@@ -79,7 +79,7 @@ export namespace foundation::ui
     protected:
         LayoutParamsPtr CreateDefaultLayoutParams() override
         {
-            return MakeRef<GridLayoutParams>(DefaultAllocator());
+            return MakeRef<GridLayoutParams>(MemoryAllocator());
         }
 
         void OnMeasure(BoxConstraints constraints) override

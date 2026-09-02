@@ -24,7 +24,7 @@ namespace
 {
     struct Bed
     {
-        UIContext context;
+        UIContext context{DefaultAllocator()};
         RefPtr<RootView> root;
         RefPtr<ButtonPrompt> prompt;
         Bed()

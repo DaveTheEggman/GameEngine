@@ -37,7 +37,8 @@ namespace foundation::ui
         HashMap<String, const image::ImageData*> img;
         String basePath;
 
-        SSSParser parser(Move(tokens), &palette, &svg, &img, nullptr, Move(basePath));
+        SSSParser parser(view->MemoryAllocator(), Move(tokens), &palette, &svg, &img, nullptr,
+                         Move(basePath));
 
         // Direct the parser at the view's inline sheet so any drawable values live on the view (the
         // inline sheet owns them).

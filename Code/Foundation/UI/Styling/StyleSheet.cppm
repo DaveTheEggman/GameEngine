@@ -195,7 +195,7 @@ export namespace foundation::ui
         /// Create a sheet-owned ColorDrawable and return it (shared ref).
         [[nodiscard]] RefPtr<ColorDrawable> OwnColor(Color color)
         {
-            RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(DefaultAllocator(), color);
+            RefPtr<ColorDrawable> d = MakeRef<ColorDrawable>(MemoryAllocator(), color);
             m_ownedDrawables.PushBack(d);
             return d;
         }
@@ -280,7 +280,7 @@ export namespace foundation::ui
     private:
         StyleRule& AddNewRule()
         {
-            RefPtr<StyleRule> r = MakeRef<StyleRule>(DefaultAllocator());
+            RefPtr<StyleRule> r = MakeRef<StyleRule>(MemoryAllocator());
             StyleRule& ref = *r;
             m_rules.PushBack(Move(r));
             return ref;

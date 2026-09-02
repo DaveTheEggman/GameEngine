@@ -546,7 +546,7 @@ export namespace foundation::ui
                 return;
             }
 
-            RefPtr<ContextMenu> menu = MakeRef<ContextMenu>(DefaultAllocator());
+            RefPtr<ContextMenu> menu = MakeRef<ContextMenu>(MemoryAllocator());
             EditText* self = this;
 
             if (!IsReadOnly.Value())

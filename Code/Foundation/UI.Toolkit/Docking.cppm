@@ -344,7 +344,7 @@ export namespace foundation::ui::toolkit
             {
                 return RefPtr<DragData>{};
             }
-            return MakeRef<DockPanelDragData>(DefaultAllocator(), this);
+            return MakeRef<DockPanelDragData>(MemoryAllocator(), this);
         }
 
         [[nodiscard]] RefPtr<View>
@@ -861,7 +861,7 @@ export namespace foundation::ui::toolkit
             }
         }
 
-        RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(DefaultAllocator());
+        RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(MemoryAllocator());
         preview->SetTitle(m_title);
         return preview;
     }
@@ -1356,7 +1356,7 @@ export namespace foundation::ui::toolkit
             {
                 return RefPtr<DragData>{};
             }
-            return MakeRef<DockPanelDragData>(DefaultAllocator(),
+            return MakeRef<DockPanelDragData>(MemoryAllocator(),
                                               m_panels[static_cast<usize>(m_dragTabIndex)]);
         }
 
@@ -1364,7 +1364,7 @@ export namespace foundation::ui::toolkit
         {
             if (auto* panelData = Cast<DockPanelDragData>(data))
             {
-                RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(DefaultAllocator());
+                RefPtr<DockDragPreview> preview = MakeRef<DockDragPreview>(MemoryAllocator());
                 preview->SetTitle(panelData->Panel->Title());
                 return preview;
             }
@@ -1510,7 +1510,7 @@ export namespace foundation::ui::toolkit
 
         DockManager()
         {
-            m_zoneIndicator = MakeRef<DockZoneIndicator>(DefaultAllocator());
+            m_zoneIndicator = MakeRef<DockZoneIndicator>(MemoryAllocator());
             m_zoneIndicator->Visibility = VisibilityValue::Gone;
         }
 
@@ -1526,7 +1526,7 @@ export namespace foundation::ui::toolkit
         DockablePanel* AddPanel(StringView title, View* content)
         {
             RefPtr<DockablePanel> panel =
-                MakeRef<DockablePanel>(DefaultAllocator(), title, content);
+                MakeRef<DockablePanel>(MemoryAllocator(), title, content);
             panel->OnCloseRequested.Add([this](DockablePanel* p) { ClosePanel(p); });
             panel->DockHost = this;
             DockablePanel* raw = panel.Get();
@@ -1593,7 +1593,7 @@ export namespace foundation::ui::toolkit
                     else
                     {
                         // Wrap standalone panel in a new tab group.
-                        RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(DefaultAllocator());
+                        RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(MemoryAllocator());
                         ReplaceNode(existingPanel, group.Get());
                         group->AddPanel(existingPanel);
                         group->AddPanel(panel);
@@ -1619,7 +1619,7 @@ export namespace foundation::ui::toolkit
                     else
                     {
                         // Empty tree - create new root.
-                        RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(DefaultAllocator());
+                        RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(MemoryAllocator());
                         group->AddPanel(panel);
                         m_rootNode = group.Get();
                         AddView(group.Get());
@@ -1656,7 +1656,7 @@ export namespace foundation::ui::toolkit
 
             RemoveFromTree(panel);
 
-            RefPtr<DockableWindow> dockable = MakeRef<DockableWindow>(DefaultAllocator(), panel);
+            RefPtr<DockableWindow> dockable = MakeRef<DockableWindow>(MemoryAllocator(), panel);
             m_dockableWindows.PushBack(dockable.Get());
 
             dockable->OnDockRequested.Add([this](DockableWindow* fw) { RedockDockableWindow(fw); });
@@ -2095,9 +2095,9 @@ export namespace foundation::ui::toolkit
                 (position == DockPosition::Left || position == DockPosition::Right)
                     ? ::foundation::ui::Orientation::Horizontal
                     : ::foundation::ui::Orientation::Vertical;
-            RefPtr<DockSplit> split = MakeRef<DockSplit>(DefaultAllocator(), orientation);
+            RefPtr<DockSplit> split = MakeRef<DockSplit>(MemoryAllocator(), orientation);
 
-            RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(DefaultAllocator());
+            RefPtr<DockTabGroup> group = MakeRef<DockTabGroup>(MemoryAllocator());
             group->AddPanel(panel);
 
             const bool panelFirst =
@@ -2429,7 +2429,7 @@ export namespace foundation::ui::toolkit
         {
             if (auto* split = Cast<DockSplit>(node))
             {
-                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(DefaultAllocator());
+                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(MemoryAllocator());
                 ln->Type = DockLayoutNodeType::Split;
                 ln->Direction = split->Orientation();
                 ln->SplitRatio = split->SplitRatio();
@@ -2445,7 +2445,7 @@ export namespace foundation::ui::toolkit
             }
             else if (auto* tabGroup = Cast<DockTabGroup>(node))
             {
-                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(DefaultAllocator());
+                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(MemoryAllocator());
                 ln->Type = DockLayoutNodeType::TabGroup;
                 ln->ActiveTabIndex = tabGroup->SelectedIndex();
                 for (i32 i = 0; i < tabGroup->PanelCount(); ++i)
@@ -2461,7 +2461,7 @@ export namespace foundation::ui::toolkit
             else if (auto* panel = Cast<DockablePanel>(node))
             {
                 // Standalone panel not in a tab group - wrap in a TabGroup node.
-                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(DefaultAllocator());
+                UniquePtr<DockLayoutNode> ln = MakeUnique<DockLayoutNode>(MemoryAllocator());
                 ln->Type = DockLayoutNodeType::TabGroup;
                 ln->ActiveTabIndex = 0;
                 if (panel->PersistenceId().Size() > 0)
@@ -2480,7 +2480,7 @@ export namespace foundation::ui::toolkit
             if (layoutNode->Type == DockLayoutNodeType::Split)
             {
                 RefPtr<DockSplit> split =
-                    MakeRef<DockSplit>(DefaultAllocator(), layoutNode->Direction);
+                    MakeRef<DockSplit>(MemoryAllocator(), layoutNode->Direction);
                 split->SetSplitRatio(layoutNode->SplitRatio);
 
                 RefPtr<View> first = layoutNode->First
@@ -2510,7 +2510,7 @@ export namespace foundation::ui::toolkit
             }
             else // TabGroup
             {
-                RefPtr<DockTabGroup> tabGroup = MakeRef<DockTabGroup>(DefaultAllocator());
+                RefPtr<DockTabGroup> tabGroup = MakeRef<DockTabGroup>(MemoryAllocator());
 
                 for (const String& id : layoutNode->PanelIds)
                 {

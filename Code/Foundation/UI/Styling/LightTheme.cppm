@@ -57,28 +57,28 @@ export namespace foundation::ui
     /// Factory for creating a light theme as a StyleSheet.
     struct LightTheme
     {
-        [[nodiscard]] static RefPtr<StyleSheet> Create()
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator)
         {
-            return Create(ThemePalette::Light());
+            return Create(allocator, ThemePalette::Light());
         }
-        [[nodiscard]] static RefPtr<StyleSheet> Create(ThemePalette palette)
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator, ThemePalette palette)
         {
             // Authored as Styling/Themes/light.sss (embedded at build).
-            StyleSheetLoader loader;
+            StyleSheetLoader loader(allocator);
             loader.SetPalette(palette);
             RefPtr<StyleSheet> sheet = loader.Load(EmbeddedThemes::Light());
             if (!sheet)
             {
-                return CreateLegacyForParity(palette); // never ship unstyled (build defect)
+                return CreateLegacyForParity(allocator, palette); // never ship unstyled (build defect)
             }
             ThemeRegistry::ApplyExtensions(*sheet, palette);
             return sheet;
         }
 
         /// The former C++ rule builder - parity-test oracle ONLY.
-        [[nodiscard]] static RefPtr<StyleSheet> CreateLegacyForParity(ThemePalette palette)
+        [[nodiscard]] static RefPtr<StyleSheet> CreateLegacyForParity(IAllocator& allocator, ThemePalette palette)
         {
-            return BuildTheme(palette);
+            return BuildTheme(allocator, palette);
         }
 
     private:
@@ -87,9 +87,9 @@ export namespace foundation::ui
             return Color{r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f};
         }
 
-        [[nodiscard]] static RefPtr<StyleSheet> BuildTheme(ThemePalette p)
+        [[nodiscard]] static RefPtr<StyleSheet> BuildTheme(IAllocator& allocator, ThemePalette p)
         {
-            RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+            RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(allocator);
             StyleSheet& sheet = *sheetRef;
 
             sheet.ForType(&View::StaticType())
@@ -97,8 +97,8 @@ export namespace foundation::ui
                 .Set(StyleProperty::FontSize, 16.0f);
 
             // Button
-            RefPtr<Drawable> btnBg = Palette::CreateStateColors(C(220, 222, 230, 255));
-            RefPtr<Drawable> btnChecked = Palette::CreateStateColors(p.PrimaryAccent);
+            RefPtr<Drawable> btnBg = Palette::CreateStateColors(allocator, C(220, 222, 230, 255));
+            RefPtr<Drawable> btnChecked = Palette::CreateStateColors(allocator, p.PrimaryAccent);
             sheet.OwnDrawable(btnBg);
             sheet.OwnDrawable(btnChecked);
             sheet.ForType(&ButtonBase::StaticType())
@@ -110,7 +110,7 @@ export namespace foundation::ui
 
             // Panel
             RefPtr<Drawable> panelBg =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(panelBg);
             sheet.ForClass(u8"panel").Set(StyleProperty::Background, panelBg);
 
@@ -120,7 +120,7 @@ export namespace foundation::ui
 
             // EditText
             RefPtr<Drawable> editBg =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(editBg);
             sheet.ForType(&EditText::StaticType())
                 .Set(StyleProperty::Background, editBg)
@@ -132,7 +132,7 @@ export namespace foundation::ui
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 60));
 
             // NumericField
-            RefPtr<Drawable> spinBg = Palette::CreateStateColors(Palette::Darken(p.Surface, 0.08f));
+            RefPtr<Drawable> spinBg = Palette::CreateStateColors(allocator, Palette::Darken(p.Surface, 0.08f));
             sheet.OwnDrawable(spinBg);
             sheet.ForType(&NumericField::StaticType())
                 .Set(StyleProperty::Background, editBg)
@@ -149,9 +149,9 @@ export namespace foundation::ui
 
             // CheckBox
             RefPtr<Drawable> cbUnchecked =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             RefPtr<Drawable> cbChecked = MakeRef<RoundedRectDrawable>(
-                DefaultAllocator(), p.PrimaryAccent, 0.0f, p.Border, 1.0f);
+                allocator, p.PrimaryAccent, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(cbUnchecked);
             sheet.OwnDrawable(cbChecked);
             sheet.ForTypePseudo(&CheckBox::StaticType(), u8"box")
@@ -163,9 +163,9 @@ export namespace foundation::ui
 
             // RadioButton
             RefPtr<Drawable> rbUnchecked =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             RefPtr<Drawable> rbChecked = MakeRef<RoundedRectDrawable>(
-                DefaultAllocator(), p.PrimaryAccent, 0.0f, p.Border, 1.0f);
+                allocator, p.PrimaryAccent, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(rbUnchecked);
             sheet.OwnDrawable(rbChecked);
             sheet.ForTypePseudo(&RadioButton::StaticType(), u8"box")
@@ -192,9 +192,9 @@ export namespace foundation::ui
             // ToggleSwitch
             {
                 RefPtr<Drawable> swOff = MakeRef<RoundedRectDrawable>(
-                    DefaultAllocator(), C(200, 205, 215, 255), 0.0f, p.Border, 1.0f);
+                    allocator, C(200, 205, 215, 255), 0.0f, p.Border, 1.0f);
                 RefPtr<Drawable> swOn = MakeRef<RoundedRectDrawable>(
-                    DefaultAllocator(), p.PrimaryAccent, 0.0f, p.Border, 1.0f);
+                    allocator, p.PrimaryAccent, 0.0f, p.Border, 1.0f);
                 sheet.OwnDrawable(swOff);
                 sheet.OwnDrawable(swOn);
                 sheet.ForTypePseudo(&ToggleSwitch::StaticType(), u8"track")
@@ -209,7 +209,7 @@ export namespace foundation::ui
 
             // ComboBox
             RefPtr<Drawable> comboBg =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(comboBg);
             sheet.ForType(&ComboBox::StaticType()).Set(StyleProperty::Background, comboBg);
             sheet.ForTypePseudo(&ComboBox::StaticType(), u8"arrow")
@@ -259,10 +259,10 @@ export namespace foundation::ui
 
             // ContextMenu
             RefPtr<Drawable> menuBg =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(menuBg);
             RefPtr<Drawable> menuHover =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), C(60, 120, 200, 60), 0.0f);
+                MakeRef<RoundedRectDrawable>(allocator, C(60, 120, 200, 60), 0.0f);
             sheet.OwnDrawable(menuHover);
             sheet.ForClass(u8"contextmenu")
                 .Set(StyleProperty::Background, menuBg)
@@ -273,13 +273,13 @@ export namespace foundation::ui
 
             // Dialog
             RefPtr<Drawable> dialogBg =
-                MakeRef<RoundedRectDrawable>(DefaultAllocator(), p.Surface, 0.0f, p.Border, 1.0f);
+                MakeRef<RoundedRectDrawable>(allocator, p.Surface, 0.0f, p.Border, 1.0f);
             sheet.OwnDrawable(dialogBg);
             sheet.ForType(&Dialog::StaticType()).Set(StyleProperty::Background, dialogBg);
 
             // Tooltip
             RefPtr<Drawable> tooltipBg = MakeRef<RoundedRectDrawable>(
-                DefaultAllocator(), C(255, 255, 225, 245), 0.0f, C(180, 175, 140, 255), 1.0f);
+                allocator, C(255, 255, 225, 245), 0.0f, C(180, 175, 140, 255), 1.0f);
             sheet.OwnDrawable(tooltipBg);
             sheet.ForType(&TooltipView::StaticType())
                 .Set(StyleProperty::Background, tooltipBg)
@@ -295,12 +295,12 @@ export namespace foundation::ui
                 .Set(StyleProperty::Background, sheet.OwnColor(p.Background))
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 60));
 
-            RegisterIcons(sheet);
+            RegisterIcons(allocator, sheet);
             ThemeRegistry::ApplyExtensions(sheet, p);
             return sheetRef;
         }
 
-        static void RegisterIcons(StyleSheet& sheet)
+        static void RegisterIcons(IAllocator& allocator, StyleSheet& sheet)
         {
             const Color tint = C(60, 60, 70, 255); // dark icon tint for the light theme
             if (RefPtr<Drawable> checkmark = ThemeIconSet::Acquire(ThemeIcon::Checkmark, tint))
@@ -356,7 +356,7 @@ export namespace foundation::ui
                     ThemeIconSet::Acquire(ThemeIcon::ChevronRight, tint))
             {
                 sheet.OwnDrawable(subArrow);
-                RefPtr<StyleRule> rule = MakeRef<StyleRule>(DefaultAllocator());
+                RefPtr<StyleRule> rule = MakeRef<StyleRule>(allocator);
                 rule->Selector.AddClass(u8"contextmenu");
                 rule->Selector.SetPseudoElement(u8"submenu-arrow");
                 rule->Set(StyleProperty::Background, subArrow);

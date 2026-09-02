@@ -36,7 +36,7 @@ namespace
 
     struct Harness
     {
-        UIContext ctx;
+        UIContext ctx{DefaultAllocator()};
         RefPtr<RootView> root;
         RefPtr<CodeEditView> view;
         TestClipboard clipboard;

@@ -91,7 +91,9 @@ TEST_CASE("inspector: removing the last collision group clears its bit from ever
     editor::EditorCommandStack commands;
     editor::SceneEditContext edit(scene, commands);
     editor::EditorContext editorContext;
-    editor::SceneInspectorView inspector(editorContext, edit);
+    auto inspectorRef =
+        foundation::core::MakeRef<editor::SceneInspectorView>(DefaultAllocator(), editorContext, edit);
+    editor::SceneInspectorView& inspector = *inspectorRef;
 
     editor::CollisionMatrixEditor* matrix = BuildSceneTabMatrix(inspector);
     REQUIRE(matrix != nullptr);
@@ -134,7 +136,9 @@ TEST_CASE("inspector: collision group removal refuses non-last indices and the f
     editor::EditorCommandStack commands;
     editor::SceneEditContext edit(scene, commands);
     editor::EditorContext editorContext;
-    editor::SceneInspectorView inspector(editorContext, edit);
+    auto inspectorRef =
+        foundation::core::MakeRef<editor::SceneInspectorView>(DefaultAllocator(), editorContext, edit);
+    editor::SceneInspectorView& inspector = *inspectorRef;
 
     editor::CollisionMatrixEditor* matrix = BuildSceneTabMatrix(inspector);
     REQUIRE(matrix != nullptr);

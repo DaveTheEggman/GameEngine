@@ -542,7 +542,7 @@ export namespace foundation::ui
             return;
         }
 
-        RefPtr<ComboBoxDropdown> dropdown = MakeRef<ComboBoxDropdown>(DefaultAllocator(), this);
+        RefPtr<ComboBoxDropdown> dropdown = MakeRef<ComboBoxDropdown>(MemoryAllocator(), this);
         const Float2 screenPos = LocalToScreen(Float2{0, Height()});
         const Float2 logical = root->LogicalSize();
         const Rectangle screen{0, 0, logical.x, logical.y};

@@ -379,7 +379,7 @@ export namespace foundation::ui
             {
                 if (!m_backdrop)
                 {
-                    m_backdrop = MakeRef<ModalBackdrop>(DefaultAllocator());
+                    m_backdrop = MakeRef<ModalBackdrop>(MemoryAllocator());
                 }
                 if (m_backdrop->Parent == nullptr)
                 {

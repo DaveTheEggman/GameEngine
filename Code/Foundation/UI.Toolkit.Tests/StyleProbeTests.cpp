@@ -38,12 +38,12 @@ namespace
 
 TEST_CASE("style: property-field class overrides the type font size on every editor's fields")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
 
-    RefPtr<StyleSheet> sheet = DarkTheme::Create();
+    RefPtr<StyleSheet> sheet = DarkTheme::Create(DefaultAllocator());
     sheet->ForClass(u8"property-field").Set(StyleProperty::FontSize, 10.0f);
     ctx.SetStyleSheet(sheet);
 

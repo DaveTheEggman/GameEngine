@@ -86,12 +86,12 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(DefaultAllocator());
+            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(MemoryAllocator());
             row->Direction = Orientation::Horizontal;
             row->Spacing = 4.0f;
 
             // Slider (fills available space).
-            RefPtr<Slider> slider = MakeRef<Slider>(DefaultAllocator());
+            RefPtr<Slider> slider = MakeRef<Slider>(MemoryAllocator());
             m_slider = slider.Get();
             m_slider->Min.SetValue(m_min);
             m_slider->Max.SetValue(m_max);
@@ -120,7 +120,7 @@ export namespace foundation::ui::toolkit
                 });
             m_slider->OnDragEnded.Add([self](Slider*) { self->EndEdit(); });
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Wrap();
                 lp->Height = SizeSpec::Match();
                 lp->Grow = 1.0f;
@@ -128,7 +128,7 @@ export namespace foundation::ui::toolkit
             }
 
             // NumericField (fixed width for precise input).
-            RefPtr<RangeNumericField> field = MakeRef<RangeNumericField>(DefaultAllocator(), this);
+            RefPtr<RangeNumericField> field = MakeRef<RangeNumericField>(MemoryAllocator(), this);
             field->AddClass(u8"property-field");
             m_numericField = field.Get();
             m_numericField->SetMin(m_min);
@@ -156,7 +156,7 @@ export namespace foundation::ui::toolkit
                     }
                 });
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Fixed(Unit::Dp(ComputeNumericFieldWidth()));
                 lp->Height = SizeSpec::Match();
                 row->AddView(field.Get(), lp);

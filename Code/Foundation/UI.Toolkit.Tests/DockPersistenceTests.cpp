@@ -47,7 +47,7 @@ TEST_CASE("dock-persistence: PersistenceId_SetAndGet")
 
 TEST_CASE("dock-persistence: FindPanelById_Found")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -65,7 +65,7 @@ TEST_CASE("dock-persistence: FindPanelById_Found")
 
 TEST_CASE("dock-persistence: FindPanelById_NotFound")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -84,7 +84,7 @@ TEST_CASE("dock-persistence: FindPanelById_NotFound")
 
 TEST_CASE("dock-persistence: ExportLayout_EmptyTree_ReturnsNull")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -98,7 +98,7 @@ TEST_CASE("dock-persistence: ExportLayout_EmptyTree_ReturnsNull")
 
 TEST_CASE("dock-persistence: ExportLayout_SinglePanel")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -121,7 +121,7 @@ TEST_CASE("dock-persistence: ExportLayout_SinglePanel")
 
 TEST_CASE("dock-persistence: ExportLayout_TwoTabs")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -148,7 +148,7 @@ TEST_CASE("dock-persistence: ExportLayout_TwoTabs")
 
 TEST_CASE("dock-persistence: ExportLayout_HorizontalSplit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -179,7 +179,7 @@ TEST_CASE("dock-persistence: ExportLayout_HorizontalSplit")
 
 TEST_CASE("dock-persistence: ExportLayout_PreservesSplitRatio")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -208,7 +208,7 @@ TEST_CASE("dock-persistence: ExportLayout_PreservesSplitRatio")
 
 TEST_CASE("dock-persistence: ExportLayout_NestedSplit")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -241,7 +241,7 @@ TEST_CASE("dock-persistence: ExportLayout_NestedSplit")
 
 TEST_CASE("dock-persistence: ApplyLayout_SinglePanel")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -267,7 +267,7 @@ TEST_CASE("dock-persistence: ApplyLayout_SinglePanel")
 
 TEST_CASE("dock-persistence: ApplyLayout_TwoTabs")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -296,7 +296,7 @@ TEST_CASE("dock-persistence: ApplyLayout_TwoTabs")
 
 TEST_CASE("dock-persistence: ApplyLayout_Split")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -336,7 +336,7 @@ TEST_CASE("dock-persistence: ApplyLayout_Split")
 
 TEST_CASE("dock-persistence: ApplyLayout_UnknownPanelId_Skipped")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -362,7 +362,7 @@ TEST_CASE("dock-persistence: ApplyLayout_UnknownPanelId_Skipped")
 
 TEST_CASE("dock-persistence: ApplyLayout_EmptySplitBranch_Collapsed")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -399,7 +399,7 @@ TEST_CASE("dock-persistence: ApplyLayout_EmptySplitBranch_Collapsed")
 
 TEST_CASE("dock-persistence: Roundtrip_SinglePanel")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -421,7 +421,7 @@ TEST_CASE("dock-persistence: Roundtrip_SinglePanel")
 
 TEST_CASE("dock-persistence: Roundtrip_ComplexLayout")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -460,7 +460,7 @@ TEST_CASE("dock-persistence: Roundtrip_ComplexLayout")
 
 TEST_CASE("dock-persistence: Roundtrip_PreservesSplitRatio")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -493,7 +493,7 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesSplitRatio")
 
 TEST_CASE("dock-persistence: Roundtrip_PreservesActiveTab")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRef<RootView>(DefaultAllocator());
     root->ViewportSize = Float2{800, 600};
     ctx.AddRootView(root.Get());

@@ -164,16 +164,19 @@ export namespace foundation::ui::runtime
     class UIHost
     {
     public:
-        UIHost(graphics::GraphicsDevice& device, shell::IShell& shellRef,
-               fonts::IFontService& fontService)
-            : m_device(&device), m_shell(&shellRef), m_fonts(&fontService)
+        // The allocator (required - the entry point decides) roots the WHOLE UI:
+        // the shared UIContext, every view tree under it, and the host's own services.
+        UIHost(core::IAllocator& allocator, graphics::GraphicsDevice& device,
+               shell::IShell& shellRef, fonts::IFontService& fontService)
+            : m_allocator(&allocator), m_device(&device), m_shell(&shellRef),
+              m_fonts(&fontService), m_shaderHost(allocator), m_ctx(allocator)
         {
             InitShaders();
             m_ctx.SetFontService(&fontService);
             m_router =
-                core::MakeUnique<shell::InputRouter>(core::DefaultAllocator(), shellRef.Input());
-            m_bridge = core::MakeUnique<UiInputBridge>(core::DefaultAllocator(), &m_ctx);
-            m_clipboard = core::MakeUnique<ShellClipboard>(core::DefaultAllocator(), &shellRef);
+                core::MakeUnique<shell::InputRouter>(allocator, shellRef.Input());
+            m_bridge = core::MakeUnique<UiInputBridge>(allocator, &m_ctx);
+            m_clipboard = core::MakeUnique<ShellClipboard>(allocator, &shellRef);
             m_ctx.SetClipboard(m_clipboard.Get());
             // Materialize the SHARED theme chrome glyphs before the app builds its theme, so
             // every theme references bakeable instances (crisp icons stop being editor-only -
@@ -270,9 +273,9 @@ export namespace foundation::ui::runtime
                 (void)BakeThemeIcons(m_uiScale);
             }
 
-            auto data = core::MakeUnique<UIWindowData>(core::DefaultAllocator());
+            auto data = core::MakeUnique<UIWindowData>(*m_allocator);
             data->root = root;
-            data->vg = core::MakeUnique<vg::VGContext>(core::DefaultAllocator(), m_fonts);
+            data->vg = core::MakeUnique<vg::VGContext>(*m_allocator, m_fonts);
             // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack
             // may predate them); otherwise the renderer + context fall back to the affine LUT.
             const bool perPixelGrad = m_gradRadialFs != nullptr && m_gradConicFs != nullptr;
@@ -304,7 +307,7 @@ export namespace foundation::ui::runtime
             const core::ContentFit fit{core::Rectangle{0.0f, 0.0f, w, h}, core::Float2{w, h},
                                        core::FitMode::Stretch};
             data->surface = core::MakeUnique<shell::InputSurface>(
-                core::DefaultAllocator(), m_shell->Input(), window->Window().Id(), fit);
+                *m_allocator, m_shell->Input(), window->Window().Id(), fit);
 
             root->ViewportSize = core::Float2{w, h};
             root->DpiScale = window->Window().ContentScale() * m_uiScale;
@@ -793,7 +796,7 @@ export namespace foundation::ui::runtime
                 ok = pixels != nullptr;
                 if (ok)
                 {
-                    atlas = DownsampleBake(pixels, rowPitch, kAtlasWidth, atlasHeight,
+                    atlas = DownsampleBake(*m_allocator, pixels, rowPitch, kAtlasWidth, atlasHeight,
                                            kSupersample);
                     readBuffer->Unmap();
                 }
@@ -886,8 +889,8 @@ export namespace foundation::ui::runtime
         /// UN-premultiply (the vg shader premultiplies its output, but DrawImage expects
         /// straight alpha - it premultiplies again at draw), sRGB-encode.
         [[nodiscard]] static core::UniquePtr<image::OwnedImageData>
-        DownsampleBake(const u8* pixels, u32 rowPitch, u32 atlasWidth, u32 atlasHeight,
-                       u32 supersample)
+        DownsampleBake(core::IAllocator& allocator, const u8* pixels, u32 rowPitch,
+                       u32 atlasWidth, u32 atlasHeight, u32 supersample)
         {
             // 256-entry decode LUT: the box filter touches supersample^2 texels per output
             // pixel; per-texel pow() would put the whole bake in the hundreds of ms.
@@ -938,7 +941,7 @@ export namespace foundation::ui::runtime
                 }
             }
             return core::MakeUnique<image::OwnedImageData>(
-                core::DefaultAllocator(), atlasWidth, atlasHeight, image::PixelFormat::RGBA8,
+                allocator, atlasWidth, atlasHeight, image::PixelFormat::RGBA8,
                 core::Move(out), image::ImageColorSpace::Srgb);
         }
 
@@ -1049,18 +1052,19 @@ export namespace foundation::ui::runtime
             m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                              shaders::ShaderFlags::None);
         }
+        core::IAllocator* m_allocator;
 
         graphics::GraphicsDevice* m_device; // borrowed
         rhi::ShaderModule* m_dfFs = nullptr; // MSDF text fragment (borrowed; null = no DF pipeline)
         shell::IShell* m_shell;             // borrowed
         fonts::IFontService* m_fonts;       // borrowed
-        shaders::ShaderSystemHost m_shaderHost{foundation::core::DefaultAllocator()}; // owns the ShaderSystem + the VG modules
+        shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules (ctor allocator)
         rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_fs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient (borrowed)
         rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient (borrowed)
 
-        UIContext m_ctx; // shared context; owns N RootViews
+        UIContext m_ctx; // shared context; owns N RootViews (allocator from the ctor)
         core::UniquePtr<shell::InputRouter> m_router;
         core::UniquePtr<UiInputBridge> m_bridge;
         core::UniquePtr<ShellClipboard> m_clipboard;

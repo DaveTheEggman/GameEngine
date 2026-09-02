@@ -220,7 +220,9 @@ TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
     scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    SceneHierarchyView hierarchy(edit);
+    auto hierarchyRef =
+        foundation::core::MakeRef<SceneHierarchyView>(DefaultAllocator(), edit);
+    SceneHierarchyView& hierarchy = *hierarchyRef;
 
     const Guid parent = edit.CreateEntity(u8"Parent");
     (void)edit.CreateEntity(u8"Child", parent);
@@ -258,7 +260,9 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     EditorContext editor;
-    SceneInspectorView inspector(editor, edit);
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
 
     const Guid a = edit.CreateEntity(u8"Alpha");
     const Guid b = edit.CreateEntity(u8"Beta");
@@ -292,7 +296,9 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
     scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    SceneHierarchyView hierarchy(edit);
+    auto hierarchyRef =
+        foundation::core::MakeRef<SceneHierarchyView>(DefaultAllocator(), edit);
+    SceneHierarchyView& hierarchy = *hierarchyRef;
 
     const Guid a = edit.CreateEntity(u8"A");
     const Guid b = edit.CreateEntity(u8"B");
@@ -341,7 +347,9 @@ TEST_CASE("hierarchy: a selection-model change (keyboard nav) syncs the scene se
     scene::Scene scene;
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    SceneHierarchyView hierarchy(edit);
+    auto hierarchyRef =
+        foundation::core::MakeRef<SceneHierarchyView>(DefaultAllocator(), edit);
+    SceneHierarchyView& hierarchy = *hierarchyRef;
 
     const Guid a = edit.CreateEntity(u8"A");
     const Guid b = edit.CreateEntity(u8"B");
@@ -464,7 +472,9 @@ TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     EditorContext editor;
-    SceneInspectorView inspector(editor, edit);
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
 
     const Guid rig = edit.CreateEntity(u8"Rig");
     const Guid body = edit.CreateEntity(u8"Body");

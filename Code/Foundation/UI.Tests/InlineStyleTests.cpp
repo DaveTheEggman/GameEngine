@@ -295,7 +295,7 @@ TEST_CASE("inline-style: Inline_Destruction_DoesNotLeakPartStrings")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsTypeRule")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -312,7 +312,7 @@ TEST_CASE("inline-style: Resolution_InlineBeatsTypeRule")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsClassPlusStateRule")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -333,7 +333,7 @@ TEST_CASE("inline-style: Resolution_InlineBeatsClassPlusStateRule")
 TEST_CASE("inline-style: Resolution_InlineIgnoresControlState")
 {
     // Inline values apply across every ControlState - changing state doesn't make a state-scoped rule reappear.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -350,7 +350,7 @@ TEST_CASE("inline-style: Resolution_InlineIgnoresControlState")
 
 TEST_CASE("inline-style: Resolution_InlineBeatsPseudoElementRule")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -367,7 +367,7 @@ TEST_CASE("inline-style: Resolution_InlineBeatsPseudoElementRule")
 TEST_CASE("inline-style: Resolution_InlinePartScopedToItsPart")
 {
     // Inline override on "thumb" doesn't affect "track" resolution.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -385,7 +385,7 @@ TEST_CASE("inline-style: Resolution_InlinePartScopedToItsPart")
 TEST_CASE("inline-style: Resolution_InlineOnParent_InheritsToChild")
 {
     // Inheritable property set inline on a parent reaches the child via the normal inheritance walk.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupSheet(ctx); // empty sheet - only the parent's inline value can satisfy this.
@@ -406,7 +406,7 @@ TEST_CASE("inline-style: Resolution_InlineOnParent_InheritsToChild")
 TEST_CASE("inline-style: Resolution_InlineOnChild_BeatsRuleOnParent")
 {
     // Child's inline value wins over a rule on the parent type.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
@@ -425,7 +425,7 @@ TEST_CASE("inline-style: Resolution_InlineOnChild_BeatsRuleOnParent")
 TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnThisView")
 {
     // View has both a LocalStyleSheet AND an inline override on the same property. Inline wins.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupSheet(ctx);
@@ -447,7 +447,7 @@ TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnThisView")
 TEST_CASE("inline-style: Resolution_InlineBeatsLocalOnAncestor")
 {
     // LocalStyleSheet sits on a parent; child has the inline override. Inline (on the styled view) wins.
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupSheet(ctx);

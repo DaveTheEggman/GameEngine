@@ -105,19 +105,19 @@ export namespace foundation::ui::gamekit
         {
             const u64 id = m_nextId++;
 
-            RefPtr<ToastCard> card = MakeRef<ToastCard>(DefaultAllocator());
+            RefPtr<ToastCard> card = MakeRef<ToastCard>(MemoryAllocator());
             // Severity resolves through the theme (semantic status properties map to the palette's
             // $success/$warning/$error); AccentFor stays as the unthemed fallback.
             card->Accent = ResolveStyleColor(SeverityProperty(request.severity),
                                              AccentFor(request.severity));
 
-            RefPtr<foundation::ui::Label> message = MakeRef<foundation::ui::Label>(DefaultAllocator());
+            RefPtr<foundation::ui::Label> message = MakeRef<foundation::ui::Label>(MemoryAllocator());
             message->SetText(request.message.AsView());
             message->FontSize.SetValue(12.0f);
             message->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             {
                 RefPtr<foundation::ui::FlexLayoutParams> lp =
-                    MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                    MakeRef<foundation::ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 lp->Height = foundation::ui::SizeSpec::Match();
                 card->AddView(message.Get(), lp);
@@ -127,7 +127,7 @@ export namespace foundation::ui::gamekit
             if (!request.actionLabel.IsEmpty())
             {
                 RefPtr<foundation::ui::Button> action =
-                    MakeRef<foundation::ui::Button>(DefaultAllocator(), request.actionLabel.AsView());
+                    MakeRef<foundation::ui::Button>(MemoryAllocator(), request.actionLabel.AsView());
                 action->OnClick.Add(
                     [self, id](foundation::ui::ButtonBase*)
                     {
@@ -138,7 +138,7 @@ export namespace foundation::ui::gamekit
             }
 
             RefPtr<foundation::ui::Button> close =
-                MakeRef<foundation::ui::Button>(DefaultAllocator(), StringView(u8"x"));
+                MakeRef<foundation::ui::Button>(MemoryAllocator(), StringView(u8"x"));
             close->OnClick.Add([self, id](foundation::ui::ButtonBase*) { self->MarkClosing(id); });
             card->AddView(close.Get());
 

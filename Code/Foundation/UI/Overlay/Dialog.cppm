@@ -78,29 +78,29 @@ export namespace foundation::ui
             MaxHeight.SetOwner(this);
             Title = String(title);
 
-            m_layout = MakeRef<FlexLayout>(DefaultAllocator());
+            m_layout = MakeRef<FlexLayout>(MemoryAllocator());
             m_layout->Direction = Orientation::Vertical;
             m_layout->Spacing = 10;
             m_layout->Padding = Thickness{12, 10};
             m_layout->Parent = this;
 
             // Title
-            RefPtr<Label> titleLabel = MakeRef<Label>(DefaultAllocator(), title);
+            RefPtr<Label> titleLabel = MakeRef<Label>(MemoryAllocator(), title);
             m_titleLabel = titleLabel.Get();
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Match();
                 lp->Height = SizeSpec::Fixed(Unit::Dp(24));
                 m_layout->AddView(titleLabel.Get(), lp);
             }
 
             // Button row (right-aligned)
-            m_buttonRow = MakeRef<FlexLayout>(DefaultAllocator());
+            m_buttonRow = MakeRef<FlexLayout>(MemoryAllocator());
             m_buttonRow->Direction = Orientation::Horizontal;
             m_buttonRow->Spacing = 8;
             m_buttonRow->JustifyContent = Justify::End;
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Match();
                 lp->Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
@@ -118,13 +118,13 @@ export namespace foundation::ui
             m_content = content;
             m_layout->RemoveView(m_buttonRow.Get(), false);
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Match();
                 lp->Grow = 1;
                 m_layout->AddView(content, lp);
             }
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Width = SizeSpec::Match();
                 lp->Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
@@ -136,7 +136,7 @@ export namespace foundation::ui
         /// validation failure can keep the dialog up. Any other result closes with it.
         Button* AddButton(StringView text, DialogResult result)
         {
-            RefPtr<Button> btn = MakeRef<Button>(DefaultAllocator(), text);
+            RefPtr<Button> btn = MakeRef<Button>(MemoryAllocator(), text);
             if (result != DialogResult::None)
             {
                 Dialog* self = this;
@@ -256,10 +256,10 @@ export namespace foundation::ui
         // === Static factories ===
 
         /// Create a simple alert dialog with an OK button.
-        static RefPtr<Dialog> Alert(StringView title, StringView message)
+        static RefPtr<Dialog> Alert(IAllocator& allocator, StringView title, StringView message)
         {
-            RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), title);
-            RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), message);
+            RefPtr<Dialog> dialog = MakeRef<Dialog>(allocator, title);
+            RefPtr<Label> label = MakeRef<Label>(allocator, message);
             label->WordWrap.SetValue(true); // long messages wrap inside the dialog width
             dialog->SetContent(label.Get());
             dialog->AddButton(u8"OK", DialogResult::OK);
@@ -267,10 +267,10 @@ export namespace foundation::ui
         }
 
         /// Create a confirm dialog with OK and Cancel buttons.
-        static RefPtr<Dialog> Confirm(StringView title, StringView message)
+        static RefPtr<Dialog> Confirm(IAllocator& allocator, StringView title, StringView message)
         {
-            RefPtr<Dialog> dialog = MakeRef<Dialog>(DefaultAllocator(), title);
-            RefPtr<Label> label = MakeRef<Label>(DefaultAllocator(), message);
+            RefPtr<Dialog> dialog = MakeRef<Dialog>(allocator, title);
+            RefPtr<Label> label = MakeRef<Label>(allocator, message);
             label->WordWrap.SetValue(true);
             dialog->SetContent(label.Get());
             dialog->AddButton(u8"OK", DialogResult::OK);

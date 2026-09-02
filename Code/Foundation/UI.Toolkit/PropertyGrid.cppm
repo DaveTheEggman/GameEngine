@@ -45,19 +45,19 @@ export namespace foundation::ui::toolkit
 
         PropertyGrid()
         {
-            RefPtr<ScrollView> scrollView = MakeRef<ScrollView>(DefaultAllocator());
+            RefPtr<ScrollView> scrollView = MakeRef<ScrollView>(MemoryAllocator());
             scrollView->VScrollBarPolicy.SetValue(ScrollBarPolicy::Auto);
             scrollView->HScrollBarPolicy.SetValue(ScrollBarPolicy::Never);
             scrollView->ScrollBarMode.SetValue(ScrollBarModeValue::Reserved);
             m_scrollView = scrollView.Get();
             AddView(scrollView.Get());
 
-            RefPtr<FlexLayout> content = MakeRef<FlexLayout>(DefaultAllocator());
+            RefPtr<FlexLayout> content = MakeRef<FlexLayout>(MemoryAllocator());
             content->Direction = Orientation::Vertical;
             m_content = content.Get();
             // `LayoutParams` names View's shadowing member here, so the type is spelled foundation::ui::LayoutParams.
             RefPtr<foundation::ui::LayoutParams> lp =
-                MakeRef<foundation::ui::LayoutParams>(DefaultAllocator());
+                MakeRef<foundation::ui::LayoutParams>(MemoryAllocator());
             lp->Width = SizeSpec::Match();
             m_scrollView->AddView(content.Get(), lp);
         }
@@ -258,7 +258,7 @@ export namespace foundation::ui::toolkit
             // Add categorized in Expanders.
             for (usize c = 0; c < categoryOrder.Size(); ++c)
             {
-                RefPtr<Expander> expander = MakeRef<Expander>(DefaultAllocator());
+                RefPtr<Expander> expander = MakeRef<Expander>(MemoryAllocator());
                 expander->SetHeaderText(categoryOrder[c]);
                 for (usize a = 0; a < m_actionCategories.Size(); ++a)
                 {
@@ -270,7 +270,7 @@ export namespace foundation::ui::toolkit
                     }
                 }
 
-                RefPtr<FlexLayout> catContent = MakeRef<FlexLayout>(DefaultAllocator());
+                RefPtr<FlexLayout> catContent = MakeRef<FlexLayout>(MemoryAllocator());
                 catContent->Direction = Orientation::Vertical;
                 catContent->Spacing = RowSpacing;
 
@@ -279,7 +279,7 @@ export namespace foundation::ui::toolkit
                     AddEditorRowTo(catContent.Get(), categoryLists[c][e]);
                 }
 
-                RefPtr<FlexLayoutParams> contentLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> contentLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 contentLp->Width = SizeSpec::Match();
                 expander->SetContent(catContent.Get(), contentLp);
 
@@ -302,7 +302,7 @@ export namespace foundation::ui::toolkit
                     }
                 }
 
-                RefPtr<FlexLayoutParams> expLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> expLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 expLp->Width = SizeSpec::Match();
                 m_content->AddView(expander.Get(), expLp);
             }
@@ -310,14 +310,14 @@ export namespace foundation::ui::toolkit
 
         void AddEditorRowTo(FlexLayout* container, PropertyEditor* editor)
         {
-            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(DefaultAllocator());
+            RefPtr<FlexLayout> row = MakeRef<FlexLayout>(MemoryAllocator());
             row->Direction = Orientation::Horizontal;
             row->Spacing = 6.0f; // gap between the (ellipsized) label column and the value editor
 
             // Label - editable if editor has OnLabelRenamed set.
             if (editor->OnLabelRenamed)
             {
-                RefPtr<EditableLabel> editableLabel = MakeRef<EditableLabel>(DefaultAllocator());
+                RefPtr<EditableLabel> editableLabel = MakeRef<EditableLabel>(MemoryAllocator());
                 editableLabel->SetText(editor->DisplayName());
                 editableLabel->FontSize.SetValue(12.0f);
                 editableLabel->Ellipsis.SetValue(
@@ -333,13 +333,13 @@ export namespace foundation::ui::toolkit
                     });
                 editor->BindDisplayNameSink([raw = editableLabel.Get()](StringView text)
                                             { raw->SetText(text); });
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(editableLabel.Get(), lp);
             }
             else
             {
-                RefPtr<Label> label = MakeRef<Label>(DefaultAllocator());
+                RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
                 label->SetText(editor->DisplayName());
                 label->FontSize.SetValue(12.0f);
                 label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
@@ -347,7 +347,7 @@ export namespace foundation::ui::toolkit
                     true); // truncate instead of overflowing into the value when narrow
                 editor->BindDisplayNameSink([raw = label.Get()](StringView text)
                                             { raw->SetText(text); });
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = LabelWidthRatio;
                 row->AddView(label.Get(), lp);
             }
@@ -356,7 +356,7 @@ export namespace foundation::ui::toolkit
             View* editorView = editor->EditorView();
             if (editorView != nullptr)
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f - LabelWidthRatio;
                 row->AddView(editorView, lp);
             }
@@ -368,7 +368,7 @@ export namespace foundation::ui::toolkit
             }
             editor->SetRowView(row.Get());
 
-            RefPtr<FlexLayoutParams> rowLp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+            RefPtr<FlexLayoutParams> rowLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
             rowLp->Width = SizeSpec::Match();
             container->AddView(row.Get(), rowLp);
         }

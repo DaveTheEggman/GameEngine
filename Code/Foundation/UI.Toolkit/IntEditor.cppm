@@ -78,7 +78,7 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<IntEditorField> field = MakeRef<IntEditorField>(DefaultAllocator(), this);
+            RefPtr<IntEditorField> field = MakeRef<IntEditorField>(MemoryAllocator(), this);
             field->AddClass(u8"property-field");
             m_field = field.Get();
             m_field->SetMin(m_min);

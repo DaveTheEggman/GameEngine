@@ -303,7 +303,7 @@ export namespace foundation::ui::toolkit
             TooltipPlacement = ui::TooltipPlacement::Pointer; // per-line diagnostics hover
 
             CodeEditView* self = this;
-            m_vBar = MakeRef<ScrollBar>(DefaultAllocator(), false);
+            m_vBar = MakeRef<ScrollBar>(MemoryAllocator(), false);
             m_vBar->Parent = this;
             m_vBar->OnValueChanged.Add(Event<void(ScrollBar*, f32)>::Handler{
                 [self](ScrollBar*, f32 value)
@@ -311,7 +311,7 @@ export namespace foundation::ui::toolkit
                     self->m_scrollY = value;
                     self->Invalidate();
                 }});
-            m_hBar = MakeRef<ScrollBar>(DefaultAllocator(), true);
+            m_hBar = MakeRef<ScrollBar>(MemoryAllocator(), true);
             m_hBar->Parent = this;
             m_hBar->OnValueChanged.Add(Event<void(ScrollBar*, f32)>::Handler{
                 [self](ScrollBar*, f32 value)
@@ -354,7 +354,7 @@ export namespace foundation::ui::toolkit
                     const String value = HoverValueProvider(m_doc.TextInSpan(word).AsView());
                     if (!value.IsEmpty())
                     {
-                        auto label = MakeRef<Label>(DefaultAllocator(), value.AsView());
+                        auto label = MakeRef<Label>(MemoryAllocator(), value.AsView());
                         label->FontSize.SetValue(12.0f);
                         return label;
                     }
@@ -368,7 +368,7 @@ export namespace foundation::ui::toolkit
             {
                 return {};
             }
-            auto label = MakeRef<Label>(DefaultAllocator(), diagnostic->message.AsView());
+            auto label = MakeRef<Label>(MemoryAllocator(), diagnostic->message.AsView());
             label->FontSize.SetValue(12.0f);
             return label;
         }
@@ -2085,19 +2085,19 @@ export namespace foundation::ui::toolkit
             CodeEditView* self = this;
             // A vertical stack of two horizontal rows: [find | count | < > aa w | x] over
             // [replace | Replace | All] (the second row shows only in Replace mode).
-            m_findBar = MakeRef<FlexLayout>(DefaultAllocator());
+            m_findBar = MakeRef<FlexLayout>(MemoryAllocator());
             m_findBar->Direction = Orientation::Vertical;
             m_findBar->Spacing = 3.0f;
             m_findBar->Padding = Thickness{6, 4};
 
-            m_findRow = MakeRef<FlexLayout>(DefaultAllocator());
+            m_findRow = MakeRef<FlexLayout>(MemoryAllocator());
             m_findRow->Direction = Orientation::Horizontal;
             m_findRow->Spacing = 4.0f;
-            m_replaceRow = MakeRef<FlexLayout>(DefaultAllocator());
+            m_replaceRow = MakeRef<FlexLayout>(MemoryAllocator());
             m_replaceRow->Direction = Orientation::Horizontal;
             m_replaceRow->Spacing = 4.0f;
 
-            m_findField = MakeRef<EditText>(DefaultAllocator());
+            m_findField = MakeRef<EditText>(MemoryAllocator());
             m_findField->SetPlaceholder(u8"Find");
             m_findField->OnTextChanged.Add(
                 [self](EditText*)
@@ -2113,19 +2113,19 @@ export namespace foundation::ui::toolkit
                     }
                 });
             {
-                auto params = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                auto params = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 params->Width = SizeSpec::Fixed(Unit::Dp(170));
                 m_findRow->AddView(m_findField.Get(), params);
             }
 
-            m_matchLabel = MakeRef<Label>(DefaultAllocator(), StringView(u8""));
+            m_matchLabel = MakeRef<Label>(MemoryAllocator(), StringView(u8""));
             m_matchLabel->FontSize.SetValue(12.0f);
             m_findRow->AddView(m_matchLabel.Get());
 
             const auto addButton = [&](FlexLayout& row, RefPtr<Button>& slot,
                                        const char8_t* text, Function<void()> action)
             {
-                slot = MakeRef<Button>(DefaultAllocator(), StringView(text));
+                slot = MakeRef<Button>(MemoryAllocator(), StringView(text));
                 slot->FontSize.SetValue(Optional<f32>(12.0f));
                 Function<void()> stored = Move(action);
                 slot->OnClick.Add([stored = Move(stored)](ButtonBase*) { stored(); });
@@ -2137,7 +2137,7 @@ export namespace foundation::ui::toolkit
             const auto addToggle = [&](RefPtr<ToggleButton>& slot, const char8_t* text,
                                        Function<void(bool)> action)
             {
-                slot = MakeRef<ToggleButton>(DefaultAllocator(), StringView(text));
+                slot = MakeRef<ToggleButton>(MemoryAllocator(), StringView(text));
                 Function<void(bool)> stored = Move(action);
                 slot->OnCheckedChanged.Add([stored = Move(stored)](ToggleButton*, bool checked)
                                            { stored(checked); });
@@ -2157,10 +2157,10 @@ export namespace foundation::ui::toolkit
                       });
             addButton(*m_findRow, m_closeButton, u8"x", [self] { self->CloseFindBar(); });
 
-            m_replaceField = MakeRef<EditText>(DefaultAllocator());
+            m_replaceField = MakeRef<EditText>(MemoryAllocator());
             m_replaceField->SetPlaceholder(u8"Replace");
             {
-                auto params = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                auto params = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 params->Width = SizeSpec::Fixed(Unit::Dp(170));
                 m_replaceRow->AddView(m_replaceField.Get(), params);
             }

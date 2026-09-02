@@ -497,29 +497,29 @@ export namespace foundation::ui::toolkit
 
     inline HDRColorPicker::HDRColorPicker()
     {
-        RefPtr<SVSquare> sv = MakeRef<SVSquare>(DefaultAllocator(), this);
+        RefPtr<SVSquare> sv = MakeRef<SVSquare>(MemoryAllocator(), this);
         m_svSquare = sv.Get();
         AddView(sv.Get());
 
-        RefPtr<HueStripView> hue = MakeRef<HueStripView>(DefaultAllocator(), this);
+        RefPtr<HueStripView> hue = MakeRef<HueStripView>(MemoryAllocator(), this);
         m_hueStrip = hue.Get();
         AddView(hue.Get());
 
-        RefPtr<AlphaStripView> alpha = MakeRef<AlphaStripView>(DefaultAllocator(), this);
+        RefPtr<AlphaStripView> alpha = MakeRef<AlphaStripView>(MemoryAllocator(), this);
         m_alphaStrip = alpha.Get();
         AddView(alpha.Get());
 
-        RefPtr<ColorView> prevCur = MakeRef<ColorView>(DefaultAllocator());
+        RefPtr<ColorView> prevCur = MakeRef<ColorView>(MemoryAllocator());
         prevCur->Color.SetValue(Color::White);
         m_previewCurrent = prevCur.Get();
         AddView(prevCur.Get());
 
-        RefPtr<ColorView> prevOrig = MakeRef<ColorView>(DefaultAllocator());
+        RefPtr<ColorView> prevOrig = MakeRef<ColorView>(MemoryAllocator());
         prevOrig->Color.SetValue(Color::White);
         m_previewOriginal = prevOrig.Get();
         AddView(prevOrig.Get());
 
-        RefPtr<NumericField> intensity = MakeRef<NumericField>(DefaultAllocator());
+        RefPtr<NumericField> intensity = MakeRef<NumericField>(MemoryAllocator());
         intensity->SetMin(0);
         intensity->SetMax(64);
         intensity->SetStep(0.1);
@@ -536,7 +536,7 @@ export namespace foundation::ui::toolkit
 
         auto makeHDRField = [this](StringView prefix) -> RefPtr<NumericField>
         {
-            RefPtr<NumericField> f = MakeRef<NumericField>(DefaultAllocator());
+            RefPtr<NumericField> f = MakeRef<NumericField>(MemoryAllocator());
             f->SetMin(0);
             f->SetMax(64);
             f->SetStep(0.01);
@@ -560,7 +560,7 @@ export namespace foundation::ui::toolkit
         m_bField = bf.Get();
         AddView(bf.Get());
 
-        RefPtr<NumericField> af = MakeRef<NumericField>(DefaultAllocator());
+        RefPtr<NumericField> af = MakeRef<NumericField>(MemoryAllocator());
         af->SetMin(0);
         af->SetMax(1);
         af->SetStep(0.01);

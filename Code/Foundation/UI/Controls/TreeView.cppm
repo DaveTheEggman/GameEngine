@@ -76,7 +76,7 @@ export namespace foundation::ui
             WantsArrowKeys = true;
             IndentWidth.SetOwner(this);
             ArrowSize.SetOwner(this);
-            m_listView = MakeRef<ListView>(DefaultAllocator());
+            m_listView = MakeRef<ListView>(MemoryAllocator());
             m_listView->Parent = this;
 
             TreeView* self = this;
@@ -126,7 +126,7 @@ export namespace foundation::ui
                 m_flatAdapter.Reset();
                 return;
             }
-            m_flatAdapter = MakeUnique<FlattenedTreeAdapter>(DefaultAllocator(), adapter);
+            m_flatAdapter = MakeUnique<FlattenedTreeAdapter>(MemoryAllocator(), adapter);
             m_listView->SetAdapter(m_flatAdapter.Get());
         }
 

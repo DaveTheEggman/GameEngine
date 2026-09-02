@@ -21,7 +21,7 @@ namespace
 {
     struct TickerBed
     {
-        UIContext context;
+        UIContext context{DefaultAllocator()};
         RefPtr<RootView> root;
         RefPtr<Ticker> ticker;
         TickerBed()

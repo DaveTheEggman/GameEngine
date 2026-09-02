@@ -62,7 +62,7 @@ namespace
         // the legacy belt and the checks below would test the wrong thing.
         RegisterToolkitTypes();
         {
-            StyleSheetLoader loader;
+            StyleSheetLoader loader(DefaultAllocator());
             loader.SetPalette(palette);
             RefPtr<StyleSheet> parsed = loader.Load(fragment);
             REQUIRE(parsed.Get() != nullptr);
@@ -70,7 +70,8 @@ namespace
         }
 
         ToolkitThemeExtension ext;
-        StyleSheet sheet;
+        RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+        StyleSheet& sheet = *sheetRef;
         ext.Apply(sheet, palette); // the REAL path: parse + MergeFrom
         REQUIRE(sheet.RuleCount() > 0);
 

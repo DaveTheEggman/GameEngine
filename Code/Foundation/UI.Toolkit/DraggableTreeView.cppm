@@ -80,7 +80,7 @@ export namespace foundation::ui::toolkit
 
         DraggableTreeView()
         {
-            m_treeView = MakeRef<TreeView>(DefaultAllocator());
+            m_treeView = MakeRef<TreeView>(MemoryAllocator());
             m_treeView->Parent = this;
         }
 
@@ -164,13 +164,13 @@ export namespace foundation::ui::toolkit
             {
                 return RefPtr<DragData>{};
             }
-            return MakeRef<TreeDragData>(DefaultAllocator(), sel);
+            return MakeRef<TreeDragData>(MemoryAllocator(), sel);
         }
 
         [[nodiscard]] RefPtr<View> CreateDragVisual(DragData* data) override
         {
             (void)data;
-            RefPtr<Label> label = MakeRef<Label>(DefaultAllocator());
+            RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
             label->SetText(u8"Moving item");
             return label;
         }

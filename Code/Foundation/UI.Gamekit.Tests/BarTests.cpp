@@ -21,7 +21,7 @@ namespace
 {
     struct BarBed
     {
-        UIContext context;
+        UIContext context{DefaultAllocator()};
         RefPtr<RootView> root;
         RefPtr<Bar> bar;
         BarBed()

@@ -19,7 +19,7 @@ namespace
 {
     struct ToastBed
     {
-        UIContext context;
+        UIContext context{DefaultAllocator()};
         RefPtr<RootView> root;
         RefPtr<ToastHost> host;
         ToastBed()

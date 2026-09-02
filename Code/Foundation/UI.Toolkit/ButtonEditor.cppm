@@ -52,7 +52,7 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<Button> btn = MakeRef<Button>(DefaultAllocator(), Name());
+            RefPtr<Button> btn = MakeRef<Button>(MemoryAllocator(), Name());
             btn->IsEnabled = m_buttonEnabled;
             ButtonEditor* self = this;
             btn->OnClick.Add(

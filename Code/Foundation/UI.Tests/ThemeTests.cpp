@@ -3,7 +3,7 @@
 
 // Ported from Sedulous.UI.Tests/src/ThemeTests.bf (faithful). Beef static props ThemePalette.Dark/Light
 // -> ThemePalette::Dark()/Light(); `let sheet = DarkTheme.Create(); ctx.StyleSheet = sheet; sheet.ReleaseRef();`
-// -> `ctx.SetStyleSheet(DarkTheme::Create())` (RefPtr ownership; Create returns refcount-1); Color byte
+// -> `ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator()))` (RefPtr ownership; Create returns refcount-1); Color byte
 // fields R/G/B -> r/g/b; TestThemeExtension/CountingThemeExtension implement IThemeExtension via *out ptrs.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
@@ -89,24 +89,24 @@ TEST_CASE("theme: GraphiteOrangePalette_IsWarmDarkWithOrangeAccent")
 
 TEST_CASE("theme: DarkTheme_Creates")
 {
-    auto sheet = DarkTheme::Create();
+    auto sheet = DarkTheme::Create(DefaultAllocator());
     CHECK(sheet.Get() != nullptr);
     CHECK(sheet->RuleCount() > 0);
 }
 
 TEST_CASE("theme: RoundedDarkTheme_CreatesWithCustomPalette")
 {
-    auto sheet = RoundedDarkTheme::Create(ThemePalette::GraphiteOrange());
+    auto sheet = RoundedDarkTheme::Create(DefaultAllocator(), ThemePalette::GraphiteOrange());
     CHECK(sheet.Get() != nullptr);
     CHECK(sheet->RuleCount() > 0);
 }
 
 TEST_CASE("theme: DarkTheme_ResolvesTextColor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
-    ctx.SetStyleSheet(DarkTheme::Create());
+    ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator()));
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -118,10 +118,10 @@ TEST_CASE("theme: DarkTheme_ResolvesTextColor")
 
 TEST_CASE("theme: DarkTheme_ResolvesFontSize")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
-    ctx.SetStyleSheet(DarkTheme::Create());
+    ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator()));
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -132,10 +132,10 @@ TEST_CASE("theme: DarkTheme_ResolvesFontSize")
 
 TEST_CASE("theme: DarkTheme_ButtonStyleClass")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
-    ctx.SetStyleSheet(DarkTheme::Create());
+    ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator()));
 
     auto view = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Test"));
     root->AddView(view.Get());
@@ -157,17 +157,17 @@ TEST_CASE("theme: DarkTheme_ButtonStyleClass")
 
 TEST_CASE("theme: LightTheme_Creates")
 {
-    auto sheet = LightTheme::Create();
+    auto sheet = LightTheme::Create(DefaultAllocator());
     CHECK(sheet.Get() != nullptr);
     CHECK(sheet->RuleCount() > 0);
 }
 
 TEST_CASE("theme: LightTheme_ResolvesTextColor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
-    ctx.SetStyleSheet(LightTheme::Create());
+    ctx.SetStyleSheet(LightTheme::Create(DefaultAllocator()));
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -181,7 +181,7 @@ TEST_CASE("theme: LightTheme_ResolvesTextColor")
 
 TEST_CASE("theme: ThemeSwitching_ChangesResolvedValues")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 
@@ -189,11 +189,11 @@ TEST_CASE("theme: ThemeSwitching_ChangesResolvedValues")
     root->AddView(view.Get());
 
     // Dark theme
-    ctx.SetStyleSheet(DarkTheme::Create());
+    ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator()));
     const Color darkText = view->ResolveStyleColor(StyleProperty::TextColor);
 
     // Light theme
-    ctx.SetStyleSheet(LightTheme::Create());
+    ctx.SetStyleSheet(LightTheme::Create(DefaultAllocator()));
     const Color lightText = view->ResolveStyleColor(StyleProperty::TextColor);
 
     // Colors should be different
@@ -210,10 +210,10 @@ TEST_CASE("theme: DarkTheme_WithCustomPalette")
     ThemePalette palette = ThemePalette::Dark();
     palette.Text = Color{1.0f, 0.0f, 0.0f, 1.0f}; // red text
 
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
-    ctx.SetStyleSheet(DarkTheme::Create(palette));
+    ctx.SetStyleSheet(DarkTheme::Create(DefaultAllocator(), palette));
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
@@ -230,7 +230,7 @@ TEST_CASE("theme: ThemeRegistry_ExtensionApplied")
     TestThemeExtension ext(&applied);
     ThemeRegistry::RegisterExtension(&ext);
 
-    auto sheet = DarkTheme::Create();
+    auto sheet = DarkTheme::Create(DefaultAllocator());
     CHECK(applied);
 
     ThemeRegistry::UnregisterExtension(&ext);
@@ -242,8 +242,8 @@ TEST_CASE("theme: ThemeRegistry_ExtensionAppliedToBothThemes")
     CountingThemeExtension ext(&applyCount);
     ThemeRegistry::RegisterExtension(&ext);
 
-    auto dark = DarkTheme::Create();
-    auto light = LightTheme::Create();
+    auto dark = DarkTheme::Create(DefaultAllocator());
+    auto light = LightTheme::Create(DefaultAllocator());
     CHECK(applyCount == 2);
 
     ThemeRegistry::UnregisterExtension(&ext);

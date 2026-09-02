@@ -26,7 +26,7 @@ static core::RefPtr<GridView> MakeGrid()
 
 TEST_CASE("grid-view: NoAdapter_NoViews")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 300, 300);
     auto gv = MakeGrid();
@@ -46,7 +46,7 @@ TEST_CASE("grid-view: IsFocusable")
 
 TEST_CASE("grid-view: ColumnCalculation")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(50);
@@ -64,7 +64,7 @@ TEST_CASE("grid-view: ColumnCalculation")
 
 TEST_CASE("grid-view: ScrollBy_ClampsBounds")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(200);
@@ -104,7 +104,7 @@ TEST_CASE("grid-view: DefaultValues")
 
 TEST_CASE("grid-view: GetActiveView + OnItemKeyDown (item keys before navigation)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 300, 300);
     SimpleListAdapter adapter(10);

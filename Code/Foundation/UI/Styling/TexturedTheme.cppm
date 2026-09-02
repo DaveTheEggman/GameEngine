@@ -63,15 +63,17 @@ export namespace foundation::ui
     struct TexturedTheme
     {
         /// Create a textured theme with dark base colors.
-        [[nodiscard]] static RefPtr<StyleSheet> Create(const ThemeImageSet& images)
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator,
+                                                       const ThemeImageSet& images)
         {
-            return Create(images, ThemePalette::Dark());
+            return Create(allocator, images, ThemePalette::Dark());
         }
 
         /// Create a textured theme with a specific palette for base (non-drawable) colors.
-        [[nodiscard]] static RefPtr<StyleSheet> Create(const ThemeImageSet& images, ThemePalette p)
+        [[nodiscard]] static RefPtr<StyleSheet> Create(IAllocator& allocator,
+                                                       const ThemeImageSet& images, ThemePalette p)
         {
-            RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+            RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(allocator);
             StyleSheet& sheet = *sheetRef;
 
             // Global text defaults.
@@ -148,11 +150,11 @@ export namespace foundation::ui
                 .Set(StyleProperty::SelectionColor, C(60, 120, 200, 80));
 
             // Register icons with appropriate tint for the palette.
-            RegisterIcons(sheet, p);
+            RegisterIcons(allocator, sheet, p);
 
             ThemeRegistry::ApplyExtensions(sheet, p);
 
-            RefPtr<ThemeAtlas> atlas = MakeRef<ThemeAtlas>(DefaultAllocator());
+            RefPtr<ThemeAtlas> atlas = MakeRef<ThemeAtlas>(allocator);
 
             // Add all images to atlas.
             for (const auto& kv : images.GetImages())
@@ -167,7 +169,7 @@ export namespace foundation::ui
                 StringView drawableKey = kv.key.AsView();
                 const Array<ThemeStateEntry>& states = kv.value;
                 RefPtr<StateListDrawable> stateList =
-                    MakeRef<StateListDrawable>(DefaultAllocator());
+                    MakeRef<StateListDrawable>(allocator);
 
                 for (const ThemeStateEntry& e : states)
                 {
@@ -469,7 +471,7 @@ export namespace foundation::ui
         }
 
         /// Register SVG icons with an appropriate tint for the palette.
-        static void RegisterIcons(StyleSheet& sheet, ThemePalette p)
+        static void RegisterIcons(IAllocator& allocator, StyleSheet& sheet, ThemePalette p)
         {
             // Use dark tint for light palettes, no tint for dark.
             const bool isLight = p.Background.r > 0.5f;
@@ -483,9 +485,9 @@ export namespace foundation::ui
             {
                 if (tint.HasValue())
                 {
-                    return SVGDrawable::FromString(svg, tint.Value());
+                    return SVGDrawable::FromString(allocator, svg, tint.Value());
                 }
-                return SVGDrawable::FromString(svg);
+                return SVGDrawable::FromString(allocator, svg);
             };
 
             if (RefPtr<Drawable> checkmark = MakeSVG(ThemeIcons::Checkmark()))
@@ -535,7 +537,7 @@ export namespace foundation::ui
             if (RefPtr<Drawable> subArrow = MakeSVG(ThemeIcons::ChevronRight()))
             {
                 sheet.OwnDrawable(subArrow);
-                RefPtr<StyleRule> rule = MakeRef<StyleRule>(DefaultAllocator());
+                RefPtr<StyleRule> rule = MakeRef<StyleRule>(allocator);
                 rule->Selector.AddClass(u8"contextmenu");
                 rule->Selector.SetPseudoElement(u8"submenu-arrow");
                 rule->Set(StyleProperty::Background, subArrow);

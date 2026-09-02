@@ -34,6 +34,10 @@ export namespace foundation::ui
     class StyleSheetLoader
     {
     public:
+        // The allocator (required - the owner decides) backs every sheet/rule/drawable
+        // the loader parses.
+        explicit StyleSheetLoader(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         /// Resource provider for @import, @icon file loading, image() factory (non-owning).
         IResourceProvider* ResourceProvider = nullptr;
 
@@ -92,8 +96,8 @@ export namespace foundation::ui
             Array<Token> tokens;
             tokenizer.TokenizeAll(tokens);
 
-            SSSParser parser(Move(tokens), &palette, &m_svgRegistry, &m_imageRegistry,
-                             ResourceProvider, String(basePath));
+            SSSParser parser(*m_allocator, Move(tokens), &palette, &m_svgRegistry,
+                             &m_imageRegistry, ResourceProvider, String(basePath));
             return parser.Parse();
         }
 
@@ -105,6 +109,7 @@ export namespace foundation::ui
         }
 
     private:
+        IAllocator* m_allocator;
         HashMap<String, String> m_svgRegistry;
         HashMap<String, const image::ImageData*> m_imageRegistry;
         HashMap<String, Color> m_basePalette;

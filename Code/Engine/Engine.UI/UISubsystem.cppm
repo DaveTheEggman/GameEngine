@@ -413,7 +413,8 @@ export namespace engine::ui
             {
                 return {};
             }
-            RefPtr<View> view = MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+            RefPtr<View> view = MarkupLoader::LoadFromString(m_context.Allocator(),
+                                                             document.markup.AsView(), &m_context);
             if (view.Get() != nullptr)
             {
                 m_overlayLayer->AddView(view.Get());
@@ -429,7 +430,8 @@ export namespace engine::ui
             {
                 return {};
             }
-            return MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+            return MarkupLoader::LoadFromString(m_context.Allocator(), document.markup.AsView(),
+                                                &m_context);
         }
         /// Attaches an already-built view topmost (code-built overlays).
         void PushScreenOverlay(RefPtr<View> view)
@@ -617,7 +619,7 @@ export namespace engine::ui
                             u32 sampleCount = 1);
 
         String m_fontPath;
-        UIContext m_context;
+        UIContext m_context{DefaultAllocator()};
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
         foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)

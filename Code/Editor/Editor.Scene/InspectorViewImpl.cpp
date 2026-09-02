@@ -3017,7 +3017,7 @@ namespace editor
             message += ComponentDisplayName(mgr->ComponentType());
             message += StringView(u8" component. Pasting overwrites it (you can undo). Continue?");
             RefPtr<ui::Dialog> dialog =
-                ui::Dialog::Confirm(StringView(u8"Overwrite Component?"), message.AsView());
+                ui::Dialog::Confirm(DefaultAllocator(), StringView(u8"Overwrite Component?"), message.AsView());
             SceneInspectorView* self = this;
             dialog->OnClosed.Add(
                 [self, id](ui::Dialog*, ui::DialogResult result)

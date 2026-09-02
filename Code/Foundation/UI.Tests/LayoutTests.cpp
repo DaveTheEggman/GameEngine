@@ -33,7 +33,7 @@ static core::RefPtr<T> New()
 
 TEST_CASE("frame: Default_ChildAtTopLeft")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -47,7 +47,7 @@ TEST_CASE("frame: Default_ChildAtTopLeft")
 
 TEST_CASE("frame: Gravity_Center")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -63,7 +63,7 @@ TEST_CASE("frame: Gravity_Center")
 
 TEST_CASE("frame: Gravity_BottomRight")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -79,7 +79,7 @@ TEST_CASE("frame: Gravity_BottomRight")
 
 TEST_CASE("frame: Gravity_Fill")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -95,7 +95,7 @@ TEST_CASE("frame: Gravity_Fill")
 
 TEST_CASE("frame: Padding_OffsetsGravity")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -110,7 +110,7 @@ TEST_CASE("frame: Padding_OffsetsGravity")
 
 TEST_CASE("frame: MultipleChildren_Stacked")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
@@ -135,7 +135,7 @@ TEST_CASE("frame: MultipleChildren_Stacked")
 // nested Fill child's screen origin is off, viewport picking/gizmo input lands in the wrong place.
 TEST_CASE("frame: nested Fill child inside a grow FlexLayout keeps its screen origin (task #118)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -194,7 +194,7 @@ TEST_CASE("frame: nested Fill child inside a grow FlexLayout keeps its screen or
 
 TEST_CASE("absolute: ChildAtExplicitPosition")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
@@ -211,7 +211,7 @@ TEST_CASE("absolute: ChildAtExplicitPosition")
 
 TEST_CASE("absolute: DefaultPosition_AtOrigin")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
@@ -225,7 +225,7 @@ TEST_CASE("absolute: DefaultPosition_AtOrigin")
 
 TEST_CASE("absolute: Padding_OffsetsAll")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
@@ -243,7 +243,7 @@ TEST_CASE("absolute: Padding_OffsetsAll")
 
 TEST_CASE("absolute: ChildRetainsMeasuredSize")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
@@ -262,7 +262,7 @@ TEST_CASE("absolute: ChildRetainsMeasuredSize")
 
 TEST_CASE("flow: Horizontal_NoWrap_SingleLine")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -279,7 +279,7 @@ TEST_CASE("flow: Horizontal_NoWrap_SingleLine")
 
 TEST_CASE("flow: Horizontal_Wraps_WhenExceedsWidth")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -298,7 +298,7 @@ TEST_CASE("flow: Horizontal_Wraps_WhenExceedsWidth")
 
 TEST_CASE("flow: Horizontal_VSpacing_BetweenLines")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -315,7 +315,7 @@ TEST_CASE("flow: Horizontal_VSpacing_BetweenLines")
 
 TEST_CASE("flow: Vertical_NoWrap_SingleColumn")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -332,7 +332,7 @@ TEST_CASE("flow: Vertical_NoWrap_SingleColumn")
 
 TEST_CASE("flow: Vertical_Wraps_WhenExceedsHeight")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -351,7 +351,7 @@ TEST_CASE("flow: Vertical_Wraps_WhenExceedsHeight")
 
 TEST_CASE("flow: Gone_ChildSkipped")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -370,7 +370,7 @@ TEST_CASE("flow: Gone_ChildSkipped")
 
 TEST_CASE("flow: Padding_OffsetsContent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();
@@ -388,7 +388,7 @@ TEST_CASE("flow: Padding_OffsetsContent")
 
 TEST_CASE("dock: Top_TakesFullWidthMeasuredHeight")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -404,7 +404,7 @@ TEST_CASE("dock: Top_TakesFullWidthMeasuredHeight")
 
 TEST_CASE("dock: Bottom_DocksToBottom")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -419,7 +419,7 @@ TEST_CASE("dock: Bottom_DocksToBottom")
 
 TEST_CASE("dock: Left_TakesFullHeightMeasuredWidth")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -435,7 +435,7 @@ TEST_CASE("dock: Left_TakesFullHeightMeasuredWidth")
 
 TEST_CASE("dock: Right_DocksToRight")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -450,7 +450,7 @@ TEST_CASE("dock: Right_DocksToRight")
 
 TEST_CASE("dock: Fill_TakesRemainingSpace")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -468,7 +468,7 @@ TEST_CASE("dock: Fill_TakesRemainingSpace")
 
 TEST_CASE("dock: LastChildFill_False_DoesNotFill")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -485,7 +485,7 @@ TEST_CASE("dock: LastChildFill_False_DoesNotFill")
 
 TEST_CASE("dock: LastChildFill_True_FillsRemaining")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -503,7 +503,7 @@ TEST_CASE("dock: LastChildFill_True_FillsRemaining")
 
 TEST_CASE("dock: MultipleEdges_ShrinkRemaining")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
@@ -537,7 +537,7 @@ static core::RefPtr<GridLayoutParams> Cell(i32 row, i32 col, i32 rowSpan = 1, i3
 
 TEST_CASE("grid: FixedColumns_CorrectWidths")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -557,7 +557,7 @@ TEST_CASE("grid: FixedColumns_CorrectWidths")
 
 TEST_CASE("grid: FlexColumns_ProportionalWidths")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -576,7 +576,7 @@ TEST_CASE("grid: FlexColumns_ProportionalWidths")
 
 TEST_CASE("grid: AutoColumns_SizeToContent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -595,7 +595,7 @@ TEST_CASE("grid: AutoColumns_SizeToContent")
 
 TEST_CASE("grid: Spacing_BetweenCells")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -614,7 +614,7 @@ TEST_CASE("grid: Spacing_BetweenCells")
 
 TEST_CASE("grid: AutoFlow_PlacesSequentially")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -642,7 +642,7 @@ TEST_CASE("grid: AutoFlow_PlacesSequentially")
 
 TEST_CASE("grid: ColumnSpan_MergesCells")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -660,7 +660,7 @@ TEST_CASE("grid: ColumnSpan_MergesCells")
 
 TEST_CASE("grid: RowSpan_MergesCells")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -677,7 +677,7 @@ TEST_CASE("grid: RowSpan_MergesCells")
 
 TEST_CASE("grid: MixedTracks_FixedAutoFlex")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = New<GridLayout>();
@@ -709,7 +709,7 @@ static core::RefPtr<FlexLayoutParams> Growth(f32 grow)
 
 TEST_CASE("flex: Row_ChildrenArrangedHorizontally")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -726,7 +726,7 @@ TEST_CASE("flex: Row_ChildrenArrangedHorizontally")
 
 TEST_CASE("flex: Column_ChildrenArrangedVertically")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -743,7 +743,7 @@ TEST_CASE("flex: Column_ChildrenArrangedVertically")
 
 TEST_CASE("flex: Row_Spacing")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -760,7 +760,7 @@ TEST_CASE("flex: Row_Spacing")
 
 TEST_CASE("flex: Column_Spacing")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -777,7 +777,7 @@ TEST_CASE("flex: Column_Spacing")
 
 TEST_CASE("flex: Row_Grow_DistributesExtraSpace")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -794,7 +794,7 @@ TEST_CASE("flex: Row_Grow_DistributesExtraSpace")
 
 TEST_CASE("flex: Row_Grow_WeightedDistribution")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -811,7 +811,7 @@ TEST_CASE("flex: Row_Grow_WeightedDistribution")
 
 TEST_CASE("flex: Row_Grow_FixedPlusFlexible")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -828,7 +828,7 @@ TEST_CASE("flex: Row_Grow_FixedPlusFlexible")
 
 TEST_CASE("flex: Column_Grow")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -845,7 +845,7 @@ TEST_CASE("flex: Column_Grow")
 
 TEST_CASE("flex: Justify_End")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -860,7 +860,7 @@ TEST_CASE("flex: Justify_End")
 
 TEST_CASE("flex: Justify_Center")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -875,7 +875,7 @@ TEST_CASE("flex: Justify_Center")
 
 TEST_CASE("flex: Justify_SpaceBetween")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -893,7 +893,7 @@ TEST_CASE("flex: Justify_SpaceBetween")
 
 TEST_CASE("flex: Justify_SpaceEvenly")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -911,7 +911,7 @@ TEST_CASE("flex: Justify_SpaceEvenly")
 
 TEST_CASE("flex: AlignItems_Stretch")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -926,7 +926,7 @@ TEST_CASE("flex: AlignItems_Stretch")
 
 TEST_CASE("flex: AlignItems_Center")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -941,7 +941,7 @@ TEST_CASE("flex: AlignItems_Center")
 
 TEST_CASE("flex: AlignItems_End")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -956,7 +956,7 @@ TEST_CASE("flex: AlignItems_End")
 
 TEST_CASE("flex: Gone_ChildSkipped")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -975,7 +975,7 @@ TEST_CASE("flex: Gone_ChildSkipped")
 
 TEST_CASE("flex: Padding_OffsetsChildren")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flex = New<FlexLayout>();
@@ -991,7 +991,7 @@ TEST_CASE("flex: Padding_OffsetsChildren")
 
 TEST_CASE("absolute: MultipleChildren_IndependentPositions")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
@@ -1014,7 +1014,7 @@ TEST_CASE("absolute: MultipleChildren_IndependentPositions")
 
 TEST_CASE("flow: Horizontal_Spacing")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = New<FlowLayout>();

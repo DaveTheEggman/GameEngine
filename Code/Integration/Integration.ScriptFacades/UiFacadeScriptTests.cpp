@@ -35,7 +35,7 @@ namespace
     // tree of named controls (the facade wraps a plain root in a default UIScreen on push).
     struct UiBed
     {
-        ui::UIContext context;
+        ui::UIContext context{DefaultAllocator()};
         RefPtr<ui::RootView> root;
         gamekit::ScreenStack stack;
         engine::uiscript::UiScreenScriptBinding binding;

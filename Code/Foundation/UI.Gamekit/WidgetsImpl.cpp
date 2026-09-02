@@ -34,7 +34,7 @@ namespace foundation::ui::gamekit
     foundation::ui::Button* MenuList::AddItem(StringView label)
     {
         RefPtr<foundation::ui::Button> row =
-            MakeRef<foundation::ui::Button>(DefaultAllocator(), label);
+            MakeRef<foundation::ui::Button>(MemoryAllocator(), label);
         row->AddClass(u8"menu-item");
         foundation::ui::Button* raw = row.Get();
         m_items.PushBack(raw);
@@ -133,7 +133,7 @@ namespace foundation::ui::gamekit
         am->CancelForView(this); // a new drain replaces the in-flight one (no stacking)
         Bar* self = this;
         UniquePtr<foundation::ui::Animation> anim = MakeUnique<foundation::ui::FloatAnimation>(
-            DefaultAllocator(), Value.Value(), clamped, duration,
+            MemoryAllocator(), Value.Value(), clamped, duration,
             Function<void(f32)>{[self](f32 v) { self->Value.SetValue(v); }});
         anim->SetTarget(this); // cancelled if the Bar is deleted mid-drain
         am->Add(Move(anim));
@@ -166,7 +166,7 @@ namespace foundation::ui::gamekit
         const f32 from = static_cast<f32>(m_current);
         const f32 to = static_cast<f32>(target);
         UniquePtr<foundation::ui::Animation> anim = MakeUnique<foundation::ui::FloatAnimation>(
-            DefaultAllocator(), from, to, duration, Function<void(f32)>{[self](f32 v)
+            MemoryAllocator(), from, to, duration, Function<void(f32)>{[self](f32 v)
                                                                         {
                                                                             // round to the nearest
                                                                             // whole number each frame
@@ -193,12 +193,12 @@ namespace foundation::ui::gamekit
         Spacing = 6.0f;
         AddClass(u8"button-prompt");
 
-        RefPtr<foundation::ui::Label> cap = MakeRef<foundation::ui::Label>(DefaultAllocator());
+        RefPtr<foundation::ui::Label> cap = MakeRef<foundation::ui::Label>(MemoryAllocator());
         cap->AddClass(u8"keycap"); // the theme can draw a key-cap chip around it
         m_keycap = cap.Get();
         AddView(cap.Get());
 
-        RefPtr<foundation::ui::Label> txt = MakeRef<foundation::ui::Label>(DefaultAllocator());
+        RefPtr<foundation::ui::Label> txt = MakeRef<foundation::ui::Label>(MemoryAllocator());
         m_text = txt.Get();
         AddView(txt.Get());
     }

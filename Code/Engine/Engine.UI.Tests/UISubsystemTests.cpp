@@ -964,7 +964,7 @@ TEST_CASE(
     CHECK(restored != custom);
 
     // The built-in LIGHT variant exists alongside GameTheme and differs in palette.
-    RefPtr<StyleSheet> light = GameLightTheme::Create();
+    RefPtr<StyleSheet> light = GameLightTheme::Create(DefaultAllocator());
     CHECK(light.Get() != nullptr);
     CHECK(GameLightTheme::Palette().Background.r !=
           doctest::Approx(GameTheme::Palette().Background.r));

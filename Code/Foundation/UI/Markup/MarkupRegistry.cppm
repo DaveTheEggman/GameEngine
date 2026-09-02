@@ -67,9 +67,9 @@ export namespace foundation::ui
     /// debuggable) - used by MarkupLoader to create views and set attributes from .sml files.
     struct MarkupRegistry
     {
-        using ViewFactory = RefPtr<View> (*)();
+        using ViewFactory = RefPtr<View> (*)(IAllocator&);
         using PropertySetter = void (*)(View*, StringView);
-        using LayoutParamsFactory = RefPtr<LayoutParams> (*)();
+        using LayoutParamsFactory = RefPtr<LayoutParams> (*)(IAllocator&);
         using LayoutParamSetter = void (*)(LayoutParams*, StringView);
 
         // === Registration ===
@@ -96,11 +96,12 @@ export namespace foundation::ui
         // === Lookup ===
 
         /// Create a view for the given element name. Null if not registered.
-        [[nodiscard]] static RefPtr<View> CreateView(StringView elementName)
+        [[nodiscard]] static RefPtr<View> CreateView(StringView elementName,
+                                                     IAllocator& allocator)
         {
             if (ViewFactory* f = ViewFactories().Find(String(elementName)))
             {
-                return (*f)();
+                return (*f)(allocator);
             }
             return {};
         }
@@ -118,11 +119,12 @@ export namespace foundation::ui
         }
 
         /// Create default LayoutParams for a container. Null if not a registered layout.
-        [[nodiscard]] static RefPtr<LayoutParams> CreateLayoutParams(StringView containerName)
+        [[nodiscard]] static RefPtr<LayoutParams> CreateLayoutParams(StringView containerName,
+                                                                     IAllocator& allocator)
         {
             if (LayoutParamsFactory* f = LayoutFactories().Find(String(containerName)))
             {
-                return (*f)();
+                return (*f)(allocator);
             }
             return {};
         }
@@ -492,9 +494,9 @@ export namespace foundation::ui
         };
 
         RegisterView(u8"Flex",
-                     []() -> RefPtr<View> { return MakeRef<FlexLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlexLayout>(allocator); });
         RegisterView(u8"FlexLayout",
-                     []() -> RefPtr<View> { return MakeRef<FlexLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlexLayout>(allocator); });
         RegisterProperty(u8"Flex", u8"direction", flexDirection);
         RegisterProperty(u8"Flex", u8"justify", flexJustify);
         RegisterProperty(u8"Flex", u8"align", flexAlign);
@@ -524,12 +526,12 @@ export namespace foundation::ui
                 }
             }
         };
-        RegisterLayout(u8"Flex", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<FlexLayoutParams>(DefaultAllocator()); });
+        RegisterLayout(u8"Flex", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<FlexLayoutParams>(allocator); });
         RegisterLayoutParam(u8"Flex", u8"grow", flexGrow);
         RegisterLayoutParam(u8"Flex", u8"shrink", flexShrink);
-        RegisterLayout(u8"FlexLayout", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<FlexLayoutParams>(DefaultAllocator()); });
+        RegisterLayout(u8"FlexLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<FlexLayoutParams>(allocator); });
         RegisterLayoutParam(u8"FlexLayout", u8"grow", flexGrow);
         RegisterLayoutParam(u8"FlexLayout", u8"shrink", flexShrink);
 
@@ -541,14 +543,14 @@ export namespace foundation::ui
             }
         };
         RegisterView(u8"Frame",
-                     []() -> RefPtr<View> { return MakeRef<FrameLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FrameLayout>(allocator); });
         RegisterView(u8"FrameLayout",
-                     []() -> RefPtr<View> { return MakeRef<FrameLayout>(DefaultAllocator()); });
-        RegisterLayout(u8"Frame", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<FrameLayoutParams>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FrameLayout>(allocator); });
+        RegisterLayout(u8"Frame", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<FrameLayoutParams>(allocator); });
         RegisterLayoutParam(u8"Frame", u8"gravity", frameGravity);
-        RegisterLayout(u8"FrameLayout", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<FrameLayoutParams>(DefaultAllocator()); });
+        RegisterLayout(u8"FrameLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<FrameLayoutParams>(allocator); });
         RegisterLayoutParam(u8"FrameLayout", u8"gravity", frameGravity);
 
         auto dockLastFill = [](View* v, StringView val)
@@ -585,40 +587,40 @@ export namespace foundation::ui
             }
         };
         RegisterView(u8"Dock",
-                     []() -> RefPtr<View> { return MakeRef<DockLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DockLayout>(allocator); });
         RegisterView(u8"DockLayout",
-                     []() -> RefPtr<View> { return MakeRef<DockLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DockLayout>(allocator); });
         RegisterProperty(u8"Dock", u8"last-child-fill", dockLastFill);
         RegisterProperty(u8"DockLayout", u8"last-child-fill", dockLastFill);
-        RegisterLayout(u8"Dock", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<DockLayoutParams>(DefaultAllocator()); });
+        RegisterLayout(u8"Dock", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<DockLayoutParams>(allocator); });
         RegisterLayoutParam(u8"Dock", u8"dock", dockParam);
-        RegisterLayout(u8"DockLayout", []() -> RefPtr<LayoutParams>
-                       { return MakeRef<DockLayoutParams>(DefaultAllocator()); });
+        RegisterLayout(u8"DockLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
+                       { return MakeRef<DockLayoutParams>(allocator); });
         RegisterLayoutParam(u8"DockLayout", u8"dock", dockParam);
 
         RegisterView(u8"Flow",
-                     []() -> RefPtr<View> { return MakeRef<FlowLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlowLayout>(allocator); });
         RegisterView(u8"FlowLayout",
-                     []() -> RefPtr<View> { return MakeRef<FlowLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlowLayout>(allocator); });
         RegisterView(u8"Absolute",
-                     []() -> RefPtr<View> { return MakeRef<AbsoluteLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<AbsoluteLayout>(allocator); });
         RegisterView(u8"AbsoluteLayout",
-                     []() -> RefPtr<View> { return MakeRef<AbsoluteLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<AbsoluteLayout>(allocator); });
         RegisterView(u8"Grid",
-                     []() -> RefPtr<View> { return MakeRef<GridLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<GridLayout>(allocator); });
         RegisterView(u8"GridLayout",
-                     []() -> RefPtr<View> { return MakeRef<GridLayout>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<GridLayout>(allocator); });
 
         // === Controls ===
 
         RegisterView(u8"Panel",
-                     []() -> RefPtr<View> { return MakeRef<Panel>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Panel>(allocator); });
         RegisterView(u8"ScrollView",
-                     []() -> RefPtr<View> { return MakeRef<ScrollView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ScrollView>(allocator); });
 
         RegisterView(u8"Label",
-                     []() -> RefPtr<View> { return MakeRef<Label>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Label>(allocator); });
         RegisterProperty(u8"Label", u8"text",
                          [](View* v, StringView val)
                          {
@@ -663,8 +665,8 @@ export namespace foundation::ui
                              }
                          });
 
-        RegisterView(u8"Button", []() -> RefPtr<View>
-                     { return MakeRef<Button>(DefaultAllocator(), StringView{}); });
+        RegisterView(u8"Button", [](IAllocator& allocator) -> RefPtr<View>
+                     { return MakeRef<Button>(allocator, StringView{}); });
         RegisterProperty(u8"Button", u8"text",
                          [](View* v, StringView val)
                          {
@@ -694,8 +696,8 @@ export namespace foundation::ui
                          });
 
         // Icon button: the icon drawable is set in code (or a theme part); markup exposes its size.
-        RegisterView(u8"IconButton", []() -> RefPtr<View>
-                     { return MakeRef<IconButton>(DefaultAllocator(), nullptr); });
+        RegisterView(u8"IconButton", [](IAllocator& allocator) -> RefPtr<View>
+                     { return MakeRef<IconButton>(allocator, nullptr); });
         RegisterProperty(u8"IconButton", u8"size",
                          [](View* v, StringView val)
                          {
@@ -709,7 +711,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"CheckBox",
-                     []() -> RefPtr<View> { return MakeRef<CheckBox>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<CheckBox>(allocator); });
         RegisterProperty(u8"CheckBox", u8"text",
                          [](View* v, StringView val)
                          {
@@ -728,7 +730,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"RadioButton",
-                     []() -> RefPtr<View> { return MakeRef<RadioButton>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<RadioButton>(allocator); });
         RegisterProperty(u8"RadioButton", u8"text",
                          [](View* v, StringView val)
                          {
@@ -739,10 +741,10 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"RadioGroup",
-                     []() -> RefPtr<View> { return MakeRef<RadioGroup>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<RadioGroup>(allocator); });
 
         RegisterView(u8"ToggleSwitch",
-                     []() -> RefPtr<View> { return MakeRef<ToggleSwitch>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ToggleSwitch>(allocator); });
         RegisterProperty(u8"ToggleSwitch", u8"text",
                          [](View* v, StringView val)
                          {
@@ -761,7 +763,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"ToggleButton",
-                     []() -> RefPtr<View> { return MakeRef<ToggleButton>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ToggleButton>(allocator); });
         RegisterProperty(u8"ToggleButton", u8"is-checked",
                          [](View* v, StringView val)
                          {
@@ -772,7 +774,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"Slider",
-                     []() -> RefPtr<View> { return MakeRef<Slider>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Slider>(allocator); });
         RegisterProperty(u8"Slider", u8"min",
                          [](View* v, StringView val)
                          {
@@ -819,7 +821,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"ProgressBar",
-                     []() -> RefPtr<View> { return MakeRef<ProgressBar>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ProgressBar>(allocator); });
         RegisterProperty(u8"ProgressBar", u8"value",
                          [](View* v, StringView val)
                          {
@@ -833,7 +835,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"EditText",
-                     []() -> RefPtr<View> { return MakeRef<EditText>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<EditText>(allocator); });
         RegisterProperty(u8"EditText", u8"text",
                          [](View* v, StringView val)
                          {
@@ -879,7 +881,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"PasswordBox",
-                     []() -> RefPtr<View> { return MakeRef<PasswordBox>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<PasswordBox>(allocator); });
         RegisterProperty(u8"PasswordBox", u8"placeholder",
                          [](View* v, StringView val)
                          {
@@ -890,7 +892,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"NumericField",
-                     []() -> RefPtr<View> { return MakeRef<NumericField>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<NumericField>(allocator); });
         RegisterProperty(u8"NumericField", u8"value",
                          [](View* v, StringView val)
                          {
@@ -945,7 +947,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"Expander",
-                     []() -> RefPtr<View> { return MakeRef<Expander>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Expander>(allocator); });
         RegisterProperty(u8"Expander", u8"header-text",
                          [](View* v, StringView val)
                          {
@@ -964,12 +966,12 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"TabView",
-                     []() -> RefPtr<View> { return MakeRef<TabView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<TabView>(allocator); });
 
         RegisterView(u8"ComboBox",
-                     []() -> RefPtr<View> { return MakeRef<ComboBox>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ComboBox>(allocator); });
         RegisterView(u8"Spacer",
-                     []() -> RefPtr<View> { return MakeRef<Spacer>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Spacer>(allocator); });
         RegisterProperty(u8"Spacer", u8"spacer-width",
                          [](View* v, StringView val)
                          {
@@ -994,7 +996,7 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"Separator",
-                     []() -> RefPtr<View> { return MakeRef<Separator>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<Separator>(allocator); });
         RegisterProperty(u8"Separator", u8"orientation",
                          [](View* v, StringView val)
                          {
@@ -1007,16 +1009,16 @@ export namespace foundation::ui
                          });
 
         RegisterView(u8"ColorView",
-                     []() -> RefPtr<View> { return MakeRef<ColorView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ColorView>(allocator); });
         RegisterView(u8"ImageView",
-                     []() -> RefPtr<View> { return MakeRef<ImageView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ImageView>(allocator); });
         RegisterView(u8"DrawableView",
-                     []() -> RefPtr<View> { return MakeRef<DrawableView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DrawableView>(allocator); });
         RegisterView(u8"ListView",
-                     []() -> RefPtr<View> { return MakeRef<ListView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ListView>(allocator); });
         RegisterView(u8"TreeView",
-                     []() -> RefPtr<View> { return MakeRef<TreeView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<TreeView>(allocator); });
         RegisterView(u8"GridView",
-                     []() -> RefPtr<View> { return MakeRef<GridView>(DefaultAllocator()); });
+                     [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<GridView>(allocator); });
     }
 }

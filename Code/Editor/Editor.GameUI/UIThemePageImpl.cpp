@@ -217,7 +217,7 @@ namespace editor
             return;
         }
         // Apply the EDITED stylesheet PER-ELEMENT (subtree-scoped) - never the shared game context.
-        ui::StyleSheetLoader loader;
+        ui::StyleSheetLoader loader(DefaultAllocator());
         loader.SetPalette(ui::ThemePalette::Dark());
         RefPtr<ui::StyleSheet> sheet = loader.Load(m_stylesheet.AsView());
         String status;

@@ -33,7 +33,7 @@ export namespace foundation::ui
         {
             view->Opacity = from;
             UniquePtr<FloatAnimation> anim = MakeUnique<FloatAnimation>(
-                DefaultAllocator(), from, to, duration,
+                view->MemoryAllocator(), from, to, duration,
                 Function<void(f32)>{[view](f32 v) { view->Opacity = v; }}, easing);
             anim->SetTarget(view);
             return anim;
@@ -58,7 +58,7 @@ export namespace foundation::ui
                                                EasingFunction easing = nullptr)
         {
             UniquePtr<FloatAnimation> anim =
-                MakeUnique<FloatAnimation>(DefaultAllocator(), from, to, duration,
+                MakeUnique<FloatAnimation>(view->MemoryAllocator(), from, to, duration,
                                            Function<void(f32)>{[view](f32 v)
                                                                {
                                                                    ViewTransform t =
@@ -76,7 +76,7 @@ export namespace foundation::ui
                                                EasingFunction easing = nullptr)
         {
             UniquePtr<FloatAnimation> anim =
-                MakeUnique<FloatAnimation>(DefaultAllocator(), from, to, duration,
+                MakeUnique<FloatAnimation>(view->MemoryAllocator(), from, to, duration,
                                            Function<void(f32)>{[view](f32 v)
                                                                {
                                                                    ViewTransform t =
@@ -94,7 +94,7 @@ export namespace foundation::ui
                                             EasingFunction easing = nullptr)
         {
             UniquePtr<FloatAnimation> anim =
-                MakeUnique<FloatAnimation>(DefaultAllocator(), from, to, duration,
+                MakeUnique<FloatAnimation>(view->MemoryAllocator(), from, to, duration,
                                            Function<void(f32)>{[view](f32 v)
                                                                {
                                                                    ViewTransform t =
@@ -112,7 +112,7 @@ export namespace foundation::ui
                                              EasingFunction easing = nullptr)
         {
             UniquePtr<FloatAnimation> anim =
-                MakeUnique<FloatAnimation>(DefaultAllocator(), from, to, duration,
+                MakeUnique<FloatAnimation>(view->MemoryAllocator(), from, to, duration,
                                            Function<void(f32)>{[view](f32 v)
                                                                {
                                                                    ViewTransform t =

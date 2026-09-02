@@ -33,7 +33,7 @@ TEST_CASE("box-metrics: RoundedRectDrawable reports its border as DrawablePaddin
 
 TEST_CASE("box-metrics: the three padding channels max-merge, border resolves separately")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get());
     auto group = core::MakeRef<ViewGroup>(core::DefaultAllocator());
@@ -59,7 +59,7 @@ TEST_CASE("box-metrics: the three padding channels max-merge, border resolves se
 
 TEST_CASE("box-metrics: stylesheet padding on a CONTAINER takes effect (Panel content box)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto panel = core::MakeRef<Panel>(core::DefaultAllocator());
@@ -78,7 +78,7 @@ TEST_CASE("box-metrics: stylesheet padding on a CONTAINER takes effect (Panel co
 
 TEST_CASE("box-metrics: a bordered background reserves content space in a Panel (border-box)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto plain = core::MakeRef<Panel>(core::DefaultAllocator());
@@ -107,7 +107,7 @@ TEST_CASE("box-metrics: a bordered background reserves content space in a Panel 
 
 TEST_CASE("box-model: Fixed(100) child is 100 in Dock, Flow, Grid, and Panel (was Frame-only)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -149,7 +149,7 @@ TEST_CASE("box-model: Fixed(100) child is 100 in Dock, Flow, Grid, and Panel (wa
 
 TEST_CASE("box-model: margins are honored in FlowLayout (rows advance by the margin box)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto flow = core::MakeRef<FlowLayout>(core::DefaultAllocator());
@@ -172,7 +172,7 @@ TEST_CASE("box-model: margins are honored in FlowLayout (rows advance by the mar
 
 TEST_CASE("box-model: a fill-style leaf in a GridLayout cell does not explode to kFloatMax")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
     auto grid = core::MakeRef<GridLayout>(core::DefaultAllocator());

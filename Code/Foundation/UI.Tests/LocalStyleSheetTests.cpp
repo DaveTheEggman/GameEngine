@@ -119,7 +119,7 @@ TEST_CASE("local-stylesheet: SharedBetweenViews")
 
 TEST_CASE("local-stylesheet: Resolution_LocalOnThisView_WinsOverContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -136,7 +136,7 @@ TEST_CASE("local-stylesheet: Resolution_LocalOnThisView_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Resolution_LocalOnAncestor_WinsOverContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -155,7 +155,7 @@ TEST_CASE("local-stylesheet: Resolution_LocalOnAncestor_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Resolution_CloserAncestor_WinsOverFarther")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -177,7 +177,7 @@ TEST_CASE("local-stylesheet: Resolution_CloserAncestor_WinsOverFarther")
 
 TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToNextAncestor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -200,7 +200,7 @@ TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToNextAncestor")
 
 TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -219,7 +219,7 @@ TEST_CASE("local-stylesheet: Resolution_NotFound_FallsThroughToContext")
 
 TEST_CASE("local-stylesheet: Resolution_InheritableProperty_CascadesThroughLocalOnAncestor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -239,7 +239,7 @@ TEST_CASE("local-stylesheet: Resolution_InheritableProperty_CascadesThroughLocal
 
 TEST_CASE("local-stylesheet: Resolution_NonInheritable_DoesNotCascade")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -259,7 +259,7 @@ TEST_CASE("local-stylesheet: Resolution_NonInheritable_DoesNotCascade")
 
 TEST_CASE("local-stylesheet: Pseudo_LocalOnThisView_WinsOverContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -278,7 +278,7 @@ TEST_CASE("local-stylesheet: Pseudo_LocalOnThisView_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Pseudo_LocalOnAncestor_WinsOverContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -300,7 +300,7 @@ TEST_CASE("local-stylesheet: Pseudo_LocalOnAncestor_WinsOverContext")
 
 TEST_CASE("local-stylesheet: Pseudo_CloserAncestor_WinsOverFarther")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -325,7 +325,7 @@ TEST_CASE("local-stylesheet: Pseudo_CloserAncestor_WinsOverFarther")
 
 TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnThisView")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -343,7 +343,7 @@ TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnThisView")
 
 TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnAncestor")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -365,7 +365,7 @@ TEST_CASE("local-stylesheet: Pseudo_InlineBeatsLocalOnAncestor")
 
 TEST_CASE("local-stylesheet: Pseudo_NotFound_FallsThroughToContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* ctxSheet = SetupCtxSheet(ctx);
@@ -389,7 +389,7 @@ TEST_CASE("local-stylesheet: Pseudo_NotFound_FallsThroughToContext")
 
 TEST_CASE("local-stylesheet: Pseudo_FontFamily_ForAllOnAncestorLocal_ReachesAllDescendantTypes")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -414,7 +414,7 @@ TEST_CASE("local-stylesheet: Pseudo_FontFamily_ForAllOnAncestorLocal_ReachesAllD
 
 TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_NoMatchInChain_ReturnsNone")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);
@@ -433,7 +433,7 @@ TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_NoMatchInChain_ReturnsNon
 
 TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_AncestorMatchesType_InheritsDown")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     SetupCtxSheet(ctx);

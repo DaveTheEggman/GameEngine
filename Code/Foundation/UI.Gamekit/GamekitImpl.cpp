@@ -92,7 +92,7 @@ namespace foundation::ui::gamekit
         static const bool once = []()
         {
             MarkupRegistry::RegisterView(
-                u8"screen", []() -> RefPtr<View> { return MakeRef<UIScreen>(DefaultAllocator()); });
+                u8"screen", [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<UIScreen>(allocator); });
             MarkupRegistry::RegisterProperty(u8"screen", u8"mode", [](View* v, StringView val)
                                              { if (auto* s = Cast<UIScreen>(v)) s->SetModeFromString(val); });
             MarkupRegistry::RegisterProperty(u8"screen", u8"transition", [](View* v, StringView val)

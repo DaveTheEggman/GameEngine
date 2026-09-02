@@ -42,13 +42,13 @@ export namespace foundation::ui::toolkit
         /// The first tab added becomes the default target of an expand when none is active.
         void AddTab(StringView id, StringView label, View* content)
         {
-            auto button = MakeRef<::foundation::ui::Button>(DefaultAllocator(), label);
+            auto button = MakeRef<::foundation::ui::Button>(MemoryAllocator(), label);
             button->FontSize.SetValue(Optional<f32>{11.0f});
             const i32 index = static_cast<i32>(m_tabs.Size());
             BottomDock* self = this;
             button->OnClick.Add([self, index](::foundation::ui::ButtonBase*) { self->OnTabClicked(index); });
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(96.0f));
                 lp->Height = ::foundation::ui::SizeSpec::Match();
                 m_tabBar->AddView(button.Get(), lp);
@@ -56,7 +56,7 @@ export namespace foundation::ui::toolkit
             if (content != nullptr)
             {
                 content->Visibility = ::foundation::ui::Visibility::Gone; // shown only when active+expanded
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ::foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 m_contentHost->AddView(content, lp);
@@ -145,22 +145,22 @@ export namespace foundation::ui::toolkit
             Spacing = 0.0f;
 
             // Content region (grows; hidden while collapsed) ABOVE the always-visible bar.
-            m_contentHost = MakeRef<::foundation::ui::FlexLayout>(DefaultAllocator());
+            m_contentHost = MakeRef<::foundation::ui::FlexLayout>(MemoryAllocator());
             m_contentHost->Direction = ::foundation::ui::Orientation::Vertical;
             m_contentHost->Visibility = ::foundation::ui::Visibility::Gone; // default collapsed
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ::foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 AddView(m_contentHost.Get(), lp);
             }
 
-            m_tabBar = MakeRef<::foundation::ui::FlexLayout>(DefaultAllocator());
+            m_tabBar = MakeRef<::foundation::ui::FlexLayout>(MemoryAllocator());
             m_tabBar->Direction = ::foundation::ui::Orientation::Horizontal;
             m_tabBar->Spacing = 2.0f;
             m_tabBar->Padding = ::foundation::ui::Thickness{4, 2};
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ::foundation::ui::SizeSpec::Match();
                 lp->Height = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(kBarHeight));
                 AddView(m_tabBar.Get(), lp);

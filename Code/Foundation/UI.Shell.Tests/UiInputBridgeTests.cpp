@@ -81,7 +81,7 @@ namespace
 
 TEST_CASE("ui-shell: click focuses and typed text reaches the field")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     RefPtr<RootView> root;
     SetupRoot(ctx, root);
     auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
@@ -99,7 +99,7 @@ TEST_CASE("ui-shell: click focuses and typed text reaches the field")
 
 TEST_CASE("ui-shell: text input target follows focus (IME sync)")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     RefPtr<RootView> root;
     SetupRoot(ctx, root);
     auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
@@ -157,7 +157,7 @@ TEST_CASE("ui-shell: ShellClipboard with null shell is graceful")
 // the UI. The bridge now maps F1-F24 and the digit row.
 TEST_CASE("ui-shell: function and digit keys map through the bridge")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = core::Float2{800, 600};
     ctx.AddRootView(root.Get());
@@ -204,7 +204,7 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
 // Numpad Enter maps to Return: both mean "confirm" to the UI (commit-on-Enter etc.).
 TEST_CASE("ui-shell: keypad enter maps to Return")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     root->ViewportSize = core::Float2{800, 600};
     ctx.AddRootView(root.Get());

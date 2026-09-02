@@ -220,7 +220,7 @@ export namespace foundation::ui::toolkit
         /// Add any ToolbarItem (or View). The child tree takes a ref.
         void AddItem(View* item)
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
             lp->Height = SizeSpec::Match();
             AddView(item, lp);
         }
@@ -228,7 +228,7 @@ export namespace foundation::ui::toolkit
         /// Add a text button. Returns the borrowed button for further configuration.
         ToolbarButton* AddButton(StringView text)
         {
-            RefPtr<ToolbarButton> btn = MakeRef<ToolbarButton>(DefaultAllocator());
+            RefPtr<ToolbarButton> btn = MakeRef<ToolbarButton>(MemoryAllocator());
             btn->SetText(text);
             ToolbarButton* raw = btn.Get();
             AddItem(btn.Get());
@@ -238,7 +238,7 @@ export namespace foundation::ui::toolkit
         /// Add a separator. Returns the borrowed separator.
         ToolbarSeparator* AddSeparator()
         {
-            RefPtr<ToolbarSeparator> sep = MakeRef<ToolbarSeparator>(DefaultAllocator());
+            RefPtr<ToolbarSeparator> sep = MakeRef<ToolbarSeparator>(MemoryAllocator());
             ToolbarSeparator* raw = sep.Get();
             AddItem(sep.Get());
             return raw;
@@ -247,7 +247,7 @@ export namespace foundation::ui::toolkit
         /// Add a toggle button. Returns the borrowed toggle for further configuration.
         ToolbarToggle* AddToggle(StringView text)
         {
-            RefPtr<ToolbarToggle> toggle = MakeRef<ToolbarToggle>(DefaultAllocator());
+            RefPtr<ToolbarToggle> toggle = MakeRef<ToolbarToggle>(MemoryAllocator());
             toggle->SetText(text);
             ToolbarToggle* raw = toggle.Get();
             AddItem(toggle.Get());

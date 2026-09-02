@@ -21,7 +21,7 @@ namespace
 {
     RefPtr<StyleSheet> LoadTheme(StringView sss, ThemePalette palette)
     {
-        StyleSheetLoader loader;
+        StyleSheetLoader loader(DefaultAllocator());
         loader.SetPalette(palette);
         return loader.Load(sss);
     }
@@ -184,7 +184,7 @@ TEST_CASE("theme-sheets: Create() serves the parsed sheet (belt does not engage)
     // DarkTheme::Create falls back to the legacy C++ builder ONLY on a parse failure of the
     // embedded sheet; a healthy build must serve the parsed one. The legacy builder has no
     // AccentColor on the View rule - its presence proves the parsed path.
-    RefPtr<StyleSheet> sheet = DarkTheme::Create(ThemePalette::Dark());
+    RefPtr<StyleSheet> sheet = DarkTheme::Create(DefaultAllocator(), ThemePalette::Dark());
     REQUIRE(sheet.Get() != nullptr);
     CHECK(FindValue(*sheet, &View::StaticType(), {}, StyleProperty::AccentColor) != nullptr);
 }

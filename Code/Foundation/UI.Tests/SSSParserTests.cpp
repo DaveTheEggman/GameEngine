@@ -34,7 +34,7 @@ static void EnsureGlobals()
 // A UIContext + RootView with a stylesheet applied; the test adds views under `root`.
 struct Fixture
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = core::MakeRef<RootView>(core::DefaultAllocator());
 
     explicit Fixture(core::RefPtr<StyleSheet> sheet)
@@ -54,7 +54,7 @@ struct Fixture
 
 static core::RefPtr<StyleSheet> LoadSSS(StringView src)
 {
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     return loader.Load(src);
 }
 
@@ -243,7 +243,7 @@ TEST_CASE("sss: PaletteVariable")
 
 TEST_CASE("sss: SetPalette_ThemePalette")
 {
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.SetPalette(ThemePalette::Dark());
     Fixture f(loader.Load(u8"View { text-color: $text; }"));
     core::RefPtr<TestView> view = f.AddView();
@@ -607,7 +607,7 @@ TEST_CASE("sss: DrawableFactory_GradientWithDirection")
 TEST_CASE("sss: DrawableFactory_Svg")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
@@ -623,7 +623,7 @@ TEST_CASE("sss: DrawableFactory_Svg")
 TEST_CASE("sss: DrawableFactory_SvgWithTint")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
@@ -662,7 +662,7 @@ TEST_CASE("sss: TypePlusClassRule")
 TEST_CASE("sss: PaletteExtends")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.SetPaletteVariable(u8"base-color", Rgb(100, 100, 100));
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @palette custom extends base { accent: #ff0000; }
@@ -681,7 +681,7 @@ TEST_CASE("sss: PaletteExtends")
 TEST_CASE("sss: PaletteExtends_InheritsLoaderValues")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.SetPaletteVariable(u8"base-bg", Rgb(40, 40, 50));
     loader.SetPaletteVariable(u8"base-text", Rgb(220, 220, 230));
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
@@ -711,7 +711,7 @@ TEST_CASE("sss: Import_LoadsFromProvider")
     EnsureGlobals();
     MockResourceProvider provider;
     provider.AddText(u8"buttons.sss", u8"ButtonBase { padding: 6 12; }");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         View { font-size: 14; }
@@ -745,7 +745,7 @@ TEST_CASE("sss: Icon_LoadsFromProvider")
     provider.AddText(u8"icons/check.svg", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
 </svg>)");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @icon checkmark "icons/check.svg";
@@ -763,7 +763,7 @@ TEST_CASE("sss: Icon_LoadsFromProvider")
 TEST_CASE("sss: Icon_PreRegisteredBeatsFile")
 {
     EnsureGlobals();
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     // Pre-register inline SVG; no resource provider needed.
     loader.RegisterSvg(u8"checkmark", u8R"(<svg viewBox="0 0 16 16">
   <path d="M3 8 L6.5 11.5 L13 5" fill="none" stroke="white" stroke-width="2"/>
@@ -797,7 +797,7 @@ TEST_CASE("sss: Image_LoadsFromProvider")
     EnsureGlobals();
     MockResourceProvider provider;
     provider.AddImage(u8"textures/bg.png");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @image bg "textures/bg.png";
@@ -815,7 +815,7 @@ TEST_CASE("sss: NineSlice_LoadsFromProvider")
     EnsureGlobals();
     MockResourceProvider provider;
     provider.AddImage(u8"textures/panel.png");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @image panel "textures/panel.png";
@@ -834,7 +834,7 @@ TEST_CASE("sss: Image_PreRegistered")
     const core::u8 pixels[16] = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255};
     image::OwnedImageData imageData(2, 2, image::PixelFormat::RGBA8,
                                     core::Span<const core::u8>(pixels, 16));
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.RegisterImage(u8"test-img", &imageData);
     core::RefPtr<StyleSheet> sheet = loader.Load(u8"View { background: image(test-img); }");
     Fixture f(Move(sheet));
@@ -849,7 +849,7 @@ TEST_CASE("sss: NineSlice_SingleSliceValue")
     EnsureGlobals();
     MockResourceProvider provider;
     provider.AddImage(u8"textures/btn.png");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @image btn "textures/btn.png";
@@ -867,7 +867,7 @@ TEST_CASE("sss: Image_WithTint")
     EnsureGlobals();
     MockResourceProvider provider;
     provider.AddImage(u8"textures/icon.png");
-    StyleSheetLoader loader;
+    StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = &provider;
     core::RefPtr<StyleSheet> sheet = loader.Load(u8R"(
         @image icon "textures/icon.png";

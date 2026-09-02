@@ -106,18 +106,18 @@ export namespace foundation::ui::toolkit
         {
             const u64 id = m_nextId++;
 
-            RefPtr<ToastCard> card = MakeRef<ToastCard>(DefaultAllocator());
+            RefPtr<ToastCard> card = MakeRef<ToastCard>(MemoryAllocator());
             // Every severity resolves through the theme (the semantic status properties map to
             // the palette's $success/$warning/$error); AccentFor stays as the unthemed fallback.
             card->Accent = ResolveStyleColor(SeverityProperty(request.severity),
                                              AccentFor(request.severity));
 
-            RefPtr<Label> message = MakeRef<Label>(DefaultAllocator());
+            RefPtr<Label> message = MakeRef<Label>(MemoryAllocator());
             message->SetText(request.message.AsView());
             message->FontSize.SetValue(12.0f);
             message->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(DefaultAllocator());
+                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 lp->Height = SizeSpec::Match();
                 card->AddView(message.Get(), lp);
@@ -127,7 +127,7 @@ export namespace foundation::ui::toolkit
             if (!request.actionLabel.IsEmpty())
             {
                 RefPtr<Button> action =
-                    MakeRef<Button>(DefaultAllocator(), request.actionLabel.AsView());
+                    MakeRef<Button>(MemoryAllocator(), request.actionLabel.AsView());
                 action->OnClick.Add(
                     [self, id](ButtonBase*)
                     {
@@ -137,7 +137,7 @@ export namespace foundation::ui::toolkit
                 card->AddView(action.Get());
             }
 
-            RefPtr<Button> close = MakeRef<Button>(DefaultAllocator(), StringView(u8"×"));
+            RefPtr<Button> close = MakeRef<Button>(MemoryAllocator(), StringView(u8"×"));
             close->OnClick.Add([self, id](ButtonBase*) { self->MarkClosing(id); });
             card->AddView(close.Get());
 

@@ -49,7 +49,7 @@ export namespace foundation::ui
     protected:
         LayoutParamsPtr CreateDefaultLayoutParams() override
         {
-            return MakeRef<FrameLayoutParams>(DefaultAllocator());
+            return MakeRef<FrameLayoutParams>(MemoryAllocator());
         }
 
         void OnMeasure(BoxConstraints constraints) override

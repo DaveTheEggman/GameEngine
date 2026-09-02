@@ -40,7 +40,7 @@ TEST_CASE("wants-text-input: NumericField wants text")
 
 TEST_CASE("wants-text-input: UIContext reflects the focused view")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
 

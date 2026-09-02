@@ -41,6 +41,13 @@ namespace foundation::core::detail
         void* allocation;                      // base of the combined allocation
     };
 
+    // MakeRef parks the (fully initialized) control here just before constructing the
+    // object; RefCounted's ctor adopts it. This makes MemoryAllocator() valid INSIDE
+    // constructors - a view can create its children from its own tree's allocator while
+    // it is still being built. Thread-local: concurrent MakeRefs never cross wires, and
+    // nested MakeRef calls consume their own slot before the outer ctor body continues.
+    inline thread_local RefControl* t_pendingControl = nullptr;
+
     inline void ReleaseWeak(RefControl* control) noexcept
     {
         if (control->weak.fetch_sub(1, std::memory_order_acq_rel) == 1)
@@ -113,7 +120,11 @@ export namespace foundation::core
         }
 
     protected:
-        RefCounted() noexcept = default;
+        RefCounted() noexcept
+            : m_control(detail::t_pendingControl)
+        {
+            detail::t_pendingControl = nullptr;
+        }
         virtual ~RefCounted() = default;
 
         RefCounted(const RefCounted&) = delete;
@@ -254,13 +265,19 @@ export namespace foundation::core
         }
 
         auto* control = Construct<detail::RefControl>(base);
-        T* object = Construct<T>(static_cast<byte*>(base) + objectOffset, Forward<Args>(args)...);
-
+        // Initialize the control BEFORE constructing the object and park it in the
+        // thread-local slot: the RefCounted base ctor adopts it, so the object's own
+        // constructor can already use MemoryAllocator() to build its children.
         control->strong.store(1, std::memory_order_relaxed);
         control->weak.store(1, std::memory_order_relaxed);
         control->allocator = &allocator;
-        control->object = object;
         control->allocation = base;
+
+        detail::t_pendingControl = control;
+        T* object = Construct<T>(static_cast<byte*>(base) + objectOffset, Forward<Args>(args)...);
+        detail::t_pendingControl = nullptr; // belt-and-braces (the base ctor consumed it)
+
+        control->object = object;
         control->destroyObject = [](void* p) noexcept { Destruct(static_cast<T*>(p)); };
 
         static_cast<RefCounted*>(object)->m_control = control;

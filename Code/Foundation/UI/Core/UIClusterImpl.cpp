@@ -292,7 +292,7 @@ namespace foundation::ui
     {
         if (!m_popupLayer)
         {
-            RefPtr<PopupLayer> pl = MakeRef<PopupLayer>(DefaultAllocator());
+            RefPtr<PopupLayer> pl = MakeRef<PopupLayer>(MemoryAllocator());
             m_popupLayer = RefPtr<ViewGroup>(pl.Get()); // upcast + ref
             ViewGroup::AddView(pl.Get()); // base add (bypasses RootView's keep-last override)
         }

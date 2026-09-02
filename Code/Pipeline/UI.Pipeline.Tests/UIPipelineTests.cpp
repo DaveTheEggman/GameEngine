@@ -83,7 +83,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
 
     // The cooked markup actually instantiates a view tree with addressable ids.
     MarkupLoader::Initialize();
-    RefPtr<View> tree = MarkupLoader::LoadFromString(document->markup.AsView());
+    RefPtr<View> tree = MarkupLoader::LoadFromString(DefaultAllocator(), document->markup.AsView());
     REQUIRE(tree.Get() != nullptr);
     auto* group = Cast<ViewGroup>(tree.Get());
     REQUIRE(group != nullptr);
@@ -151,7 +151,7 @@ TEST_CASE("ui.gamekit: a <screen> child Label keeps its id as Name and is findab
     // its markup id as its View Name. (The bug this guards: findLabel returning loud-null on a HUD.)
     MarkupLoader::Initialize();
     foundation::ui::gamekit::RegisterGamekitMarkup();
-    RefPtr<View> tree = MarkupLoader::LoadFromString(
+    RefPtr<View> tree = MarkupLoader::LoadFromString(DefaultAllocator(), 
         u8"<screen mode=\"overlay\">"
         u8"  <Panel><Flex><Label id=\"hud-timer\" text=\"90\"/></Flex></Panel>"
         u8"</screen>");
@@ -169,7 +169,7 @@ TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
 {
     MarkupLoader::Initialize();
     Array<String> warnings;
-    RefPtr<View> tree = MarkupLoader::LoadFromString(
+    RefPtr<View> tree = MarkupLoader::LoadFromString(DefaultAllocator(), 
         u8"<Flex direction=\"vertical\">"
         u8"  <Label fontSize=\"20\" text=\"typo\"/>" // camelCase typo -> warning
         u8"  <NotARealControl/>"                     // unknown child -> warning (dropped)
@@ -183,7 +183,7 @@ TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
 
     // A clean document warns about nothing.
     warnings.Clear();
-    RefPtr<View> clean = MarkupLoader::LoadFromString(kUIDocumentStarter, nullptr, &warnings);
+    RefPtr<View> clean = MarkupLoader::LoadFromString(DefaultAllocator(), kUIDocumentStarter, nullptr, &warnings);
     REQUIRE(clean.Get() != nullptr);
     CHECK(warnings.IsEmpty());
 }

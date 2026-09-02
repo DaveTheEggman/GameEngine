@@ -1677,7 +1677,7 @@ namespace editor::app
         }
 
         AssetsView* self = this;
-        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(u8"Delete assets", message.AsView());
+        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(DefaultAllocator(), u8"Delete assets", message.AsView());
         dialog->OnClosed.Add(ui::Event<void(ui::Dialog*, ui::DialogResult)>::Handler{
             [self, ids](ui::Dialog*, ui::DialogResult result)
             {
@@ -1788,7 +1788,7 @@ namespace editor::app
         message += u8" asset(s))? Source files and cooked products go away; open pages close.";
 
         AssetsView* self = this;
-        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(u8"Delete group", message.AsView());
+        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(DefaultAllocator(), u8"Delete group", message.AsView());
         dialog->OnClosed.Add(ui::Event<void(ui::Dialog*, ui::DialogResult)>::Handler{
             [self, group](ui::Dialog*, ui::DialogResult result)
             {

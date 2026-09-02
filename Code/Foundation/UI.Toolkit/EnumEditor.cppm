@@ -63,7 +63,7 @@ export namespace foundation::ui::toolkit
     protected:
         RefPtr<View> CreateEditorView() override
         {
-            RefPtr<ComboBox> comboBox = MakeRef<ComboBox>(DefaultAllocator());
+            RefPtr<ComboBox> comboBox = MakeRef<ComboBox>(MemoryAllocator());
             m_comboBox = comboBox.Get();
             for (usize i = 0; i < m_items.Size(); ++i)
             {

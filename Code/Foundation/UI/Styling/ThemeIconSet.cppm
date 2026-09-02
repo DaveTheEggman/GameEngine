@@ -77,6 +77,8 @@ export namespace foundation::ui
 
     class ThemeIconSet
     {
+        // Process-global icon cache (explicit Shutdown from UIHost) - glyphs live on
+        // the process allocator by design, like the global job/parser slots.
     public:
         /// Tripwire: bump when ThemeIcon gains a glyph (Initialize materializes ALL of them).
         static constexpr usize kGlyphCount = 10;
@@ -97,7 +99,7 @@ export namespace foundation::ui
             }
             for (usize i = 0; i < kGlyphCount; ++i)
             {
-                m_glyphs[i] = BakedSVGDrawable::FromString(Svg(static_cast<ThemeIcon>(i)));
+                m_glyphs[i] = BakedSVGDrawable::FromString(DefaultAllocator(), Svg(static_cast<ThemeIcon>(i)));
             }
             m_initialized = true;
         }
@@ -118,7 +120,7 @@ export namespace foundation::ui
 
         /// The shared baked glyph when the set is live, else a fresh unbaked SVGDrawable
         /// (headless/tests - unchanged behavior). Themes call this instead of
-        /// SVGDrawable::FromString(ThemeIcons::...).
+        /// SVGDrawable::FromString(DefaultAllocator(), ThemeIcons::...).
         [[nodiscard]] static RefPtr<Drawable> Acquire(ThemeIcon icon)
         {
             ThemeIconSet& set = Get();
@@ -129,7 +131,7 @@ export namespace foundation::ui
                     return RefPtr<Drawable>(shared.Get());
                 }
             }
-            RefPtr<SVGDrawable> fallback = SVGDrawable::FromString(Svg(icon));
+            RefPtr<SVGDrawable> fallback = SVGDrawable::FromString(DefaultAllocator(), Svg(icon));
             return RefPtr<Drawable>(fallback.Get());
         }
 
@@ -149,14 +151,14 @@ export namespace foundation::ui
                         return RefPtr<Drawable>(entry.drawable.Get());
                     }
                 }
-                if (RefPtr<BakedSVGDrawable> made = BakedSVGDrawable::FromString(Svg(icon)))
+                if (RefPtr<BakedSVGDrawable> made = BakedSVGDrawable::FromString(DefaultAllocator(), Svg(icon)))
                 {
                     made->TintColor = Optional<Color>(tint);
                     set.m_tinted.PushBack(TintedGlyph{icon, tint, made});
                     return RefPtr<Drawable>(made.Get());
                 }
             }
-            RefPtr<SVGDrawable> fallback = SVGDrawable::FromString(Svg(icon), tint);
+            RefPtr<SVGDrawable> fallback = SVGDrawable::FromString(DefaultAllocator(), Svg(icon), tint);
             return RefPtr<Drawable>(fallback.Get());
         }
 

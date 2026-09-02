@@ -322,7 +322,7 @@ namespace editor
                    u8"updates to match. This cannot be undone.";
         SceneEditorPage* page = this;
         RefPtr<foundation::ui::Dialog> dialog =
-            foundation::ui::Dialog::Confirm(u8"Apply to Prefab", message.AsView());
+            foundation::ui::Dialog::Confirm(DefaultAllocator(), u8"Apply to Prefab", message.AsView());
         dialog->OnClosed.Add(
             foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
                 [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)
@@ -427,7 +427,7 @@ namespace editor
                    u8"be undone.";
         SceneEditorPage* page = this;
         RefPtr<foundation::ui::Dialog> dialog =
-            foundation::ui::Dialog::Confirm(u8"Revert Instance", message.AsView());
+            foundation::ui::Dialog::Confirm(DefaultAllocator(), u8"Revert Instance", message.AsView());
         dialog->OnClosed.Add(
             foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
                 [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)

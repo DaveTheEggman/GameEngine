@@ -1059,7 +1059,8 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         }
     }
 
-    m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), *host.Graphics(), *host.Shell(),
+    m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), DefaultAllocator(),
+                                                   *host.Graphics(), *host.Shell(),
                                                *m_fontService);
     // Docking host needs the runtime host + UIHost; construct before BuildUI (the Docking tab uses it).
     m_dockHost =
@@ -1256,13 +1257,13 @@ void UISandbox::ApplyTheme()
     switch (m_themeIndex)
     {
     case 0:
-        m_sheet = ui::DarkTheme::Create();
+        m_sheet = ui::DarkTheme::Create(DefaultAllocator());
         break;
     case 1:
-        m_sheet = ui::LightTheme::Create();
+        m_sheet = ui::LightTheme::Create(DefaultAllocator());
         break;
     case 2:
-        m_sheet = ui::RoundedDarkTheme::Create();
+        m_sheet = ui::RoundedDarkTheme::Create(DefaultAllocator());
         break;
     case 3:
         m_sheet = CreateTexturedTheme();
@@ -1310,13 +1311,13 @@ RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette
     EnsureResourceProvider();
     if (!m_resProvider)
     {
-        return ui::DarkTheme::Create();
+        return ui::DarkTheme::Create(DefaultAllocator());
     }
 
     // Register the drawable factories + built-in type names so .sss element selectors resolve.
     ui::StyleSheetLoader::InitializeGlobals();
 
-    ui::StyleSheetLoader loader;
+    ui::StyleSheetLoader loader(DefaultAllocator());
     loader.ResourceProvider = m_resProvider.Get();
     loader.SetPalette(palette);
     loader.RegisterSvg(u8"checkmark", ui::ThemeIcons::Checkmark());
@@ -1331,7 +1332,7 @@ RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette
     String sss;
     if (!m_resProvider->LoadText(path, sss) || sss.IsEmpty())
     {
-        return ui::DarkTheme::Create();
+        return ui::DarkTheme::Create(DefaultAllocator());
     }
     return loader.Load(sss.AsView());
 }
@@ -1500,7 +1501,7 @@ RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
     images.AddImage(u8"expander::header", expN, image::NineSlice(4, 4, 4, 4));
     images.AddImage(u8"expander::header:hover", expH, image::NineSlice(4, 4, 4, 4));
 
-    return ui::TexturedTheme::Create(images, ui::ThemePalette::Light());
+    return ui::TexturedTheme::Create(DefaultAllocator(), images, ui::ThemePalette::Light());
 }
 
 // === Tab 10: Pause Menu (.sml) - loads a screen from disk through a VFS-backed resource provider ===
@@ -1569,7 +1570,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     }
 
     RefPtr<ui::View> pauseView =
-        ui::MarkupLoader::LoadFromString(sml.AsView(), &m_uiHost->Context());
+        ui::MarkupLoader::LoadFromString(DefaultAllocator(), sml.AsView(), &m_uiHost->Context());
     if (!pauseView)
     {
         return;
@@ -1593,7 +1594,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
         // reactive because ButtonBase passes its ControlState into the drawable's state-aware Draw.
         resumeBtn->SetStyle(
             ui::StyleProperty::Background,
-            ui::Palette::CreateStateRounded(Rgb(45, 130, 70), vg::CornerRadii(6.0f)));
+            ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(45, 130, 70), vg::CornerRadii(6.0f)));
     }
     if (ui::Button* settingsBtn = pauseRoot->FindByName<ui::Button>(u8"settings-btn"))
         settingsBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
@@ -1609,7 +1610,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
         quitBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [](ui::ButtonBase*) { std::printf("Quit clicked!\n"); }});
         quitBtn->SetStyle(ui::StyleProperty::Background,
-                          ui::Palette::CreateStateRounded(Rgb(150, 60, 60), vg::CornerRadii(6.0f)));
+                          ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(150, 60, 60), vg::CornerRadii(6.0f)));
     }
 
     // Inline style demo on the title: override TextColor + FontSize + FontFamily without touching the
@@ -1632,7 +1633,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     pauseLocal->ForType(&ui::Button::StaticType())
         .Set(ui::StyleProperty::Padding, ui::Thickness{14, 8})
         .Set(ui::StyleProperty::Background,
-             ui::Palette::CreateStateRounded(Rgb(60, 65, 80), vg::CornerRadii(6.0f)));
+             ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(60, 65, 80), vg::CornerRadii(6.0f)));
     pauseView->SetLocalStyleSheet(Move(pauseLocal));
 }
 
@@ -2176,13 +2177,13 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
         auto alertBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Alert"));
         alertBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [ctx](ui::ButtonBase*)
-            { ui::Dialog::Alert(u8"Information", u8"This is an alert dialog.")->Show(ctx); }});
+            { ui::Dialog::Alert(DefaultAllocator(), u8"Information", u8"This is an alert dialog.")->Show(ctx); }});
         row->AddView(alertBtn.Get());
         auto confirmBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Confirm"));
         confirmBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [ctx](ui::ButtonBase*)
             {
-                ui::Dialog::Confirm(u8"Confirm", u8"Are you sure you want to proceed?")->Show(ctx);
+                ui::Dialog::Confirm(DefaultAllocator(), u8"Confirm", u8"Are you sure you want to proceed?")->Show(ctx);
             }});
         row->AddView(confirmBtn.Get());
         demo->AddView(row.Get());
@@ -3106,8 +3107,8 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         auto addSvg = [&](StringView svg, f32 sz, Optional<Color> tint)
         {
             RefPtr<ui::SVGDrawable> d = tint.HasValue()
-                                            ? ui::SVGDrawable::FromString(svg, tint.Value())
-                                            : ui::SVGDrawable::FromString(svg);
+                                            ? ui::SVGDrawable::FromString(DefaultAllocator(), svg, tint.Value())
+                                            : ui::SVGDrawable::FromString(DefaultAllocator(), svg);
             if (d)
             {
                 svgRow->AddView(

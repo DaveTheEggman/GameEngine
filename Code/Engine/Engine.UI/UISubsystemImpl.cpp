@@ -501,7 +501,7 @@ namespace engine::ui
                      fontPath);
         }
         m_context.SetFontService(m_fonts.Get());
-        m_theme = GameTheme::Create();
+        m_theme = GameTheme::Create(DefaultAllocator());
         m_context.SetStyleSheet(m_theme);
         // The scene-LESS screen tier: the screen root holds ONLY the global overlay
         // layer (each scene's canvases + billboards live in that scene's own root). It
@@ -658,7 +658,7 @@ namespace engine::ui
                         if (document != nullptr && !document->markup.IsEmpty())
                         {
                             c.root =
-                                MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
+                                MarkupLoader::LoadFromString(m_context.Allocator(), document->markup.AsView(), &m_context);
                             if (c.root.Get() == nullptr)
                             {
                                 LOG_WARNING(u8"UI",
@@ -720,7 +720,7 @@ namespace engine::ui
                         c.themeSheet = nullptr;
                         if (theme != nullptr && !theme->stylesheet.IsEmpty())
                         {
-                            StyleSheetLoader loader;
+                            StyleSheetLoader loader(m_context.Allocator());
                             loader.SetPalette(GameTheme::Palette());
                             c.themeSheet = loader.Load(theme->stylesheet.AsView());
                         }
@@ -777,7 +777,7 @@ namespace engine::ui
                         if (document != nullptr && !document->markup.IsEmpty())
                         {
                             c.root =
-                                MarkupLoader::LoadFromString(document->markup.AsView(), &m_context);
+                                MarkupLoader::LoadFromString(m_context.Allocator(), document->markup.AsView(), &m_context);
                             if (c.root.Get() != nullptr)
                             {
                                 auto lp = MakeRef<AbsoluteLayoutParams>(DefaultAllocator());
@@ -834,7 +834,7 @@ namespace engine::ui
                             }
                             if (document != nullptr && !document->markup.IsEmpty())
                             {
-                                c.root = MarkupLoader::LoadFromString(document->markup.AsView(),
+                                c.root = MarkupLoader::LoadFromString(m_context.Allocator(), document->markup.AsView(),
                                                                       &m_context);
                                 if (c.root.Get() != nullptr)
                                 {
@@ -870,7 +870,7 @@ namespace engine::ui
                             c.themeSheet = nullptr;
                             if (theme != nullptr && !theme->stylesheet.IsEmpty())
                             {
-                                StyleSheetLoader loader;
+                                StyleSheetLoader loader(m_context.Allocator());
                                 loader.SetPalette(GameTheme::Palette());
                                 c.themeSheet = loader.Load(theme->stylesheet.AsView());
                             }
@@ -1809,7 +1809,7 @@ namespace engine::ui
         {
             return {};
         }
-        RefPtr<View> tree = MarkupLoader::LoadFromString(document.markup.AsView(), &m_context);
+        RefPtr<View> tree = MarkupLoader::LoadFromString(m_context.Allocator(), document.markup.AsView(), &m_context);
         if (tree.Get() == nullptr)
         {
             return {};
@@ -1868,7 +1868,7 @@ namespace engine::ui
         RefPtr<StyleSheet> sheet;
         if (theme != nullptr && !theme->stylesheet.IsEmpty())
         {
-            StyleSheetLoader loader;
+            StyleSheetLoader loader(m_context.Allocator());
             loader.SetPalette(GameTheme::Palette());
             sheet = loader.Load(theme->stylesheet.AsView());
             if (sheet.Get() == nullptr)
@@ -1877,7 +1877,7 @@ namespace engine::ui
                     u8"UI", u8"default UI theme failed to parse - keeping the built-in GameTheme");
             }
         }
-        m_theme = sheet.Get() != nullptr ? sheet : GameTheme::Create();
+        m_theme = sheet.Get() != nullptr ? sheet : GameTheme::Create(DefaultAllocator());
         m_context.SetStyleSheet(m_theme);
     }
 

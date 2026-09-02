@@ -29,7 +29,7 @@ static core::RefPtr<TestGroup> MakeTestGroup()
 
 TEST_CASE("viewgroup: AddView_IncreasesChildCount")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -45,7 +45,7 @@ TEST_CASE("viewgroup: AddView_IncreasesChildCount")
 
 TEST_CASE("viewgroup: AddView_SetsParentAndContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -74,7 +74,7 @@ TEST_CASE("viewgroup: AddView_RejectsSelf")
 
 TEST_CASE("viewgroup: AddView_RejectsDuplicate")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -89,7 +89,7 @@ TEST_CASE("viewgroup: AddView_RejectsDuplicate")
 
 TEST_CASE("viewgroup: AddView_ReparentsFromOldParent")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -110,7 +110,7 @@ TEST_CASE("viewgroup: AddView_ReparentsFromOldParent")
 
 TEST_CASE("viewgroup: AddView_CreatesDefaultLayoutParams")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -125,7 +125,7 @@ TEST_CASE("viewgroup: AddView_CreatesDefaultLayoutParams")
 
 TEST_CASE("viewgroup: AddView_ReplacesOldLayoutParams")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -143,7 +143,7 @@ TEST_CASE("viewgroup: AddView_ReplacesOldLayoutParams")
 
 TEST_CASE("viewgroup: RemoveView_ClearsParentAndContext")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -161,7 +161,7 @@ TEST_CASE("viewgroup: RemoveView_ClearsParentAndContext")
 
 TEST_CASE("viewgroup: RemoveView_WithDelete")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -176,7 +176,7 @@ TEST_CASE("viewgroup: RemoveView_WithDelete")
 
 TEST_CASE("viewgroup: RemoveAllViews_ClearsAll")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -194,7 +194,7 @@ TEST_CASE("viewgroup: RemoveAllViews_ClearsAll")
 
 TEST_CASE("viewgroup: InsertView_AtIndex")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -229,7 +229,7 @@ TEST_CASE("viewgroup: ContentBounds_AccountsForPadding")
 
 TEST_CASE("viewgroup: HitTest_ReturnsDeepestChild")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -246,7 +246,7 @@ TEST_CASE("viewgroup: HitTest_ReturnsDeepestChild")
 
 TEST_CASE("viewgroup: HitTest_ReturnsNullOutsideBounds")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -258,7 +258,7 @@ TEST_CASE("viewgroup: HitTest_ReturnsNullOutsideBounds")
 
 TEST_CASE("viewgroup: HitTest_SkipsNotVisible")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -274,7 +274,7 @@ TEST_CASE("viewgroup: HitTest_SkipsNotVisible")
 
 TEST_CASE("viewgroup: HitTest_SkipsNotInteractionEnabled")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -290,7 +290,7 @@ TEST_CASE("viewgroup: HitTest_SkipsNotInteractionEnabled")
 
 TEST_CASE("viewgroup: HitTest_PassThroughNonHitTestVisible")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -309,7 +309,7 @@ TEST_CASE("viewgroup: HitTest_PassThroughNonHitTestVisible")
 
 TEST_CASE("viewgroup: HitTest_ReverseOrder_TopmostFirst")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -328,7 +328,7 @@ TEST_CASE("viewgroup: HitTest_ReverseOrder_TopmostFirst")
 
 TEST_CASE("viewgroup: FindByName_DirectChild")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -341,7 +341,7 @@ TEST_CASE("viewgroup: FindByName_DirectChild")
 
 TEST_CASE("viewgroup: FindByName_NestedChild")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -356,7 +356,7 @@ TEST_CASE("viewgroup: FindByName_NestedChild")
 
 TEST_CASE("viewgroup: FindByName_NotFound")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -366,7 +366,7 @@ TEST_CASE("viewgroup: FindByName_NotFound")
 
 TEST_CASE("viewgroup: FindByName_Typed")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -380,7 +380,7 @@ TEST_CASE("viewgroup: FindByName_Typed")
 
 TEST_CASE("viewgroup: FindByName_DeeplyNested")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -399,7 +399,7 @@ TEST_CASE("viewgroup: FindByName_DeeplyNested")
 // HitTest). The child fills the group; a +50px x-translation shifts its drawn position right by 50.
 TEST_CASE("viewgroup: HitTest_AppliesInverseTransform")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get(), 400, 300);
 
@@ -422,7 +422,7 @@ TEST_CASE("viewgroup: HitTest_AppliesInverseTransform")
 // (Context/registration survive), clamped, and a non-child is ignored.
 TEST_CASE("viewgroup: MoveView_ReordersWithoutDetach")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
     Init(ctx, root.Get());
 
@@ -478,7 +478,7 @@ TEST_CASE("viewgroup: destruction clears child Parent back-pointers")
 
 TEST_CASE("viewgroup: destroying an ATTACHED subtree detaches it from the context")
 {
-    UIContext ctx;
+    UIContext ctx{DefaultAllocator()};
     auto root = MakeRoot();
     ctx.AddRootView(root.Get());
 
