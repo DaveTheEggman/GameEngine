@@ -51,8 +51,29 @@ namespace foundation::net
     }
 
     core::UniquePtr<NetworkManager> NetworkManager::HostServer(u16 port, bool dedicated,
-                                                               const ReliableConfig& config)
+                                                               const ReliableConfig& config,
+                                                               u16 webSocketPort)
     {
+        if (!CanHost())
+        {
+            return {}; // browsers cannot listen (no UDP bind, no TCP accept) - reject cleanly
+        }
+        if (webSocketPort != 0)
+        {
+            // Hybrid host: native peers over UDP + browser peers through the WS gateway,
+            // one session behind one datagram socket.
+            UniquePtr<WebSocketHybridSocket> hybrid =
+                MakeUnique<WebSocketHybridSocket>(DefaultAllocator(), port, webSocketPort);
+            if (!hybrid->IsOpen())
+            {
+                return {};
+            }
+            UniquePtr<NetworkManager> manager = MakeUnique<NetworkManager>(
+                DefaultAllocator(), static_cast<UniquePtr<WebSocketHybridSocket>&&>(hybrid),
+                config);
+            manager->StartServer(dedicated);
+            return manager;
+        }
         UniquePtr<UdpSocket> socket = MakeUnique<UdpSocket>(DefaultAllocator(), port);
         if (!socket->IsOpen())
         {

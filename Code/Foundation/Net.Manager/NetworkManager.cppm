@@ -21,6 +21,7 @@ import foundation.core;
 import foundation.profiler;
 import foundation.net;
 import foundation.net.replication; // StateReplication / InterpolationBuffer (same foundation::net namespace)
+import foundation.net.websocket;   // WebSocketHybridSocket (UDP natives + WS browser clients)
 import foundation.scene;           // Scene (the replicated world)
 import foundation.script;          // Object / IScriptContext / CurrentScriptContext / SetService
 
@@ -84,6 +85,17 @@ export namespace foundation::net
             : m_ownedSocket(static_cast<core::UniquePtr<UdpSocket>&&>(ownedSocket)),
               m_session(*m_ownedSocket, config)
         {
+            m_boundPort = static_cast<UdpSocket*>(m_ownedSocket.Get())->BoundPort();
+        }
+
+        // Runtime host with a WEB GATEWAY: owns the hybrid UDP+WS socket, so browser clients
+        // join the same session native peers do (HostServer with webSocketPort).
+        explicit NetworkManager(core::UniquePtr<WebSocketHybridSocket> hybrid,
+                                const ReliableConfig& config = {})
+            : m_boundPort(hybrid->BoundPort()), m_webSocketPort(hybrid->WebSocketBoundPort()),
+              m_ownedSocket(static_cast<core::UniquePtr<WebSocketHybridSocket>&&>(hybrid)),
+              m_session(*m_ownedSocket, config)
+        {
         }
 
         // Runtime endpoint construction: open a real UDP socket and enter a role in one step. Returns
@@ -91,16 +103,27 @@ export namespace foundation::net
         // (0 = OS-assigned; read BoundPort() after); JoinServer binds ephemeral and connects to
         // host:port. These are how a running game goes online (the Net facade calls them).
         [[nodiscard]] static core::UniquePtr<NetworkManager>
-        HostServer(u16 port, bool dedicated = false, const ReliableConfig& config = {});
+        HostServer(u16 port, bool dedicated = false, const ReliableConfig& config = {},
+                   u16 webSocketPort = 0); // != 0: ALSO accept browser clients over ws://
         [[nodiscard]] static core::UniquePtr<NetworkManager>
         JoinServer(core::StringView host, u16 port, const ReliableConfig& config = {});
 
+        /// Whether THIS build can host a session at all. Browsers cannot listen on any
+        /// socket - the web build's Host paths reject cleanly instead of hanging.
+        [[nodiscard]] static constexpr bool CanHost() noexcept
+        {
+#ifdef __EMSCRIPTEN__
+            return false;
+#else
+            return true;
+#endif
+        }
+
         // The port this endpoint's owned UDP socket is bound to (0 when borrowing a sim/shared socket).
         // A HostServer opened with port 0 reports its OS-assigned port here so a client can reach it.
-        [[nodiscard]] u16 BoundPort() const noexcept
-        {
-            return m_ownedSocket ? m_ownedSocket->BoundPort() : 0;
-        }
+        [[nodiscard]] u16 BoundPort() const noexcept { return m_boundPort; }
+        // The WS gateway's bound port (0 = this endpoint accepts no browser clients).
+        [[nodiscard]] u16 WebSocketBoundPort() const noexcept { return m_webSocketPort; }
 
         // Roles (see NetSession).
         void StartServer(bool dedicated = false) { m_session.StartServer(dedicated); }
@@ -226,10 +249,12 @@ export namespace foundation::net
         [[nodiscard]] RpcTable& Rpc() noexcept { return m_rpc; }
 
     private:
-        // Declared FIRST so it constructs before (and destructs after) m_session, which borrows it.
-        // Null when the manager borrows an external socket (the sim/test ctor); non-null when it owns
-        // a UDP socket (the HostServer/JoinServer factories).
-        core::UniquePtr<UdpSocket> m_ownedSocket;
+        u16 m_boundPort = 0;
+        u16 m_webSocketPort = 0;
+        // Declared FIRST (before m_session) so it constructs before (and destructs after)
+        // m_session, which borrows it. Null when the manager borrows an external socket (the
+        // sim/test ctor); a UdpSocket or WebSocketHybridSocket from the factories otherwise.
+        core::UniquePtr<IDatagramSocket> m_ownedSocket;
         NetSession m_session;
         RpcTable m_rpc;
         StateReplication m_replication;

@@ -436,6 +436,7 @@ endif()
 add_subdirectory(Code/Foundation/Script.Resource)   # cooked script classes + factory (source + harvested metadata)
 add_subdirectory(Code/Foundation/Script.Facades)    # curated behavior facades (Entity/Log/Time/Random) - shared by cook VM + runtime
 add_subdirectory(Code/Foundation/Mcp.Script)        # MCP scripting tools (script_api) over Mcp + Script + Script.Facades
+add_subdirectory(Code/Foundation/Net.WebSocket)     # native WS accept path (RFC 6455 over Http) + hybrid UDP+WS socket - browser clients join native hosts
 add_subdirectory(Code/Foundation/Net.Manager)       # per-instance networked endpoint (NetworkManager) + Net script facade (over Net + Script)
 add_subdirectory(Code/Engine/Engine.Net)     # once-per-context NetworkSubsystem (injects NetworkComponentManager into scenes)
 add_subdirectory(Code/Foundation/Shell)     # raw platform/OS service (IShell: window/input/events) over Core; below Runtime
@@ -661,6 +662,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (as) is file-gated in the suite CMake
     util_test_suite(Code/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
     util_test_suite(Code/Foundation/Net.Tests                       Foundation::Net)
+    util_test_suite(Code/Foundation/Net.WebSocket.Tests             Foundation::Net.WebSocket)
     util_test_suite(Code/Foundation/Http.Tests                      Foundation::Http)
     util_test_suite(Code/Foundation/Particles.Resource.Tests        Foundation::Particles.Resource)
     util_test_suite(Code/Foundation/Particles.Tests                 Foundation::Particles)
