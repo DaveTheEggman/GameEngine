@@ -46,6 +46,7 @@ target_sources(Editor.App
             AssetDragData.cppm
             ProjectManagerView.cppm
             Shell.cppm
+            FontAtlasDiskCache.cppm
             Application.cppm
             EditorAppModule.cppm)
 

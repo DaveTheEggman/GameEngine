@@ -219,3 +219,57 @@ TEST_CASE("df.baker: blank glyphs (space) get an advance-only region")
     DefaultAllocator().Delete(atlas);
     DefaultAllocator().Delete(font);
 }
+
+TEST_CASE("df baker: baking is deterministic across runs (parallel-bake regression net)")
+{
+    // The MSDF generation fans out across worker threads; the pack order and every
+    // baked byte must still be scheduling-independent. Two bakes of the same font +
+    // options must agree exactly - regions and pixels both.
+    IFont* font = LoadRoboto();
+    REQUIRE(font != nullptr);
+
+    FontLoadOptions df = FontLoadOptions::DistanceField();
+    df.pixelHeight = 48.0f;
+    df.firstCodepoint = 32;
+    df.lastCodepoint = 255;
+    df.atlasWidth = df.atlasHeight = 1024;
+
+    DFFontAtlasBaker baker;
+    Result<IFontAtlas*, FontLoadResult> first = baker.Bake(*font, df, DefaultAllocator());
+    Result<IFontAtlas*, FontLoadResult> second = baker.Bake(*font, df, DefaultAllocator());
+    REQUIRE(first.HasValue());
+    REQUIRE(second.HasValue());
+    IFontAtlas* a = first.Value();
+    IFontAtlas* b = second.Value();
+
+    CHECK(a->Width() == b->Width());
+    CHECK(a->Height() == b->Height());
+
+    usize regionCount = 0;
+    for (i32 cp = df.firstCodepoint; cp <= df.lastCodepoint; ++cp)
+    {
+        AtlasRegion ra, rb;
+        const bool ha = a->TryGetRegion(cp, ra);
+        const bool hb = b->TryGetRegion(cp, rb);
+        CHECK(ha == hb);
+        if (ha && hb)
+        {
+            ++regionCount;
+            CHECK(ra.x == rb.x);
+            CHECK(ra.y == rb.y);
+            CHECK(ra.width == rb.width);
+            CHECK(ra.height == rb.height);
+            CHECK(ra.advanceX == rb.advanceX);
+        }
+    }
+    CHECK(regionCount > 90); // the printable-ASCII range alone is ~95 glyphs
+
+    const Span<const u8> pa = a->PixelData();
+    const Span<const u8> pb = b->PixelData();
+    REQUIRE(pa.Size() == pb.Size());
+    CHECK(MemCompare(pa.Data(), pb.Data(), pa.Size()) == 0);
+
+    DefaultAllocator().Delete(a);
+    DefaultAllocator().Delete(b);
+    DefaultAllocator().Delete(font);
+}

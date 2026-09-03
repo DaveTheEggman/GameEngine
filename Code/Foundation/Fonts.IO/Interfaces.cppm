@@ -80,4 +80,26 @@ export namespace foundation::fonts
         [[nodiscard]] virtual Result<IFontAtlas*, FontLoadResult>
         Bake(IFont& font, FontLoadOptions options, IAllocator& allocator) = 0;
     };
+
+    // Optional bake-result cache consulted by FontAtlasBakerFactory::Bake: a hit skips the
+    // bake entirely; a miss bakes and offers the fresh atlas back for storage. Installed by
+    // the APP (SetAtlasCache) - the policy (cache directory, keying, eviction) lives with
+    // the installer, never here. An implementation may decline any font/options pair it
+    // does not understand by returning null from TryLoad and ignoring Store.
+    class IFontAtlasCache
+    {
+    public:
+        virtual ~IFontAtlasCache() = default;
+
+        // A cached atlas for this font + options (allocated from `allocator`, caller owns),
+        // or null on miss/decline.
+        [[nodiscard]] virtual IFontAtlas* TryLoad(const IFont& font,
+                                                  const FontLoadOptions& options,
+                                                  IAllocator& allocator) = 0;
+
+        // Offer a freshly baked atlas for storage. Failures are the cache's problem - the
+        // bake result is returned to the caller regardless.
+        virtual void Store(const IFont& font, const FontLoadOptions& options,
+                           const IFontAtlas& atlas) = 0;
+    };
 }

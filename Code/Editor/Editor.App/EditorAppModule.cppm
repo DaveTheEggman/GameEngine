@@ -31,4 +31,5 @@ export import :editor_icons;
 export import :asset_drag_data;
 export import :project_manager_view;
 export import :shell;
+export import :font_atlas_cache;
 export import :application;

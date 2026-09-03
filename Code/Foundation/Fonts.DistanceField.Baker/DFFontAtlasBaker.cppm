@@ -127,7 +127,20 @@ export namespace foundation::fonts
             packer.atlasW = atlasW;
             packer.atlasH = atlasH;
 
-            bool anyGlyphs = false;
+            // Phase 1 (sequential): metrics + deterministic packing. The MSDF generation
+            // itself is the expensive part and each glyph is independent, so it runs in
+            // phase 2 as a ParallelFor over the packed work list; the pack order (and so
+            // the atlas layout) never depends on worker scheduling.
+            struct GlyphWork
+            {
+                i32 codepoint = 0;
+                i32 cellW = 0, cellH = 0;
+                u32 packX = 0, packY = 0;
+                f64 translateX = 0.0, translateY = 0.0;
+                AtlasRegion region;
+                bool generated = false;
+            };
+            Array<GlyphWork> work;
 
             for (i32 cp = options.firstCodepoint; cp <= options.lastCodepoint; ++cp)
             {
@@ -178,34 +191,6 @@ export namespace foundation::fonts
                 if (!packer.TryPack(static_cast<u32>(cellW), static_cast<u32>(cellH), packX, packY))
                     continue;
 
-                // msdfgen's Projection is scale*(coord + translate), so translate is in FONT
-                // UNITS (added before scaling). Map the glyph bbox min corner (fuX0, fuY0) to
-                // pixel (pad+1, pad+1): translate = (pad+1)/s - bboxMin. The msdfgen bitmap is
-                // Y-up (row 0 = bottom); the output loop flips rows to the top-down atlas
-                // convention, which lands the descender (low font Y) near the cell's bottom.
-                const f64 translateX = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuX0);
-                const f64 translateY = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuY0);
-
-                // Generate the MSDF into a temp buffer.
-                Array<u8> cellPixels(static_cast<usize>(cellW) * cellH * 4);
-                MemSet(cellPixels.Data(), 0, cellPixels.Size());
-
-                const bool ok =
-                    df::GenerateGlyphMSDF(rawData, rawDataSize, cp, cellW, cellH, pxRange, s, s,
-                                          translateX, translateY, cellPixels.Data());
-
-                if (!ok)
-                    continue;
-
-                // Blit cell into atlas.
-                for (i32 row = 0; row < cellH; ++row)
-                {
-                    const usize srcOff = static_cast<usize>(row) * cellW * 4;
-                    const usize dstOff = (static_cast<usize>(packY + row) * atlasW + packX) * 4;
-                    MemCopy(pixels.Data() + dstOff, cellPixels.Data() + srcOff,
-                            static_cast<usize>(cellW) * 4);
-                }
-
                 // Advance width.
                 int advW, lsb;
                 stbtt_GetGlyphHMetrics(&stbFont, glyphIdx, &advW, &lsb);
@@ -216,10 +201,67 @@ export namespace foundation::fonts
                 const f32 offsetX = static_cast<f32>(ix0 - pad - 1);
                 const f32 offsetY = static_cast<f32>(iy0 - pad - 1);
 
-                AtlasRegion region(static_cast<u16>(packX), static_cast<u16>(packY),
-                                   static_cast<u16>(cellW), static_cast<u16>(cellH), offsetX,
-                                   offsetY, static_cast<f32>(advW) * scale);
-                atlas->SetRegion(cp, region);
+                GlyphWork item;
+                item.codepoint = cp;
+                item.cellW = cellW;
+                item.cellH = cellH;
+                item.packX = packX;
+                item.packY = packY;
+                // msdfgen's Projection is scale*(coord + translate), so translate is in FONT
+                // UNITS (added before scaling). Map the glyph bbox min corner (fuX0, fuY0) to
+                // pixel (pad+1, pad+1): translate = (pad+1)/s - bboxMin. The msdfgen bitmap is
+                // Y-up (row 0 = bottom); the output loop flips rows to the top-down atlas
+                // convention, which lands the descender (low font Y) near the cell's bottom.
+                item.translateX = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuX0);
+                item.translateY = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuY0);
+                item.region = AtlasRegion(static_cast<u16>(packX), static_cast<u16>(packY),
+                                          static_cast<u16>(cellW), static_cast<u16>(cellH), offsetX,
+                                          offsetY, static_cast<f32>(advW) * scale);
+                work.PushBack(item);
+            }
+
+            // Phase 2 (parallel): generate each glyph's MSDF and blit it into its own
+            // disjoint atlas rect. GenerateGlyphMSDF is stateless (per-call font parse),
+            // and cells never overlap (the packer leaves a gutter), so concurrent blits
+            // touch disjoint bytes.
+            if (!work.IsEmpty())
+            {
+                const auto bakeOne = [&](u32 index)
+                {
+                    GlyphWork& item = work[static_cast<usize>(index)];
+                    Array<u8> cellPixels(static_cast<usize>(item.cellW) * item.cellH * 4);
+                    MemSet(cellPixels.Data(), 0, cellPixels.Size());
+                    if (!df::GenerateGlyphMSDF(rawData, rawDataSize, item.codepoint, item.cellW,
+                                               item.cellH, pxRange, static_cast<f64>(scale),
+                                               static_cast<f64>(scale), item.translateX,
+                                               item.translateY, cellPixels.Data()))
+                    {
+                        return;
+                    }
+                    for (i32 row = 0; row < item.cellH; ++row)
+                    {
+                        const usize srcOff = static_cast<usize>(row) * item.cellW * 4;
+                        const usize dstOff =
+                            (static_cast<usize>(item.packY + static_cast<u32>(row)) * atlasW +
+                             item.packX) *
+                            4;
+                        MemCopy(pixels.Data() + dstOff, cellPixels.Data() + srcOff,
+                                static_cast<usize>(item.cellW) * 4);
+                    }
+                    item.generated = true;
+                };
+                JobSystem jobs(allocator); // scoped pool; zero workers degrades to inline
+                jobs.ParallelFor(static_cast<u32>(work.Size()), bakeOne, 1);
+            }
+
+            // Phase 3 (sequential): record regions for the glyphs that actually generated
+            // (a failed cell must not leave a region pointing at blank texels).
+            bool anyGlyphs = false;
+            for (const GlyphWork& item : work)
+            {
+                if (!item.generated)
+                    continue;
+                atlas->SetRegion(item.codepoint, item.region);
                 anyGlyphs = true;
             }
 

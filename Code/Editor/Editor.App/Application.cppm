@@ -47,6 +47,7 @@ import :settings_dialog;
 import :preferences_dialog;
 import :project_manager_view;
 import :shell;
+import :font_atlas_cache;
 import :ui_page;
 
 using namespace foundation::core;
@@ -351,6 +352,10 @@ export namespace editor::app
         // so every member below may thread it.
         TaggedAllocator m_editorAllocator{editor::EditorRootAllocator(),
                                           RegisterMemoryTag("Editor")};
+
+        // Disk cache for the startup MSDF font bake (installed into
+        // FontAtlasBakerFactory in OnStartup, cleared in OnShutdown).
+        UniquePtr<editor::FontAtlasDiskCache> m_fontAtlasCache;
 
         EditorAppConfig m_config;
         runtime::IApplicationHost* m_host = nullptr; // borrowed

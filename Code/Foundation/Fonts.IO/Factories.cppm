@@ -39,6 +39,12 @@ namespace foundation::fonts
         static Array<IFontAtlasBaker*> bakers;
         return bakers;
     }
+
+    IFontAtlasCache*& CacheSlot()
+    {
+        static IFontAtlasCache* cache = nullptr;
+        return cache;
+    }
 }
 
 export namespace foundation::fonts
@@ -173,13 +179,29 @@ export namespace foundation::fonts
             return nullptr;
         }
 
+        // Install (or clear, with null) the bake-result cache Bake() consults. App-owned;
+        // the factory never frees it.
+        static void SetAtlasCache(IFontAtlasCache* cache) { CacheSlot() = cache; }
+        [[nodiscard]] static IFontAtlasCache* AtlasCache() { return CacheSlot(); }
+
         [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>
         Bake(IFont& font, FontLoadOptions options, IAllocator& allocator)
         {
             IFontAtlasBaker* baker = GetBakerForFont(font, options);
             if (baker == nullptr)
                 return Err(FontLoadResult::UnsupportedFormat);
-            return baker->Bake(font, options, allocator);
+            if (IFontAtlasCache* cache = CacheSlot())
+            {
+                if (IFontAtlas* cached = cache->TryLoad(font, options, allocator))
+                    return cached;
+            }
+            Result<IFontAtlas*, FontLoadResult> baked = baker->Bake(font, options, allocator);
+            if (baked.HasValue())
+            {
+                if (IFontAtlasCache* cache = CacheSlot())
+                    cache->Store(font, options, *baked.Value());
+            }
+            return baked;
         }
 
         [[nodiscard]] static Result<IFontAtlas*, FontLoadResult>

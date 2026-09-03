@@ -160,6 +160,12 @@ namespace editor::app
         // failure is LOUD - the old silent (void)LoadFont left a blank editor with no clue.
         m_fontService = MakeUnique<fonts::TrueTypeFontService>(m_editorAllocator,
                                                                m_editorAllocator);
+        // MSDF bakes below hit the per-user disk cache: first launch bakes (in parallel)
+        // and stores; every launch after loads the atlas instead of re-running msdfgen.
+        m_fontAtlasCache = MakeUnique<editor::FontAtlasDiskCache>(
+            m_editorAllocator, m_editorAllocator,
+            PathJoin(GetUserDataDirectory().AsView(), u8"font-atlas-cache").AsView());
+        fonts::FontAtlasBakerFactory::SetAtlasCache(m_fontAtlasCache.Get());
         String fontPath = m_config.fontPath;
         String monoFontPath = m_config.monoFontPath;
         if (const editor::EditorFontSettings* fontPrefs =
@@ -969,6 +975,7 @@ namespace editor::app
 
     void EditorApplication::OnShutdown(runtime::IApplicationHost&)
     {
+        fonts::FontAtlasBakerFactory::SetAtlasCache(nullptr); // ours dies with this app
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         // Release page resources while the device and windows are still alive. Pages
         // destroy their scenes in the RUNTIME context, so it must outlive them.
