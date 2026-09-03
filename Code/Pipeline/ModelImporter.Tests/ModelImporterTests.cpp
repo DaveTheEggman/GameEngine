@@ -1572,14 +1572,19 @@ TEST_CASE("model-import: nested-subfolder sidecars survive the DEFERRED write pa
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
-    // Deferred mode = the editor's worker path: the importer QUEUES envelope/stream/copy
-    // writes, and the caller executes them (here, inline - what the job does).
+    // Deferred mode = the editor's worker path: PrepareOnWorker loads the model, Import
+    // QUEUES envelope/stream/copy writes, and the caller executes them while the PREPARED
+    // payload stays alive - the deferred views BORROW its decoded pixels (the editor's job
+    // captures it for exactly this reason; dropping it before Execute is a use-after-free).
     Array<pipeline::DeferredImportWrite> deferred;
     pipeline::ModelFileImporter importer;
+    RefPtr<Object> prepared = importer.PrepareOnWorker(
+        reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_FOX_NESTED),
+        DefaultAllocator());
     Result<foundation::content::Instance*> imported = importer.Import(
         reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_FOX_NESTED),
         pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
-        *project->SourceDb().RootGroup(), nullptr, nullptr, &deferred);
+        *project->SourceDb().RootGroup(), nullptr, prepared.Get(), &deferred);
     REQUIRE(imported.HasValue());
     REQUIRE(imported.Value() != nullptr);
     REQUIRE(!deferred.IsEmpty());
