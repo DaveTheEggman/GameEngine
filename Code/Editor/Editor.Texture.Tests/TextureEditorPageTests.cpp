@@ -118,20 +118,24 @@ TEST_CASE("the Cooks-to row's policy expectations (desktop profile)")
     const auto rgba8 = foundation::rhi::TextureFormat::RGBA8Unorm;
 
     // Color with alpha -> BC7 sRGB.
-    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true,
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true, false,
                                   texcomp::CompressionChoice::Default, 512, 512, desktop,
                                   rgba8) == foundation::rhi::TextureFormat::BC7RGBAUnormSrgb);
     // Compression = None -> uncompressed passthrough.
-    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true,
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Color, true, true, false,
                                   texcomp::CompressionChoice::None, 512, 512, desktop,
                                   rgba8) == rgba8);
-    // The derived pairs: Normal -> BC5, Mask -> BC4 (both linear).
-    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Normal, false, false,
+    // The derived pairs: Normal -> BC7-LINEAR (never BC5 - the shaders decode rgb * 2 - 1),
+    // gray Mask -> BC4, multichannel (ORM-shaped) Mask -> BC7-linear.
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Normal, false, false, false,
                                   texcomp::CompressionChoice::Default, 512, 512, desktop,
-                                  rgba8) == foundation::rhi::TextureFormat::BC5RGUnorm);
-    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Mask, false, false,
+                                  rgba8) == foundation::rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Mask, false, false, false,
                                   texcomp::CompressionChoice::Default, 512, 512, desktop,
                                   rgba8) == foundation::rhi::TextureFormat::BC4RUnorm);
+    CHECK(ResolveCompressedFormat(texcomp::TextureUsage::Mask, false, false, true,
+                                  texcomp::CompressionChoice::Default, 512, 512, desktop,
+                                  rgba8) == foundation::rhi::TextureFormat::BC7RGBAUnorm);
 }
 
 TEST_CASE("usage implies color space (the page's derivation + lint contract)")

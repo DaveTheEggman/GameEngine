@@ -59,6 +59,7 @@ namespace texcomp
     }
 
     rhi::TextureFormat ResolveCompressedFormat(TextureUsage usage, bool sRGB, bool hasAlpha,
+                                               bool multiChannel,
                                                CompressionChoice choice, u32 width, u32 height,
                                                const TargetProfile& profile,
                                                rhi::TextureFormat uncompressed) noexcept
@@ -89,9 +90,15 @@ namespace texcomp
                 }
                 return sRGB ? F::BC1RGBAUnormSrgb : F::BC1RGBAUnorm; // opaque, Default
             case TextureUsage::Normal:
-                return F::BC5RGUnorm; // tangent normal, linear RG
+                // BC7-linear, NOT BC5: the shaders decode rgb * 2 - 1 and BC5 has no B
+                // (z decodes to -1 = the white-normals bug). Same 1 byte/texel as BC5;
+                // BC5 + shader z-reconstruction is the deferred quality step.
+                return F::BC7RGBAUnorm;
             case TextureUsage::Mask:
-                return F::BC4RUnorm; // single channel
+                // A packed ORM/ARM authored as Mask carries THREE meaningful channels;
+                // BC4 would keep R only. The cook's channel sniff routes those to
+                // BC7-linear; true single-channel masks (rough/AO/height) stay BC4.
+                return multiChannel ? F::BC7RGBAUnorm : F::BC4RUnorm;
             case TextureUsage::HDR:
                 return uncompressed; // handled above
             }
@@ -105,6 +112,27 @@ namespace texcomp
         }
         // ETC2 + any other family stay uncompressed.
         return uncompressed;
+    }
+
+    bool HasDistinctChannels(const u8* rgba, u32 width, u32 height, u8 tolerance) noexcept
+    {
+        if (rgba == nullptr)
+        {
+            return false;
+        }
+        const usize texels = static_cast<usize>(width) * height;
+        const i32 tol = static_cast<i32>(tolerance);
+        for (usize i = 0; i < texels; ++i)
+        {
+            const i32 r = rgba[i * 4 + 0];
+            const i32 g = rgba[i * 4 + 1];
+            const i32 b = rgba[i * 4 + 2];
+            if ((g > r ? g - r : r - g) > tol || (b > r ? b - r : r - b) > tol)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ASTC is a whole-image codec (not block-by-block like BC): astcenc takes the full RGBA8 level

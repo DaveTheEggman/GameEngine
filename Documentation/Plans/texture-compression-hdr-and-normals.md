@@ -98,6 +98,11 @@ signed variant stays unplumbed. Alpha is dropped (BC6H is RGB) - sky/IBL sources
 
 - P0 - Part 1 (the correctness fix): Normal -> BC7-linear + the multichannel-Mask guard + tests.
   Small, ships alone; unblocks the page-UX usage inference safely.
+  IMPLEMENTED 2026-09-03 (user hit the predicted bug on the chess set's nor_gl + Normal
+  preset - white shading). ResolveCompressedFormat gained a `multiChannel` param (the
+  cook's channel sniff, tolerance 8 for JPEG chroma noise on gray); builder Version 3 -> 4
+  re-cooks existing products. Policy tests + cook tests cover BC7-linear normals, the
+  ORM-shaped Mask -> BC7 guard, and gray Mask -> BC4.
 - P1 - Encoder: vendor bc6h_enc + EncodeBlockCompressedHdr + unit tests.
 - P2 - Policy + cook + runtime conversions + builder bump + cook tests + the GPU parity probe.
 - P3 - Docs (authoring guide: "HDR skies cook to BC6H automatically") -> IMPLEMENTED.

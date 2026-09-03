@@ -526,11 +526,14 @@ namespace editor
             m_sourceFormat == image::PixelFormat::RGBA32F
                 ? foundation::rhi::TextureFormat::RGBA32Float
                 : foundation::rhi::TextureFormat::RGBA8Unorm;
+        const bool multiChannel =
+            m_preview.Get() != nullptr &&
+            texcomp::HasDistinctChannels(m_preview->PixelData().Data(), width, height);
         const foundation::rhi::TextureFormat desktop = texcomp::ResolveCompressedFormat(
-            m_asset->usage, srgb, hasAlpha, m_asset->compression, width, height,
+            m_asset->usage, srgb, hasAlpha, multiChannel, m_asset->compression, width, height,
             texcomp::DesktopProfile(), uncompressed);
         const foundation::rhi::TextureFormat mobile = texcomp::ResolveCompressedFormat(
-            m_asset->usage, srgb, hasAlpha, m_asset->compression, width, height,
+            m_asset->usage, srgb, hasAlpha, multiChannel, m_asset->compression, width, height,
             texcomp::MobileProfile(), uncompressed);
         if (desktop == mobile)
         {

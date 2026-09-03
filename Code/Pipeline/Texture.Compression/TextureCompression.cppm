@@ -68,10 +68,24 @@ export namespace texcomp
     // Decision 5 policy table. Returns `uncompressed` when policy says do not compress (authored None,
     // small/UI textures <= 64px, HDR until BC6H, or a target with no supported family). `sRGB` selects
     // the *Srgb color formats; `hasAlpha` splits color into BC1 (opaque) vs BC7 (alpha).
+    // `multiChannel` = the source carries distinct channel content (the cook's cheap sniff):
+    // a MULTICHANNEL Mask (packed ORM/ARM) cooks BC7-linear - BC4 would keep R only and
+    // silently drop roughness/metallic. Normal cooks BC7-linear (NOT BC5): the shaders decode
+    // rgb * 2 - 1, and BC5's missing B samples as 0 -> tangent z = -1, visibly broken shading
+    // (the chess-set white-normals bug). BC5 + shader z-reconstruction is the deferred
+    // quality step - do not ship BC5 normals until the shaders reconstruct.
     [[nodiscard]] rhi::TextureFormat ResolveCompressedFormat(TextureUsage usage, bool sRGB, bool hasAlpha,
+                                                             bool multiChannel,
                                                              CompressionChoice choice, u32 width,
                                                              u32 height, const TargetProfile& profile,
                                                              rhi::TextureFormat uncompressed) noexcept;
+
+    // Channel-content sniff for the Mask guard (and the editor's Cooks-to preview):
+    // true when any texel's G or B deviates from R by more than `tolerance` (default 8
+    // absorbs JPEG chroma noise on gray sources). A packed ORM/ARM reads true; a gray
+    // rough/AO/height map reads false.
+    [[nodiscard]] bool HasDistinctChannels(const u8* rgba, u32 width, u32 height,
+                                           u8 tolerance = 8) noexcept;
 
     // Encode one mip level of tightly-packed RGBA8 pixels (`width*height*4` bytes) to `format`'s
     // block-compressed bytes. `format` MUST be a BC format this build supports (BC1/3/4/5/7); returns

@@ -227,7 +227,7 @@ TEST_CASE("texture-import: a normal-map suffix imports as Normal usage + linear 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
     auto* asset = Cast<TextureAsset>(object.Get());
     REQUIRE(asset != nullptr);
-    // The heuristic fired: a tangent normal cooks linear + BC5, never sRGB color.
+    // The heuristic fired: a tangent normal cooks linear (BC7-linear policy), never sRGB color.
     CHECK(asset->usage == texcomp::TextureUsage::Normal);
     CHECK(asset->colorSpace == image::ImageColorSpace::Linear);
 
@@ -444,7 +444,8 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
     // given authoring, returning the cooked format + "data" payload size.
     const auto cook = [](texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
                          image::ImageColorSpace cs, bool alpha, StringView dbDir,
-                         rhi::TextureFormat& outFormat, u32& outMips, usize& outPayload) {
+                         rhi::TextureFormat& outFormat, u32& outMips, usize& outPayload,
+                         bool gray = false) {
         const u32 w = 128, h = 128;
         (void)RemoveDirectoryRecursive(dbDir);
         NativeFileSystem srcMount(dbDir, DefaultAllocator());
@@ -461,8 +462,8 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
             {
                 byte* p = pixels.Data() + (static_cast<usize>(y) * w + x) * 4;
                 p[0] = static_cast<byte>((x * 255) / (w - 1));
-                p[1] = static_cast<byte>((y * 255) / (h - 1));
-                p[2] = static_cast<byte>(((x + y) * 255) / (w + h - 2));
+                p[1] = gray ? p[0] : static_cast<byte>((y * 255) / (h - 1));
+                p[2] = gray ? p[0] : static_cast<byte>(((x + y) * 255) / (w + h - 2));
                 p[3] = alpha ? static_cast<byte>((x * 255) / (w - 1)) : static_cast<byte>(255);
             }
         }
@@ -534,14 +535,23 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
          image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc7q", fmt, mips, payload);
     CHECK(fmt == rhi::TextureFormat::BC7RGBAUnorm);
 
-    // (3) Normal -> BC5, Mask -> BC4 (linear, ignore color space).
+    // (3) Normal -> BC7-LINEAR (never BC5: the shaders decode rgb * 2 - 1 and BC5's
+    // missing B collapses tangent z to -1 - the chess-set white-normals bug).
     cook(texcomp::TextureUsage::Normal, texcomp::CompressionChoice::Default,
-         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc5", fmt, mips, payload);
-    CHECK(fmt == rhi::TextureFormat::BC5RGUnorm);
-    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC5RGUnorm, mips));
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc7n", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(payload == expectedCompressed(rhi::TextureFormat::BC7RGBAUnorm, mips));
 
+    // Mask with DISTINCT channel content (this fixture's gradient = a packed ORM shape):
+    // the channel sniff routes it to BC7-linear - BC4 would silently drop G/B.
     cook(texcomp::TextureUsage::Mask, texcomp::CompressionChoice::Default,
-         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc4", fmt, mips, payload);
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_maskorm", fmt, mips, payload);
+    CHECK(fmt == rhi::TextureFormat::BC7RGBAUnorm);
+
+    // A TRUE single-channel mask (gray: R=G=B) keeps BC4.
+    cook(texcomp::TextureUsage::Mask, texcomp::CompressionChoice::Default,
+         image::ImageColorSpace::Linear, false, u8"scratch_texpipe_bc4", fmt, mips, payload,
+         /*gray*/ true);
     CHECK(fmt == rhi::TextureFormat::BC4RUnorm);
     CHECK(payload == expectedCompressed(rhi::TextureFormat::BC4RUnorm, mips));
 }

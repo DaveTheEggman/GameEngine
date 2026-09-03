@@ -145,24 +145,26 @@ TEST_CASE("ResolveCompressedFormat - Decision 5 policy table (BC profile)")
     const auto uncompressed = rhi::TextureFormat::RGBA8Unorm;
 
     // Color: opaque Default -> BC1; alpha -> BC7; Quality forces BC7 even opaque; sRGB variants.
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC1RGBAUnorm);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC1RGBAUnormSrgb);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, true, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnormSrgb);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Quality, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC1RGBAUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC1RGBAUnormSrgb);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, true, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnormSrgb);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, false, CompressionChoice::Quality, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
 
     // Normal -> BC5, Mask -> BC4 (both linear, ignore sRGB).
-    CHECK(ResolveCompressedFormat(TextureUsage::Normal, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC5RGUnorm);
-    CHECK(ResolveCompressedFormat(TextureUsage::Mask, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC4RUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Normal, false, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Mask, false, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC4RUnorm);
+    // Packed ORM/ARM authored as Mask: distinct channels -> BC7-linear, never channel-dropping BC4.
+    CHECK(ResolveCompressedFormat(TextureUsage::Mask, false, false, true, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
 
     // Escape hatches -> uncompressed: authored None, small (<=64px), HDR (no BC6H yet).
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, CompressionChoice::None, 256, 256, bc, uncompressed) == uncompressed);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::Default, 64, 64, bc, uncompressed) == uncompressed);
-    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, false, CompressionChoice::None, 256, 256, bc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, false, CompressionChoice::Default, 64, 64, bc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == uncompressed);
 
     // No supported family -> uncompressed regardless of usage.
     const TargetProfile none{false, false, false};
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, true, CompressionChoice::Default, 256, 256, none, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, true, false, CompressionChoice::Default, 256, 256, none, uncompressed) == uncompressed);
 }
 
 TEST_CASE("BlockCompressedSize - exact 4x4 block-ceil bytes")
@@ -208,19 +210,19 @@ TEST_CASE("ResolveCompressedFormat - ASTC (mobile) profile")
     const auto uncompressed = rhi::TextureFormat::RGBA8Unorm;
 
     // One 4x4 format covers every LDR usage; sRGB only applies to color.
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4UnormSrgb);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
-    CHECK(ResolveCompressedFormat(TextureUsage::Normal, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
-    CHECK(ResolveCompressedFormat(TextureUsage::Mask, true, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm); // linear map ignores sRGB
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4UnormSrgb);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Normal, false, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Mask, true, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == rhi::TextureFormat::ASTC4x4Unorm); // linear map ignores sRGB
 
     // Same escape hatches as BC: None, small, HDR.
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::None, 256, 256, astc, uncompressed) == uncompressed);
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, CompressionChoice::Default, 64, 64, astc, uncompressed) == uncompressed);
-    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, false, CompressionChoice::None, 256, 256, astc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, false, CompressionChoice::Default, 64, 64, astc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default, 256, 256, astc, uncompressed) == uncompressed);
 
     // A profile that supports BOTH families prefers BC (desktop-first).
     const TargetProfile both{true, true, false};
-    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, CompressionChoice::Default, 256, 256, both, uncompressed) == rhi::TextureFormat::BC1RGBAUnorm);
+    CHECK(ResolveCompressedFormat(TextureUsage::Color, false, false, false, CompressionChoice::Default, 256, 256, both, uncompressed) == rhi::TextureFormat::BC1RGBAUnorm);
 }
 
 TEST_CASE("EncodeBlockCompressed - ASTC 4x4 round-trip PSNR + exact size")

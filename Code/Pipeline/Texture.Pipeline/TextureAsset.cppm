@@ -330,7 +330,7 @@ export namespace pipeline{
         // v3 (2026-08-15): the "data" payload may be BLOCK-COMPRESSED (BCn) when the asset's
         // usage/compression + target profile select it; resource.format then
         // carries a BC format. Same-input output changed -> bump forces the re-cook.
-        [[nodiscard]] u32 Version() const override { return 3; }
+        [[nodiscard]] u32 Version() const override { return 4; } // v4: Normal->BC7-linear + the multichannel-Mask guard
 
         // Textures are THE platform-variant producer: BC on desktop, ASTC on mobile-web from the same
         // source. The cook salts this builder's recipe by target + cooks per DB.
@@ -503,8 +503,12 @@ export namespace pipeline{
                     }
                 }
             }
+            // Channel sniff for the Mask guard: a packed ORM/ARM authored as Mask must
+            // not cook channel-dropping BC4 (a gray rough/AO map still does).
+            const bool multiChannel = texcomp::HasDistinctChannels(
+                reinterpret_cast<const u8*>(pixels.Data()), width, height);
             const rhi::TextureFormat chosen = texcomp::ResolveCompressedFormat(
-                usage, srgb, hasAlpha, choice, width, height, profile, format);
+                usage, srgb, hasAlpha, multiChannel, choice, width, height, profile, format);
             if (!rhi::IsCompressed(chosen))
             {
                 return; // policy declined - leave the RGBA8 chain + format as-is
