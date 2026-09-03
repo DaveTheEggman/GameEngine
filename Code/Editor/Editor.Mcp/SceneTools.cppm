@@ -390,8 +390,9 @@ export namespace editor::mcp
                         }
                     }
                     const Status wrote = instance->WriteData(
-                        u8"scene", Span<const byte>{reinterpret_cast<const byte*>(xml.CStr()),
-                                                    xml.Size()});
+                        u8"scene",
+                        Span<const byte>{reinterpret_cast<const byte*>(xml.CStr()), xml.Size()},
+                        content::StreamEncoding::Text);
                     if (!wrote.IsOk())
                     {
                         return Err(String(u8"failed writing the scene stream to disk"));

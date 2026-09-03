@@ -955,6 +955,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     FileDelete(u8"scratch_gi_load_db/level.rasset");
     FileDelete(u8"scratch_gi_load_db/level.scene.bin");
+    FileDelete(u8"scratch_gi_load_db/level.scene.data");
     RemoveDirectory(u8"scratch_gi_load_db");
     NativeFileSystem mount(u8"scratch_gi_load_db", DefaultAllocator());
 
@@ -1147,6 +1148,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
 
     FileDelete(u8"scratch_gi_load_db/level.rasset");
     FileDelete(u8"scratch_gi_load_db/level.scene.bin");
+    FileDelete(u8"scratch_gi_load_db/level.scene.data");
     RemoveDirectory(u8"scratch_gi_load_db");
 }
 

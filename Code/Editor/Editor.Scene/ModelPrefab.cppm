@@ -221,7 +221,9 @@ export namespace editor
         scene::PrefabDocument doc;
         doc.name = String(manifestInstance.Name());
         if (!prefab->WriteObject(doc).IsOk() ||
-            !prefab->WriteData(u8"scene", payload.Bytes()).IsOk())
+            !prefab->WriteData(u8"scene", payload.Bytes(),
+                               foundation::content::StreamEncoding::Text)
+                 .IsOk())
         {
             LOG_ERROR(u8"Editor", u8"model prefab write failed for '{}'",
                                manifestInstance.Name());

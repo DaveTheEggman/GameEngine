@@ -270,7 +270,10 @@ namespace editor
         }
         scene::PrefabDocument doc;
         doc.name = name;
-        if (!asset->WriteObject(doc).IsOk() || !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+        if (!asset->WriteObject(doc).IsOk() ||
+            !asset->WriteData(u8"scene", payload.Bytes(),
+                              foundation::content::StreamEncoding::Text)
+                 .IsOk())
         {
             m_context->Notify(editor::NoticeKind::Error, u8"Prefab asset write failed.");
             return;
@@ -367,7 +370,9 @@ namespace editor
         if (!scene::CaptureInstanceAsTemplate(*m_scene, *state, payload,
                                               m_editContext->PrefabResolver())
                  .IsOk() ||
-            !asset->WriteData(u8"scene", payload.Bytes()).IsOk())
+            !asset->WriteData(u8"scene", payload.Bytes(),
+                              foundation::content::StreamEncoding::Text)
+                 .IsOk())
         {
             m_context->Notify(editor::NoticeKind::Error, u8"Apply to Prefab failed.");
             return;

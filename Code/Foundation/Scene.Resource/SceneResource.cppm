@@ -1332,7 +1332,8 @@ export namespace foundation::scene
         String text;
         ser.GetOutput(text);
         return instance.WriteData(
-            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()});
+            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()},
+            content::StreamEncoding::Text);
     }
 
     // The prefab twin: PrefabDocument primary + the world serialized EXPANDED - any nested
@@ -1390,7 +1391,8 @@ export namespace foundation::scene
         String text;
         ser.GetOutput(text);
         return instance.WriteData(
-            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()});
+            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()},
+            content::StreamEncoding::Text);
     }
 
     // A full-scene snapshot for the editor's Simulate loop (play-in-editor design: snapshot ->

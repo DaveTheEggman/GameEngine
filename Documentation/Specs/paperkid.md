@@ -245,7 +245,8 @@ These were NOT pre-existing - PaperKid P0 drove them out. A fresh session buildi
   `Roboto-Regular.ttf`. (Cooked envelopes: `Content/UI/{main-menu,pause,settings}.xasset`.)
 - **Scenes:** `StartScene` (boot; guid `c83b3435-...`) and `MainScene` (the "Playing" level; guid
   `855ffed4-4da7-4fa0-9756-a95c6c842890`). Both internally named "Scene". Both currently near-empty
-  (no camera shipped -> EnsureCamera covers it). `.scene.bin` sidecar + `.xasset` envelope each.
+  (no camera shipped -> EnsureCamera covers it). `.scene.data` sidecar (text XML) + `.xasset`
+  envelope each.
 - **Meshes:** `Cube`, `Plane`, `Sphere` (the blockout primitive kit). **Audio:** DefaultAudioBusLayout.
 - **Input map (`DefaultInputMap`, set "Gameplay", priority 0):** actions `Move` (axis2d), `Look`
   (axis2d), `Jump` (button), `Fire` (button), `Pause` (button, bound to keycode 62 = ESC). Only Pause

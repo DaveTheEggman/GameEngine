@@ -21,6 +21,24 @@ using namespace foundation::vfs;
 
 namespace foundation::content
 {
+    namespace
+    {
+        // Sidecar-suffix probe for the "<name>.<stream>.<suffix>" prefix scans:
+        // returns the suffix length (".data" text / ".bin" binary), 0 = not a sidecar.
+        [[nodiscard]] usize SidecarSuffixSize(StringView fileName)
+        {
+            if (EndsWith(fileName, u8".data"))
+            {
+                return 5;
+            }
+            if (EndsWith(fileName, u8".bin"))
+            {
+                return 4;
+            }
+            return 0;
+        }
+    } // namespace
+
     ContentDatabase::ContentDatabase(IAllocator& allocator, IFileSystem& mount,
                                      SerializerFactory factory, StringView fileExtension,
                                      SerializableRegistry& serializables, TypeRegistry& types)
@@ -244,12 +262,12 @@ namespace foundation::content
         return path;
     }
 
-    String Instance::DataPath(StringView streamName) const
+    String Instance::DataPath(StringView streamName, StreamEncoding encoding) const
     {
         String path = Path();
         path.PushBack(utf8char('.'));
         path.Append(streamName);
-        path.Append(u8".bin");
+        path.Append(encoding == StreamEncoding::Text ? u8".data" : u8".bin");
         return path;
     }
 
@@ -310,7 +328,14 @@ namespace foundation::content
 
     UniquePtr<IStream> Instance::ReadData(StringView streamName) const
     {
-        return m_db->Mount().Open(DataPath(streamName).AsView(), FileMode::Read);
+        if (UniquePtr<IStream> text =
+                m_db->Mount().Open(DataPath(streamName, StreamEncoding::Text).AsView(),
+                                   FileMode::Read))
+        {
+            return text;
+        }
+        return m_db->Mount().Open(DataPath(streamName, StreamEncoding::Binary).AsView(),
+                                  FileMode::Read);
     }
 
     Status Instance::WriteObject(ISerializable& object)
@@ -352,14 +377,28 @@ namespace foundation::content
         return writable->Save(EnvelopePath().AsView(), buffer.Bytes());
     }
 
-    Status Instance::WriteData(StringView streamName, Span<const byte> data)
+    Status Instance::WriteData(StringView streamName, Span<const byte> data,
+                               StreamEncoding encoding)
     {
         IWritableFileSystem* writable = m_db->Mount().AsWritable();
         if (writable == nullptr)
         {
             return Status{ErrorCode::NotSupported};
         }
-        return writable->Save(DataPath(streamName).AsView(), data);
+        const Status saved = writable->Save(DataPath(streamName, encoding).AsView(), data);
+        if (saved.IsOk())
+        {
+            // One suffix per stream: drop the other-encoding sibling (this migrates
+            // pre-".data" text sidecars on their next save).
+            const String other = DataPath(streamName, encoding == StreamEncoding::Text
+                                                          ? StreamEncoding::Binary
+                                                          : StreamEncoding::Text);
+            if (m_db->Mount().Exists(other.AsView()))
+            {
+                (void)writable->Delete(other.AsView());
+            }
+        }
+        return saved;
     }
 
     Status Instance::DeleteData(StringView streamName)
@@ -369,12 +408,21 @@ namespace foundation::content
         {
             return Status{ErrorCode::NotSupported};
         }
-        const String path = DataPath(streamName);
-        if (!m_db->Mount().Exists(path.AsView()))
+        Status result{};
+        for (StreamEncoding encoding : {StreamEncoding::Text, StreamEncoding::Binary})
         {
-            return Status{}; // idempotent: nothing to remove
+            const String path = DataPath(streamName, encoding);
+            if (!m_db->Mount().Exists(path.AsView()))
+            {
+                continue; // idempotent: nothing to remove
+            }
+            const Status deleted = writable->Delete(path.AsView());
+            if (!deleted.IsOk())
+            {
+                result = deleted;
+            }
         }
-        return writable->Delete(path.AsView());
+        return result;
     }
 
     UniquePtr<IStream> Instance::OpenEnvelope() const
@@ -418,8 +466,9 @@ namespace foundation::content
             return nullptr;
         }
 
-        // Sidecar streams keep no directory - enumerate "<srcName>.<stream>.bin" siblings (the
-        // same prefix scan DeleteInstance uses) and byte-copy each under the clone's name.
+        // Sidecar streams keep no directory - enumerate "<srcName>.<stream>.<suffix>" siblings
+        // (the same prefix scan DeleteInstance uses) and byte-copy each under the clone's name,
+        // preserving the source's text/binary suffix.
         if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
         {
             const String folder = group.Path();
@@ -438,26 +487,29 @@ namespace foundation::content
                     {
                         continue;
                     }
-                    if (!EndsWith(entry.name.AsView(), u8".bin"))
+                    const usize suffix = SidecarSuffixSize(entry.name.AsView());
+                    if (suffix == 0)
                     {
                         continue;
                     }
-                    // "<src>.<stream>.bin" -> stream name between prefix and ".bin".
+                    // "<src>.<stream>.<suffix>" -> stream name between prefix and suffix.
                     const StringView fileName = entry.name.AsView();
                     const StringView stream =
-                        fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - 4);
+                        fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - suffix);
                     if (stream.IsEmpty())
                     {
                         continue;
                     }
+                    const StreamEncoding encoding =
+                        suffix == 5 ? StreamEncoding::Text : StreamEncoding::Binary;
                     if (UniquePtr<IStream> data = src->ReadData(stream))
                     {
                         Array<byte> bytes;
                         bytes.Resize(static_cast<usize>(data->Size()));
                         if (data->Read(bytes.Data(), bytes.Size()) == bytes.Size())
                         {
-                            (void)copy->WriteData(stream,
-                                                  Span<const byte>{bytes.Data(), bytes.Size()});
+                            (void)copy->WriteData(
+                                stream, Span<const byte>{bytes.Data(), bytes.Size()}, encoding);
                         }
                     }
                 }
@@ -488,8 +540,9 @@ namespace foundation::content
             return wrote;
         }
 
-        // Every "<srcName>.<stream>.bin" sidecar (streams keep no directory) -> byte-copy into dest
-        // under the same stream name. Same prefix scan CloneInstance uses, but across DBs/mounts.
+        // Every "<srcName>.<stream>.<suffix>" sidecar (streams keep no directory) -> byte-copy
+        // into dest under the same stream name and text/binary suffix. Same prefix scan
+        // CloneInstance uses, but across DBs/mounts.
         if (IEnumerableFileSystem* enumerable = src.m_mount->AsEnumerable())
         {
             const String folder = source->OwningGroup().Path();
@@ -508,25 +561,28 @@ namespace foundation::content
                     {
                         continue;
                     }
-                    if (!EndsWith(entry.name.AsView(), u8".bin"))
+                    const usize suffix = SidecarSuffixSize(entry.name.AsView());
+                    if (suffix == 0)
                     {
                         continue;
                     }
                     const StringView fileName = entry.name.AsView();
                     const StringView stream =
-                        fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - 4);
+                        fileName.SubStr(prefix.Size(), fileName.Size() - prefix.Size() - suffix);
                     if (stream.IsEmpty())
                     {
                         continue;
                     }
+                    const StreamEncoding encoding =
+                        suffix == 5 ? StreamEncoding::Text : StreamEncoding::Binary;
                     if (UniquePtr<IStream> data = source->ReadData(stream))
                     {
                         Array<byte> bytes;
                         bytes.Resize(static_cast<usize>(data->Size()));
                         if (data->Read(bytes.Data(), bytes.Size()) == bytes.Size())
                         {
-                            (void)dest.WriteData(stream,
-                                                 Span<const byte>{bytes.Data(), bytes.Size()});
+                            (void)dest.WriteData(
+                                stream, Span<const byte>{bytes.Data(), bytes.Size()}, encoding);
                         }
                     }
                 }
@@ -559,7 +615,8 @@ namespace foundation::content
         const String folder = instance->OwningGroup().Path();
         const String oldEnvelope = instance->EnvelopePath();
 
-        // Sidecars first (prefix scan, like delete): "<old>.<stream>.bin" -> "<new>.<stream>.bin".
+        // Sidecars first (prefix scan, like delete): "<old>.<stream>.<suffix>" ->
+        // "<new>.<stream>.<suffix>" (the tail keeps the stream's text/binary suffix).
         if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
         {
             String prefix(instance->Name());
@@ -577,7 +634,7 @@ namespace foundation::content
                     {
                         continue;
                     }
-                    if (!EndsWith(entry.name.AsView(), u8".bin"))
+                    if (SidecarSuffixSize(entry.name.AsView()) == 0)
                     {
                         continue;
                     }
@@ -653,8 +710,8 @@ namespace foundation::content
             return Status{ErrorCode::NotSupported};
         }
 
-        // Envelope + every "<name>.<stream>.bin" sidecar (streams keep no directory, so the
-        // group folder is enumerated for siblings with the instance's file prefix).
+        // Envelope + every "<name>.<stream>.<suffix>" sidecar (streams keep no directory, so
+        // the group folder is enumerated for siblings with the instance's file prefix).
         (void)writable->Delete(instance->EnvelopePath().AsView());
         if (IEnumerableFileSystem* enumerable = m_mount->AsEnumerable())
         {
@@ -674,7 +731,7 @@ namespace foundation::content
                     {
                         continue;
                     }
-                    if (!EndsWith(entry.name.AsView(), u8".bin"))
+                    if (SidecarSuffixSize(entry.name.AsView()) == 0)
                     {
                         continue;
                     }

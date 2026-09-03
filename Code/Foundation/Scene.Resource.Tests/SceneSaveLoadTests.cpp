@@ -36,6 +36,7 @@ namespace
     {
         FileDelete(u8"scratch_scene_db/level.rasset");
         FileDelete(u8"scratch_scene_db/level.scene.bin");
+        FileDelete(u8"scratch_scene_db/level.scene.data");
         RemoveDirectory(u8"scratch_scene_db");
     }
 }

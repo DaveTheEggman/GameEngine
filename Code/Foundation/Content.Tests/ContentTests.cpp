@@ -196,6 +196,119 @@ TEST_CASE("content: Instance::DeleteData removes exactly one stream sidecar, ide
     RemoveTree(dir);
 }
 
+namespace
+{
+    // The text-stream tests create their own instances; RemoveTree only knows the steel
+    // fixture, so these clean their exact files - leftovers otherwise fail the NEXT run
+    // (a fresh DB scans the stale envelope and CloneInstance hits AlreadyExists).
+    void RemoveTextStreamScratch(StringView root)
+    {
+        static const char8_t* const kNames[] = {
+            u8"level.xasset",  u8"level.scene.data",  u8"level.scene.bin",
+            u8"level.geometry.bin", u8"level2.xasset", u8"level2.scene.data",
+            u8"level2.scene.bin", u8"level2.geometry.bin", u8"world.xasset",
+            u8"world.scene.data", u8"world.geometry.bin"};
+        for (const char8_t* name : kNames)
+        {
+            FileDelete(JoinPath(root, name));
+        }
+        RemoveDirectory(root);
+    }
+}
+
+TEST_CASE("content: text streams write .data sidecars; readers accept legacy .bin")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"scratch_content_textstream_db";
+    RemoveTextStreamScratch(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
+
+    foundation::content::Instance* inst =
+        db.RootGroup()->CreateInstance(u8"level", MaterialResource::StaticType());
+    REQUIRE(inst != nullptr);
+
+    // Text encoding lands under ".data"; the binary suffix stays untouched.
+    const char8_t xml[] = u8"<root/>";
+    const Span<const byte> xmlBytes{reinterpret_cast<const byte*>(xml), sizeof(xml) - 1};
+    REQUIRE(inst->WriteData(u8"scene", xmlBytes, StreamEncoding::Text).IsOk());
+    CHECK(mount.Exists(u8"level.scene.data"));
+    CHECK_FALSE(mount.Exists(u8"level.scene.bin"));
+
+    // ReadData round-trips through the text sidecar.
+    {
+        UniquePtr<IStream> stream = inst->ReadData(u8"scene");
+        REQUIRE(stream.Get() != nullptr);
+        CHECK(static_cast<usize>(stream->Size()) == xmlBytes.Size());
+    }
+
+    // Legacy layout: the same stream stored under ".bin" (pre-".data" projects) still reads.
+    REQUIRE(mount.AsWritable()->Delete(u8"level.scene.data").IsOk());
+    REQUIRE(mount.AsWritable()->Save(u8"level.scene.bin", xmlBytes).IsOk());
+    {
+        UniquePtr<IStream> stream = inst->ReadData(u8"scene");
+        REQUIRE(stream.Get() != nullptr);
+        CHECK(static_cast<usize>(stream->Size()) == xmlBytes.Size());
+    }
+
+    // Re-saving as text migrates: writes ".data" and removes the stale ".bin" sibling.
+    REQUIRE(inst->WriteData(u8"scene", xmlBytes, StreamEncoding::Text).IsOk());
+    CHECK(mount.Exists(u8"level.scene.data"));
+    CHECK_FALSE(mount.Exists(u8"level.scene.bin"));
+
+    // DeleteData removes the text sidecar too.
+    CHECK(inst->DeleteData(u8"scene").IsOk());
+    CHECK_FALSE(mount.Exists(u8"level.scene.data"));
+
+    RemoveTextStreamScratch(dir);
+}
+
+TEST_CASE("content: clone + rename preserve a stream's text/binary suffix")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+
+    const StringView dir = u8"scratch_content_textclone_db";
+    RemoveTextStreamScratch(dir);
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".xasset");
+
+    foundation::content::Instance* inst =
+        db.RootGroup()->CreateInstance(u8"level", MaterialResource::StaticType());
+    REQUIRE(inst != nullptr);
+    MaterialResource res;
+    REQUIRE(inst->WriteObject(res).IsOk());
+    const char8_t xml[] = u8"<root/>";
+    REQUIRE(inst->WriteData(u8"scene",
+                            Span<const byte>{reinterpret_cast<const byte*>(xml), sizeof(xml) - 1},
+                            StreamEncoding::Text)
+                .IsOk());
+    const byte raw[] = {byte{9}};
+    REQUIRE(inst->WriteData(u8"geometry", Span<const byte>(raw, 1)).IsOk());
+
+    // Clone: each sidecar keeps its own suffix.
+    foundation::content::Instance* copy = db.CloneInstance(inst->Id(), u8"level2");
+    REQUIRE(copy != nullptr);
+    CHECK(mount.Exists(u8"level2.scene.data"));
+    CHECK(mount.Exists(u8"level2.geometry.bin"));
+    CHECK_FALSE(mount.Exists(u8"level2.scene.bin"));
+
+    // Rename: sidecars move under the new name, suffixes intact.
+    REQUIRE(db.RenameInstance(inst->Id(), u8"world").IsOk());
+    CHECK(mount.Exists(u8"world.scene.data"));
+    CHECK(mount.Exists(u8"world.geometry.bin"));
+    CHECK_FALSE(mount.Exists(u8"level.scene.data"));
+
+    // DeleteInstance sweeps both suffix families.
+    REQUIRE(db.DeleteInstance(inst->Id()).IsOk());
+    CHECK_FALSE(mount.Exists(u8"world.scene.data"));
+    CHECK_FALSE(mount.Exists(u8"world.geometry.bin"));
+
+    RemoveTextStreamScratch(dir);
+}
+
 TEST_CASE("content: CloneInstance deep-copies object + sidecars under a fresh guid")
 {
     GlobalTypeRegistry().Register(MaterialResource::StaticType());

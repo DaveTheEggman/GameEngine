@@ -36,6 +36,15 @@ export namespace foundation::content
     [[nodiscard]] inline String JoinPath(StringView a, StringView b);
     [[nodiscard]] inline bool EndsWith(StringView str, StringView suffix);
 
+    // How a data stream's bytes are encoded on disk. Text streams (XML scene/prefab
+    // sources) get a ".data" sidecar suffix so external tools treat them as text;
+    // binary streams keep ".bin". Readers accept either suffix for any stream.
+    enum class StreamEncoding : u8
+    {
+        Binary,
+        Text
+    };
+
     // =======================================================================
     // Instance - one stored unit: identity + a primary object + data streams.
     // =======================================================================
@@ -62,7 +71,8 @@ export namespace foundation::content
         // its stored type name). Null if the type isn't registered or on I/O error.
         [[nodiscard]] RefPtr<ISerializable> ReadObject() const;
 
-        // Opens a named data stream for reading, or null if absent.
+        // Opens a named data stream for reading, or null if absent. Probes the text
+        // sidecar (".data") first, then the binary/legacy one (".bin").
         [[nodiscard]] UniquePtr<IStream> ReadData(StringView streamName) const;
         // The raw on-disk envelope (identity header + primary object + stream directory) -
         // the cook driver hashes it as the asset's settings/content fingerprint.
@@ -70,7 +80,11 @@ export namespace foundation::content
 
         // --- tooling / write ---
         [[nodiscard]] Status WriteObject(ISerializable& object);
-        [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data);
+        // Writes the stream's sidecar under the encoding's suffix and removes the
+        // other-suffix sibling, so a stream never exists under both at once (this is
+        // also the migration path for pre-".data" text sidecars).
+        [[nodiscard]] Status WriteData(StringView streamName, Span<const byte> data,
+                                       StreamEncoding encoding = StreamEncoding::Binary);
         // Remove a named data stream's sidecar if present (idempotent: NotFound is not an error).
         // Cooks call this for an ON-DEMAND stream that a re-cook no longer produces, so a stale
         // sidecar from an earlier cook does not keep loading (e.g. a removed per-layer terrain map).
@@ -78,8 +92,9 @@ export namespace foundation::content
 
     private:
         friend class ContentDatabase; // storage layout (envelope/sidecar paths) for delete
-        [[nodiscard]] String EnvelopePath() const;                  // "<path>.<ext>"
-        [[nodiscard]] String DataPath(StringView streamName) const; // "<path>.<stream>.bin"
+        [[nodiscard]] String EnvelopePath() const; // "<path>.<ext>"
+        // "<path>.<stream>.bin" (Binary) / "<path>.<stream>.data" (Text).
+        [[nodiscard]] String DataPath(StringView streamName, StreamEncoding encoding) const;
 
         ContentDatabase* m_db;
         Group* m_group;

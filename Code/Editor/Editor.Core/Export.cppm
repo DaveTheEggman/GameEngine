@@ -128,9 +128,10 @@ export namespace editor
         }
 
         // A cooked file's owning instance is reachable: the owning instance path is `file` up to a
-        // '.' in its NAME region (envelope "<path>.<ext>" and stream "<path>.<stream>.bin" both begin
-        // with "<path>."). Tests each '.' boundary against the reachable-instance-path set; the '.'
-        // delimiter makes prefix matching collision-safe (a peer "CubeBig" never matches "Cube.").
+        // '.' in its NAME region (envelope "<path>.<ext>" and stream "<path>.<stream>.bin"/".data"
+        // both begin with "<path>."). Tests each '.' boundary against the reachable-instance-path
+        // set; the '.' delimiter makes prefix matching collision-safe (a peer "CubeBig" never
+        // matches "Cube.").
         [[nodiscard]] inline bool FileOwnerReachable(StringView file,
                                                      const HashMap<String, u8>& reachablePaths)
         {
