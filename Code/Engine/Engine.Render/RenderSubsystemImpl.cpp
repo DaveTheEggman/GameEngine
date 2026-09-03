@@ -854,7 +854,8 @@ namespace engine::render
             m_debugPass.Reset();
         }
 
-        m_exposurePass = MakeUnique<ExposurePass>(m_allocator, *m_device, *m_shaders);
+        m_exposurePass =
+            MakeUnique<ExposurePass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_exposurePass->Initialize().IsOk())
         {
             m_exposurePass.Reset(); // auto-exposure silently unavailable; fixed EV still works

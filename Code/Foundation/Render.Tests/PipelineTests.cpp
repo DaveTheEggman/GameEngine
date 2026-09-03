@@ -904,3 +904,79 @@ TEST_CASE("debug view: semantic modes blit the raw scene HDR on the tonemap path
         CHECK_FALSE(hasPass(frame, u8"debug.blit"));
     }
 }
+
+TEST_CASE("auto-exposure: per-(view,frame) bind-group slots survive consecutive frames")
+{
+    // The exposure state PING-PONGS its prev-frame view, so a per-view-only slot
+    // mismatched every frame and freed a descriptor set the previous frame's in-flight
+    // command buffer still referenced (VUID-vkFreeDescriptorSets-00309 spam in the
+    // editor with auto-exposure on). The slot now folds frameIndex in - this drives
+    // the wired path across alternating frames; the validation-layer editor repro is
+    // the on-device proof.
+    RenderHarness h;
+    if (!h.Init(128, 128))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem,
+                              /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+
+    TonemapPass tonemap(h.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(tonemap.Initialize().IsOk());
+    ExposurePass exposure(h.device, shaderSystem, /*framesInFlight*/ 2);
+
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2,
+                      /*clusters*/ nullptr, &tonemap, /*shadows*/ nullptr, /*ibl*/ nullptr,
+                      /*sky*/ nullptr, /*bloom*/ nullptr, /*taa*/ nullptr, /*ao*/ nullptr,
+                      /*fxaa*/ nullptr, &exposure);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    ExtractedScene scene{DefaultAllocator()};
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = cube.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+    settings.post.autoExposure = true;
+
+    const auto hasPass = [&](StringView name)
+    {
+        for (const foundation::rendergraph::RenderGraphPass* pass : frame.Graph().Passes())
+        {
+            if (pass != nullptr && pass->name == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Three frames = the ping-pong wraps and slot 0 gets REWRITTEN (frame 2 reuses
+    // frame 0's slot); with the old per-view slot this rewrote every frame instead.
+    for (u32 f = 0; f < 3; ++f)
+    {
+        frame.SetDeltaSeconds(0.016f);
+        frame.Begin(*h.encoder, f);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128,
+                      128);
+        frame.End();
+        CHECK(hasPass(u8"exposure.measure"));
+    }
+}

@@ -33,10 +33,14 @@ export namespace foundation::render
     {
     public:
         static constexpr u32 kMaxViews = 8;
+        static constexpr u32 kMaxFramesInFlight = 8;
+        static constexpr u32 kMaxSlots = kMaxViews * kMaxFramesInFlight;
         static constexpr rhi::TextureFormat kFormat = rhi::TextureFormat::R16Float;
 
-        ExposurePass(rhi::Device& device, shaders::ShaderSystem& shaders) noexcept
-            : m_device(&device), m_shaders(&shaders)
+        ExposurePass(rhi::Device& device, shaders::ShaderSystem& shaders,
+                     u32 framesInFlight) noexcept
+            : m_device(&device), m_shaders(&shaders),
+              m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight)
         {
         }
         ~ExposurePass() { Shutdown(); }
@@ -93,8 +97,8 @@ export namespace foundation::render
         };
         [[nodiscard]] Result DeclareExposure(rendergraph::RenderGraph& graph,
                                              rendergraph::RGHandle hdr, u32 viewIndex,
-                                             Float2 uvScale, Float2 uvOffset, f32 deltaSeconds,
-                                             f32 adaptSpeed)
+                                             u32 frameIndex, Float2 uvScale, Float2 uvOffset,
+                                             f32 deltaSeconds, f32 adaptSpeed)
         {
             Result out;
             rhi::RenderPipeline* pipeline = EnsurePipeline();
@@ -126,7 +130,14 @@ export namespace foundation::render
                                  0.0f,
                                  0.0f};
             rhi::TextureView* prevView = state.view[prev];
-            const u32 slot = viewIndex % kMaxViews;
+            // Per-(view, frame) slots (the FxaaPass scheme): prevView PING-PONGS every
+            // frame, so a per-view-only slot mismatches every frame and EnsureBindGroup
+            // then frees a set the previous frame's in-flight command buffer still
+            // references (VUID-vkFreeDescriptorSets-00309 spam with auto-exposure on).
+            // With frameIndex folded in, a slot is only rewritten framesInFlight frames
+            // later - after its command buffer completed.
+            const u32 slot =
+                (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
             graph.AddRenderPass(
                 u8"exposure.measure",
                 [this, &graph, hdr, prevH, curH, prevView, pipeline, push,
@@ -276,7 +287,7 @@ export namespace foundation::render
         rhi::BindGroup* EnsureBindGroup(u32 slot, rhi::TextureView* hdrView,
                                         rhi::TextureView* prevView, u64 generation)
         {
-            if (slot >= kMaxViews || hdrView == nullptr || prevView == nullptr)
+            if (slot >= kMaxSlots || hdrView == nullptr || prevView == nullptr)
             {
                 return nullptr;
             }
@@ -356,13 +367,14 @@ export namespace foundation::render
 
         rhi::Device* m_device;
         shaders::ShaderSystem* m_shaders;
+        u32 m_framesInFlight = 2;
         rhi::BindGroupLayout* m_layout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
         u64 m_pipelineShaderVersion = 0;
         rhi::Sampler* m_sampler = nullptr;
         ViewState m_views[kMaxViews];
-        Entry m_bindGroups[kMaxViews];
+        Entry m_bindGroups[kMaxSlots];
     };
 
 } // namespace foundation::render
