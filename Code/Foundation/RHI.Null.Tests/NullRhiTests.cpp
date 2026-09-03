@@ -30,6 +30,7 @@ TEST_CASE("rhi.null: backend enumerates an adapter and creates a device")
     REQUIRE(adapters[0]->CreateDevice(DeviceDesc{}, device).IsOk());
     REQUIRE(device != nullptr);
 
+    device->Destroy();
     backend->Destroy();
 }
 
@@ -56,6 +57,9 @@ TEST_CASE("rhi.null: device creates resources and a mappable buffer")
     MeshPipeline* mesh = nullptr;
     CHECK(device->CreateMeshPipeline(MeshPipelineDesc{}, mesh).Code() == ErrorCode::NotSupported);
 
+    device->DestroyTexture(texture);
+    device->DestroyBuffer(buffer);
+    device->Destroy();
     backend->Destroy();
 }
 
@@ -90,5 +94,9 @@ TEST_CASE("rhi: texture views carry unique monotonic ids (address-reuse guard)")
     CHECK(c->uniqueId != idA);
     CHECK(c->uniqueId != b->uniqueId);
 
+    device->DestroyTextureView(b);
+    device->DestroyTextureView(c);
+    device->DestroyTexture(texture);
+    device->Destroy();
     backend->Destroy();
 }

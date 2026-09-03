@@ -127,17 +127,19 @@ TEST_CASE("bridge: key and text route to the focus node with mapped modifiers")
     root->GetEventDispatcher()->SetFocusNode(child.Get());
 
     unsigned seenMods = 0;
-    core::StringView seenText;
+    // Copy the text: the event's Text views the dispatched InputEvent's stack buffer,
+    // which is gone by the time the CHECK below runs.
+    core::String seenText;
     child->AddEventListener(EventType::KeyDown, [&](const Event& e)
                             { seenMods = static_cast<const KeyEvent&>(e).Modifiers; });
     child->AddEventListener(EventType::TextInput, [&](const Event& e)
-                            { seenText = static_cast<const TextInputEvent&>(e).Text; });
+                            { seenText = core::String{static_cast<const TextInputEvent&>(e).Text}; });
 
     bridge.Dispatch(
         Key(shell::InputEventKind::KeyDown, shell::KeyCode::A, shell::KeyModifiers::LeftCtrl));
     bridge.Dispatch(MakeTextEvent(u8"hi"));
     CHECK((seenMods & KeyModCtrl) != 0u);
-    CHECK(seenText == core::StringView(u8"hi"));
+    CHECK(seenText.AsView() == core::StringView(u8"hi"));
 }
 
 TEST_CASE("bridge: navigation keys map platform KeyCode to the GUI KeyCode")

@@ -18,8 +18,11 @@ TEST_CASE("rhi.validation: wraps a backend and forwards valid calls")
     Backend* inner = nullptr;
     REQUIRE(null::CreateNullBackend(inner).IsOk());
 
-    validation::ValidatedBackend vb(inner, DefaultAllocator());
-    auto adapters = vb.EnumerateAdapters();
+    // Heap-create through the factory: Destroy() is the wrapper's only teardown path
+    // (it frees the adapter wrappers, destroys the inner backend, then itself).
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
+    auto adapters = vb->EnumerateAdapters();
     REQUIRE(adapters.Size() >= 1u);
 
     Device* device = nullptr;
@@ -31,6 +34,10 @@ TEST_CASE("rhi.validation: wraps a backend and forwards valid calls")
     Buffer* buffer = nullptr;
     CHECK(device->CreateBuffer(bufferDesc, buffer).IsOk());
     CHECK(buffer != nullptr);
+
+    device->DestroyBuffer(buffer);
+    device->Destroy();
+    vb->Destroy();
 }
 
 TEST_CASE("rhi.validation: catches invalid usage (null texture)")
@@ -38,13 +45,17 @@ TEST_CASE("rhi.validation: catches invalid usage (null texture)")
     Backend* inner = nullptr;
     REQUIRE(null::CreateNullBackend(inner).IsOk());
 
-    validation::ValidatedBackend vb(inner, DefaultAllocator());
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
     Device* device = nullptr;
-    REQUIRE(vb.EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    REQUIRE(vb->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
 
     // The validation layer rejects a null texture (and logs a diagnostic) instead
     // of forwarding it to the backend.
     TextureView* view = nullptr;
     CHECK_FALSE(device->CreateTextureView(nullptr, TextureViewDesc{}, view).IsOk());
     CHECK(view == nullptr);
+
+    device->Destroy();
+    vb->Destroy();
 }

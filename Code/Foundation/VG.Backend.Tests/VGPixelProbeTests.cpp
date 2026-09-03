@@ -157,6 +157,7 @@ namespace
             rhi::CommandBuffer* list[] = {commands};
             queue->Submit(Span<rhi::CommandBuffer* const>(list, 1), fence, 1);
             REQUIRE(fence->Wait(1, ~0ull));
+            pool->DestroyEncoder(encoder);
 
             // Target is left in CopySrc; the shared substrate owns the copy + map + unpack.
             out = testsupport::Readback(device, target, kSize, kSize);
@@ -408,6 +409,14 @@ TEST_CASE("vg.pixels: fills, clip, colors, spreads and blends on real backends")
     {
         MESSAGE("no GPU backend available - VG pixel probes skipped entirely");
     }
+    if (vulkan != nullptr)
+    {
+        vulkan->Destroy();
+    }
+    if (webgpu != nullptr)
+    {
+        webgpu->Destroy();
+    }
 }
 
 // ============================================================================================
@@ -526,6 +535,10 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     rhi::Device* device = MakeDevice(vulkan);
     if (device == nullptr)
     {
+        if (vulkan != nullptr)
+        {
+            vulkan->Destroy();
+        }
         MESSAGE("Vulkan unavailable - baked-font probe skipped");
         return;
     }
@@ -663,4 +676,5 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     CHECK(MismatchFraction(ttfPixels, bakedPixels) < 0.02);
 
     device->Destroy();
+    vulkan->Destroy();
 }

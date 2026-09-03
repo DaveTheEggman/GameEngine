@@ -341,6 +341,7 @@ TEST_CASE("rhi.webgpu: bind groups + pipelines - the DXC shift scheme end-to-end
     device->DestroyRenderPipeline(renderPipeline);
     device->DestroyShaderModule(shaderModule);
     device->DestroyPipelineLayout(pipelineLayout);
+    device->DestroyBindGroupLayout(layout);
     device->DestroyBindGroup(group);
     device->DestroySampler(sampler);
     device->DestroyTextureView(view);
@@ -1030,6 +1031,7 @@ TEST_CASE("rhi.webgpu: cube faces render + cube view samples correctly")
         device->DestroyTextureView(faceViews[face]);
     }
     device->DestroyTexture(cube);
+    device->DestroyCommandPool(pool);
     device->Destroy();
     backend->Destroy();
 }

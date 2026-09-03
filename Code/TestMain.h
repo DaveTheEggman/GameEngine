@@ -14,8 +14,45 @@
 
 #include <filesystem>
 
+#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+#include <dlfcn.h>
+// LeakSanitizer: suppress third-party leaks outside our control. libdbus caches a connection for
+// the process lifetime (reached via SDL), and GPU user-mode drivers retain per-instance state.
+// First-party leaks stay fatal.
+extern "C" const char* __lsan_default_suppressions()
+{
+    return "leak:libdbus-1\n"
+           "leak:nvidia\n"
+           "leak:libvulkan_\n";
+}
+
+// The Vulkan loader dlcloses ICDs on instance destroy; a leak whose frames live in an unloaded
+// module reports as "<unknown module>", which no name suppression can match. Pinning an extra
+// dlopen reference keeps the drivers mapped through the end-of-process leak check so their
+// frames symbolize and the suppressions above apply.
+namespace testmain
+{
+    inline void PinGpuDriverModules()
+    {
+        static const char* const kModules[] = {
+            "libGLX_nvidia.so.0",
+            "libvulkan_intel.so",
+            "libvulkan_lvp.so",
+            "libvulkan_radeon.so",
+        };
+        for (const char* name : kModules)
+        {
+            (void)dlopen(name, RTLD_NOW | RTLD_LOCAL);
+        }
+    }
+} // namespace testmain
+#endif
+
 int main(int argc, char** argv)
 {
+#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+    testmain::PinGpuDriverModules();
+#endif
     std::error_code ec;
     std::filesystem::create_directories(".test-scratch", ec);
     std::filesystem::current_path(".test-scratch", ec); // scratch writes land here, not the CWD root

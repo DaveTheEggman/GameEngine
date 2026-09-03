@@ -196,6 +196,7 @@ namespace
                 rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
                 queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
                 REQUIRE(fence->Wait(i + 1, ~0ull));
+                pool->DestroyEncoder(encoder);
             }
 
             out = testsupport::Readback(device, target, kSize, kSize);
@@ -305,6 +306,10 @@ namespace
         {
             MESSAGE("Vulkan unavailable - skipped");
         }
+        if (vulkan != nullptr)
+        {
+            vulkan->Destroy();
+        }
 #endif
 #ifdef OPTION_HAS_WEBGPU
         rhi::Backend* webgpu = nullptr;
@@ -319,6 +324,10 @@ namespace
         {
             MESSAGE("WebGPU unavailable - skipped");
         }
+        if (webgpu != nullptr)
+        {
+            webgpu->Destroy();
+        }
 #endif
 #ifdef OPTION_HAS_DX12
         rhi::Backend* dx12 = nullptr;
@@ -332,6 +341,10 @@ namespace
         else
         {
             MESSAGE("DX12 unavailable - skipped");
+        }
+        if (dx12 != nullptr)
+        {
+            dx12->Destroy();
         }
 #endif
         if (!any)

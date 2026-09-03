@@ -163,6 +163,7 @@ namespace
                 rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
                 queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
                 REQUIRE(fence->Wait(i + 1, ~0ull));
+                pool->DestroyEncoder(encoder);
             }
 
             // Target is left in CopySrc; the shared substrate does the copy + map.
@@ -328,6 +329,21 @@ namespace
         {
             MESSAGE("no GPU backend available - MSAA probe skipped entirely");
         }
+        // Backends self-free via Destroy() (created even when no device came up).
+        if (vulkan != nullptr)
+        {
+            vulkan->Destroy();
+        }
+        if (webgpu != nullptr)
+        {
+            webgpu->Destroy();
+        }
+#ifdef OPTION_HAS_DX12
+        if (dx12 != nullptr)
+        {
+            dx12->Destroy();
+        }
+#endif
     }
 }
 
