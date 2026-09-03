@@ -196,9 +196,9 @@ namespace
         // The host assembles the pipeline registries once (as Tools.Mcp does), from the composition
         // root - asset_cook/asset_import route through these.
         pipeline::RegisterPipelineTypes();
-        pipeline::BuilderRegistry builders;
+        pipeline::BuilderRegistry builders{DefaultAllocator()};
         pipeline::RegisterAllBuilders(builders);
-        pipeline::ImporterRegistry importers;
+        pipeline::ImporterRegistry importers{DefaultAllocator()};
         pipeline::RegisterAllImporters(importers);
 
         McpServer server;

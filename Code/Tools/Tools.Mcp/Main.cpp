@@ -200,8 +200,8 @@ int main(int /*argc*/, char** argv)
 
     // The host's builder + importer registries (from the pipeline composition root); populated
     // once, they outlive the server and back asset_cook / asset_import.
-    pipeline::BuilderRegistry builders;
-    pipeline::ImporterRegistry importers;
+    pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
+    pipeline::ImporterRegistry importers{foundation::core::DefaultAllocator()};
     pipeline::RegisterAllBuilders(builders);
     pipeline::RegisterAllImporters(importers);
 

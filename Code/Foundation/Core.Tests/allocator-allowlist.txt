@@ -87,16 +87,8 @@ Code/Foundation/UI.VFS/VfsResourceProvider.cppm
 Code/Foundation/VFS.Pak/PakModule.cppm
 Code/Foundation/VG/Context.cppm
 Code/Foundation/Xml.Serialization/XmlSerializer.cppm
-Code/Pipeline/Audio.Pipeline/AudioAsset.cppm
-Code/Pipeline/Fonts.Pipeline/FontAsset.cppm
-Code/Pipeline/Heightfield.Pipeline/HeightfieldAsset.cppm
-Code/Pipeline/ModelImporter/FileImport.cppm
-Code/Pipeline/Pipeline.Cook/CookDriverImpl.cpp
-Code/Pipeline/Pipeline.Registration/RegistrationImpl.cpp
 Code/Pipeline/Script.AngelScript.Pipeline/AngelScriptScriptCookImpl.cpp
 Code/Pipeline/Script.Luau.Pipeline/LuauScriptCookImpl.cpp
-Code/Pipeline/Terrain.Pipeline/TerrainAsset.cppm
-Code/Pipeline/UI.Pipeline/UIAsset.cppm
 Code/Samples/AnimatedCrowd/main.cpp
 Code/Samples/AnimStressTest/main.cpp
 Code/Samples/AudioPlayground/main.cpp

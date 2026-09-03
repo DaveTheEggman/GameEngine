@@ -58,7 +58,7 @@ TEST_CASE("skeleton asset: builder cooks into the content DB, factory loads it b
         SkeletonSource::FromSkeleton(skel, asset.source);
 
         SkeletonAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }

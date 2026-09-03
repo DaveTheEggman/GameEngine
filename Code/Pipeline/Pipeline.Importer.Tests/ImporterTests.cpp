@@ -70,7 +70,7 @@ TEST_CASE("importer: path helpers")
 
 TEST_CASE("importer: registry routes by extension, first match wins")
 {
-    ImporterRegistry registry;
+    ImporterRegistry registry{DefaultAllocator()};
     CHECK(registry.FindFor(u8"fak") == nullptr);
 
     registry.Register(
@@ -85,7 +85,7 @@ TEST_CASE("importer: registry routes by extension, first match wins")
 
 TEST_CASE("importer: FindAllFor returns every match (registration order) for the chooser")
 {
-    ImporterRegistry registry;
+    ImporterRegistry registry{DefaultAllocator()};
     CHECK(registry.FindAllFor(u8"fak").IsEmpty());
 
     registry.Register(
@@ -121,7 +121,7 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     const byte payload[4] = {byte{9}, byte{8}, byte{7}, byte{6}};
     REQUIRE(WriteFile(u8"scratch_importer_loose.bin", Span<const byte>(payload, 4)).IsOk());
 
-    Result<String> name = CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_loose.bin");
+    Result<String> name = CopyIntoSources(ImportContext{DefaultAllocator(), sourcesRoot.AsView()}, u8"scratch_importer_loose.bin");
     REQUIRE(name.HasValue());
     CHECK(name.Value() == StringView(u8"scratch_importer_loose.bin"));
 
@@ -132,9 +132,9 @@ TEST_CASE("importer: CopyIntoSources lands the bytes in the project's Sources tr
     CHECK(bytes.Value()[0] == byte{9});
 
     // Reimporting the same name reuses the existing copy (no error).
-    CHECK(CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_loose.bin").HasValue());
+    CHECK(CopyIntoSources(ImportContext{DefaultAllocator(), sourcesRoot.AsView()}, u8"scratch_importer_loose.bin").HasValue());
     // Missing source is a clean failure.
-    CHECK_FALSE(CopyIntoSources(ImportContext{String(sourcesRoot.AsView())}, u8"scratch_importer_missing.bin").HasValue());
+    CHECK_FALSE(CopyIntoSources(ImportContext{DefaultAllocator(), sourcesRoot.AsView()}, u8"scratch_importer_missing.bin").HasValue());
 
     FileDelete(u8"scratch_importer_loose.bin");
     FileDelete(copied.AsView());

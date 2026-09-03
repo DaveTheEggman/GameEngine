@@ -718,7 +718,7 @@ export namespace pipeline{
                                                         u8"ScriptClassAsset");
         }
 
-        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions(IAllocator&) const override
         {
             return {}; // no options dialog - the drop imports immediately
         }

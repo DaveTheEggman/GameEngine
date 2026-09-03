@@ -169,7 +169,7 @@ TEST_CASE("audio.pipeline: wav -> AudioClipAsset cook -> AudioClip keeps the ORI
     asset.loopEndFrame = 900;
 
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -226,7 +226,7 @@ TEST_CASE("audio.pipeline: async clip load matches the synchronous product byte-
     asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     asset.gain = 0.8f;
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
     auto* inst = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
     ctx.output = inst;
@@ -290,7 +290,7 @@ TEST_CASE("audio.pipeline: many concurrent async clip decodes run on workers wit
     AudioClipAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
 
     constexpr int kCount = 10;
@@ -351,7 +351,7 @@ TEST_CASE("audio.pipeline: stream-flagged cooks bind a re-openable content strea
     asset.stream = true;
 
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -407,7 +407,7 @@ TEST_CASE("audio.pipeline: the builder VALIDATES - undecodable sources fail the 
     AudioClipAsset asset;
     asset.fileName = foundation::vfs::SourcePath(u8"tone.wav");
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
     ctx.output = outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
@@ -449,7 +449,7 @@ TEST_CASE("audio.pipeline: destructive options - force-mono downmixes, trim drop
     asset.normalize = true;
 
     AudioClipAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &sourceMount;
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cooked", AudioClipSource::StaticType());
@@ -522,7 +522,7 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
                       Span<const byte>(shortWav.Data(), shortWav.Size()))
                 .IsOk());
     Result<content::Instance*> shortImport =
-        importer.Import(u8"scratch_audiopipe_short.wav", pipeline::ImportContext{project->SourcesRoot()},
+        importer.Import(u8"scratch_audiopipe_short.wav", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
                         *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(shortImport.HasValue());
     {
@@ -541,7 +541,7 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
         WriteFile(u8"scratch_audiopipe_long.wav", Span<const byte>(longWav.Data(), longWav.Size()))
             .IsOk());
     Result<content::Instance*> longImport =
-        importer.Import(u8"scratch_audiopipe_long.wav", pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(),
+        importer.Import(u8"scratch_audiopipe_long.wav", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(),
                         nullptr, nullptr, nullptr);
     REQUIRE(longImport.HasValue());
     {
@@ -561,12 +561,12 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
                       Span<const byte>(garbage.Data(), garbage.Size()))
                 .IsOk());
     CHECK_FALSE(importer
-                    .Import(u8"scratch_audiopipe_garbage.wav", pipeline::ImportContext{project->SourcesRoot()},
+                    .Import(u8"scratch_audiopipe_garbage.wav", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
                             *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr)
                     .HasValue());
 
     // Import options object exposes the five toggles.
-    RefPtr<pipeline::ImportOptions> options = importer.CreateOptions();
+    RefPtr<pipeline::ImportOptions> options = importer.CreateOptions(DefaultAllocator());
     REQUIRE(options.Get() != nullptr);
     CHECK(options->Toggles().Size() == 5u);
 
@@ -598,7 +598,7 @@ TEST_CASE("audio.pipeline: bus layout asset cooks flat fields into the effect-ch
     asset.effects.delayDecay = 1.5f; // out of range: the builder clamps to 0.99
 
     AudioBusLayoutAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"mixer", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -654,7 +654,7 @@ TEST_CASE("audio.pipeline: custom-bus slots cook into the NAMED wire section and
     asset.custom[5].name = String(u8"Music"); // fixed-name shadow: skipped
 
     AudioBusLayoutAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"tree", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -703,7 +703,7 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     asset.custom[1].parent = String(u8"a");
 
     AudioBusLayoutAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"cyclic", AudioBusLayoutSource::StaticType());
     ctx.output = outputInstance;
@@ -821,7 +821,7 @@ TEST_CASE("audio.pipeline: sound cue cooks slots -> variants and resolves clip r
     asset.pitchMax = 0.8f; // reversed range: builder normalizes
 
     SoundCueAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     auto* outputInstance =
         outputDb.RootGroup()->CreateInstance(u8"footsteps", SoundCueSource::StaticType());
     ctx.output = outputInstance;

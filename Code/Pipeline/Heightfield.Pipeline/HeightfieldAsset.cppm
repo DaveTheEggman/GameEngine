@@ -145,7 +145,7 @@ export namespace pipeline
             const f32 minY = ha.minY;
             const f32 maxY = (ha.maxY > ha.minY + kMinSpan) ? ha.maxY : (ha.minY + kMinSpan);
             RefPtr<Heightfield> hf =
-                MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY, maxY);
+                MakeRef<Heightfield>(*ctx.allocator, size, worldSize, minY, maxY);
 
             if (!ha.fileName.View().IsEmpty())
             {
@@ -184,7 +184,7 @@ export namespace pipeline
                         if (stream->Read(samples.Data(), static_cast<u64>(streamSize)) !=
                             static_cast<u64>(streamSize))
                         {
-                            hf = MakeRef<Heightfield>(DefaultAllocator(), size, worldSize, minY,
+                            hf = MakeRef<Heightfield>(*ctx.allocator, size, worldSize, minY,
                                                       maxY); // partial read: fall back to flat
                         }
                     }

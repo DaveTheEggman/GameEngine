@@ -262,8 +262,8 @@ export namespace editor::mcp
                 content::Group* group = detail::ResolveGroupPath(
                     s->project->SourceDb().RootGroup(), args.Get(u8"group").AsString().AsView());
 
-                pipeline::ImportContext ctx;
-                ctx.sourcesRoot = s->project->SourcesRoot();
+                pipeline::ImportContext ctx{editor::EditorRootAllocator(),
+                                            s->project->SourcesRoot().AsView()};
                 Result<content::Instance*> imported =
                     importer->Import(source.AsView(), ctx, *group);
                 if (!imported.HasValue())
@@ -301,8 +301,9 @@ export namespace editor::mcp
                 const String cacheRoot = s->project->CacheRoot();
                 vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), editor::EditorRootAllocator());
                 vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), editor::EditorRootAllocator());
-                pipeline::CookDriver driver(s->project->SourceDb(), s->project->CookedDb(), *bld,
-                                            &sourcesMount, &cacheMount, nullptr); // serial (no jobs)
+                pipeline::CookDriver driver(editor::EditorRootAllocator(),
+                                            s->project->SourceDb(), s->project->CookedDb(), *bld,
+                                            &sourcesMount, &cacheMount, nullptr); // serial
                 pipeline::CookPlan plan = driver.Plan(force);
                 const pipeline::CookStats stats = driver.Execute(plan);
 

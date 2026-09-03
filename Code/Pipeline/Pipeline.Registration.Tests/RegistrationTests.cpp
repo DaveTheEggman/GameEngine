@@ -22,7 +22,7 @@ using namespace foundation::core;
 
 TEST_CASE("pipeline.registration: RegisterAllBuilders populates exactly kBuilderCount builders")
 {
-    pipeline::BuilderRegistry registry;
+    pipeline::BuilderRegistry registry{DefaultAllocator()};
     CHECK(registry.Count() == 0u);
     pipeline::RegisterAllBuilders(registry);
     CHECK(registry.Count() == pipeline::kBuilderCount);
@@ -30,7 +30,7 @@ TEST_CASE("pipeline.registration: RegisterAllBuilders populates exactly kBuilder
 
 TEST_CASE("pipeline.registration: RegisterAllImporters populates exactly kImporterCount importers")
 {
-    pipeline::ImporterRegistry registry;
+    pipeline::ImporterRegistry registry{DefaultAllocator()};
     CHECK(registry.Count() == 0u);
     pipeline::RegisterAllImporters(registry);
     CHECK(registry.Count() == pipeline::kImporterCount);
@@ -44,7 +44,7 @@ TEST_CASE("pipeline.registration: RegisterPipelineTypes runs the whole set witho
     pipeline::RegisterPipelineTypes();
 
     // Routing still works after registration: a fresh builder set resolves by asset type name.
-    pipeline::BuilderRegistry registry;
+    pipeline::BuilderRegistry registry{DefaultAllocator()};
     pipeline::RegisterAllBuilders(registry);
     CHECK(registry.Count() == pipeline::kBuilderCount);
 }
@@ -106,7 +106,7 @@ TEST_CASE("pipeline.registration: every builder's ProductType is a registered se
     // instead (the Terrain/Heightfield/SplatWeights class of bug) breaks this; the test audits
     // all builders, including builder N+1.
     pipeline::RegisterPipelineTypes();
-    pipeline::BuilderRegistry registry;
+    pipeline::BuilderRegistry registry{DefaultAllocator()};
     pipeline::RegisterAllBuilders(registry);
     REQUIRE(registry.Count() == pipeline::kBuilderCount);
 

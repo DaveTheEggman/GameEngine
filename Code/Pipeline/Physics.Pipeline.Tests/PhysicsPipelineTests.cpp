@@ -77,7 +77,7 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
 
         // Dependencies: the mesh guid must be declared as a hash-chained read.
         CollisionShapeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.db = &srcDb;
         pipeline::AssetDependencies deps;
@@ -154,7 +154,7 @@ TEST_CASE("physics.pipeline: collision cooks from the mesh PRODUCT (StaticMeshSo
     asset.cook = CollisionCookKind::ConvexHull;
 
     CollisionShapeAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &prodMount;
     ctx.db = &prodDb;
     auto* outInstance =
@@ -190,7 +190,7 @@ TEST_CASE("physics.pipeline: PhysicalMaterialAsset cooks and loads")
     asset.restitution = 0.25f;
     asset.density = 2500.0f;
     PhysicalMaterialAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.output = instance;
     REQUIRE(builder.Build(asset, ctx).IsOk());
 

@@ -231,17 +231,17 @@ export namespace pipeline
     public:
         [[nodiscard]] StringView Label() const override { return u8"Model"; }
 
-        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions(IAllocator& allocator) const override
         {
-            return RefPtr<pipeline::ImportOptions>(
-                MakeRef<ModelImportOptions>(DefaultAllocator()).Get());
+            return RefPtr<pipeline::ImportOptions>(MakeRef<ModelImportOptions>(allocator).Get());
         }
 
         [[nodiscard]] bool WantsWorkerPrepare() const override { return true; }
 
-        [[nodiscard]] RefPtr<Object> PrepareOnWorker(StringView sourcePath) override
+        [[nodiscard]] RefPtr<Object> PrepareOnWorker(StringView sourcePath,
+                                                     IAllocator& allocator) override
         {
-            RefPtr<LoadedModel> loaded = MakeRef<LoadedModel>(DefaultAllocator());
+            RefPtr<LoadedModel> loaded = MakeRef<LoadedModel>(allocator);
             if (LoadModelFrom(sourcePath, loaded->model) != foundation::model::ModelLoadResult::Ok)
             {
                 return {};
@@ -476,7 +476,8 @@ export namespace pipeline
             }
             Array<String> meshSourceNames; // per manifest mesh slot (collision's plan keys)
             const Status meshes =
-                ImportMeshes(model, *modelGroup, manifest, claimed, deferredWrites,
+                ImportMeshes(*context.allocator, model, *modelGroup, manifest, claimed,
+                             deferredWrites,
                              opt.generateLods, opt, meshSourceNames);
             if (!meshes.IsOk())
             {
@@ -550,7 +551,8 @@ export namespace pipeline
             }
             const StringView dir = originalPath.SubStr(0, dirEnd);
 
-            foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView(), foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView(),
+                                                      *context.allocator);
             const StringView key = u8"\"uri\"";
             for (usize i = 0; i + key.Size() < text.Size(); ++i)
             {
@@ -1032,7 +1034,8 @@ export namespace pipeline
             }
         }
 
-        [[nodiscard]] static Status ImportMeshes(const foundation::model::Model& model,
+        [[nodiscard]] static Status ImportMeshes(IAllocator& allocator,
+                                                 const foundation::model::Model& model,
                                                  content::Group& group,
                                                  ModelManifestSource& manifest,
                                                  Array<String>& claimed,
@@ -1091,7 +1094,7 @@ export namespace pipeline
                 Status written;
                 if (skinned)
                 {
-                    auto asset = MakeRef<pipeline::SkinnedMeshAsset>(DefaultAllocator());
+                    auto asset = MakeRef<pipeline::SkinnedMeshAsset>(allocator);
                     SkinnedMeshSourceFromModel(m, 0, asset->source);
                     // Authored _LODn levels fold into the chain (skinned overload keeps the
                     // parallel skinning stream in lockstep); big chainless meshes auto-generate
@@ -1149,7 +1152,7 @@ export namespace pipeline
                 }
                 else
                 {
-                    auto asset = MakeRef<pipeline::StaticMeshAsset>(DefaultAllocator());
+                    auto asset = MakeRef<pipeline::StaticMeshAsset>(allocator);
                     StaticMeshSourceFromModel(m, asset->source);
                     // Fold the gathered _LODn siblings into this asset's chain (suffix order).
                     for (const usize levelIndex : lodLevels[i])

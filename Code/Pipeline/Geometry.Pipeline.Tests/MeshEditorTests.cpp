@@ -54,7 +54,7 @@ TEST_CASE("mesh editor: cooks a StaticMeshAsset -> StaticMeshSource")
 
         StaticMeshAssetBuilder builder;
         REQUIRE(builder.AssetType() == &StaticMeshAsset::StaticType());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -103,7 +103,7 @@ TEST_CASE("mesh editor: cooks a SkinnedMeshAsset -> SkinnedMeshSource")
         MeshImporter::Import(*mesh, asset);
 
         SkinnedMeshAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -177,7 +177,7 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
         auto* out = db.RootGroup()->CreateInstance(u8"sphere_cooked",
                                                    StaticMeshSource::StaticType());
         StaticMeshAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.source = inst;
         ctx.output = out;
         RefPtr<ISerializable> fresh = inst->ReadObject(); // unloaded copy - Build must load

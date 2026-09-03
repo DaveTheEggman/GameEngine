@@ -126,7 +126,7 @@ namespace editor::mcp::detail
                     out.emptyCues.PushBack(inst);
                 }
             }
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{editor::EditorRootAllocator()};
             ctx.sources = &sourcesMount;
             ctx.source = inst;
             ctx.db = &db;
@@ -217,7 +217,8 @@ export namespace editor::mcp
                 const String cacheRoot = s->project->CacheRoot();
                 vfs::NativeFileSystem planSources(sourcesRoot.AsView(), editor::EditorRootAllocator());
                 vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), editor::EditorRootAllocator());
-                pipeline::CookDriver driver(db, s->project->CookedDb(), *bld, &planSources,
+                pipeline::CookDriver driver(editor::EditorRootAllocator(), db,
+                                            s->project->CookedDb(), *bld, &planSources,
                                             &cacheMount, nullptr);
                 pipeline::CookPlan plan = driver.Plan(/*force=*/false);
                 usize failedCooks = 0;

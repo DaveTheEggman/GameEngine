@@ -62,7 +62,7 @@ TEST_CASE("propanim.pipeline: asset cooks to the content DB, factory loads + sam
         PropertyAnimationClipAssetBuilder builder;
         REQUIRE(builder.AssetType() == &PropertyAnimationClipAsset::StaticType());
         REQUIRE(builder.ProductType() == &PropertyAnimationClipSource::StaticType());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }

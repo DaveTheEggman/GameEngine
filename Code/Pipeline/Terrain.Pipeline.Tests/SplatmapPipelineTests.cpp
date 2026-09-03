@@ -69,7 +69,7 @@ TEST_CASE("terrain.pipeline: SplatmapAsset cooks BOTH rasters and restores them 
         sa.height = 16;
         SplatmapAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = inst;
@@ -114,7 +114,7 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
 
         SplatmapAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = inst;
@@ -172,7 +172,7 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
         sa.height = 8;
         SplatmapAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = inst;
@@ -237,7 +237,7 @@ TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics an
         sa.fileName = foundation::vfs::SourcePath(u8"splat.png");
         SplatmapAssetBuilder builder;
         NativeFileSystem srcMount(u8"scratch_splatimg", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(sa, ctx).IsOk());
@@ -338,7 +338,7 @@ TEST_CASE("terrain.pipeline: the palette cook decodes albedos through the SOURCE
 
         pipeline::TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8"scratch_palette_src", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = product;
         ctx.db = &cookedDb;      // cooked-products view: has NO TextureAsset

@@ -71,8 +71,8 @@ export namespace pipeline
     // RGBA8 pixels (storeImageData) for external files, data-URIs, AND embedded GLB buffer-views
     // alike, so we cook directly from ModelTexture's pixel bytes - no file re-read, and embedded
     // textures work. Returns one Guid per model texture (nil if it has no usable RGBA8 data).
-    inline void CookTextures(const model::Model& model, content::Group* root, StringView namePrefix,
-                             Array<Guid>& outGuids)
+    inline void CookTextures(const model::Model& model, content::Group* root,
+                             StringView namePrefix, Array<Guid>& outGuids)
     {
         Array<bool> linear;
         ClassifyLinearTextures(model, linear);
@@ -125,9 +125,10 @@ export namespace pipeline
 
     // Cook the model's materials into outDb (as MaterialSource via CreatePBR + the editor cook).
     // Records, per material, its cooked Guid + the albedo texture Guid (resolved from textureGuids).
-    inline void CookMaterials(const model::Model& model, content::Group* root,
-                              StringView namePrefix, const Array<Guid>& textureGuids,
-                              Array<Guid>& outMatGuids, Array<Guid>& outAlbedo)
+    inline void CookMaterials(IAllocator& allocator, const model::Model& model,
+                              content::Group* root, StringView namePrefix,
+                              const Array<Guid>& textureGuids, Array<Guid>& outMatGuids,
+                              Array<Guid>& outAlbedo)
     {
         pipeline::MaterialAssetBuilder builder;
         HashMap<u64, Guid> bakedMR; // per-pair bake cache (materials often share maps)
@@ -251,7 +252,7 @@ export namespace pipeline
                 outAlbedo.PushBack(Guid{});
                 continue;
             }
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{allocator};
             ctx.output = inst;
             if (builder.Build(asset, ctx).IsOk())
             {
@@ -289,7 +290,7 @@ export namespace pipeline
 
         Array<Guid> textureGuids;
         CookTextures(model, root, namePrefix, textureGuids);
-        CookMaterials(model, root, namePrefix, textureGuids, manifest.materialGuids,
+        CookMaterials(outDb.Allocator(), model, root, namePrefix, textureGuids, manifest.materialGuids,
                       manifest.materialAlbedo);
 
         // Skeleton + animations (skin 0 only). The skeleton's bone order = the skin's joint order;
@@ -309,7 +310,7 @@ export namespace pipeline
                                      animation::SkeletonSource::StaticType());
             if (skelInst != nullptr)
             {
-                pipeline::AssetBuildContext ctx;
+                pipeline::AssetBuildContext ctx{outDb.Allocator()};
                 ctx.output = skelInst;
                 if (skelBuilder.Build(skelAsset, ctx).IsOk())
                 {
@@ -337,7 +338,7 @@ export namespace pipeline
                 {
                     continue;
                 }
-                pipeline::AssetBuildContext ctx;
+                pipeline::AssetBuildContext ctx{outDb.Allocator()};
                 ctx.output = clipInst;
                 if (clipBuilder.Build(clipAsset, ctx).IsOk())
                 {
@@ -363,7 +364,7 @@ export namespace pipeline
             {
                 return Status{ErrorCode::Unknown};
             }
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{outDb.Allocator()};
             ctx.output = inst;
 
             Status s;

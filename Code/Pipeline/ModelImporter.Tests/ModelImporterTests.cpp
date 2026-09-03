@@ -221,7 +221,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(importer.Accepts(u8"glb"));
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     foundation::content::Instance* manifestInst = imported.Value();
     REQUIRE(manifestInst != nullptr);
@@ -240,7 +240,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
     CHECK(manifestAsset->manifest.nodes.Size() >= 1u);
 
     // Cook EVERYTHING through the incremental driver (the real pipeline path).
-    BuilderRegistry builders;
+    BuilderRegistry builders{DefaultAllocator()};
     auto add = [&](auto* builder)
     { builders.Register(UniquePtr<IAssetBuilder>(builder, DefaultAllocator())); };
     add(DefaultAllocator().New<pipeline::TextureAssetBuilder>());
@@ -253,7 +253,7 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
 
     foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
     foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
-    CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
+    CookDriver driver(DefaultAllocator(), project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
 
     CookPlan plan = driver.Plan();
     CHECK(plan.dirty.Size() >= 2u); // manifest + meshes (+ any materials/skeleton/clips)
@@ -327,7 +327,7 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_FOX),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     REQUIRE(imported.Value() != nullptr);
 
@@ -405,7 +405,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -414,7 +414,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
     REQUIRE(manifest->manifest.materialGuids.Size() >= 1u);
     const Guid matGuid = manifest->manifest.materialGuids[0];
 
-    BuilderRegistry builders;
+    BuilderRegistry builders{DefaultAllocator()};
     auto add = [&](auto* builder)
     { builders.Register(UniquePtr<IAssetBuilder>(builder, DefaultAllocator())); };
     add(DefaultAllocator().New<pipeline::TextureAssetBuilder>());
@@ -427,7 +427,7 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
 
     foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
     foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
-    CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
+    CookDriver driver(DefaultAllocator(), project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
     CookPlan plan = driver.Plan();
     CookStats stats = driver.Execute(plan);
     REQUIRE(stats.failed == 0u);
@@ -662,7 +662,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
-    BuilderRegistry builders;
+    BuilderRegistry builders{DefaultAllocator()};
     auto add = [&](auto* builder)
     { builders.Register(UniquePtr<IAssetBuilder>(builder, DefaultAllocator())); };
     add(DefaultAllocator().New<pipeline::TextureAssetBuilder>());
@@ -675,13 +675,13 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
 
     foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), foundation::core::DefaultAllocator());
     foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), foundation::core::DefaultAllocator());
-    CookDriver driver(project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
+    CookDriver driver(DefaultAllocator(), project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
 
     // Duck has a texture (the crashing product kind). Import + cook generation 1.
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> firstImport =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(firstImport.HasValue());
 
     foundation::content::Group* duckGroup = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
@@ -708,7 +708,7 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
     // === user step 2: reimport the same file ===
     Result<foundation::content::Instance*> secondImport =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(secondImport.HasValue());
     foundation::content::Group* duckGroup2 = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
     REQUIRE(duckGroup2 != nullptr);
@@ -952,7 +952,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     pipeline::ModelFileImporter importer;
 
     // The importer advertises options, and their defaults import everything.
-    RefPtr<ImportOptions> base = importer.CreateOptions();
+    RefPtr<ImportOptions> base = importer.CreateOptions(DefaultAllocator());
     REQUIRE(base.Get() != nullptr);
     auto* options = static_cast<pipeline::ModelImportOptions*>(base.Get());
     CHECK(options->importTextures);
@@ -970,7 +970,7 @@ TEST_CASE("model-import: options gate textures/materials/animations")
     options->importAnimations = false;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -1010,13 +1010,13 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
-    RefPtr<ImportOptions> base = importer.CreateOptions();
+    RefPtr<ImportOptions> base = importer.CreateOptions(DefaultAllocator());
     auto* options = static_cast<pipeline::ModelImportOptions*>(base.Get());
     options->generateCollision = true;
     options->collisionConvex = true;
     Result<foundation::content::Instance*> imported =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_GLB),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), options, nullptr, nullptr);
     REQUIRE(imported.HasValue());
 
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -1075,7 +1075,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> first =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(first.HasValue());
 
     foundation::content::Group* duck = project->SourceDb().RootGroup()->GetGroup(u8"Duck");
@@ -1092,7 +1092,7 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
     // guids survive (placed refs + the prefab keep working) and nothing duplicates as ".2".
     Result<foundation::content::Instance*> second =
         importer.Import(reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_DUCK),
-                        pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+                        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(second.HasValue());
     CHECK(second.Value()->Id() == first.Value()->Id());
 
@@ -1341,7 +1341,7 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
     // PARITY: an unfiltered import creates an instance for EVERY plan entry, by name.
     {
         Result<foundation::content::Instance*> imported = importer.Import(
-            glb, pipeline::ImportContext{project->SourcesRoot()},
+            glb, pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
             *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
         REQUIRE(imported.HasValue());
         foundation::content::Group& modelGroup = imported.Value()->OwningGroup();
@@ -1373,7 +1373,7 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
         foundation::content::Group* target =
             project->SourceDb().RootGroup()->CreateGroup(u8"filtered");
         Result<foundation::content::Instance*> imported = importer.Import(
-            glb, pipeline::ImportContext{project->SourcesRoot()}, *target, options.Get(),
+            glb, pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *target, options.Get(),
             nullptr, nullptr);
         REQUIRE(imported.HasValue());
         foundation::content::Group& modelGroup = imported.Value()->OwningGroup();
@@ -1492,7 +1492,7 @@ TEST_CASE("model-import: LOD folding holds the manifest slot so node mesh indice
 
     pipeline::ModelFileImporter importer;
     Result<foundation::content::Instance*> imported = importer.Import(
-        fakeSource.AsView(), pipeline::ImportContext{project->SourcesRoot()},
+        fakeSource.AsView(), pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
         *project->SourceDb().RootGroup(), nullptr, prepared.Get(), nullptr);
     REQUIRE(imported.HasValue());
 

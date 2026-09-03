@@ -666,7 +666,7 @@ export namespace pipeline
                 }
                 sw = foundation::terrain::MigrateLegacySplatmap(
                     img.PixelData(), static_cast<i32>(img.Width()),
-                    static_cast<i32>(img.Height()), DefaultAllocator());
+                    static_cast<i32>(img.Height()), *ctx.allocator);
             }
             else
             {
@@ -686,7 +686,7 @@ export namespace pipeline
                 }
                 if (weights.Size() == expected && indices.Size() == expected)
                 {
-                    sw = MakeRef<SplatWeights>(DefaultAllocator(), w, h);
+                    sw = MakeRef<SplatWeights>(*ctx.allocator, w, h);
                     MemCopy(sw->Weights().Data(), weights.Data(), expected);
                     MemCopy(sw->Indices().Data(), indices.Data(), expected);
                 }
@@ -694,11 +694,11 @@ export namespace pipeline
                 {
                     sw = foundation::terrain::MigrateLegacySplatmap(
                         Span<const u8>{weights.Data(), weights.Size()}, w, h,
-                        DefaultAllocator());
+                        *ctx.allocator);
                 }
                 else
                 {
-                    sw = MakeRef<SplatWeights>(DefaultAllocator(), w, h); // all base
+                    sw = MakeRef<SplatWeights>(*ctx.allocator, w, h); // all base
                 }
             }
             if (sw.Get() == nullptr || sw->IsEmpty())

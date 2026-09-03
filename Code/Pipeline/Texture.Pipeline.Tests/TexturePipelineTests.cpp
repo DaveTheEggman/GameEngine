@@ -82,7 +82,7 @@ TEST_CASE("texture.pipeline: TextureAsset -> cook -> GPU Texture")
         TextureAssetBuilder builder;
         REQUIRE(builder.AssetType() == &TextureAsset::StaticType());
         foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -137,7 +137,7 @@ TEST_CASE("texture.pipeline: builder fails on a missing source file")
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     TextureAssetBuilder builder;
     foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &srcMount;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());
@@ -176,7 +176,7 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
     CHECK_FALSE(importer.Accepts(u8"gltf"));
 
     Result<foundation::content::Instance*> imported = importer.Import(
-        u8"brick.png", pipeline::ImportContext{project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+        u8"brick.png", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()}, *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     foundation::content::Instance* instance = imported.Value();
     REQUIRE(instance != nullptr);
@@ -221,7 +221,7 @@ TEST_CASE("texture-import: a normal-map suffix imports as Normal usage + linear 
 
     TextureFileImporter importer;
     Result<foundation::content::Instance*> imported = importer.Import(
-        u8"wall_normal.png", pipeline::ImportContext{project->SourcesRoot()},
+        u8"wall_normal.png", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
         *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(imported.HasValue());
     RefPtr<ISerializable> object = imported.Value()->ReadObject();
@@ -290,13 +290,13 @@ TEST_CASE("texture.pipeline: cubemap - 6 faces cook into one cube product (end t
 
         // The recipe must chain ALL faces (editing -nz alone must re-cook the cube).
         TextureAssetBuilder builder;
-        pipeline::AssetBuildContext scanCtx;
+        pipeline::AssetBuildContext scanCtx{DefaultAllocator()};
         pipeline::AssetDependencies deps;
         builder.ScanDependencies(asset, scanCtx, deps);
         CHECK(deps.files.Size() == 5u); // the 5 non-+X faces (fileName is the implicit dep)
 
         foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -366,7 +366,7 @@ TEST_CASE("texture.pipeline: mip chain cook - counts, sizes, and sRGB-correct av
                     .IsOk());
 
         TextureAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.source = srcInst;
         ctx.output = outInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -477,7 +477,7 @@ TEST_CASE("texture.pipeline: block compression cook - format policy + exact cook
         REQUIRE(srcInst->WriteData(u8"pixels", Span<const byte>(pixels.Data(), pixels.Size())).IsOk());
 
         TextureAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.source = srcInst;
         ctx.output = outInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -689,7 +689,7 @@ TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename re
     plan.entries[0].targetName = String(u8"wall_albedo");
     options->selection = Move(plan);
     Result<foundation::content::Instance*> imported = importer.Import(
-        u8"wall.png", pipeline::ImportContext{project->SourcesRoot()},
+        u8"wall.png", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
         *project->SourceDb().RootGroup(), options.Get(), nullptr, nullptr);
     REQUIRE(imported.HasValue());
     CHECK(imported.Value()->Name() == StringView(u8"wall_albedo"));
@@ -710,7 +710,7 @@ TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename re
     auto reOptions = MakeRef<pipeline::ImportOptions>(DefaultAllocator());
     reOptions->selection = Move(fresh);
     Result<foundation::content::Instance*> reimported = importer.Import(
-        u8"wall.png", pipeline::ImportContext{project->SourcesRoot()},
+        u8"wall.png", pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
         *project->SourceDb().RootGroup(), reOptions.Get(), nullptr, nullptr);
     REQUIRE(reimported.HasValue());
     CHECK(reimported.Value() == imported.Value()); // same instance, updated

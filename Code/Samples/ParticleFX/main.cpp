@@ -1134,7 +1134,7 @@ namespace
             pipeline::ParticleEffectAsset asset;
             BuildCookedEffect(asset.Effect());
             pipeline::ParticleEffectAssetBuilder builder;
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{foundation::core::DefaultAllocator()};
             ctx.output = inst;
             ctx.db = m_contentDb.Get();
             if (!builder.Build(asset, ctx).IsOk())

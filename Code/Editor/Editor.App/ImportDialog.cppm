@@ -634,7 +634,7 @@ export namespace editor::app
                 return;
             }
             entry.importerIndex = importerIndex;
-            entry.options = entry.candidates[importerIndex]->CreateOptions();
+            entry.options = entry.candidates[importerIndex]->CreateOptions(MemoryAllocator());
             if (entry.options.Get() == nullptr)
             {
                 // Bare selection carrier (option-less importers still honor renames).

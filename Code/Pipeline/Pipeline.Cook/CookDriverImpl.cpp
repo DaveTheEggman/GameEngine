@@ -49,7 +49,7 @@ namespace pipeline
         {
             return *existing;
         }
-        auto record = MakeUnique<CookRecord>(DefaultAllocator());
+        auto record = MakeUnique<CookRecord>(*m_allocator);
         record->source = source;
         CookRecord* raw = record.Get();
         m_storage.PushBack(Move(record));
@@ -283,7 +283,7 @@ namespace pipeline
             return;
         }
 
-        AssetBuildContext scanCtx;
+        AssetBuildContext scanCtx{*m_allocator};
         scanCtx.sources = m_sources;
         scanCtx.db = m_sourceDb;
         builder->ScanDependencies(*asset, scanCtx, item.deps);
@@ -577,7 +577,7 @@ namespace pipeline
                     RefPtr<ISerializable> depObject = dep->ReadObject();
                     if (Asset* depAsset = Cast<Asset>(depObject.Get()))
                     {
-                        AssetBuildContext scanCtx;
+                        AssetBuildContext scanCtx{*m_allocator};
                         scanCtx.sources = m_sources;
                         scanCtx.db = m_sourceDb;
                         AssetDependencies depDeps;
@@ -626,7 +626,7 @@ namespace pipeline
             {
                 continue;
             }
-            AssetBuildContext scanCtx;
+            AssetBuildContext scanCtx{*m_allocator};
             scanCtx.sources = m_sources;
             scanCtx.db = m_sourceDb;
             AssetDependencies depDeps;
@@ -727,7 +727,7 @@ namespace pipeline
             return false;
         }
 
-        AssetBuildContext ctx;
+        AssetBuildContext ctx{*m_allocator};
         ctx.sources = m_sources;
         ctx.source = source;
         ctx.output = product;

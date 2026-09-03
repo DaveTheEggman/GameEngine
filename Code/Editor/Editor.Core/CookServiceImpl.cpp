@@ -52,9 +52,10 @@ namespace editor
         m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(
             editor::EditorRootAllocator(), project.CacheRoot().AsView(), editor::EditorRootAllocator());
         m_jobs = MakeUnique<JobSystem>(editor::EditorRootAllocator(), editor::EditorRootAllocator());
-        m_driver =
-            MakeUnique<CookDriver>(editor::EditorRootAllocator(), project.SourceDb(), project.CookedDb(),
-                                   builders, m_sources.Get(), m_cache.Get(), m_jobs.Get());
+        m_driver = MakeUnique<CookDriver>(editor::EditorRootAllocator(),
+                                          editor::EditorRootAllocator(), project.SourceDb(),
+                                          project.CookedDb(), builders, m_sources.Get(),
+                                          m_cache.Get(), m_jobs.Get());
 
         // Watch Sources/ for external edits (stat sweep; throttled from Update).
         if (foundation::vfs::IWatchableFileSystem* watchable = m_sources->AsWatchable())

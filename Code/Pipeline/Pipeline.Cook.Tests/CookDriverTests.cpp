@@ -199,7 +199,7 @@ namespace
         String root;
         UniquePtr<vfs::NativeFileSystem> contentFs, cookedFs, sourcesFs, cacheFs;
         UniquePtr<content::ContentDatabase> sourceDb, cookedDb;
-        BuilderRegistry builders;
+        BuilderRegistry builders{DefaultAllocator()};
 
         explicit Fixture(StringView name)
         {
@@ -251,7 +251,8 @@ namespace
 
         [[nodiscard]] CookDriver MakeDriver()
         {
-            return CookDriver(*sourceDb, *cookedDb, builders, sourcesFs.Get(), cacheFs.Get());
+            return CookDriver(DefaultAllocator(), *sourceDb, *cookedDb, builders,
+                              sourcesFs.Get(), cacheFs.Get());
         }
 
         Guid AddWidget(StringView name, i32 quality, StringView file = {})
@@ -556,7 +557,7 @@ TEST_CASE("cook: a wide dependency level cooks in parallel on the JobSystem")
     }
 
     JobSystem jobs(DefaultAllocator());
-    CookDriver driver(*fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(), fx.cacheFs.Get(),
+    CookDriver driver(DefaultAllocator(), *fx.sourceDb, *fx.cookedDb, fx.builders, fx.sourcesFs.Get(), fx.cacheFs.Get(),
                       &jobs);
 
     CookPlan plan = driver.Plan();
@@ -601,7 +602,7 @@ TEST_CASE("cook variant axis: target cook recooks variant products + copies inva
     content::ContentDatabase targetDb(DefaultAllocator(), targetCookedFs, BinarySerializerFactory(), u8".rasset");
 
     CookTarget astc{String(u8"web-astc"), /*bc*/ false, /*astc*/ true, /*etc2*/ false};
-    CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
+    CookDriver target(DefaultAllocator(), *fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
     target.SetTarget(astc);
     target.SetCopyForwardSource(*fx.cookedDb, host.Db());
 
@@ -659,7 +660,7 @@ TEST_CASE("cook variant axis: an invariant product that READS variant content re
     content::ContentDatabase targetDb(DefaultAllocator(), targetCookedFs, BinarySerializerFactory(), u8".rasset");
 
     CookTarget astc{String(u8"web-astc"), false, true, false};
-    CookDriver target(*fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
+    CookDriver target(DefaultAllocator(), *fx.sourceDb, targetDb, fx.builders, fx.sourcesFs.Get(), &targetCacheFs);
     target.SetTarget(astc);
     target.SetCopyForwardSource(*fx.cookedDb, host.Db());
 

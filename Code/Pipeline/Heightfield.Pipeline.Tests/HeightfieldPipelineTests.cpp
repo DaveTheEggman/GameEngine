@@ -49,7 +49,7 @@ namespace
 
             HeightfieldAssetBuilder builder;
             NativeFileSystem srcMount(u8".", DefaultAllocator());
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{DefaultAllocator()};
             ctx.sources = &srcMount;
             ctx.output = inst;
             REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -245,7 +245,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
     // The sidecar must be declared as a source stream (recipe-hash chaining) in embedded mode only.
     {
         HeightfieldAssetBuilder builder;
-        pipeline::AssetBuildContext scanCtx;
+        pipeline::AssetBuildContext scanCtx{DefaultAllocator()};
         pipeline::AssetDependencies deps;
         builder.ScanDependencies(asset, scanCtx, deps);
         REQUIRE(deps.sourceStreams.Size() == 1);
@@ -268,7 +268,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
 
         HeightfieldAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst; // the authored sidecar lives on the source instance
         ctx.output = inst;

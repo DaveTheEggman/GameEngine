@@ -63,7 +63,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
         MaterialAssetBuilder builder;
         REQUIRE(builder.AssetType() == &MaterialAsset::StaticType());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }

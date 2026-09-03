@@ -64,8 +64,8 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     std::error_code ec;
     std::filesystem::remove_all("mcp_full_project", ec);
 
-    pipeline::BuilderRegistry builders;
-    pipeline::ImporterRegistry importers;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     pipeline::RegisterAllImporters(importers);

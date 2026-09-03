@@ -374,7 +374,7 @@ export namespace editor::app
         };
         editor::EditorContext m_context{m_editorAllocator};
         UniquePtr<editor::EditorProject> m_project;
-        pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
+        pipeline::BuilderRegistry m_builders{m_editorAllocator}; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)

@@ -27,7 +27,10 @@ using namespace foundation::core;
 
 namespace pipeline
 {
-    RefPtr<Object> IFileImporter::PrepareOnWorker(StringView /*sourcePath*/) { return {}; }
+    RefPtr<Object> IFileImporter::PrepareOnWorker(StringView /*sourcePath*/, IAllocator&)
+    {
+        return {};
+    }
     void ImporterRegistry::Register(UniquePtr<IFileImporter> importer)
     {
         if (importer)

@@ -107,7 +107,7 @@ namespace scriptpipe
             asset.fileName = foundation::vfs::SourcePath(fileName);
             asset.language = String(language);
             ScriptClassAssetBuilder builder;
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{foundation::core::DefaultAllocator()};
             ctx.sources = sources.Get();
             if (outInstance == nullptr)
             {

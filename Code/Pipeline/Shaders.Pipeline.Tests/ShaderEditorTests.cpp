@@ -71,7 +71,7 @@ TEST_CASE("shader editor: cooks a ShaderAsset -> ShaderSource from two .hlsl fil
         ShaderAssetBuilder builder;
         REQUIRE(builder.AssetType() == &ShaderAsset::StaticType());
         NativeFileSystem srcMount(u8"scratch_shader_edit", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -108,7 +108,7 @@ TEST_CASE("shader editor: missing source file is an error, not a crash")
 
     ShaderAssetBuilder builder;
     NativeFileSystem srcMount2(u8"scratch_shader_edit", DefaultAllocator());
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &srcMount2;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

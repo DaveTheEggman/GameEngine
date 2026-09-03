@@ -72,6 +72,9 @@ export namespace pipeline
     class CookDb
     {
     public:
+        // The allocator (required - the owner decides) backs the cook records.
+        explicit CookDb(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         static constexpr u32 kVersion = 1;
         static constexpr StringView kDefaultName = u8"cook.db";
 
@@ -92,6 +95,7 @@ export namespace pipeline
 
     private:
         static void SerializeRecord(ISerializer& ar, CookRecord& r);
+        IAllocator* m_allocator;
 
         HashMap<Guid, CookRecord*> m_records;
         Array<UniquePtr<CookRecord>> m_storage;
@@ -174,10 +178,12 @@ export namespace pipeline
     class CookDriver
     {
     public:
-        CookDriver(content::ContentDatabase& sourceDb, content::ContentDatabase& cookedDb,
-                   BuilderRegistry& builders, vfs::IFileSystem* sourcesMount,
-                   vfs::IFileSystem* cacheMount, JobSystem* jobs = nullptr)
-            : m_sourceDb(&sourceDb), m_cookedDb(&cookedDb), m_builders(&builders),
+        CookDriver(IAllocator& allocator, content::ContentDatabase& sourceDb,
+                   content::ContentDatabase& cookedDb, BuilderRegistry& builders,
+                   vfs::IFileSystem* sourcesMount, vfs::IFileSystem* cacheMount,
+                   JobSystem* jobs = nullptr)
+            : m_allocator(&allocator), m_sourceDb(&sourceDb), m_cookedDb(&cookedDb),
+              m_builders(&builders),
               m_sources(sourcesMount), m_cache(cacheMount), m_jobs(jobs)
         {
             if (m_cache != nullptr)
@@ -277,6 +283,7 @@ export namespace pipeline
 
         // The cooked-DB group mirroring the source instance's group path.
         [[nodiscard]] content::Group* MirrorGroup(content::Group& sourceGroup);
+        IAllocator* m_allocator;
 
         content::ContentDatabase* m_sourceDb;
         content::ContentDatabase* m_cookedDb;
@@ -289,7 +296,7 @@ export namespace pipeline
         content::ContentDatabase* m_hostCookedDb = nullptr; // copy-forward source; null = off
         CookDb* m_hostRecords = nullptr;                    // host cook.db - gates the copy by recipe
 
-        CookDb m_db;
+        CookDb m_db{*m_allocator};
         HashMap<Guid, u64> m_recipeMemo;                   // per-Plan recipe cache
         HashMap<Guid, Array<CookFileMemo>> m_pendingMemos; // file memos gathered during Plan
         Mutex m_recordMutex;                               // record updates from worker threads
@@ -300,12 +307,14 @@ export namespace pipeline
     // `hostCookedDb` (gated by `hostRecords`) instead of recooking them. `targetCache` is the target's
     // own cook.db mount. Both Tools.Cook --target and the web export drive this. `force` re-cooks all.
     [[nodiscard]] inline CookStats CookForTarget(
-        content::ContentDatabase& sourceDb, content::ContentDatabase& targetCookedDb,
+        IAllocator& allocator, content::ContentDatabase& sourceDb,
+        content::ContentDatabase& targetCookedDb,
         content::ContentDatabase& hostCookedDb, CookDb& hostRecords, BuilderRegistry& builders,
         vfs::IFileSystem* sources, vfs::IFileSystem* targetCache, const CookTarget& target,
         JobSystem* jobs = nullptr, bool force = false)
     {
-        CookDriver driver(sourceDb, targetCookedDb, builders, sources, targetCache, jobs);
+        CookDriver driver(allocator, sourceDb, targetCookedDb, builders, sources, targetCache,
+                          jobs);
         driver.SetTarget(target);
         driver.SetCopyForwardSource(hostCookedDb, hostRecords);
         CookPlan plan = driver.Plan(force);

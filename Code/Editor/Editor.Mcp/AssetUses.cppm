@@ -122,7 +122,7 @@ namespace editor::mcp::detail
                 pipeline::Asset* asset = Cast<pipeline::Asset>(object.Get());
                 if (asset != nullptr)
                 {
-                    pipeline::AssetBuildContext ctx;
+                    pipeline::AssetBuildContext ctx{editor::EditorRootAllocator()};
                     ctx.sources = &sourcesMount;
                     ctx.source = inst;
                     ctx.db = &db;

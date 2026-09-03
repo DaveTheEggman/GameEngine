@@ -76,7 +76,7 @@ TEST_CASE("font.pipeline: FontAsset raster ramp -> cook -> rasterizer-free Font"
         REQUIRE(builder.AssetType() == &FontAsset::StaticType());
         REQUIRE(builder.ProductType() == &FontResource::StaticType());
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -143,7 +143,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
 
         FontAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -192,7 +192,7 @@ TEST_CASE("font.pipeline: builder fails on a missing source file")
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.ttf");
     FontAssetBuilder builder;
     NativeFileSystem srcMount(u8".", DefaultAllocator());
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &srcMount;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

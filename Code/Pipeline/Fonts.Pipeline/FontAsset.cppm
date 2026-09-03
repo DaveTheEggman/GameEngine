@@ -139,7 +139,7 @@ export namespace pipeline{
             if (fa.mode == FontBakeMode::DistanceField)
             {
                 const Status baked =
-                    BakeDistanceField(fa, fontBytes, resource, pixels);
+                    BakeDistanceField(*ctx.allocator, fa, fontBytes, resource, pixels);
                 if (!baked.IsOk())
                 {
                     return baked;
@@ -149,7 +149,8 @@ export namespace pipeline{
             {
                 for (f32 size : fa.sizes)
                 {
-                    const Status baked = BakeCoverage(fa, fontBytes, size, resource, pixels);
+                    const Status baked =
+                        BakeCoverage(*ctx.allocator, fa, fontBytes, size, resource, pixels);
                     if (!baked.IsOk())
                     {
                         return baked;
@@ -197,17 +198,18 @@ export namespace pipeline{
         }
 
         // One coverage (A8) size via the existing baked-font importer.
-        [[nodiscard]] Status BakeCoverage(const FontAsset& fa, Span<const u8> fontBytes, f32 size,
+        [[nodiscard]] Status BakeCoverage(IAllocator& allocator, const FontAsset& fa,
+                                          Span<const u8> fontBytes, f32 size,
                                           FontResource& resource, Array<u8>& pixels)
         {
             Result<BakedFontData*, FontLoadResult> baked =
                 FontImporter::Bake(fontBytes, OptionsFor(fa, size, /*distanceField*/ false),
-                                   DefaultAllocator());
+                                   allocator);
             if (!baked.HasValue())
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            UniquePtr<BakedFontData> data(baked.Value(), DefaultAllocator());
+            UniquePtr<BakedFontData> data(baked.Value(), allocator);
 
             FontResourceEntry entry;
             FillEntryHeader(*data->font, size, entry);
@@ -253,7 +255,8 @@ export namespace pipeline{
         }
 
         // The single MSDF bake: parse, run the registered msdfgen baker, flatten tables.
-        [[nodiscard]] Status BakeDistanceField(const FontAsset& fa, Span<const u8> fontBytes,
+        [[nodiscard]] Status BakeDistanceField(IAllocator& allocator, const FontAsset& fa,
+                                               Span<const u8> fontBytes,
                                                FontResource& resource, Array<u8>& pixels)
         {
             DFFonts::Initialize(); // idempotent baker registration (msdfgen)
@@ -271,12 +274,12 @@ export namespace pipeline{
                 return Status{ErrorCode::InvalidArgument};
             }
             Result<IFontAtlas*, FontLoadResult> baked =
-                FontAtlasBakerFactory::Bake(font, options, DefaultAllocator());
+                FontAtlasBakerFactory::Bake(font, options, allocator);
             if (!baked.HasValue())
             {
                 return Status{ErrorCode::NotSupported}; // no DF baker (msdfgen missing?)
             }
-            UniquePtr<IFontAtlas> atlas(baked.Value(), DefaultAllocator());
+            UniquePtr<IFontAtlas> atlas(baked.Value(), allocator);
 
             FontResourceEntry entry;
             FillEntryHeader(font, fa.dfSize, entry);

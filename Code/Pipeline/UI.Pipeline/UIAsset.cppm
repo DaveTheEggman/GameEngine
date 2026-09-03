@@ -145,7 +145,7 @@ export namespace pipeline{
 
             Array<String> warnings;
             RefPtr<View> tree =
-                MarkupLoader::LoadFromString(DefaultAllocator(), markup.AsView(), nullptr, &warnings);
+                MarkupLoader::LoadFromString(*ctx.allocator, markup.AsView(), nullptr, &warnings);
             if (tree.Get() == nullptr)
             {
                 LOG_ERROR(
@@ -205,7 +205,7 @@ export namespace pipeline{
                 LOG_ERROR(u8"UI", u8"UI theme is empty - nothing to cook");
                 return Status{ErrorCode::InvalidArgument};
             }
-            StyleSheetLoader loader(DefaultAllocator());
+            StyleSheetLoader loader(*ctx.allocator);
             loader.SetPalette(ThemePalette::Dark()); // palette variables resolvable at cook
             RefPtr<StyleSheet> sheet = loader.Load(stylesheet.AsView());
             if (sheet.Get() == nullptr)

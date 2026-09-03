@@ -105,7 +105,7 @@ TEST_CASE("navigation.pipeline: bake -> asset (sidecar) -> cook -> product -> qu
     pipeline::NavigationZoneAssetBuilder builder;
     {
         pipeline::NavigationZoneAsset asset;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.db = &srcDb;
         ctx.source = zoneInstance; // the sidecar stream lives on the source instance

@@ -114,7 +114,7 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();
@@ -209,7 +209,7 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();

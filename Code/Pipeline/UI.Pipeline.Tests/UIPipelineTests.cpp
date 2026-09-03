@@ -54,7 +54,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
         UIDocumentAsset asset;
         asset.markup = String(kUIDocumentStarter);
         UIDocumentAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = docInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -64,7 +64,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
         UIThemeAsset asset;
         asset.stylesheet = String(kUIThemeStarter);
         UIThemeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = themeInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -101,7 +101,7 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
 
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.output = instance;
 
     UIDocumentAssetBuilder documents;
@@ -137,7 +137,7 @@ TEST_CASE("ui.pipeline: a gamekit <screen> document validates at cook")
     asset.markup =
         String(u8"<screen mode=\"overlay\"><Label id=\"hud-timer\" text=\"90\"/></screen>");
     UIDocumentAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.output = instance;
     CHECK(builder.Build(asset, ctx).IsOk());
 
@@ -228,7 +228,7 @@ TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline 
     content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
     UIFileImporter importer;
-    pipeline::ImportContext importCtx{String(sourcesRoot.AsView())};
+    pipeline::ImportContext importCtx{DefaultAllocator(), sourcesRoot.AsView()};
 
     // Document: fileName SET, inline markup EMPTY, source present under Sources/.
     Result<content::Instance*> docInst =
@@ -285,7 +285,7 @@ TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the 
         UIDocumentAsset asset;
         asset.fileName = foundation::vfs::SourcePath(u8"doc.sml");
         UIDocumentAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &sourcesMount;
         ctx.output = docInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -300,7 +300,7 @@ TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the 
         UIThemeAsset asset;
         asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
         UIThemeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &sourcesMount;
         ctx.output = themeInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -315,7 +315,7 @@ TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the 
         UIDocumentAsset asset;
         asset.fileName = foundation::vfs::SourcePath(u8"does-not-exist.sml");
         UIDocumentAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &sourcesMount;
         ctx.output = docInst;
         CHECK_FALSE(builder.Build(asset, ctx).IsOk());
@@ -338,7 +338,7 @@ TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
         UIDocumentAsset asset;
         asset.markup = String(kUIDocumentStarter); // inline, fileName left empty
         UIDocumentAssetBuilder builder;
-        pipeline::AssetBuildContext ctx; // no sources mount needed for the inline path
+        pipeline::AssetBuildContext ctx{DefaultAllocator()}; // no sources mount needed for the inline path
         ctx.output = docInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
         RefPtr<ISerializable> object = docInst->ReadObject();
@@ -351,7 +351,7 @@ TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
         UIThemeAsset asset;
         asset.stylesheet = String(kUIThemeStarter); // inline, fileName left empty
         UIThemeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = themeInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
         RefPtr<ISerializable> object = themeInst->ReadObject();
@@ -398,7 +398,7 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
         asset.stylesheet = String(kUIThemeStarter);
         asset.previewMarkup = String(u8"<Panel/>");
         UIThemeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.output = product;
         REQUIRE(builder.Build(asset, ctx).IsOk());
         RefPtr<ISerializable> object = product->ReadObject();

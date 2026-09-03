@@ -33,6 +33,10 @@ export namespace pipeline
     /// caller supplies the two facts imports consume and keeps its project model to itself.
     struct ImportContext
     {
+        // The import's allocator (required - the editor page / cook tool decides).
+        ImportContext(IAllocator& alloc, StringView root) : allocator(&alloc), sourcesRoot(root) {}
+
+        IAllocator* allocator;
         String sourcesRoot; // absolute OS path to the project's Sources/ tree
     };
 
@@ -259,14 +263,18 @@ export namespace pipeline
 
         /// Fresh options for one import (defaults set). Null = this importer has no options
         /// and the import runs immediately on drop, no dialog.
-        [[nodiscard]] virtual RefPtr<ImportOptions> CreateOptions() const { return {}; }
+        [[nodiscard]] virtual RefPtr<ImportOptions> CreateOptions(IAllocator&) const
+        {
+            return {};
+        }
 
         /// Slow importers split in two: PrepareOnWorker runs OFF the UI thread (pure
         /// parse/decode of the source file - NO project or DB access) and its payload is
         /// then handed to Import on the MAIN thread for the fast DB fan-out. Default: no
         /// worker phase (Import does everything inline).
         [[nodiscard]] virtual bool WantsWorkerPrepare() const { return false; }
-        [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/);
+        [[nodiscard]] virtual RefPtr<Object> PrepareOnWorker(StringView /*sourcePath*/,
+                                                             IAllocator& allocator);
 
         /// Enumerate everything Import would create (the review dialog's data), WITHOUT
         /// touching the project or DB. `prepared` is PrepareOnWorker's payload when the
@@ -308,6 +316,11 @@ export namespace pipeline
     class ImporterRegistry
     {
     public:
+        // The allocator (required - the owner decides) backs registered importers.
+        explicit ImporterRegistry(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         void Register(UniquePtr<IFileImporter> importer);
 
         /// First importer claiming the extension (v1 routing), or null.
@@ -320,6 +333,7 @@ export namespace pipeline
         [[nodiscard]] usize Count() const noexcept { return m_importers.Size(); }
 
     private:
+        IAllocator* m_allocator;
         Array<UniquePtr<IFileImporter>> m_importers;
     };
 

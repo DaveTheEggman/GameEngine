@@ -295,6 +295,7 @@ export namespace foundation::content
         }
 
         // --- accessors used by Group/Instance ---
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
         [[nodiscard]] IFileSystem& Mount() const noexcept { return *m_mount; }
         [[nodiscard]] SerializableRegistry& Serializables() const noexcept
         {

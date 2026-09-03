@@ -597,7 +597,7 @@ namespace
             }
             pipeline::TextureAssetBuilder builder;
             foundation::vfs::NativeFileSystem imageMount(imageDir, AppRoot());
-            pipeline::AssetBuildContext ctx;
+            pipeline::AssetBuildContext ctx{foundation::core::DefaultAllocator()};
             ctx.sources = &imageMount; // the mount resolves the PNG
             ctx.output = inst;
             if (!builder.Build(asset, ctx).IsOk())

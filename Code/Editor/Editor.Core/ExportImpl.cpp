@@ -283,8 +283,8 @@ namespace editor
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), editor::EditorRootAllocator());
         foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), editor::EditorRootAllocator());
         JobSystem jobs(editor::EditorRootAllocator()); // export tool root
-        CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
-                          &cacheMount, &jobs);
+        CookDriver driver(editor::EditorRootAllocator(), project.SourceDb(), project.CookedDb(),
+                          builders, &sourcesMount, &cacheMount, &jobs);
         CookPlan plan = driver.PlanFor(planRoots, rebuild);
         outReachable = plan.reachable;
 
@@ -386,7 +386,7 @@ namespace editor
         // The host cook already ran (ExportProject/CookReachable) and persisted its records to
         // .cache/cook.db - load them once to gate copy-forward for every target.
         foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), editor::EditorRootAllocator());
-        CookDb hostRecords;
+        CookDb hostRecords{editor::EditorRootAllocator()};
         hostRecords.Load(cacheMount);
 
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), editor::EditorRootAllocator());
@@ -421,7 +421,8 @@ namespace editor
             foundation::content::ContentDatabase targetDb(editor::EditorRootAllocator(), targetCookedMount, BinarySerializerFactory(),
                                                         engine::project::kCookedAssetExtension);
 
-            const CookStats s = CookForTarget(project.SourceDb(), targetDb, project.CookedDb(),
+            const CookStats s = CookForTarget(editor::EditorRootAllocator(), project.SourceDb(),
+                                              targetDb, project.CookedDb(),
                                               hostRecords, builders, &sourcesMount, &targetCacheMount,
                                               CookTargetFor(targetId.AsView()), &jobs, rebuild);
             failed += s.failed;
@@ -641,8 +642,8 @@ namespace editor
         foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), editor::EditorRootAllocator());
         foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), editor::EditorRootAllocator());
         JobSystem jobs(editor::EditorRootAllocator()); // export tool root
-        CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
-                          &cacheMount, &jobs);
+        CookDriver driver(editor::EditorRootAllocator(), project.SourceDb(), project.CookedDb(),
+                          builders, &sourcesMount, &cacheMount, &jobs);
         CookPlan plan = driver.Plan(rebuild);
         CookProgress cookProgress;
         cookProgress.onItem = [&onProgress](usize done, usize total, StringView path, bool)

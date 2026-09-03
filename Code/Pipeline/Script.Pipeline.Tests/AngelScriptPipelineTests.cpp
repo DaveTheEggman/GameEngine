@@ -208,7 +208,7 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     asset.fileName = foundation::vfs::SourcePath(u8"fake.ftl");
     asset.language = String(u8"nosuchlang");
     ScriptClassAssetBuilder builder;
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = bed.sources.Get();
     ctx.output = second;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

@@ -69,7 +69,7 @@ TEST_CASE("image.pipeline: ImageAsset -> cook -> ImageResource round-trips")
 
         ImageAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = inst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -123,7 +123,7 @@ TEST_CASE("image.pipeline: builder fails on a missing source file")
     asset.fileName = foundation::vfs::SourcePath(u8"does_not_exist_xyz.png");
     ImageAssetBuilder builder;
     NativeFileSystem srcMount2(u8".", DefaultAllocator());
-    pipeline::AssetBuildContext ctx;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &srcMount2;
     ctx.output = inst;
     CHECK_FALSE(builder.Build(asset, ctx).IsOk());

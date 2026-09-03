@@ -362,7 +362,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{AppRoot()};
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
     pipeline::RegisterAllBuilders(builders);
     // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),

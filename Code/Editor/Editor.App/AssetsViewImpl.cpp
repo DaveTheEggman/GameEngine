@@ -116,7 +116,7 @@ namespace editor::app
 
         for (app::BatchImportDialog::FileEntry& entry : files)
         {
-            entry.options = entry.candidates[entry.importerIndex]->CreateOptions();
+            entry.options = entry.candidates[entry.importerIndex]->CreateOptions(MemoryAllocator());
             if (entry.options.Get() == nullptr)
             {
                 // Bare selection carrier so option-less importers still honor renames.
@@ -165,10 +165,10 @@ namespace editor::app
             m_jobs->Submit(
                 title.AsView(),
                 Function<Status(editor::JobContext&)>{
-                    [importer, file = entry.path, holder](editor::JobContext& job) -> Status
+                    [self, importer, file = entry.path, holder](editor::JobContext& job) -> Status
                     {
                         job.SetStep(u8"loading + decoding", 1, 2);
-                        *holder = importer->PrepareOnWorker(file.AsView());
+                        *holder = importer->PrepareOnWorker(file.AsView(), self->MemoryAllocator());
                         return (holder->Get() != nullptr) ? Status{}
                                                           : Status{ErrorCode::InvalidArgument};
                     }},
@@ -266,7 +266,7 @@ namespace editor::app
                                     : m_context->Project()->SourceDb().RootGroup();
         m_importTargetGroup = group;
 
-        RefPtr<pipeline::ImportOptions> options = importer->CreateOptions();
+        RefPtr<pipeline::ImportOptions> options = importer->CreateOptions(MemoryAllocator());
 
         // Review-capable importers (DescribeImport) invert the order: the slow parse runs
         // FIRST (worker), the dialog then lists every resource the import would create
@@ -286,10 +286,10 @@ namespace editor::app
             m_jobs->Submit(
                 title.AsView(),
                 Function<Status(editor::JobContext&)>{
-                    [importer, file = String(path), holder](editor::JobContext& job) -> Status
+                    [self, importer, file = String(path), holder](editor::JobContext& job) -> Status
                     {
                         job.SetStep(u8"loading + decoding", 1, 2);
-                        *holder = importer->PrepareOnWorker(file.AsView());
+                        *holder = importer->PrepareOnWorker(file.AsView(), self->MemoryAllocator());
                         return (holder->Get() != nullptr) ? Status{}
                                                           : Status{ErrorCode::InvalidArgument};
                     }},
@@ -414,10 +414,11 @@ namespace editor::app
             AssetsView* self = this;
             m_jobs->Submit(title.AsView(),
                            Function<Status(editor::JobContext&)>{
-                               [importer, path, holder](editor::JobContext& job) -> Status
+                               [self, importer, path, holder](editor::JobContext& job) -> Status
                                {
                                    job.SetStep(u8"loading + decoding", 1, 2);
-                                   *holder = importer->PrepareOnWorker(path.AsView());
+                                   *holder = importer->PrepareOnWorker(path.AsView(),
+                                                                       self->MemoryAllocator());
                                    return (holder->Get() != nullptr)
                                               ? Status{}
                                               : Status{ErrorCode::InvalidArgument};
@@ -473,7 +474,7 @@ namespace editor::app
             MakeUnique<Array<pipeline::DeferredImportWrite>>(MemoryAllocator());
         Result<content::Instance*> imported =
             importer->Import(path.AsView(),
-                             pipeline::ImportContext{m_context->Project()->SourcesRoot()},
+                             pipeline::ImportContext{MemoryAllocator(), m_context->Project()->SourcesRoot()},
                              *group, options.Get(),
                              prepared.Get(), (m_jobs != nullptr) ? deferred.Get() : nullptr);
         if (!imported.HasValue() || imported.Value() == nullptr)

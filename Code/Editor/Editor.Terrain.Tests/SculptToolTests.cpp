@@ -256,7 +256,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
 
         pipeline::HeightfieldAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{editor::EditorRootAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = cookedInst;

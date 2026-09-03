@@ -89,7 +89,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    pipeline::BuilderRegistry registry;
+    pipeline::BuilderRegistry registry{AppRoot()};
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
     pipeline::RegisterAllBuilders(registry);
     // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),
@@ -112,8 +112,8 @@ int main(int argc, char** argv)
     const bool hostOnly = (targetId == StringView(u8"host"));
 
     // The host cook is always run: it is the editor's DB AND the copy-forward source for any target.
-    pipeline::CookDriver host(project->SourceDb(), project->CookedDb(), registry, &sourcesMount,
-                              &cacheMount, &jobs);
+    pipeline::CookDriver host(AppRoot(), project->SourceDb(), project->CookedDb(), registry,
+                              &sourcesMount, &cacheMount, &jobs);
     pipeline::CookPlan hostPlan = host.Plan(rebuild);
     std::printf("cook plan (host): %zu dirty, %zu up to date, %zu orphan(s), %zu without builders\n",
                 hostPlan.dirty.Size(), hostPlan.upToDate, hostPlan.orphans.Size(),
@@ -153,7 +153,8 @@ int main(int argc, char** argv)
                                                       u8".rasset");
 
         const pipeline::CookStats targetStats = pipeline::CookForTarget(
-            project->SourceDb(), targetDb, project->CookedDb(), host.Db(), registry, &sourcesMount,
+            AppRoot(), project->SourceDb(), targetDb, project->CookedDb(), host.Db(), registry,
+            &sourcesMount,
             &targetCacheMount, pipeline::CookTargetFor(targetId), &jobs, rebuild);
         std::printf("target '%.*s' cooked %zu, copied-forward %zu, failed %zu\n",
                     static_cast<int>(targetId.Size()),

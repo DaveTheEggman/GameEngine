@@ -80,7 +80,7 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -162,7 +162,7 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -247,7 +247,7 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -316,7 +316,7 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -404,7 +404,7 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(asset, ctx).IsOk());
@@ -484,7 +484,7 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
 
         TerrainAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
         ctx.sources = &srcMount;
         ctx.output = tInst;
         REQUIRE(builder.Build(withMask, ctx).IsOk());

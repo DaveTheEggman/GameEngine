@@ -64,7 +64,7 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
     std::error_code ec;
     std::filesystem::remove_all("mcp_export_project", ec);
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();

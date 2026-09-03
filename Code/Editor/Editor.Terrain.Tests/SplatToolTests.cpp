@@ -508,7 +508,7 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
 
         pipeline::SplatmapAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
-        pipeline::AssetBuildContext ctx;
+        pipeline::AssetBuildContext ctx{editor::EditorRootAllocator()};
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = cookedInst;

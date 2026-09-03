@@ -69,15 +69,15 @@ namespace pipeline
         template <typename T>
         void AddBuilder(BuilderRegistry& registry)
         {
-            registry.Register(
-                UniquePtr<IAssetBuilder>(DefaultAllocator().New<T>(), DefaultAllocator()));
+            registry.Register(UniquePtr<IAssetBuilder>(registry.Allocator().New<T>(),
+                                                       registry.Allocator()));
         }
 
         template <typename T>
         void AddImporter(ImporterRegistry& registry)
         {
-            registry.Register(
-                UniquePtr<IFileImporter>(DefaultAllocator().New<T>(), DefaultAllocator()));
+            registry.Register(UniquePtr<IFileImporter>(registry.Allocator().New<T>(),
+                                                       registry.Allocator()));
         }
     }
 

@@ -98,6 +98,11 @@ export namespace pipeline
     // resolve cross-asset references during the bake).
     struct AssetBuildContext
     {
+        // The cook's allocator (required - the driver / editor cook service decides):
+        // everything a Build() allocates for its products comes from here.
+        explicit AssetBuildContext(IAllocator& alloc) noexcept : allocator(&alloc) {}
+
+        IAllocator* allocator;
         foundation::vfs::IFileSystem* sources = nullptr; // mount for Asset::fileName + extra files
         foundation::content::Instance* source =
             nullptr; // the SOURCE instance being cooked (embedded data streams)
@@ -223,6 +228,11 @@ export namespace pipeline
     class BuilderRegistry
     {
     public:
+        // The allocator (required - the owner decides) backs registered builders.
+        explicit BuilderRegistry(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
+
         void Register(UniquePtr<IAssetBuilder> builder)
         {
             if (builder)
@@ -270,6 +280,7 @@ export namespace pipeline
         }
 
     private:
+        IAllocator* m_allocator;
         Array<UniquePtr<IAssetBuilder>> m_builders;
     };
 

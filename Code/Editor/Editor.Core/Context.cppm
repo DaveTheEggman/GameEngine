@@ -79,7 +79,10 @@ export namespace editor
     public:
         // The allocator (required - the editor app passes its tagged "Editor" root)
         // is the authority every page, panel, and editor service builds on.
-        explicit EditorContext(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+        explicit EditorContext(IAllocator& allocator) noexcept
+            : m_allocator(&allocator), m_importers(allocator)
+        {
+        }
 
         [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
         EditorContext(const EditorContext&) = delete;

@@ -81,7 +81,7 @@ TEST_CASE("editor: source files read through the VFS mount")
     const byte payload[3] = {byte{'a'}, byte{'b'}, byte{'c'}};
     REQUIRE(mount.AsWritable()->Save(u8"editor_vfs_src.txt", Span<const byte>(payload, 3)).IsOk());
 
-    AssetBuildContext ctx;
+    AssetBuildContext ctx{DefaultAllocator()};
     ctx.sources = &mount;
 
     Result<Array<byte>> bytes = DefaultAssetBuilder::ReadSourceBytes(ctx, u8"editor_vfs_src.txt");
@@ -94,7 +94,7 @@ TEST_CASE("editor: source files read through the VFS mount")
 
     // Missing file / missing mount are clean failures.
     CHECK_FALSE(DefaultAssetBuilder::ReadSourceBytes(ctx, u8"editor_vfs_missing.txt").HasValue());
-    AssetBuildContext empty;
+    AssetBuildContext empty{DefaultAllocator()};
     CHECK_FALSE(DefaultAssetBuilder::ReadSourceBytes(empty, u8"editor_vfs_src.txt").HasValue());
 
     REQUIRE(mount.AsWritable()->Delete(u8"editor_vfs_src.txt").IsOk());
@@ -102,7 +102,7 @@ TEST_CASE("editor: source files read through the VFS mount")
 
 TEST_CASE("editor: builder registry routes by asset type; v2 hooks surface")
 {
-    BuilderRegistry registry;
+    BuilderRegistry registry{DefaultAllocator()};
     CHECK(registry.Find(&WidgetAsset::StaticType()) == nullptr);
 
     registry.Register(
@@ -117,7 +117,7 @@ TEST_CASE("editor: builder registry routes by asset type; v2 hooks surface")
 
     // ScanDependencies collects declared extras; the default declares nothing.
     WidgetAsset asset;
-    AssetBuildContext ctx;
+    AssetBuildContext ctx{DefaultAllocator()};
     AssetDependencies deps;
     builder->ScanDependencies(asset, ctx, deps);
     REQUIRE(deps.files.Size() == 1u);

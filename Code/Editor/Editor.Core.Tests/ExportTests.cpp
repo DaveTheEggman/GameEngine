@@ -145,7 +145,7 @@ namespace
         }
 
         // Export (cooks the reachable closure - here the startup script) with the script builder.
-        pipeline::BuilderRegistry registry;
+        pipeline::BuilderRegistry registry{DefaultAllocator()};
         registry.Register(UniquePtr<pipeline::IAssetBuilder>(
             DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
         editor::ExportStats stats;
@@ -265,7 +265,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
-        pipeline::BuilderRegistry registry;
+        pipeline::BuilderRegistry registry{DefaultAllocator()};
         registry.Register(UniquePtr<pipeline::IAssetBuilder>(
             DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
         // Pre-transcode the scene stream like the editor/CLI do: the staged pak carries
@@ -702,7 +702,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     preset.platform = String(GetHostPlatformName()); // -> the host template
     preset.outputSubdir = String(u8"host");
 
-    pipeline::BuilderRegistry builders; // no assets -> no builders needed
+    pipeline::BuilderRegistry builders{DefaultAllocator()}; // no assets -> no builders needed
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
@@ -764,7 +764,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     preset.templateId = String(TEMPLATE_ID_PREFIX u8"-old-engine"); // resolve to the mismatched template
     preset.outputSubdir = String(u8"old");
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     editor::ExportResult result;
     // Export still SUCCEEDS (soft match) ...
     REQUIRE(
@@ -1031,7 +1031,7 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     editor::TemplateRegistry registry;
     registry.Refresh(rootDir.AsView(), &rootFs, toolDir.AsView(), &toolFs);
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
 
     // Default preset: symbols stripped from the dist (sidecar staged, symbol not).
     {
@@ -1200,7 +1200,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     builders.Register(UniquePtr<pipeline::IAssetBuilder>(
         DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
@@ -1314,7 +1314,7 @@ TEST_CASE(
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     builders.Register(UniquePtr<pipeline::IAssetBuilder>(
         DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
@@ -1447,7 +1447,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     project->Settings().defaultScene = String(u8"Scenes/Main");
     REQUIRE(project->SaveSettings().IsOk());
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     builders.Register(UniquePtr<pipeline::IAssetBuilder>(
         DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>(), DefaultAllocator()));
     editor::TemplateRegistry registry;
@@ -1871,7 +1871,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     preset.platform = String(u8"Web"); // -> the Web template by platform
     preset.outputSubdir = String(u8"web");
 
-    pipeline::BuilderRegistry builders;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
     editor::ExportResult result;
     REQUIRE(
         editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
@@ -1980,7 +1980,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
         REQUIRE(project->SaveSettings().IsOk());
     }
 
-    pipeline::BuilderRegistry registry;
+    pipeline::BuilderRegistry registry{DefaultAllocator()};
     registry.Register(UniquePtr<pipeline::IAssetBuilder>(
         DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
 

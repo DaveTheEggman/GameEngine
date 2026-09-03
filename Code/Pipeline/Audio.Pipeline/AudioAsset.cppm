@@ -364,9 +364,10 @@ export namespace pipeline{
             return pipeline::SingleAssetStoredSelection(group, sourcePath, u8"AudioClipAsset");
         }
 
-        [[nodiscard]] RefPtr<pipeline::ImportOptions> CreateOptions() const override
+        [[nodiscard]] RefPtr<pipeline::ImportOptions>
+        CreateOptions(IAllocator& allocator) const override
         {
-            return MakeRef<AudioImportOptions>(DefaultAllocator());
+            return MakeRef<AudioImportOptions>(allocator);
         }
 
         [[nodiscard]] Result<content::Instance*>
