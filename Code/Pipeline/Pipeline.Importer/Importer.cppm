@@ -226,6 +226,18 @@ export namespace pipeline
                         }
                     }
                 }
+                // Nested destinations (a gltf referencing "textures/x.jpg" copies to
+                // Sources/textures/): create the parents first - raw WriteFile does not,
+                // unlike the inline path's NativeFileSystem::Save (the chess-set bug: all
+                // nine nested texture copies failed and the import never finished).
+                for (usize i = copyTo.Size(); i > 0; --i)
+                {
+                    if (copyTo[i - 1] == utf8char('/'))
+                    {
+                        (void)CreateDirectories(copyTo.AsView().SubStr(0, i - 1));
+                        break;
+                    }
+                }
                 return WriteFile(copyTo.AsView(),
                                  Span<const byte>(bytes.Value().Data(), bytes.Value().Size()));
             }

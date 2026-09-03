@@ -11,6 +11,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 module editor.core;
 
@@ -84,6 +85,17 @@ namespace editor
 
     void EditorContext::Notify(NoticeKind kind, StringView message)
     {
+        // Errors and warnings ALWAYS reach the console log too: a toast is transient,
+        // and a failure a user reports from memory ("an error flashed") must be
+        // reconstructable from the log (user ruling 2026-09-03).
+        if (kind == NoticeKind::Error)
+        {
+            LOG_ERROR(u8"Editor", u8"{}", message);
+        }
+        else if (kind == NoticeKind::Warning)
+        {
+            LOG_WARNING(u8"Editor", u8"{}", message);
+        }
         if (OnNotice)
         {
             OnNotice(kind, message);

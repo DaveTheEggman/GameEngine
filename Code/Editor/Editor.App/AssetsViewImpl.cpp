@@ -516,6 +516,8 @@ namespace editor::app
                         const Status s = write.Execute();
                         if (!s.IsOk())
                         {
+                            LOG_ERROR(u8"Import", u8"deferred write failed: '{}'",
+                                      write.Label());
                             result = s;
                         }
                     }

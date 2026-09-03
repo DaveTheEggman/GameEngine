@@ -1514,3 +1514,84 @@ TEST_CASE("model-import: LOD folding holds the manifest slot so node mesh indice
     CHECK(part->Id() == manifest.meshGuids[1]);
     CHECK(imported.Value()->OwningGroup().GetInstance(u8"Part_LOD1") == nullptr);
 }
+
+// Regression (user-reported, chess_set_4k): a .gltf whose sidecars live in a SUBFOLDER
+// ("textures/x.jpg") imported its assets but the DEFERRED provenance copies into
+// Sources/textures/ all failed - raw WriteFile creates no parent directories (the inline
+// path's NativeFileSystem::Save does, which is why headless repros passed). The failed job
+// then skipped FinishImport, so the prefab/scene generators never ran.
+TEST_CASE("model-import: nested-subfolder sidecars survive the DEFERRED write path")
+{
+    using namespace editor;
+
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterTextureAsset();
+    pipeline::RegisterMeshAssets();
+    pipeline::RegisterMaterialAsset();
+    pipeline::RegisterAnimationAssets();
+
+    const StringView dir = u8"scratch_gltf_nested_import_project";
+    for (StringView sub : {u8"Sources/textures", u8"Sources"})
+    {
+        foundation::vfs::NativeFileSystem fs(PathJoin(dir, sub).AsView(),
+                                             foundation::core::DefaultAllocator());
+        Array<foundation::vfs::DirEntry> entries;
+        if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
+        {
+            for (const auto& e : entries)
+            {
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                }
+            }
+        }
+        (void)RemoveDirectory(PathJoin(dir, sub).AsView());
+    }
+    {
+        foundation::vfs::NativeFileSystem fs(PathJoin(dir, u8"Content").AsView(),
+                                             foundation::core::DefaultAllocator());
+        Array<foundation::vfs::DirEntry> entries;
+        if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
+        {
+            for (const auto& e : entries)
+            {
+                if (!e.isDirectory)
+                {
+                    (void)fs.AsWritable()->Delete(e.name.AsView());
+                }
+            }
+        }
+        (void)RemoveDirectory(PathJoin(dir, u8"Content").AsView());
+    }
+    FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(PathJoin(dir, u8"Editor"));
+    (void)RemoveDirectory(dir);
+
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+
+    // Deferred mode = the editor's worker path: the importer QUEUES envelope/stream/copy
+    // writes, and the caller executes them (here, inline - what the job does).
+    Array<pipeline::DeferredImportWrite> deferred;
+    pipeline::ModelFileImporter importer;
+    Result<foundation::content::Instance*> imported = importer.Import(
+        reinterpret_cast<const foundation::core::utf8char*>(TEST_MI_FOX_NESTED),
+        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), nullptr, nullptr, &deferred);
+    REQUIRE(imported.HasValue());
+    REQUIRE(imported.Value() != nullptr);
+    REQUIRE(!deferred.IsEmpty());
+
+    // EVERY deferred write must succeed - the nested Sources/textures/ copy included
+    // (with the old raw WriteFile this is the one that failed).
+    for (const pipeline::DeferredImportWrite& write : deferred)
+    {
+        const Status s = write.Execute();
+        CHECK(s.IsOk());
+    }
+    CHECK(FileExists(PathJoin(dir, u8"Sources/Fox.gltf").AsView()));
+    CHECK(FileExists(PathJoin(dir, u8"Sources/Fox.bin").AsView()));
+    CHECK(FileExists(PathJoin(dir, u8"Sources/textures/Texture.png").AsView()));
+}

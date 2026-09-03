@@ -62,6 +62,8 @@ export namespace editor
         auto* asset = Cast<pipeline::ModelManifestAsset>(object.Get());
         if (asset == nullptr)
         {
+            LOG_ERROR(u8"Editor", u8"model prefab/scene: manifest '{}' failed to read back",
+                      manifestInstance.Name());
             return false;
         }
         const foundation::model::ModelManifestSource& manifest = asset->manifest;
@@ -192,6 +194,8 @@ export namespace editor
         MemoryStream payload;
         if (!scene::CapturePrefab(scene, root, payload).IsOk())
         {
+            LOG_ERROR(u8"Editor", u8"model prefab: capture failed for '{}'",
+                      manifestInstance.Name());
             return result;
         }
 
@@ -215,6 +219,9 @@ export namespace editor
         }
         if (prefab == nullptr)
         {
+            LOG_ERROR(u8"Editor",
+                      u8"model prefab: could not create the 'Prefab' instance beside '{}'",
+                      manifestInstance.Name());
             return result;
         }
 
@@ -272,6 +279,9 @@ export namespace editor
         }
         if (sceneInstance == nullptr)
         {
+            LOG_ERROR(u8"Editor",
+                      u8"model scene: could not create the 'Scene' instance beside '{}'",
+                      manifestInstance.Name());
             return result;
         }
 

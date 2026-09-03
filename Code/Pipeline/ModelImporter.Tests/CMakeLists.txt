@@ -17,6 +17,7 @@ target_compile_definitions(ModelImporter.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     TEST_MI_DUCK="${CMAKE_SOURCE_DIR}/Data/Assets/models/Duck/glTF/Duck.gltf"
     TEST_MI_FOX="${CMAKE_SOURCE_DIR}/Data/Assets/models/Fox/glTF/Fox.gltf"
+    TEST_MI_FOX_NESTED="${CMAKE_SOURCE_DIR}/Data/Assets/models/FoxNested/glTF/Fox.gltf"
     TEST_MI_GLB="${CMAKE_SOURCE_DIR}/Data/Assets/models/KenneyPlatformerCharacters/GLB/character-oozi.glb")
 
 target_compile_options(ModelImporter.Tests PRIVATE
