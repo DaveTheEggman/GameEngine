@@ -339,7 +339,7 @@ int main(int argc, char** argv)
 
     // Log capture FIRST: the editor buffer + console output go on the global
     // logger before shell/device creation, so early startup logs reach the Console panel.
-    editor::EditorLogBuffer logBuffer;
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);

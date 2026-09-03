@@ -28,7 +28,7 @@ namespace
 
 TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Update")
 {
-    editor::EditorJobService jobs;
+    editor::EditorJobService jobs{DefaultAllocator()};
 
     bool doneFired = false;
     bool okStatus = false;
@@ -72,7 +72,7 @@ TEST_CASE("jobs: a submitted job runs on a worker, reports, and completes on Upd
 
 TEST_CASE("jobs: a failing job propagates its Status to onDone")
 {
-    editor::EditorJobService jobs;
+    editor::EditorJobService jobs{DefaultAllocator()};
     bool failed = false;
     jobs.Submit(
         u8"Bad", [](editor::JobContext&) -> Status { return Status{ErrorCode::Internal}; },
@@ -83,7 +83,7 @@ TEST_CASE("jobs: a failing job propagates its Status to onDone")
 
 TEST_CASE("jobs: submissions run one at a time, in order")
 {
-    editor::EditorJobService jobs;
+    editor::EditorJobService jobs{DefaultAllocator()};
     Array<int> order;
     // The completion callbacks run on the main thread (from Update), so appending is race-free.
     for (int i = 0; i < 3; ++i)
@@ -126,7 +126,7 @@ TEST_CASE("cook service: external mutation lock defers RunWhenIdle until release
 
 TEST_CASE("jobs: light lane runs concurrently and never trips IsBusy")
 {
-    editor::EditorJobService jobs;
+    editor::EditorJobService jobs{DefaultAllocator()};
 
     // Light work completes on Update without ever making the BUILD lane busy
     // (IsBusy gates cook mutations - previews must not lock the build).
@@ -151,7 +151,7 @@ TEST_CASE("jobs: light lane runs concurrently and never trips IsBusy")
 
 TEST_CASE("jobs: queued light jobs run in order; onDone may chain another")
 {
-    editor::EditorJobService jobs;
+    editor::EditorJobService jobs{DefaultAllocator()};
 
     Array<i32> order;
     bool chained = false;

@@ -158,8 +158,8 @@ namespace editor::app
         // family: the Preferences override -> the dev-tree compile define -> the
         // exe-EMBEDDED Roboto (a relocated editor must never come up textless). Every
         // failure is LOUD - the old silent (void)LoadFont left a blank editor with no clue.
-        m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
-                                                               DefaultAllocator());
+        m_fontService = MakeUnique<fonts::TrueTypeFontService>(m_uiHost->Context().Allocator(),
+                                                               m_uiHost->Context().Allocator());
         String fontPath = m_config.fontPath;
         String monoFontPath = m_config.monoFontPath;
         if (const editor::EditorFontSettings* fontPrefs =
@@ -243,10 +243,10 @@ namespace editor::app
                              fonts::FontLoadOptions::ExtendedLatin(), Span<const u8>{});
         }
         EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)
-        m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), DefaultAllocator(),
+        m_uiHost = MakeUnique<ui::runtime::UIHost>(m_uiHost->Context().Allocator(), m_uiHost->Context().Allocator(),
                                                    *host.Graphics(),
                                                    *host.Shell(), *m_fontService);
-        m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(),
+        m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(m_uiHost->Context().Allocator(),
                                                                             host, *m_uiHost);
 
         // Theme: register the toolkit extension BEFORE creating the stylesheet (extensions
@@ -255,7 +255,7 @@ namespace editor::app
         // Editor theme: the warm "Graphite & Orange" palette on the rounded theme (soft corners
         // everywhere) - a crafted, less-bland alternative to the stock flat/square cool-grey dark.
         const foundation::ui::ThemePalette palette = foundation::ui::ThemePalette::GraphiteOrange();
-        m_styleSheet = foundation::ui::RoundedDarkTheme::Create(DefaultAllocator(), palette);
+        m_styleSheet = foundation::ui::RoundedDarkTheme::Create(m_uiHost->Context().Allocator(), palette);
         // The window CLEAR color comes from the same palette: any surface the chrome doesn't
         // cover (the project-manager screen most of all) must read as the theme's background,
         // not the UIHost's hard-coded near-black default.
@@ -333,7 +333,7 @@ namespace editor::app
 
         // Toast overlay on the main window root (input passes through outside the cards);
         // EditorContext::Notify routes here, and also mirrors to the status bar.
-        m_toastHost = MakeRef<ui::toolkit::ToastHost>(DefaultAllocator());
+        m_toastHost = MakeRef<ui::toolkit::ToastHost>(m_uiHost->Context().Allocator());
         m_shell.Root()->AddView(m_toastHost.Get());
         m_context.OnNotice = [this](editor::NoticeKind kind, StringView message)
         {
@@ -350,7 +350,7 @@ namespace editor::app
         // manager), so the per-project manager late-attaches in OpenProjectAt and
         // detaches in CloseProject - the runtime's Resources() consumers are lazy and
         // null-tolerant between projects.
-        m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(DefaultAllocator(), host,
+        m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(m_uiHost->Context().Allocator(), host,
                                                                       m_runtimeContext);
         m_embeddedHost->SetExitHandler(Function<void(int)>{
             [this](int code)
@@ -361,7 +361,7 @@ namespace editor::app
                 LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
                 m_stopGameRequested = true;
             }});
-        m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(DefaultAllocator());
+        m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(m_uiHost->Context().Allocator());
         if (!m_config.fontPath.IsEmpty())
         {
             m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
@@ -1051,9 +1051,9 @@ namespace editor::app
         message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
                                      : StringView(u8" pages have unsaved changes.");
         RefPtr<foundation::ui::Dialog> dialog =
-            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+            MakeRef<foundation::ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Unsaved changes"));
         RefPtr<foundation::ui::Label> label =
-            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
+            MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
@@ -1221,7 +1221,7 @@ namespace editor::app
         // whether pruning is requested, and the job then reuses this copy instead of re-reading.
         m_exportPresets.presets.Clear();
         {
-            foundation::vfs::NativeFileSystem projectFs(project->Directory(), foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem projectFs(project->Directory(), m_uiHost->Context().Allocator());
             if (!editor::LoadExportPresets(projectFs, m_exportPresets).IsOk())
             {
                 editor::DefaultExportPresets(m_exportPresets);
@@ -1260,9 +1260,9 @@ namespace editor::app
             [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
              reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
             {
-                foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
+                foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), DefaultAllocator());
                 foundation::vfs::NativeFileSystem rootFs(
-                    templatesRoot.AsView(), foundation::core::DefaultAllocator()); // imported templates
+                    templatesRoot.AsView(), DefaultAllocator()); // imported templates (worker)
                 editor::TemplateRegistry registry;
                 registry.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
                 const editor::ExportPresetSet& presets = *presetsPtr; // loaded on the main thread
@@ -1333,33 +1333,33 @@ namespace editor::app
     {
         const String toolDir = GetExecutableDirectory();
         const String templatesRoot = TemplatesRoot();
-        foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), foundation::core::DefaultAllocator());
-        foundation::vfs::NativeFileSystem rootFs(templatesRoot.AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), m_uiHost->Context().Allocator());
+        foundation::vfs::NativeFileSystem rootFs(templatesRoot.AsView(), m_uiHost->Context().Allocator());
         out.Refresh(templatesRoot.AsView(), &rootFs, toolDir.AsView(), &toolFs);
     }
 
     ui::FlexLayout* EditorApplication::AddFormRow(ui::FlexLayout& column, StringView label,
                                                   ui::View* field)
     {
-        auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto row = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 8;
         {
-            auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto text = MakeRef<ui::Label>(m_uiHost->Context().Allocator(), label);
+            auto lp = MakeRef<ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(120));
             lp->AlignSelf = ui::Align::Center;
             row->AddView(text.Get(), lp);
         }
         if (field != nullptr)
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
             lp->Grow = 1.0f;
             lp->AlignSelf = ui::Align::Center;
             row->AddView(field, lp);
         }
         ui::FlexLayout* raw = row.Get();
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
         lp->Width = ui::SizeSpec::Match();
         column.AddView(row.Get(), lp);
         return raw;
@@ -1394,7 +1394,7 @@ namespace editor::app
         {
             return;
         }
-        foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), m_uiHost->Context().Allocator());
         if (!m_presetsController.Save(*projectFs.AsWritable()).IsOk())
         {
             m_context.Notify(editor::NoticeKind::Error,
@@ -1553,19 +1553,19 @@ namespace editor::app
         BuildTemplateRegistryMainThread(registry);
 
         auto dialog =
-            MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Manage Export Templates"));
+            MakeRef<ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Manage Export Templates"));
         dialog->MinWidth.SetValue(560.0f);
         dialog->MaxWidth.SetValue(780.0f);
         dialog->MinHeight.SetValue(240.0f);
         dialog->MaxHeight.SetValue(560.0f);
         ui::Dialog* raw = dialog.Get();
 
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 6;
 
         auto header = MakeRef<ui::Label>(
-            DefaultAllocator(),
+            m_uiHost->Context().Allocator(),
             StringView(u8"Installed export templates (the host build is always available):"));
         column->AddView(header.Get());
 
@@ -1596,12 +1596,12 @@ namespace editor::app
                 text += u8"  (!) engine mismatch";
             }
 
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8;
             {
-                auto label = MakeRef<ui::Label>(DefaultAllocator(), text.AsView());
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto label = MakeRef<ui::Label>(m_uiHost->Context().Allocator(), text.AsView());
+                auto lp = MakeRef<ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
                 lp->Grow = 1.0f;
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(label.Get(), lp);
@@ -1609,7 +1609,7 @@ namespace editor::app
             if (!t->isHost) // the host template is synthesized, never on disk => not removable
             {
                 const String id(t->id.AsView());
-                auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Remove"));
+                auto remove = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Remove"));
                 remove->OnClick.Add(
                     [this, raw, id](ui::ButtonBase*)
                     {
@@ -1656,23 +1656,23 @@ namespace editor::app
         }
 
         {
-            foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem projectFs(m_project->Directory(), m_uiHost->Context().Allocator());
             m_presetsController.Load(projectFs); // reflects edits persisted by the editor form
         }
 
-        auto dialog = MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"Export"));
+        auto dialog = MakeRef<ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Export"));
         dialog->MinWidth.SetValue(600.0f);
         dialog->MaxWidth.SetValue(820.0f);
         dialog->MinHeight.SetValue(220.0f);
         dialog->MaxHeight.SetValue(560.0f);
         ui::Dialog* raw = dialog.Get();
 
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 6;
 
         auto info = MakeRef<ui::Label>(
-            DefaultAllocator(), StringView(u8"Export presets (output directory: <project>/Dist):"));
+            m_uiHost->Context().Allocator(), StringView(u8"Export presets (output directory: <project>/Dist):"));
         column->AddView(info.Get());
 
         for (usize i = 0; i < m_presetsController.Count(); ++i)
@@ -1685,12 +1685,12 @@ namespace editor::app
             text += p.config.IsEmpty() ? StringView(u8"Release") : p.config.AsView();
             text += u8"]";
 
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 6;
             {
-                auto label = MakeRef<ui::Label>(DefaultAllocator(), text.AsView());
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto label = MakeRef<ui::Label>(m_uiHost->Context().Allocator(), text.AsView());
+                auto lp = MakeRef<ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
                 lp->Grow = 1.0f;
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(label.Get(), lp);
@@ -1698,7 +1698,7 @@ namespace editor::app
             const String name(p.name.AsView());
             const usize index = i;
             {
-                auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Export"));
+                auto b = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Export"));
                 b->OnClick.Add(
                     [this, raw, name](ui::ButtonBase*)
                     {
@@ -1708,7 +1708,7 @@ namespace editor::app
                 row->AddView(b.Get());
             }
             {
-                auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Edit"));
+                auto b = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Edit"));
                 b->OnClick.Add(
                     [this, raw, index](ui::ButtonBase*)
                     {
@@ -1722,7 +1722,7 @@ namespace editor::app
                 row->AddView(b.Get());
             }
             {
-                auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Duplicate"));
+                auto b = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Duplicate"));
                 b->OnClick.Add(
                     [this, raw, index](ui::ButtonBase*)
                     {
@@ -1733,7 +1733,7 @@ namespace editor::app
                 row->AddView(b.Get());
             }
             {
-                auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Delete"));
+                auto b = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Delete"));
                 b->OnClick.Add(
                     [this, raw, index](ui::ButtonBase*)
                     {
@@ -1784,7 +1784,7 @@ namespace editor::app
         BuildTemplateRegistryMainThread(registry);
 
         auto dialog = MakeRef<ui::Dialog>(
-            DefaultAllocator(),
+            m_uiHost->Context().Allocator(),
             StringView(editIndex < 0 ? u8"Add Export Preset" : u8"Edit Export Preset"));
         dialog->MinWidth.SetValue(600.0f);
         dialog->MaxWidth.SetValue(820.0f);
@@ -1792,17 +1792,17 @@ namespace editor::app
         dialog->MaxHeight.SetValue(640.0f);
         ui::Dialog* raw = dialog.Get();
 
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 6;
 
-        auto nameEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto nameEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         nameEdit->SetText(initial.name.AsView());
         AddFormRow(*column, u8"Name", nameEdit.Get());
 
         // Template dropdown: index 0 = resolve by platform/config; each later item maps to a
         // concrete templateId (+ its platform/config), captured into the parallel arrays below.
-        auto templateCombo = MakeRef<ui::ComboBox>(DefaultAllocator());
+        auto templateCombo = MakeRef<ui::ComboBox>(m_uiHost->Context().Allocator());
         templateCombo->AddItem(u8"(resolve by platform + config below)");
         Array<String> comboIds, comboPlatforms, comboConfigs;
         comboIds.PushBack(String{});
@@ -1838,43 +1838,43 @@ namespace editor::app
         templateCombo->SetSelectedIndex(selectedCombo);
         AddFormRow(*column, u8"Template", templateCombo.Get());
 
-        auto platformEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto platformEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         platformEdit->SetText(initial.platform.AsView());
         platformEdit->SetPlaceholder(GetHostPlatformName());
         AddFormRow(*column, u8"Platform", platformEdit.Get());
 
-        auto configEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto configEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         configEdit->SetText(initial.config.AsView());
         configEdit->SetPlaceholder(u8"Release");
         AddFormRow(*column, u8"Config", configEdit.Get());
 
-        auto playerEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto playerEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         playerEdit->SetText(initial.playerName.AsView());
         playerEdit->SetPlaceholder(u8"(template default)");
         AddFormRow(*column, u8"Player name", playerEdit.Get());
 
-        auto subdirEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto subdirEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         subdirEdit->SetText(initial.outputSubdir.AsView());
         subdirEdit->SetPlaceholder(u8"(sanitized name)");
         AddFormRow(*column, u8"Output subdir", subdirEdit.Get());
 
-        auto filesEdit = MakeRef<ui::EditText>(DefaultAllocator());
+        auto filesEdit = MakeRef<ui::EditText>(m_uiHost->Context().Allocator());
         filesEdit->SetText(JoinSemicolons(initial.additionalFiles).AsView());
         filesEdit->SetPlaceholder(u8"icon.ico;config.xml");
         ui::FlexLayout* filesRow = AddFormRow(*column, u8"Extra files", filesEdit.Get());
         {
             RefPtr<ui::EditText> filesRef = filesEdit;
-            auto browse = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Add Files..."));
+            auto browse = MakeRef<ui::Button>(m_uiHost->Context().Allocator(), StringView(u8"Add Files..."));
             browse->OnClick.Add([this, filesRef](ui::ButtonBase*)
                                 { PickAdditionalFiles(filesRef); });
             filesRow->AddView(browse.Get());
         }
 
-        auto symbolsCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
+        auto symbolsCheck = MakeRef<ui::CheckBox>(m_uiHost->Context().Allocator(),
                                                   StringView(u8"Stage debug symbols into the dist"),
                                                   initial.stageSymbols);
         column->AddView(symbolsCheck.Get());
-        auto pruneCheck = MakeRef<ui::CheckBox>(DefaultAllocator(),
+        auto pruneCheck = MakeRef<ui::CheckBox>(m_uiHost->Context().Allocator(),
                                                 StringView(u8"Prune to reachable content only"),
                                                 initial.pruneToReachable);
         column->AddView(pruneCheck.Get());
@@ -1969,31 +1969,31 @@ namespace editor::app
         prompt += original->Name();
         prompt += u8"'):";
         RefPtr<foundation::ui::Dialog> dialog =
-            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Save As"));
-        auto column = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            MakeRef<foundation::ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Save As"));
+        auto column = MakeRef<foundation::ui::FlexLayout>(m_uiHost->Context().Allocator());
         column->Direction = foundation::ui::Orientation::Vertical;
         column->Spacing = 6.0f;
         RefPtr<foundation::ui::Label> label =
-            MakeRef<foundation::ui::Label>(DefaultAllocator(), prompt.AsView());
+            MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator(), prompt.AsView());
         label->WordWrap.SetValue(true);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
             lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(label.Get(), lp);
         }
-        auto nameEdit = MakeRef<foundation::ui::EditText>(DefaultAllocator());
+        auto nameEdit = MakeRef<foundation::ui::EditText>(m_uiHost->Context().Allocator());
         nameEdit->SetText(suggested.AsView());
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
             lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(nameEdit.Get(), lp);
         }
         // Inline validation line: empty until a rejected attempt; the dialog stays up.
-        auto errorLabel = MakeRef<foundation::ui::Label>(DefaultAllocator());
+        auto errorLabel = MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator());
         errorLabel->WordWrap.SetValue(true);
         errorLabel->TextColor.SetValue(Color{0.90f, 0.35f, 0.35f, 1.0f});
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_uiHost->Context().Allocator());
             lp->Width = foundation::ui::SizeSpec::Match();
             column->AddView(errorLabel.Get(), lp);
         }
@@ -2065,9 +2065,9 @@ namespace editor::app
         message += page->Title();
         message += u8"' has unsaved changes.";
         RefPtr<foundation::ui::Dialog> dialog =
-            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+            MakeRef<foundation::ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Unsaved changes"));
         RefPtr<foundation::ui::Label> label =
-            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
+            MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
@@ -2149,16 +2149,17 @@ namespace editor::app
             return;
         }
 
-        m_project = editor::EditorProject::Open(directory);
+        m_project = editor::EditorProject::Open(DefaultAllocator(), directory);
         if (!m_project && !m_config.startInProjectManager)
         {
             // CLI launch keeps the historical scaffold fallback (a bare directory becomes a
             // fresh project). The manager scaffolds only through its explicit New Project flow.
             const Status created =
-                editor::EditorProject::Create(directory, m_config.projectName.AsView());
+                editor::EditorProject::Create(DefaultAllocator(), directory,
+                                              m_config.projectName.AsView());
             if (created.IsOk())
             {
-                m_project = editor::EditorProject::Open(directory);
+                m_project = editor::EditorProject::Open(DefaultAllocator(), directory);
             }
         }
 
@@ -2220,7 +2221,7 @@ namespace editor::app
 
         // The per-project editor-state STORE (one structured file: dock layout, favorites,
         // open pages, per-page prefs). Absent on a fresh project - sections read as defaults.
-        m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(DefaultAllocator(), DefaultAllocator());
+        m_projectEditorSettings = MakeUnique<foundation::settings::Settings>(m_uiHost->Context().Allocator(), m_uiHost->Context().Allocator());
         const Status projectLoaded = LoadProjectEditorSettings(
             *m_projectEditorSettings, m_project->EditorStateRoot().AsView());
         if (!projectLoaded.IsOk() && projectLoaded.Code() != ErrorCode::NotFound)
@@ -2258,7 +2259,7 @@ namespace editor::app
         // preset manager receives at its startup).
         // Share the global JobSystem for async resource decode (task #123); null = sync loads.
         m_resources = MakeUnique<foundation::resource::ResourceManager>(
-            DefaultAllocator(), DefaultAllocator(), m_project->CookedDb(),
+            m_uiHost->Context().Allocator(), m_uiHost->Context().Allocator(), m_project->CookedDb(),
             HasGlobalJobSystem() ? &GlobalJobs() : nullptr);
         for (const auto& factory : m_resourceFactories)
         {
@@ -2272,7 +2273,7 @@ namespace editor::app
         // same host every page and PreviewViewport receives), not on the outer editor host.
         // Destroyed in CloseProject BEFORE the service resets so an in-flight job unstages.
         m_thumbnailStage = MakeUnique<editor::ThumbnailStage>(
-            DefaultAllocator(), *m_embeddedHost, m_thumbnailService, m_resources.Get());
+            m_uiHost->Context().Allocator(), *m_embeddedHost, m_thumbnailService, m_resources.Get());
         // Scripted scene loads (run.loadScene/loadSceneAsync) resolve scene + prefab content
         // out of the project's SOURCE db - the same db the Game tab's default-scene boot reads
         // (products still bind from the cooked-backed manager above). Wired here at project open
@@ -2324,7 +2325,7 @@ namespace editor::app
             }
         };
         m_assetsView =
-            MakeRef<AssetsView>(DefaultAllocator(), m_context, m_cookService, &m_jobService);
+            MakeRef<AssetsView>(m_uiHost->Context().Allocator(), m_context, m_cookService, &m_jobService);
         AssetsView* assets = m_assetsView.Get();
         m_assetsView->OnOpenInstance = [this](foundation::content::Instance& instance)
         { (void)OpenInstancePage(instance); };
@@ -2566,7 +2567,7 @@ namespace editor::app
         }
         if (!m_managerView)
         {
-            m_managerView = MakeUnique<ProjectManagerView>(DefaultAllocator());
+            m_managerView = MakeUnique<ProjectManagerView>(m_uiHost->Context().Allocator());
             // Open/Create swap the window's root (detaching the manager view whose button is
             // mid-dispatch) - defer through the UI mutation queue, like Close Project.
             m_managerView->OnOpenProject = [this](StringView dir)
@@ -2623,9 +2624,9 @@ namespace editor::app
 
         const String dir(directory);
         RefPtr<foundation::ui::Dialog> dialog =
-            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), decision.promptTitle.AsView());
+            MakeRef<foundation::ui::Dialog>(m_uiHost->Context().Allocator(), decision.promptTitle.AsView());
         RefPtr<foundation::ui::Label> label =
-            MakeRef<foundation::ui::Label>(DefaultAllocator(), decision.promptBody.AsView());
+            MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator(), decision.promptBody.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
         foundation::ui::Dialog* rawDialog = dialog.Get();
@@ -2733,9 +2734,9 @@ namespace editor::app
         message += (dirtyCount == 1) ? StringView(u8" page has unsaved changes.")
                                      : StringView(u8" pages have unsaved changes.");
         RefPtr<foundation::ui::Dialog> dialog =
-            MakeRef<foundation::ui::Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+            MakeRef<foundation::ui::Dialog>(m_uiHost->Context().Allocator(), StringView(u8"Unsaved changes"));
         RefPtr<foundation::ui::Label> label =
-            MakeRef<foundation::ui::Label>(DefaultAllocator(), message.AsView());
+            MakeRef<foundation::ui::Label>(m_uiHost->Context().Allocator(), message.AsView());
         label->WordWrap.SetValue(true);
         dialog->SetContent(label.Get());
 
@@ -2996,7 +2997,7 @@ namespace editor::app
                               [this]()
                               {
                                   auto dialog = MakeRef<EditorPreferencesDialog>(
-                                      DefaultAllocator(), m_context, m_editorSettings);
+                                      m_uiHost->Context().Allocator(), m_context, m_editorSettings);
                                   // UI scale applies LIVE: host scale (roots pick it up
                                   // next frame) + icon re-bake at the effective scale.
                                   dialog->OnUiScaleApplied = [this](f32 uiScale)
@@ -3021,7 +3022,7 @@ namespace editor::app
                                  if (m_project)
                                  {
                                      auto dialog = MakeRef<ProjectSettingsDialog>(
-                                         DefaultAllocator(), m_context);
+                                         m_uiHost->Context().Allocator(), m_context);
                                      dialog->Show(&m_uiHost->Context());
                                  }
                              });
@@ -3065,13 +3066,13 @@ namespace editor::app
                           [this]()
                           {
                               RefPtr<ui::Dialog> dialog = MakeRef<ui::Dialog>(
-                                  DefaultAllocator(), StringView(u8"About Editor"));
-                              auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                                  m_uiHost->Context().Allocator(), StringView(u8"About Editor"));
+                              auto column = MakeRef<ui::FlexLayout>(m_uiHost->Context().Allocator());
                               column->Direction = ui::Orientation::Vertical;
                               column->Spacing = 8;
 
                               auto title =
-                                  MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Editor"));
+                                  MakeRef<ui::Label>(m_uiHost->Context().Allocator(), StringView(u8"Editor"));
                               title->FontSize.SetValue(Optional<f32>{18.0f});
                               column->AddView(title.Get());
 
@@ -3079,7 +3080,7 @@ namespace editor::app
                               version += StringView(u8"Version ");
                               version += StringView(reinterpret_cast<const char8_t*>(BuildStamp()));
                               auto versionLabel =
-                                  MakeRef<ui::Label>(DefaultAllocator(), version.AsView());
+                                  MakeRef<ui::Label>(m_uiHost->Context().Allocator(), version.AsView());
                               versionLabel->WordWrap.SetValue(true);
                               column->AddView(versionLabel.Get());
 

@@ -52,11 +52,11 @@ export namespace editor::app
             MaxWidth.SetValue(640.0f);
             MaxHeight.SetValue(460.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            m_filterEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_filterEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_filterEdit->SetPlaceholder(u8"Filter all groups...");
             {
                 AssetPickerDialog* self = this;
@@ -66,15 +66,15 @@ export namespace editor::app
                         self->m_filter = String(edit->Text());
                         self->RebuildList();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_filterEdit.Get(), lp);
             }
 
-            auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+            auto split = MakeRef<ui::toolkit::SplitView>(MemoryAllocator());
             split->SetSplitRatio(0.32f);
-            m_treeAdapter = MakeUnique<TreeAdapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<ui::TreeView>(DefaultAllocator());
+            m_treeAdapter = MakeUnique<TreeAdapter>(MemoryAllocator(), *this);
+            m_tree = MakeRef<ui::TreeView>(MemoryAllocator());
             m_tree->SetItemHeight(20.0f);
             m_tree->SetAdapter(m_treeAdapter.Get());
             {
@@ -91,8 +91,8 @@ export namespace editor::app
                         }
                     });
             }
-            m_listAdapter = MakeUnique<ListAdapter>(DefaultAllocator(), *this);
-            m_list = MakeRef<ui::ListView>(DefaultAllocator());
+            m_listAdapter = MakeUnique<ListAdapter>(MemoryAllocator(), *this);
+            m_list = MakeRef<ui::ListView>(MemoryAllocator());
             m_list->ItemHeight.SetValue(28.0f); // rows carry a 24px thumbnail, not a 14px glyph
             m_list->SetAdapter(m_listAdapter.Get());
             {
@@ -110,7 +110,7 @@ export namespace editor::app
             }
             split->SetPanes(m_tree.Get(), m_list.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(split.Get(), lp);
@@ -193,10 +193,10 @@ export namespace editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());
@@ -238,17 +238,17 @@ export namespace editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6;
                 row->Padding = ui::Thickness{4, 2};
-                auto iconView = MakeRef<ui::DrawableView>(DefaultAllocator());
+                auto iconView = MakeRef<ui::DrawableView>(m_owner->MemoryAllocator());
                 iconView->DesiredWidth.SetValue(Optional<f32>(24.0f));
                 iconView->DesiredHeight.SetValue(Optional<f32>(24.0f));
                 row->AddView(iconView.Get());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());

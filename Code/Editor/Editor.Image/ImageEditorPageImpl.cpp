@@ -68,54 +68,54 @@ namespace editor
         m_undoBaseline = Snapshot();
 
         // Left: source facts label + the preview image (fit-centered).
-        m_image = MakeRef<ui::ImageView>(DefaultAllocator());
+        m_image = MakeRef<ui::ImageView>(foundation::core::DefaultAllocator());
         m_image->ScaleType.SetValue(ui::ScaleType::FitCenter);
         m_image->SetImage(m_preview.Get());
 
-        m_info = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
         m_info->FontSize.SetValue(12.0f);
 
-        auto previewColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
         BuildGrid();
 
-        auto gridColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto gridColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         split->SetSplitRatio(0.6f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
 
         // The page action bar (Save / Undo / Redo / Discard) above the split.
-        m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
-        auto pageColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_toolbar = MakeRef<app::PageToolbar>(foundation::core::DefaultAllocator(), *this);
+        auto pageColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         pageColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             pageColumn->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             pageColumn->AddView(split.Get(), grow);
@@ -151,7 +151,7 @@ namespace editor
         {
             return;
         }
-        m_preview = MakeUnique<image::OwnedImageData>(DefaultAllocator(), display.Width(),
+        m_preview = MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), display.Width(),
                                                       display.Height(), image::PixelFormat::RGBA8,
                                                       display.PixelData(), m_asset->colorSpace);
     }
@@ -187,7 +187,7 @@ namespace editor
 
         // The one authored field: how consumers interpret the pixels.
         auto colorSpace = MakeRef<ui::toolkit::EnumEditor>(
-            DefaultAllocator(), u8"Color Space", static_cast<i32>(m_asset->colorSpace),
+            foundation::core::DefaultAllocator(), u8"Color Space", static_cast<i32>(m_asset->colorSpace),
             Span<const StringView>{kColorSpaceItems, 2},
             Function<void(i32)>{[self](i32 v)
                                 {
@@ -195,9 +195,9 @@ namespace editor
                                         static_cast<image::ImageColorSpace>(v);
                                     Array<byte> after = self->Snapshot();
                                     (void)self->Commands().Execute(UniquePtr<IEditorCommand>(
-                                        DefaultAllocator().New<EditImageCommand>(
+                                        foundation::core::DefaultAllocator().New<EditImageCommand>(
                                             *self, u8"color-space", self->m_undoBaseline, after),
-                                        DefaultAllocator()));
+                                        foundation::core::DefaultAllocator()));
                                     self->m_undoBaseline = Move(after);
                                     self->MarkDirty();
                                 }},
@@ -209,7 +209,7 @@ namespace editor
         auto stat = [&](StringView name, String value)
         {
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name, value.AsView(),
+                MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), name, value.AsView(),
                                                    Function<void(StringView)>{}, u8"Source")
                     .Get()));
         };
@@ -308,7 +308,7 @@ namespace editor
     UniquePtr<EditorPage> ImageEditorPageFactory::CreatePage(EditorContext& context,
                                                              foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<ImageEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<ImageEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

@@ -68,7 +68,7 @@ namespace editor
                 // facets a collision hull should read as.
                 if (!m_mesh)
                 {
-                    m_mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
+                    m_mesh = MakeRef<geometry::StaticMesh>(foundation::core::DefaultAllocator());
                 }
                 m_mesh->ClearForReload();
                 const usize count = shape->outline.Size() - (shape->outline.Size() % 3);
@@ -163,6 +163,6 @@ namespace editor
     void RegisterCollisionThumbnailGenerator(ThumbnailService& service)
     {
         service.RegisterSceneGenerator(
-            MakeUnique<CollisionThumbnailGenerator>(DefaultAllocator()));
+            MakeUnique<CollisionThumbnailGenerator>(foundation::core::DefaultAllocator()));
     }
 }

@@ -232,6 +232,6 @@ export namespace editor
     /// Registered by RegisterTextureEditor (the domain's one composition entry point).
     inline void RegisterTextureThumbnailGenerator(editor::ThumbnailService& service)
     {
-        service.RegisterGenerator(MakeUnique<TextureThumbnailGenerator>(DefaultAllocator()));
+        service.RegisterGenerator(MakeUnique<TextureThumbnailGenerator>(foundation::core::DefaultAllocator()));
     }
 }

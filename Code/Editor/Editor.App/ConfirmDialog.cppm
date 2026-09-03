@@ -36,7 +36,7 @@ export namespace editor::app
             MinWidth.SetValue(340.0f);
             MaxWidth.SetValue(460.0f);
 
-            auto label = MakeRef<ui::Label>(DefaultAllocator(), message);
+            auto label = MakeRef<ui::Label>(MemoryAllocator(), message);
             label->FontSize.SetValue(12.0f);
             label->WordWrap.SetValue(true);
             SetContent(label.Get());

@@ -65,10 +65,10 @@ export namespace editor::app
                 Array<RefPtr<ui::CheckBox>> rowChecks;
                 rowChecks.Reserve(indices.Size());
                 auto header = MakeRef<ui::CheckBox>(
-                    DefaultAllocator(), pipeline::ImportResourceKindLabel(kind), true);
+                    MemoryAllocator(), pipeline::ImportResourceKindLabel(kind), true);
                 header->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
                     AddView(header.Get(), lp);
@@ -76,29 +76,29 @@ export namespace editor::app
                 for (const usize i : indices)
                 {
                     pipeline::ImportPlanEntry* entry = &plan->entries[i];
-                    auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                    auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
                     row->Direction = ui::Orientation::Horizontal;
                     row->Spacing = 6.0f;
-                    auto check = MakeRef<ui::CheckBox>(DefaultAllocator(), u8"", entry->enabled);
+                    auto check = MakeRef<ui::CheckBox>(MemoryAllocator(), u8"", entry->enabled);
                     check->OnCheckedChanged.Add([entry](ui::CheckBox*, bool checked)
                                                 { entry->enabled = checked; });
                     {
-                        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                        auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(38.0f));
                         lp->Height = ui::SizeSpec::Match();
                         row->AddView(check.Get(), lp);
                     }
                     rowChecks.PushBack(check);
-                    auto name = MakeRef<ui::EditText>(DefaultAllocator());
+                    auto name = MakeRef<ui::EditText>(MemoryAllocator());
                     name->SetText(entry->targetName.AsView());
                     {
-                        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                        auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                         lp->Grow = 1.0f;
                         lp->Height = ui::SizeSpec::Match();
                         row->AddView(name.Get(), lp);
                     }
                     m_nameEditors[i] = name;
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
                     AddView(row.Get(), lp);
@@ -169,7 +169,7 @@ export namespace editor::app
             MaxWidth.SetValue(hasPlan ? 620.0f : 480.0f);
             MaxHeight.SetValue(hasPlan ? 700.0f : 420.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
@@ -178,38 +178,38 @@ export namespace editor::app
             // Destination row: "Into: <group path> [Change...]" - lets the user retarget the import
             // (default = the active group). The caller wires OnChangeDestination to a group chooser.
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
-                auto name = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Into:"));
+                auto name = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Into:"));
                 name->FontSize.SetValue(11.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
-                m_destinationText = MakeRef<ui::Label>(DefaultAllocator(), destination);
+                m_destinationText = MakeRef<ui::Label>(MemoryAllocator(), destination);
                 m_destinationText->FontSize.SetValue(11.0f);
                 m_destinationText->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(m_destinationText.Get(), lp);
                 }
-                auto change = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Change..."));
+                auto change = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Change..."));
                 change->FontSize.SetValue(Optional<f32>{11.0f});
                 ImportOptionsDialog* self = this;
                 change->OnClick.Add([self](ui::ButtonBase*)
                                     { if (self->OnChangeDestination) self->OnChangeDestination(); });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(change.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 column->AddView(row.Get(), lp);
@@ -229,7 +229,7 @@ export namespace editor::app
                         continue;
                     }
                     auto check =
-                        MakeRef<ui::CheckBox>(DefaultAllocator(), toggle.label, *toggle.value);
+                        MakeRef<ui::CheckBox>(MemoryAllocator(), toggle.label, *toggle.value);
                     check->FontSize.SetValue(12.0f);
                     if (!toggle.description.IsEmpty())
                     {
@@ -238,7 +238,7 @@ export namespace editor::app
                     bool* value = toggle.value;
                     check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked)
                                                 { *value = checked; });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     column->AddView(check.Get(), lp);
@@ -280,16 +280,16 @@ export namespace editor::app
     private:
         void BuildResourceList(ui::FlexLayout& column)
         {
-            m_planView = MakeRef<ImportPlanView>(DefaultAllocator(), &m_plan);
-            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            m_planView = MakeRef<ImportPlanView>(MemoryAllocator(), &m_plan);
+            auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto contentLp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
                 contentLp->Width = ui::SizeSpec::Match();
                 scroll->AddView(m_planView.Get(), contentLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             column.AddView(scroll.Get(), lp);
@@ -297,28 +297,28 @@ export namespace editor::app
 
         void AddInfoRow(ui::FlexLayout& column, StringView label, StringView value)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 6.0f;
 
-            auto name = MakeRef<ui::Label>(DefaultAllocator(), label);
+            auto name = MakeRef<ui::Label>(MemoryAllocator(), label);
             name->FontSize.SetValue(11.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(name.Get(), lp);
             }
-            auto text = MakeRef<ui::Label>(DefaultAllocator(), value);
+            auto text = MakeRef<ui::Label>(MemoryAllocator(), value);
             text->FontSize.SetValue(11.0f);
             text->Ellipsis.SetValue(true);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(text.Get(), lp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18.0f));
             column.AddView(row.Get(), lp);
@@ -420,73 +420,73 @@ export namespace editor::app
             MaxWidth.SetValue(860.0f);
             MaxHeight.SetValue(700.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
             // Destination row (shared by the whole batch).
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
-                auto name = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Into:"));
+                auto name = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Into:"));
                 name->FontSize.SetValue(11.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
-                m_destinationText = MakeRef<ui::Label>(DefaultAllocator(), destination);
+                m_destinationText = MakeRef<ui::Label>(MemoryAllocator(), destination);
                 m_destinationText->FontSize.SetValue(11.0f);
                 m_destinationText->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(m_destinationText.Get(), lp);
                 }
-                auto change = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Change..."));
+                auto change = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Change..."));
                 change->FontSize.SetValue(Optional<f32>{11.0f});
                 BatchImportDialog* self = this;
                 change->OnClick.Add([self](ui::ButtonBase*)
                                     { if (self->OnChangeDestination) self->OnChangeDestination(); });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(change.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 column->AddView(row.Get(), lp);
             }
 
             // The split: file list left, per-file detail right.
-            auto split = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto split = MakeRef<ui::FlexLayout>(MemoryAllocator());
             split->Direction = ui::Orientation::Horizontal;
             split->Spacing = 8.0f;
             BuildFileList(*split);
-            m_detail = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            m_detail = MakeRef<ui::FlexLayout>(MemoryAllocator());
             m_detail->Direction = ui::Orientation::Vertical;
             m_detail->Spacing = 4.0f;
             {
-                auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+                auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
                 scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
                 scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
                 {
-                    auto contentLp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                    auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
                     contentLp->Width = ui::SizeSpec::Match();
                     scroll->AddView(m_detail.Get(), contentLp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 split->AddView(scroll.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(split.Get(), lp);
@@ -535,18 +535,18 @@ export namespace editor::app
     private:
         void BuildFileList(ui::FlexLayout& split)
         {
-            auto list = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto list = MakeRef<ui::FlexLayout>(MemoryAllocator());
             list->Direction = ui::Orientation::Vertical;
             list->Spacing = 2.0f;
             BatchImportDialog* self = this;
             for (usize i = 0; i < m_files.Size(); ++i)
             {
                 FileEntry* entry = &m_files[i];
-                auto row = MakeRef<BatchFileRow>(DefaultAllocator());
+                auto row = MakeRef<BatchFileRow>(MemoryAllocator());
                 row->OnSelect = [self, i]() { self->SelectFile(i); };
                 row->SetSelected(i == m_selected);
                 m_fileRows.PushBack(row);
-                auto check = MakeRef<ui::CheckBox>(DefaultAllocator(), u8"", entry->enabled);
+                auto check = MakeRef<ui::CheckBox>(MemoryAllocator(), u8"", entry->enabled);
                 check->OnCheckedChanged.Add(
                     [self, entry](ui::CheckBox*, bool checked)
                     {
@@ -554,17 +554,17 @@ export namespace editor::app
                         self->SyncImportEnabled();
                     });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(30.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(check.Get(), lp);
                 }
-                auto name = MakeRef<ui::Label>(DefaultAllocator(),
+                auto name = MakeRef<ui::Label>(MemoryAllocator(),
                                                pipeline::FileNameOf(entry->path.AsView()));
                 name->FontSize.SetValue(12.0f);
                 name->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
@@ -573,7 +573,7 @@ export namespace editor::app
                 {
                     // Multiple importers claim the extension: the per-row dropdown replaces
                     // the old modal-per-file chooser.
-                    auto combo = MakeRef<ui::ComboBox>(DefaultAllocator());
+                    auto combo = MakeRef<ui::ComboBox>(MemoryAllocator());
                     for (pipeline::IFileImporter* importer : entry->candidates)
                     {
                         (void)combo->AddItem(importer->Label());
@@ -582,25 +582,25 @@ export namespace editor::app
                     combo->OnSelectionChanged.Add(
                         [self, i](ui::ComboBox*, i32 index)
                         { self->ChangeImporter(i, static_cast<usize>(Max(0, index))); });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
                     lp->Height = ui::SizeSpec::Match();
                     row->AddView(combo.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
                 list->AddView(row.Get(), lp);
             }
-            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto contentLp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
                 contentLp->Width = ui::SizeSpec::Match();
                 scroll->AddView(list.Get(), contentLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300.0f));
             lp->Height = ui::SizeSpec::Match();
             split.AddView(scroll.Get(), lp);
@@ -639,7 +639,7 @@ export namespace editor::app
             {
                 // Bare selection carrier (option-less importers still honor renames).
                 entry.options = RefPtr<pipeline::ImportOptions>(
-                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+                    MakeRef<pipeline::ImportOptions>(MemoryAllocator()).Get());
             }
             entry.prepared = {}; // payloads are importer-specific
             entry.plan = {};
@@ -680,11 +680,11 @@ export namespace editor::app
             }
             FileEntry& entry = m_files[m_selected];
 
-            auto title = MakeRef<ui::Label>(DefaultAllocator(),
+            auto title = MakeRef<ui::Label>(MemoryAllocator(),
                                             pipeline::FileNameOf(entry.path.AsView()));
             title->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 m_detail->AddView(title.Get(), lp);
@@ -693,9 +693,9 @@ export namespace editor::app
             if (!entry.described)
             {
                 auto reading =
-                    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Reading file..."));
+                    MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Reading file..."));
                 reading->FontSize.SetValue(12.0f);
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 m_detail->AddView(reading.Get(), lp);
@@ -704,8 +704,8 @@ export namespace editor::app
 
             if (!entry.plan.IsEmpty())
             {
-                m_planView = MakeRef<ImportPlanView>(DefaultAllocator(), &entry.plan);
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                m_planView = MakeRef<ImportPlanView>(MemoryAllocator(), &entry.plan);
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 m_detail->AddView(m_planView.Get(), lp);
             }
@@ -718,7 +718,7 @@ export namespace editor::app
                         continue;
                     }
                     auto check =
-                        MakeRef<ui::CheckBox>(DefaultAllocator(), toggle.label, *toggle.value);
+                        MakeRef<ui::CheckBox>(MemoryAllocator(), toggle.label, *toggle.value);
                     check->FontSize.SetValue(12.0f);
                     if (!toggle.description.IsEmpty())
                     {
@@ -727,7 +727,7 @@ export namespace editor::app
                     bool* value = toggle.value;
                     check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked)
                                                 { *value = checked; });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     m_detail->AddView(check.Get(), lp);

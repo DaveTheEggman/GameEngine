@@ -116,7 +116,7 @@ export namespace editor
     inline void RegisterHeightfieldEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<HeightfieldEditorPageFactory>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<HeightfieldEditorPageFactory>(), foundation::core::DefaultAllocator()));
         if (context.Thumbnails() != nullptr)
         {
             RegisterHeightfieldThumbnailGenerator(*context.Thumbnails());

@@ -103,9 +103,9 @@ export namespace editor
         CreatePage(EditorContext& context, foundation::content::Instance& instance) override
         {
             return UniquePtr<EditorPage>(
-                DefaultAllocator().New<CollisionShapeEditorPage>(context, *m_host, *m_uiHost,
+                foundation::core::DefaultAllocator().New<CollisionShapeEditorPage>(context, *m_host, *m_uiHost,
                                                                  instance),
-                DefaultAllocator());
+                foundation::core::DefaultAllocator());
         }
 
     private:
@@ -118,8 +118,8 @@ export namespace editor
                                              ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<CollisionShapeEditorPageFactory>(host, uiHost),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<CollisionShapeEditorPageFactory>(host, uiHost),
+            foundation::core::DefaultAllocator()));
         if (context.Thumbnails() != nullptr)
         {
             RegisterCollisionThumbnailGenerator(*context.Thumbnails());

@@ -579,7 +579,7 @@ namespace samples
         void BuildGameUI(runtime::IApplicationHost& host)
         {
             // Scene-tier HUD canvas.
-            m_hudDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+            m_hudDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
             m_hudDocument->markup = core::String(
                 u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\" spacing=\"8\">"
                 u8"  <Panel padding=\"12\" width=\"240\""
@@ -600,7 +600,7 @@ namespace samples
 
             // Billboard nameplate on the spinning cube (the moving anchor makes the
             // world-tracking path obvious at a glance).
-            m_plateDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+            m_plateDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
             m_plateDocument->markup = core::String(
                 u8"<Panel padding=\"4\""
                 u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
@@ -620,7 +620,7 @@ namespace samples
             // layer's frame gravity.
             if (auto* gameUi = host.Ctx().GetSubsystem<engine::ui::UISubsystem>())
             {
-                m_badgeDocument = core::MakeRef<ui::UIDocument>(core::DefaultAllocator());
+                m_badgeDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
                 m_badgeDocument->markup = core::String(
                     u8"<Panel padding=\"6\""
                     u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=6);\">"
@@ -629,7 +629,7 @@ namespace samples
                 m_badge = gameUi->PushScreenOverlay(*m_badgeDocument);
                 if (m_badge.Get() != nullptr)
                 {
-                    auto lp = core::MakeRef<ui::FrameLayoutParams>(core::DefaultAllocator());
+                    auto lp = core::MakeRef<ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
                     m_badge->LayoutParams = lp;
                     // Passive watermark: a hit-testable screen overlay makes the global
@@ -948,8 +948,8 @@ namespace samples
                                 core::Span<const core::u32>{indices.Data(), indices.Size()},
                                 navigation::NavigationBakeParams{}, blob)
                                 .IsOk();
-            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(core::DefaultAllocator(),
-                                                                           core::DefaultAllocator());
+            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(foundation::core::DefaultAllocator(),
+                                                                           foundation::core::DefaultAllocator());
             if (ok && !blob.IsEmpty())
             {
                 (void)m_navZone->mesh.Load(

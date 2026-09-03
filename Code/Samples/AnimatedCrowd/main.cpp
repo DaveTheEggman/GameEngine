@@ -204,12 +204,12 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir, core::DefaultAllocator());
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), 
-                core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
+                core::MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), outputDir, foundation::core::DefaultAllocator());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(foundation::core::DefaultAllocator(), 
+                foundation::core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -219,7 +219,7 @@ namespace
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    core::DefaultAllocator(), core::DefaultAllocator(), *gfx->Raw());
+                    foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             model::RegisterModelResourceTypes(); // make the cooked types deserializable
@@ -318,7 +318,7 @@ namespace
         [[nodiscard]] core::RefPtr<geometry::StaticMesh> MergeSkinnedParts()
         {
             core::RefPtr<geometry::SkinnedMesh> merged =
-                core::MakeRef<geometry::SkinnedMesh>(core::DefaultAllocator());
+                core::MakeRef<geometry::SkinnedMesh>(foundation::core::DefaultAllocator());
             core::u32 totalV = 0, totalI = 0;
             for (const Part& p : m_skinnedParts)
             {

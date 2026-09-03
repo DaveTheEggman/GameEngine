@@ -343,7 +343,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(Sv(projectDir));
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), Sv(projectDir));
     if (!project)
     {
         std::fprintf(stderr, "Tools.Export: failed to open project '%s'\n", projectDir);

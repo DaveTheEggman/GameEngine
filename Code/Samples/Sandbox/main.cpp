@@ -488,12 +488,12 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir, core::DefaultAllocator());
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), 
-                core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
+                core::MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), outputDir, foundation::core::DefaultAllocator());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(foundation::core::DefaultAllocator(), 
+                foundation::core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -503,7 +503,7 @@ namespace
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    core::DefaultAllocator(), core::DefaultAllocator(), *gfx->Raw());
+                    foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             model::RegisterModelResourceTypes(); // make the cooked types deserializable
@@ -807,11 +807,11 @@ namespace
         core::RefPtr<animation::AnimationGraph> BuildClipCyclerGraph(model::ModelResource& model)
         {
             core::RefPtr<animation::AnimationGraph> graph =
-                core::MakeRef<animation::AnimationGraph>(core::DefaultAllocator());
+                core::MakeRef<animation::AnimationGraph>(foundation::core::DefaultAllocator());
             const core::i32 nextParam =
                 graph->AddParameter(u8"Next", animation::AnimationParameterType::Trigger);
 
-            auto layer = core::MakeUnique<animation::AnimationLayer>(core::DefaultAllocator(),
+            auto layer = core::MakeUnique<animation::AnimationLayer>(foundation::core::DefaultAllocator(),
                                                                      core::StringView(u8"Base"));
             const core::i32 clipCount = static_cast<core::i32>(model.animations.Size());
             for (core::i32 i = 0; i < clipCount; ++i)
@@ -819,9 +819,9 @@ namespace
                 animation::AnimationClip* clip =
                     model.animations[static_cast<core::usize>(i)].Get();
                 auto state = core::MakeUnique<animation::AnimationGraphState>(
-                    core::DefaultAllocator(),
+                    foundation::core::DefaultAllocator(),
                     clip != nullptr ? clip->Name().AsView() : core::StringView(u8"State"),
-                    core::MakeUnique<animation::ClipStateNode>(core::DefaultAllocator(), clip));
+                    core::MakeUnique<animation::ClipStateNode>(foundation::core::DefaultAllocator(), clip));
                 layer->AddState(
                     static_cast<core::UniquePtr<animation::AnimationGraphState>&&>(state));
             }
@@ -829,7 +829,7 @@ namespace
             for (core::i32 i = 0; i < clipCount; ++i)
             {
                 auto t =
-                    core::MakeUnique<animation::AnimationGraphTransition>(core::DefaultAllocator());
+                    core::MakeUnique<animation::AnimationGraphTransition>(foundation::core::DefaultAllocator());
                 t->sourceStateIndex = i;
                 t->destStateIndex = (i + 1) % clipCount;
                 t->duration = 0.25f;
@@ -1203,12 +1203,12 @@ namespace
                 core::ContentFit fitR{.region = core::Rectangle{halfW, 0.0f, w - halfW, h},
                                       .contentSize = core::Float2{w - halfW, h},
                                       .mode = core::FitMode::Stretch};
-                m_surfaceL = core::MakeUnique<shell::InputSurface>(core::DefaultAllocator(), &input,
+                m_surfaceL = core::MakeUnique<shell::InputSurface>(foundation::core::DefaultAllocator(), &input,
                                                                    win.Id(), fitL);
-                m_surfaceR = core::MakeUnique<shell::InputSurface>(core::DefaultAllocator(), &input,
+                m_surfaceR = core::MakeUnique<shell::InputSurface>(foundation::core::DefaultAllocator(), &input,
                                                                    win.Id(), fitR);
                 m_inputRouter =
-                    core::MakeUnique<shell::InputRouter>(core::DefaultAllocator(), &input);
+                    core::MakeUnique<shell::InputRouter>(foundation::core::DefaultAllocator(), &input);
                 m_inputRouter->AddSurface(m_surfaceL.Get());
                 m_inputRouter->AddSurface(m_surfaceR.Get());
                 // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE

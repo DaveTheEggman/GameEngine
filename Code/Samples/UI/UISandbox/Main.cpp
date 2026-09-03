@@ -408,7 +408,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             }
         }
 
-        return MakeUnique<image::OwnedImageData>(DefaultAllocator(), w, h,
+        return MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), w, h,
                                                  image::PixelFormat::RGBA8, Move(data));
     }
 
@@ -462,7 +462,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         [[nodiscard]] i32 ItemCount() const override { return m_count; }
         [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView{});
+            return MakeRef<foundation::ui::Label>(foundation::core::DefaultAllocator(), StringView{});
         }
         void BindView(foundation::ui::View* view, i32 position) override
         {
@@ -523,7 +523,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         }
         [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<TreeItemView>(DefaultAllocator());
+            return MakeRef<TreeItemView>(foundation::core::DefaultAllocator());
         }
         void BindView(foundation::ui::View* view, i32 nodeId, i32 depth, bool) override
         {
@@ -565,17 +565,17 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         [[nodiscard]] foundation::ui::IDragSource* AsDragSource() override { return this; }
         [[nodiscard]] RefPtr<foundation::ui::DragData> CreateDragData() override
         {
-            return MakeRef<ChipDragData>(DefaultAllocator(), this);
+            return MakeRef<ChipDragData>(MemoryAllocator(), this);
         }
         [[nodiscard]] RefPtr<foundation::ui::View> CreateDragVisual(foundation::ui::DragData*) override
         {
-            auto panel = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+            auto panel = MakeRef<foundation::ui::Panel>(MemoryAllocator());
             panel->Padding = foundation::ui::Thickness{6, 2};
             panel->SetStyle(foundation::ui::StyleProperty::Background,
                             RefPtr<foundation::ui::Drawable>(MakeRef<foundation::ui::ColorDrawable>(
-                                DefaultAllocator(), Color.Value())));
+                                MemoryAllocator(), Color.Value())));
             panel->AddView(
-                MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8"chip")).Get());
+                MakeRef<foundation::ui::Label>(MemoryAllocator(), StringView(u8"chip")).Get());
             return panel;
         }
         void OnDragStarted(foundation::ui::DragData*) override { Opacity = 0.4f; }
@@ -723,7 +723,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             {
                 return;
             }
-            auto menu = MakeRef<foundation::ui::ContextMenu>(DefaultAllocator());
+            auto menu = MakeRef<foundation::ui::ContextMenu>(MemoryAllocator());
             menu->AddItem(u8"Cut", []() {});
             menu->AddItem(u8"Copy", []() {});
             menu->AddItem(u8"Paste", []() {});
@@ -766,36 +766,36 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         [[nodiscard]] foundation::ui::ITooltipProvider* AsTooltipProvider() override { return this; }
         [[nodiscard]] RefPtr<foundation::ui::View> CreateTooltipContent() override
         {
-            auto layout = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            auto layout = MakeRef<foundation::ui::FlexLayout>(MemoryAllocator());
             layout->Direction = foundation::ui::Orientation::Vertical;
             layout->Spacing = 4.0f;
             layout->AddView(
-                MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView(u8"Rich Tooltip"))
+                MakeRef<foundation::ui::Label>(MemoryAllocator(), StringView(u8"Rich Tooltip"))
                     .Get());
-            layout->AddView(MakeRef<foundation::ui::Separator>(DefaultAllocator()).Get());
+            layout->AddView(MakeRef<foundation::ui::Separator>(MemoryAllocator()).Get());
             auto l1 = MakeRef<foundation::ui::Label>(
-                DefaultAllocator(), StringView(u8"This tooltip has multiple lines,"));
+                MemoryAllocator(), StringView(u8"This tooltip has multiple lines,"));
             l1->AddClass(u8"label-dim");
             layout->AddView(l1.Get());
             auto l2 = MakeRef<foundation::ui::Label>(
-                DefaultAllocator(), StringView(u8"a separator, and custom content."));
+                MemoryAllocator(), StringView(u8"a separator, and custom content."));
             l2->AddClass(u8"label-dim");
             layout->AddView(l2.Get());
-            auto colorRow = MakeRef<foundation::ui::FlexLayout>(DefaultAllocator());
+            auto colorRow = MakeRef<foundation::ui::FlexLayout>(MemoryAllocator());
             colorRow->Direction = foundation::ui::Orientation::Horizontal;
             colorRow->Spacing = 4.0f;
             colorRow->AddView(MakeRef<foundation::ui::ColorView>(
-                                  DefaultAllocator(),
+                                  MemoryAllocator(),
                                   Color{220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
                                   .Get());
             colorRow->AddView(MakeRef<foundation::ui::ColorView>(
-                                  DefaultAllocator(),
+                                  MemoryAllocator(),
                                   Color{60.0f / 255.0f, 180.0f / 255.0f, 60.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
                                   .Get());
             colorRow->AddView(MakeRef<foundation::ui::ColorView>(
-                                  DefaultAllocator(),
+                                  MemoryAllocator(),
                                   Color{60.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f},
                                   16.0f, 16.0f)
                                   .Get());
@@ -813,7 +813,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
             return MakeRef<foundation::ui::ColorView>(
-                DefaultAllocator(), Color{100.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f},
+                foundation::core::DefaultAllocator(), Color{100.0f / 255.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f},
                 0.0f, 0.0f);
         }
         void BindView(foundation::ui::View* view, i32 position) override
@@ -856,7 +856,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
 
         [[nodiscard]] RefPtr<foundation::ui::View> CreateView(i32) override
         {
-            return MakeRef<foundation::ui::Label>(DefaultAllocator(), StringView{});
+            return MakeRef<foundation::ui::Label>(foundation::core::DefaultAllocator(), StringView{});
         }
 
         void BindView(foundation::ui::View* view, i32 nodeId, i32, bool) override
@@ -912,27 +912,27 @@ private:
     }
     [[nodiscard]] static RefPtr<ui::FlexLayoutParams> LP(ui::SizeSpec w, ui::SizeSpec h)
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto p = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         p->Width = w;
         p->Height = h;
         return p;
     }
     [[nodiscard]] static RefPtr<ui::FlexLayoutParams> Grow(f32 g)
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto p = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         p->Grow = g;
         return p;
     }
     [[nodiscard]] static RefPtr<ui::FlexLayout> VFlex(f32 spacing = 0.0f)
     {
-        auto f = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto f = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         f->Direction = ui::Orientation::Vertical;
         f->Spacing = spacing;
         return f;
     }
     [[nodiscard]] static RefPtr<ui::FlexLayout> HFlex(f32 spacing = 0.0f)
     {
-        auto f = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto f = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         f->Direction = ui::Orientation::Horizontal;
         f->Spacing = spacing;
         return f;
@@ -1036,8 +1036,8 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
     m_height = mainRw->Window().Height();
 
     // Fonts (CPU rasterization; no device needed).
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(DefaultAllocator(),
-                                                           DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(foundation::core::DefaultAllocator(),
+                                                           foundation::core::DefaultAllocator());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH));
@@ -1059,12 +1059,12 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         }
     }
 
-    m_uiHost = MakeUnique<ui::runtime::UIHost>(DefaultAllocator(), DefaultAllocator(),
+    m_uiHost = MakeUnique<ui::runtime::UIHost>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(),
                                                    *host.Graphics(), *host.Shell(),
                                                *m_fontService);
     // Docking host needs the runtime host + UIHost; construct before BuildUI (the Docking tab uses it).
     m_dockHost =
-        MakeUnique<ui::application::RuntimeDockableWindowHost>(DefaultAllocator(), host, *m_uiHost);
+        MakeUnique<ui::application::RuntimeDockableWindowHost>(foundation::core::DefaultAllocator(), host, *m_uiHost);
 
     BuildUI(); // builds m_root, sets theme on m_uiHost->Context(), registers m_toolkitThemeExt
     m_uiHost->AttachWindow(mainRw,
@@ -1130,7 +1130,7 @@ void UISandbox::WireViewport(runtime::IApplicationHost& host)
     };
 
     // Gated input: the app owns an InputRouter (UIHost's is private); register the view's surface.
-    m_vpRouter = MakeUnique<shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+    m_vpRouter = MakeUnique<shell::InputRouter>(foundation::core::DefaultAllocator(), host.Shell()->Input());
     if (m_viewport->Surface() != nullptr)
     {
         m_vpRouter->AddSurface(m_viewport->Surface());
@@ -1179,7 +1179,7 @@ void UISandbox::BuildUI()
     ui::ThemeRegistry::RegisterExtension(&m_toolkitThemeExt);
     ApplyTheme(); // Dark by default; the Theme button toggles Dark <-> Light
 
-    m_root = MakeRef<ui::RootView>(DefaultAllocator());
+    m_root = MakeRef<ui::RootView>(foundation::core::DefaultAllocator());
     m_root->ViewportSize = Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)};
     m_root->DpiScale = 1.0f;
 
@@ -1201,7 +1201,7 @@ void UISandbox::BuildUI()
                 pixels[o + 2] = c[2];
                 pixels[o + 3] = c[3];
             }
-        m_testImage = MakeUnique<image::OwnedImageData>(DefaultAllocator(), kSize, kSize,
+        m_testImage = MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), kSize, kSize,
                                                         image::PixelFormat::RGBA8,
                                                         Span<const u8>(pixels, sizeof(pixels)));
     }
@@ -1211,12 +1211,12 @@ void UISandbox::BuildUI()
     m_root->AddView(m_main.Get());
 
     // Toast overlay across the whole window (input-transparent outside the cards).
-    m_toastHost = MakeRef<ui::toolkit::ToastHost>(DefaultAllocator());
+    m_toastHost = MakeRef<ui::toolkit::ToastHost>(foundation::core::DefaultAllocator());
     m_root->AddView(m_toastHost.Get());
 
     // Theme button above the tabs - cycles Dark / Light / Rounded Dark / Textured / Breeze (Sedulous ApplyTheme).
     {
-        m_themeBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Theme: Dark"));
+        m_themeBtn = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Theme: Dark"));
         UISandbox* self = this;
         m_themeBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [self](ui::ButtonBase*)
@@ -1228,7 +1228,7 @@ void UISandbox::BuildUI()
                         LP(ui::SizeSpec::Wrap(), ui::SizeSpec::Fixed(ui::Unit::Px(34))));
     }
 
-    auto tabView = MakeRef<ui::TabView>(DefaultAllocator());
+    auto tabView = MakeRef<ui::TabView>(foundation::core::DefaultAllocator());
     tabView->TabsClosable.SetValue(false);
     m_main->AddView(tabView.Get(), Grow(1));
 
@@ -1257,13 +1257,13 @@ void UISandbox::ApplyTheme()
     switch (m_themeIndex)
     {
     case 0:
-        m_sheet = ui::DarkTheme::Create(DefaultAllocator());
+        m_sheet = ui::DarkTheme::Create(foundation::core::DefaultAllocator());
         break;
     case 1:
-        m_sheet = ui::LightTheme::Create(DefaultAllocator());
+        m_sheet = ui::LightTheme::Create(foundation::core::DefaultAllocator());
         break;
     case 2:
-        m_sheet = ui::RoundedDarkTheme::Create(DefaultAllocator());
+        m_sheet = ui::RoundedDarkTheme::Create(foundation::core::DefaultAllocator());
         break;
     case 3:
         m_sheet = CreateTexturedTheme();
@@ -1302,8 +1302,8 @@ void UISandbox::EnsureResourceProvider()
     }
     String uiRoot(assetDir);
     uiRoot += u8"/ui";
-    m_uiFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), uiRoot.AsView(), DefaultAllocator());
-    m_resProvider = MakeUnique<ui::vfs::VfsResourceProvider>(DefaultAllocator(), m_uiFs.Get());
+    m_uiFs = MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), uiRoot.AsView(), foundation::core::DefaultAllocator());
+    m_resProvider = MakeUnique<ui::vfs::VfsResourceProvider>(foundation::core::DefaultAllocator(), m_uiFs.Get());
 }
 
 RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette palette)
@@ -1311,13 +1311,13 @@ RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette
     EnsureResourceProvider();
     if (!m_resProvider)
     {
-        return ui::DarkTheme::Create(DefaultAllocator());
+        return ui::DarkTheme::Create(foundation::core::DefaultAllocator());
     }
 
     // Register the drawable factories + built-in type names so .sss element selectors resolve.
     ui::StyleSheetLoader::InitializeGlobals();
 
-    ui::StyleSheetLoader loader(DefaultAllocator());
+    ui::StyleSheetLoader loader(foundation::core::DefaultAllocator());
     loader.ResourceProvider = m_resProvider.Get();
     loader.SetPalette(palette);
     loader.RegisterSvg(u8"checkmark", ui::ThemeIcons::Checkmark());
@@ -1332,7 +1332,7 @@ RefPtr<ui::StyleSheet> UISandbox::LoadSSSTheme(StringView path, ui::ThemePalette
     String sss;
     if (!m_resProvider->LoadText(path, sss) || sss.IsEmpty())
     {
-        return ui::DarkTheme::Create(DefaultAllocator());
+        return ui::DarkTheme::Create(foundation::core::DefaultAllocator());
     }
     return loader.Load(sss.AsView());
 }
@@ -1501,7 +1501,7 @@ RefPtr<ui::StyleSheet> UISandbox::CreateTexturedTheme()
     images.AddImage(u8"expander::header", expN, image::NineSlice(4, 4, 4, 4));
     images.AddImage(u8"expander::header:hover", expH, image::NineSlice(4, 4, 4, 4));
 
-    return ui::TexturedTheme::Create(DefaultAllocator(), images, ui::ThemePalette::Light());
+    return ui::TexturedTheme::Create(foundation::core::DefaultAllocator(), images, ui::ThemePalette::Light());
 }
 
 // === Tab 10: Pause Menu (.sml) - loads a screen from disk through a VFS-backed resource provider ===
@@ -1518,23 +1518,23 @@ void UISandbox::BuildDockingTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{8, 8};
     tabView->AddTab(u8"Docking", demo.Get());
 
-    auto dm = MakeRef<ui::toolkit::DockManager>(DefaultAllocator());
+    auto dm = MakeRef<ui::toolkit::DockManager>(foundation::core::DefaultAllocator());
     m_dockManager = dm;
     dm->DockableWindowHost = m_dockHost.Get();
     demo->AddView(dm.Get(), Grow(1.0f));
 
     ui::toolkit::DockablePanel* p1 = dm->AddPanel(
-        u8"Scene", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene viewport")).Get());
+        u8"Scene", MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Scene viewport")).Get());
     ui::toolkit::DockablePanel* p2 = dm->AddPanel(
         u8"Inspector",
-        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Inspector properties")).Get());
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Inspector properties")).Get());
     ui::toolkit::DockablePanel* p3 =
         dm->AddPanel(u8"Hierarchy",
-                     MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Scene hierarchy")).Get());
+                     MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Scene hierarchy")).Get());
     ui::toolkit::DockablePanel* p4 = dm->AddPanel(
-        u8"Console", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Console output")).Get());
+        u8"Console", MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Console output")).Get());
     ui::toolkit::DockablePanel* p5 = dm->AddPanel(
-        u8"Assets", MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Asset browser")).Get());
+        u8"Assets", MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Asset browser")).Get());
 
     // IDE layout: Scene center, Hierarchy left, Inspector right, Console bottom, Assets tabbed with Console.
     dm->DockPanel(p1, ui::toolkit::DockPosition::Center);
@@ -1570,7 +1570,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     }
 
     RefPtr<ui::View> pauseView =
-        ui::MarkupLoader::LoadFromString(DefaultAllocator(), sml.AsView(), &m_uiHost->Context());
+        ui::MarkupLoader::LoadFromString(foundation::core::DefaultAllocator(), sml.AsView(), &m_uiHost->Context());
     if (!pauseView)
     {
         return;
@@ -1594,7 +1594,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
         // reactive because ButtonBase passes its ControlState into the drawable's state-aware Draw.
         resumeBtn->SetStyle(
             ui::StyleProperty::Background,
-            ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(45, 130, 70), vg::CornerRadii(6.0f)));
+            ui::Palette::CreateStateRounded(foundation::core::DefaultAllocator(), Rgb(45, 130, 70), vg::CornerRadii(6.0f)));
     }
     if (ui::Button* settingsBtn = pauseRoot->FindByName<ui::Button>(u8"settings-btn"))
         settingsBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
@@ -1610,7 +1610,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
         quitBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [](ui::ButtonBase*) { std::printf("Quit clicked!\n"); }});
         quitBtn->SetStyle(ui::StyleProperty::Background,
-                          ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(150, 60, 60), vg::CornerRadii(6.0f)));
+                          ui::Palette::CreateStateRounded(foundation::core::DefaultAllocator(), Rgb(150, 60, 60), vg::CornerRadii(6.0f)));
     }
 
     // Inline style demo on the title: override TextColor + FontSize + FontFamily without touching the
@@ -1625,7 +1625,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     // LocalStyleSheet demo: scope a theming change to the pause subtree. Every Label gets a size + soft
     // text color; every Button gets padding + a rounded gray-blue state-list. Inline overrides above still
     // win (title FontSize 32 beats 14; resume/quit inline state-lists beat the gray-blue default).
-    RefPtr<ui::StyleSheet> pauseLocal = MakeRef<ui::StyleSheet>(DefaultAllocator());
+    RefPtr<ui::StyleSheet> pauseLocal = MakeRef<ui::StyleSheet>(foundation::core::DefaultAllocator());
     pauseLocal->ForAll().Set(ui::StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
     pauseLocal->ForType(&ui::Label::StaticType())
         .Set(ui::StyleProperty::FontSize, 14.0f)
@@ -1633,7 +1633,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     pauseLocal->ForType(&ui::Button::StaticType())
         .Set(ui::StyleProperty::Padding, ui::Thickness{14, 8})
         .Set(ui::StyleProperty::Background,
-             ui::Palette::CreateStateRounded(DefaultAllocator(), Rgb(60, 65, 80), vg::CornerRadii(6.0f)));
+             ui::Palette::CreateStateRounded(foundation::core::DefaultAllocator(), Rgb(60, 65, 80), vg::CornerRadii(6.0f)));
     pauseView->SetLocalStyleSheet(Move(pauseLocal));
 }
 
@@ -1647,9 +1647,9 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{12, 8};
     tabView->AddTab(u8"Animations", demo.Get());
 
-    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Animation Target")).Get());
+    demo->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Animation Target")).Get());
     auto target = MakeRef<ui::ColorView>(
-        DefaultAllocator(), Color{80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f}, 0.0f, 30.0f);
+        foundation::core::DefaultAllocator(), Color{80.0f / 255.0f, 160.0f / 255.0f, 1.0f, 1.0f}, 0.0f, 30.0f);
     demo->AddView(target.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(30))));
 
     ui::View* animTarget = target.Get();
@@ -1657,7 +1657,7 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
     auto row = HFlex(6.0f);
     auto animBtn = [&](const char8_t* text, ui::Event<void(ui::ButtonBase*)>::Handler h)
     {
-        auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+        auto b = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(text));
         b->OnClick.Add(Move(h));
         row->AddView(b.Get());
     };
@@ -1679,7 +1679,7 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
             ui::Event<void(ui::ButtonBase*)>::Handler{
                 [ctx, animTarget](ui::ButtonBase*)
                 {
-                    auto sb = MakeUnique<ui::Storyboard>(DefaultAllocator(),
+                    auto sb = MakeUnique<ui::Storyboard>(foundation::core::DefaultAllocator(),
                                                          ui::Storyboard::Mode::Sequential);
                     sb->Add(ui::ViewAnimator::ScaleTo(animTarget, 1.0f, 1.3f, 0.15f,
                                                       ui::Easing::EaseOutCubic));
@@ -1691,7 +1691,7 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
             ui::Event<void(ui::ButtonBase*)>::Handler{
                 [ctx, animTarget](ui::ButtonBase*)
                 {
-                    auto sb = MakeUnique<ui::Storyboard>(DefaultAllocator(),
+                    auto sb = MakeUnique<ui::Storyboard>(foundation::core::DefaultAllocator(),
                                                          ui::Storyboard::Mode::Sequential);
                     sb->Add(ui::ViewAnimator::TranslateX(animTarget, 0, 50, 0.3f,
                                                          ui::Easing::EaseOutCubic));
@@ -1702,20 +1702,20 @@ void UISandbox::BuildAnimationsTab(ui::TabView* tabView)
     demo->AddView(row.Get());
 
     // Static transforms.
-    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 8.0f).Get());
+    demo->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 8.0f).Get());
     demo->AddView(
-        MakeRef<ui::Label>(DefaultAllocator(),
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(),
                            StringView(u8"Static Transforms (click to verify hit-testing)"))
             .Get());
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     auto clickLabel =
-        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Click a transformed button..."));
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Click a transformed button..."));
     ui::Label* cl = clickLabel.Get();
     auto trow = HFlex(16.0f);
     auto tfBtn = [&](const char8_t* text, ui::ViewTransform t, const char8_t* msg)
     {
-        auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+        auto b = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(text));
         b->Transform = t;
         const char8_t* m = msg;
         b->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{[cl, m](ui::ButtonBase*)
@@ -1751,7 +1751,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     tabView->AddTab(u8"Toolkit", demo.Get());
 
     // MenuBar at top.
-    auto menuBar = MakeRef<ui::toolkit::MenuBar>(DefaultAllocator());
+    auto menuBar = MakeRef<ui::toolkit::MenuBar>(foundation::core::DefaultAllocator());
     ui::ContextMenu* fileMenu = menuBar->AddMenu(u8"File");
     fileMenu->AddItem(u8"New", Function<void()>{[] {}});
     fileMenu->AddItem(u8"Open", Function<void()>{[] {}});
@@ -1770,7 +1770,7 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     demo->AddView(menuBar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // Toolbar below the menu.
-    auto toolbar = MakeRef<ui::toolkit::Toolbar>(DefaultAllocator());
+    auto toolbar = MakeRef<ui::toolkit::Toolbar>(foundation::core::DefaultAllocator());
     toolbar->AddButton(u8"New");
     toolbar->AddButton(u8"Open");
     toolbar->AddButton(u8"Save");
@@ -1780,14 +1780,14 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     demo->AddView(toolbar.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // BreadcrumbBar.
-    auto breadcrumb = MakeRef<ui::toolkit::BreadcrumbBar>(DefaultAllocator());
+    auto breadcrumb = MakeRef<ui::toolkit::BreadcrumbBar>(foundation::core::DefaultAllocator());
     breadcrumb->SetPath(u8"Project/Assets/Textures/Environment");
     demo->AddView(breadcrumb.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // Center row: SplitView | DraggableTreeView | ColorPicker.
     auto centerRow = HFlex(4.0f);
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto p = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         p->Width = SizeSpec::Match();
         p->Grow = 1.0f;
         demo->AddView(centerRow.Get(), Move(p));
@@ -1795,34 +1795,34 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
 
     // SplitView with two labeled panes.
     auto splitView =
-        MakeRef<ui::toolkit::SplitView>(DefaultAllocator(), ui::Orientation::Horizontal);
-    splitView->SetPanes(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Left Pane")).Get(),
-                        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Right Pane")).Get());
+        MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator(), ui::Orientation::Horizontal);
+    splitView->SetPanes(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Left Pane")).Get(),
+                        MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Right Pane")).Get());
     splitView->SetSplitRatio(0.4f);
     centerRow->AddView(splitView.Get(), Grow(1));
 
     // DraggableTreeView column (drag to reorder).
     auto dragCol = VFlex(4.0f);
     dragCol->AddView(
-        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Drag to reorder:")).Get());
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Drag to reorder:")).Get());
     const StringView reorderItems[] = {u8"Alpha", u8"Bravo", u8"Charlie",
                                        u8"Delta", u8"Echo",  u8"Foxtrot"};
-    m_reorderAdapter = MakeUnique<ReorderableListAdapter>(DefaultAllocator(),
+    m_reorderAdapter = MakeUnique<ReorderableListAdapter>(foundation::core::DefaultAllocator(),
                                                           Span<const StringView>(reorderItems, 6));
-    auto dragTree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
+    auto dragTree = MakeRef<ui::toolkit::DraggableTreeView>(foundation::core::DefaultAllocator());
     dragTree->SetAdapter(m_reorderAdapter.Get());
     dragTree->SetItemHeight(22.0f);
     dragCol->AddView(dragTree.Get(), Grow(1));
     centerRow->AddView(dragCol.Get(), LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()));
 
     // ColorPicker.
-    auto colorPicker = MakeRef<ui::toolkit::ColorPicker>(DefaultAllocator());
+    auto colorPicker = MakeRef<ui::toolkit::ColorPicker>(foundation::core::DefaultAllocator());
     colorPicker->SetColor(Rgb(80, 160, 240, 255));
     colorPicker->SetOriginalColor(Rgb(80, 160, 240, 255));
     centerRow->AddView(colorPicker.Get());
 
     // StatusBar at the bottom.
-    auto statusBar = MakeRef<ui::toolkit::StatusBar>(DefaultAllocator());
+    auto statusBar = MakeRef<ui::toolkit::StatusBar>(foundation::core::DefaultAllocator());
     statusBar->SetText(u8"Ready");
     statusBar->AddSection(u8"Ln 42, Col 8");
     statusBar->AddSection(u8"UTF-8");
@@ -1836,33 +1836,33 @@ void UISandbox::BuildPropertyGridTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{8, 8};
     tabView->AddTab(u8"PropertyGrid", demo.Get());
 
-    auto propGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+    auto propGrid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
     propGrid->AddProperty(
-        MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Enabled"), true));
+        MakeRef<ui::toolkit::BoolEditor>(foundation::core::DefaultAllocator(), StringView(u8"Enabled"), true));
     propGrid->AddProperty(
-        MakeRef<ui::toolkit::BoolEditor>(DefaultAllocator(), StringView(u8"Visible"), true));
+        MakeRef<ui::toolkit::BoolEditor>(foundation::core::DefaultAllocator(), StringView(u8"Visible"), true));
     propGrid->AddProperty(MakeRef<ui::toolkit::StringEditor>(
-        DefaultAllocator(), StringView(u8"Name"), StringView(u8"Player")));
+        foundation::core::DefaultAllocator(), StringView(u8"Name"), StringView(u8"Player")));
     propGrid->AddProperty(MakeRef<ui::toolkit::FloatEditor>(
-        DefaultAllocator(), StringView(u8"Speed"), 5.0, 0.0, 100.0, 0.5, 1));
+        foundation::core::DefaultAllocator(), StringView(u8"Speed"), 5.0, 0.0, 100.0, 0.5, 1));
     propGrid->AddProperty(MakeRef<ui::toolkit::IntEditor>(
-        DefaultAllocator(), StringView(u8"Health"), static_cast<i64>(100), static_cast<i64>(0),
+        foundation::core::DefaultAllocator(), StringView(u8"Health"), static_cast<i64>(100), static_cast<i64>(0),
         static_cast<i64>(999)));
     propGrid->AddProperty(MakeRef<ui::toolkit::RangeEditor>(
-        DefaultAllocator(), StringView(u8"Volume"), 0.75f, 0.0f, 1.0f, 0.01f));
+        foundation::core::DefaultAllocator(), StringView(u8"Volume"), 0.75f, 0.0f, 1.0f, 0.01f));
     const StringView modeItems[] = {u8"Easy", u8"Normal", u8"Hard"};
     propGrid->AddProperty(MakeRef<ui::toolkit::EnumEditor>(
-        DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
+        foundation::core::DefaultAllocator(), StringView(u8"Mode"), 0, Span<const StringView>(modeItems, 3)));
     propGrid->AddProperty(MakeRef<ui::toolkit::ColorEditor>(
-        DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
+        foundation::core::DefaultAllocator(), StringView(u8"Tint"), Rgb(255, 200, 100, 255)));
     propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(
-        DefaultAllocator(), StringView(u8"Position"), Float3{1.0f, 2.5f, -3.0f}, -100000.0f,
+        foundation::core::DefaultAllocator(), StringView(u8"Position"), Float3{1.0f, 2.5f, -3.0f}, -100000.0f,
         100000.0f, 0.1f, Function<void(Float3)>{}, StringView(u8"Transform")));
     propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(
-        DefaultAllocator(), StringView(u8"Rotation"), Float3{0, 45, 0}, -100000.0f, 100000.0f, 0.1f,
+        foundation::core::DefaultAllocator(), StringView(u8"Rotation"), Float3{0, 45, 0}, -100000.0f, 100000.0f, 0.1f,
         Function<void(Float3)>{}, StringView(u8"Transform")));
     propGrid->AddProperty(MakeRef<ui::toolkit::Float3Editor>(
-        DefaultAllocator(), StringView(u8"Scale"), Float3{1, 1, 1}, -100000.0f, 100000.0f, 0.1f,
+        foundation::core::DefaultAllocator(), StringView(u8"Scale"), Float3{1, 1, 1}, -100000.0f, 100000.0f, 0.1f,
         Function<void(Float3)>{}, StringView(u8"Transform")));
     demo->AddView(propGrid.Get(), Grow(1));
 }
@@ -1877,14 +1877,14 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
     tabView->AddTab(u8"Curve Editor", demo.Get());
 
     auto help = MakeRef<ui::Label>(
-        DefaultAllocator(),
+        foundation::core::DefaultAllocator(),
         StringView(u8"Left-click empty space: add key.  Left-click + drag key: move.  Right-click "
                    u8"key: delete.\n"
                    u8"Left-click + drag the colored handles on the selected key: edit tangent.  "
                    u8"Right-click handle: cycle TangentMode (Mirrored / Free / Flat)."));
     demo->AddView(help.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
-    auto curve = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
+    auto curve = MakeRef<ui::toolkit::CurveCanvas>(foundation::core::DefaultAllocator());
     curve->MaxKeys = 12;
 
     ui::toolkit::ChannelDescriptor ch;
@@ -1905,13 +1905,13 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
     };
     curve->SetKeys(0, Span<const ui::toolkit::CurveCanvas::Key>(seedKeys, 3));
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto p = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         p->Width = SizeSpec::Match();
         p->Grow = 1.0f;
         demo->AddView(curve.Get(), Move(p));
     }
 
-    auto status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Selected key: (none)"));
+    auto status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Selected key: (none)"));
     demo->AddView(status.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
 
     // Refresh the status line on any key edit (position drags and tangent drags both hit OnKeyChanged).
@@ -1958,11 +1958,11 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
 // === Tab 13: Node Graph (4 nodes + 3 connections, console-logged interaction events) ===
 void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
 {
-    auto graph = MakeRef<ui::toolkit::NodeGraphCanvas>(DefaultAllocator());
+    auto graph = MakeRef<ui::toolkit::NodeGraphCanvas>(foundation::core::DefaultAllocator());
     graph->ShowGrid = true;
 
     // Idle (node 0).
-    auto nodeA = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+    auto nodeA = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
     nodeA->Title = String(u8"Idle");
     nodeA->Position = Float2{50, 50};
     nodeA->HeaderColor = Rgb(70, 130, 80, 255);
@@ -1981,7 +1981,7 @@ void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
     graph->AddNode(Move(nodeA));
 
     // Walk (node 1).
-    auto nodeB = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+    auto nodeB = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
     nodeB->Title = String(u8"Walk");
     nodeB->Position = Float2{300, 50};
     nodeB->HeaderColor = Rgb(70, 100, 180, 255);
@@ -2000,7 +2000,7 @@ void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
     graph->AddNode(Move(nodeB));
 
     // Run (node 2) - has a typed "Speed" input port.
-    auto nodeC = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+    auto nodeC = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
     nodeC->Title = String(u8"Run");
     nodeC->Subtitle = String(u8"BlendTree1D");
     nodeC->Position = Float2{300, 200};
@@ -2027,7 +2027,7 @@ void UISandbox::BuildNodeGraphTab(ui::TabView* tabView)
     graph->AddNode(Move(nodeC));
 
     // Any State (node 3) - not deletable.
-    auto nodeD = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+    auto nodeD = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
     nodeD->Title = String(u8"Any State");
     nodeD->Position = Float2{50, 200};
     nodeD->HeaderColor = Rgb(100, 100, 110, 255);
@@ -2099,14 +2099,14 @@ void UISandbox::BuildDragDropTab(ui::TabView* tabView)
     demo->Padding = ui::Thickness{12, 8};
     tabView->AddTab(u8"Drag & Drop", demo.Get());
 
-    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(),
+    demo->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(),
                                      StringView(u8"Drag chips to reorder, or drop onto the box"))
                       .Get());
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     auto row = HFlex(8.0f);
 
-    auto chips = MakeRef<ChipReorderContainer>(DefaultAllocator());
+    auto chips = MakeRef<ChipReorderContainer>(foundation::core::DefaultAllocator());
     chips->Direction = ui::Orientation::Horizontal;
     chips->Spacing = 4.0f;
     const Color chipColors[5] = {Color{220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f},
@@ -2116,7 +2116,7 @@ void UISandbox::BuildDragDropTab(ui::TabView* tabView)
                                  Color{180.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f}};
     for (const Color& c : chipColors)
     {
-        chips->AddView(MakeRef<DragChip>(DefaultAllocator(), c).Get(),
+        chips->AddView(MakeRef<DragChip>(foundation::core::DefaultAllocator(), c).Get(),
                        LP(SizeSpec::Fixed(Unit::Px(30)), SizeSpec::Fixed(Unit::Px(30))));
     }
     row->AddView(chips.Get());
@@ -2124,7 +2124,7 @@ void UISandbox::BuildDragDropTab(ui::TabView* tabView)
     {
         auto p = Grow(1);
         p->Height = SizeSpec::Fixed(Unit::Px(30));
-        row->AddView(MakeRef<ColorDropBox>(DefaultAllocator()).Get(), p);
+        row->AddView(MakeRef<ColorDropBox>(foundation::core::DefaultAllocator()).Get(), p);
     }
     demo->AddView(row.Get());
 }
@@ -2135,7 +2135,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     using ui::SizeSpec;
     using ui::Unit;
 
-    auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
     scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
     tabView->AddTab(u8"Overlays", scroll.Get());
 
@@ -2144,23 +2144,23 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     scroll->AddView(demo.Get());
     auto section = [&](const char8_t* title)
     {
-        demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
-        demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+        demo->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(title)).Get());
+        demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
     };
-    auto spacer = [&] { demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get()); };
+    auto spacer = [&] { demo->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 4.0f).Get()); };
     const auto w200 = [&] { return LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()); };
 
     // ComboBox.
     section(u8"ComboBox");
     {
-        auto c = MakeRef<ui::ComboBox>(DefaultAllocator());
+        auto c = MakeRef<ui::ComboBox>(foundation::core::DefaultAllocator());
         c->AddItem(u8"Option 1");
         c->AddItem(u8"Option 2");
         c->AddItem(u8"Option 3");
         demo->AddView(c.Get(), w200());
     }
     {
-        auto c = MakeRef<ui::ComboBox>(DefaultAllocator());
+        auto c = MakeRef<ui::ComboBox>(foundation::core::DefaultAllocator());
         c->AddItem(u8"Red");
         c->AddItem(u8"Green");
         c->AddItem(u8"Blue");
@@ -2174,16 +2174,16 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     {
         auto row = HFlex(8.0f);
         ui::UIContext* ctx = &m_uiHost->Context();
-        auto alertBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Alert"));
+        auto alertBtn = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Alert"));
         alertBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [ctx](ui::ButtonBase*)
-            { ui::Dialog::Alert(DefaultAllocator(), u8"Information", u8"This is an alert dialog.")->Show(ctx); }});
+            { ui::Dialog::Alert(foundation::core::DefaultAllocator(), u8"Information", u8"This is an alert dialog.")->Show(ctx); }});
         row->AddView(alertBtn.Get());
-        auto confirmBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Confirm"));
+        auto confirmBtn = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Confirm"));
         confirmBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [ctx](ui::ButtonBase*)
             {
-                ui::Dialog::Confirm(DefaultAllocator(), u8"Confirm", u8"Are you sure you want to proceed?")->Show(ctx);
+                ui::Dialog::Confirm(foundation::core::DefaultAllocator(), u8"Confirm", u8"Are you sure you want to proceed?")->Show(ctx);
             }});
         row->AddView(confirmBtn.Get());
         demo->AddView(row.Get());
@@ -2192,7 +2192,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
     // ContextMenu.
     spacer();
     section(u8"ContextMenu (right-click below)");
-    demo->AddView(MakeRef<ContextMenuDemoArea>(DefaultAllocator()).Get(),
+    demo->AddView(MakeRef<ContextMenuDemoArea>(foundation::core::DefaultAllocator()).Get(),
                   LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(80))));
 
     // Tooltips.
@@ -2203,7 +2203,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
         auto tt = [&](const char8_t* text, const char8_t* tip, ui::TooltipPlacement placement,
                       bool interactive)
         {
-            auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+            auto b = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(text));
             b->TooltipText = String(tip);
             b->TooltipPlacement = placement;
             b->IsTooltipInteractive = interactive;
@@ -2215,7 +2215,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
         tt(u8"Interactive", u8"This tooltip stays while you hover it", ui::TooltipPlacement::Bottom,
            true);
         row->AddView(
-            MakeRef<RichTooltipButton>(DefaultAllocator(), StringView(u8"Rich content")).Get());
+            MakeRef<RichTooltipButton>(foundation::core::DefaultAllocator(), StringView(u8"Rich content")).Get());
         demo->AddView(row.Get());
     }
 
@@ -2228,7 +2228,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
         auto toastBtn = [&](const char8_t* text, ui::toolkit::ToastSeverity severity,
                             const char8_t* message, f32 duration)
         {
-            auto b = MakeRef<ui::Button>(DefaultAllocator(), StringView(text));
+            auto b = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(text));
             b->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
                 [toasts, severity, message, duration](ui::ButtonBase*)
                 {
@@ -2247,7 +2247,7 @@ void UISandbox::BuildOverlaysTab(ui::TabView* tabView)
                  4.0f);
         toastBtn(u8"Error (sticky)", ui::toolkit::ToastSeverity::Error,
                  u8"Cook: 1 failed (close me).", 0.0f);
-        auto actionBtn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"With action"));
+        auto actionBtn = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"With action"));
         actionBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
             [toasts](ui::ButtonBase*)
             {
@@ -2283,7 +2283,7 @@ void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
     auto column = [&](const char8_t* title)
     {
         auto col = VFlex(4.0f);
-        col->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
+        col->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(title)).Get());
         dataDemo->AddView(col.Get(), Grow(1));
         return col;
     };
@@ -2291,8 +2291,8 @@ void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
     // ListView (1000 items).
     {
         auto col = column(u8"ListView (1000 items)");
-        m_listAdapter = MakeUnique<DemoListAdapter>(DefaultAllocator(), 1000);
-        auto listView = MakeRef<ui::ListView>(DefaultAllocator());
+        m_listAdapter = MakeUnique<DemoListAdapter>(foundation::core::DefaultAllocator(), 1000);
+        auto listView = MakeRef<ui::ListView>(foundation::core::DefaultAllocator());
         listView->SetAdapter(m_listAdapter.Get());
         col->AddView(listView.Get(), Grow(1));
     }
@@ -2300,8 +2300,8 @@ void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
     // TreeView (hierarchy).
     {
         auto col = column(u8"TreeView");
-        m_treeAdapter = MakeUnique<DemoTreeAdapter>(DefaultAllocator());
-        auto treeView = MakeRef<ui::TreeView>(DefaultAllocator());
+        m_treeAdapter = MakeUnique<DemoTreeAdapter>(foundation::core::DefaultAllocator());
+        auto treeView = MakeRef<ui::TreeView>(foundation::core::DefaultAllocator());
         treeView->SetAdapter(m_treeAdapter.Get());
         col->AddView(treeView.Get(), Grow(1));
     }
@@ -2309,8 +2309,8 @@ void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
     // GridView (200 coloured cells).
     {
         auto col = column(u8"GridView (200 cells)");
-        m_gridAdapter = MakeUnique<DemoGridAdapter>(DefaultAllocator(), 200);
-        auto gridView = MakeRef<ui::GridView>(DefaultAllocator());
+        m_gridAdapter = MakeUnique<DemoGridAdapter>(foundation::core::DefaultAllocator(), 200);
+        auto gridView = MakeRef<ui::GridView>(foundation::core::DefaultAllocator());
         gridView->SetAdapter(m_gridAdapter.Get());
         col->AddView(gridView.Get(), Grow(1));
     }
@@ -2319,11 +2319,11 @@ void UISandbox::BuildDataControlsTab(ui::TabView* tabView)
 // A themed labelled colour box (Sedulous UISandbox's MakeBox helper).
 RefPtr<ui::Panel> UISandbox::MakeBox(Color color, StringView text)
 {
-    auto panel = MakeRef<ui::Panel>(DefaultAllocator());
+    auto panel = MakeRef<ui::Panel>(foundation::core::DefaultAllocator());
     panel->SetStyle(ui::StyleProperty::Background,
-                    RefPtr<ui::Drawable>(MakeRef<ui::ColorDrawable>(DefaultAllocator(), color)));
+                    RefPtr<ui::Drawable>(MakeRef<ui::ColorDrawable>(foundation::core::DefaultAllocator(), color)));
     panel->Padding = ui::Thickness{8, 4, 8, 4};
-    auto label = MakeRef<ui::Label>(DefaultAllocator(), text);
+    auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
     label->FontSize.SetValue(Optional<f32>{11.0f});
     label->HAlign.SetValue(fonts::TextAlignment::Center);
     label->VAlign.SetValue(fonts::VerticalAlignment::Middle);
@@ -2342,8 +2342,8 @@ void UISandbox::BuildScrollViewTab(ui::TabView* tabView)
                       ui::ScrollBarPolicy hPol, bool horizontal, i32 count)
     {
         auto col = VFlex(4.0f);
-        col->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
-        auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+        col->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(title)).Get());
+        auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
         scroll->ScrollBarMode.SetValue(mode);
         scroll->VScrollBarPolicy.SetValue(vPol);
         scroll->HScrollBarPolicy.SetValue(hPol);
@@ -2353,7 +2353,7 @@ void UISandbox::BuildScrollViewTab(ui::TabView* tabView)
             if (horizontal)
             {
                 content->AddView(
-                    MakeRef<ui::ColorView>(DefaultAllocator(),
+                    MakeRef<ui::ColorView>(foundation::core::DefaultAllocator(),
                                            Color{(60 + i * 9) / 255.0f, (100 + i * 5) / 255.0f,
                                                  (180 - i * 6) / 255.0f, 1.0f},
                                            60.0f, 60.0f)
@@ -2384,7 +2384,7 @@ void UISandbox::BuildScrollViewTab(ui::TabView* tabView)
                     buf[p++] = d[dc - 1 - k];
                 }
                 buf[p] = 0;
-                content->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(buf)).Get());
+                content->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(buf)).Get());
             }
         }
         scroll->AddView(content.Get());
@@ -2406,21 +2406,21 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
     using ui::SizeSpec;
     using ui::Unit;
 
-    auto layoutScroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    auto layoutScroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
     layoutScroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
     tabView->AddTab(u8"Layouts", layoutScroll.Get());
 
     auto demo = VFlex(16.0f);
     demo->Padding = ui::Thickness{12};
     {
-        auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = SizeSpec::Match();
         layoutScroll->AddView(demo.Get(), lp);
     }
 
     auto dimLabel = [&](const char8_t* text)
     {
-        auto l = MakeRef<ui::Label>(DefaultAllocator(), StringView(text));
+        auto l = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(text));
         l->AddClass(u8"label-dim");
         l->FontSize.SetValue(Optional<f32>{12.0f});
         demo->AddView(l.Get());
@@ -2471,16 +2471,16 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         demo->AddView(flexV.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(120))));
     }
 
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // DockLayout.
     dimLabel(u8"DockLayout - dock children to edges, last fills remaining");
     {
-        auto dock = MakeRef<ui::DockLayout>(DefaultAllocator());
+        auto dock = MakeRef<ui::DockLayout>(foundation::core::DefaultAllocator());
         dock->LastChildFill = true;
         auto dockLp = [](ui::Dock d, SizeSpec w, SizeSpec h)
         {
-            auto p = MakeRef<ui::DockLayoutParams>(DefaultAllocator(), d);
+            auto p = MakeRef<ui::DockLayoutParams>(foundation::core::DefaultAllocator(), d);
             p->Width = w;
             p->Height = h;
             return p;
@@ -2502,12 +2502,12 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         demo->AddView(dock.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(150))));
     }
 
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // GridLayout.
     dimLabel(u8"GridLayout - rows and columns with flex/fixed sizing");
     {
-        auto grid = MakeRef<ui::GridLayout>(DefaultAllocator());
+        auto grid = MakeRef<ui::GridLayout>(foundation::core::DefaultAllocator());
         grid->Columns.PushBack(ui::TrackSize::Fixed(80));
         grid->Columns.PushBack(ui::TrackSize::Flex(1));
         grid->Columns.PushBack(ui::TrackSize::Flex(2));
@@ -2518,7 +2518,7 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         grid->RowSpacing = 4;
         auto cell = [](i32 row, i32 col, i32 span)
         {
-            auto p = MakeRef<ui::GridLayoutParams>(DefaultAllocator());
+            auto p = MakeRef<ui::GridLayoutParams>(foundation::core::DefaultAllocator());
             p->Row = row;
             p->Column = col;
             p->ColumnSpan = span;
@@ -2547,15 +2547,15 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         demo->AddView(grid.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
     }
 
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // FrameLayout.
     dimLabel(u8"FrameLayout - overlapping children with gravity positioning");
     {
-        auto frame = MakeRef<ui::FrameLayout>(DefaultAllocator());
+        auto frame = MakeRef<ui::FrameLayout>(foundation::core::DefaultAllocator());
         auto grav = [](ui::Gravity g)
         {
-            auto p = MakeRef<ui::FrameLayoutParams>(DefaultAllocator());
+            auto p = MakeRef<ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
             p->Gravity = g;
             return p;
         };
@@ -2585,12 +2585,12 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         demo->AddView(frame.Get(), LP(SizeSpec::Match(), SizeSpec::Fixed(Unit::Px(140))));
     }
 
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // FlowLayout.
     dimLabel(u8"FlowLayout - wraps children to next line when space runs out");
     {
-        auto flow = MakeRef<ui::FlowLayout>(DefaultAllocator());
+        auto flow = MakeRef<ui::FlowLayout>(foundation::core::DefaultAllocator());
         flow->HSpacing = 4.0f;
         flow->VSpacing = 4.0f;
         const char8_t* tags[15] = {u8"Fire", u8"Water",  u8"Earth",   u8"Wind",   u8"Electric",
@@ -2618,15 +2618,15 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         demo->AddView(flow.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
     }
 
-    demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // AbsoluteLayout.
     dimLabel(u8"AbsoluteLayout - explicit pixel positioning");
     {
-        auto abs = MakeRef<ui::AbsoluteLayout>(DefaultAllocator());
+        auto abs = MakeRef<ui::AbsoluteLayout>(foundation::core::DefaultAllocator());
         auto at = [](f32 x, f32 y)
         {
-            auto p = MakeRef<ui::AbsoluteLayoutParams>(DefaultAllocator());
+            auto p = MakeRef<ui::AbsoluteLayoutParams>(foundation::core::DefaultAllocator());
             p->X = x;
             p->Y = y;
             return p;
@@ -2653,7 +2653,7 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
 // === Tab 4: Tab Placement (nested TabViews in a 2x2 grid, closable) ===
 void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
 {
-    auto demo = MakeRef<ui::GridLayout>(DefaultAllocator());
+    auto demo = MakeRef<ui::GridLayout>(foundation::core::DefaultAllocator());
     demo->Columns.PushBack(ui::TrackSize::Flex(1));
     demo->Columns.PushBack(ui::TrackSize::Flex(1));
     demo->Rows.PushBack(ui::TrackSize::Flex(1));
@@ -2664,7 +2664,7 @@ void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
 
     auto cell = [](i32 row, i32 col)
     {
-        auto p = MakeRef<ui::GridLayoutParams>(DefaultAllocator());
+        auto p = MakeRef<ui::GridLayoutParams>(foundation::core::DefaultAllocator());
         p->Row = row;
         p->Column = col;
         return p;
@@ -2675,15 +2675,15 @@ void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
     auto placed =
         [&](ui::TabPlacement placement, const char8_t* prefix, i32 count, i32 row, i32 col)
     {
-        auto tabs = MakeRef<ui::TabView>(DefaultAllocator());
+        auto tabs = MakeRef<ui::TabView>(foundation::core::DefaultAllocator());
         tabs->Placement.SetValue(placement);
         for (i32 i = 1; i <= count; ++i)
         {
-            StringBuilder sb(DefaultAllocator());
+            StringBuilder sb(foundation::core::DefaultAllocator());
             sb.Append(StringView(prefix)).Append(StringView(u8" ")).AppendInt(i);
             const String title = sb.Take();
             tabs->AddTab(title.AsView(),
-                         MakeRef<ui::Label>(DefaultAllocator(), title.AsView()).Get());
+                         MakeRef<ui::Label>(foundation::core::DefaultAllocator(), title.AsView()).Get());
         }
         demo->AddView(tabs.Get(), cell(row, col));
     };
@@ -2699,7 +2699,7 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
     using ui::SizeSpec;
     using ui::Unit;
 
-    auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+    auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
     scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
     tabView->AddTab(u8"Text Input", scroll.Get());
 
@@ -2711,86 +2711,86 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
     const auto w200 = [&] { return LP(SizeSpec::Fixed(Unit::Px(200)), SizeSpec::Wrap()); };
     auto section = [&](const char8_t* title)
     {
-        demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(title)).Get());
-        demo->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+        demo->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(title)).Get());
+        demo->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
     };
 
     // --- EditText ---
     section(u8"EditText");
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetText(u8"Editable text");
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetPlaceholder(u8"Enter name...");
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetText(u8"Read-only text");
         e->IsReadOnly.SetValue(true);
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->Multiline.SetValue(true);
         e->SetText(u8"Line 1\nLine 2\nLine 3");
         demo->AddView(e.Get(), LP(SizeSpec::Fixed(Unit::Px(300)), SizeSpec::Fixed(Unit::Px(80))));
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->MaxLength.SetValue(10);
         e->SetPlaceholder(u8"Max 10 chars");
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetFilter(ui::InputFilter::Digits());
         e->SetPlaceholder(u8"Digits only");
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetPrefix(StringView(u8"$"));
         e->SetText(u8"100");
         demo->AddView(e.Get(), w300());
     }
     {
-        auto e = MakeRef<ui::EditText>(DefaultAllocator());
+        auto e = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         e->SetSuffix(StringView(u8"px"));
         e->SetText(u8"16");
         demo->AddView(e.Get(), w300());
     }
 
     // --- PasswordBox ---
-    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    demo->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 4.0f).Get());
     section(u8"PasswordBox");
     {
-        auto p = MakeRef<ui::PasswordBox>(DefaultAllocator());
+        auto p = MakeRef<ui::PasswordBox>(foundation::core::DefaultAllocator());
         p->SetPlaceholder(u8"Password");
         demo->AddView(p.Get(), w300());
     }
     {
-        auto p = MakeRef<ui::PasswordBox>(DefaultAllocator());
+        auto p = MakeRef<ui::PasswordBox>(foundation::core::DefaultAllocator());
         p->PasswordChar.SetValue(U'●');
         p->SetPlaceholder(u8"Custom mask");
         demo->AddView(p.Get(), w300());
     }
 
     // --- NumericField ---
-    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    demo->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 4.0f).Get());
     section(u8"NumericField");
     {
-        auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         n->SetMin(0);
         n->SetMax(100);
         n->SetValue(42);
         demo->AddView(n.Get(), w200());
     }
     {
-        auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         n->SetMin(0);
         n->SetMax(100);
         n->ShowSpinButtons.SetValue(false);
@@ -2798,7 +2798,7 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
         demo->AddView(n.Get(), w200());
     }
     {
-        auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         n->SetMin(-10);
         n->SetMax(10);
         n->SetStep(0.5);
@@ -2807,7 +2807,7 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
         demo->AddView(n.Get(), w200());
     }
     {
-        auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         n->SetMin(0);
         n->SetMax(999);
         n->SetDecimalPlaces(0);
@@ -2815,7 +2815,7 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
         demo->AddView(n.Get(), w200());
     }
     {
-        auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         n->SetMin(0);
         n->SetMax(360);
         n->SetDecimalPlaces(1);
@@ -2825,19 +2825,19 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
     }
 
     // Float3 editor: 3 numeric fields with coloured axis prefix labels.
-    demo->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Float3 Editor")).Get());
+    demo->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Float3 Editor")).Get());
     {
         auto vecRow = HFlex(4.0f);
         auto axisField = [&](const char8_t* axis, Color color, f64 val)
         {
-            auto n = MakeRef<ui::NumericField>(DefaultAllocator());
+            auto n = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
             n->SetMin(-999);
             n->SetMax(999);
             n->SetStep(0.1);
             n->SetDecimalPlaces(2);
             n->ShowSpinButtons.SetValue(false);
             n->SetValue(val);
-            auto prefix = MakeRef<ui::Label>(DefaultAllocator(), StringView(axis));
+            auto prefix = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(axis));
             prefix->TextColor.SetValue(Optional<Color>{color});
             n->SetPrefix(prefix.Get());
             vecRow->AddView(n.Get(), Grow(1));
@@ -2849,22 +2849,22 @@ void UISandbox::BuildTextInputTab(ui::TabView* tabView)
     }
 
     // --- EditableLabel ---
-    demo->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    demo->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 4.0f).Get());
     section(u8"EditableLabel (double-click to edit)");
     {
-        auto el = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto el = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         el->SetText(u8"Double-click me");
         el->SlowClickToEdit.SetValue(false);
         demo->AddView(el.Get(), w300());
     }
     {
-        auto el = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto el = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         el->SetText(u8"Slow-click me");
         el->DoubleClickToEdit.SetValue(false);
         demo->AddView(el.Get(), w300());
     }
     {
-        auto el = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto el = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         el->SetText(u8"With validation");
         el->ValidateRename =
             Function<bool(StringView)>{[](StringView text)
@@ -2902,13 +2902,13 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     body->AddView(leftPanel.Get(), LP(SizeSpec::Fixed(Unit::Px(300)), SizeSpec::Wrap()));
 
     auto btnRow = HFlex(6.0f);
-    btnRow->AddView(MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Click Me")).Get());
+    btnRow->AddView(MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Click Me")).Get());
     {
-        auto disabled = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Disabled"));
+        auto disabled = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Disabled"));
         disabled->IsEnabled = false;
         btnRow->AddView(disabled.Get());
     }
-    btnRow->AddView(MakeRef<ui::ToggleButton>(DefaultAllocator(), StringView(u8"Toggle")).Get());
+    btnRow->AddView(MakeRef<ui::ToggleButton>(foundation::core::DefaultAllocator(), StringView(u8"Toggle")).Get());
     leftPanel->AddView(btnRow.Get());
 
     // ContentButton (icon + text, and a two-line variant).
@@ -2917,31 +2917,31 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         auto iconText = HFlex(6.0f);
         iconText->AlignItems = ui::Align::Center;
         iconText->AddView(
-            MakeRef<ui::ColorView>(DefaultAllocator(),
+            MakeRef<ui::ColorView>(foundation::core::DefaultAllocator(),
                                    Color{80.0f / 255.0f, 180.0f / 255.0f, 80.0f / 255.0f, 1.0f},
                                    12.0f, 12.0f)
                 .Get());
         iconText->AddView(
-            MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Icon + Text")).Get());
-        contentBtnRow->AddView(MakeRef<ui::ContentButton>(DefaultAllocator(), iconText).Get());
+            MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Icon + Text")).Get());
+        contentBtnRow->AddView(MakeRef<ui::ContentButton>(foundation::core::DefaultAllocator(), iconText).Get());
 
         auto multi = VFlex(2.0f);
         multi->AlignItems = ui::Align::Center;
-        auto l1 = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Line 1"));
+        auto l1 = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Line 1"));
         l1->FontSize.SetValue(Optional<f32>{12.0f});
         multi->AddView(l1.Get());
-        auto l2 = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Line 2"));
+        auto l2 = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Line 2"));
         l2->FontSize.SetValue(Optional<f32>{10.0f});
         multi->AddView(l2.Get());
-        contentBtnRow->AddView(MakeRef<ui::ContentButton>(DefaultAllocator(), multi).Get());
+        contentBtnRow->AddView(MakeRef<ui::ContentButton>(foundation::core::DefaultAllocator(), multi).Get());
     }
     leftPanel->AddView(contentBtnRow.Get());
 
     // RepeatButton + a live count label.
     {
         auto repeatRow = HFlex(6.0f);
-        auto repeatLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Count: 0"));
-        auto repeatBtn = MakeRef<ui::RepeatButton>(DefaultAllocator(), StringView(u8"Hold Me"));
+        auto repeatLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Count: 0"));
+        auto repeatBtn = MakeRef<ui::RepeatButton>(foundation::core::DefaultAllocator(), StringView(u8"Hold Me"));
         ui::Label* lbl = repeatLabel.Get();
         i32* count = &m_repeatCount;
         repeatBtn->OnClick.Add(ui::Event<void(ui::ButtonBase*)>::Handler{
@@ -2975,37 +2975,37 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         m_repeatBtn = repeatBtn; // ticked each frame in OnUpdate (hold-to-repeat)
     }
 
-    leftPanel->AddView(MakeRef<ui::Spacer>(DefaultAllocator(), 0.0f, 4.0f).Get());
+    leftPanel->AddView(MakeRef<ui::Spacer>(foundation::core::DefaultAllocator(), 0.0f, 4.0f).Get());
 
     // Toggle controls.
     leftPanel->AddView(
-        MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8"Enable sounds"), true).Get());
-    leftPanel->AddView(MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8"Fullscreen")).Get());
-    leftPanel->AddView(MakeRef<ui::ToggleSwitch>(DefaultAllocator(), StringView(u8"VSync")).Get());
+        MakeRef<ui::CheckBox>(foundation::core::DefaultAllocator(), StringView(u8"Enable sounds"), true).Get());
+    leftPanel->AddView(MakeRef<ui::CheckBox>(foundation::core::DefaultAllocator(), StringView(u8"Fullscreen")).Get());
+    leftPanel->AddView(MakeRef<ui::ToggleSwitch>(foundation::core::DefaultAllocator(), StringView(u8"VSync")).Get());
 
-    leftPanel->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    leftPanel->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // Radio group.
     {
-        auto radioGroup = MakeRef<ui::RadioGroup>(DefaultAllocator());
+        auto radioGroup = MakeRef<ui::RadioGroup>(foundation::core::DefaultAllocator());
         radioGroup->AddRadioButton(
-            MakeRef<ui::RadioButton>(DefaultAllocator(), StringView(u8"Low")).Get());
+            MakeRef<ui::RadioButton>(foundation::core::DefaultAllocator(), StringView(u8"Low")).Get());
         radioGroup->AddRadioButton(
-            MakeRef<ui::RadioButton>(DefaultAllocator(), StringView(u8"Medium")).Get());
+            MakeRef<ui::RadioButton>(foundation::core::DefaultAllocator(), StringView(u8"Medium")).Get());
         radioGroup->AddRadioButton(
-            MakeRef<ui::RadioButton>(DefaultAllocator(), StringView(u8"High")).Get());
+            MakeRef<ui::RadioButton>(foundation::core::DefaultAllocator(), StringView(u8"High")).Get());
         radioGroup->CheckAt(1);
         leftPanel->AddView(radioGroup.Get());
     }
 
-    leftPanel->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    leftPanel->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // Slider + progress bar.
-    leftPanel->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Volume")).Get());
-    leftPanel->AddView(MakeRef<ui::Slider>(DefaultAllocator(), 0.0f, 100.0f, 75.0f).Get());
-    leftPanel->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Loading...")).Get());
+    leftPanel->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Volume")).Get());
+    leftPanel->AddView(MakeRef<ui::Slider>(foundation::core::DefaultAllocator(), 0.0f, 100.0f, 75.0f).Get());
+    leftPanel->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Loading...")).Get());
     {
-        auto progressBar = MakeRef<ui::ProgressBar>(DefaultAllocator());
+        auto progressBar = MakeRef<ui::ProgressBar>(foundation::core::DefaultAllocator());
         progressBar->Value.SetValue(0.65f);
         leftPanel->AddView(progressBar.Get());
     }
@@ -3016,7 +3016,7 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     body->AddView(centerPanel.Get(), Grow(1));
 
     {
-        auto settingsPanel = MakeRef<ui::Panel>(DefaultAllocator());
+        auto settingsPanel = MakeRef<ui::Panel>(foundation::core::DefaultAllocator());
         settingsPanel->Padding = ui::Thickness{8};
         settingsPanel->AddClass(u8"panel");
         auto settingsLayout = VFlex(4.0f);
@@ -3024,25 +3024,25 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
         centerPanel->AddView(settingsPanel.Get());
 
         auto expander1 =
-            MakeRef<ui::Expander>(DefaultAllocator(), StringView(u8"Graphics Settings"));
+            MakeRef<ui::Expander>(foundation::core::DefaultAllocator(), StringView(u8"Graphics Settings"));
         auto content1 = VFlex(4.0f);
         content1->AddView(
-            MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8"Anti-Aliasing")).Get());
+            MakeRef<ui::CheckBox>(foundation::core::DefaultAllocator(), StringView(u8"Anti-Aliasing")).Get());
         content1->AddView(
-            MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8"Shadows"), true).Get());
+            MakeRef<ui::CheckBox>(foundation::core::DefaultAllocator(), StringView(u8"Shadows"), true).Get());
         content1->AddView(
-            MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8"Bloom"), true).Get());
+            MakeRef<ui::CheckBox>(foundation::core::DefaultAllocator(), StringView(u8"Bloom"), true).Get());
         expander1->SetContent(content1.Get());
         settingsLayout->AddView(expander1.Get());
 
-        auto expander2 = MakeRef<ui::Expander>(DefaultAllocator(), StringView(u8"Audio Settings"));
+        auto expander2 = MakeRef<ui::Expander>(foundation::core::DefaultAllocator(), StringView(u8"Audio Settings"));
         auto content2 = VFlex(4.0f);
         content2->AddView(
-            MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Master Volume")).Get());
-        content2->AddView(MakeRef<ui::Slider>(DefaultAllocator(), 0.0f, 100.0f, 80.0f).Get());
+            MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Master Volume")).Get());
+        content2->AddView(MakeRef<ui::Slider>(foundation::core::DefaultAllocator(), 0.0f, 100.0f, 80.0f).Get());
         content2->AddView(
-            MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"Music Volume")).Get());
-        content2->AddView(MakeRef<ui::Slider>(DefaultAllocator(), 0.0f, 100.0f, 50.0f).Get());
+            MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Music Volume")).Get());
+        content2->AddView(MakeRef<ui::Slider>(foundation::core::DefaultAllocator(), 0.0f, 100.0f, 50.0f).Get());
         expander2->SetContent(content2.Get());
         settingsLayout->AddView(expander2.Get());
     }
@@ -3055,8 +3055,8 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     const image::ImageData* img = m_testImage.Get();
     auto addImage = [&](const char8_t* label, ui::ScaleType scale, bool clip, Optional<Color> tint)
     {
-        rightPanel->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(label)).Get());
-        auto iv = MakeRef<ui::ImageView>(DefaultAllocator(), img);
+        rightPanel->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(label)).Get());
+        auto iv = MakeRef<ui::ImageView>(foundation::core::DefaultAllocator(), img);
         iv->ScaleType.SetValue(scale);
         iv->ClipsContent = clip;
         if (tint.HasValue())
@@ -3072,12 +3072,12 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
     addImage(u8"Tinted", ui::ScaleType::FitCenter, false,
              Optional<Color>{Color{1.0f, 100.0f / 255.0f, 100.0f / 255.0f, 1.0f}});
 
-    rightPanel->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    rightPanel->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // Color swatches (FlowLayout).
-    rightPanel->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"ColorView")).Get());
+    rightPanel->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"ColorView")).Get());
     {
-        auto swatchFlow = MakeRef<ui::FlowLayout>(DefaultAllocator());
+        auto swatchFlow = MakeRef<ui::FlowLayout>(foundation::core::DefaultAllocator());
         swatchFlow->HSpacing = 4.0f;
         swatchFlow->VSpacing = 4.0f;
         const Color swatches[8] = {Color{220.0f / 255.0f, 60.0f / 255.0f, 60.0f / 255.0f, 1.0f},
@@ -3090,29 +3090,29 @@ void UISandbox::BuildControlsTab(ui::TabView* tabView)
                                    Color{120.0f / 255.0f, 60.0f / 255.0f, 220.0f / 255.0f, 1.0f}};
         for (const Color& c : swatches)
         {
-            swatchFlow->AddView(MakeRef<ui::ColorView>(DefaultAllocator(), c, 40.0f, 40.0f).Get());
+            swatchFlow->AddView(MakeRef<ui::ColorView>(foundation::core::DefaultAllocator(), c, 40.0f, 40.0f).Get());
         }
         rightPanel->AddView(swatchFlow.Get());
     }
 
-    rightPanel->AddView(MakeRef<ui::Separator>(DefaultAllocator()).Get());
+    rightPanel->AddView(MakeRef<ui::Separator>(foundation::core::DefaultAllocator()).Get());
 
     // DrawableView + SVG drawables.
     rightPanel->AddView(
-        MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"DrawableView + SVG")).Get());
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"DrawableView + SVG")).Get());
     {
-        auto svgRow = MakeRef<ui::FlowLayout>(DefaultAllocator());
+        auto svgRow = MakeRef<ui::FlowLayout>(foundation::core::DefaultAllocator());
         svgRow->HSpacing = 6.0f;
         svgRow->VSpacing = 6.0f;
         auto addSvg = [&](StringView svg, f32 sz, Optional<Color> tint)
         {
             RefPtr<ui::SVGDrawable> d = tint.HasValue()
-                                            ? ui::SVGDrawable::FromString(DefaultAllocator(), svg, tint.Value())
-                                            : ui::SVGDrawable::FromString(DefaultAllocator(), svg);
+                                            ? ui::SVGDrawable::FromString(foundation::core::DefaultAllocator(), svg, tint.Value())
+                                            : ui::SVGDrawable::FromString(foundation::core::DefaultAllocator(), svg);
             if (d)
             {
                 svgRow->AddView(
-                    MakeRef<ui::DrawableView>(DefaultAllocator(), RefPtr<ui::Drawable>(d), sz, sz)
+                    MakeRef<ui::DrawableView>(foundation::core::DefaultAllocator(), RefPtr<ui::Drawable>(d), sz, sz)
                         .Get());
             }
         };
@@ -3142,7 +3142,7 @@ void UISandbox::BuildViewportTab(ui::TabView* tabView)
     auto body = VFlex(6.0f);
     body->Padding = ui::Thickness{8, 8};
     body->AddView(
-        MakeRef<ui::Label>(DefaultAllocator(),
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(),
                            StringView(u8"foundation.ui.viewport - a 3D spinning cube hosted in a "
                                       u8"dockable UI panel. Hover + hold RMB to "
                                       u8"look, WASD/QE to move, wheel to zoom; input is gated to "
@@ -3157,18 +3157,18 @@ void UISandbox::BuildViewportTab(ui::TabView* tabView)
 
     // A SEPARATE DockManager (shares the app's RuntimeDockableWindowHost with the existing Docking tab,
     // which is left untouched). The viewport lives in a dockable panel, so it can be floated into an OS window.
-    auto dm = MakeRef<ui::toolkit::DockManager>(DefaultAllocator());
+    auto dm = MakeRef<ui::toolkit::DockManager>(foundation::core::DefaultAllocator());
     m_viewportDock = dm;
     dm->DockableWindowHost = m_dockHost.Get();
     body->AddView(dm.Get(), Grow(1.0f));
 
-    m_viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
+    m_viewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
     m_viewport->SetFitMode(
         FitMode::Letterbox); // preserve the cube's aspect; bars visualize the fit region
     ui::toolkit::DockablePanel* vpPanel = dm->AddPanel(u8"Viewport", m_viewport.Get());
     ui::toolkit::DockablePanel* infoPanel = dm->AddPanel(
         u8"Inspector",
-        MakeRef<ui::Label>(DefaultAllocator(),
+        MakeRef<ui::Label>(foundation::core::DefaultAllocator(),
                            StringView(u8"Drag the Viewport tab out to float it into an OS window."))
             .Get());
     dm->DockPanel(vpPanel, ui::toolkit::DockPosition::Center);
@@ -3254,7 +3254,7 @@ int main(int argc, char** argv)
     ws.width = 820;
     ws.height = 720;
 
-    auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
+    auto shellPtr = shell::CreateShell(foundation::core::DefaultAllocator(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
         return 1;

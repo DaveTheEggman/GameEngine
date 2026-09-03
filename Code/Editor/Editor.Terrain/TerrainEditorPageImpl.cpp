@@ -96,26 +96,26 @@ namespace editor
         m_asset = RefPtr<pipeline::TerrainAsset>(Cast<pipeline::TerrainAsset>(object.Get()));
 
         m_preview =
-            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"terrain.preview");
+            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"terrain.preview");
         m_preview->Camera().position = Float3{180.0f, 140.0f, 180.0f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
         BuildPreviewScene();
 
-        m_fields = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_fields = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         m_fields->Direction = ui::Orientation::Vertical;
         m_fields->Spacing = 4.0f;
         m_fields->Padding = ui::Thickness{8, 6};
 
-        auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+        auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
         scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             scroll->AddView(m_fields.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         split->SetSplitRatio(0.62f);
         split->SetPanes(m_preview->View(), scroll.Get());
         m_content = split;
@@ -234,16 +234,16 @@ namespace editor
 
         const auto addLabel = [&](StringView text, f32 fontSize)
         {
-            auto lbl = MakeRef<ui::Label>(DefaultAllocator(), text);
+            auto lbl = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
             lbl->FontSize.SetValue(Optional<f32>{fontSize});
-            m_fields->AddView(lbl.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+            m_fields->AddView(lbl.Get(), MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
         };
         const auto addButton = [&](StringView text, core::Function<void()> onClick)
         {
-            auto btn = MakeRef<ui::Button>(DefaultAllocator(), text);
+            auto btn = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), text);
             btn->FontSize.SetValue(Optional<f32>{12.0f});
             btn->OnClick.Add([cb = Move(onClick)](ui::ButtonBase*) { cb(); });
-            m_fields->AddView(btn.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+            m_fields->AddView(btn.Get(), MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
         };
 
         // References
@@ -399,10 +399,10 @@ namespace editor
         addButton(u8"+ Add paint layer", [self]() { self->AddLayer(); });
 
         // Scalars (cast shadows + per-layer tile scale) in a property grid.
-        auto grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        auto grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
         {
             auto cs = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), StringView(u8"Cast Shadows"), m_asset->castShadows,
+                foundation::core::DefaultAllocator(), StringView(u8"Cast Shadows"), m_asset->castShadows,
                 core::Function<void(bool)>{[self](bool v)
                                            {
                                                self->m_asset->castShadows = v;
@@ -415,7 +415,7 @@ namespace editor
             // Height-blend soft-skirt width: only bites when a layer has a
             // height map; smaller = crisper interlocked seams, larger = a wider skirt.
             auto hb = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), StringView(u8"Height blend"),
+                foundation::core::DefaultAllocator(), StringView(u8"Height blend"),
                 static_cast<f64>(m_asset->heightBlendContrast), 0.0, 1.0, 0.05, 2,
                 core::Function<void(f64)>{[self](f64 v)
                                           {
@@ -428,7 +428,7 @@ namespace editor
         }
         {
             auto fe = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), StringView(u8"Base tile"),
+                foundation::core::DefaultAllocator(), StringView(u8"Base tile"),
                 static_cast<f64>(m_asset->baseTileScale), 0.1, 8192.0, 1.0, 2,
                 core::Function<void(f64)>{[self](f64 v)
                                           {
@@ -444,7 +444,7 @@ namespace editor
             const String mergeKey = Format(u8"tile{}", i);
             const u32 idx = i;
             auto fe = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), label.AsView(),
+                foundation::core::DefaultAllocator(), label.AsView(),
                 static_cast<f64>(m_asset->paletteTileScales[i]), 0.1, 8192.0, 1.0, 2,
                 core::Function<void(f64)>{[self, idx, mergeKey](f64 v)
                                           {
@@ -458,7 +458,7 @@ namespace editor
                 StringView(u8"Paint layers"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
         }
-        m_fields->AddView(grid.Get(), MakeRef<ui::LayoutParams>(DefaultAllocator()));
+        m_fields->AddView(grid.Get(), MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
 
         // Stats (from the cooked product, if resolved)
         addLabel(u8"Stats", 13.0f);
@@ -488,7 +488,7 @@ namespace editor
         String key(mergeKey);
         Array<String> types;
         types.PushBack(String(assetTypeName));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
         dialog->OnPicked = [self, applyFn = Move(apply), key](const Guid& picked)
         {
             applyFn(picked);
@@ -711,8 +711,8 @@ namespace editor
     {
         Array<byte> after = Snapshot();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditCommand>(*this, mergeKey, m_undoBaseline, after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditCommand>(*this, mergeKey, m_undoBaseline, after),
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
     }
@@ -780,15 +780,15 @@ namespace editor
                                          foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<TerrainEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<TerrainEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 
     void RegisterTerrainEditor(EditorContext& context, runtime::IApplicationHost& host,
                                ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<TerrainEditorPageFactory>(host, uiHost), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<TerrainEditorPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
         if (context.Thumbnails() != nullptr)
         {
             RegisterSplatmapThumbnailGenerator(*context.Thumbnails());

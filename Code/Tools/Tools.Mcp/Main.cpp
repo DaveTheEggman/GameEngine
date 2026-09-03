@@ -178,7 +178,7 @@ int main(int /*argc*/, char** argv)
 {
     // The log capture FIRST (before anything logs), so log_read sees the whole run; stderr
     // mirror second - stdout is the protocol stream.
-    static editor::EditorLogBuffer logBuffer;
+    static editor::EditorLogBuffer logBuffer{foundation::core::DefaultAllocator()};
     GlobalLogger().AddSink(&logBuffer);
     static StderrSink stderrSink;
     GlobalLogger().AddSink(&stderrSink);

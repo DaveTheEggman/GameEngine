@@ -162,8 +162,8 @@ TEST_CASE("texture-import: drag-dropped file becomes a Sources copy + TextureAss
         RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     // A loose "PNG" (the importer copies bytes + creates the asset; decoding happens at cook).
@@ -212,8 +212,8 @@ TEST_CASE("texture-import: a normal-map suffix imports as Normal usage + linear 
         RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     const byte fakePng[6] = {byte{'P'}, byte{'N'}, byte{'G'}, byte{1}, byte{2}, byte{3}};
@@ -670,8 +670,8 @@ TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename re
         RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     const byte fakePng[6] = {byte{'P'}, byte{'N'}, byte{'G'}, byte{4}, byte{5}, byte{6}};

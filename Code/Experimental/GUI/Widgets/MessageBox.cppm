@@ -55,7 +55,7 @@ export namespace experimental::gui
 
             // Create the message before SetSize, since SetSize -> OnSizeChange -> LayoutContent
             // reads m_message.
-            m_message = core::MakeRef<Label>(core::DefaultAllocator());
+            m_message = core::MakeRef<Label>(MemoryAllocator());
             m_message->SetWordWrap(true);
             m_message->SetTextAlignment(TextHAlign::Left, TextVAlign::Top);
             GetContent()->AddChild(m_message.Get());
@@ -128,7 +128,7 @@ export namespace experimental::gui
 
         void AddButton(core::StringView text, Result result)
         {
-            auto button = core::MakeRef<Button>(core::DefaultAllocator());
+            auto button = core::MakeRef<Button>(MemoryAllocator());
             button->SetText(text);
             button->SetFont(m_font);
             button->AddClass(core::StringView(u8"dialogbutton"));

@@ -95,14 +95,14 @@ export namespace editor
                 }
             }
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6.0f;
 
             // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar.
-            m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
+            m_toolbar = MakeRef<app::PageToolbar>(foundation::core::DefaultAllocator(), *this);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_toolbar.Get(), lp);
             }
@@ -110,24 +110,24 @@ export namespace editor
             // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
             for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
 
-                m_slotLabels[i] = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(empty)"));
+                m_slotLabels[i] = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"(empty)"));
                 m_slotLabels[i]->FontSize.SetValue(13.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_slotLabels[i].Get(), lp);
                 }
                 SoundCueEditorPage* self = this;
                 const usize slot = i;
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pick..."));
                 pick->OnClick.Add([self, slot](ui::ButtonBase*) { self->PickClip(slot); });
                 row->AddView(pick.Get());
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Clear"));
                 clear->OnClick.Add(
                     [self, slot](ui::ButtonBase*)
                     {
@@ -137,14 +137,14 @@ export namespace editor
                     });
                 row->AddView(clear.Get());
 
-                auto weightLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"weight"));
+                auto weightLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"weight"));
                 weightLabel->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(weightLabel.Get(), lp);
                 }
-                m_weightFields[i] = MakeRef<ui::NumericField>(DefaultAllocator());
+                m_weightFields[i] = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
                 m_weightFields[i]->SetMin(0.0);
                 m_weightFields[i]->SetMax(100.0);
                 m_weightFields[i]->SetValue(m_asset.weights[i]);
@@ -160,7 +160,7 @@ export namespace editor
                 row->AddView(m_weightFields[i].Get());
 
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
@@ -168,11 +168,11 @@ export namespace editor
 
             // Cue-level: mode + pitch/volume jitter.
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
                 SoundCueEditorPage* self = this;
-                m_modeButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8""));
+                m_modeButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8""));
                 m_modeButton->OnClick.Add(
                     [self](ui::ButtonBase*)
                     {
@@ -186,7 +186,7 @@ export namespace editor
                 AddJitterField(*row, u8"vol min", m_asset.volumeMin);
                 AddJitterField(*row, u8"vol max", m_asset.volumeMax);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
@@ -194,28 +194,28 @@ export namespace editor
 
             // Audition: resolve + play, exactly what the game does per trigger.
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
                 SoundCueEditorPage* self = this;
-                auto play = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Audition"));
+                auto play = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Audition"));
                 play->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
                 row->AddView(play.Get());
-                m_pauseButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
+                m_pauseButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pause"));
                 m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
                 row->AddView(m_pauseButton.Get());
-                auto stop = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Stop"));
+                auto stop = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Stop"));
                 stop->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
                 row->AddView(stop.Get());
-                m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+                m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_status.Get(), lp);
                 }
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
@@ -223,11 +223,11 @@ export namespace editor
 
             // Draft-state hint: an unauthored cue is a valid (silent) product, not an error - say so
             // clearly here instead. Shown while every slot is empty, cleared once a clip is assigned.
-            m_emptyHint = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_emptyHint = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
             m_emptyHint->FontSize.SetValue(12.0f);
             m_emptyHint->TextColor.SetValue(Optional<Color>(Color{0.9f, 0.75f, 0.35f, 1.0f}));
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_emptyHint.Get(), lp);
             }

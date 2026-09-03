@@ -164,13 +164,13 @@ export namespace editor
             }
             (void)m_doc.Load(); // an unreadable file just leaves an empty buffer
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 4.0f;
 
             // The source editor: CodeEditView owns the gutter, markers, undo, and completion
             // (document-word provider).
-            m_editor = MakeRef<ui::toolkit::CodeEditView>(DefaultAllocator());
+            m_editor = MakeRef<ui::toolkit::CodeEditView>(foundation::core::DefaultAllocator());
             // Lexer by language id from the registry the script plugin populated - the page
             // stays backend-neutral; an unregistered language just renders unstyled.
             m_editor->SetLexer(ui::toolkit::CodeLexerRegistry::Get().Create(language.AsView()));
@@ -218,7 +218,7 @@ export namespace editor
             };
 
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Grow = 1.0f;
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_editor.Get(), lp);
@@ -227,19 +227,19 @@ export namespace editor
             // Status row: the one-line compile status (OK / N error(s) / no cook) + the
             // API-browser toggle on the right.
             {
-                auto statusRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto statusRow = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 statusRow->Direction = ui::Orientation::Horizontal;
                 statusRow->Spacing = 6.0f;
 
-                m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+                m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                     lp->Grow = 1.0f;
                     statusRow->AddView(m_status.Get(), lp);
                 }
 
-                auto apiToggle = MakeRef<ui::ToggleButton>(DefaultAllocator(),
+                auto apiToggle = MakeRef<ui::ToggleButton>(foundation::core::DefaultAllocator(),
                                                                     StringView(u8"API"));
                 apiToggle->OnCheckedChanged.Add(
                     [self](ui::ToggleButton*, bool checked)
@@ -252,7 +252,7 @@ export namespace editor
                     });
                 statusRow->AddView(apiToggle.Get());
 
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(statusRow.Get(), lp);
             }
@@ -261,22 +261,22 @@ export namespace editor
             // FIXED height - a proportional share made it balloon with the docked panel and
             // steal editor space. Long content scrolls (multiline EditText wheel-scrolls
             // itself; no ScrollView wrap, that would double-scroll).
-            m_errorView = MakeRef<ui::EditText>(DefaultAllocator());
+            m_errorView = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
             m_errorView->Multiline.SetValue(true);
             m_errorView->IsReadOnly.SetValue(true);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(96));
                 column->AddView(m_errorView.Get(), lp);
             }
 
             // Root: the editor column + the (initially hidden) API browser side panel.
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(column.Get(), lp);
@@ -286,7 +286,7 @@ export namespace editor
             { self->m_editor->InsertAtCursor(text); };
             m_apiBrowser.Root()->Visibility = ui::Visibility::Gone;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300));
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(m_apiBrowser.Root(), lp);
@@ -397,7 +397,7 @@ export namespace editor
     inline void RegisterScriptEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<ScriptClassPageFactory>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ScriptClassPageFactory>(), foundation::core::DefaultAllocator()));
 
         const auto backends = foundation::script::ScriptBackendRegistry::Get().All();
         LOG_INFO(u8"Editor",

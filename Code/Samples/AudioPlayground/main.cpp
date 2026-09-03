@@ -63,7 +63,7 @@ namespace
             return {};
         }
         core::RefPtr<audio::AudioClip> clip =
-            core::MakeRef<audio::AudioClip>(core::DefaultAllocator());
+            core::MakeRef<audio::AudioClip>(foundation::core::DefaultAllocator());
         clip->channels = metadata.channels;
         clip->sampleRate = metadata.sampleRate;
         clip->frameCount = metadata.frameCount;
@@ -167,7 +167,7 @@ namespace
 
             // LMB one-shots fire through a CUE: three weighted variants with
             // pitch jitter - no two consecutive shots pick the same clip.
-            m_shotCue = core::MakeRef<audio::SoundCue>(core::DefaultAllocator());
+            m_shotCue = core::MakeRef<audio::SoundCue>(foundation::core::DefaultAllocator());
             m_shotCue->variants.PushBack(audio::SoundCueVariant{m_beepHigh, 3.0f});
             m_shotCue->variants.PushBack(audio::SoundCueVariant{m_click, 2.0f});
             m_shotCue->variants.PushBack(audio::SoundCueVariant{m_beepLow, 1.0f});

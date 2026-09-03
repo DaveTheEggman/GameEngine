@@ -44,7 +44,7 @@ export namespace experimental::gui
             SetTag(core::StringView(u8"combobox"));
             SetTabFocusable(true);
             // A visible box so it reads as a control even before it is opened.
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_boxColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_boxColor));
             m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
         }
 
@@ -136,7 +136,7 @@ export namespace experimental::gui
         {
             if (m_dropdown)
                 return;
-            m_dropdown = core::MakeRef<ListBox>(core::DefaultAllocator());
+            m_dropdown = core::MakeRef<ListBox>(MemoryAllocator());
             m_dropdown->SetFont(m_font);
             m_dropdown->SetItemHeight(m_itemHeight);
             for (const core::String& item : m_items)

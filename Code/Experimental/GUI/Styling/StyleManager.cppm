@@ -161,7 +161,7 @@ export namespace experimental::gui
             if (kf == nullptr)
                 return;
             widget.RunAction(core::MakeRef<KeyframeAction>(
-                core::DefaultAllocator(), ExtractOpacityTrack(*kf), ExtractColorTrack(*kf),
+                foundation::core::DefaultAllocator(), ExtractOpacityTrack(*kf), ExtractColorTrack(*kf),
                 core::Duration::FromSeconds(static_cast<f64>(durationSecs)), loop));
             m_animations.InsertOrAssign(&widget, core::Move(name));
         }

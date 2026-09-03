@@ -61,13 +61,14 @@ export namespace editor
         // Scaffold a new project at `directory` (created if absent; its PARENT must exist):
         // writes the manifest and creates the fixed subdirectories. Fails with AlreadyExists
         // if a manifest is already present.
-        [[nodiscard]] static Status Create(StringView directory, StringView name)
+        [[nodiscard]] static Status Create(IAllocator& allocator, StringView directory,
+                                           StringView name)
         {
             if (!CreateDirectory(directory))
             {
                 return Status{ErrorCode::NotFound};
             }
-            vfs::NativeFileSystem root(directory, DefaultAllocator());
+            vfs::NativeFileSystem root(directory, allocator);
             if (root.Exists(kProjectManifestFile))
             {
                 return Status{ErrorCode::AlreadyExists};
@@ -90,9 +91,10 @@ export namespace editor
 
         // Open an existing project: read the manifest, ensure the fixed subdirectories exist,
         // mount Content/ + Cooked/, and scan both content databases.
-        [[nodiscard]] static UniquePtr<EditorProject> Open(StringView directory)
+        [[nodiscard]] static UniquePtr<EditorProject> Open(IAllocator& allocator,
+                                                           StringView directory)
         {
-            vfs::NativeFileSystem root(directory, DefaultAllocator());
+            vfs::NativeFileSystem root(directory, allocator);
             ProjectSettings settings;
             if (!engine::project::LoadProjectSettings(root, settings).IsOk())
             {
@@ -129,8 +131,8 @@ export namespace editor
                     u8"Project", u8"project was last saved by engine {} (this editor is {})",
                     settings.engineVersion, engine::project::kEngineVersionString);
             }
-            EditorProject* project = DefaultAllocator().New<EditorProject>(directory, settings);
-            return UniquePtr<EditorProject>(project, DefaultAllocator());
+            EditorProject* project = allocator.New<EditorProject>(allocator, directory, settings);
+            return UniquePtr<EditorProject>(project, allocator);
         }
 
         [[nodiscard]] StringView Name() const noexcept { return m_settings.name.AsView(); }
@@ -168,7 +170,7 @@ export namespace editor
         // Persist the manifest (settings changed in the editor).
         [[nodiscard]] Status SaveSettings()
         {
-            vfs::NativeFileSystem root(m_directory.AsView(), DefaultAllocator());
+            vfs::NativeFileSystem root(m_directory.AsView(), *m_allocator);
             return WriteManifest(root, m_settings);
         }
 
@@ -181,7 +183,7 @@ export namespace editor
         // right-click "Always Export" toggle mutates the set).
         [[nodiscard]] Status SaveExportRoots()
         {
-            vfs::NativeFileSystem root(m_directory.AsView(), DefaultAllocator());
+            vfs::NativeFileSystem root(m_directory.AsView(), *m_allocator);
             vfs::IWritableFileSystem* writable = root.AsWritable();
             if (writable == nullptr)
             {
@@ -192,19 +194,19 @@ export namespace editor
 
         // Internal (public for allocator New); use Create/Open. Fields are moved out of
         // `settings` one by one (ISerializable's deleted copy suppresses the implicit move).
-        EditorProject(StringView directory, ProjectSettings& settings)
-            : m_directory(directory),
+        EditorProject(IAllocator& allocator, StringView directory, ProjectSettings& settings)
+            : m_allocator(&allocator), m_directory(directory),
               m_contentMount(MakeUnique<vfs::NativeFileSystem>(
-                  DefaultAllocator(), PathJoin(directory, kProjectContentDir).AsView(),
-                  DefaultAllocator())),
+                  (*m_allocator), PathJoin(directory, kProjectContentDir).AsView(),
+                  (*m_allocator))),
               m_cookedMount(MakeUnique<vfs::NativeFileSystem>(
-                  DefaultAllocator(), PathJoin(directory, kProjectCookedDir).AsView(),
-                  DefaultAllocator())),
+                  (*m_allocator), PathJoin(directory, kProjectCookedDir).AsView(),
+                  (*m_allocator))),
               m_sourceDb(MakeUnique<foundation::content::ContentDatabase>(
-                  DefaultAllocator(), DefaultAllocator(), *m_contentMount,
+                  (*m_allocator), (*m_allocator), *m_contentMount,
                   foundation::xml::XmlSerializerFactory(), kSourceAssetExtension)),
               m_cookedDb(MakeUnique<foundation::content::ContentDatabase>(
-                  DefaultAllocator(), DefaultAllocator(), *m_cookedMount,
+                  (*m_allocator), (*m_allocator), *m_cookedMount,
                   BinarySerializerFactory(), kCookedAssetExtension))
         {
             // Per-field move (ISerializable deletes copy/move) - EVERY ProjectSettings field
@@ -229,7 +231,7 @@ export namespace editor
             // flagged assets carries the file. A present-but-unreadable file leaves the set empty
             // (never blocks Open) - the export then over-includes (safe), never mis-prunes.
             {
-                vfs::NativeFileSystem root(directory, DefaultAllocator());
+                vfs::NativeFileSystem root(directory, (*m_allocator));
                 (void)LoadExportRoots(root, m_exportRoots);
             }
         }
@@ -247,6 +249,7 @@ export namespace editor
             // player reads the same file with zero editor code.
             return engine::project::SaveProjectSettings(*writable, settings);
         }
+        IAllocator* m_allocator;
 
         String m_directory;
         ProjectSettings m_settings;

@@ -63,46 +63,46 @@ export namespace editor::app
             m_controller = &controller;
             m_dialogs = dialogs;
             m_uiContext = uiContext;
-            m_root = MakeRef<ui::RootView>(DefaultAllocator());
+            m_root = MakeRef<ui::RootView>(foundation::core::DefaultAllocator());
             m_root->ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
             m_root->DpiScale = 1.0f;
 
             // Center a fixed-width column: [spacer][column 720][spacer].
-            auto outer = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto outer = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             outer->Direction = ui::Orientation::Horizontal;
-            auto leftSpacer = MakeRef<ui::FlexLayout>(DefaultAllocator());
-            auto rightSpacer = MakeRef<ui::FlexLayout>(DefaultAllocator());
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto leftSpacer = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto rightSpacer = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 12;
             column->Padding = ui::Thickness{0, 28};
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 grow->Grow = 1.0f;
                 outer->AddView(leftSpacer.Get(), grow);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(720.0f));
                 lp->Height = ui::SizeSpec::Match();
                 outer->AddView(column.Get(), lp);
             }
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 grow->Grow = 1.0f;
                 outer->AddView(rightSpacer.Get(), grow);
             }
 
             // Header: product name + engine version (the manager IS the version disambiguator).
             {
-                auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto header = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 header->Direction = ui::Orientation::Horizontal;
                 header->Spacing = 12;
-                auto title = MakeRef<ui::Label>(DefaultAllocator());
+                auto title = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 title->SetText(u8"Editor");
                 title->FontSize.SetValue(24.0f);
                 header->AddView(title.Get());
-                auto version = MakeRef<ui::Label>(DefaultAllocator());
+                auto version = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 String v(u8"engine ");
                 v += project::kEngineVersionString;
                 version->SetText(v.AsView());
@@ -114,23 +114,23 @@ export namespace editor::app
 
             // Standalone entry points - always available, independent of the list below.
             {
-                auto actions = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto actions = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 actions->Direction = ui::Orientation::Horizontal;
                 actions->Spacing = 8;
                 ProjectManagerView* self = this;
                 auto create =
-                    MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"New Project..."));
+                    MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"New Project..."));
                 create->OnClick.Add([self](ui::ButtonBase*) { self->ShowCreateDialog(); });
                 actions->AddView(create.Get());
                 auto browse =
-                    MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Open Folder..."));
+                    MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Open Folder..."));
                 browse->OnClick.Add([self](ui::ButtonBase*) { self->BrowseAndOpen(); });
                 actions->AddView(browse.Get());
                 column->AddView(actions.Get());
             }
 
             {
-                auto caption = MakeRef<ui::Label>(DefaultAllocator());
+                auto caption = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 caption->SetText(u8"Recent projects");
                 caption->FontSize.SetValue(13.0f);
                 caption->TextColor.SetValue(Optional<Color>(Color{0.72f, 0.72f, 0.72f, 1.0f}));
@@ -138,25 +138,25 @@ export namespace editor::app
             }
 
             // The card list: a vertical column inside a scroll view; rows are rebuilt whole.
-            m_listColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            m_listColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             m_listColumn->Direction = ui::Orientation::Vertical;
             m_listColumn->Spacing = 6;
-            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 scroll->AddView(m_listColumn.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(scroll.Get(), lp);
             }
 
-            m_status = MakeRef<ui::Label>(DefaultAllocator());
+            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             m_status->FontSize.SetValue(12.0f);
             m_status->TextColor.SetValue(Optional<Color>(Color{0.7f, 0.7f, 0.7f, 1.0f}));
             column->AddView(m_status.Get());
@@ -178,13 +178,13 @@ export namespace editor::app
             const RecentProjectsSettings& reg = m_controller->Entries();
             if (reg.entries.IsEmpty())
             {
-                auto empty = MakeRef<ui::Label>(DefaultAllocator());
+                auto empty = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 empty->SetText(u8"No projects yet. Create a new project, or open an existing "
                                u8"project folder.");
                 empty->FontSize.SetValue(13.0f);
                 empty->TextColor.SetValue(Optional<Color>(Color{0.5f, 0.5f, 0.5f, 1.0f}));
                 empty->WordWrap.SetValue(true);
-                auto pad = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto pad = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 pad->Padding = ui::Thickness{4, 16};
                 pad->AddView(empty.Get());
                 m_listColumn->AddView(pad.Get());
@@ -216,13 +216,13 @@ export namespace editor::app
         void AddRow(const String& path, const String& name, const String& engineVersion,
                     EngineVersionRelation relation, bool missing)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 10;
             row->Padding = ui::Thickness{10, 8};
 
             // Left block: name line (+ state suffix) over the dim path line.
-            auto text = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto text = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             text->Direction = ui::Orientation::Vertical;
             text->Spacing = 2;
             {
@@ -240,7 +240,7 @@ export namespace editor::app
                 {
                     title += u8"   (newer engine)";
                 }
-                auto nameLabel = MakeRef<ui::Label>(DefaultAllocator());
+                auto nameLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 nameLabel->SetText(title.AsView());
                 nameLabel->FontSize.SetValue(14.0f);
                 nameLabel->TextColor.SetValue(Optional<Color>(
@@ -250,14 +250,14 @@ export namespace editor::app
                         : Color{0.9f, 0.9f, 0.9f, 1.0f}));
                 text->AddView(nameLabel.Get());
 
-                auto pathLabel = MakeRef<ui::Label>(DefaultAllocator());
+                auto pathLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 pathLabel->SetText(path.AsView());
                 pathLabel->FontSize.SetValue(11.0f);
                 pathLabel->TextColor.SetValue(Optional<Color>(Color{0.5f, 0.5f, 0.5f, 1.0f}));
                 text->AddView(pathLabel.Get());
             }
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(text.Get(), grow);
             }
@@ -266,7 +266,7 @@ export namespace editor::app
             const String rowPath = path; // captured by value in the button handlers
             if (!missing)
             {
-                auto open = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Open"));
+                auto open = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Open"));
                 open->OnClick.Add(
                     [self, rowPath](ui::ButtonBase*)
                     {
@@ -277,21 +277,21 @@ export namespace editor::app
                     });
                 row->AddView(open.Get());
             }
-            auto remove = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Remove"));
+            auto remove = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Remove"));
             remove->OnClick.Add([self, rowPath](ui::ButtonBase*)
                                 { self->RemoveEntry(rowPath); });
             row->AddView(remove.Get());
 
             // The card surface: a themed Panel (the stylesheet's "panel" class = the
             // palette's Surface color) so rows read as cards against the window background.
-            auto card = MakeRef<ui::Panel>(DefaultAllocator());
+            auto card = MakeRef<ui::Panel>(foundation::core::DefaultAllocator());
             card->AddClass(u8"panel");
             {
-                auto rowLp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto rowLp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
                 rowLp->Width = ui::SizeSpec::Match();
                 card->AddView(row.Get(), rowLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             m_listColumn->AddView(card.Get(), lp);
         }
@@ -345,30 +345,30 @@ export namespace editor::app
         void ShowCreateDialog()
         {
             RefPtr<ui::Dialog> dialog =
-                MakeRef<ui::Dialog>(DefaultAllocator(), StringView(u8"New Project"));
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                MakeRef<ui::Dialog>(foundation::core::DefaultAllocator(), StringView(u8"New Project"));
+            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            auto nameEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            auto nameEdit = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
             nameEdit->SetPlaceholder(u8"Project name");
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(nameEdit.Get(), lp);
             }
 
-            auto dirRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto dirRow = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             dirRow->Direction = ui::Orientation::Horizontal;
             dirRow->Spacing = 6;
-            auto dirEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            auto dirEdit = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
             dirEdit->SetPlaceholder(u8"Parent directory (the project is created inside it)");
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Grow = 1.0f;
                 dirRow->AddView(dirEdit.Get(), lp);
             }
-            auto browse = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Browse..."));
+            auto browse = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Browse..."));
             {
                 ProjectManagerView* self = this;
                 ui::EditText* dirRaw = dirEdit.Get();
@@ -391,7 +391,7 @@ export namespace editor::app
             }
             dirRow->AddView(browse.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(dirRow.Get(), lp);
             }

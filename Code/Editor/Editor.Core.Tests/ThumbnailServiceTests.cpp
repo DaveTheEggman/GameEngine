@@ -91,7 +91,7 @@ namespace
     {
         content::ContentDatabase db;
         content::Instance instance;
-        EditorJobService jobs;
+        EditorJobService jobs{DefaultAllocator()};
         ThumbnailService service;
         Guid known{0x1111, 0x2222};
         int prepares = 0;
@@ -313,7 +313,7 @@ namespace
     {
         content::ContentDatabase db;
         content::Instance instance;
-        EditorJobService jobs;
+        EditorJobService jobs{DefaultAllocator()};
         ThumbnailService service;
         Guid known{0x3333, 0x4444};
 

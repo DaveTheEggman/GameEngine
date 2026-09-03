@@ -55,36 +55,36 @@ export namespace editor
 
         explicit SceneHierarchyView(SceneEditContext& edit) : m_edit(&edit)
         {
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
 
             // Header: [+] create root entity | filter box.
-            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto header = MakeRef<ui::FlexLayout>(MemoryAllocator());
             header->Direction = ui::Orientation::Horizontal;
             header->Spacing = 4.0f;
             header->Padding = ui::Thickness{4, 3};
-            auto addButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+"));
+            auto addButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"+"));
             {
                 SceneEditContext* editPtr = m_edit;
                 addButton->OnClick.Add([editPtr](ui::ButtonBase*)
                                        { (void)editPtr->CreateEntity(u8"Entity"); });
                 header->AddView(addButton.Get());
             }
-            m_filterEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_filterEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_filterEdit->SetPlaceholder(u8"Filter...");
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 grow->Grow = 1.0f;
                 header->AddView(m_filterEdit.Get(), grow);
             }
             column->AddView(header.Get());
 
-            m_adapter = MakeUnique<Adapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
+            m_adapter = MakeUnique<Adapter>(MemoryAllocator(), *this);
+            m_tree = MakeRef<ui::toolkit::DraggableTreeView>(MemoryAllocator());
             m_tree->SetItemHeight(22.0f);
             m_tree->SetAdapter(m_adapter.Get());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 grow->Grow = 1.0f;
                 column->AddView(m_tree.Get(), grow);
             }
@@ -204,7 +204,7 @@ export namespace editor
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<Row>(DefaultAllocator());
+                auto row = MakeRef<Row>(foundation::core::DefaultAllocator());
                 row->FontSize.SetValue(
                     Optional<f32>{12.0f}); // match the inspector's dense 12px text
                 SceneEditContext* edit = m_owner->m_edit;

@@ -347,7 +347,7 @@ export namespace editor::app
         runtime::IApplicationHost* m_host = nullptr; // borrowed
         foundation::render::ISceneRenderer* m_sceneRenderer = nullptr;
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
-        runtime::Context m_runtimeContext{DefaultAllocator()}; // editor process root
+        runtime::Context m_runtimeContext{foundation::core::DefaultAllocator()}; // editor process root
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
         // (the transport pumps on NetworkSubsystem::PostUpdate)
         UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
@@ -369,9 +369,9 @@ export namespace editor::app
         editor::EditorCookService m_cookService;
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)
-        editor::EditorJobService m_jobService; // generic background jobs (export, ...)
+        editor::EditorJobService m_jobService{DefaultAllocator()}; // background jobs (export, ...)
         foundation::settings::Settings m_editorSettings{
-            DefaultAllocator()}; // per-user editor prefs (<userdata>/editor.settings.xml)
+            foundation::core::DefaultAllocator()}; // per-user editor prefs (<userdata>/editor.settings.xml)
         editor::ProjectManagerController m_projectManager{
             m_editorSettings}; // headless manager decisions (open gate, registry, create)
         UniquePtr<foundation::settings::Settings>

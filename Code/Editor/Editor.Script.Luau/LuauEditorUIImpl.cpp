@@ -40,7 +40,7 @@ namespace editor
             spec.keywords = Span<const StringView>(kLuauKeywords, ArrayCount(kLuauKeywords));
             spec.types = Span<const StringView>(kLuauTypes, ArrayCount(kLuauTypes));
             return UniquePtr<toolkit::ICodeLexer>(
-                DefaultAllocator().New<toolkit::LuaLikeLexer>(spec), DefaultAllocator());
+                foundation::core::DefaultAllocator().New<toolkit::LuaLikeLexer>(spec), foundation::core::DefaultAllocator());
         }
     }
 

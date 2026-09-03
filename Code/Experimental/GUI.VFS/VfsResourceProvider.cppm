@@ -60,7 +60,7 @@ export namespace experimental::gui::vfs
                 return nullptr;
 
             UniquePtr<image::OwnedImageData> owned = MakeUnique<image::OwnedImageData>(
-                DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(),
+                foundation::core::DefaultAllocator(), decoded.Width(), decoded.Height(), decoded.Format(),
                 decoded.PixelData());
             image::OwnedImageData* raw = owned.Get();
             m_images.PushBack(Move(owned));

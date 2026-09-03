@@ -137,9 +137,9 @@ namespace editor
     {
         Array<byte> after = SnapshotAsset();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditSoundCueCommand>(*this, mergeKey, m_undoBaseline,
+            foundation::core::DefaultAllocator().New<EditSoundCueCommand>(*this, mergeKey, m_undoBaseline,
                                                         after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
     }
@@ -162,14 +162,14 @@ namespace editor
 
     void SoundCueEditorPage::AddJitterField(ui::FlexLayout& row, StringView label, f32& target)
     {
-        auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
+        auto text = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), label);
         text->FontSize.SetValue(12.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->AlignSelf = ui::Align::Center;
             row.AddView(text.Get(), lp);
         }
-        auto field = MakeRef<ui::NumericField>(DefaultAllocator());
+        auto field = MakeRef<ui::NumericField>(foundation::core::DefaultAllocator());
         field->SetMin(0.0);
         field->SetMax(4.0);
         field->SetDecimalPlaces(2);
@@ -197,7 +197,7 @@ namespace editor
         Array<String> typeNames;
         typeNames.PushBack(String(u8"AudioClipAsset"));
         auto picker =
-            MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+            MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(typeNames));
         SoundCueEditorPage* self = this;
         picker->OnPicked = [self, slot](const Guid& id)
         {
@@ -349,7 +349,7 @@ namespace editor
         {
             return {};
         }
-        RefPtr<audio::AudioClip> clip = MakeRef<audio::AudioClip>(DefaultAllocator());
+        RefPtr<audio::AudioClip> clip = MakeRef<audio::AudioClip>(foundation::core::DefaultAllocator());
         clip->channels = metadata.channels;
         clip->sampleRate = metadata.sampleRate;
         clip->frameCount = metadata.frameCount;
@@ -367,7 +367,7 @@ namespace editor
     UniquePtr<EditorPage> SoundCuePageFactory::CreatePage(EditorContext& context,
                                                           foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<SoundCueEditorPage>(context, *m_host, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<SoundCueEditorPage>(context, *m_host, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

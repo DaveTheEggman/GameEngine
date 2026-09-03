@@ -112,7 +112,7 @@ export namespace experimental::gui
                 ParseLength(newStyle.Get(core::StringView(u8"opacity"), core::StringView(u8"1")));
             if (from.HasValue() && to.HasValue() && from.Value() != to.Value())
                 node.RunAction(
-                    core::MakeRef<FadeAction>(core::DefaultAllocator(), from.Value(), to.Value(),
+                    core::MakeRef<FadeAction>(foundation::core::DefaultAllocator(), from.Value(), to.Value(),
                                               core::Duration::FromSeconds(opacity->Duration)));
         }
     }

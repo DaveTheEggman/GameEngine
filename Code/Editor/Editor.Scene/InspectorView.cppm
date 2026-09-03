@@ -304,7 +304,7 @@ export namespace editor
             // Two tabs: Entity (the selected entity's sections + Add/Paste) and Scene (the scene's
             // settings). The Scene tab makes scene-settings a first-class view reachable anytime,
             // instead of requiring a deselect (empty-viewport click) to surface them.
-            m_tabView = MakeRef<ui::TabView>(DefaultAllocator());
+            m_tabView = MakeRef<ui::TabView>(MemoryAllocator());
             m_tabView->TabsClosable.SetValue(false);
             {
                 SceneInspectorView* self = this;
@@ -313,32 +313,32 @@ export namespace editor
             }
 
             // --- Entity tab ---
-            auto entityColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto entityColumn = MakeRef<ui::FlexLayout>(MemoryAllocator());
             entityColumn->Direction = ui::Orientation::Vertical;
             entityColumn->Padding = ui::Thickness{8, 6}; // inset off the panel edge (like hierarchy)
 
-            m_emptyLabel = MakeRef<ui::Label>(DefaultAllocator(),
+            m_emptyLabel = MakeRef<ui::Label>(MemoryAllocator(),
                                               StringView(u8"Select an entity to inspect."));
             m_emptyLabel->FontSize.SetValue(12.0f);
             m_emptyLabel->Visibility = ui::Visibility::Gone; // shown only when nothing is selected
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 entityColumn->AddView(m_emptyLabel.Get(), lp);
             }
 
-            m_entityGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+            m_entityGrid = MakeRef<ui::toolkit::PropertyGrid>(MemoryAllocator());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 grow->Grow = 1.0f;
                 entityColumn->AddView(m_entityGrid.Get(), grow);
             }
 
-            m_addButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Add Component"));
+            m_addButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Add Component"));
             {
                 SceneInspectorView* self = this;
                 m_addButton->OnClick.Add([self](ui::ButtonBase*) { self->ShowAddComponentMenu(); });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 entityColumn->AddView(m_addButton.Get(), lp);
             }
@@ -346,24 +346,24 @@ export namespace editor
             // Paste Component: below Add Component, shown only when the clipboard holds a component
             // (UpdatePasteButton, run each Refresh). Pasting over an existing same-type component
             // overwrites it, so that case asks for confirmation first.
-            m_pasteButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Paste Component"));
+            m_pasteButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Paste Component"));
             {
                 SceneInspectorView* self = this;
                 m_pasteButton->OnClick.Add([self](ui::ButtonBase*) { self->PasteSelectedComponent(); });
                 m_pasteButton->Visibility = ui::Visibility::Gone;
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Margin = ui::Thickness{0.0f, 6.0f, 0.0f, 0.0f}; // gap below Add Component
                 entityColumn->AddView(m_pasteButton.Get(), lp);
             }
 
             // --- Scene tab ---
-            auto sceneColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto sceneColumn = MakeRef<ui::FlexLayout>(MemoryAllocator());
             sceneColumn->Direction = ui::Orientation::Vertical;
             sceneColumn->Padding = ui::Thickness{8, 6};
-            m_sceneGrid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+            m_sceneGrid = MakeRef<ui::toolkit::PropertyGrid>(MemoryAllocator());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 grow->Grow = 1.0f;
                 sceneColumn->AddView(m_sceneGrid.Get(), grow);
             }
@@ -616,7 +616,7 @@ export namespace editor
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
             auto editor = MakeRef<ResourceRefEditor>(
-                DefaultAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)),
+                MemoryAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)),
                 category);
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
@@ -633,7 +633,7 @@ export namespace editor
                 foundation::resource::ResourceManager* resources = self->m_editor->Resources();
                 Array<String> typeNames = assetTypes;
                 auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                    self->MemoryAllocator(), *self->m_editor, Move(typeNames));
                 dialog->OnPicked = [edit, type, propName, resources](const Guid& target)
                 { edit->SetSceneSettingResourceRef<T>(type, propName, target, resources); };
                 dialog->Show(self->Context);
@@ -709,7 +709,7 @@ export namespace editor
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
             auto editor = MakeRef<ResourceRefEditor>(
-                DefaultAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName)), category);
+                MemoryAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName)), category);
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
             for (StringView typeName : assetTypeNames)
@@ -727,7 +727,7 @@ export namespace editor
                 // The browser-mirroring picker (readonly; favorites pinned first; [Clear] = none).
                 Array<String> typeNames = assetTypes;
                 auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    DefaultAllocator(), *self->m_editor, Move(typeNames));
+                    self->MemoryAllocator(), *self->m_editor, Move(typeNames));
                 dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target)
                 { edit->SetComponentResourceRef<T>(id, type, propName, target, resources); };
                 dialog->Show(self->Context);

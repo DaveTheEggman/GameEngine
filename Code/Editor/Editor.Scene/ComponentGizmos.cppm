@@ -228,27 +228,27 @@ export namespace editor
     /// Register the built-in component gizmos (called from RegisterSceneEditor).
     inline void RegisterBuiltinGizmoRenderers(GizmoRendererRegistry& registry)
     {
-        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<LightGizmoRenderer>(),
-                                                    DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(foundation::core::DefaultAllocator().New<LightGizmoRenderer>(),
+                                                    foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<ReflectionProbeGizmoRenderer>(), DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<CameraGizmoRenderer>(),
-                                                    DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<DecalGizmoRenderer>(),
-                                                    DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ReflectionProbeGizmoRenderer>(), foundation::core::DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(foundation::core::DefaultAllocator().New<CameraGizmoRenderer>(),
+                                                    foundation::core::DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(foundation::core::DefaultAllocator().New<DecalGizmoRenderer>(),
+                                                    foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<NavMeshZoneGizmoRenderer>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<NavMeshZoneGizmoRenderer>(), foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<LodOverlayGizmoRenderer>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<LodOverlayGizmoRenderer>(), foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<PhysicsColliderGizmoRenderer>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<PhysicsColliderGizmoRenderer>(), foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<ChildColliderGizmoRenderer>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ChildColliderGizmoRenderer>(), foundation::core::DefaultAllocator()));
         registry.Register(UniquePtr<IGizmoRenderer>(
-            DefaultAllocator().New<CharacterColliderGizmoRenderer>(), DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<JointGizmoRenderer>(),
-                                                    DefaultAllocator()));
-        registry.Register(UniquePtr<IGizmoRenderer>(DefaultAllocator().New<SplineGizmoRenderer>(),
-                                                    DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<CharacterColliderGizmoRenderer>(), foundation::core::DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(foundation::core::DefaultAllocator().New<JointGizmoRenderer>(),
+                                                    foundation::core::DefaultAllocator()));
+        registry.Register(UniquePtr<IGizmoRenderer>(foundation::core::DefaultAllocator().New<SplineGizmoRenderer>(),
+                                                    foundation::core::DefaultAllocator()));
     }
 }

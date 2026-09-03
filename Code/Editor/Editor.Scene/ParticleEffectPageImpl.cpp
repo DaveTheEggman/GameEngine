@@ -97,7 +97,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::FloatEditor>(
-                           DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
+                           foundation::core::DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
                            Function<void(f64)>{[field, page, key](f64 v)
                                                {
                                                    *field = static_cast<f32>(v);
@@ -113,7 +113,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::IntEditor>(
-                           DefaultAllocator(), name, static_cast<i64>(*field), mn, mx,
+                           foundation::core::DefaultAllocator(), name, static_cast<i64>(*field), mn, mx,
                            Function<void(i64)>{[field, page, key](i64 v)
                                                {
                                                    *field = static_cast<i32>(v);
@@ -129,7 +129,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::BoolEditor>(
-                           DefaultAllocator(), name, *field,
+                           foundation::core::DefaultAllocator(), name, *field,
                            Function<void(bool)>{[field, page, key](bool v)
                                                 {
                                                     *field = v;
@@ -145,7 +145,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::Float2Editor>(
-                           DefaultAllocator(), name, *field, mn, mx, step,
+                           foundation::core::DefaultAllocator(), name, *field, mn, mx, step,
                            Function<void(Float2)>{[field, page, key](Float2 v)
                                                   {
                                                       *field = v;
@@ -161,7 +161,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::Float3Editor>(
-                           DefaultAllocator(), name, *field, -1000.0f, 1000.0f, 0.05f,
+                           foundation::core::DefaultAllocator(), name, *field, -1000.0f, 1000.0f, 0.05f,
                            Function<void(Float3)>{[field, page, key](Float3 v)
                                                   {
                                                       *field = v;
@@ -177,7 +177,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::ColorEditor>(
-                           DefaultAllocator(), name, Color{field->x, field->y, field->z, field->w},
+                           foundation::core::DefaultAllocator(), name, Color{field->x, field->y, field->z, field->w},
                            Function<void(Color)>{[field, page, key](Color c)
                                                  {
                                                      *field = Float4{c.r, c.g, c.b, c.a};
@@ -190,7 +190,7 @@ namespace editor
                      Span<const StringView> items, Function<void(i32)> setter, StringView cat)
         {
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
-                       MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, value, items,
+                       MakeRef<ui::toolkit::EnumEditor>(foundation::core::DefaultAllocator(), name, value, items,
                                                         Move(setter), cat)
                            .Get()));
         }
@@ -199,7 +199,7 @@ namespace editor
         {
             Add(g,
                 RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), name, Move(action), cat)
+                    MakeRef<ui::toolkit::ButtonEditor>(foundation::core::DefaultAllocator(), name, Move(action), cat)
                         .Get()));
         }
 
@@ -291,7 +291,7 @@ namespace editor
         protected:
             RefPtr<ui::View> CreateEditorView() override
             {
-                auto canvas = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
+                auto canvas = MakeRef<ui::toolkit::CurveCanvas>(MemoryAllocator());
                 canvas->MaxKeys = particles::kMaxCurveKeys;
                 canvas->AutoFitValueRange = true;
                 m_canvas = canvas.Get();
@@ -324,9 +324,9 @@ namespace editor
 
                 // Give the canvas a fixed height (property rows otherwise collapse to text height),
                 // via a wrapper with a Px LayoutParams - the same idiom InputMapPage uses.
-                auto wrap = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto wrap = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 wrap->Direction = ui::Orientation::Vertical;
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
                 wrap->AddView(canvas.Get(), lp);
@@ -429,7 +429,7 @@ namespace editor
         protected:
             RefPtr<ui::View> CreateEditorView() override
             {
-                auto grad = MakeRef<ui::toolkit::GradientEditor>(DefaultAllocator());
+                auto grad = MakeRef<ui::toolkit::GradientEditor>(MemoryAllocator());
                 grad->MaxStops = particles::kMaxCurveKeys;
                 m_grad = grad.Get();
 
@@ -455,9 +455,9 @@ namespace editor
                 grad->OnStopAdded.Add([self](i32) { self->WriteBack(); });
                 grad->OnStopRemoved.Add([self](i32) { self->WriteBack(); });
 
-                auto wrap = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto wrap = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 wrap->Direction = ui::Orientation::Vertical;
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(40.0f));
                 wrap->AddView(grad.Get(), lp);
@@ -494,7 +494,7 @@ namespace editor
             key.Append(name);
             Add(g,
                 RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(), cat)
+                    MakeRef<CurveFieldEditor>(foundation::core::DefaultAllocator(), name, c, page, key.AsView(), cat)
                         .Get()));
         }
         void RowCurveFloat2(ui::toolkit::PropertyGrid& g, StringView name,
@@ -504,7 +504,7 @@ namespace editor
             key.Append(name);
             Add(g,
                 RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<CurveFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(), cat)
+                    MakeRef<CurveFieldEditor>(foundation::core::DefaultAllocator(), name, c, page, key.AsView(), cat)
                         .Get()));
         }
         void RowCurveColor(ui::toolkit::PropertyGrid& g, StringView name,
@@ -513,7 +513,7 @@ namespace editor
             String key(cat);
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
-                       MakeRef<GradientFieldEditor>(DefaultAllocator(), name, c, page, key.AsView(),
+                       MakeRef<GradientFieldEditor>(foundation::core::DefaultAllocator(), name, c, page, key.AsView(),
                                                     cat)
                            .Get()));
         }
@@ -562,7 +562,7 @@ namespace editor
     {
         // The row is a ParticleTreeRow (EditableLabel that remembers its bound node). System rows
         // rename in place: the commit handler reads the row's LIVE identity, so recycling is safe.
-        auto row = MakeRef<ParticleTreeRow>(DefaultAllocator());
+        auto row = MakeRef<ParticleTreeRow>(foundation::core::DefaultAllocator());
         row->FontSize.SetValue(Optional<f32>{12.0f});
         row->Ellipsis.SetValue(true);
         ParticleEffectEditorPage* owner = m_owner;
@@ -668,7 +668,7 @@ namespace editor
     {
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
-            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"particle.preview");
+            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"particle.preview");
         m_preview->SetClearColor(Color{0.06f, 0.06f, 0.08f, 1.0f}); // darker field shows particles
         m_preview->Camera().position = Float3{0.0f, 2.0f, 6.0f};
         m_preview->Camera().LookAt(Float3{0.0f, 1.0f, 0.0f});
@@ -687,19 +687,19 @@ namespace editor
         BuildPreviewScene();
         m_undoBaseline = SnapshotEffect();
 
-        auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto transport = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         transport->Direction = ui::Orientation::Horizontal;
         transport->Spacing = 6.0f;
         transport->Padding = ui::Thickness{6, 4};
         {
             ParticleEffectEditorPage* self = this;
-            auto play = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Play"));
+            auto play = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Play"));
             play->OnClick.Add([self](ui::ButtonBase*) { self->Play(); });
-            auto stop = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Stop"));
+            auto stop = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Stop"));
             stop->OnClick.Add([self](ui::ButtonBase*) { self->Stop(); });
-            auto restart = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Restart"));
+            auto restart = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Restart"));
             restart->OnClick.Add([self](ui::ButtonBase*) { self->Restart(); });
-            auto pause = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
+            auto pause = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pause"));
             pause->OnClick.Add([self](ui::ButtonBase*) { self->SetPaused(!self->m_paused); });
             transport->AddView(play.Get());
             transport->AddView(stop.Get());
@@ -707,12 +707,12 @@ namespace editor
             transport->AddView(pause.Get());
 
             // Simulation-speed slider (scales the preview scene's time) - beyond Sedulous.
-            auto speedLabel = MakeRef<ui::Label>(DefaultAllocator());
+            auto speedLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             speedLabel->FontSize.SetValue(Optional<f32>{12.0f});
             speedLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             speedLabel->SetText(u8"Speed");
             transport->AddView(speedLabel.Get());
-            auto speed = MakeRef<ui::Slider>(DefaultAllocator());
+            auto speed = MakeRef<ui::Slider>(foundation::core::DefaultAllocator());
             speed->Min.SetValue(0.0f);
             speed->Max.SetValue(3.0f);
             speed->Value.SetValue(1.0f);
@@ -722,34 +722,34 @@ namespace editor
                     self->m_simSpeed = v;
                     self->m_preview->SetTimeScale(v);
                 });
-            auto slp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto slp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             slp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
             transport->AddView(speed.Get(), slp);
 
-            m_statsLabel = MakeRef<ui::Label>(DefaultAllocator());
+            m_statsLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             m_statsLabel->FontSize.SetValue(12.0f);
             m_statsLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             m_statsLabel->SetText(u8"");
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             transport->AddView(m_statsLabel.Get(), grow);
         }
 
-        auto centerColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto centerColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         centerColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             centerColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             centerColumn->AddView(m_preview->View(), grow);
         }
 
         // ---- left: authoring tree ----
-        m_adapter = MakeUnique<ParticleTreeAdapter>(DefaultAllocator(), *this);
-        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
+        m_adapter = MakeUnique<ParticleTreeAdapter>(foundation::core::DefaultAllocator(), *this);
+        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(foundation::core::DefaultAllocator());
         m_tree->SetItemHeight(22.0f);
         m_tree->SetAdapter(m_adapter.Get());
         {
@@ -774,28 +774,28 @@ namespace editor
         }
 
         // ---- right: inspector ----
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
-        m_titleLabel = MakeRef<ui::Label>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+        m_titleLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
         m_titleLabel->FontSize.SetValue(12.0f);
-        auto inspectorColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto inspectorColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         inspectorColumn->Direction = ui::Orientation::Vertical;
         inspectorColumn->Spacing = 4.0f;
         inspectorColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_titleLabel.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_grid.Get(), grow);
         }
 
         // Assemble the three panes: [tree | center] then that | inspector.
-        auto leftSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto leftSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         leftSplit->SetSplitRatio(0.22f);
         leftSplit->SetPanes(m_tree.Get(), centerColumn.Get());
-        auto rightSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto rightSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         rightSplit->SetSplitRatio(0.72f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
         m_content = rightSplit;
@@ -852,7 +852,7 @@ namespace editor
         // material refs (the same pass the cook factory runs), then attach it for RENDER-lookup only -
         // the sim keeps borrowing the live effect (BuildPreviewScene's SetEffect), so scalar edits stay
         // live while every mesh system now renders its resolved mesh + materials.
-        auto res = MakeRef<particles::ParticleEffectResource>(DefaultAllocator());
+        auto res = MakeRef<particles::ParticleEffectResource>(foundation::core::DefaultAllocator());
         particles::CloneEffect(m_asset->Effect(), res->Effect());
         particles::ResolveParticleEffectResources(*res, *mgr);
         c->SetRenderResources(res.Get());
@@ -1071,9 +1071,9 @@ namespace editor
             }
             Array<byte> after = self->SnapshotEffect();
             (void)self->Commands().Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<EditParticleCommand>(
+                UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<EditParticleCommand>(
                                               *self, key.AsView(), self->m_undoBaseline, after),
-                                          DefaultAllocator()));
+                                          foundation::core::DefaultAllocator()));
             self->m_undoBaseline = Move(after);
             self->RebuildTree();
             self->RebuildInspector();
@@ -1102,7 +1102,7 @@ namespace editor
             return;
         }
         ParticleEffectEditorPage* self = this;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(foundation::core::DefaultAllocator());
 
         auto addInitMenu = [self, &menu](i32 sysIndex)
         {
@@ -1480,7 +1480,7 @@ namespace editor
             // System name (String field -> StringEditor).
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::StringEditor>(
-                           DefaultAllocator(), u8"Name", sys.name.AsView(),
+                           foundation::core::DefaultAllocator(), u8"Name", sys.name.AsView(),
                            Function<void(StringView)>{[&sys, page](StringView v)
                                                       {
                                                           sys.name = String(v);
@@ -1539,7 +1539,7 @@ namespace editor
             String key = Format(u8"maxp-{}", sysIndex);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::IntEditor>(
-                           DefaultAllocator(), u8"Max Particles", static_cast<i64>(maxParticles), 1,
+                           foundation::core::DefaultAllocator(), u8"Max Particles", static_cast<i64>(maxParticles), 1,
                            1000000,
                            Function<void(i64)>{[&sys, page, key](i64 v)
                                                {
@@ -1572,7 +1572,7 @@ namespace editor
                           Array<String> types;
                           types.PushBack(String(u8"TextureAsset"));
                           auto dialog = MakeRef<app::AssetPickerDialog>(
-                              DefaultAllocator(), *self->m_context, Move(types));
+                              foundation::core::DefaultAllocator(), *self->m_context, Move(types));
                           dialog->OnPicked = [self, sysIndex](const Guid& picked)
                           {
                               if (particles::ParticleSystem* s =
@@ -1606,7 +1606,7 @@ namespace editor
                           types.PushBack(String(u8"StaticMeshAsset"));
                           types.PushBack(String(u8"SkinnedMeshAsset"));
                           auto dialog = MakeRef<app::AssetPickerDialog>(
-                              DefaultAllocator(), *self->m_context, Move(types));
+                              foundation::core::DefaultAllocator(), *self->m_context, Move(types));
                           dialog->OnPicked = [self, sysIndex](const Guid& picked)
                           {
                               if (particles::ParticleSystem* s =
@@ -1627,7 +1627,7 @@ namespace editor
             // the shared editor.app ContainerListEditor - the identical add/move/remove slot widget the
             // scene inspector uses for MeshComponent materials.
             {
-                auto slots = MakeRef<app::ContainerListEditor>(DefaultAllocator(),
+                auto slots = MakeRef<app::ContainerListEditor>(foundation::core::DefaultAllocator(),
                                                                StringView(u8"Materials"), cat);
                 for (usize mi = 0; mi < sys.materialRefs.Size(); ++mi)
                 {
@@ -1691,7 +1691,7 @@ namespace editor
                     }
                     Array<String> types;
                     types.PushBack(String(u8"MaterialAsset"));
-                    auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(),
+                    auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(),
                                                                   *self->m_context, Move(types));
                     dialog->OnPicked = [self, sysIndex, slot](const Guid& picked)
                     {
@@ -2011,8 +2011,8 @@ namespace editor
     {
         Array<byte> after = SnapshotEffect();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditParticleCommand>(*this, mergeKey, m_undoBaseline, after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditParticleCommand>(*this, mergeKey, m_undoBaseline, after),
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
     }
@@ -2166,8 +2166,8 @@ namespace editor
                                           foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<ParticleEffectEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<ParticleEffectEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 
     void SeedDefaultParticleEffect(particles::ParticleEffect& fx)
@@ -2229,7 +2229,7 @@ namespace editor
                                 ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<ParticleEffectPageFactory>(host, uiHost), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ParticleEffectPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Particle Effect");

@@ -108,8 +108,8 @@ namespace editor
         m_editDuration =
             Max(Max(m_host->Clip().duration, m_host->Clip().ComputeDuration()), 1.0f);
 
-        m_scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
-        m_rows = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
+        m_rows = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         m_rows->Direction = ui::Orientation::Vertical;
         m_rows->Spacing = 2.0f;
         m_scroll->AddView(m_rows.Get());
@@ -130,17 +130,17 @@ namespace editor
     {
         after.duration = Max(after.duration, after.ComputeDuration());
         (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
+            foundation::core::DefaultAllocator()));
     }
 
     RefPtr<ui::FlexLayout> ClipEditorView::MakeRow(f32 indent, f32 height)
     {
-        auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 4.0f;
         row->Padding = ui::Thickness{indent, 0};
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Match();
         lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(height));
         m_rows->AddView(row.Get(), lp);
@@ -150,7 +150,7 @@ namespace editor
     ui::Button* ClipEditorView::MakeButton(ui::FlexLayout& row, StringView label, f32 width,
                                            Function<void()> onClick)
     {
-        auto button = MakeRef<ui::Button>(DefaultAllocator(), label);
+        auto button = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), label);
         button->FontSize.SetValue(Optional<f32>{11.0f});
         button->OnClick.Add(
             [fn = Move(onClick)](ui::ButtonBase*)
@@ -160,7 +160,7 @@ namespace editor
                     fn();
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(button.Get(), lp);
@@ -169,9 +169,9 @@ namespace editor
 
     void ClipEditorView::AddLabel(ui::FlexLayout& row, StringView text, f32 grow, f32 width)
     {
-        auto label = MakeRef<ui::Label>(DefaultAllocator(), text);
+        auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         if (grow > 0.0f)
         {
             lp->Grow = grow;
@@ -187,7 +187,7 @@ namespace editor
     void ClipEditorView::AddTextField(ui::FlexLayout& row, StringView value,
                                       Function<void(StringView)> commit, f32 width)
     {
-        auto field = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto field = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         field->SetText(value);
         field->FontSize.SetValue(12.0f);
         field->OnRenameCommitted.Add(
@@ -198,7 +198,7 @@ namespace editor
                     fn(committed);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
@@ -207,7 +207,7 @@ namespace editor
     void ClipEditorView::AddFloatField(ui::FlexLayout& row, f32 value, Function<void(f32)> commit,
                                        f32 width)
     {
-        auto field = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto field = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         String text;
         AppendValue(text, value);
         field->SetText(text.AsView());
@@ -227,7 +227,7 @@ namespace editor
                     fn(parsed);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
@@ -251,10 +251,10 @@ namespace editor
         AddFloatField(*row, m_editDuration,
                       [self](f32 d) { self->m_host->SetClipDuration((d > 1e-3f) ? d : 1.0f); }, 56.0f);
 
-        m_preview = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_preview = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
         m_preview->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             lp->Height = ui::SizeSpec::Match();
             row->AddView(m_preview.Get(), lp);
@@ -996,7 +996,7 @@ namespace editor
             return;
         }
 
-        auto canvas = MakeRef<ui::toolkit::CurveCanvas>(DefaultAllocator());
+        auto canvas = MakeRef<ui::toolkit::CurveCanvas>(foundation::core::DefaultAllocator());
         canvas->MaxKeys = 64;
         canvas->AutoFitValueRange = true;
         canvas->LinkedTime = channels > 1;
@@ -1085,21 +1085,21 @@ namespace editor
                 propanim::PropertyAnimationClip after = self->Clip();
                 after.duration = Max(after.duration, after.ComputeDuration()); // keep authored length
                 (void)self->m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-                    DefaultAllocator().New<ClipEditCommand>(*self->m_host, Move(self->m_gestureBefore),
+                    foundation::core::DefaultAllocator().New<ClipEditCommand>(*self->m_host, Move(self->m_gestureBefore),
                                                             Move(after), /*liveApplied=*/true),
-                    DefaultAllocator()));
+                    foundation::core::DefaultAllocator()));
             });
 
-        auto wrap = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto wrap = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         wrap->Direction = ui::Orientation::Vertical;
         // Inset the canvas by the dopesheet's label-column gutter so t=0 sits at the same screen x as
         // the lanes above - the curve lines up under the dopesheet (D1). No right inset (fills the rest).
         wrap->Padding = ui::Thickness{axis.labelColumnWidth, 0.0f, 0.0f, 0.0f};
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Match();
         lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
         wrap->AddView(canvas.Get(), lp);
-        auto wlp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto wlp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         wlp->Width = ui::SizeSpec::Match();
         wlp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(122.0f));
         m_rows->AddView(wrap.Get(), wlp);

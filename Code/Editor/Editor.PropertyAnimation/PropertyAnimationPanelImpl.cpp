@@ -223,12 +223,13 @@ namespace editor
 
         PropertyAnimationPanel* self = this;
 
-        auto addButton = [](ui::FlexLayout& row, StringView label, f32 width, Function<void()> onClick)
+        auto addButton = [self](ui::FlexLayout& row, StringView label, f32 width,
+                                Function<void()> onClick)
         {
-            auto button = MakeRef<ui::Button>(DefaultAllocator(), label);
+            auto button = MakeRef<ui::Button>(self->MemoryAllocator(), label);
             button->FontSize.SetValue(Optional<f32>{11.0f});
             button->OnClick.Add([fn = Move(onClick)](ui::ButtonBase*) { if (fn) fn(); });
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(self->MemoryAllocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
             lp->Height = ui::SizeSpec::Match();
             row.AddView(button.Get(), lp);
@@ -237,7 +238,7 @@ namespace editor
 
         // Header (only shown with a clip loaded - workflow 2026-08-17): document actions +
         // clip label + the BOUND-ENTITY slot. (Collapse/expand is the dock's job.)
-        m_header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_header = MakeRef<ui::FlexLayout>(MemoryAllocator());
         m_header->Direction = ui::Orientation::Horizontal;
         m_header->Spacing = 4.0f;
         addButton(*m_header, u8"Create...", 70.0f, [self]() { self->OnCreateClip(); });
@@ -246,10 +247,10 @@ namespace editor
         addButton(*m_header, u8"+ Tracks", 72.0f, [self]() { self->OnAddFromSelection(); });
         m_addTrackButton =
             addButton(*m_header, u8"+ Track", 62.0f, [self]() { self->OnAddTrackMenu(); });
-        m_clipLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_clipLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
         m_clipLabel->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Grow = 1.0f;
             lp->Height = ui::SizeSpec::Match();
             m_header->AddView(m_clipLabel.Get(), lp);
@@ -257,10 +258,10 @@ namespace editor
         // The bound-entity slot: preview/keying/seeding target THIS entity, never the live
         // selection - "Use Selected" is where selection enters, "Bind..." opens the scene
         // page's entity picker through the RequestEntityPick seam.
-        m_entityLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_entityLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
         m_entityLabel->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(170));
             lp->Height = ui::SizeSpec::Match();
             m_header->AddView(m_entityLabel.Get(), lp);
@@ -283,7 +284,7 @@ namespace editor
                   });
         addButton(*m_header, u8"Use Selected", 96.0f, [self]() { self->BindSelectedEntity(); });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             AddView(m_header.Get(), lp);
@@ -291,42 +292,42 @@ namespace editor
 
         // The EXCLUSIVE empty state: no clip -> just the message + Create/Open (no tracks, no
         // transport, no editing surface - the workflow leaves no gap for silent saves).
-        m_emptyState = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_emptyState = MakeRef<ui::FlexLayout>(MemoryAllocator());
         m_emptyState->Direction = ui::Orientation::Vertical;
         m_emptyState->Spacing = 8.0f;
         m_emptyState->Padding = ui::Thickness{12, 12};
         {
-            auto message = MakeRef<ui::Label>(DefaultAllocator(),
+            auto message = MakeRef<ui::Label>(MemoryAllocator(),
                                               StringView(u8"No animation clip selected for editing."));
             message->FontSize.SetValue(12.0f);
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             m_emptyState->AddView(message.Get(), lp);
         }
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 6.0f;
             addButton(*row, u8"Create Clip...", 104.0f, [self]() { self->OnCreateClip(); });
             addButton(*row, u8"Open Clip...", 96.0f, [self]() { self->OnOpenClip(); });
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_emptyState->AddView(row.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             AddView(m_emptyState.Get(), lp);
         }
 
         // Body: [ transport | Timeline scrubber | shared ClipEditorView ]. Hidden when collapsed.
-        m_body = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_body = MakeRef<ui::FlexLayout>(MemoryAllocator());
         m_body->Direction = ui::Orientation::Vertical;
         m_body->Spacing = 4.0f;
 
         // Transport row: Play / Pause / Stop / Loop toggle.
-        auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto transport = MakeRef<ui::FlexLayout>(MemoryAllocator());
         transport->Direction = ui::Orientation::Horizontal;
         transport->Spacing = 4.0f;
         m_playButton = addButton(*transport, u8"Play", 52.0f, [self]() { self->Play(); });
@@ -335,13 +336,13 @@ namespace editor
         m_loopButton =
             addButton(*transport, u8"Loop: on", 76.0f, [self]() { self->SetLooping(!self->m_loop); });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_body->AddView(transport.Get(), lp);
         }
 
-        m_timeline = MakeRef<ui::toolkit::Timeline>(DefaultAllocator());
+        m_timeline = MakeRef<ui::toolkit::Timeline>(MemoryAllocator());
         m_timeline->SetDuration(Max(Max(m_clip.duration, m_clip.ComputeDuration()), 1.0f));
         m_timeline->LabelColumnWidth = 140.0f; // the track-label gutter (the dopesheet is the track list)
         // The scrubber routes through OnScrubTimeChanged, which ignores it while Playing (D6). A key
@@ -386,21 +387,21 @@ namespace editor
                 }
             });
         {
-            m_timelineParams = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            m_timelineParams = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             m_timelineParams->Width = ui::SizeSpec::Match();
             m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kTimelineMinHeight));
             m_body->AddView(m_timeline.Get(), m_timelineParams);
         }
 
-        m_view = MakeUnique<ClipEditorView>(DefaultAllocator(), *this);
+        m_view = MakeUnique<ClipEditorView>(MemoryAllocator(), *this);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             m_body->AddView(m_view->Root(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             AddView(m_body.Get(), lp);
@@ -463,7 +464,7 @@ namespace editor
         message += u8"' has unsaved changes.";
         const StringView choices[] = {u8"Save", u8"Discard", u8"Cancel"};
         auto dialog =
-            MakeRef<app::ConfirmDialog>(DefaultAllocator(), StringView(u8"Unsaved Clip"),
+            MakeRef<app::ConfirmDialog>(MemoryAllocator(), StringView(u8"Unsaved Clip"),
                                         message.AsView(), Span<const StringView>(choices, 3));
         PropertyAnimationPanel* self = this;
         dialog->OnChosen = [self, fn = Move(proceed)](usize choice)
@@ -496,7 +497,7 @@ namespace editor
                 {
                     return;
                 }
-                auto dialog = MakeRef<app::AssetCreateDialog>(DefaultAllocator(),
+                auto dialog = MakeRef<app::AssetCreateDialog>(self->MemoryAllocator(),
                                                               *self->m_editorCtx,
                                                               u8"Create Animation Clip",
                                                               u8"clip name");
@@ -529,7 +530,7 @@ namespace editor
                 }
                 Array<String> types;
                 types.PushBack(String(u8"PropertyAnimationClipAsset"));
-                auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(),
+                auto dialog = MakeRef<app::AssetPickerDialog>(self->MemoryAllocator(),
                                                               *self->m_editorCtx, Move(types));
                 dialog->OnPicked = [self](const Guid& picked)
                 {
@@ -816,7 +817,7 @@ namespace editor
             return;
         }
         const Array<AnimatablePropertyInfo> seeds = CollectSelectionTrackSeeds();
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
         PropertyAnimationPanel* self = this;
         usize offered = 0;
         for (const AnimatablePropertyInfo& seed : seeds)

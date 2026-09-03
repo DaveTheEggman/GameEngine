@@ -108,35 +108,35 @@ export namespace experimental::gui
             f.Register(name, core::Move(maker));
         };
         reg(core::StringView(u8"Label"),
-            [] { return core::MakeRef<Label>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<Label>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"Button"),
-            [] { return core::MakeRef<Button>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<Button>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"CheckBox"),
-            [] { return core::MakeRef<CheckBox>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<CheckBox>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"RadioButton"),
-            [] { return core::MakeRef<RadioButton>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<RadioButton>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"Slider"),
-            [] { return core::MakeRef<Slider>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<Slider>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"ProgressBar"),
-            [] { return core::MakeRef<ProgressBar>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<ProgressBar>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"TextField"),
-            [] { return core::MakeRef<TextField>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<TextField>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"LinearLayout"),
-            [] { return core::MakeRef<LinearLayout>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<LinearLayout>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"GridLayout"),
-            [] { return core::MakeRef<GridLayout>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<GridLayout>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"RelativeLayout"),
-            [] { return core::MakeRef<RelativeLayout>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<RelativeLayout>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"FlexLayout"),
-            [] { return core::MakeRef<FlexLayout>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<FlexLayout>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"ScrollView"),
-            [] { return core::MakeRef<ScrollView>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<ScrollView>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"Image"),
-            [] { return core::MakeRef<Image>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<Image>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"ListBox"),
-            [] { return core::MakeRef<ListBox>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<ListBox>(foundation::core::DefaultAllocator()); });
         reg(core::StringView(u8"Window"),
-            [] { return core::MakeRef<Window>(core::DefaultAllocator()); });
+            [] { return core::MakeRef<Window>(foundation::core::DefaultAllocator()); });
         return f;
     }
 

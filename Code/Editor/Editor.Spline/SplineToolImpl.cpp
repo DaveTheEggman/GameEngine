@@ -416,11 +416,11 @@ namespace editor
                     return;
                 }
                 (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                    DefaultAllocator().New<SplineEditCommand>(*m_scene, m_entity,
+                    foundation::core::DefaultAllocator().New<SplineEditCommand>(*m_scene, m_entity,
                                                               Move(m_snapshotPoints),
                                                               m_snapshotClosed, curve.points,
                                                               curve.closed),
-                    DefaultAllocator()));
+                    foundation::core::DefaultAllocator()));
             }
 
             void EndDrag(bool commit)
@@ -477,8 +477,8 @@ namespace editor
     void SplineViewportToolProvider::CreateTools(ViewportToolManager& manager,
                                                  const ViewportToolHostContext& context)
     {
-        manager.Add(UniquePtr<IViewportTool>(DefaultAllocator().New<SplineEditTool>(context),
-                                             DefaultAllocator()));
+        manager.Add(UniquePtr<IViewportTool>(foundation::core::DefaultAllocator().New<SplineEditTool>(context),
+                                             foundation::core::DefaultAllocator()));
     }
 
     void RegisterSplineViewportTools()

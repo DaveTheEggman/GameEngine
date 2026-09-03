@@ -49,7 +49,7 @@ export namespace experimental::gui
                 return;
             m_selected = selected;
             SetBackground(selected ? core::RefPtr<Drawable>(core::MakeRef<RectangleDrawable>(
-                                         core::DefaultAllocator(), m_highlight))
+                                         MemoryAllocator(), m_highlight))
                                    : core::RefPtr<Drawable>());
             Invalidate();
         }
@@ -57,7 +57,7 @@ export namespace experimental::gui
         {
             m_highlight = color;
             if (m_selected)
-                SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(),
+                SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(),
                                                                color)); // refresh live
         }
 
@@ -85,8 +85,8 @@ export namespace experimental::gui
             SetTabFocusable(true);
             // Opaque panel background so the list (and any dropdown built on it) paints over
             // whatever is behind it. Override with SetBackground for a themed look.
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_panelColor));
-            m_scroll = core::MakeRef<ScrollView>(core::DefaultAllocator());
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_panelColor));
+            m_scroll = core::MakeRef<ScrollView>(MemoryAllocator());
             AddChild(m_scroll.Get());
         }
 
@@ -105,7 +105,7 @@ export namespace experimental::gui
 
         void AddItem(core::StringView text)
         {
-            auto item = core::MakeRef<ListBoxItem>(core::DefaultAllocator());
+            auto item = core::MakeRef<ListBoxItem>(MemoryAllocator());
             item->SetText(text);
             item->SetFont(m_font);
             item->SetTextColor(m_textColor);

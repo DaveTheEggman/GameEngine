@@ -183,10 +183,10 @@ namespace editor
         }
         [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-            auto label = MakeRef<ui::Label>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             label->FontSize.SetValue(12.0f);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             row->AddView(label.Get(), grow);
             return RefPtr<ui::View>(row.Get());
@@ -219,21 +219,21 @@ namespace editor
 
     ScriptApiBrowserView::ScriptApiBrowserView()
     {
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 4.0f;
 
-        m_filter = MakeRef<ui::EditText>(DefaultAllocator());
+        m_filter = MakeRef<ui::EditText>(foundation::core::DefaultAllocator());
         m_filter->SetPlaceholder(u8"Filter API");
         ScriptApiBrowserView* self = this;
         m_filter->OnTextChanged.Add([self](ui::EditText*) { self->m_dirty = true; });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             column->AddView(m_filter.Get(), lp);
         }
 
-        m_treeView = MakeRef<ui::TreeView>(DefaultAllocator());
+        m_treeView = MakeRef<ui::TreeView>(foundation::core::DefaultAllocator());
         m_treeView->OnItemClick.Add(
             [self](ui::TreeView::ItemClickInfo info)
             {
@@ -249,14 +249,14 @@ namespace editor
                 }
             });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             lp->Width = ui::SizeSpec::Match();
             column->AddView(m_treeView.Get(), lp);
         }
 
-        m_adapter = UniquePtr<TreeAdapter>(DefaultAllocator().New<TreeAdapter>(*this),
-                                           DefaultAllocator());
+        m_adapter = UniquePtr<TreeAdapter>(foundation::core::DefaultAllocator().New<TreeAdapter>(*this),
+                                           foundation::core::DefaultAllocator());
         m_root = column;
     }
 

@@ -40,7 +40,7 @@ export namespace experimental::gui
         MenuBar()
         {
             SetTag(core::StringView(u8"menubar"));
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_barColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_barColor));
         }
 
         void SetFont(fonts::CachedFont* font)
@@ -64,13 +64,13 @@ export namespace experimental::gui
         // Add a top-level menu with its button label; returns the (empty) Menu to populate.
         Menu* AddMenu(core::StringView text)
         {
-            auto button = core::MakeRef<Button>(core::DefaultAllocator());
+            auto button = core::MakeRef<Button>(MemoryAllocator());
             button->SetText(text);
             button->SetFont(m_font);
             button->AddClass(
                 core::StringView(u8"menubutton")); // flat bar styling (class beats the button tag)
 
-            auto menu = core::MakeRef<Menu>(core::DefaultAllocator());
+            auto menu = core::MakeRef<Menu>(MemoryAllocator());
             menu->SetFont(m_font);
 
             Button* rawButton = button.Get();

@@ -82,11 +82,11 @@ export namespace experimental::gui
         {
             SetTag(core::StringView(u8"window"));
             SetClipChildren(true);
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_bodyColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_bodyColor));
 
-            m_titleBar = core::MakeRef<DragHandle>(core::DefaultAllocator());
+            m_titleBar = core::MakeRef<DragHandle>(MemoryAllocator());
             m_titleBar->SetBackground(
-                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_titleColor));
+                core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_titleColor));
             Window* self = this;
             m_titleBar->OnDrag = [self](core::Float2 d)
             {
@@ -96,19 +96,19 @@ export namespace experimental::gui
             m_titleBar->OnPressed = [self]() { self->ToFront(); };
             AddChild(m_titleBar.Get());
 
-            m_title = core::MakeRef<Label>(core::DefaultAllocator());
+            m_title = core::MakeRef<Label>(MemoryAllocator());
             m_title->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
             m_title->SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
             m_title->SetHitTestVisible(false); // clicks fall through to the draggable title bar
             m_titleBar->AddChild(m_title.Get());
 
-            m_contentHost = core::MakeRef<UIWidget>(core::DefaultAllocator());
+            m_contentHost = core::MakeRef<UIWidget>(MemoryAllocator());
             m_contentHost->SetClipChildren(true);
             AddChild(m_contentHost.Get());
 
-            m_resizeGrip = core::MakeRef<DragHandle>(core::DefaultAllocator());
+            m_resizeGrip = core::MakeRef<DragHandle>(MemoryAllocator());
             m_resizeGrip->SetBackground(
-                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_gripColor));
+                core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_gripColor));
             m_resizeGrip->OnDrag = [self](core::Float2 d) { self->ResizeBy(d); };
             m_resizeGrip->OnPressed = [self]() { self->ToFront(); };
             AddChild(m_resizeGrip.Get());
@@ -129,13 +129,13 @@ export namespace experimental::gui
         void SetBodyColor(Color color)
         {
             m_bodyColor = color;
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), color));
         }
         void SetTitleColor(Color color)
         {
             m_titleColor = color;
             m_titleBar->SetBackground(
-                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+                core::MakeRef<RectangleDrawable>(MemoryAllocator(), color));
         }
 
         // Fired when the window is closed via Close().
@@ -184,10 +184,10 @@ export namespace experimental::gui
         {
             if (part == core::StringView(u8"title"))
                 m_titleBar->SetBackground(
-                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+                    core::MakeRef<RectangleDrawable>(MemoryAllocator(), color));
             else if (part == core::StringView(u8"grip"))
                 m_resizeGrip->SetBackground(
-                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+                    core::MakeRef<RectangleDrawable>(MemoryAllocator(), color));
         }
 
     protected:
@@ -201,10 +201,10 @@ export namespace experimental::gui
             m_modal = modal;
             if (modal)
             {
-                m_scrim = core::MakeRef<UIWidget>(core::DefaultAllocator());
+                m_scrim = core::MakeRef<UIWidget>(MemoryAllocator());
                 m_scrim->SetSize(root.GetSize());
                 m_scrim->SetBackground(
-                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_scrimColor));
+                    core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_scrimColor));
                 root.AddChild(m_scrim.Get()); // below the window (added first)
             }
             root.AddChild(this); // on top of the scrim

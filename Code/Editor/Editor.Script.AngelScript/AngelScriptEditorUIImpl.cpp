@@ -46,7 +46,7 @@ namespace editor{
             spec.tripleQuotedStrings = true;
             spec.charLiterals = true;
             return UniquePtr<toolkit::ICodeLexer>(
-                DefaultAllocator().New<toolkit::CLikeLexer>(spec), DefaultAllocator());
+                foundation::core::DefaultAllocator().New<toolkit::CLikeLexer>(spec), foundation::core::DefaultAllocator());
         }
     }
 

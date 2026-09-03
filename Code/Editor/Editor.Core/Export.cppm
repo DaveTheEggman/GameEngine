@@ -336,7 +336,7 @@ export namespace editor
 
         void RemoveTreeRecursive(StringView root)
         {
-            foundation::vfs::NativeFileSystem fs(root, foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem fs(root, DefaultAllocator());
             Array<foundation::vfs::DirEntry> entries;
             if (fs.AsEnumerable()->Enumerate(u8"", entries).IsOk())
             {

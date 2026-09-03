@@ -409,7 +409,7 @@ namespace editor
         }
         m_undoBaseline = Snapshot();
 
-        m_info = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
         m_info->FontSize.SetValue(12.0f);
         if (m_object.Get() != nullptr)
         {
@@ -418,20 +418,20 @@ namespace editor
             m_info->SetText(text.AsView());
         }
 
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
         BuildGrid();
 
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 6.0f;
         column->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             column->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             lp->Width = ui::SizeSpec::Match();
             column->AddView(m_grid.Get(), lp);
@@ -468,7 +468,7 @@ namespace editor
                 String label(field.label.AsView());
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::StringEditor>(
-                        DefaultAllocator(), label.AsView(),
+                        foundation::core::DefaultAllocator(), label.AsView(),
                         Format(u8"(blob, {} bytes)", field.blobValue.Size()).AsView(),
                         Function<void(StringView)>{}, cat)
                         .Get()));
@@ -478,7 +478,7 @@ namespace editor
             {
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::StringEditor>(
-                        DefaultAllocator(), field.label.AsView(), field.textValue.AsView(),
+                        foundation::core::DefaultAllocator(), field.label.AsView(), field.textValue.AsView(),
                         Function<void(StringView)>{[self, index](StringView v)
                                                    {
                                                        AssetFormField patch = self->m_fields[index];
@@ -496,7 +496,7 @@ namespace editor
                 field.guidValue.ToChars(buffer);
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::StringEditor>(
-                        DefaultAllocator(), field.label.AsView(), StringView{buffer, 36},
+                        foundation::core::DefaultAllocator(), field.label.AsView(), StringView{buffer, 36},
                         Function<void(StringView)>{[self, index](StringView v)
                                                    {
                                                        Guid parsed{};
@@ -514,7 +514,7 @@ namespace editor
                 pickLabel.Append(field.label.AsView());
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::ButtonEditor>(
-                        DefaultAllocator(), pickLabel.AsView(),
+                        foundation::core::DefaultAllocator(), pickLabel.AsView(),
                         Function<void()>{[self, index]()
                                          {
                                              ui::UIContext* ctx = self->Ctx();
@@ -524,7 +524,7 @@ namespace editor
                                                  return;
                                              }
                                              auto dialog = MakeRef<app::AssetPickerDialog>(
-                                                 DefaultAllocator(), *self->m_context,
+                                                 foundation::core::DefaultAllocator(), *self->m_context,
                                                  Array<String>{}); // empty filter = every type
                                              dialog->OnPicked = [self, index](const Guid& picked)
                                              {
@@ -544,7 +544,7 @@ namespace editor
             case ScalarKind::Bool:
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::BoolEditor>(
-                        DefaultAllocator(), field.label.AsView(), field.intValue != 0,
+                        foundation::core::DefaultAllocator(), field.label.AsView(), field.intValue != 0,
                         Function<void(bool)>{[self, index](bool v)
                                              {
                                                  AssetFormField patch = self->m_fields[index];
@@ -558,7 +558,7 @@ namespace editor
             case ScalarKind::Float64:
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::FloatEditor>(
-                        DefaultAllocator(), field.label.AsView(), field.floatValue, -1e12, 1e12,
+                        foundation::core::DefaultAllocator(), field.label.AsView(), field.floatValue, -1e12, 1e12,
                         0.01, 4,
                         Function<void(f64)>{[self, index](f64 v)
                                             {
@@ -572,7 +572,7 @@ namespace editor
             default:
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::IntEditor>(
-                        DefaultAllocator(), field.label.AsView(), field.intValue,
+                        foundation::core::DefaultAllocator(), field.label.AsView(), field.intValue,
                         -9007199254740992ll, 9007199254740992ll,
                         Function<void(i64)>{[self, index](i64 v)
                                             {
@@ -600,8 +600,8 @@ namespace editor
         key.Append(Format(u8"#{}", index).AsView());
         Array<byte> after = Snapshot();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditGenericCommand>(*this, key.AsView(), m_undoBaseline, after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditGenericCommand>(*this, key.AsView(), m_undoBaseline, after),
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
 
@@ -724,7 +724,7 @@ namespace editor
     UniquePtr<EditorPage> GenericAssetPageFactory::CreatePage(EditorContext& context,
                                                               foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<GenericAssetEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<GenericAssetEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

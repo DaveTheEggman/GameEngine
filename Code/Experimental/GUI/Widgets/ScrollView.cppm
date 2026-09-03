@@ -65,7 +65,7 @@ export namespace experimental::gui
             SetClipChildren(true);
             SetTabFocusable(true); // so the view can receive focus for keyboard scrolling
 
-            m_content = core::MakeRef<ScrollContent>(core::DefaultAllocator());
+            m_content = core::MakeRef<ScrollContent>(MemoryAllocator());
             m_content->OnContentChanged = [this]()
             {
                 if (m_autoMeasure)
@@ -73,7 +73,7 @@ export namespace experimental::gui
             };
             AddChild(m_content.Get());
 
-            m_vBar = core::MakeRef<ScrollBar>(core::DefaultAllocator());
+            m_vBar = core::MakeRef<ScrollBar>(MemoryAllocator());
             m_vBar->SetOrientation(Orientation::Vertical);
             m_vBar->SetOnValueChanged(
                 [this](f32 v)
@@ -83,7 +83,7 @@ export namespace experimental::gui
                 });
             AddChild(m_vBar.Get());
 
-            m_hBar = core::MakeRef<ScrollBar>(core::DefaultAllocator());
+            m_hBar = core::MakeRef<ScrollBar>(MemoryAllocator());
             m_hBar->SetOrientation(Orientation::Horizontal);
             m_hBar->SetOnValueChanged(
                 [this](f32 v)

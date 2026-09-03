@@ -330,9 +330,9 @@ namespace editor
                             m_region);
             Array<hf::Height> after = SliceRegion(m_strokeHf->Samples(), gridSize, m_region);
             m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SculptStrokeCommand>(m_strokeHf, m_region, Move(before),
+                foundation::core::DefaultAllocator().New<SculptStrokeCommand>(m_strokeHf, m_region, Move(before),
                                                             Move(after)),
-                DefaultAllocator()));
+                foundation::core::DefaultAllocator()));
 
             // Register the write-back-to-source persist closure (drained on Save). Captures a
             // RefPtr to the grid (kept alive) + its source guid; the DB is handed in at drain time.
@@ -434,13 +434,13 @@ namespace editor
             return;
         }
         manager.Add(UniquePtr<IViewportTool>(
-            DefaultAllocator().New<TerrainSculptTool>(*context.scene, *context.commands,
+            foundation::core::DefaultAllocator().New<TerrainSculptTool>(*context.scene, *context.commands,
                                                       context.assetEdits),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator()));
         manager.Add(UniquePtr<IViewportTool>(
-            DefaultAllocator().New<TerrainSplatTool>(*context.scene, *context.commands,
+            foundation::core::DefaultAllocator().New<TerrainSplatTool>(*context.scene, *context.commands,
                                                      context.assetEdits),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator()));
     }
 
     void RegisterTerrainViewportTools()

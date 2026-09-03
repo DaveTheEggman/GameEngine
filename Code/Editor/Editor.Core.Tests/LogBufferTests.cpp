@@ -18,7 +18,7 @@ using namespace editor;
 
 TEST_CASE("editor-log: captures dispatches and collects incrementally")
 {
-    EditorLogBuffer buffer(16);
+    EditorLogBuffer buffer(DefaultAllocator(), 16);
     buffer.Write(LogLevel::Info, u8"Cat", u8"first");
     buffer.Write(LogLevel::Warning, u8"Cat", u8"second");
     CHECK(buffer.Count() == 2);
@@ -48,7 +48,7 @@ TEST_CASE("editor-log: captures dispatches and collects incrementally")
 
 TEST_CASE("editor-log: bounded ring drops oldest and counts drops")
 {
-    EditorLogBuffer buffer(4);
+    EditorLogBuffer buffer(DefaultAllocator(), 4);
     for (i32 i = 0; i < 10; ++i)
     {
         String msg(u8"m");
@@ -69,7 +69,7 @@ TEST_CASE("editor-log: bounded ring drops oldest and counts drops")
 
 TEST_CASE("editor-log: messages are not truncated")
 {
-    EditorLogBuffer buffer(4);
+    EditorLogBuffer buffer(DefaultAllocator(), 4);
     String longMessage;
     for (i32 i = 0; i < 100; ++i)
     {
@@ -85,7 +85,7 @@ TEST_CASE("editor-log: messages are not truncated")
 
 TEST_CASE("editor-log: registered on the global logger it captures LOG output")
 {
-    EditorLogBuffer buffer(16);
+    EditorLogBuffer buffer(DefaultAllocator(), 16);
     GlobalLogger().AddSink(&buffer);
     LOG_WARNING(u8"EditorTest", u8"hello {}", 42);
     GlobalLogger().RemoveSink(&buffer);
@@ -100,7 +100,7 @@ TEST_CASE("editor-log: registered on the global logger it captures LOG output")
 
 TEST_CASE("editor-log: concurrent writers do not lose or corrupt entries")
 {
-    EditorLogBuffer buffer(4096);
+    EditorLogBuffer buffer(DefaultAllocator(), 4096);
     constexpr i32 kThreads = 4;
     constexpr i32 kPerThread = 200;
 

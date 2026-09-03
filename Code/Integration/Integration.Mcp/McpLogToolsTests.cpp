@@ -74,7 +74,7 @@ namespace
 TEST_CASE("integration.mcp: log tools - markers, incremental reads, filters, known issues")
 {
     // The host shape: ONE buffer sink on the global logger, registered for the test's scope.
-    editor::EditorLogBuffer buffer;
+    editor::EditorLogBuffer buffer(DefaultAllocator());
     GlobalLogger().AddSink(&buffer);
 
     // A stand-in known-issues register on disk.
@@ -167,7 +167,7 @@ TEST_CASE("integration.mcp: log tools - markers, incremental reads, filters, kno
     CHECK(String(issues.Get(u8"path").AsString()).Size() > 0u);
     {
         McpServer bare;
-        editor::EditorLogBuffer bareBuffer;
+        editor::EditorLogBuffer bareBuffer(DefaultAllocator());
         editor::mcp::RegisterLogTools(bare, bareBuffer, String());
         CHECK(LogCallErr(bare, u8"known_issues", LogObj()).Size() > 0u);
     }

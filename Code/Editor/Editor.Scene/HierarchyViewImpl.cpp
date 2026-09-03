@@ -72,7 +72,7 @@ namespace editor
     {
         if (e.Button == ui::MouseButton::Right && Context != nullptr)
         {
-            auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+            auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
             SceneEditContext* edit = m_edit;
             SceneHierarchyView* self = this;
             menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
@@ -159,7 +159,7 @@ namespace editor
                 self->m_edit->EntitySelection().Set(id);
 
                 SceneEditContext* edit = self->m_edit;
-                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+                auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
                 menu->AddItem(u8"Create Child",
                               [edit, id]() { (void)edit->CreateEntity(u8"Entity", id); });
                 menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
@@ -247,7 +247,7 @@ namespace editor
                     return;
                 }
                 SceneEditContext* edit = self->m_edit;
-                auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+                auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
                 menu->AddItem(u8"Create Entity",
                               [edit]() { (void)edit->CreateEntity(u8"Entity"); });
                 menu->AddItem(u8"Spawn Prefab...",

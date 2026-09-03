@@ -208,8 +208,8 @@ namespace editor
     bool SceneEditContext::PasteComponent(const Guid& entity, Span<const byte> blob)
     {
         PasteComponentCommand* raw =
-            DefaultAllocator().New<PasteComponentCommand>(*this, entity, blob);
-        return m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<PasteComponentCommand>(*this, entity, blob);
+        return m_commands->Execute(UniquePtr<IEditorCommand>(raw, foundation::core::DefaultAllocator()));
     }
 
     scene::EntityHandle SceneEditContext::Resolve(const Guid& id)
@@ -219,8 +219,8 @@ namespace editor
 
     Guid SceneEditContext::CreateEntity(StringView name, const Guid& parent)
     {
-        CreateEntityCommand* raw = DefaultAllocator().New<CreateEntityCommand>(*this, name, parent);
-        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
+        CreateEntityCommand* raw = foundation::core::DefaultAllocator().New<CreateEntityCommand>(*this, name, parent);
+        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, foundation::core::DefaultAllocator())))
         {
             return Guid{}; // raw was destroyed by the failed Execute
         }
@@ -240,49 +240,49 @@ namespace editor
         CollectSubtree(Resolve(entity), [this](scene::EntityHandle e)
                        { m_selection.Remove(m_scene->GetEntityId(e)); });
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<DestroyEntityCommand>(*this, entity), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<DestroyEntityCommand>(*this, entity), foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::RenameEntity(const Guid& entity, StringView newName)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<RenameEntityCommand>(*this, entity, newName),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<RenameEntityCommand>(*this, entity, newName),
+            foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::ReparentEntity(const Guid& entity, const Guid& newParent)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<ReparentEntityCommand>(*this, entity, newParent),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<ReparentEntityCommand>(*this, entity, newParent),
+            foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::MoveEntityBefore(const Guid& entity, const Guid& sibling)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<MoveEntityCommand>(*this, entity, sibling), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<MoveEntityCommand>(*this, entity, sibling), foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetEntityActive(const Guid& entity, bool active)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<SetActiveCommand>(*this, entity, active), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<SetActiveCommand>(*this, entity, active), foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetLocalTransform(const Guid& entity, const Transform& transform)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<SetTransformCommand>(*this, entity, transform),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<SetTransformCommand>(*this, entity, transform),
+            foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
                                                 const char* property, const Variant& value)
     {
         (void)m_commands->Execute(
-            UniquePtr<IEditorCommand>(DefaultAllocator().New<SetComponentPropertyCommand>(
+            UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<SetComponentPropertyCommand>(
                                           *this, entity, componentType, property, value),
-                                      DefaultAllocator()));
+                                      foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetComponentPropertyRaw(const Guid& entity,
@@ -290,33 +290,33 @@ namespace editor
                                                    const char* property, i64 value)
     {
         (void)m_commands->Execute(
-            UniquePtr<IEditorCommand>(DefaultAllocator().New<SetComponentPropertyCommand>(
+            UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<SetComponentPropertyCommand>(
                                           *this, entity, componentType, property, value),
-                                      DefaultAllocator()));
+                                      foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetSceneSettingProperty(const TypeInfo* settingsType,
                                                    const char* property, const Variant& value)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
+            foundation::core::DefaultAllocator()));
     }
 
     bool SceneEditContext::ApplySceneSettingsBlock(const TypeInfo* settingsType,
                                                    Array<byte> newBlob)
     {
-        SetSceneSettingsBlockCommand* raw = DefaultAllocator().New<SetSceneSettingsBlockCommand>(
+        SetSceneSettingsBlockCommand* raw = foundation::core::DefaultAllocator().New<SetSceneSettingsBlockCommand>(
             *this, settingsType, static_cast<Array<byte>&&>(newBlob));
-        return m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator()));
+        return m_commands->Execute(UniquePtr<IEditorCommand>(raw, foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::SetSceneSettingPropertyRaw(const TypeInfo* settingsType,
                                                       const char* property, i64 value)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<SetSceneSettingCommand>(*this, settingsType, property, value),
+            foundation::core::DefaultAllocator()));
     }
 
     scene::SceneSystem* SceneEditContext::FindSystemBySettingsType(const TypeInfo* settingsType)
@@ -336,15 +336,15 @@ namespace editor
     void SceneEditContext::AddComponent(const Guid& entity, const TypeInfo* componentType)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<AddComponentCommand>(*this, entity, componentType),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<AddComponentCommand>(*this, entity, componentType),
+            foundation::core::DefaultAllocator()));
     }
 
     void SceneEditContext::RemoveComponent(const Guid& entity, const TypeInfo* componentType)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<RemoveComponentCommand>(*this, entity, componentType),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<RemoveComponentCommand>(*this, entity, componentType),
+            foundation::core::DefaultAllocator()));
     }
 
     scene::ComponentManagerBase* SceneEditContext::FindManager(const TypeInfo* type)
@@ -487,9 +487,9 @@ namespace editor
                                                const Guid& parent, const Transform* rootTransform,
                                                const Guid& placeBefore)
     {
-        SpawnPrefabCommand* raw = DefaultAllocator().New<SpawnPrefabCommand>(
+        SpawnPrefabCommand* raw = foundation::core::DefaultAllocator().New<SpawnPrefabCommand>(
             *this, prefabId, Move(payload), parent, rootTransform, placeBefore);
-        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
+        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, foundation::core::DefaultAllocator())))
         {
             return Guid{};
         }
@@ -571,8 +571,8 @@ namespace editor
     Guid SceneEditContext::RunPasteCommand(Array<SubtreeRecord> records, const Guid& parent)
     {
         PasteEntitiesCommand* raw =
-            DefaultAllocator().New<PasteEntitiesCommand>(*this, Move(records), parent);
-        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, DefaultAllocator())))
+            foundation::core::DefaultAllocator().New<PasteEntitiesCommand>(*this, Move(records), parent);
+        if (!m_commands->Execute(UniquePtr<IEditorCommand>(raw, foundation::core::DefaultAllocator())))
         {
             return Guid{};
         }

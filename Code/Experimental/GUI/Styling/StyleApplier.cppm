@@ -76,7 +76,7 @@ export namespace experimental::gui
             if (Optional<Color> c = ParseColor(style.Get(StringView(u8"background-color")));
                 c.HasValue())
                 node.SetBackground(
-                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), c.Value()));
+                    core::MakeRef<RectangleDrawable>(foundation::core::DefaultAllocator(), c.Value()));
 
         if (style.Has(StringView(u8"padding")))
             if (Optional<Thickness> t =
@@ -214,7 +214,7 @@ export namespace experimental::gui
             const StringView path = ParseUrl(style.Get(StringView(u8"background-image")));
             if (path.Size() != 0)
                 if (const image::ImageData* img = resources->LoadImage(path))
-                    node.SetBackground(core::MakeRef<ImageDrawable>(core::DefaultAllocator(), img));
+                    node.SetBackground(core::MakeRef<ImageDrawable>(foundation::core::DefaultAllocator(), img));
         }
 
         // border-radius: round the background rectangle; the border (below) reuses the radii.
@@ -255,7 +255,7 @@ export namespace experimental::gui
             if (borderWidth.HasValue() || borderColor.HasValue())
             {
                 auto border = core::MakeRef<BorderDrawable>(
-                    core::DefaultAllocator(), borderColor.ValueOr(Color{0.0f, 0.0f, 0.0f, 1.0f}),
+                    foundation::core::DefaultAllocator(), borderColor.ValueOr(Color{0.0f, 0.0f, 0.0f, 1.0f}),
                     borderWidth.ValueOr(1.0f));
                 if (hasRadius)
                     border->SetCornerRadii(radii);

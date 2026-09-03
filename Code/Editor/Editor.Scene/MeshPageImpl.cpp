@@ -84,35 +84,35 @@ namespace editor
         m_defaultMaterial = materials::CreatePBR(u8"MeshPreview");
 
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
-        m_preview = MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"mesh.preview");
+        m_preview = MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"mesh.preview");
         m_preview->Camera().position = Float3{4.0f, 3.0f, 6.0f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
 
         BuildPreviewScene();
 
-        m_statsColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_statsColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         m_statsColumn->Direction = ui::Orientation::Vertical;
         m_statsColumn->Spacing = 4.0f;
 
-        auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+        auto scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
         scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             scroll->AddView(m_statsColumn.Get(), lp);
         }
 
-        auto statsColumnOuter = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto statsColumnOuter = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         statsColumnOuter->Direction = ui::Orientation::Vertical;
         statsColumnOuter->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             statsColumnOuter->AddView(scroll.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         split->SetSplitRatio(0.66f);
         split->SetPanes(m_preview->View(), statsColumnOuter.Get());
         m_content = split;
@@ -222,7 +222,7 @@ namespace editor
         // Preview material row (always shown): pick a MaterialAsset to render with, or reset to the
         // neutral default. Applied live to the preview MeshComponent.
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
 
@@ -242,16 +242,16 @@ namespace editor
             {
                 matLabel.Append(u8"Default");
             }
-            m_materialButton = MakeRef<ui::Button>(DefaultAllocator(), matLabel.AsView());
+            m_materialButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), matLabel.AsView());
             m_materialButton->FontSize.SetValue(Optional<f32>{12.0f});
             MeshEditorPage* self = this;
             m_materialButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMaterial(); });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Grow = 1.0f;
                 row->AddView(m_materialButton.Get(), lp);
             }
-            auto reset = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Default"));
+            auto reset = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Default"));
             reset->FontSize.SetValue(Optional<f32>{12.0f});
             reset->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -263,11 +263,11 @@ namespace editor
                     self->SavePreviewPref();
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f));
                 row->AddView(reset.Get(), lp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_statsColumn->AddView(row.Get(), lp);
@@ -285,13 +285,13 @@ namespace editor
         // shows IS the selected level's real draw.
         if (mesh->lodCount > 1)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
             MeshEditorPage* self = this;
             const auto addLodButton = [&](StringView text, i32 value)
             {
-                auto button = MakeRef<ui::Button>(DefaultAllocator(), text);
+                auto button = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), text);
                 button->FontSize.SetValue(Optional<f32>{12.0f});
                 if (value == m_previewForceLod)
                 {
@@ -304,7 +304,7 @@ namespace editor
                         self->ApplyPreviewLod();
                         self->RefreshStats();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Grow = 1.0f;
                 row->AddView(button.Get(), lp);
             };
@@ -313,7 +313,7 @@ namespace editor
             {
                 addLodButton(Format(u8"LOD {}", l).AsView(), static_cast<i32>(l));
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_statsColumn->AddView(row.Get(), lp);
@@ -369,9 +369,9 @@ namespace editor
 
     void MeshEditorPage::AddStatLine(StringView text)
     {
-        auto label = MakeRef<ui::Label>(DefaultAllocator(), text);
+        auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
         lp->Width = ui::SizeSpec::Match();
         m_statsColumn->AddView(label.Get(), lp);
     }
@@ -470,7 +470,7 @@ namespace editor
         MeshEditorPage* self = this;
         Array<String> types;
         types.PushBack(String(u8"MaterialAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
         dialog->OnPicked = [self](const Guid& picked)
         {
             self->m_previewMaterialId = picked;
@@ -510,8 +510,8 @@ namespace editor
     UniquePtr<EditorPage> MeshEditorPageFactory::CreatePage(EditorContext& context,
                                                             foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<MeshEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<MeshEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 
     void RegisterMeshEditor(EditorContext& context, runtime::IApplicationHost& host,
@@ -522,13 +522,13 @@ namespace editor
         RegisterSerializable<MeshPreviewSettings>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(pipeline::StaticMeshAsset::StaticType(),
+            foundation::core::DefaultAllocator().New<MeshEditorPageFactory>(pipeline::StaticMeshAsset::StaticType(),
                                                           host, uiHost),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MeshEditorPageFactory>(pipeline::SkinnedMeshAsset::StaticType(),
+            foundation::core::DefaultAllocator().New<MeshEditorPageFactory>(pipeline::SkinnedMeshAsset::StaticType(),
                                                           host, uiHost),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator()));
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(MeshPreviewSettings, "rtti::editor::editor.mesh", 1)

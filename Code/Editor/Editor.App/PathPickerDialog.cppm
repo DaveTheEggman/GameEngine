@@ -48,11 +48,11 @@ export namespace editor::app
             MaxWidth.SetValue(560.0f);
             MaxHeight.SetValue(420.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            m_filterEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_filterEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_filterEdit->SetPlaceholder(u8"Filter...");
             {
                 PathPickerDialog* self = this;
@@ -62,13 +62,13 @@ export namespace editor::app
                         self->m_filter = String(edit->Text());
                         self->RebuildRows();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_filterEdit.Get(), lp);
             }
 
-            m_adapter = MakeUnique<RowAdapter>(DefaultAllocator(), *this);
-            m_list = MakeRef<ui::ListView>(DefaultAllocator());
+            m_adapter = MakeUnique<RowAdapter>(MemoryAllocator(), *this);
+            m_list = MakeRef<ui::ListView>(MemoryAllocator());
             m_list->ItemHeight.SetValue(20.0f);
             m_list->SetAdapter(m_adapter.Get());
             {
@@ -81,7 +81,7 @@ export namespace editor::app
                             self->ConfirmAt(position);
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(m_list.Get(), lp);
@@ -113,11 +113,11 @@ export namespace editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
                 row->Padding = ui::Thickness{6, 2};
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());
@@ -186,7 +186,7 @@ export namespace editor::app
         // Recursive walk from the root; `m_files` keeps root-relative paths.
         void CollectFiles(StringView rootPath)
         {
-            foundation::vfs::NativeFileSystem fs(rootPath, foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem fs(rootPath, MemoryAllocator());
             auto* enumerable = fs.AsEnumerable();
             if (enumerable == nullptr)
             {

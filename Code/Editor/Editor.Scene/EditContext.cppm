@@ -144,9 +144,9 @@ export namespace editor
                                      foundation::resource::ResourceManager* resources)
         {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SetResourceRefCommand<T>>(*this, entity, componentType,
+                foundation::core::DefaultAllocator().New<SetResourceRefCommand<T>>(*this, entity, componentType,
                                                                  property, value, resources),
-                DefaultAllocator()));
+                foundation::core::DefaultAllocator()));
         }
 
         /// Point a component's EntityRef property at a new entity (the inspector's entity picker) -
@@ -155,9 +155,9 @@ export namespace editor
                                    const char* property, const Guid& target)
         {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<SetEntityRefCommand>(*this, entity, componentType, property,
+                foundation::core::DefaultAllocator().New<SetEntityRefCommand>(*this, entity, componentType, property,
                                                             target),
-                DefaultAllocator()));
+                foundation::core::DefaultAllocator()));
         }
 
         /// Set a reflected component property whose type a Variant cannot construct at runtime
@@ -181,9 +181,9 @@ export namespace editor
                                         foundation::resource::ResourceManager* resources)
         {
             (void)m_commands->Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<SetSceneSettingRefCommand<T>>(
+                UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<SetSceneSettingRefCommand<T>>(
                                               *this, settingsType, property, value, resources),
-                                          DefaultAllocator()));
+                                          foundation::core::DefaultAllocator()));
         }
 
         /// Whole-block scene-settings edit (shapes reflection rows can't express - e.g.
@@ -397,7 +397,7 @@ export namespace editor
                                 return;
                             }
                             auto pin =
-                                MakeUnique<scene::Scene::PendingPrefabInstance>(DefaultAllocator());
+                                MakeUnique<scene::Scene::PendingPrefabInstance>(foundation::core::DefaultAllocator());
                             pin->prefabId = nested.prefabId;
                             pin->sourceIds = nested.sourceIds;
                             pin->liveIds = nested.liveIds;

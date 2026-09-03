@@ -40,7 +40,7 @@ export namespace editor::app
             MaxWidth.SetValue(640.0f);
             MaxHeight.SetValue(300.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8;
 
@@ -73,23 +73,23 @@ export namespace editor::app
             }
             {
                 ui::FlexLayout* row = AddRow(*column, u8"UI scale");
-                auto slider = MakeRef<ui::Slider>(DefaultAllocator());
+                auto slider = MakeRef<ui::Slider>(MemoryAllocator());
                 slider->Min.SetValue(1.0f);
                 slider->Max.SetValue(2.0f);
                 slider->Step.SetValue(0.05f);
                 slider->Value.SetValue(uiScale);
                 m_uiScaleSlider = slider.Get();
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(slider.Get(), lp);
                 }
-                auto valueLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"1.00x"));
+                auto valueLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"1.00x"));
                 valueLabel->FontSize.SetValue(11.0f);
                 m_uiScaleLabel = valueLabel.Get();
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(44));
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(valueLabel.Get(), lp);
@@ -101,7 +101,7 @@ export namespace editor::app
                         [self](ui::Slider*, f32 v) { self->UpdateScaleLabel(v); }});
             }
             {
-                auto note = MakeRef<ui::Label>(DefaultAllocator(),
+                auto note = MakeRef<ui::Label>(MemoryAllocator(),
                                                StringView(u8"Font changes apply on restart."));
                 note->FontSize.SetValue(11.0f);
                 note->TextColor.SetValue(Optional<Color>(Color{0.55f, 0.55f, 0.55f, 1.0f}));
@@ -114,7 +114,7 @@ export namespace editor::app
             for (const editor::EditorContext::EditorSettingsContribution& contribution :
                  context.EditorSettingsContributions())
             {
-                auto header = MakeRef<ui::Label>(DefaultAllocator(),
+                auto header = MakeRef<ui::Label>(MemoryAllocator(),
                                                  contribution.category.AsView());
                 header->FontSize.SetValue(13.0f);
                 column->AddView(header.Get());
@@ -123,7 +123,7 @@ export namespace editor::app
                 {
                     const bool current = field.get ? field.get() : false;
                     auto check =
-                        MakeRef<ui::CheckBox>(DefaultAllocator(), field.label.AsView(), current);
+                        MakeRef<ui::CheckBox>(MemoryAllocator(), field.label.AsView(), current);
                     check->FontSize.SetValue(12.0f);
                     if (!field.description.IsEmpty())
                     {
@@ -140,7 +140,7 @@ export namespace editor::app
                                 fieldPtr->set(checked);
                             }
                         });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Width = ui::SizeSpec::Match();
                     lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     column->AddView(check.Get(), lp);
@@ -149,11 +149,11 @@ export namespace editor::app
 
             // Scroll the preferences column so it can grow without spilling over the modal button
             // row (the Dialog gives content a fixed Grow-shared area above the buttons). User feedback.
-            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::LayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 scroll->AddView(column.Get(), lp);
             }
@@ -185,19 +185,19 @@ export namespace editor::app
         // A labeled horizontal row (fixed-width label, callers append the field views).
         ui::FlexLayout* AddRow(ui::FlexLayout& column, StringView label)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8;
             {
-                auto text = MakeRef<ui::Label>(DefaultAllocator(), label);
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto text = MakeRef<ui::Label>(MemoryAllocator(), label);
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(text.Get(), lp);
             }
             ui::FlexLayout* raw = row.Get();
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column.AddView(row.Get(), lp);
             }
@@ -207,10 +207,10 @@ export namespace editor::app
         ui::EditText* AddTextRow(ui::FlexLayout& column, StringView label, StringView value)
         {
             ui::FlexLayout* row = AddRow(column, label);
-            auto edit = MakeRef<ui::EditText>(DefaultAllocator());
+            auto edit = MakeRef<ui::EditText>(MemoryAllocator());
             edit->SetText(value);
             ui::EditText* raw = edit.Get();
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Grow = 1.0f;
             row->AddView(edit.Get(), lp);
             return raw;

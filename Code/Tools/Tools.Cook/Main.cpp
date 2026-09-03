@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 
     const StringView projectDir(reinterpret_cast<const utf8char*>(argv[1]));
     UniquePtr<editor::EditorProject> project =
-        editor::EditorProject::Open(projectDir);
+        editor::EditorProject::Open(DefaultAllocator(), projectDir);
     if (!project)
     {
         std::fprintf(stderr, "Tools.Cook: failed to open project '%s'\n", argv[1]);

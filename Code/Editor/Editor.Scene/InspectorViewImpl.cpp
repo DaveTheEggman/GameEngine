@@ -66,7 +66,7 @@ namespace editor
 {
     RefPtr<ui::View> NoticeEditor::CreateEditorView()
     {
-        auto label = MakeRef<ui::Label>(DefaultAllocator(), message.AsView());
+        auto label = MakeRef<ui::Label>(MemoryAllocator(), message.AsView());
         label->WordWrap.SetValue(true);
         label->TextColor.SetValue(
             Optional<core::Color>{core::Color{0.95f, 0.75f, 0.2f, 1.0f}}); // amber advisory
@@ -75,7 +75,7 @@ namespace editor
 
     RefPtr<ui::View> CollisionMatrixEditor::CreateEditorView()
     {
-        m_column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_column = MakeRef<ui::FlexLayout>(MemoryAllocator());
         m_column->Direction = ui::Orientation::Vertical;
         m_column->Spacing = 2.0f;
         BuildGrid(*m_column);
@@ -127,15 +127,15 @@ namespace editor
         constexpr f32 kHeaderH = 88.0f;           // room for the rotated names
         constexpr f32 kQuarterTurn = -1.5707963f; // -90 deg: header names read bottom-to-top
 
-        auto fixedCell = [](f32 width)
+        auto fixedCell = [self](f32 width)
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(self->MemoryAllocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
             return lp;
         };
-        auto centeredSlot = []()
+        auto centeredSlot = [self]()
         {
-            auto slot = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto slot = MakeRef<ui::FlexLayout>(self->MemoryAllocator());
             slot->Direction = ui::Orientation::Horizontal;
             slot->JustifyContent = ui::Justify::Center;
             slot->AlignItems = ui::Align::Center;
@@ -144,23 +144,23 @@ namespace editor
 
         // Header row: an empty corner over the name column, then a VERTICAL name per group column.
         {
-            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto header = MakeRef<ui::FlexLayout>(MemoryAllocator());
             header->Direction = ui::Orientation::Horizontal;
             header->Spacing = 2.0f;
-            header->AddView(MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"")).Get(),
+            header->AddView(MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"")).Get(),
                             fixedCell(kNameColW));
             for (usize j = 0; j < count; ++j)
             {
                 auto slot = centeredSlot();
-                auto head = MakeRef<ui::Label>(DefaultAllocator(), names[j].AsView());
+                auto head = MakeRef<ui::Label>(MemoryAllocator(), names[j].AsView());
                 head->FontSize.SetValue(Optional<f32>{11.0f});
                 head->TooltipText = names[j];
                 head->Transform.Rotation = kQuarterTurn; // vertical
                 head->Transform.Origin = Float2{0.5f, 0.5f};
-                slot->AddView(head.Get(), MakeRef<ui::FlexLayoutParams>(DefaultAllocator()));
+                slot->AddView(head.Get(), MakeRef<ui::FlexLayoutParams>(MemoryAllocator()));
                 header->AddView(slot.Get(), fixedCell(kCellW));
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kHeaderH));
             column.AddView(header.Get(), lp);
@@ -168,12 +168,12 @@ namespace editor
 
         for (usize i = 0; i < count; ++i)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 2.0f;
 
             // Row header: the editable group name on the LEFT.
-            auto name = MakeRef<ui::EditText>(DefaultAllocator());
+            auto name = MakeRef<ui::EditText>(MemoryAllocator());
             name->SetText(names[i].AsView());
             ui::EditText* nameRaw = name.Get();
             // Enter commits immediately; the OnEditingFinished handler below covers blur with
@@ -211,7 +211,7 @@ namespace editor
             {
                 const bool collides = i < matrix.Size() && (matrix[i] & (1u << j)) != 0;
                 auto slot = centeredSlot();
-                auto box = MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(u8""), collides);
+                auto box = MakeRef<ui::CheckBox>(MemoryAllocator(), StringView(u8""), collides);
                 box->OnCheckedChanged.Add(
                     [self, i, j](ui::CheckBox*, bool)
                     {
@@ -220,7 +220,7 @@ namespace editor
                             self->OnToggle(i, j);
                         }
                     });
-                slot->AddView(box.Get(), MakeRef<ui::FlexLayoutParams>(DefaultAllocator()));
+                slot->AddView(box.Get(), MakeRef<ui::FlexLayoutParams>(MemoryAllocator()));
                 row->AddView(slot.Get(), fixedCell(kCellW));
             }
 
@@ -229,7 +229,7 @@ namespace editor
             // every higher index and silently re-group bodies). Keep at least one group.
             if (i + 1 == count && count > 1)
             {
-                auto del = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"x"));
+                auto del = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"x"));
                 del->FontSize.SetValue(Optional<f32>{12.0f});
                 del->TooltipText = String(u8"Remove this group (the last one)");
                 del->OnClick.Add(
@@ -243,7 +243,7 @@ namespace editor
                 row->AddView(del.Get(), fixedCell(20.0f));
             }
 
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(row.Get(), lp);
@@ -251,7 +251,7 @@ namespace editor
 
         if (count < foundation::physics::kCollisionGroupCount)
         {
-            auto add = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"+ Add Group"));
+            auto add = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"+ Add Group"));
             add->FontSize.SetValue(Optional<f32>{12.0f});
             add->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -261,7 +261,7 @@ namespace editor
                         self->OnAddGroup();
                     }
                 });
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(add.Get(), lp);
@@ -283,7 +283,7 @@ namespace editor
 
     RefPtr<ui::View> ResourceRefEditor::CreateEditorView()
     {
-        m_slot = MakeRef<editor::app::AssetPickerSlot>(DefaultAllocator());
+        m_slot = MakeRef<editor::app::AssetPickerSlot>(MemoryAllocator());
         ResourceRefEditor* self = this;
         // Forward only the affordances the consumer wired - unwired ones stay hidden.
         if (OnPick)
@@ -453,7 +453,7 @@ namespace editor
         SceneEditContext* edit = m_edit;
 
         auto name = MakeRef<ui::toolkit::StringEditor>(
-            DefaultAllocator(), StringView(u8"Name"),
+            MemoryAllocator(), StringView(u8"Name"),
             m_edit->Scene().GetEntityName(m_edit->Resolve(id)),
             Function<void(StringView)>{[edit, id](StringView v) { edit->RenameEntity(id, v); }},
             StringView(u8"Entity"));
@@ -461,7 +461,7 @@ namespace editor
                   { raw->SetValue(edit->Scene().GetEntityName(edit->Resolve(id))); });
 
         auto active = MakeRef<ui::toolkit::BoolEditor>(
-            DefaultAllocator(), StringView(u8"Active"),
+            MemoryAllocator(), StringView(u8"Active"),
             m_edit->Scene().IsActive(m_edit->Resolve(id)),
             Function<void(bool)>{[edit, id](bool v) { edit->SetEntityActive(id, v); }},
             StringView(u8"Entity"));
@@ -476,7 +476,7 @@ namespace editor
         const core::Transform t = m_edit->Scene().GetLocalTransform(m_edit->Resolve(id));
 
         auto position = MakeRef<ui::toolkit::Float3Editor>(
-            DefaultAllocator(), StringView(u8"Position"), t.position, -100000.0f, 100000.0f, 0.1f,
+            MemoryAllocator(), StringView(u8"Position"), t.position, -100000.0f, 100000.0f, 0.1f,
             Function<void(Float3)>{[edit, id](Float3 v)
                                    {
                                        core::Transform current =
@@ -490,7 +490,7 @@ namespace editor
 
         // Rotation displayed as euler DEGREES (x = pitch, y = yaw, z = roll).
         auto rotation = MakeRef<ui::toolkit::Float3Editor>(
-            DefaultAllocator(), StringView(u8"Rotation"), EulerDegrees(t.rotation), -360.0f, 360.0f,
+            MemoryAllocator(), StringView(u8"Rotation"), EulerDegrees(t.rotation), -360.0f, 360.0f,
             1.0f,
             Function<void(Float3)>{[edit, id](Float3 v)
                                    {
@@ -510,7 +510,7 @@ namespace editor
                   });
 
         auto scale = MakeRef<ui::toolkit::Float3Editor>(
-            DefaultAllocator(), StringView(u8"Scale"), t.scale, -100000.0f, 100000.0f, 0.1f,
+            MemoryAllocator(), StringView(u8"Scale"), t.scale, -100000.0f, 100000.0f, 0.1f,
             Function<void(Float3)>{[edit, id](Float3 v)
                                    {
                                        core::Transform current =
@@ -581,7 +581,7 @@ namespace editor
         }
         auto* live = static_cast<PhysicsSceneSettings*>(system->SettingsInstance());
 
-        auto matrix = MakeRef<CollisionMatrixEditor>(DefaultAllocator(),
+        auto matrix = MakeRef<CollisionMatrixEditor>(MemoryAllocator(),
                                                      StringView(u8"Collision Groups"), category);
         // Display copy: at least one row ("Default"); rows without a stored mask
         // read as collide-with-everything.
@@ -769,7 +769,7 @@ namespace editor
                 return 0;
             };
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), name, indexOf(rawRead()),
+                MemoryAllocator(), name, indexOf(rawRead()),
                 Span<const StringView>{items.Data(), items.Size()},
                 readOnly ? Function<void(i32)>{}
                          : Function<void(i32)>{[edit, type, propName, values](i32 index)
@@ -800,7 +800,7 @@ namespace editor
             if (const Float4* range = RangeOf(prop))
             {
                 auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                    DefaultAllocator(), name, static_cast<f32>(value()), range->x, range->y,
+                    MemoryAllocator(), name, static_cast<f32>(value()), range->x, range->y,
                     range->z,
                     readOnly ? Function<void(f32)>{}
                              : Function<void(f32)>{[edit, type, propName](f32 v)
@@ -814,7 +814,7 @@ namespace editor
                 return;
             }
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
+                MemoryAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
                 readOnly ? Function<void(f64)>{}
                          : Function<void(f64)>{[edit, type, propName](f64 v)
                                                {
@@ -836,7 +836,7 @@ namespace editor
                 return (c != nullptr) ? *c : Color{1, 1, 1, 1};
             };
             auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                DefaultAllocator(), name, value(),
+                MemoryAllocator(), name, value(),
                 readOnly ? Function<void(Color)>{}
                          : Function<void(Color)>{[edit, type, propName](Color v)
                                                  {
@@ -857,7 +857,7 @@ namespace editor
                 return (b != nullptr) && *b;
             };
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), name, value(),
+                MemoryAllocator(), name, value(),
                 readOnly ? Function<void(bool)>{}
                          : Function<void(bool)>{[edit, type, propName](bool v)
                                                 {
@@ -878,7 +878,7 @@ namespace editor
                 return (f != nullptr) ? *f : Float3{};
             };
             auto editor = MakeRef<ui::toolkit::Float3Editor>(
-                DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly ? Function<void(Float3)>{}
                          : Function<void(Float3)>{[edit, type, propName](Float3 v)
                                                   {
@@ -1026,7 +1026,7 @@ namespace editor
             if (body != nullptr && body->shape == foundation::physics::ShapeKind::Cooked &&
                 body->collisionShape.id.IsNil())
             {
-                auto notice = MakeRef<NoticeEditor>(DefaultAllocator(), StringView(u8"Collision"),
+                auto notice = MakeRef<NoticeEditor>(MemoryAllocator(), StringView(u8"Collision"),
                                                     StringView(u8"Physics"));
                 notice->message = String(
                     u8"Shape is Cooked but no collision shape is set - this body has no collider. "
@@ -1043,7 +1043,7 @@ namespace editor
         if (type == &TypeOf<engine::navigation::NavMeshZoneComponent>())
         {
             auto bake = MakeRef<ui::toolkit::ButtonEditor>(
-                DefaultAllocator(), StringView(u8"Bake Navigation"),
+                MemoryAllocator(), StringView(u8"Bake Navigation"),
                 [edit, editor, id]()
                 {
                     if (edit == nullptr || editor == nullptr)
@@ -1146,7 +1146,7 @@ namespace editor
             if (mgr.IsSerializable() && scene::FindPrefabMember(edit->Scene(), id, member))
             {
                 auto revert = MakeRef<ui::toolkit::ButtonEditor>(
-                    DefaultAllocator(), StringView(u8"Revert to Prefab"),
+                    MemoryAllocator(), StringView(u8"Revert to Prefab"),
                     Function<void()>{[edit, id, type]()
                                      { (void)edit->RevertComponentToBaseline(id, type); }},
                     category);
@@ -1175,11 +1175,11 @@ namespace editor
         // components get these - Transform / scene-settings sections do not add header actions.
         {
             editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
-            auto actions = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto actions = MakeRef<ui::FlexLayout>(MemoryAllocator());
             actions->Direction = ui::Orientation::Horizontal;
             actions->Spacing = 2.0f;
 
-            auto copyBtn = MakeRef<ui::IconButton>(DefaultAllocator(), icons.copy.Get(), 18.0f);
+            auto copyBtn = MakeRef<ui::IconButton>(MemoryAllocator(), icons.copy.Get(), 18.0f);
             copyBtn->TooltipText = String(u8"Copy component");
             copyBtn->OnClick.Add(
                 [edit, editor, id, type](ui::ButtonBase*)
@@ -1192,7 +1192,7 @@ namespace editor
                 });
             actions->AddView(copyBtn.Get());
 
-            auto removeBtn = MakeRef<ui::IconButton>(DefaultAllocator(), icons.remove.Get(), 18.0f);
+            auto removeBtn = MakeRef<ui::IconButton>(MemoryAllocator(), icons.remove.Get(), 18.0f);
             removeBtn->TooltipText = String(u8"Remove component");
             removeBtn->OnClick.Add([edit, id, type](ui::ButtonBase*)
                                    { edit->RemoveComponent(id, type); });
@@ -1415,7 +1415,7 @@ namespace editor
             };
 
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), name, indexOf(rawRead()),
+                MemoryAllocator(), name, indexOf(rawRead()),
                 Span<const StringView>{items.Data(), items.Size()},
                 readOnly ? Function<void(i32)>{}
                          : Function<void(i32)>{[edit, id, type, propName, values](i32 index)
@@ -1446,7 +1446,7 @@ namespace editor
             if (const Float4* range = RangeOf(prop))
             {
                 auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                    DefaultAllocator(), name, static_cast<f32>(value()), range->x, range->y,
+                    MemoryAllocator(), name, static_cast<f32>(value()), range->x, range->y,
                     range->z,
                     readOnly
                         ? Function<void(f32)>{}
@@ -1461,7 +1461,7 @@ namespace editor
                 return;
             }
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
+                MemoryAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
                 readOnly ? Function<void(f64)>{}
                          : Function<void(f64)>{[edit, id, type, propName](f64 v)
                                                {
@@ -1483,7 +1483,7 @@ namespace editor
                 return b != nullptr && *b;
             };
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), name, value(),
+                MemoryAllocator(), name, value(),
                 readOnly ? Function<void(bool)>{}
                          : Function<void(bool)>{[edit, id, type, propName](bool v)
                                                 {
@@ -1588,7 +1588,7 @@ namespace editor
                 }
             };
             auto editor = MakeRef<ui::toolkit::IntEditor>(
-                DefaultAllocator(), name, value(), std::numeric_limits<i64>::min(),
+                MemoryAllocator(), name, value(), std::numeric_limits<i64>::min(),
                 std::numeric_limits<i64>::max(),
                 readOnly ? Function<void(i64)>{} : Function<void(i64)>{Move(setter)}, category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -1604,7 +1604,7 @@ namespace editor
                 return (s != nullptr) ? String(*s) : String{};
             };
             auto editor = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), name, value().AsView(),
+                MemoryAllocator(), name, value().AsView(),
                 readOnly ? Function<void(StringView)>{}
                          : Function<void(StringView)>{[edit, id, type, propName](StringView v)
                                                       {
@@ -1627,7 +1627,7 @@ namespace editor
                 return (f != nullptr) ? *f : Float3{};
             };
             auto editor = MakeRef<ui::toolkit::Float3Editor>(
-                DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float3)>{}
                     : Function<void(Float3)>{[edit, id, type, propName](Float3 v)
@@ -1649,7 +1649,7 @@ namespace editor
                 return (c != nullptr) ? *c : Color{1, 1, 1, 1};
             };
             auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                DefaultAllocator(), name, value(),
+                MemoryAllocator(), name, value(),
                 readOnly
                     ? Function<void(Color)>{}
                     : Function<void(Color)>{[edit, id, type, propName](Color v)
@@ -1671,7 +1671,7 @@ namespace editor
                 return (f != nullptr) ? *f : Float2{};
             };
             auto editor = MakeRef<ui::toolkit::Float2Editor>(
-                DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float2)>{}
                     : Function<void(Float2)>{[edit, id, type, propName](Float2 v)
@@ -1693,7 +1693,7 @@ namespace editor
                 return (f != nullptr) ? *f : Float4{};
             };
             auto editor = MakeRef<ui::toolkit::Float4Editor>(
-                DefaultAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float4)>{}
                     : Function<void(Float4)>{[edit, id, type, propName](Float4 v)
@@ -1764,7 +1764,7 @@ namespace editor
         }
 
         auto slots =
-            MakeRef<ContainerListEditor>(DefaultAllocator(), StringView(u8"Materials"), category);
+            MakeRef<ContainerListEditor>(MemoryAllocator(), StringView(u8"Materials"), category);
         slots->SetTooltip(u8"Material slots, indexed by the mesh's submesh material index. "
                           u8"Slot 0 also covers single-material meshes and any submesh "
                           u8"whose index has no slot.");
@@ -1816,7 +1816,7 @@ namespace editor
             Array<String> typeNames;
             typeNames.PushBack(String(u8"MaterialAsset"));
             auto picker = MakeRef<editor::app::AssetPickerDialog>(
-                DefaultAllocator(), *self->m_editor, Move(typeNames));
+                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
             picker->OnPicked = [self, id, slot](const Guid& picked)
             {
                 self->MutateMeshMaterials(
@@ -1926,7 +1926,7 @@ namespace editor
         }
 
         auto add = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"+ Add Behavior"),
+            MemoryAllocator(), StringView(u8"+ Add Behavior"),
             Function<void()>{[self, id]()
                              {
                                  self->MutateScriptComponent(
@@ -1938,7 +1938,7 @@ namespace editor
 
         // Shape-change watcher (add/remove/reorder/pick/override toggle rebuilds).
         const u64 signature = ScriptBehaviorsSignature(*component);
-        auto watcher = MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8""),
+        auto watcher = MakeRef<ui::toolkit::ButtonEditor>(MemoryAllocator(), StringView(u8""),
                                                           Function<void()>{[]() {}}, category);
         watcher->SetRowVisible(false);
         AddEditor(
@@ -1974,7 +1974,7 @@ namespace editor
         // Script picker (AssetPickerDialog filtered to ScriptClass).
         const StringView assetName =
             behavior.script.id.IsNil() ? StringView(u8"(none)") : AssetNameFor(behavior.script.id);
-        auto picker = MakeRef<ResourceRefEditor>(DefaultAllocator(), StringView(u8"Script"),
+        auto picker = MakeRef<ResourceRefEditor>(MemoryAllocator(), StringView(u8"Script"),
                                                  assetName, category);
         ResourceRefEditor* pickerRaw = picker.Get();
         pickerRaw->OnPick = [self, id, index]()
@@ -1986,7 +1986,7 @@ namespace editor
             Array<String> typeNames;
             typeNames.PushBack(String(u8"ScriptClassAsset"));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                DefaultAllocator(), *self->m_editor, Move(typeNames));
+                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [self, id, index](const Guid& picked)
             {
                 self->MutateScriptComponent(
@@ -2025,7 +2025,7 @@ namespace editor
 
         // Enabled toggle.
         auto enabled = MakeRef<ui::toolkit::BoolEditor>(
-            DefaultAllocator(), StringView(u8"Enabled"), behavior.enabled,
+            MemoryAllocator(), StringView(u8"Enabled"), behavior.enabled,
             Function<void(bool)>{[self, id, index](bool value)
                                  {
                                      self->MutateScriptComponent(
@@ -2043,7 +2043,7 @@ namespace editor
 
         // Update interval (throttling): seconds between onUpdate; 0 = every tick.
         auto interval = MakeRef<ui::toolkit::FloatEditor>(
-            DefaultAllocator(), StringView(u8"Update Interval"),
+            MemoryAllocator(), StringView(u8"Update Interval"),
             static_cast<f64>(behavior.updateInterval), 0.0, 3600.0, 0.05, 3,
             Function<void(f64)>{[self, id, index](f64 value)
                                 {
@@ -2064,7 +2064,7 @@ namespace editor
 
         // Reorder / remove.
         auto up = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"Move Up"),
+            MemoryAllocator(), StringView(u8"Move Up"),
             Function<void()>{[self, id, index]()
                              {
                                  self->MutateScriptComponent(
@@ -2084,7 +2084,7 @@ namespace editor
         up->SetButtonEnabled(index > 0);
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
         auto remove = MakeRef<ui::toolkit::ButtonEditor>(
-            DefaultAllocator(), StringView(u8"Remove Behavior"),
+            MemoryAllocator(), StringView(u8"Remove Behavior"),
             Function<void()>{[self, id, index]()
                              {
                                  self->MutateScriptComponent(
@@ -2111,7 +2111,7 @@ namespace editor
             const u64 hash = property.hash;
             using engine::script::ScriptComponent;
             using foundation::script::ScriptPropertyValue;
-            auto access = MakeRef<ScriptPropertyAccess>(DefaultAllocator());
+            auto access = MakeRef<ScriptPropertyAccess>(MemoryAllocator());
             // The effective value re-resolves the component each call (pools move on edit).
             access->effective = [self, id, index, hash, property]() -> ScriptPropertyValue
             {
@@ -2171,7 +2171,7 @@ namespace editor
         case ScriptPropertyType::Float:
         {
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                DefaultAllocator(), name, access->effective().number, -1e9, 1e9, 0.1, 3,
+                MemoryAllocator(), name, access->effective().number, -1e9, 1e9, 0.1, 3,
                 Function<void(f64)>{[access](f64 v)
                                     {
                                         ScriptPropertyValue value;
@@ -2191,7 +2191,7 @@ namespace editor
         case ScriptPropertyType::Int:
         {
             auto editor = MakeRef<ui::toolkit::IntEditor>(
-                DefaultAllocator(), name, static_cast<i64>(access->effective().number),
+                MemoryAllocator(), name, static_cast<i64>(access->effective().number),
                 std::numeric_limits<i64>::min(), std::numeric_limits<i64>::max(),
                 Function<void(i64)>{[access](i64 v)
                                     {
@@ -2212,7 +2212,7 @@ namespace editor
         case ScriptPropertyType::Bool:
         {
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), name, access->effective().boolean,
+                MemoryAllocator(), name, access->effective().boolean,
                 Function<void(bool)>{[access](bool v)
                                      {
                                          ScriptPropertyValue value;
@@ -2232,7 +2232,7 @@ namespace editor
         case ScriptPropertyType::String:
         {
             auto editor = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), name, access->effective().text.AsView(),
+                MemoryAllocator(), name, access->effective().text.AsView(),
                 Function<void(StringView)>{[access](StringView v)
                                            {
                                                ScriptPropertyValue value;
@@ -2252,7 +2252,7 @@ namespace editor
         case ScriptPropertyType::Color:
         {
             auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                DefaultAllocator(), name, access->effective().color,
+                MemoryAllocator(), name, access->effective().color,
                 Function<void(Color)>{[access](Color v)
                                       {
                                           ScriptPropertyValue value;
@@ -2272,7 +2272,7 @@ namespace editor
         case ScriptPropertyType::Vec3:
         {
             auto editor = MakeRef<ui::toolkit::Float3Editor>(
-                DefaultAllocator(), name, access->effective().vector, -1e9f, 1e9f, 0.1f,
+                MemoryAllocator(), name, access->effective().vector, -1e9f, 1e9f, 0.1f,
                 Function<void(Float3)>{[access](Float3 v)
                                        {
                                            ScriptPropertyValue value;
@@ -2325,7 +2325,7 @@ namespace editor
                                   : StringView(u8"(missing)");
         };
 
-        auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), property.name.AsView(),
+        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
                                                  nameOf(currentTarget()), category);
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
@@ -2338,7 +2338,7 @@ namespace editor
             {
                 return;
             }
-            auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+            auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
             menu->AddItem(StringView(u8"(none)"), [access]() { access->removeOverride(); });
             menu->AddSeparator();
             self->m_edit->Scene().ForEachEntity(
@@ -2405,7 +2405,7 @@ namespace editor
         };
 
         auto editor =
-            MakeRef<ResourceRefEditor>(DefaultAllocator(), name, nameOf(currentTarget()), category);
+            MakeRef<ResourceRefEditor>(MemoryAllocator(), name, nameOf(currentTarget()), category);
         ResourceRefEditor* raw = editor.Get();
         raw->OnPick = [self, edit, id, type, propName, currentTarget]()
         {
@@ -2415,7 +2415,7 @@ namespace editor
             }
             // Modal, filterable entity TREE (mirrors the asset picker + hierarchy view), replacing
             // the flat menu that was unusable in large scenes. Pre-selects the current target.
-            auto dialog = MakeRef<editor::EntityPickerDialog>(DefaultAllocator(), edit->Scene(),
+            auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(), edit->Scene(),
                                                              currentTarget());
             dialog->OnPicked = [edit, id, type, propName](const Guid& target)
             { edit->SetComponentEntityRef(id, type, propName, target); };
@@ -2435,7 +2435,7 @@ namespace editor
 
         auto currentTarget = [access]() -> Guid { return access->effective().guid; };
 
-        auto editor = MakeRef<ResourceRefEditor>(DefaultAllocator(), property.name.AsView(),
+        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
                                                  AssetNameFor(currentTarget()), category);
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
@@ -2454,7 +2454,7 @@ namespace editor
             assetTypeName.Append(u8"Asset");
             typeNames.PushBack(Move(assetTypeName));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                DefaultAllocator(), *self->m_editor, Move(typeNames));
+                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [access](const Guid& picked)
             {
                 ScriptPropertyValue value;
@@ -2516,7 +2516,7 @@ namespace editor
         for (const foundation::script::ScriptPropertyDesc& property : scriptClass->properties)
         {
             const u64 hash = property.hash;
-            auto access = MakeRef<ScriptPropertyAccess>(DefaultAllocator());
+            auto access = MakeRef<ScriptPropertyAccess>(MemoryAllocator());
             // Re-resolve the live settings each call (the settings block is replaced wholesale on
             // every edit, so a captured pointer would dangle).
             access->effective = [edit, settingsType, hash, property]() -> ScriptPropertyValue
@@ -2700,7 +2700,7 @@ namespace editor
 
         const String label =
             PrettifyPropertyName(StringView(reinterpret_cast<const utf8char*>(prop.name)));
-        auto listEditor = MakeRef<ContainerListEditor>(DefaultAllocator(), label.AsView(), category);
+        auto listEditor = MakeRef<ContainerListEditor>(MemoryAllocator(), label.AsView(), category);
         ContainerListEditor* rawList = listEditor.Get();
         // "description" property attribute -> the list's hover tooltip (the reflection-consistent way
         // to carry help text, e.g. the mesh material slot-0 / submesh semantics).
@@ -2788,7 +2788,7 @@ namespace editor
                         }
                     }
                 }
-                auto dialog = MakeRef<editor::EntityPickerDialog>(DefaultAllocator(),
+                auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(),
                                                                  self->m_edit->Scene(), current);
                 dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
                 {
@@ -2842,7 +2842,7 @@ namespace editor
             Array<String> typeNames;
             typeNames.PushBack(String(u8"MaterialAsset"));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                DefaultAllocator(), *self->m_editor, Move(typeNames));
+                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
             dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
             {
                 self->MutateComponent(
@@ -2907,7 +2907,7 @@ namespace editor
         }
 
         SceneEditContext* edit = m_edit;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
 
         // Category submenus with authored display names - not a
         // flat raw-type-name dump. Categories and items sort
@@ -3017,7 +3017,7 @@ namespace editor
             message += ComponentDisplayName(mgr->ComponentType());
             message += StringView(u8" component. Pasting overwrites it (you can undo). Continue?");
             RefPtr<ui::Dialog> dialog =
-                ui::Dialog::Confirm(DefaultAllocator(), StringView(u8"Overwrite Component?"), message.AsView());
+                ui::Dialog::Confirm(MemoryAllocator(), StringView(u8"Overwrite Component?"), message.AsView());
             SceneInspectorView* self = this;
             dialog->OnClosed.Add(
                 [self, id](ui::Dialog*, ui::DialogResult result)

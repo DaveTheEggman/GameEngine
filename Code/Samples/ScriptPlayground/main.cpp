@@ -162,7 +162,7 @@ namespace
 
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeMover()
     {
-        auto cls = core::MakeRef<script::ScriptClass>(core::DefaultAllocator());
+        auto cls = core::MakeRef<script::ScriptClass>(foundation::core::DefaultAllocator());
         cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Mover");
         cls->source = core::String(UseLuau() ? kMoverSourceLuau : kMoverSource);
@@ -181,7 +181,7 @@ namespace
 
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeSpinner()
     {
-        auto cls = core::MakeRef<script::ScriptClass>(core::DefaultAllocator());
+        auto cls = core::MakeRef<script::ScriptClass>(foundation::core::DefaultAllocator());
         cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Spinner");
         cls->source = core::String(UseLuau() ? kSpinnerSourceLuau : kSpinnerSource);
@@ -395,7 +395,7 @@ int main(int argc, char** argv)
 
     static core::ConsoleSink appConsoleSink;
     core::GlobalLogger().AddSink(&appConsoleSink);
-    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
+    auto shell = shell::CreateShell(MemoryAllocator());
     graphics::GraphicsDeviceDesc appGpuDesc{};
     appGpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto appGpu = graphics::CreateGraphicsDevice(appGpuDesc);

@@ -85,7 +85,7 @@ namespace editor
     bool SkeletonTreeAdapter::HasChildren(i32 nodeId) const { return GetChildCount(nodeId) > 0; }
     RefPtr<ui::View> SkeletonTreeAdapter::CreateView(i32)
     {
-        auto row = MakeRef<ui::EditableLabel>(DefaultAllocator());
+        auto row = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
         row->FontSize.SetValue(Optional<f32>{12.0f});
         row->Ellipsis.SetValue(true);
         row->DoubleClickToEdit.SetValue(false);
@@ -116,7 +116,7 @@ namespace editor
     {
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
-            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"skeleton.preview");
+            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"skeleton.preview");
         m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
         m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
@@ -128,8 +128,8 @@ namespace editor
         }
 
         // Left: the bone tree under a stats line.
-        m_adapter = MakeUnique<SkeletonTreeAdapter>(DefaultAllocator(), *this);
-        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(DefaultAllocator());
+        m_adapter = MakeUnique<SkeletonTreeAdapter>(foundation::core::DefaultAllocator(), *this);
+        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(foundation::core::DefaultAllocator());
         m_tree->SetItemHeight(22.0f);
         m_tree->SetDragEnabled(false);
         m_tree->SetAdapter(m_adapter.Get());
@@ -155,29 +155,29 @@ namespace editor
                     }
                 });
         }
-        m_statsLabel = MakeRef<ui::Label>(DefaultAllocator());
+        m_statsLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
         m_statsLabel->FontSize.SetValue(Optional<f32>{12.0f});
-        auto leftColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto leftColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         leftColumn->Direction = ui::Orientation::Vertical;
         leftColumn->Spacing = 4.0f;
         leftColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             leftColumn->AddView(m_statsLabel.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             leftColumn->AddView(m_tree.Get(), grow);
         }
 
         // Right: read-only info for the selected bone.
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
 
-        auto centerSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto centerSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         centerSplit->SetSplitRatio(0.26f);
         centerSplit->SetPanes(leftColumn.Get(), m_preview->View());
-        auto outerSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto outerSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         outerSplit->SetSplitRatio(0.78f);
         outerSplit->SetPanes(centerSplit.Get(), m_grid.Get());
         m_content = outerSplit;
@@ -259,7 +259,7 @@ namespace editor
         auto stat = [&](StringView name, String value)
         {
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name, value.AsView(),
+                MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), name, value.AsView(),
                                                    Function<void(StringView)>{}, cat)
                     .Get()));
         };
@@ -370,8 +370,8 @@ namespace editor
                                                           foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<SkeletonEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<SkeletonEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 
     Array<String> SkeletonStatLines(const animation::Skeleton& skeleton)
@@ -413,6 +413,6 @@ namespace editor
                                 ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<SkeletonPageFactory>(host, uiHost), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<SkeletonPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
     }
 }

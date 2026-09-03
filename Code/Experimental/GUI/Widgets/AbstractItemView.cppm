@@ -103,9 +103,9 @@ export namespace experimental::gui
             SetClipChildren(true);
             SetTabFocusable(true);
             SetBackground(
-                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_backgroundColor));
+                core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_backgroundColor));
 
-            m_vBar = core::MakeRef<ScrollBar>(core::DefaultAllocator());
+            m_vBar = core::MakeRef<ScrollBar>(MemoryAllocator());
             m_vBar->SetOrientation(Orientation::Vertical);
             AbstractItemView* self = this;
             m_vBar->SetOnValueChanged(

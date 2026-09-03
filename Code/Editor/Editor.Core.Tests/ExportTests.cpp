@@ -116,8 +116,8 @@ namespace
 
         Guid scriptId;
         {
-            REQUIRE(editor::EditorProject::Create(projectDir, u8"S").IsOk());
-            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+            REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir, u8"S").IsOk());
+            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir);
             REQUIRE(static_cast<bool>(project));
 
             // The game script SOURCE in Sources/ (what New-Asset writes).
@@ -150,7 +150,7 @@ namespace
             DefaultAllocator().New<pipeline::ScriptClassAssetBuilder>(), DefaultAllocator()));
         editor::ExportStats stats;
         {
-            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+            UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir);
             REQUIRE(editor::ExportProject(*project, distDir, registry, /*rebuild=*/false, &stats)
                         .IsOk());
             CHECK(stats.cooked >= 1u); // the script cooked
@@ -223,8 +223,8 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     const Guid scriptId = Guid{0xABCD1234ull, 0x5678EF90ull}; // stand-in startup-script asset id
     // --- author the project ---
     {
-        REQUIRE(editor::EditorProject::Create(projectDir, u8"E2E").IsOk());
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir);
+        REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir, u8"E2E").IsOk());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir);
         REQUIRE(static_cast<bool>(project));
 
         // A cooked-pipeline asset: a cube mesh (what the primitive creators produce).
@@ -682,8 +682,8 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 
     // A minimal (asset-less) project - enough for the content pipeline; the driver test is about the
     // player/sidecar staging on top of it.
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"ExportOneTest").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"ExportOneTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -734,8 +734,8 @@ TEST_CASE("export: a template built against a different engine version warns but
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"EngineVersionTest").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"EngineVersionTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -1003,8 +1003,8 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"SymbolsTest").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"SymbolsTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -1170,8 +1170,8 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Prune").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"Prune").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     // Two authored meshes; the scene references only the first.
@@ -1285,8 +1285,8 @@ TEST_CASE(
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"PrunePre").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"PrunePre").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
@@ -1389,8 +1389,8 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"PrunePrefab").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"PrunePrefab").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     foundation::content::Group* meshes = project->SourceDb().RootGroup()->CreateGroup(u8"Meshes");
@@ -1672,8 +1672,8 @@ TEST_CASE("export: CollectGroupInstances enumerates a group subtree, not its sib
 {
     const String projectDir = TempDir(u8"scratch_export_roots_group");
     NukeTree(projectDir.AsView());
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     foundation::content::ContentDatabase& db = project->SourceDb();
@@ -1723,8 +1723,8 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
 {
     const String projectDir = TempDir(u8"scratch_export_roots_seed");
     NukeTree(projectDir.AsView());
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"Roots").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"Roots").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     foundation::content::ContentDatabase& db = project->SourceDb();
@@ -1768,7 +1768,7 @@ TEST_CASE("export: CollectExportRoots seeds Always-Export flags + group members,
     // The set persists: save it, reopen the project, the flags survive (Open reads export_roots.xml).
     REQUIRE(project->SaveExportRoots().IsOk());
     project.Reset();
-    UniquePtr<editor::EditorProject> reopened = editor::EditorProject::Open(projectDir.AsView());
+    UniquePtr<editor::EditorProject> reopened = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(reopened));
     CHECK(reopened->ExportRoots().HasInstance(weaponMesh));
     CHECK(reopened->ExportRoots().HasGroup(u8"RuntimeLoaded"));
@@ -1836,8 +1836,8 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"WebExportTest").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"WebExportTest").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
     REQUIRE(project->SaveSettings().IsOk());
 
@@ -1915,8 +1915,8 @@ TEST_CASE("export: VariantsForPlatform - desktop single pak, web BC + ASTC sibli
 {
     const String projectDir = TempDir(u8"scratch_variants_proj");
     NukeTree(projectDir.AsView());
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"V").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"V").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
     REQUIRE(static_cast<bool>(project));
 
     // Desktop: exactly one variant, empty key, the host Content.pak from Cooked/.
@@ -1958,9 +1958,9 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
     NukeTree(distA.AsView());
     NukeTree(distB.AsView());
 
-    REQUIRE(editor::EditorProject::Create(projectDir.AsView(), u8"B").IsOk());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"B").IsOk());
     {
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
         REQUIRE(static_cast<bool>(project));
         String srcPath(project->SourcesRoot());
         srcPath.Append(u8"/");
@@ -1996,7 +1996,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
 
     // Export 1: clean project.
     {
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
         editor::ExportStats stats;
         REQUIRE(editor::ExportProject(*project, distA.AsView(), registry, false, &stats).IsOk());
     }
@@ -2014,7 +2014,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
                           Span<const byte>(reinterpret_cast<const byte*>(j.Data()), j.Size()))
                     .IsOk());
 
-        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(projectDir.AsView());
+        UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
         editor::ExportStats stats;
         REQUIRE(editor::ExportProject(*project, distB.AsView(), registry, false, &stats).IsOk());
     }

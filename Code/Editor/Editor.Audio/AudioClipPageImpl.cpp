@@ -97,7 +97,7 @@ namespace editor
         {
             return;
         }
-        m_clip = MakeRef<audio::AudioClip>(DefaultAllocator());
+        m_clip = MakeRef<audio::AudioClip>(foundation::core::DefaultAllocator());
         m_clip->channels = metadata.channels;
         m_clip->sampleRate = metadata.sampleRate;
         m_clip->frameCount = metadata.frameCount;
@@ -193,8 +193,8 @@ namespace editor
     UniquePtr<EditorPage> AudioClipPageFactory::CreatePage(EditorContext& context,
                                                            foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<AudioClipEditorPage>(context, *m_host, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<AudioClipEditorPage>(context, *m_host, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
     void WaveformView::SetPeaks(Array<f32> peaks)
     {

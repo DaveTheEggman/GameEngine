@@ -99,9 +99,9 @@ export namespace experimental::gui
         TreeRow()
         {
             SetTag(core::StringView(u8"treerow"));
-            m_arrow = core::MakeRef<TreeArrow>(core::DefaultAllocator());
+            m_arrow = core::MakeRef<TreeArrow>(MemoryAllocator());
             AddChild(m_arrow.Get());
-            m_label = core::MakeRef<Label>(core::DefaultAllocator());
+            m_label = core::MakeRef<Label>(MemoryAllocator());
             m_label->SetTag(core::StringView(u8"treecell"));
             m_label->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
             m_label->SetHitTestVisible(false);
@@ -186,7 +186,7 @@ export namespace experimental::gui
 
         [[nodiscard]] RefPtr<ItemRow> CreateItemRow() override
         {
-            auto row = core::MakeRef<TreeRow>(core::DefaultAllocator());
+            auto row = core::MakeRef<TreeRow>(MemoryAllocator());
             row->GetLabel()->SetFont(m_font);
             row->GetLabel()->SetTextColor(m_textColor);
             TreeView* self = this;

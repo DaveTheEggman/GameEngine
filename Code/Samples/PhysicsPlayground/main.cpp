@@ -336,7 +336,7 @@ namespace
                                               core::Span<const core::u32>(indices, 12),
                                               core::Span<const core::u32>(slots, 4), blob))
                 {
-                    m_rampShape = core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
+                    m_rampShape = core::MakeRef<physics::CollisionShape>(foundation::core::DefaultAllocator());
                     m_rampShape->blob.Resize(blob.Size());
                     core::MemCopy(m_rampShape->blob.Data(), blob.Data(), blob.Size());
                     core::Array<core::Float3> outline;
@@ -369,7 +369,7 @@ namespace
                         core::Span<const core::Float3>(points.Data(), points.Size()), blob))
                 {
                     m_boulderShape =
-                        core::MakeRef<physics::CollisionShape>(core::DefaultAllocator());
+                        core::MakeRef<physics::CollisionShape>(foundation::core::DefaultAllocator());
                     m_boulderShape->blob.Resize(blob.Size());
                     core::MemCopy(m_boulderShape->blob.Data(), blob.Data(), blob.Size());
                     core::Array<core::Float3> outline;
@@ -414,7 +414,7 @@ namespace
 
                 // Billboard proof: a nameplate riding the character, distance-scaled.
                 m_nameplateDocument =
-                    core::MakeRef<foundation::ui::UIDocument>(core::DefaultAllocator());
+                    core::MakeRef<foundation::ui::UIDocument>(foundation::core::DefaultAllocator());
                 m_nameplateDocument->markup = core::String(
                     u8"<Panel padding=\"4\""
                     u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
@@ -436,7 +436,7 @@ namespace
             {
                 scene::EntityHandle e = m_scene->CreateEntity(u8"kiosk");
                 m_scene->SetLocalPosition(e, core::Float3{4.0f, 1.6f, -6.0f});
-                m_kioskDocument = core::MakeRef<foundation::ui::UIDocument>(core::DefaultAllocator());
+                m_kioskDocument = core::MakeRef<foundation::ui::UIDocument>(foundation::core::DefaultAllocator());
                 m_kioskDocument->markup = core::String(
                     u8"<Panel padding=\"14\""
                     u8" style=\"background: rounded-rect(rgb(28, 32, 40), radius=10);\">"
@@ -474,7 +474,7 @@ namespace
             // asset path is exercised by the editor flow). The button proves CONSUMPTION:
             // clicking it must NOT fire the crosshair shove.
             {
-                m_hudDocument = core::MakeRef<foundation::ui::UIDocument>(core::DefaultAllocator());
+                m_hudDocument = core::MakeRef<foundation::ui::UIDocument>(foundation::core::DefaultAllocator());
                 // The proven UISandbox pause-menu vocabulary: kebab-case attributes,
                 // EXPLICIT sizes (an unsized child in a root Flex stretches to a bar).
                 m_hudDocument->markup = core::String(

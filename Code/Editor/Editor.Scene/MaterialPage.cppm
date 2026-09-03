@@ -315,7 +315,7 @@ export namespace editor
         RegisterSerializable<MaterialPreviewSettings>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<MaterialEditorPageFactory>(host, uiHost), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<MaterialEditorPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
 
         EditorContext::AssetCreator pbr;
         pbr.label = String(u8"PBR Material");

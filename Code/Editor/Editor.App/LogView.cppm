@@ -56,11 +56,11 @@ export namespace editor::app
 
         LogView()
         {
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
 
             // Toolbar: level filters + Clear.
-            auto toolbar = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto toolbar = MakeRef<ui::FlexLayout>(MemoryAllocator());
             toolbar->Direction = ui::Orientation::Horizontal;
             toolbar->Spacing = 8.0f;
             toolbar->Padding = ui::Thickness{4, 4};
@@ -68,7 +68,7 @@ export namespace editor::app
                                                                     u8"Warning", u8"Error"};
             for (usize i = 0; i < kBucketCount; ++i)
             {
-                auto box = MakeRef<ui::CheckBox>(DefaultAllocator(), StringView(kNames[i]), true);
+                auto box = MakeRef<ui::CheckBox>(MemoryAllocator(), StringView(kNames[i]), true);
                 const usize bucket = i;
                 box->OnCheckedChanged.Add(
                     [this, bucket](ui::CheckBox*, bool checked)
@@ -76,18 +76,18 @@ export namespace editor::app
                 m_filterBoxes[i] = box.Get();
                 toolbar->AddView(box.Get());
             }
-            auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+            auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
             clear->OnClick.Add([this](ui::ButtonBase*) { Clear(); });
             toolbar->AddView(clear.Get());
             column->AddView(toolbar.Get());
 
             // The entry list (recycled rows).
-            m_adapter = MakeUnique<Adapter>(DefaultAllocator(), *this);
-            m_list = MakeRef<ui::ListView>(DefaultAllocator());
+            m_adapter = MakeUnique<Adapter>(MemoryAllocator(), *this);
+            m_list = MakeRef<ui::ListView>(MemoryAllocator());
             m_list->ItemHeight.SetValue(20.0f);
             m_list->SetAdapter(m_adapter.Get());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 grow->Grow = 1.0f;
                 column->AddView(m_list.Get(), grow);
             }
@@ -220,7 +220,7 @@ export namespace editor::app
 
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
                 return RefPtr<ui::View>(label.Get());
             }

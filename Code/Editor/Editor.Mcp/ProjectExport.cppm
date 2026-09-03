@@ -59,7 +59,7 @@ namespace editor::mcp::detail
             {
                 continue;
             }
-            scene::Scene scratch(DefaultAllocator(), u8"__mcp_export_transcode");
+            scene::Scene scratch(foundation::core::DefaultAllocator(), u8"__mcp_export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
@@ -114,7 +114,7 @@ export namespace editor::mcp
                 // Presets: the project's file, else the synthesized host preset.
                 editor::ExportPresetSet presets;
                 {
-                    vfs::NativeFileSystem projectFs(s->project->Directory(), DefaultAllocator());
+                    vfs::NativeFileSystem projectFs(s->project->Directory(), foundation::core::DefaultAllocator());
                     if (!editor::LoadExportPresets(projectFs, presets).IsOk())
                     {
                         editor::DefaultExportPresets(presets);
@@ -148,9 +148,9 @@ export namespace editor::mcp
                     if (DirectoryExists(templatesRoot.AsView()))
                     {
                         rootFs = MakeUnique<vfs::NativeFileSystem>(
-                            DefaultAllocator(), templatesRoot.AsView(), DefaultAllocator());
+                            foundation::core::DefaultAllocator(), templatesRoot.AsView(), foundation::core::DefaultAllocator());
                     }
-                    vfs::NativeFileSystem toolFs(hostToolDir.AsView(), DefaultAllocator());
+                    vfs::NativeFileSystem toolFs(hostToolDir.AsView(), foundation::core::DefaultAllocator());
                     templates.Refresh(templatesRoot.AsView(), rootFs.Get(), hostToolDir.AsView(),
                                       &toolFs);
                 }

@@ -121,10 +121,10 @@ namespace editor::app
             {
                 // Bare selection carrier so option-less importers still honor renames.
                 entry.options = RefPtr<pipeline::ImportOptions>(
-                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+                    MakeRef<pipeline::ImportOptions>(MemoryAllocator()).Get());
             }
         }
-        auto dialog = MakeRef<app::BatchImportDialog>(DefaultAllocator(), group->Path().AsView(),
+        auto dialog = MakeRef<app::BatchImportDialog>(MemoryAllocator(), group->Path().AsView(),
                                                       Move(files));
         AssetsView* self = this;
         app::BatchImportDialog* dlg = dialog.Get();
@@ -161,7 +161,7 @@ namespace editor::app
             }
             String title(u8"Reading ");
             title += pipeline::FileNameOf(entry.path.AsView());
-            auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+            auto* holder = MemoryAllocator().New<RefPtr<Object>>();
             m_jobs->Submit(
                 title.AsView(),
                 Function<Status(editor::JobContext&)>{
@@ -176,7 +176,7 @@ namespace editor::app
                     [self, keepAlive, i, importer, holder](Status result)
                     {
                         RefPtr<Object> prepared = *holder;
-                        DefaultAllocator().Delete(holder);
+                        self->MemoryAllocator().Delete(holder);
                         if (i >= keepAlive->Files().Size())
                         {
                             return;
@@ -220,7 +220,7 @@ namespace editor::app
                 return;
             }
             content::Group* root = self->m_context->Project()->SourceDb().RootGroup();
-            auto picker = MakeRef<GroupPickerDialog>(DefaultAllocator(),
+            auto picker = MakeRef<GroupPickerDialog>(self->MemoryAllocator(),
                                                      StringView(u8"Select destination group"),
                                                      root, self->m_importTargetGroup);
             picker->OnPicked = [self, dlg](content::Group* g)
@@ -277,11 +277,11 @@ namespace editor::app
             {
                 // Bare selection carrier - the review dialog's renames travel on the base.
                 options = RefPtr<pipeline::ImportOptions>(
-                    MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+                    MakeRef<pipeline::ImportOptions>(MemoryAllocator()).Get());
             }
             String title(u8"Reading ");
             title += pipeline::FileNameOf(path);
-            auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+            auto* holder = MemoryAllocator().New<RefPtr<Object>>();
             AssetsView* self = this;
             m_jobs->Submit(
                 title.AsView(),
@@ -297,7 +297,7 @@ namespace editor::app
                     [self, file = String(path), importer, options, holder](Status result)
                     {
                         RefPtr<Object> prepared = *holder;
-                        DefaultAllocator().Delete(holder);
+                        self->MemoryAllocator().Delete(holder);
                         if (!result.IsOk())
                         {
                             String message(u8"Import failed: '");
@@ -324,9 +324,9 @@ namespace editor::app
         if (options.Get() == nullptr)
         {
             options = RefPtr<pipeline::ImportOptions>(
-                MakeRef<pipeline::ImportOptions>(DefaultAllocator()).Get());
+                MakeRef<pipeline::ImportOptions>(MemoryAllocator()).Get());
         }
-        auto dialog = MakeRef<ImportOptionsDialog>(DefaultAllocator(), path,
+        auto dialog = MakeRef<ImportOptionsDialog>(MemoryAllocator(), path,
                                                    group->Path().AsView(), options, Move(plan));
         AssetsView* self = this;
         ImportOptionsDialog* dlg = dialog.Get();
@@ -356,7 +356,7 @@ namespace editor::app
         // Re-import memory: a previous import of this source into this group seeds the plan.
         pipeline::MergeStoredSelection(plan, importer->StoredSelection(*group, path.AsView()));
         auto dialog =
-            MakeRef<ImportOptionsDialog>(DefaultAllocator(), path.AsView(),
+            MakeRef<ImportOptionsDialog>(MemoryAllocator(), path.AsView(),
                                          group->Path().AsView(), options, Move(plan));
         AssetsView* self = this;
         ImportOptionsDialog* dlg = dialog.Get();
@@ -385,7 +385,7 @@ namespace editor::app
         // current destination is preselected.
         AssetsView* self = this;
         ImportOptionsDialog* dlg = &dialog;
-        auto picker = MakeRef<GroupPickerDialog>(DefaultAllocator(),
+        auto picker = MakeRef<GroupPickerDialog>(MemoryAllocator(),
                                                  StringView(u8"Select destination group"), root,
                                                  m_importTargetGroup);
         picker->OnPicked = [self, dlg](content::Group* g)
@@ -410,7 +410,7 @@ namespace editor::app
         {
             String title(u8"Importing ");
             title += pipeline::FileNameOf(path.AsView());
-            auto* holder = DefaultAllocator().New<RefPtr<Object>>();
+            auto* holder = MemoryAllocator().New<RefPtr<Object>>();
             AssetsView* self = this;
             m_jobs->Submit(title.AsView(),
                            Function<Status(editor::JobContext&)>{
@@ -426,7 +426,7 @@ namespace editor::app
                                [self, path, importer, options, holder](Status result)
                                {
                                    RefPtr<Object> prepared = *holder;
-                                   DefaultAllocator().Delete(holder);
+                                   self->MemoryAllocator().Delete(holder);
                                    if (!result.IsOk())
                                    {
                                        String message(u8"Import failed: '");
@@ -470,7 +470,7 @@ namespace editor::app
                 : ((m_selectedGroup != nullptr) ? m_selectedGroup
                                                 : m_context->Project()->SourceDb().RootGroup());
         auto deferred =
-            MakeUnique<Array<pipeline::DeferredImportWrite>>(DefaultAllocator());
+            MakeUnique<Array<pipeline::DeferredImportWrite>>(MemoryAllocator());
         Result<content::Instance*> imported =
             importer->Import(path.AsView(),
                              pipeline::ImportContext{m_context->Project()->SourcesRoot()},
@@ -524,7 +524,7 @@ namespace editor::app
             Function<void(Status)>{
                 [self, writes, importer, options, primaryId](Status result)
                 {
-                    DefaultAllocator().Delete(writes);
+                    self->MemoryAllocator().Delete(writes);
                     content::Instance* primary =
                         (self->m_context->Project() != nullptr)
                             ? self->m_context->Project()->SourceDb().GetInstance(primaryId)
@@ -1035,7 +1035,7 @@ namespace editor::app
         if (row->group != nullptr)
         {
             content::Group* group = row->group;
-            auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+            auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
             menu->AddItem(u8"Open", [self, group]() { self->SelectGroup(group); });
             menu->AddSeparator();
             menu->AddItem(u8"Rename", [self, position]() { self->StartRenameDeferred(position); });
@@ -1072,7 +1072,7 @@ namespace editor::app
         const Guid id = row->id;
         Array<Guid> targets = SelectedInstanceIds(selection, position);
 
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
         menu->AddItem(u8"Open",
                       [self, id]()
                       {
@@ -1158,7 +1158,7 @@ namespace editor::app
         }
         AssetsView* self = this;
         content::Group* target = m_selectedGroup; // creations land in the group we're in
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
 
         // ONE "Create" submenu holds every asset creator: uncategorized items flat, then one
         // NESTED submenu per category - a flat list of every creator outgrew the screen.
@@ -1677,7 +1677,7 @@ namespace editor::app
         }
 
         AssetsView* self = this;
-        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(DefaultAllocator(), u8"Delete assets", message.AsView());
+        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(MemoryAllocator(), u8"Delete assets", message.AsView());
         dialog->OnClosed.Add(ui::Event<void(ui::Dialog*, ui::DialogResult)>::Handler{
             [self, ids](ui::Dialog*, ui::DialogResult result)
             {
@@ -1788,7 +1788,7 @@ namespace editor::app
         message += u8" asset(s))? Source files and cooked products go away; open pages close.";
 
         AssetsView* self = this;
-        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(DefaultAllocator(), u8"Delete group", message.AsView());
+        RefPtr<ui::Dialog> dialog = ui::Dialog::Confirm(MemoryAllocator(), u8"Delete group", message.AsView());
         dialog->OnClosed.Add(ui::Event<void(ui::Dialog*, ui::DialogResult)>::Handler{
             [self, group](ui::Dialog*, ui::DialogResult result)
             {

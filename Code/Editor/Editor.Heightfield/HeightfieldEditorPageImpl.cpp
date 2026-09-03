@@ -43,42 +43,42 @@ namespace editor
         }
         m_undoBaseline = Snapshot();
 
-        m_image = MakeRef<ui::ImageView>(DefaultAllocator());
+        m_image = MakeRef<ui::ImageView>(foundation::core::DefaultAllocator());
         m_image->ScaleType.SetValue(ui::ScaleType::FitCenter);
         m_image->SetImage(m_preview.Get());
 
-        m_info = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
         m_info->FontSize.SetValue(12.0f);
 
-        auto previewColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
         BuildGrid();
 
-        auto gridColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto gridColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         split->SetSplitRatio(0.6f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
         m_content = split;
@@ -128,7 +128,7 @@ namespace editor
             rgba[i * 4 + 3] = 255;
         }
         m_preview = MakeUnique<image::OwnedImageData>(
-            DefaultAllocator(), m_sourceWidth, m_sourceHeight, image::PixelFormat::RGBA8,
+            foundation::core::DefaultAllocator(), m_sourceWidth, m_sourceHeight, image::PixelFormat::RGBA8,
             Span<const u8>(rgba.Data(), rgba.Size()), image::ImageColorSpace::Linear);
     }
 
@@ -167,7 +167,7 @@ namespace editor
         HeightfieldEditorPage* self = this;
 
         auto sizeRow = MakeRef<ui::toolkit::IntEditor>(
-            DefaultAllocator(), u8"Grid Size (64k+1)", static_cast<i64>(m_asset->size), 65, 100000,
+            foundation::core::DefaultAllocator(), u8"Grid Size (64k+1)", static_cast<i64>(m_asset->size), 65, 100000,
             Function<void(i64)>{[self](i64 v)
                                 {
                                     self->m_asset->size = static_cast<i32>(v);
@@ -177,7 +177,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(sizeRow.Get()));
 
         auto worldRow = MakeRef<ui::toolkit::Float2Editor>(
-            DefaultAllocator(), u8"World Size (XZ)", m_asset->worldSize, 1.0f, 100000.0f, 1.0f,
+            foundation::core::DefaultAllocator(), u8"World Size (XZ)", m_asset->worldSize, 1.0f, 100000.0f, 1.0f,
             Function<void(Float2)>{[self](Float2 v)
                                    {
                                        self->m_asset->worldSize = v;
@@ -187,7 +187,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(worldRow.Get()));
 
         auto minRow = MakeRef<ui::toolkit::FloatEditor>(
-            DefaultAllocator(), u8"Min Height", static_cast<f64>(m_asset->minY), -100000.0, 100000.0,
+            foundation::core::DefaultAllocator(), u8"Min Height", static_cast<f64>(m_asset->minY), -100000.0, 100000.0,
             0.5, 2, Function<void(f64)>{[self](f64 v)
                                         {
                                             self->m_asset->minY = static_cast<f32>(v);
@@ -197,7 +197,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(minRow.Get()));
 
         auto maxRow = MakeRef<ui::toolkit::FloatEditor>(
-            DefaultAllocator(), u8"Max Height", static_cast<f64>(m_asset->maxY), -100000.0, 100000.0,
+            foundation::core::DefaultAllocator(), u8"Max Height", static_cast<f64>(m_asset->maxY), -100000.0, 100000.0,
             0.5, 2, Function<void(f64)>{[self](f64 v)
                                         {
                                             self->m_asset->maxY = static_cast<f32>(v);
@@ -210,7 +210,7 @@ namespace editor
         auto stat = [&](StringView name, String value)
         {
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                MakeRef<ui::toolkit::StringEditor>(DefaultAllocator(), name, value.AsView(),
+                MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), name, value.AsView(),
                                                    Function<void(StringView)>{}, u8"Source")
                     .Get()));
         };
@@ -226,8 +226,8 @@ namespace editor
     {
         Array<byte> after = Snapshot();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditCommand>(*this, mergeKey, m_undoBaseline, after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditCommand>(*this, mergeKey, m_undoBaseline, after),
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         RefreshInfo();
         MarkDirty();
@@ -300,7 +300,7 @@ namespace editor
     HeightfieldEditorPageFactory::CreatePage(EditorContext& context,
                                              foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<HeightfieldEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<HeightfieldEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

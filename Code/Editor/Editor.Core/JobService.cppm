@@ -67,6 +67,9 @@ export namespace editor
     class EditorJobService
     {
     public:
+        // The allocator (required - the editor app decides) backs worker threads + jobs.
+        explicit EditorJobService(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         ~EditorJobService() { Shutdown(); }
 
         // Submit a job. `work` runs on a worker thread (reports via its JobContext) and returns a
@@ -257,7 +260,7 @@ export namespace editor
 
             EditorJobService* self = this;
             m_lightWorker = MakeUnique<Thread>(
-                DefaultAllocator(),
+                (*m_allocator),
                 [self, work = static_cast<Function<void()>&&>(job.work)]()
                 {
                     if (work)
@@ -289,7 +292,7 @@ export namespace editor
 
             m_title = static_cast<String&&>(job.title);
             m_onDone = static_cast<Function<void(Status)>&&>(job.onDone);
-            m_ctx = MakeUnique<JobContext>(DefaultAllocator());
+            m_ctx = MakeUnique<JobContext>((*m_allocator));
             m_result = Status{};
             m_running.store(true);
             m_finished.store(false);
@@ -299,7 +302,7 @@ export namespace editor
             Function<Status(JobContext&)> work =
                 static_cast<Function<Status(JobContext&)>&&>(job.work);
             m_worker = MakeUnique<Thread>(
-                DefaultAllocator(),
+                (*m_allocator),
                 [self, ctx, work = static_cast<Function<Status(JobContext&)>&&>(work)]()
                 {
                     self->m_result = work ? work(*ctx) : Status{};
@@ -317,6 +320,7 @@ export namespace editor
         Array<Pending> m_queue; // main-thread only
 
         // Light lane (see SubmitLight).
+        IAllocator* m_allocator;
         UniquePtr<Thread> m_lightWorker;
         Function<void()> m_lightOnDone; // main thread
         Atomic<bool> m_lightRunning{false};

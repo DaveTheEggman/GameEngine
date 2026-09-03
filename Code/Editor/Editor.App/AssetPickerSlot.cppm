@@ -60,7 +60,7 @@ export namespace editor::app
             Spacing = 2.0f;
             EditorIcons& icons = EditorIcons::Get(); // null drawables pre-Initialize (tests)
 
-            auto body = MakeRef<ui::Button>(DefaultAllocator(),
+            auto body = MakeRef<ui::Button>(MemoryAllocator(),
                                             name.Size() > 0 ? name : StringView(u8"(none)"));
             m_body = body.Get();
             m_body->TooltipText = String(u8"Choose asset");
@@ -73,7 +73,7 @@ export namespace editor::app
                     }
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 AddView(body.Get(), Move(lp));
             }
@@ -235,12 +235,12 @@ export namespace editor::app
                                                           ui::DrawableView** outDrawable = nullptr)
         {
             auto content =
-                MakeRef<ui::DrawableView>(DefaultAllocator(), Move(icon), 14.0f, 14.0f);
+                MakeRef<ui::DrawableView>(MemoryAllocator(), Move(icon), 14.0f, 14.0f);
             if (outDrawable != nullptr)
             {
                 *outDrawable = content.Get();
             }
-            auto button = MakeRef<ui::ContentButton>(DefaultAllocator(),
+            auto button = MakeRef<ui::ContentButton>(MemoryAllocator(),
                                                      RefPtr<ui::View>(content.Get()));
             button->TooltipText = String(tooltip);
             AddView(button.Get());

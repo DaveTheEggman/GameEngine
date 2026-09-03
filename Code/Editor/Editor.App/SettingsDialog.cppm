@@ -48,7 +48,7 @@ export namespace editor::app
 
             editor::EditorProject* project = context.Project();
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8;
 
@@ -59,14 +59,14 @@ export namespace editor::app
             // Default scene: read-only path + [Pick...] (the picker owns clearing too).
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default scene");
-                m_sceneLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(none)"));
+                m_sceneLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_sceneLabel.Get(), lp);
                 }
-                m_pickButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                m_pickButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     m_pickButton->OnClick.Add([self](ui::ButtonBase*) { self->PickScene(); });
@@ -93,20 +93,20 @@ export namespace editor::app
             // startup - picked by GUID like the default scene, not a typed path.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Startup script");
-                m_scriptLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(none)"));
+                m_scriptLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_scriptLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickStartupScript(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -133,20 +133,20 @@ export namespace editor::app
             // startup - the input twin of the default scene.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default input map");
-                m_inputMapLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(none)"));
+                m_inputMapLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_inputMapLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickInputMap(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -174,20 +174,20 @@ export namespace editor::app
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default bus layout");
                 m_busLayoutLabel =
-                    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                    MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_busLayoutLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickBusLayout(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -214,20 +214,20 @@ export namespace editor::app
             // embedded runtime alike); nil = the built-in GameTheme.
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default UI theme");
-                m_uiThemeLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                m_uiThemeLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_uiThemeLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiTheme(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -255,20 +255,20 @@ export namespace editor::app
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Loading screen");
                 m_loadingDocLabel =
-                    MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                    MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_loadingDocLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickLoadingDocument(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -296,20 +296,20 @@ export namespace editor::app
             // real project - so game UI renders no text until this is set).
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default UI font");
-                m_uiFontLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8"(built-in)"));
+                m_uiFontLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                     lp->Grow = 1.0f;
                     lp->AlignSelf = ui::Align::Center;
                     row->AddView(m_uiFontLabel.Get(), lp);
                 }
-                auto pick = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pick..."));
+                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
                 {
                     ProjectSettingsDialog* self = this;
                     pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiFont(); });
                     row->AddView(pick.Get());
                 }
-                auto clear = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Clear"));
+                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
                 {
                     ProjectSettingsDialog* self = this;
                     clear->OnClick.Add(
@@ -337,14 +337,14 @@ export namespace editor::app
             // (2x degrades to 1x on WebGPU).
             {
                 ui::FlexLayout* row = AddRow(*column, u8"MSAA");
-                m_msaaCombo = MakeRef<ui::ComboBox>(DefaultAllocator());
+                m_msaaCombo = MakeRef<ui::ComboBox>(MemoryAllocator());
                 for (u32 i = 0; i < engine::render::MsaaLevelCount(); ++i)
                 {
                     (void)m_msaaCombo->AddItem(engine::render::kMsaaLevels[i].label);
                 }
                 const u32 samples = (project != nullptr) ? project->Settings().renderMsaaSamples : 1u;
                 m_msaaCombo->SetSelectedIndex(engine::render::MsaaIndexForSamples(samples));
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 row->AddView(m_msaaCombo.Get(), lp);
             }
@@ -353,8 +353,8 @@ export namespace editor::app
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
                 auto value =
-                    MakeRef<ui::Label>(DefaultAllocator(), editor::kEngineVersionString);
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                    MakeRef<ui::Label>(MemoryAllocator(), editor::kEngineVersionString);
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->AlignSelf = ui::Align::Center;
                 row->AddView(value.Get(), lp);
             }
@@ -362,11 +362,11 @@ export namespace editor::app
             // Scroll the settings column so a tall list can't spill over the modal button row
             // (the Dialog gives its content a fixed, Grow-shared area above the buttons; without
             // scrolling, a column taller than that area overflows onto them). User feedback.
-            auto scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+            auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::LayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 scroll->AddView(column.Get(), lp);
             }

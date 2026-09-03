@@ -204,7 +204,7 @@ namespace editor
         }
         Array<String> warnings;
         RefPtr<ui::View> parsed =
-            ui::MarkupLoader::LoadFromString(DefaultAllocator(), m_markup.AsView(), nullptr,
+            ui::MarkupLoader::LoadFromString(foundation::core::DefaultAllocator(), m_markup.AsView(), nullptr,
                                              &warnings);
         if (parsed.Get() == nullptr)
         {
@@ -255,7 +255,7 @@ namespace editor
                                                             foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

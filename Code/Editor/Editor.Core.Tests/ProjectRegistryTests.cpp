@@ -120,7 +120,7 @@ TEST_CASE("project-registry: probe reads the manifest without opening; NotFound 
     engine::project::ProjectSettings probed;
     CHECK(ProbeProject(dir, probed).Code() == ErrorCode::NotFound); // no dir at all
 
-    REQUIRE(EditorProject::Create(dir, u8"Probe Me").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"Probe Me").IsOk());
     REQUIRE(ProbeProject(dir, probed).IsOk());
     CHECK(probed.name.AsView() == u8"Probe Me");
     CHECK(probed.engineVersion.AsView() == project::kEngineVersionString);
@@ -160,7 +160,7 @@ TEST_CASE("project-registry: manifest backup copies Project.xml beside itself")
 {
     const StringView dir = u8"scratch_registry_backup_test";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"Backup Me").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"Backup Me").IsOk());
 
     Result<String> backup = BackupProjectManifest(dir);
     REQUIRE(backup.HasValue());
@@ -239,21 +239,21 @@ TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) 
 {
     const StringView dir = u8"scratch_manifest_v7_test";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"V7 Test").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"V7 Test").IsOk());
 
     Guid fontId;
     Guid busId;
     REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8", fontId));
     REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8", busId));
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(project);
         project->Settings().defaultUiFontId = fontId;
         project->Settings().defaultBusLayoutId = busId; // the per-field move must not DROP this
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(project);
         CHECK(project->Settings().defaultUiFontId == fontId);
         CHECK(project->Settings().defaultBusLayoutId == busId);

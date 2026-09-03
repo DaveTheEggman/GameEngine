@@ -76,7 +76,7 @@ namespace editor::mcp::detail
         {
             return false;
         }
-        foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), db); // no factories -> all binds unresolved
+        foundation::resource::ResourceManager collector(DefaultAllocator(), db); // no factories -> all binds unresolved
         scene::ResolveSceneResources(scratch, collector);
         collector.CollectUnresolved(resources);
         scratch.ForEachPendingPrefabInstance([&prefabs](scene::Scene::PendingPrefabInstance& pending)

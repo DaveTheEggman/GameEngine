@@ -164,12 +164,19 @@ tight cluster) per commit.
   allocators; WebGPU CreateBackend default removed (async map-callback box
   documented as a process-scope pair); the profiler's per-thread slots stay
   a process-global (compile-gated singleton).
-- **P6 - Pipeline + Editor + Samples + remaining tests**: importers/builders
-  take the cook's allocator; editor app threads its root through pages/
-  views (mostly free via the UI idiom); samples construct explicit roots.
-- **P7 - the lockdown**: `DefaultAllocator()` audited to composition roots
-  only; a grep tripwire test pins the allowed-file list so regressions fail
-  CI.
+- **P6 - Pipeline + Editor + Samples** (DONE): the editor's ~1,450 sites and
+  the samples' ~500 converted - view code rides the UI inheritance idiom
+  (`MemoryAllocator()`, adapter classes via `m_owner->`, job/dialog lambdas
+  via a captured `self->`), non-view service paths (project open/create,
+  export/cook workers, thumbnails, MCP tools, log buffers, layout persist)
+  made EXPLICIT composition-root decisions; `EditorProject`,
+  `EditorJobService`, `EditorLogBuffer` take required allocators.
+- **P7 - the lockdown** (DONE): `Core.Tests/AllocatorTripwireTests.cpp`
+  scans the source tree each run against the pinned
+  `allocator-allowlist.txt` (194 files: composition roots + documented
+  bounds). A NEW non-test reference outside the list fails the suite with
+  a thread-an-owner message; a cleaned file left on the list fails as
+  STALE so the list only shrinks honestly.
 
 ## Sweep protocol (every phase)
 

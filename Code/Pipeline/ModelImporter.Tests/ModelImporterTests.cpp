@@ -212,8 +212,8 @@ TEST_CASE("model-import: GLB fans out into source assets and cooks through the d
         (void)RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     // Import the Kenney character GLB (skinned: skeleton + clips expected).
@@ -320,8 +320,8 @@ TEST_CASE("model-import: external-sidecar .gltf imports and its sidecars land in
         (void)RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
@@ -397,8 +397,8 @@ TEST_CASE("model-import: a bound material carries its albedo texture")
         (void)RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     // Import the Duck (textured, static) + cook everything.
@@ -658,8 +658,8 @@ TEST_CASE("cook: delete group -> reimport -> recook keeps product identities cle
         (void)RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     BuilderRegistry builders;
@@ -945,8 +945,8 @@ TEST_CASE("model-import: options gate textures/materials/animations")
 
     const StringView dir = u8"scratch_model_import_options_project";
     CleanProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
@@ -1005,8 +1005,8 @@ TEST_CASE("model-import: generate-collision emits CollisionShapeAssets wired to 
 
     const StringView dir = u8"scratch_model_import_collision_project";
     CleanProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
@@ -1068,8 +1068,8 @@ TEST_CASE("model-import: re-import WITHOUT delete reuses instances (same guids, 
 
     const StringView dir = u8"scratch_model_reimport_project";
     CleanProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
@@ -1314,8 +1314,8 @@ TEST_CASE("model-import: DescribeImport lists the fan-out; the selection filters
         (void)RemoveDirectory(dir);
     };
     cleanTree();
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     pipeline::ModelFileImporter importer;
@@ -1441,8 +1441,8 @@ TEST_CASE("model-import: LOD folding holds the manifest slot so node mesh indice
     }
     FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     // The dropped file only needs to EXIST (provenance copy); the parsed model arrives as

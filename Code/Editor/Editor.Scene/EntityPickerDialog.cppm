@@ -46,11 +46,11 @@ export namespace editor
             MaxWidth.SetValue(520.0f);
             MaxHeight.SetValue(560.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            m_filterEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_filterEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_filterEdit->SetPlaceholder(u8"Filter...");
             {
                 EntityPickerDialog* self = this;
@@ -60,13 +60,13 @@ export namespace editor
                         self->m_filter = String(edit->Text());
                         self->RebuildTree();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_filterEdit.Get(), lp);
             }
 
-            m_adapter = MakeUnique<Adapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<ui::TreeView>(DefaultAllocator());
+            m_adapter = MakeUnique<Adapter>(MemoryAllocator(), *this);
+            m_tree = MakeRef<ui::TreeView>(MemoryAllocator());
             m_tree->SetItemHeight(20.0f);
             m_tree->SetAdapter(m_adapter.Get());
             {
@@ -83,7 +83,7 @@ export namespace editor
                             }
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(m_tree.Get(), lp);
@@ -168,10 +168,10 @@ export namespace editor
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+                auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 label->FontSize.SetValue(Optional<f32>{12.0f});
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());

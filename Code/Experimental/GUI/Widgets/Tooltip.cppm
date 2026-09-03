@@ -41,7 +41,7 @@ export namespace experimental::gui
             SetTag(core::StringView(u8"tooltip"));
             SetHitTestVisible(false); // never steals pointer events
             SetPadding(Thickness{6.0f, 3.0f, 6.0f, 3.0f});
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_bgColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_bgColor));
             m_text.SetAlignment(TextHAlign::Left, TextVAlign::Middle);
         }
 
@@ -85,7 +85,7 @@ export namespace experimental::gui
     class TooltipManager
     {
     public:
-        TooltipManager() { m_tooltip = core::MakeRef<Tooltip>(core::DefaultAllocator()); }
+        TooltipManager() { m_tooltip = core::MakeRef<Tooltip>(foundation::core::DefaultAllocator()); }
 
         void SetFont(fonts::CachedFont* font) { m_tooltip->SetFont(font); }
         void SetDelay(f64 seconds) noexcept { m_delay = seconds; }

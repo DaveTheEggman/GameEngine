@@ -204,7 +204,7 @@ export namespace experimental::gui
                 m_target->SetAlpha(OpacityAt(t));
             if (m_color.Size() != 0)
                 m_target->SetBackground(
-                    core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), ColorAt(t)));
+                    core::MakeRef<RectangleDrawable>(MemoryAllocator(), ColorAt(t)));
         }
 
         [[nodiscard]] f32 OpacityAt(f32 t) const

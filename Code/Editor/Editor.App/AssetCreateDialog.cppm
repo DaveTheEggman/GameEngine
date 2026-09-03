@@ -46,13 +46,13 @@ export namespace editor::app
             MaxWidth.SetValue(520.0f);
             MaxHeight.SetValue(460.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
             // Group tree (the picker's shape: one root, expanded).
-            m_treeAdapter = MakeUnique<TreeAdapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<ui::TreeView>(DefaultAllocator());
+            m_treeAdapter = MakeUnique<TreeAdapter>(MemoryAllocator(), *this);
+            m_tree = MakeRef<ui::TreeView>(MemoryAllocator());
             m_tree->SetItemHeight(20.0f);
             {
                 AssetCreateDialog* self = this;
@@ -67,28 +67,28 @@ export namespace editor::app
                             self->Validate();
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(m_tree.Get(), lp);
             }
 
-            m_nameEdit = MakeRef<ui::EditText>(DefaultAllocator());
+            m_nameEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_nameEdit->SetPlaceholder(namePlaceholder);
             {
                 AssetCreateDialog* self = this;
                 m_nameEdit->OnTextChanged.Add([self](ui::EditText*) { self->Validate(); });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_nameEdit.Get(), lp);
             }
 
             // Validation line: names the refusal ("name exists in this group") - the Create
             // button alone going dead would be a silent no.
-            m_validationLabel = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_validationLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
             m_validationLabel->FontSize.SetValue(11.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_validationLabel.Get(), lp);
             }
@@ -169,10 +169,10 @@ export namespace editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());

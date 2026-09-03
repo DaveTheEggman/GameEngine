@@ -178,7 +178,7 @@ export namespace editor
     inline void RegisterFontEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<FontEditorPageFactory>(), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<FontEditorPageFactory>(), foundation::core::DefaultAllocator()));
         if (context.Thumbnails() != nullptr)
         {
             RegisterFontThumbnailGenerator(*context.Thumbnails());

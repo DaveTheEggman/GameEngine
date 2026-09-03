@@ -200,8 +200,8 @@ export namespace editor
             // below the last key.
             after.duration = Max(after.duration, after.ComputeDuration());
             (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
-                DefaultAllocator()));
+                foundation::core::DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
+                foundation::core::DefaultAllocator()));
         }
 
         // --- UI construction (bodies in the impl unit) ---

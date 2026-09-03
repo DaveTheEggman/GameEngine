@@ -217,7 +217,7 @@ namespace editor
             return;
         }
         // Apply the EDITED stylesheet PER-ELEMENT (subtree-scoped) - never the shared game context.
-        ui::StyleSheetLoader loader(DefaultAllocator());
+        ui::StyleSheetLoader loader(foundation::core::DefaultAllocator());
         loader.SetPalette(ui::ThemePalette::Dark());
         RefPtr<ui::StyleSheet> sheet = loader.Load(m_stylesheet.AsView());
         String status;
@@ -247,7 +247,7 @@ namespace editor
         }
         Array<String> typeNames;
         typeNames.PushBack(String(u8"UIDocumentAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(typeNames));
+        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(typeNames));
         UIThemeEditorPage* self = this;
         dialog->OnPicked = [self](const Guid& picked)
         {
@@ -287,7 +287,7 @@ namespace editor
                                                          foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<UIThemeEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<UIThemeEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

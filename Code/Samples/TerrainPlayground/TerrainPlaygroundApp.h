@@ -132,11 +132,11 @@ namespace samples
 
             // The terrain: an in-memory heightfield + TerrainResource (direct product, no cook).
             m_heightfield =
-                MakeRef<hf::Heightfield>(DefaultAllocator(), kGridSize,
+                MakeRef<hf::Heightfield>(foundation::core::DefaultAllocator(), kGridSize,
                                          core::Float2{kWorldSize, kWorldSize}, 0.0f, kMaxHeight);
             GenerateHeightfield(*m_heightfield, m_type, m_amplitude, m_frequency);
 
-            m_terrainResource = MakeRef<terrain::TerrainResource>(DefaultAllocator());
+            m_terrainResource = MakeRef<terrain::TerrainResource>(foundation::core::DefaultAllocator());
             m_terrainResource->heightfield = m_heightfield; // Ref direct product (no proxy/guid)
 
             m_terrain = m_scene->CreateEntity(u8"terrain");
@@ -153,7 +153,7 @@ namespace samples
             if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
             {
                 engine::render::MeshComponent& mc = meshes->Add(m_caster);
-                mc.mesh = geometry::Primitives::Sphere(DefaultAllocator(), kCasterRadius);
+                mc.mesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), kCasterRadius);
                 mc.SetMaterial(materials::CreatePBR(u8"caster", core::Float4{0.9f, 0.3f, 0.2f, 1.0f},
                                                     0.0f, 0.5f));
             }

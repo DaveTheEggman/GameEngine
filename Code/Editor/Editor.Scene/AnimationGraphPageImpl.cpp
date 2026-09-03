@@ -89,7 +89,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::FloatEditor>(
-                           DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
+                           foundation::core::DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
                            Function<void(f64)>{[field, page, key](f64 v)
                                                {
                                                    *field = static_cast<f32>(v);
@@ -105,7 +105,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::IntEditor>(
-                           DefaultAllocator(), name, static_cast<i64>(*field), mn, mx,
+                           foundation::core::DefaultAllocator(), name, static_cast<i64>(*field), mn, mx,
                            Function<void(i64)>{[field, page, key](i64 v)
                                                {
                                                    *field = static_cast<i32>(v);
@@ -121,7 +121,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::BoolEditor>(
-                           DefaultAllocator(), name, *field,
+                           foundation::core::DefaultAllocator(), name, *field,
                            Function<void(bool)>{[field, page, key](bool v)
                                                 {
                                                     *field = v;
@@ -134,7 +134,7 @@ namespace editor
                      Span<const StringView> items, Function<void(i32)> setter, StringView cat)
         {
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
-                       MakeRef<ui::toolkit::EnumEditor>(DefaultAllocator(), name, value, items,
+                       MakeRef<ui::toolkit::EnumEditor>(foundation::core::DefaultAllocator(), name, value, items,
                                                         Move(setter), cat)
                            .Get()));
         }
@@ -143,7 +143,7 @@ namespace editor
         {
             Add(g,
                 RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<ui::toolkit::ButtonEditor>(DefaultAllocator(), name, Move(action), cat)
+                    MakeRef<ui::toolkit::ButtonEditor>(foundation::core::DefaultAllocator(), name, Move(action), cat)
                         .Get()));
         }
         void RowString(ui::toolkit::PropertyGrid& g, StringView name, String* field, StringView cat,
@@ -153,7 +153,7 @@ namespace editor
             key.Append(name);
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::StringEditor>(
-                           DefaultAllocator(), name, field->AsView(),
+                           foundation::core::DefaultAllocator(), name, field->AsView(),
                            Function<void(StringView)>{[field, page, key](StringView v)
                                                       {
                                                           *field = String(v);
@@ -247,7 +247,7 @@ namespace editor
     {
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
-            MakeUnique<PreviewViewport>(DefaultAllocator(), host, uiHost, u8"animgraph.preview");
+            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"animgraph.preview");
         m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
         m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
@@ -290,7 +290,7 @@ namespace editor
         m_undoBaseline = SnapshotAsset();
 
         // ---- center: the state-machine canvas ----
-        m_canvas = MakeRef<ui::toolkit::NodeGraphCanvas>(DefaultAllocator());
+        m_canvas = MakeRef<ui::toolkit::NodeGraphCanvas>(foundation::core::DefaultAllocator());
         m_canvas->EdgeStyle = ui::toolkit::ConnectionStyle::StraightNodeToNode;
         {
             AnimationGraphEditorPage* self = this;
@@ -437,52 +437,52 @@ namespace editor
         }
 
         // ---- left: layers + parameters ----
-        m_leftRows = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_leftRows = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         m_leftRows->Direction = ui::Orientation::Vertical;
         m_leftRows->Spacing = 2.0f;
         m_leftRows->Padding = ui::Thickness{6, 6};
-        auto leftScroll = MakeRef<ui::ScrollView>(DefaultAllocator());
+        auto leftScroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
         leftScroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         leftScroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             leftScroll->AddView(m_leftRows.Get(), lp);
         }
 
         // ---- right: inspector ----
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
-        m_inspectorTitle = MakeRef<ui::Label>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+        m_inspectorTitle = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
         m_inspectorTitle->FontSize.SetValue(Optional<f32>{12.0f});
-        auto inspectorColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto inspectorColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         inspectorColumn->Direction = ui::Orientation::Vertical;
         inspectorColumn->Spacing = 4.0f;
         inspectorColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_inspectorTitle.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_grid.Get(), grow);
         }
 
         // ---- center-bottom: the live preview strip (transport + wireframe viewport) ----
-        auto transport = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto transport = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         transport->Direction = ui::Orientation::Horizontal;
         transport->Spacing = 6.0f;
         transport->Padding = ui::Thickness{6, 4};
         {
             AnimationGraphEditorPage* self = this;
             m_skeletonButton =
-                MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Skeleton: (none)"));
+                MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Skeleton: (none)"));
             m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
             transport->AddView(m_skeletonButton.Get());
-            m_meshButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Mesh: (none)"));
+            m_meshButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Mesh: (none)"));
             m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
             transport->AddView(m_meshButton.Get());
-            m_playButton = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Pause"));
+            m_playButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
                 {
@@ -491,12 +491,12 @@ namespace editor
                                                                        : StringView(u8"Play"));
                 });
             transport->AddView(m_playButton.Get());
-            auto restart = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Restart"));
+            auto restart = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Restart"));
             restart->OnClick.Add([self](ui::ButtonBase*) { self->RebuildPreviewGraph(); });
             transport->AddView(restart.Get());
 
             // Visibility toggles: bone wireframe on/off, skinned mesh on/off (labels show state).
-            m_skeletonToggle = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Bones: on"));
+            m_skeletonToggle = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Bones: on"));
             m_skeletonToggle->OnClick.Add(
                 [self](ui::ButtonBase*)
                 {
@@ -505,7 +505,7 @@ namespace editor
                                                                          : StringView(u8"Bones: off"));
                 });
             transport->AddView(m_skeletonToggle.Get());
-            m_meshToggle = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Mesh: on"));
+            m_meshToggle = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Mesh: on"));
             m_meshToggle->OnClick.Add(
                 [self](ui::ButtonBase*)
                 {
@@ -515,33 +515,33 @@ namespace editor
                 });
             transport->AddView(m_meshToggle.Get());
 
-            m_previewStatus = MakeRef<ui::Label>(DefaultAllocator());
+            m_previewStatus = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             m_previewStatus->FontSize.SetValue(Optional<f32>{12.0f});
             m_previewStatus->VAlign.SetValue(fonts::VerticalAlignment::Middle);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             transport->AddView(m_previewStatus.Get(), grow);
         }
-        auto previewColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_preview->View(), grow);
         }
-        auto centerSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto centerSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         centerSplit->Orientation = ui::Orientation::Vertical;
         centerSplit->SetSplitRatio(0.62f);
         centerSplit->SetPanes(m_canvas.Get(), previewColumn.Get());
 
-        auto leftSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto leftSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         leftSplit->SetSplitRatio(0.18f);
         leftSplit->SetPanes(leftScroll.Get(), centerSplit.Get());
-        auto rightSplit = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto rightSplit = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         rightSplit->SetSplitRatio(0.74f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
         m_content = rightSplit;
@@ -702,7 +702,7 @@ namespace editor
 
             // Node 0: the Any State pseudo-node.
             {
-                auto node = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+                auto node = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
                 node->Title = String(u8"Any State");
                 node->Position = m_asset->layerAnyStatePositions[layerIdx];
                 node->Size = Float2{140.0f, 44.0f};
@@ -714,7 +714,7 @@ namespace editor
             for (usize i = 0; i < layer->states.Size(); ++i)
             {
                 const animation::GraphStateData& s = layer->states[i];
-                auto node = MakeUnique<ui::toolkit::NodeGraphNode>(DefaultAllocator());
+                auto node = MakeUnique<ui::toolkit::NodeGraphNode>(foundation::core::DefaultAllocator());
                 node->Title = String(s.name.AsView());
                 node->Subtitle = String(NodeKindLabel(s.node.kind));
                 node->Position = m_asset->layerStatePositions[layerIdx][i];
@@ -747,7 +747,7 @@ namespace editor
         AnimationGraphEditorPage* self = this;
         auto addRow = [&](StringView text, Function<void()> onClick, bool emphasized)
         {
-            auto button = MakeRef<ui::Button>(DefaultAllocator(), text);
+            auto button = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), text);
             if (emphasized)
             {
                 button->AddClass(u8"accent");
@@ -762,17 +762,17 @@ namespace editor
                         onClick();
                     }
                 });
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_leftRows->AddView(button.Get(), lp);
         };
         auto addHeader = [&](StringView text)
         {
-            auto label = MakeRef<ui::Label>(DefaultAllocator());
+            auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
             label->FontSize.SetValue(Optional<f32>{12.0f});
             label->SetText(text);
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             m_leftRows->AddView(label.Get(), lp);
@@ -871,7 +871,7 @@ namespace editor
         AnimationGraphEditorPage* self = this;
         const i32 layerIndex = m_selectedLayer;
         const Float2 at{canvasX, canvasY};
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(foundation::core::DefaultAllocator());
         auto addState = [self, layerIndex, at, &menu](StringView label, u8 kind)
         {
             menu->AddItem(
@@ -922,7 +922,7 @@ namespace editor
         }
         AnimationGraphEditorPage* self = this;
         const i32 layerIndex = m_selectedLayer;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(foundation::core::DefaultAllocator());
         menu->AddItem(u8"Make Transition",
                       [self, nodeIndex]() { self->m_canvas->StartLinkFrom(nodeIndex); });
         if (nodeIndex != kAnyStateNode)
@@ -982,7 +982,7 @@ namespace editor
         }
         AnimationGraphEditorPage* self = this;
         const i32 layerIndex = m_selectedLayer;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(foundation::core::DefaultAllocator());
         menu->AddItem(
             u8"Edit Transition", [self, layerIndex, connectionIndex]()
             { self->Select(GraphSel{GraphSelKind::Transition, layerIndex, connectionIndex}); });
@@ -1059,9 +1059,9 @@ namespace editor
 
             Array<byte> after = self->SnapshotAsset();
             (void)self->Commands().Execute(
-                UniquePtr<IEditorCommand>(DefaultAllocator().New<EditGraphCommand>(
+                UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<EditGraphCommand>(
                                               *self, key.AsView(), self->m_undoBaseline, after),
-                                          DefaultAllocator()));
+                                          foundation::core::DefaultAllocator()));
             self->m_undoBaseline = Move(after);
             self->RebuildLeftPanel();
             self->RebuildCanvas();
@@ -1265,7 +1265,7 @@ namespace editor
             const bool current = source.paramBools[p] != 0;
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::BoolEditor>(
-                           DefaultAllocator(), u8"Default", current,
+                           foundation::core::DefaultAllocator(), u8"Default", current,
                            Function<void(bool)>{[&source, p, page](bool v)
                                                 {
                                                     source.paramBools[p] = v ? 1 : 0;
@@ -1284,7 +1284,7 @@ namespace editor
             {
                 Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                            MakeRef<ui::toolkit::FloatEditor>(
-                               DefaultAllocator(), u8"Value",
+                               foundation::core::DefaultAllocator(), u8"Value",
                                static_cast<f64>(m_player->GetFloat(pi)), -1e6, 1e6, 0.02, 3,
                                Function<void(f64)>{[self, pi](f64 v)
                                                    {
@@ -1301,7 +1301,7 @@ namespace editor
             {
                 Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                            MakeRef<ui::toolkit::IntEditor>(
-                               DefaultAllocator(), u8"Value",
+                               foundation::core::DefaultAllocator(), u8"Value",
                                static_cast<i64>(m_player->GetInt(pi)), -1000000, 1000000,
                                Function<void(i64)>{[self, pi](i64 v)
                                                    {
@@ -1318,7 +1318,7 @@ namespace editor
             {
                 Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                            MakeRef<ui::toolkit::BoolEditor>(
-                               DefaultAllocator(), u8"Value", m_player->GetBool(pi),
+                               foundation::core::DefaultAllocator(), u8"Value", m_player->GetBool(pi),
                                Function<void(bool)>{[self, pi](bool v)
                                                     {
                                                         if (self->m_player.Get() != nullptr)
@@ -1378,7 +1378,7 @@ namespace editor
             Add(g,
                 RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::StringEditor>(
-                        DefaultAllocator(), u8"Name", state.name.AsView(),
+                        foundation::core::DefaultAllocator(), u8"Name", state.name.AsView(),
                         Function<void(StringView)>{
                             [self, li, si](StringView v)
                             {
@@ -1427,7 +1427,7 @@ namespace editor
                     }
                     Array<String> types;
                     types.PushBack(String(u8"AnimationClipAsset"));
-                    auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(),
+                    auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(),
                                                                   *self->m_context, Move(types));
                     dialog->OnPicked = [self, li, si](const Guid& picked)
                     {
@@ -1496,7 +1496,7 @@ namespace editor
                     }
                     Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                                MakeRef<ui::toolkit::Float2Editor>(
-                                   DefaultAllocator(), u8"Position", node.entryPositions[e],
+                                   foundation::core::DefaultAllocator(), u8"Position", node.entryPositions[e],
                                    -1000.0f, 1000.0f, 0.05f,
                                    Function<void(Float2)>{[&node, e, page](Float2 v)
                                                           {
@@ -1521,7 +1521,7 @@ namespace editor
                               Array<String> types;
                               types.PushBack(String(u8"AnimationClipAsset"));
                               auto dialog = MakeRef<app::AssetPickerDialog>(
-                                  DefaultAllocator(), *self->m_context, Move(types));
+                                  foundation::core::DefaultAllocator(), *self->m_context, Move(types));
                               dialog->OnPicked = [self, li, si, entryIdx](const Guid& picked)
                               {
                                   animation::AnimationGraphSource& s = self->m_asset->source;
@@ -1935,8 +1935,8 @@ namespace editor
     {
         Array<byte> after = SnapshotAsset();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditGraphCommand>(*this, mergeKey, m_undoBaseline, after),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditGraphCommand>(*this, mergeKey, m_undoBaseline, after),
+            foundation::core::DefaultAllocator()));
         m_undoBaseline = Move(after);
         RebuildPreviewGraph();
         MarkDirty();
@@ -1954,7 +1954,7 @@ namespace editor
         AnimationGraphEditorPage* self = this;
         Array<String> types;
         types.PushBack(String(u8"SkeletonAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
         dialog->OnPicked = [self](const Guid& picked)
         {
             self->m_skeletonGuid = picked;
@@ -1985,7 +1985,7 @@ namespace editor
         AnimationGraphEditorPage* self = this;
         Array<String> types;
         types.PushBack(String(u8"SkinnedMeshAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
         dialog->OnPicked = [self](const Guid& picked)
         {
             self->m_previewMeshId = picked;
@@ -2042,13 +2042,13 @@ namespace editor
         {
             return;
         }
-        m_previewGraph = MakeRef<animation::AnimationGraph>(DefaultAllocator());
+        m_previewGraph = MakeRef<animation::AnimationGraph>(foundation::core::DefaultAllocator());
         m_asset->source.BuildInto(*m_context->Resources(), *m_previewGraph);
         if (m_previewGraph->Layers().IsEmpty())
         {
             return;
         }
-        m_player = MakeUnique<animation::AnimationGraphPlayer>(DefaultAllocator(), *m_previewGraph,
+        m_player = MakeUnique<animation::AnimationGraphPlayer>(foundation::core::DefaultAllocator(), *m_previewGraph,
                                                                *skeleton);
         m_playerSkeleton = skeleton;
     }
@@ -2235,8 +2235,8 @@ namespace editor
                                           foundation::content::Instance& instance)
     {
         auto* page =
-            DefaultAllocator().New<AnimationGraphEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+            foundation::core::DefaultAllocator().New<AnimationGraphEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 
     void SeedDefaultAnimationGraph(pipeline::AnimationGraphAsset& asset)
@@ -2312,7 +2312,7 @@ namespace editor
         RegisterSerializable<GraphPreviewSettings>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<AnimationGraphPageFactory>(host, uiHost), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<AnimationGraphPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Animation Graph");

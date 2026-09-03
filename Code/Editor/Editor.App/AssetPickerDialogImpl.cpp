@@ -226,7 +226,7 @@ namespace editor::app
         }
         const Guid id = m_rows[static_cast<usize>(position)];
         AssetPickerDialog* self = this;
-        auto menu = MakeRef<ui::ContextMenu>(DefaultAllocator());
+        auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
         menu->AddItem(m_context->IsFavorite(id) ? StringView(u8"Unpin favorite")
                                                 : StringView(u8"Pin favorite"),
                       [self, id]()

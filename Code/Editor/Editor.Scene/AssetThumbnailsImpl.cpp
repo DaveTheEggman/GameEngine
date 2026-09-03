@@ -179,7 +179,7 @@ namespace editor
                 }
                 if (!m_sphere)
                 {
-                    m_sphere = geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 48, 24);
+                    m_sphere = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 1.0f, 48, 24);
                 }
                 m_proxy = resources.Bind<materials::Material>(id);
                 materials::Material* material = m_proxy ? m_proxy.Get() : nullptr;
@@ -494,7 +494,7 @@ namespace editor
 
                 if (!m_mesh)
                 {
-                    m_mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
+                    m_mesh = MakeRef<geometry::StaticMesh>(foundation::core::DefaultAllocator());
                 }
                 m_mesh->ClearForReload();
                 const u32 indexCount = static_cast<u32>(segments.Size() / 2) * 24u;
@@ -758,18 +758,18 @@ namespace editor
     void RegisterSceneThumbnailGenerators(ThumbnailService& service, EditorContext& context)
     {
         service.RegisterSceneGenerator(
-            MakeUnique<MeshThumbnailGenerator>(DefaultAllocator()));
+            MakeUnique<MeshThumbnailGenerator>(foundation::core::DefaultAllocator()));
         service.RegisterSceneGenerator(
-            MakeUnique<MaterialThumbnailGenerator>(DefaultAllocator()));
+            MakeUnique<MaterialThumbnailGenerator>(foundation::core::DefaultAllocator()));
         service.RegisterSceneGenerator(
-            MakeUnique<PrefabThumbnailGenerator>(DefaultAllocator(), context));
+            MakeUnique<PrefabThumbnailGenerator>(foundation::core::DefaultAllocator(), context));
         service.RegisterSceneGenerator(
-            MakeUnique<SceneThumbnailGenerator>(DefaultAllocator(), context));
+            MakeUnique<SceneThumbnailGenerator>(foundation::core::DefaultAllocator(), context));
         service.RegisterSceneGenerator(
-            MakeUnique<ParticleThumbnailGenerator>(DefaultAllocator()));
+            MakeUnique<ParticleThumbnailGenerator>(foundation::core::DefaultAllocator()));
         service.RegisterSceneGenerator(
-            MakeUnique<SkeletonThumbnailGenerator>(DefaultAllocator()));
+            MakeUnique<SkeletonThumbnailGenerator>(foundation::core::DefaultAllocator()));
         service.RegisterSceneGenerator(
-            MakeUnique<ModelManifestThumbnailGenerator>(DefaultAllocator(), context));
+            MakeUnique<ModelManifestThumbnailGenerator>(foundation::core::DefaultAllocator(), context));
     }
 }

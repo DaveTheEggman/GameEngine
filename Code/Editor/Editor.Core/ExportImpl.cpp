@@ -280,8 +280,8 @@ namespace editor
                          Span<const Guid> planRoots, bool cook, bool rebuild, ExportStats& stats,
                          Array<Guid>& outReachable, const ExportProgress& onProgress)
     {
-        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), foundation::core::DefaultAllocator());
-        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), DefaultAllocator());
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), DefaultAllocator());
         JobSystem jobs(DefaultAllocator()); // export tool root
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);
@@ -385,11 +385,11 @@ namespace editor
     {
         // The host cook already ran (ExportProject/CookReachable) and persisted its records to
         // .cache/cook.db - load them once to gate copy-forward for every target.
-        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), DefaultAllocator());
         CookDb hostRecords;
         hostRecords.Load(cacheMount);
 
-        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), DefaultAllocator());
         JobSystem jobs(DefaultAllocator()); // export tool root
         usize failed = 0;
         for (const ContentVariant& v : variants)
@@ -416,9 +416,9 @@ namespace editor
                                            engine::project::kProjectCacheDir).AsView());
             (void)CreateDirectory(cacheDir.AsView());
 
-            foundation::vfs::NativeFileSystem targetCookedMount(v.cookedDir.AsView(), foundation::core::DefaultAllocator());
-            foundation::vfs::NativeFileSystem targetCacheMount(cacheDir.AsView(), foundation::core::DefaultAllocator());
-            foundation::content::ContentDatabase targetDb(foundation::core::DefaultAllocator(), targetCookedMount, BinarySerializerFactory(),
+            foundation::vfs::NativeFileSystem targetCookedMount(v.cookedDir.AsView(), DefaultAllocator());
+            foundation::vfs::NativeFileSystem targetCacheMount(cacheDir.AsView(), DefaultAllocator());
+            foundation::content::ContentDatabase targetDb(DefaultAllocator(), targetCookedMount, BinarySerializerFactory(),
                                                         engine::project::kCookedAssetExtension);
 
             const CookStats s = CookForTarget(project.SourceDb(), targetDb, project.CookedDb(),
@@ -449,10 +449,10 @@ namespace editor
         }
         const String stagingDir = PathJoin(outDir, u8".stage-scenes");
         (void)CreateDirectory(stagingDir.AsView());
-        foundation::vfs::NativeFileSystem stagingMount(stagingDir.AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem stagingMount(stagingDir.AsView(), DefaultAllocator());
         Array<String> droppedScenes; // for the pruning report
         {
-            foundation::content::ContentDatabase staging(foundation::core::DefaultAllocator(), stagingMount, BinarySerializerFactory(),
+            foundation::content::ContentDatabase staging(DefaultAllocator(), stagingMount, BinarySerializerFactory(),
                                                        engine::project::kCookedAssetExtension);
             Array<foundation::content::Instance*> scenes;
             detail::CollectScenes(*project.SourceDb().RootGroup(), scenes);
@@ -542,7 +542,7 @@ namespace editor
         for (const ContentVariant& v : effectiveVariants)
         {
             foundation::vfs::PakBuilder pak;
-            foundation::vfs::NativeFileSystem cookedMount(v.cookedDir.AsView(), foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem cookedMount(v.cookedDir.AsView(), DefaultAllocator());
             if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
                                   stats.filesPacked, reachablePaths.Get()) ||
                 !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
@@ -565,7 +565,7 @@ namespace editor
             onProgress(u8"Writing manifest...", 0.9f);
         }
         {
-            foundation::vfs::NativeFileSystem outMount(outDir, foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem outMount(outDir, DefaultAllocator());
             engine::project::ProjectSettings dist;
             dist.name = String(project.Settings().name.AsView());
             dist.defaultSceneId = project.Settings().defaultSceneId;
@@ -611,7 +611,7 @@ namespace editor
             LOG_INFO(u8"Export", u8"pruned dist: {} kept, {} dropped ({} root(s))",
                               report.keptCount, report.dropped.Size(), report.roots.Size());
             {
-                foundation::vfs::NativeFileSystem outMount(outDir, foundation::core::DefaultAllocator());
+                foundation::vfs::NativeFileSystem outMount(outDir, DefaultAllocator());
                 (void)outMount.AsWritable()->Save(
                     u8"export-report.txt",
                     Span<const byte>(reinterpret_cast<const byte*>(text.CStr()), text.Size()));
@@ -638,8 +638,8 @@ namespace editor
         {
             onProgress(u8"Cooking content...", 0.05f);
         }
-        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), foundation::core::DefaultAllocator());
-        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), foundation::core::DefaultAllocator());
+        foundation::vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), DefaultAllocator());
+        foundation::vfs::NativeFileSystem cacheMount(project.CacheRoot().AsView(), DefaultAllocator());
         JobSystem jobs(DefaultAllocator()); // export tool root
         CookDriver driver(project.SourceDb(), project.CookedDb(), builders, &sourcesMount,
                           &cacheMount, &jobs);

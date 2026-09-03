@@ -65,26 +65,26 @@ export namespace editor
                 m_map = asset->Map();
             }
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Padding = ui::Thickness{8, 6};
 
-            m_status = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(20));
                 column->AddView(m_status.Get(), lp);
             }
 
-            m_scroll = MakeRef<ui::ScrollView>(DefaultAllocator());
-            m_rows = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            m_scroll = MakeRef<ui::ScrollView>(foundation::core::DefaultAllocator());
+            m_rows = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             m_rows->Direction = ui::Orientation::Vertical;
             m_rows->Spacing = 2.0f;
             m_scroll->AddView(m_rows.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(m_scroll.Get(), lp);
@@ -137,10 +137,10 @@ export namespace editor
             input::InputMap after = m_map;
             fn(after);
             (void)Commands().Execute(UniquePtr<IEditorCommand>(
-                DefaultAllocator().New<MapEditCommand>(*this,
+                foundation::core::DefaultAllocator().New<MapEditCommand>(*this,
                                                        static_cast<input::InputMap&&>(before),
                                                        static_cast<input::InputMap&&>(after)),
-                DefaultAllocator()));
+                foundation::core::DefaultAllocator()));
         }
 
         ui::Button* MakeButton(ui::FlexLayout& row, StringView label, f32 width,
@@ -243,7 +243,7 @@ export namespace editor
     inline void RegisterInputEditor(EditorContext& context, runtime::IApplicationHost& host)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            DefaultAllocator().New<InputMapPageFactory>(host), DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<InputMapPageFactory>(host), foundation::core::DefaultAllocator()));
     }
 
 }

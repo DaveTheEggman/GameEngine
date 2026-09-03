@@ -39,7 +39,7 @@ export namespace experimental::gui
         {
             SetTag(core::StringView(u8"scrollbar"));
             // The track is the node background so the theme's background-color styles it.
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_trackColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_trackColor));
         }
 
         void SetOrientation(Orientation orientation)
@@ -76,7 +76,7 @@ export namespace experimental::gui
         void SetTrackColor(Color color)
         {
             m_trackColor = color;
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), color));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), color));
         }
         void SetThumbColor(Color color)
         {

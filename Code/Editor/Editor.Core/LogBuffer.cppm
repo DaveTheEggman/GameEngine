@@ -36,7 +36,7 @@ export namespace editor
     class EditorLogBuffer final : public ILogSink
     {
     public:
-        explicit EditorLogBuffer(usize capacity = 4096, IAllocator& allocator = DefaultAllocator())
+        explicit EditorLogBuffer(IAllocator& allocator, usize capacity = 4096)
             : m_entries(capacity, allocator)
         {
         }

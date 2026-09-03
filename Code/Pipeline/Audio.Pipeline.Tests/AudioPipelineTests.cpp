@@ -503,9 +503,9 @@ TEST_CASE("audio.pipeline: the file importer creates an AudioClipAsset with prob
         RemoveDirectory(projectDir);
     };
     cleanProject();
-    REQUIRE(editor::EditorProject::Create(projectDir, u8"AudioTest").IsOk());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir, u8"AudioTest").IsOk());
     UniquePtr<editor::EditorProject> project =
-        editor::EditorProject::Open(projectDir);
+        editor::EditorProject::Open(DefaultAllocator(), projectDir);
     REQUIRE(static_cast<bool>(project));
 
     AudioFileImporter importer;

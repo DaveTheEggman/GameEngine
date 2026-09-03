@@ -57,7 +57,7 @@ TEST_CASE("editor-project: create scaffolds the layout and open round-trips the 
     const StringView dir = u8"scratch_editor_test_project";
     RemoveProjectTree(dir);
 
-    REQUIRE(EditorProject::Create(dir, u8"Test Project").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"Test Project").IsOk());
     CHECK(FileExists(PathJoin(dir, u8"Project.xml")));
     CHECK(DirectoryExists(PathJoin(dir, u8"Content")));
     CHECK(DirectoryExists(PathJoin(dir, u8"Sources")));
@@ -66,9 +66,9 @@ TEST_CASE("editor-project: create scaffolds the layout and open round-trips the 
     CHECK(DirectoryExists(PathJoin(dir, u8".cache")));
 
     // Creating again fails: the manifest already exists.
-    CHECK(EditorProject::Create(dir, u8"Test Project").Code() == ErrorCode::AlreadyExists);
+    CHECK(EditorProject::Create(DefaultAllocator(), dir, u8"Test Project").Code() == ErrorCode::AlreadyExists);
 
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
     CHECK(project->Name() == u8"Test Project");
     // (The manifest's data version rides the versioned-payload envelope now, not a field.)
@@ -85,7 +85,7 @@ TEST_CASE("editor-project: open fails without a manifest")
 {
     const StringView dir = u8"scratch_editor_test_project_missing";
     RemoveProjectTree(dir);
-    CHECK(!static_cast<bool>(EditorProject::Open(dir)));
+    CHECK(!static_cast<bool>(EditorProject::Open(DefaultAllocator(), dir)));
     RemoveProjectTree(dir);
 }
 
@@ -110,7 +110,7 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
     // Absent manifest: the scaffold path - no error noise.
     const StringView missingDir = u8"scratch_editor_test_project_silent";
     RemoveProjectTree(missingDir);
-    CHECK(!static_cast<bool>(EditorProject::Open(missingDir)));
+    CHECK(!static_cast<bool>(EditorProject::Open(DefaultAllocator(), missingDir)));
     CHECK(sink.errors == 0);
 
     // Present-but-unparseable manifest (e.g. a pre-versioning format): loud failure -
@@ -127,7 +127,7 @@ TEST_CASE("editor-project: an unreadable manifest logs an error (missing one sta
                                             garbage.Size()))
                     .IsOk());
     }
-    CHECK(!static_cast<bool>(EditorProject::Open(dir)));
+    CHECK(!static_cast<bool>(EditorProject::Open(DefaultAllocator(), dir)));
     CHECK(sink.errors == 1);
     const auto contains = [](StringView haystack, StringView needle)
     {
@@ -155,11 +155,11 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
 {
     const StringView dir = u8"scratch_editor_test_project_save";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     Guid savedId;
 
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8",
                                project->Settings().defaultSceneId));
@@ -175,7 +175,7 @@ TEST_CASE("editor-project: settings changes persist through SaveSettings")
         CHECK(project->SaveSettings().IsOk());
     }
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"scenes/main");
         CHECK(project->Settings().defaultSceneId == savedId); // guid is authoritative
@@ -201,11 +201,11 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
 
     const StringView dir = u8"scratch_editor_test_project_dbs";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
 
     Guid sourceId;
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
 
         // Author a source instance and a cooked instance.
@@ -229,7 +229,7 @@ TEST_CASE("editor-project: source db is XML, cooked db is binary, both round-tri
     CHECK(FileExists(PathJoin(dir, u8"Cooked/materials/steel.rasset")));
 
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         RefPtr<ISerializable> obj = project->SourceDb().ReadObject(sourceId);
         REQUIRE(obj.Get() != nullptr);
@@ -248,16 +248,16 @@ TEST_CASE("project: manifest round-trips the startup-script asset guid under a v
     (void)RemoveDirectory(dir);
 
     const Guid scriptId = Guid{0x1122334455667788ull, 0x99AABBCCDDEEFF00ull};
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().startupScriptId.IsNil());
         project->Settings().startupScriptId = scriptId;
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().startupScriptId == scriptId);
     }
@@ -272,9 +272,9 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
     (void)RemoveDirectory(dir);
 
     // Every save stamps the CURRENT engine version (the launcher's routing signal).
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
         // Comparing settings against the constant cannot catch the ENGINE_VERSION_* defines
@@ -313,7 +313,7 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         ctx->Flush(buffer);
         REQUIRE(root.AsWritable()->Save(u8"Project.xml", buffer.Bytes()).IsOk());
 
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().defaultScene == u8"Scenes/S");
         CHECK(project->Settings().engineVersion.IsEmpty()); // v1 data had no stamp
@@ -321,7 +321,7 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
-        UniquePtr<EditorProject> project = EditorProject::Open(dir);
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(static_cast<bool>(project));
         CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
     }

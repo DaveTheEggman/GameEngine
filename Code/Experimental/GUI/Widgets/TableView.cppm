@@ -78,7 +78,7 @@ export namespace experimental::gui
         {
             while (m_cells.Size() < count)
             {
-                auto cell = core::MakeRef<Label>(core::DefaultAllocator());
+                auto cell = core::MakeRef<Label>(MemoryAllocator());
                 cell->SetTag(
                     core::StringView(u8"tablecell")); // container-owned, not a generic label
                 cell->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
@@ -102,10 +102,10 @@ export namespace experimental::gui
         TableView()
         {
             SetTag(core::StringView(u8"tableview"));
-            m_header = core::MakeRef<UIWidget>(core::DefaultAllocator());
+            m_header = core::MakeRef<UIWidget>(MemoryAllocator());
             m_header->SetTag(core::StringView(u8"tableheader"));
             m_header->SetBackground(
-                core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_headerColor));
+                core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_headerColor));
             AddChild(m_header.Get());
         }
 
@@ -163,7 +163,7 @@ export namespace experimental::gui
 
         [[nodiscard]] RefPtr<ItemRow> CreateItemRow() override
         {
-            return core::MakeRef<TableRow>(core::DefaultAllocator());
+            return core::MakeRef<TableRow>(MemoryAllocator());
         }
 
         void OnBeforeLayout(f32 contentWidth) override
@@ -224,7 +224,7 @@ export namespace experimental::gui
             TableView* self = this;
             for (usize c = 0; c < columns; ++c)
             {
-                auto cell = core::MakeRef<TableHeaderCell>(core::DefaultAllocator());
+                auto cell = core::MakeRef<TableHeaderCell>(MemoryAllocator());
                 cell->SetColumn(c);
                 cell->SetFont(m_font);
                 cell->SetTextColor(m_headerTextColor);

@@ -100,7 +100,7 @@ export namespace editor::mcp
             {
                 const String directory = args.Get(u8"directory").AsString();
                 const String name = args.Get(u8"name").AsString();
-                const Status st = editor::EditorProject::Create(directory.AsView(), name.AsView());
+                const Status st = editor::EditorProject::Create(DefaultAllocator(), directory.AsView(), name.AsView());
                 if (!st.IsOk())
                 {
                     return Err(Format(u8"could not create project at '{}' (error {})",
@@ -121,7 +121,7 @@ export namespace editor::mcp
             {
                 const String directory = args.Get(u8"directory").AsString();
                 UniquePtr<editor::EditorProject> opened =
-                    editor::EditorProject::Open(directory.AsView());
+                    editor::EditorProject::Open(DefaultAllocator(), directory.AsView());
                 if (!opened)
                 {
                     return Err(Format(u8"could not open project at '{}' (missing or unreadable "
@@ -299,8 +299,8 @@ export namespace editor::mcp
                 // persists the pipeline DB through these); the source/cooked DBs are already open.
                 const String sourcesRoot = s->project->SourcesRoot();
                 const String cacheRoot = s->project->CacheRoot();
-                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), DefaultAllocator());
-                vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), DefaultAllocator());
+                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), foundation::core::DefaultAllocator());
+                vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), foundation::core::DefaultAllocator());
                 pipeline::CookDriver driver(s->project->SourceDb(), s->project->CookedDb(), *bld,
                                             &sourcesMount, &cacheMount, nullptr); // serial (no jobs)
                 pipeline::CookPlan plan = driver.Plan(force);

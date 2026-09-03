@@ -35,8 +35,8 @@ TEST_CASE("animation graph: creator path round-trips through a real project")
     RemoveDirectory(PathJoin(dir, u8"Editor"));
     RemoveDirectory(PathJoin(dir, u8".cache"));
     RemoveDirectory(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
     EditorContext ctx;
     ctx.SetProject(project.Get());

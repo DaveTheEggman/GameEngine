@@ -941,7 +941,7 @@ namespace
         {
             constexpr core::u32 kCols = 4, kRows = 4, kF = 64;
             constexpr core::u32 W = kCols * kF, H = kRows * kF;
-            core::Array<core::u8> px(core::DefaultAllocator());
+            core::Array<core::u8> px(foundation::core::DefaultAllocator());
             px.Resize(static_cast<core::usize>(W) * H * 4);
             for (core::u32 f = 0; f < kCols * kRows; ++f)
             {
@@ -1111,9 +1111,9 @@ namespace
                 RegisterParticleEffectAsset(); // register cooked/asset/module types + serializable factories
 
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(core::DefaultAllocator(), outputDir, core::DefaultAllocator());
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(core::DefaultAllocator(), 
-                core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
+                core::MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), outputDir, foundation::core::DefaultAllocator());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(foundation::core::DefaultAllocator(), 
+                foundation::core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
 
             // AUTHOR -> BAKE: cook the authored asset into a content-DB ParticleEffectResource.
@@ -1132,7 +1132,7 @@ namespace
 
             // LOAD: bind the cooked resource back through the manager + factory (runtime path).
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(core::DefaultAllocator(), core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *m_contentDb);
             m_resources->AddFactory(&m_pfxFactory);
             m_cookedProxy = m_resources->Bind<particles::ParticleEffectResource>(inst->Id());
             if (!m_cookedProxy)

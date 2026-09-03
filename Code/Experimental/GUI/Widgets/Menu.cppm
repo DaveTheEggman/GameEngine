@@ -343,7 +343,7 @@ export namespace experimental::gui
         Menu()
         {
             SetTag(core::StringView(u8"menu"));
-            SetBackground(core::MakeRef<RectangleDrawable>(core::DefaultAllocator(), m_panelColor));
+            SetBackground(core::MakeRef<RectangleDrawable>(MemoryAllocator(), m_panelColor));
         }
 
         void SetFont(fonts::CachedFont* font)
@@ -376,7 +376,7 @@ export namespace experimental::gui
         // Add a plain activatable item. Activating runs `action`, then closes the whole chain.
         MenuItem* AddItem(core::StringView text, core::Function<void()> action)
         {
-            auto item = core::MakeRef<MenuItem>(core::DefaultAllocator());
+            auto item = core::MakeRef<MenuItem>(MemoryAllocator());
             item->SetText(text);
             core::Function<void()> act = core::Move(action);
             item->SetOnPicked(
@@ -394,7 +394,7 @@ export namespace experimental::gui
         MenuItem* AddCheckItem(core::StringView text, bool checked,
                                core::Function<void(bool)> onToggled)
         {
-            auto item = core::MakeRef<MenuItem>(core::DefaultAllocator());
+            auto item = core::MakeRef<MenuItem>(MemoryAllocator());
             item->SetText(text);
             item->SetCheckable(true);
             item->SetCheckedSilently(checked);
@@ -407,7 +407,7 @@ export namespace experimental::gui
         // Add a horizontal separator (a non-interactive divider).
         void AddSeparator()
         {
-            auto sep = core::MakeRef<MenuSeparator>(core::DefaultAllocator());
+            auto sep = core::MakeRef<MenuSeparator>(MemoryAllocator());
             MenuSeparator* raw = sep.Get();
             Menu* self = this;
             raw->SetOnHovered([self, raw]() { self->OnRowHovered(raw); });
@@ -420,9 +420,9 @@ export namespace experimental::gui
         // this menu and shown to the item's right on hover/click.
         Menu* AddSubMenu(core::StringView text)
         {
-            auto item = core::MakeRef<MenuSubItem>(core::DefaultAllocator());
+            auto item = core::MakeRef<MenuSubItem>(MemoryAllocator());
             item->SetText(text);
-            auto sub = core::MakeRef<Menu>(core::DefaultAllocator());
+            auto sub = core::MakeRef<Menu>(MemoryAllocator());
             sub->SetFont(m_font);
             sub->SetItemHeight(m_itemHeight);
             item->SetSubMenu(sub.Get());

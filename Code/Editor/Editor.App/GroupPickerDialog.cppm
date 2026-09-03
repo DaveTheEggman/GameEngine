@@ -46,12 +46,12 @@ export namespace editor::app
             MaxWidth.SetValue(520.0f);
             MaxHeight.SetValue(420.0f);
 
-            auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 6;
 
-            m_treeAdapter = MakeUnique<TreeAdapter>(DefaultAllocator(), *this);
-            m_tree = MakeRef<ui::TreeView>(DefaultAllocator());
+            m_treeAdapter = MakeUnique<TreeAdapter>(MemoryAllocator(), *this);
+            m_tree = MakeRef<ui::TreeView>(MemoryAllocator());
             m_tree->SetItemHeight(20.0f);
             m_tree->SetAdapter(m_treeAdapter.Get());
             {
@@ -69,7 +69,7 @@ export namespace editor::app
                             }
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(m_tree.Get(), lp);
@@ -158,10 +158,10 @@ export namespace editor::app
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
-                auto label = MakeRef<ui::Label>(DefaultAllocator());
+                auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
+                auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
                 grow->Grow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());

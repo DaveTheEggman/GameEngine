@@ -29,9 +29,13 @@ add_executable(Core.Tests
     FramedRegionTests.cpp
     FunctionTests.cpp
     ThreadingTests.cpp
-    LibraryTests.cpp)
+    LibraryTests.cpp
+    AllocatorTripwireTests.cpp)
 
 target_link_libraries(Core.Tests PRIVATE Foundation::Core doctest::doctest)
+# The allocator tripwire scans the source tree at test time.
+target_compile_definitions(Core.Tests
+                           PRIVATE RAPTOR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 # A real shared library for the DynamicLibrary tests to load at runtime.
 add_library(TestPlugin MODULE TestPlugin.cpp)

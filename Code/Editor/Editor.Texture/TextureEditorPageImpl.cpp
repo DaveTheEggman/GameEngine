@@ -76,7 +76,7 @@ namespace editor
             }
             if (src.Format() == image::PixelFormat::RGBA8)
             {
-                return MakeUnique<image::OwnedImageData>(DefaultAllocator(), w, h,
+                return MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), w, h,
                                                          image::PixelFormat::RGBA8, src.PixelData(),
                                                          src.ColorSpace());
             }
@@ -96,7 +96,7 @@ namespace editor
                     const f32 c = Clamp(in[i], 0.0f, 1.0f);
                     out[i] = static_cast<u8>(c * 255.0f + 0.5f);
                 }
-                return MakeUnique<image::OwnedImageData>(DefaultAllocator(), w, h,
+                return MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), w, h,
                                                          image::PixelFormat::RGBA8, Move(out),
                                                          image::ImageColorSpace::Srgb);
             }
@@ -123,65 +123,65 @@ namespace editor
         }
 
         // Left: source facts label + the preview image (fit-centered on a dark panel).
-        m_image = MakeRef<ui::ImageView>(DefaultAllocator());
+        m_image = MakeRef<ui::ImageView>(foundation::core::DefaultAllocator());
         m_image->ScaleType.SetValue(ui::ScaleType::FitCenter);
         m_image->SetImage(m_preview.Get());
 
-        m_info = MakeRef<ui::Label>(DefaultAllocator(), StringView(u8""));
+        m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
         m_info->FontSize.SetValue(12.0f);
 
-        auto previewColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
         // Right: the property grid, inset off the pane edge like the material/scene inspectors.
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
         BuildGrid();
 
-        auto gridColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto gridColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
         gridColumn->Spacing = 6.0f;
         {
-            auto profileRow = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto profileRow = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
             profileRow->Direction = ui::Orientation::Horizontal;
             profileRow->Spacing = 4.0f;
             BuildProfileRow(*profileRow);
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             gridColumn->AddView(profileRow.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Grow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
         split->SetSplitRatio(0.55f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
 
         // The page action bar (Save / Undo / Redo / Discard) above the split.
-        m_toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *this);
-        auto pageColumn = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        m_toolbar = MakeRef<app::PageToolbar>(foundation::core::DefaultAllocator(), *this);
+        auto pageColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
         pageColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->Width = ui::SizeSpec::Match();
             pageColumn->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             pageColumn->AddView(split.Get(), grow);
@@ -222,7 +222,7 @@ namespace editor
             }
             m_sourceFormat = image::PixelFormat::RGBA8;
             m_preview = MakeUnique<image::OwnedImageData>(
-                DefaultAllocator(), m_asset->embeddedWidth, m_asset->embeddedHeight,
+                foundation::core::DefaultAllocator(), m_asset->embeddedWidth, m_asset->embeddedHeight,
                 image::PixelFormat::RGBA8, Move(pixels), m_asset->colorSpace);
             return;
         }
@@ -307,7 +307,7 @@ namespace editor
         // SAME undo entry, with the demoted advanced row below for the rare override. ---
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Usage"), static_cast<i32>(m_asset->usage),
+                foundation::core::DefaultAllocator(), StringView(u8"Usage"), static_cast<i32>(m_asset->usage),
                 Span<const StringView>{kUsageItems, 4},
                 Function<void(i32)>{
                     [self](i32 v)
@@ -330,7 +330,7 @@ namespace editor
         {
             // The one legitimate override (linear color data, e.g. a LUT authored as an image).
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Color Space (advanced)"),
+                foundation::core::DefaultAllocator(), StringView(u8"Color Space (advanced)"),
                 static_cast<i32>(m_asset->colorSpace), Span<const StringView>{kColorSpaceItems, 2},
                 Function<void(i32)>{
                     [self](i32 v)
@@ -349,7 +349,7 @@ namespace editor
             // The mismatch lint: presentation only - it fires on assets that already carry a
             // semantically wrong combination, which is the point.
             auto lint = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), StringView(u8"Warning"), StringView(u8""),
+                foundation::core::DefaultAllocator(), StringView(u8"Warning"), StringView(u8""),
                 Function<void(StringView)>{}, StringView(u8"Content"));
             ui::toolkit::StringEditor* lintRaw = lint.Get();
             AddEditor(lint.Get(),
@@ -378,7 +378,7 @@ namespace editor
         }
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Compression"),
+                foundation::core::DefaultAllocator(), StringView(u8"Compression"),
                 static_cast<i32>(m_asset->compression), Span<const StringView>{kCompressionItems, 3},
                 Function<void(i32)>{
                     [self](i32 v)
@@ -397,7 +397,7 @@ namespace editor
             // "Default" stops being opaque: the policy evaluated for the desktop profile (and
             // the mobile one when it differs). Read-only; recomputed after every edit.
             auto cooks = MakeRef<ui::toolkit::StringEditor>(
-                DefaultAllocator(), StringView(u8"Cooks to"), StringView(u8""),
+                foundation::core::DefaultAllocator(), StringView(u8"Cooks to"), StringView(u8""),
                 Function<void(StringView)>{}, StringView(u8"Content"));
             ui::toolkit::StringEditor* cooksRaw = cooks.Get();
             AddEditor(cooks.Get(),
@@ -406,7 +406,7 @@ namespace editor
         }
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), StringView(u8"Shape"), static_cast<i32>(m_asset->shape),
+                foundation::core::DefaultAllocator(), StringView(u8"Shape"), static_cast<i32>(m_asset->shape),
                 Span<const StringView>{kShapeItems, 5},
                 Function<void(i32)>{
                     [self](i32 v)
@@ -426,7 +426,7 @@ namespace editor
                                    texture::TextureFilter pipeline::TextureAsset::* field)
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
+                foundation::core::DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
                 Span<const StringView>{kFilterItems, 4},
                 Function<void(i32)>{
                     [self, field, key = String(key)](i32 v)
@@ -448,7 +448,7 @@ namespace editor
                                  texture::TextureWrap pipeline::TextureAsset::* field)
         {
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
+                foundation::core::DefaultAllocator(), label, static_cast<i32>(self->m_asset.Get()->*field),
                 Span<const StringView>{kWrapItems, 4},
                 Function<void(i32)>{
                     [self, field, key = String(key)](i32 v)
@@ -468,7 +468,7 @@ namespace editor
 
         {
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                DefaultAllocator(), StringView(u8"Generate Mipmaps"), m_asset->generateMipmaps,
+                foundation::core::DefaultAllocator(), StringView(u8"Generate Mipmaps"), m_asset->generateMipmaps,
                 Function<void(bool)>{[self](bool v)
                                      {
                                          self->ApplyEdit(u8"generateMipmaps",
@@ -482,7 +482,7 @@ namespace editor
         }
         {
             auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                DefaultAllocator(), StringView(u8"Anisotropy"), m_asset->anisotropy, 1.0f, 16.0f,
+                foundation::core::DefaultAllocator(), StringView(u8"Anisotropy"), m_asset->anisotropy, 1.0f, 16.0f,
                 1.0f,
                 Function<void(f32)>{[self](f32 v)
                                     {
@@ -546,7 +546,7 @@ namespace editor
         const auto profile = [&row, self](StringView label,
                                           void (pipeline::TextureAsset::*setup)())
         {
-            auto button = MakeRef<foundation::ui::Button>(DefaultAllocator(), label);
+            auto button = MakeRef<foundation::ui::Button>(foundation::core::DefaultAllocator(), label);
             button->OnClick.Add(
                 [self, setup](foundation::ui::ButtonBase*)
                 {
@@ -556,11 +556,11 @@ namespace editor
                 });
             row.AddView(button.Get());
         };
-        auto caption = MakeRef<foundation::ui::Label>(DefaultAllocator(),
+        auto caption = MakeRef<foundation::ui::Label>(foundation::core::DefaultAllocator(),
                                                       StringView(u8"Apply profile:"));
         caption->FontSize.SetValue(12.0f);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
             lp->AlignSelf = foundation::ui::Align::Center;
             row.AddView(caption.Get(), lp);
         }
@@ -644,8 +644,8 @@ namespace editor
         Array<byte> after = Snapshot();
         // The mutation already ran; Execute() re-applies `after` (idempotent).
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<EditTextureCommand>(*this, mergeKey, Move(before), Move(after)),
-            DefaultAllocator()));
+            foundation::core::DefaultAllocator().New<EditTextureCommand>(*this, mergeKey, Move(before), Move(after)),
+            foundation::core::DefaultAllocator()));
     }
 
     Status TextureEditorPage::Save()
@@ -680,7 +680,7 @@ namespace editor
     TextureEditorPageFactory::CreatePage(EditorContext& context,
                                          foundation::content::Instance& instance)
     {
-        auto* page = DefaultAllocator().New<TextureEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, DefaultAllocator());
+        auto* page = foundation::core::DefaultAllocator().New<TextureEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
     }
 }

@@ -182,8 +182,8 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
 
     const StringView dir = u8"scratch_editor_scene_test_project";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
     EditorContext ctx;
@@ -374,8 +374,8 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
 
     const StringView dir = u8"scratch_newscene_seed_project";
     RemoveProjectTree(dir);
-    REQUIRE(EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<EditorProject> project = EditorProject::Open(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
     EditorContext ctx;
     ctx.SetProject(project.Get());

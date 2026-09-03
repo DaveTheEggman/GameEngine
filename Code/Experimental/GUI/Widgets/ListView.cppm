@@ -36,7 +36,7 @@ export namespace experimental::gui
         ListRow()
         {
             SetTag(core::StringView(u8"listviewrow"));
-            m_label = core::MakeRef<Label>(core::DefaultAllocator());
+            m_label = core::MakeRef<Label>(MemoryAllocator());
             m_label->SetTag(core::StringView(u8"listcell")); // container-owned, not a generic label
             m_label->SetTextAlignment(TextHAlign::Left, TextVAlign::Middle);
             m_label->SetPadding(Thickness{8.0f, 0.0f, 8.0f, 0.0f});
@@ -79,7 +79,7 @@ export namespace experimental::gui
     protected:
         [[nodiscard]] RefPtr<ItemRow> CreateItemRow() override
         {
-            auto row = core::MakeRef<ListRow>(core::DefaultAllocator());
+            auto row = core::MakeRef<ListRow>(MemoryAllocator());
             row->GetLabel()->SetFont(m_font);
             row->GetLabel()->SetTextColor(m_textColor);
             return row;

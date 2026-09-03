@@ -151,7 +151,7 @@ export namespace samples::framework
         ws.width = m_width;
         ws.height = m_height;
 
-        m_shellOwner = shell::CreateShell(DefaultAllocator(), ws);
+        m_shellOwner = shell::CreateShell(foundation::core::DefaultAllocator(), ws);
         m_shell = m_shellOwner.Get();
         if (m_shell == nullptr || m_shell->MainWindow() == nullptr)
         {
@@ -271,7 +271,7 @@ export namespace samples::framework
         {
 #ifdef OPTION_HAS_WEBGPU
             rhi::webgpu::WebGpuBackendDesc desc{};
-            if (!rhi::webgpu::CreateBackend(desc, raw, core::DefaultAllocator()).IsOk())
+            if (!rhi::webgpu::CreateBackend(desc, raw, foundation::core::DefaultAllocator()).IsOk())
             {
                 rhi::LogError("SampleApp: rhi::webgpu::CreateBackend failed (sidecar missing?)");
                 return ErrorCode::Unknown;

@@ -708,8 +708,8 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         RemoveDirectory(dir);
     };
     scrub();
-    REQUIRE(editor::EditorProject::Create(dir, u8"P").IsOk());
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
     editor::EditorContext ctx;
     ctx.SetProject(project.Get());

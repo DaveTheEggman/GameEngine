@@ -35,12 +35,12 @@ export namespace experimental::gui
         TabWidget()
         {
             SetTag(core::StringView(u8"tabwidget"));
-            m_tabBar = core::MakeRef<LinearLayout>(core::DefaultAllocator());
+            m_tabBar = core::MakeRef<LinearLayout>(MemoryAllocator());
             m_tabBar->SetOrientation(Orientation::Horizontal);
             m_tabBar->SetSpacing(2.0f);
             AddChild(m_tabBar.Get());
 
-            m_contentHost = core::MakeRef<UIWidget>(core::DefaultAllocator());
+            m_contentHost = core::MakeRef<UIWidget>(MemoryAllocator());
             m_contentHost->SetClipChildren(true);
             AddChild(m_contentHost.Get());
         }
@@ -51,7 +51,7 @@ export namespace experimental::gui
         {
             const i32 index = static_cast<i32>(m_tabs.Size());
 
-            auto button = core::MakeRef<Button>(core::DefaultAllocator());
+            auto button = core::MakeRef<Button>(MemoryAllocator());
             button->SetText(title);
             button->SetFont(m_font);
             button->AddClass(

@@ -56,7 +56,7 @@ int main(int /*argc*/, char** /*argv*/)
     ws.title = u8"RHI Smoketest";
     ws.width = 1280;
     ws.height = 720;
-    UniquePtr<shell::IShell> plat = shell::CreateShell(DefaultAllocator(), ws);
+    UniquePtr<shell::IShell> plat = shell::CreateShell(foundation::core::DefaultAllocator(), ws);
     if (!plat || plat->MainWindow() == nullptr)
     {
         std::fprintf(stderr, "shell/window init failed\n");
@@ -528,7 +528,7 @@ int main(int /*argc*/, char** /*argv*/)
 
         Backend* wgpuBackend = nullptr;
         rhi::webgpu::WebGpuBackendDesc wgpuDesc{};
-        if (rhi::webgpu::CreateBackend(wgpuDesc, wgpuBackend, DefaultAllocator()) != ErrorCode::Ok)
+        if (rhi::webgpu::CreateBackend(wgpuDesc, wgpuBackend, foundation::core::DefaultAllocator()) != ErrorCode::Ok)
         {
             std::printf("WebGPU backend: sidecar unavailable - skipped\n");
         }

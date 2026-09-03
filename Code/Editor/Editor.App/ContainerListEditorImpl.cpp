@@ -23,7 +23,7 @@ namespace editor::app
 {
     RefPtr<ui::View> ContainerListEditor::CreateEditorView()
     {
-        auto column = MakeRef<ui::FlexLayout>(DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 2.0f;
 
@@ -32,15 +32,15 @@ namespace editor::app
 
         // Header: a spacer that grows + the add icon button pinned to the right.
         {
-            auto header = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto header = MakeRef<ui::FlexLayout>(MemoryAllocator());
             header->Direction = ui::Orientation::Horizontal;
-            auto spacer = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto spacer = MakeRef<ui::FlexLayout>(MemoryAllocator());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 header->AddView(spacer.Get(), lp);
             }
-            auto add = MakeRef<ui::IconButton>(DefaultAllocator(), icons.add.Get());
+            auto add = MakeRef<ui::IconButton>(MemoryAllocator(), icons.add.Get());
             add->OnClick.Add([self](ui::ButtonBase*)
                              {
                                  if (self->OnAdd)
@@ -49,7 +49,7 @@ namespace editor::app
                                  }
                              });
             header->AddView(add.Get());
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(header.Get(), lp);
@@ -58,11 +58,11 @@ namespace editor::app
         // Slot rows: a picker slot that fills + move-up / move-down / remove icon buttons.
         for (usize i = 0; i < slotNames.Size(); ++i)
         {
-            auto row = MakeRef<ui::FlexLayout>(DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
 
-            auto slot = MakeRef<editor::app::AssetPickerSlot>(DefaultAllocator(), slotNames[i].AsView());
+            auto slot = MakeRef<editor::app::AssetPickerSlot>(MemoryAllocator(), slotNames[i].AsView());
             slot->SetFontSize(12.0f);
             slot->OnPick = [self, i]()
             {
@@ -72,11 +72,11 @@ namespace editor::app
                 }
             };
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
                 lp->Grow = 1.0f;
                 row->AddView(slot.Get(), lp);
             }
-            auto up = MakeRef<ui::IconButton>(DefaultAllocator(), icons.moveUp.Get());
+            auto up = MakeRef<ui::IconButton>(MemoryAllocator(), icons.moveUp.Get());
             up->IsEnabled = i > 0;
             up->OnClick.Add([self, i](ui::ButtonBase*)
                             {
@@ -86,7 +86,7 @@ namespace editor::app
                                 }
                             });
             row->AddView(up.Get());
-            auto down = MakeRef<ui::IconButton>(DefaultAllocator(), icons.moveDown.Get());
+            auto down = MakeRef<ui::IconButton>(MemoryAllocator(), icons.moveDown.Get());
             down->IsEnabled = i + 1 < slotNames.Size();
             down->OnClick.Add([self, i](ui::ButtonBase*)
                               {
@@ -96,7 +96,7 @@ namespace editor::app
                                   }
                               });
             row->AddView(down.Get());
-            auto remove = MakeRef<ui::IconButton>(DefaultAllocator(), icons.remove.Get());
+            auto remove = MakeRef<ui::IconButton>(MemoryAllocator(), icons.remove.Get());
             remove->OnClick.Add([self, i](ui::ButtonBase*)
                                 {
                                     if (self->OnRemoveSlot)
@@ -106,7 +106,7 @@ namespace editor::app
                                 });
             row->AddView(remove.Get());
 
-            auto lp = MakeRef<ui::FlexLayoutParams>(DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(row.Get(), lp);
