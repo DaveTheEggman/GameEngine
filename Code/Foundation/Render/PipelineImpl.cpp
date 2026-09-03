@@ -2002,6 +2002,8 @@ namespace foundation::render
                             const rendergraph::RenderGraphResource* res = all[r];
                             if (res != nullptr &&
                                 res->resourceType == rendergraph::RGResourceType::Texture &&
+                                res->lifetime == rendergraph::RGResourceLifetime::Transient &&
+                                res->textureDesc.width > 0 && res->textureDesc.height > 0 &&
                                 res->name == wanted)
                             {
                                 return static_cast<i64>(r);
@@ -2176,8 +2178,14 @@ namespace foundation::render
         out.Clear();
         for (const rendergraph::RenderGraphResource* res : m_graph.Resources())
         {
-            if (res == nullptr || res->resourceType != rendergraph::RGResourceType::Texture)
+            if (res == nullptr || res->resourceType != rendergraph::RGResourceType::Texture ||
+                res->lifetime != rendergraph::RGResourceLifetime::Transient ||
+                res->textureDesc.width == 0 || res->textureDesc.height == 0)
             {
+                // Transients only: the view's IMPORTED color target is the blit's own
+                // write target (reading it deadlocks the layout tracking - the
+                // forward.color 0x0 bug), and persistent registrations carry no desc,
+                // so there are no dimensions to sample by. Both list as 0x0 otherwise.
                 continue;
             }
             // Names repeat per view (every view declares its own "forward.depth"); the picker

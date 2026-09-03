@@ -778,6 +778,12 @@ TEST_CASE("debug view: a named graph texture appends the blit pass; the inventor
                 CHECK(row.width == 256);
                 CHECK(row.height == 256);
             }
+            // Transients only: the view's IMPORTED target must never list (selecting it
+            // reads the blit's own write target - the forward.color layout-desync bug),
+            // and undimensioned persistents (ibl.prefilter et al) can't be sampled.
+            CHECK(row.name != u8"forward.color");
+            CHECK(row.width > 0);
+            CHECK(row.height > 0);
         }
         CHECK(foundDepth);
     }
@@ -786,6 +792,17 @@ TEST_CASE("debug view: a named graph texture appends the blit pass; the inventor
     {
         ViewSettings settings;
         settings.debug.resource = String(u8"no.such.texture");
+        frame.Begin(*h.encoder, 1);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK_FALSE(hasPass(u8"debug.blit"));
+    }
+
+    // The imported view target by name: filtered out (never a self-referential blit).
+    {
+        ViewSettings settings;
+        settings.debug.resource = String(u8"forward.color");
         frame.Begin(*h.encoder, 1);
         frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
                       256);
