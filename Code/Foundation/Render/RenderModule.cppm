@@ -35,6 +35,7 @@ export import :ao;
 export import :msaa_resolve;
 export import :ssr;
 export import :fxaa;
+export import :debug_blit;
 export import :exposure;
 export import :decal_pass;
 export import :debug_font;

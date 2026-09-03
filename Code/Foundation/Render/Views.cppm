@@ -49,6 +49,8 @@ export namespace foundation::render
         // Resolved per-view post-processing (exposure/bloom/AO). The RenderSubsystem fills this from
         // the scene's authored PostProcessSettings; the compose passes read it per view.
         ViewPostConfig post{};
+        // Debug-view selection (editor "show me this texture"); resource empty = off.
+        ViewDebugView debug{};
     };
 
     // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

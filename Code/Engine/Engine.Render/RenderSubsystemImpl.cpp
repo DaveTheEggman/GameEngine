@@ -335,7 +335,8 @@ namespace engine::render
                                       rhi::TextureFormat targetFormat, u32 width, u32 height,
                                       ViewportRect viewport, const CameraOverride* cameraOverride,
                                       const TargetState& targetState,
-                                      const ViewPostOverride* postOverride, const void* viewportKey)
+                                      const ViewPostOverride* postOverride, const void* viewportKey,
+                                      const ViewDebugView* debugView)
     {
         if (m_frame.Get() == nullptr || target == nullptr)
         {
@@ -454,6 +455,12 @@ namespace engine::render
         {
             ApplyViewPostOverride(settings.post, *postOverride);
         }
+        // Editor debug view: pass-through selection (validated per view at declare time -
+        // an unknown resource name simply shows the final image).
+        if (debugView != nullptr)
+        {
+            settings.debug = *debugView;
+        }
         // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
@@ -497,12 +504,24 @@ namespace engine::render
         }
     }
 
+    void RenderSubsystem::GetDebugResources(Array<DebugResourceInfo>& out)
+    {
+        out.Clear();
+        for (const DebugResourceInfo& row : m_debugResourceSnapshot)
+        {
+            out.PushBack(row);
+        }
+    }
+
     void RenderSubsystem::EndRendering()
     {
         PROFILE_SCOPE("Render.Compose");
         if (m_frame.Get() != nullptr)
         {
             m_frame->End();
+            // Snapshot the frame's graph-texture inventory while the graph still holds it
+            // (Begin resets the graph) - the editor's debug-view picker reads this copy.
+            m_frame->CollectDebugResources(m_debugResourceSnapshot);
         }
         // Immediate-mode: clear all debug lists AFTER rendering, so next frame's draws start empty
         // (the app accumulates during its update, before the next BeginRendering).
@@ -807,6 +826,14 @@ namespace engine::render
             m_fxaaPass.Reset();
         }
 
+        // Editor debug-view blit (visualize any graph texture in a viewport). Optional.
+        m_debugBlitPass =
+            MakeUnique<DebugBlitPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
+        if (!m_debugBlitPass->Initialize().IsOk())
+        {
+            m_debugBlitPass.Reset();
+        }
+
         // Screen-space decals (project onto depth, blend into HDR before AO/TAA). Optional.
         m_decalPass =
             MakeUnique<DecalPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
@@ -838,7 +865,7 @@ namespace engine::render
             m_clusterSystem.Get(),
             m_tonemapPass.Get(), m_shadowSystem.Get(), m_iblSystem.Get(), m_skyPass.Get(),
             m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(), m_fxaaPass.Get(),
-            m_exposurePass.Get());
+            m_exposurePass.Get(), m_debugBlitPass.Get());
         m_frame->EnableGpuProfiling(); // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 

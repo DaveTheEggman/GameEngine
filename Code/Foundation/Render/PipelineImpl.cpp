@@ -1538,9 +1538,15 @@ namespace foundation::render
             {
                 m_decalPass->BeginFrame(m_frameIndex);
             }
+            // Resources declared BEFORE the per-view loop (shadow atlas, IBL, cluster data)
+            // are frame-global; the debug-view lookup below searches this view's own range
+            // first (names repeat per view: every view has a "forward.depth"), then falls
+            // back to the frame-global prefix.
+            const usize frameGlobalResourceEnd = m_graph.Resources().Size();
             for (usize i = 0; i < m_views.ActiveCount(); ++i)
             {
                 RenderView* v = m_views.At(i);
+                const usize viewResourceBase = m_graph.Resources().Size();
                 rhi::TextureView* tgt = v->Target();
                 if (tgt == nullptr)
                 {
@@ -1962,6 +1968,55 @@ namespace foundation::render
                                                 prevViewProj);
                 }
 
+                // Editor debug view: overwrite this view's sub-rect with the selected graph
+                // texture (channel/range remap in the blit shader). Declared BEFORE overlays,
+                // so gizmos and HUD stay on top of the visualization. The read is a real graph
+                // dependency - transient aliasing keeps the source alive to this pass.
+                if (m_debugBlit != nullptr && !v->Settings().debug.resource.IsEmpty())
+                {
+                    const StringView wanted = v->Settings().debug.resource.AsView();
+                    const auto findIn = [&](usize begin, usize end) -> i64
+                    {
+                        const Array<rendergraph::RenderGraphResource*>& all = m_graph.Resources();
+                        for (usize r = begin; r < end && r < all.Size(); ++r)
+                        {
+                            const rendergraph::RenderGraphResource* res = all[r];
+                            if (res != nullptr &&
+                                res->resourceType == rendergraph::RGResourceType::Texture &&
+                                res->name == wanted)
+                            {
+                                return static_cast<i64>(r);
+                            }
+                        }
+                        return -1;
+                    };
+                    i64 found = findIn(viewResourceBase, m_graph.Resources().Size());
+                    if (found < 0)
+                    {
+                        found = findIn(0, frameGlobalResourceEnd);
+                    }
+                    if (found >= 0)
+                    {
+                        const rendergraph::RenderGraphResource* res =
+                            m_graph.Resources()[static_cast<usize>(found)];
+                        // Multisampled sources can't Load through a Texture2D binding
+                        // (WebGPU rule); the resolved twin is in the list instead.
+                        if (res->textureDesc.sampleCount <= 1)
+                        {
+                            const rendergraph::RGHandle srcH{static_cast<u32>(found),
+                                                             res->generation};
+                            m_debugBlit->DeclareDebugBlit(
+                                m_graph, srcH, colorH, v->TargetFormat(), v->ViewportX(),
+                                v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
+                                m_frameIndex, viewIndex,
+                                static_cast<f32>(res->textureDesc.width),
+                                static_cast<f32>(res->textureDesc.height),
+                                rhi::IsDepthFormat(res->textureDesc.format),
+                                v->Settings().debug);
+                        }
+                    }
+                }
+
                 // Scene-tier overlays (game UI: HUD canvases, billboards): one shared Load-op pass on the
                 // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
                 // draw so gizmos and diagnostic text stay on top (the Sedulous OverlayPass ordering).
@@ -2095,5 +2150,39 @@ namespace foundation::render
         } // Halton phase advances per frame (any view used TAA)
         m_anyViewTaa = false; // reset for next frame (re-accumulated during the view loop)
         m_encoder = nullptr;
+    }
+
+    void RenderFrame::CollectDebugResources(Array<DebugResourceInfo>& out) const
+    {
+        out.Clear();
+        for (const rendergraph::RenderGraphResource* res : m_graph.Resources())
+        {
+            if (res == nullptr || res->resourceType != rendergraph::RGResourceType::Texture)
+            {
+                continue;
+            }
+            // Names repeat per view (every view declares its own "forward.depth"); the picker
+            // wants the SET of names, so dedupe - the blit resolves per view at declare time.
+            bool seen = false;
+            for (const DebugResourceInfo& row : out)
+            {
+                if (row.name == res->name)
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen)
+            {
+                continue;
+            }
+            DebugResourceInfo row;
+            row.name = res->name;
+            row.width = res->textureDesc.width;
+            row.height = res->textureDesc.height;
+            row.samples = static_cast<u8>(res->textureDesc.sampleCount);
+            row.isDepth = rhi::IsDepthFormat(res->textureDesc.format);
+            out.PushBack(row);
+        }
     }
 }

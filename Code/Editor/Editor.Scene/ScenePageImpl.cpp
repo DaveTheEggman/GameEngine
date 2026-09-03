@@ -225,7 +225,7 @@ namespace editor
 
         m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
-                              &m_postOverride, /*viewportKey*/ m_viewport.Get());
+                              &m_postOverride, /*viewportKey*/ m_viewport.Get(), &m_debugView);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
 
         RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
@@ -961,6 +961,49 @@ namespace editor
         menu->Show(anchor->Context, pos.x, pos.y);
     }
 
+    void SceneEditorPage::ShowDebugViewMenu(foundation::ui::View* anchor)
+    {
+        if (anchor == nullptr || m_render == nullptr)
+        {
+            return;
+        }
+        auto menu = MakeRef<foundation::ui::ContextMenu>(Allocator());
+        SceneEditorPage* self = this;
+        const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
+
+        String finalText(mark(m_debugView.resource.IsEmpty()));
+        finalText += u8"Final (debug view off)";
+        menu->AddItem(finalText.AsView(), [self]() { self->m_debugView.resource.Clear(); });
+        menu->AddSeparator();
+
+        // The renderer's last-frame graph-texture inventory. Multisampled sources can't
+        // bind to the blit (WebGPU Load rule) - list their resolved twins only.
+        Array<render::DebugResourceInfo> rows;
+        m_render->GetDebugResources(rows);
+        for (const render::DebugResourceInfo& row : rows)
+        {
+            if (row.samples > 1)
+            {
+                continue;
+            }
+            String text(mark(m_debugView.resource == row.name));
+            text += Format(u8"{}  {}x{}{}", row.name, row.width, row.height,
+                           row.isDepth ? StringView(u8" depth") : StringView(u8""));
+            String name(row.name);
+            menu->AddItem(text.AsView(),
+                          [self, name]()
+                          {
+                              self->m_debugView.resource = name;
+                              // Editor viewport camera planes for depth linearization.
+                              self->m_debugView.nearZ = 0.1f;
+                              self->m_debugView.farZ = 1000.0f;
+                          });
+        }
+
+        const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
+        menu->Show(anchor->Context, pos.x, pos.y);
+    }
+
     void SceneEditorPage::BuildViewportToolbar()
     {
         m_toolbar = MakeRef<ui::toolkit::Toolbar>(Allocator());
@@ -1042,6 +1085,10 @@ namespace editor
             ui::toolkit::ToolbarButton* postButton = m_toolbar->AddButton(u8"Post");
             postButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
                                     { self->ShowPostFlagsMenu(btn); });
+            // Debug view: pick any render-graph texture to visualize in this viewport.
+            ui::toolkit::ToolbarButton* debugButton = m_toolbar->AddButton(u8"Debug");
+            debugButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
+                                     { self->ShowDebugViewMenu(btn); });
         }
 
         // Viewport tool palette (APPENDED after the built-ins so the fixed toolbar shape never

@@ -261,9 +261,13 @@ export namespace engine::render
                          ViewportRect viewport = {}, const CameraOverride* cameraOverride = nullptr,
                          const TargetState& targetState = {},
                          const ViewPostOverride* postOverride = nullptr,
-                         const void* viewportKey = nullptr) override;
+                         const void* viewportKey = nullptr,
+                         const ViewDebugView* debugView = nullptr) override;
 
         void EndRendering() override;
+
+        // The previous frame's render-graph texture inventory (debug-view pickers).
+        void GetDebugResources(Array<DebugResourceInfo>& out) override;
 
         // Scene-tier overlay sources: drawn per view inside the compose (after post, before
         // debug draw), matched to views by SceneKey. Idempotent, non-owning.
@@ -328,6 +332,8 @@ export namespace engine::render
         UniquePtr<SsrPass> m_ssrPass;
         UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve
         UniquePtr<FxaaPass> m_fxaaPass;
+        UniquePtr<DebugBlitPass> m_debugBlitPass;
+        Array<DebugResourceInfo> m_debugResourceSnapshot; // last frame's graph textures
         UniquePtr<ExposurePass> m_exposurePass;
         UniquePtr<DecalPass> m_decalPass;
         UniquePtr<DebugDrawPass> m_debugPass;

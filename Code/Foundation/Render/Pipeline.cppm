@@ -39,6 +39,7 @@ import :ao;
 import :ssr;
 import :msaa_resolve;
 import :fxaa;
+import :debug_blit;
 import :exposure;
 import :debug_draw;
 import :debug_pass;
@@ -504,11 +505,11 @@ export namespace foundation::render
                     ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr,
                     SkyPass* sky = nullptr, BloomPass* bloom = nullptr, TaaPass* taa = nullptr,
                     AoPass* ao = nullptr, FxaaPass* fxaa = nullptr,
-                    ExposurePass* exposure = nullptr) noexcept
+                    ExposurePass* exposure = nullptr, DebugBlitPass* debugBlit = nullptr) noexcept
             : m_registry(&registry), m_pass(device, framesInFlight), m_graph(allocator, &device),
               m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky),
               m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa), m_exposurePass(exposure),
-              m_views(allocator)
+              m_debugBlit(debugBlit), m_views(allocator)
         {
             m_device = &device;
         }
@@ -684,6 +685,14 @@ export namespace foundation::render
         // Compose all collected views into the frame's encoder.
         void End();
 
+        // The frame's render-graph texture inventory (deduped by name), for debug-view
+        // pickers. Valid after End() until the next Begin() rebuilds the graph.
+        void CollectDebugResources(Array<DebugResourceInfo>& out) const;
+
+        // Read-only view of the frame's graph (pass/resource introspection: debug tooling
+        // + tests). Same validity window as CollectDebugResources.
+        [[nodiscard]] const rendergraph::RenderGraph& Graph() const noexcept { return m_graph; }
+
         [[nodiscard]] usize ViewCount() const noexcept { return m_views.ActiveCount(); }
 
     private:
@@ -743,6 +752,7 @@ export namespace foundation::render
         f32 m_taaGamma = 1.25f;
         f32 m_taaMotionScale = 32.0f;
         ExposurePass* m_exposurePass = nullptr;
+        DebugBlitPass* m_debugBlit = nullptr; // borrowed; editor debug-view blit (after compose)
         f32 m_deltaSeconds = 1.0f / 60.0f;
         u32 m_jitterIndex = 0; // Halton phase, advances once per frame (mod 8)
         bool m_anyViewTaa =

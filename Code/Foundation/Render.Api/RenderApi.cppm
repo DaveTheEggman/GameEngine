@@ -84,6 +84,34 @@ export namespace foundation::render
         u8 msaaOverride = 0;
     };
 
+    // Per-view debug-view selection (the editor viewport's "show me this texture"): `resource`
+    // names a render-graph texture from GetDebugResources ("ao.ao", "ssr.refl", "gbuffer.depth",
+    // ...); empty = final image. The compose appends a blit pass that overwrites the view's
+    // sub-rect with the visualized resource - overlays/gizmos still draw on top. Never touches
+    // the scene asset; ephemeral per RenderScene call, like ViewPostOverride.
+    struct ViewDebugView
+    {
+        String resource;            // graph resource name; empty = off
+        f32 rangeMin = 0.0f;        // display remap: out = saturate((v - min) / (max - min))
+        f32 rangeMax = 1.0f;
+        u8 channel = 0;             // 0 RGB, 1 R, 2 G, 3 B, 4 A, 5 luma
+        bool linearizeDepth = true; // depth sources display as normalized view-space distance
+        f32 nearZ = 0.1f;           // linearization planes (the viewport camera's)
+        f32 farZ = 1000.0f;
+    };
+
+    // One row of the renderer's "what can I look at" table: the PREVIOUS frame's graph
+    // texture inventory (the graph rebuilds per frame under stable names). Multisampled
+    // sources are listed but not blittable - pick the resolved twin instead.
+    struct DebugResourceInfo
+    {
+        String name;
+        u32 width = 0;
+        u32 height = 0;
+        u8 samples = 1;
+        bool isDepth = false;
+    };
+
     // How the render target's resource state is handled. Default = the host-managed backbuffer (present).
     // For an offscreen target, give its `texture` (so the graph barriers it) + the state it's currently
     // in + the state to leave it in (ShaderRead to sample it next, CopySrc to blit it).
@@ -235,10 +263,15 @@ export namespace foundation::render
                                  const CameraOverride* cameraOverride = nullptr,
                                  const TargetState& targetState = {},
                                  const ViewPostOverride* postOverride = nullptr,
-                                 const void* viewportKey = nullptr) = 0;
+                                 const void* viewportKey = nullptr,
+                                 const ViewDebugView* debugView = nullptr) = 0;
 
         // Compose every collected view into the frame's encoder.
         virtual void EndRendering() = 0;
+
+        // The previous frame's render-graph texture inventory for debug-view pickers.
+        // Default-empty so light ISceneRenderer fakes need not implement it.
+        virtual void GetDebugResources(Array<DebugResourceInfo>& out) { out.Clear(); }
 
         // Scene-tier overlay registry (idempotent; non-owning - unregister before destruction).
         virtual void RegisterOverlay(ISceneOverlay* overlay) = 0;

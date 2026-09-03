@@ -700,3 +700,106 @@ TEST_CASE("depth prepass context carries the camera view matrix (per-view LOD pa
     CHECK(SameMatrix(capture.prepassViewMatrix, camera.view));
     CHECK(SameMatrix(capture.colorViewMatrix, camera.view));
 }
+
+TEST_CASE("debug view: a named graph texture appends the blit pass; the inventory lists it")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem,
+                              /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+
+    DebugBlitPass debugBlit(h.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(debugBlit.Initialize().IsOk());
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2,
+                      /*clusters*/ nullptr, /*tonemap*/ nullptr, /*shadows*/ nullptr,
+                      /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr, /*taa*/ nullptr,
+                      /*ao*/ nullptr, /*fxaa*/ nullptr, /*exposure*/ nullptr, &debugBlit);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    ExtractedScene scene{DefaultAllocator()};
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = cube.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+
+    const auto hasPass = [&](StringView name)
+    {
+        for (const foundation::rendergraph::RenderGraphPass* pass : frame.Graph().Passes())
+        {
+            if (pass != nullptr && pass->name == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // A valid selection: the per-view depth is always declared, so the blit pass appears
+    // (declared as a real reader - the lifetime extension is the graph's own dependency).
+    {
+        ViewSettings settings;
+        settings.debug.resource = String(u8"forward.depth");
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK(hasPass(u8"debug.blit"));
+
+        // The inventory lists the frame's textures, deduped, with the depth flag set.
+        Array<DebugResourceInfo> rows;
+        frame.CollectDebugResources(rows);
+        bool foundDepth = false;
+        for (const DebugResourceInfo& row : rows)
+        {
+            if (row.name == u8"forward.depth")
+            {
+                foundDepth = true;
+                CHECK(row.isDepth);
+                CHECK(row.width == 256);
+                CHECK(row.height == 256);
+            }
+        }
+        CHECK(foundDepth);
+    }
+
+    // An unknown name: no blit pass, no crash - the viewport just shows the final image.
+    {
+        ViewSettings settings;
+        settings.debug.resource = String(u8"no.such.texture");
+        frame.Begin(*h.encoder, 1);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK_FALSE(hasPass(u8"debug.blit"));
+    }
+
+    // Selection off (empty resource): no blit pass either.
+    {
+        ViewSettings settings;
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK_FALSE(hasPass(u8"debug.blit"));
+    }
+}

@@ -502,6 +502,10 @@ export namespace editor
         // this page's viewport with that effect stripped; the scene asset is never touched.
         void ShowPostFlagsMenu(foundation::ui::View* anchor);
 
+        // The viewport's debug-view popup: pick any render-graph texture to visualize in
+        // this viewport ("Final" = off). Built from the renderer's last-frame inventory.
+        void ShowDebugViewMenu(foundation::ui::View* anchor);
+
         // === Viewport toolbar (gizmo mode/space/grid) ===
 
         void BuildViewportToolbar();
@@ -572,6 +576,8 @@ export namespace editor
         RefPtr<ui::toolkit::Toolbar> m_toolbar;
         render::ViewPostOverride
             m_postOverride; // ephemeral viewport post show-flags (not serialized)
+        render::ViewDebugView
+            m_debugView; // ephemeral viewport debug-view selection (not serialized)
         ui::toolkit::ToolbarButton* m_playButton = nullptr; // borrowed (toolbar-owned)
         ui::toolkit::ToolbarToggle* m_pauseToggle = nullptr;
         ui::toolkit::ToolbarButton* m_stopButton = nullptr;
