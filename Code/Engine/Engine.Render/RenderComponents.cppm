@@ -532,6 +532,14 @@ export namespace engine::render
         f32 sunIntensity = 1.0f;
         f32 sunAngularSize = 0.5f; // sun disc size (degrees)
         f32 turbidity = 3.0f;      // Analytic (Preetham) haze (~2..10)
+        // Render-time dimmers on the sky's LIGHTING contribution, independent of its visible
+        // appearance (the lever skyIntensity is not: that scales backdrop + lighting together).
+        // Godot's ambient_light_sky_contribution / Lumix's indirect_intensity, split by term:
+        // diffuse scales the SH9 irradiance, specular the prefiltered reflections. 1 = full
+        // physical strength (a blue sky legitimately blue-lights an unlit scene); dial diffuse
+        // down to calm the cast without touching the sky or its reflections.
+        f32 iblDiffuseIntensity = 1.0f;
+        f32 iblSpecularIntensity = 1.0f;
     };
 
     class EnvironmentSystem final : public scene::SceneSystem
@@ -580,6 +588,11 @@ export namespace engine::render
             foundation::core::Serialize(ar, "sunIntensity", m_env.sunIntensity);
             foundation::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
             foundation::core::Serialize(ar, "turbidity", m_env.turbidity);
+            if (ar.Version() >= 4) // v4: IBL lighting dimmers (independent of the visible sky)
+            {
+                foundation::core::Serialize(ar, "iblDiffuseIntensity", m_env.iblDiffuseIntensity);
+                foundation::core::Serialize(ar, "iblSpecularIntensity", m_env.iblSpecularIntensity);
+            }
         }
 
     private:

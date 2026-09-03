@@ -492,6 +492,8 @@ namespace engine::render
             s.sunIntensity = e.sunIntensity;
             s.sunAngularSize = e.sunAngularSize;
             s.turbidity = e.turbidity;
+            s.iblDiffuseIntensity = e.iblDiffuseIntensity;
+            s.iblSpecularIntensity = e.iblSpecularIntensity;
             // Resolved sky-texture product (textured modes). Uid = change detection; the IBL
             // rebuilds its env products when it swaps (pick, hot-reload).
             if (texture::Texture* skyTex = e.skyTexture.Get())

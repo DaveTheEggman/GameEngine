@@ -282,7 +282,7 @@ namespace engine::render
             // ambient/sky/fog fields). A scene-scoped re-resolving handle (the settings are one-per-scene).
             .Method<&EnvironmentSettingsOf, EnvironmentSettings>("of")
             .DataVersion(
-                3) // v3: skyBackgroundIntensity (visible-backdrop dimmer, separate from IBL)
+                4) // v4: IBL lighting dimmers (v3: skyBackgroundIntensity backdrop dimmer)
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
             .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
@@ -328,7 +328,19 @@ namespace engine::render
             .Property<&EnvironmentSettings::turbidity>("turbidity")
             .PropAttribute("range", Float4{2.0f, 10.0f, 0.1f, 0.0f})
             .PropAttribute("visibleWhen", String(u8"skyMode=1"))
-            .PropAttribute("description", String(u8"Preetham haze (2 = clear, 10 = hazy)"));
+            .PropAttribute("description", String(u8"Preetham haze (2 = clear, 10 = hazy)"))
+            .Property<&EnvironmentSettings::iblDiffuseIntensity>("iblDiffuseIntensity")
+            .PropAttribute("displayName", String(u8"IBL Diffuse Intensity"))
+            .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
+            .PropAttribute("description",
+                           String(u8"Sky lighting (diffuse) strength - dims the sky's color cast "
+                                  u8"on surfaces without changing the visible sky"))
+            .Property<&EnvironmentSettings::iblSpecularIntensity>("iblSpecularIntensity")
+            .PropAttribute("displayName", String(u8"IBL Specular Intensity"))
+            .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
+            .PropAttribute("description",
+                           String(u8"Sky reflection strength on surfaces (probes keep their own "
+                                  u8"intensity)"));
     }
 
     REFLECT_VALUE(ReflectionProbeComponent, "rtti::engine::render")

@@ -864,6 +864,7 @@ namespace foundation::render
         // would collapse every local lookup onto one atlas row.
         vd.shadowParams.y = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
         vd.debugParams.x = static_cast<f32>(ctx.debugSemantic);
+        vd.iblParams = Float4{ctx.iblDiffuseIntensity, ctx.iblSpecularIntensity, 0.0f, 0.0f};
         // Ring base + THIS view's scene's entry base (scenes' entries are concatenated per frame;
         // lights carry scene-relative shadowIndex values).
         vd.localShadowBase = m_localShadowBase + ctx.localShadowEntryBase;

@@ -146,6 +146,10 @@ export namespace foundation::render
             40.0f; // CSM far-fade width in world units (SampleCSM dissolves shadows over the last cascade's far edge)
         u8 debugSemantic =
             0; // editor semantic debug view (ViewDebugSemantic): forward outputs the term, not the lit result
+        // Sky-lighting dimmers from the scene environment (SkySnapshot): scale the forward's
+        // IBL diffuse/specular terms without touching the visible sky.
+        f32 iblDiffuseIntensity = 1.0f;
+        f32 iblSpecularIntensity = 1.0f;
     };
 
     // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,

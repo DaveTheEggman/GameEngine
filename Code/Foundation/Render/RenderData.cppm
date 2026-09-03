@@ -633,6 +633,10 @@ export namespace foundation::render
         f32 sunIntensity = 1.0f;
         f32 sunAngularSize = 0.5f; // sun disc size (degrees)
         f32 turbidity = 3.0f;      // Analytic (Preetham) atmospheric turbidity (~2..10)
+        // Render-time dimmers on the sky's LIGHTING (never the visible sky): SH9 diffuse
+        // irradiance and prefiltered specular, applied in the forward's IBL block.
+        f32 iblDiffuseIntensity = 1.0f;
+        f32 iblSpecularIntensity = 1.0f;
     };
 
     // ---- extracted scene -------------------------------------------------------------------

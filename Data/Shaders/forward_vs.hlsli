@@ -21,6 +21,7 @@ cbuffer View : register(b0, space0) {
     float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
     float4 ShadowParams;               // x = CSM far-fade width in WORLD UNITS; yzw spare
     float4 DebugParams;                // x = semantic debug-view mode (0 = off); yzw spare
+    float4 IblParams;                  // x = IBL diffuse intensity, y = IBL specular intensity; zw spare
 };
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).

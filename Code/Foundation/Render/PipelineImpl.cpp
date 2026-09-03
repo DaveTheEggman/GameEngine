@@ -335,6 +335,11 @@ namespace foundation::render
         ctx.cameraPos = view.Camera().position;
         ctx.ambient =
             (view.Scene() != nullptr) ? view.Scene()->Ambient() : Float3{0.03f, 0.03f, 0.03f};
+        if (view.Scene() != nullptr)
+        {
+            ctx.iblDiffuseIntensity = view.Scene()->Sky().iblDiffuseIntensity;
+            ctx.iblSpecularIntensity = view.Scene()->Sky().iblSpecularIntensity;
+        }
         ctx.cascades = shadow.cascades;          // this view's CSM cascades
         ctx.cascadeLayerBase = shadow.layerBase; // this view's first shadow-array layer
         ctx.localShadowEntryBase = shadow.localShadowEntryBase;

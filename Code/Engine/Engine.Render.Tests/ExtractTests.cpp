@@ -307,12 +307,18 @@ TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity,
     env->Environment().skyTexture =
         sky.Get(); // direct override (picker/serialized path binds by guid)
 
+    // The IBL lighting dimmers ride the snapshot (defaults 1 = full physical strength).
+    env->Environment().iblDiffuseIntensity = 0.4f;
+    env->Environment().iblSpecularIntensity = 0.7f;
+
     foundation::render::ExtractedScene out{DefaultAllocator()};
     engine::render::ExtractEnvironmentInto(scene, out);
     CHECK(out.Sky().mode == foundation::render::SkyMode::Cubemap);
     CHECK(out.Sky().textureUid == sky->Uid());
     CHECK(out.Sky().textureUid != 0u);
     CHECK(out.Sky().textureIsCube);
+    CHECK(out.Sky().iblDiffuseIntensity == doctest::Approx(0.4f));
+    CHECK(out.Sky().iblSpecularIntensity == doctest::Approx(0.7f));
 
     // No texture -> no identity (the IBL keeps its programmatic/procedural source).
     env->Environment().skyTexture = foundation::resource::Ref<foundation::texture::Texture>{};
@@ -845,4 +851,37 @@ TEST_CASE("ResolveScenePost: auto-exposure window resolves EV stops to linear cl
         CHECK(vp.gradingLut == nullptr);
         CHECK(Near(vp.gradingLutSize, 0.0f));
     }
+}
+
+TEST_CASE("EnvironmentSettings: the IBL lighting dimmers serialize with the scene (v4)")
+{
+    // Mirror of the PostProcessSettings round-trip: author the v4 fields, serialize the
+    // whole scene, reload - the dimmers survive (and default to 1 = full strength).
+    {
+        engine::render::EnvironmentSettings d;
+        CHECK(d.iblDiffuseIntensity == doctest::Approx(1.0f));
+        CHECK(d.iblSpecularIntensity == doctest::Approx(1.0f));
+    }
+    foundation::scene::Scene a(DefaultAllocator(), u8"env");
+    auto* envA = a.AddSystem<engine::render::EnvironmentSystem>();
+    envA->Environment().iblDiffuseIntensity = 0.35f;
+    envA->Environment().iblSpecularIntensity = 0.8f;
+    (void)a.CreateEntity(u8"e");
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    foundation::scene::Scene b{DefaultAllocator()};
+    auto* envB = b.AddSystem<engine::render::EnvironmentSystem>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b, &stream);
+        REQUIRE(reader.IsOk());
+    }
+    CHECK(envB->Environment().iblDiffuseIntensity == doctest::Approx(0.35f));
+    CHECK(envB->Environment().iblSpecularIntensity == doctest::Approx(0.8f));
 }
