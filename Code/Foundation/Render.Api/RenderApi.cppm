@@ -77,6 +77,7 @@ export namespace foundation::render
         bool disableAo = false;
         bool disableSsr = false;
         bool disableAa = false; // TAA + FXAA off (crisp + unjittered)
+        bool disableSsgi = false;
         // Scene-pass MSAA for this view (the editor viewport's off/2x/4x toggle). 0 = no override
         // (leave the resolved count as-is); 1/2/4 = force that sample count. The editor viewport is
         // the source of its own MSAA count (the scene authors none), so

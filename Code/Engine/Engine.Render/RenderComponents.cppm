@@ -629,6 +629,10 @@ export namespace engine::render
         bool ssrEnabled = false;
         f32 ssrIntensity = 1.0f;
 
+        // Screen-space global illumination (one additive diffuse bounce, temporal).
+        bool ssgiEnabled = false;
+        f32 ssgiIntensity = 1.0f;
+
         // Auto-exposure (eye adaptation): exposure follows the scene's average luminance,
         // clamped to +-EV around the authored exposureEV. Off = the fixed EV alone.
         bool autoExposure = false;
@@ -693,6 +697,11 @@ export namespace engine::render
                 foundation::core::Serialize(ar, "gradingLut", m_post.gradingLut);
                 foundation::core::Serialize(ar, "gradingIntensity", m_post.gradingIntensity);
             }
+            if (ar.Version() >= 3) // v3: screen-space GI
+            {
+                foundation::core::Serialize(ar, "ssgiEnabled", m_post.ssgiEnabled);
+                foundation::core::Serialize(ar, "ssgiIntensity", m_post.ssgiIntensity);
+            }
         }
 
         void ResolveResources(foundation::resource::ResourceManager& manager) override
@@ -739,6 +748,8 @@ export namespace engine::render
         vp.fxaaSubpixel = s.fxaaSubpixel;
         vp.ssrEnabled = s.ssrEnabled;
         vp.ssrIntensity = s.ssrIntensity;
+        vp.ssgiEnabled = s.ssgiEnabled;
+        vp.ssgiIntensity = s.ssgiIntensity;
         vp.needsMotion = vp.taaEnabled; // caller ORs in (ssrEnabled && ssr-temporal)
         vp.autoExposure = s.autoExposure;
         vp.autoExposureKey = s.autoExposureKey;
@@ -779,6 +790,10 @@ export namespace engine::render
         if (o.disablePost || o.disableSsr)
         {
             vp.ssrEnabled = false;
+        }
+        if (o.disablePost || o.disableSsgi)
+        {
+            vp.ssgiEnabled = false;
         }
         if (o.disablePost || o.disableAa)
         {

@@ -321,6 +321,7 @@ namespace engine::render
         m_frame->SetSceneOverlays(&m_sceneOverlays.Items());
         m_frame->SetDecal(m_decalPass.Get());
         m_frame->SetSsr(m_ssrPass.Get());
+        m_frame->SetSsgi(m_ssgiPass.Get());
         m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
         m_frame->SetMsaaResolve(m_msaaResolvePass.Get());
         m_frame->SetProbes(m_probeSystem.Get());
@@ -464,7 +465,8 @@ namespace engine::render
         // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
-            settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal);
+            settings.post.taaEnabled || (settings.post.ssrEnabled && m_ssrParams.temporal) ||
+            settings.post.ssgiEnabled; // SSGI's temporal resolve reprojects by velocity
         // Scene-pass MSAA: snap the AUTHORED intent to what the device supports.
         // The valid set is NOT [1 .. ceiling]: WebGPU supports only {1, 4}, never 2. So clamp to the
         // ceiling, then snap DOWN to the nearest device-supported count (2x on WebGPU degrades to 1x;
@@ -801,6 +803,13 @@ namespace engine::render
         if (!m_ssrPass->Initialize().IsOk())
         {
             m_ssrPass.Reset();
+        }
+
+        // Screen-space GI (tier 1, the diffuse SSR twin). Optional.
+        m_ssgiPass = MakeUnique<SsgiPass>(m_allocator, *m_device, *m_shaders);
+        if (!m_ssgiPass->Initialize().IsOk())
+        {
+            m_ssgiPass.Reset();
         }
 
         // Scene-pass MSAA first-sample resolve. Optional - null leaves MSAA unavailable

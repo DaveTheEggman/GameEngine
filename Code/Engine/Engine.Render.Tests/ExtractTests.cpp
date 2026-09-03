@@ -442,6 +442,8 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
     postA->Post().bloomIntensity = 0.2f;
     postA->Post().aoMode = AoMode::GTAO;
     postA->Post().ssrEnabled = true;
+    postA->Post().ssgiEnabled = true;
+    postA->Post().ssgiIntensity = 1.5f;
     postA->Post().aaMode = AaMode::TAA;
     postA->Post().taaBlendFactor = 0.9f;
     (void)a.CreateEntity(u8"e");
@@ -466,6 +468,8 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
     CHECK(Near(r.bloomIntensity, 0.2f));
     CHECK(r.aoMode == AoMode::GTAO);
     CHECK(r.ssrEnabled);
+    CHECK(r.ssgiEnabled);           // v3 fields ride the versioned payload
+    CHECK(Near(r.ssgiIntensity, 1.5f));
     CHECK(r.aaMode == AaMode::TAA);
     CHECK(Near(r.taaBlendFactor, 0.9f));
 }
@@ -534,6 +538,15 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
         CHECK(vp.ssrEnabled);
         CHECK(Near(vp.ssrIntensity, 0.7f));
     }
+    // SSGI: enable + intensity map straight through.
+    {
+        PostProcessSettings gi;
+        gi.ssgiEnabled = true;
+        gi.ssgiIntensity = 2.0f;
+        const ViewPostConfig vp = ResolveScenePost(gi);
+        CHECK(vp.ssgiEnabled);
+        CHECK(Near(vp.ssgiIntensity, 2.0f));
+    }
 }
 
 TEST_CASE("ApplyViewPostOverride strips effects per view without touching the authored config")
@@ -545,6 +558,7 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
         vp.bloomEnabled = true;
         vp.aoMode = 1u;
         vp.ssrEnabled = true;
+        vp.ssgiEnabled = true;
         vp.taaEnabled = true;
         vp.fxaaEnabled = false;
         vp.exposure = 2.0f;
@@ -566,6 +580,7 @@ TEST_CASE("ApplyViewPostOverride strips effects per view without touching the au
         ViewPostConfig vp = base();
         ApplyViewPostOverride(vp, ViewPostOverride{.disablePost = true});
         CHECK_FALSE(vp.autoExposure);
+        CHECK_FALSE(vp.ssgiEnabled); // the master toggle drops the GI bounce too
         CHECK(vp.exposure == doctest::Approx(2.0f));
     }
     {

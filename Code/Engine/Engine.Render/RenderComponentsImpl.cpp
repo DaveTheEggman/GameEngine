@@ -373,7 +373,7 @@ namespace engine::render
     REFLECT_VALUE(PostProcessSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Post Processing"))
-            .Attribute("category", String(u8"Rendering")).DataVersion(2) // v2: auto-exposure + grading
+            .Attribute("category", String(u8"Rendering")).DataVersion(3) // v3: SSGI (v2: auto-exposure + grading)
             // Script (Track A): PostProcessSettings.of(scene) -> the scene's LIVE post settings (edit
             // exposure/tonemap/bloom/AA). A scene-scoped re-resolving handle.
             .Method<&PostProcessSettingsOf, PostProcessSettings>("of")
@@ -432,6 +432,13 @@ namespace engine::render
             .PropAttribute("displayName", String(u8"Screen-Space Reflections"))
             .Property<&PostProcessSettings::ssrIntensity>("ssrIntensity")
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.02f, 0.0f})
+            .Property<&PostProcessSettings::ssgiEnabled>("ssgiEnabled")
+            .PropAttribute("displayName", String(u8"Screen-Space GI"))
+            .PropAttribute("description",
+                           String(u8"One temporal diffuse bounce gathered from the visible scene"))
+            .Property<&PostProcessSettings::ssgiIntensity>("ssgiIntensity")
+            .PropAttribute("range", Float4{0.0f, 3.0f, 0.02f, 0.0f})
+            .PropAttribute("visibleWhen", String(u8"ssgiEnabled"))
             .Property<&PostProcessSettings::aaMode>("aaMode")
             .PropAttribute("displayName", String(u8"Anti-Aliasing"))
             .Property<&PostProcessSettings::taaBlendFactor>("taaBlendFactor")

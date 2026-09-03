@@ -34,6 +34,7 @@ export import :taa;
 export import :ao;
 export import :msaa_resolve;
 export import :ssr;
+export import :ssgi;
 export import :fxaa;
 export import :debug_blit;
 export import :exposure;

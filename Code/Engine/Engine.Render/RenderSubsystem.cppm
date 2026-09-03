@@ -330,6 +330,7 @@ export namespace engine::render
         UniquePtr<TaaPass> m_taaPass;
         UniquePtr<AoPass> m_aoPass;
         UniquePtr<SsrPass> m_ssrPass;
+        UniquePtr<SsgiPass> m_ssgiPass;
         UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve
         UniquePtr<FxaaPass> m_fxaaPass;
         UniquePtr<DebugBlitPass> m_debugBlitPass;

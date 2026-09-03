@@ -936,6 +936,7 @@ namespace editor
         add(u8"No Bloom", &render::ViewPostOverride::disableBloom);
         add(u8"No AO", &render::ViewPostOverride::disableAo);
         add(u8"No SSR", &render::ViewPostOverride::disableSsr);
+        add(u8"No SSGI", &render::ViewPostOverride::disableSsgi);
         add(u8"No AA (crisp)", &render::ViewPostOverride::disableAa);
         // Scene-pass MSAA: an INDEPENDENT off/2x/4x tri-state (not a bool - it forces the
         // view's sample count). The count is capability-clamped by the render subsystem, so a 4x pick

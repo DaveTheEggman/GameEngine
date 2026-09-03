@@ -980,3 +980,108 @@ TEST_CASE("auto-exposure: per-(view,frame) bind-group slots survive consecutive 
         CHECK(hasPass(u8"exposure.measure"));
     }
 }
+
+TEST_CASE("ssgi: enabling the per-view flag declares trace + resolve; the chain feeds SSR-less compose")
+{
+    RenderHarness h;
+    if (!h.Init(128, 128))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem,
+                              /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+
+    TonemapPass tonemap(h.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(tonemap.Initialize().IsOk());
+    SsgiPass ssgi(h.device, shaderSystem);
+    REQUIRE(ssgi.Initialize().IsOk());
+
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2,
+                      /*clusters*/ nullptr, &tonemap);
+    frame.SetSsgi(&ssgi);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    ExtractedScene scene{DefaultAllocator()};
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = cube.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+
+    const auto hasPass = [&](StringView name)
+    {
+        for (const foundation::rendergraph::RenderGraphPass* pass : frame.Graph().Passes())
+        {
+            if (pass != nullptr && pass->name == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Enabled: both SSGI passes declare, and the graph textures land in the debug-view
+    // inventory automatically (the layer-1 dividend).
+    {
+        ViewSettings settings;
+        settings.post.ssgiEnabled = true;
+        settings.post.ssgiIntensity = 1.0f;
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128,
+                      128);
+        frame.End();
+        CHECK(hasPass(u8"ssgi.trace"));
+        CHECK(hasPass(u8"ssgi.resolve"));
+
+        Array<DebugResourceInfo> rows;
+        frame.CollectDebugResources(rows);
+        bool sawRaw = false, sawScene = false;
+        for (const DebugResourceInfo& row : rows)
+        {
+            sawRaw = sawRaw || row.name == u8"ssgi.raw";
+            sawScene = sawScene || row.name == u8"ssgi.scene";
+        }
+        CHECK(sawRaw);
+        CHECK(sawScene);
+    }
+
+    // Second frame: the temporal history ping-pongs without recreating (same size),
+    // and the passes declare again.
+    {
+        ViewSettings settings;
+        settings.post.ssgiEnabled = true;
+        frame.Begin(*h.encoder, 1);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128,
+                      128);
+        frame.End();
+        CHECK(hasPass(u8"ssgi.trace"));
+        CHECK(hasPass(u8"ssgi.resolve"));
+    }
+
+    // Disabled: no SSGI passes.
+    {
+        ViewSettings settings;
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128,
+                      128);
+        frame.End();
+        CHECK_FALSE(hasPass(u8"ssgi.trace"));
+        CHECK_FALSE(hasPass(u8"ssgi.resolve"));
+    }
+}

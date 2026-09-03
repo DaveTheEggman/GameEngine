@@ -37,6 +37,7 @@ import :bloom;
 import :taa;
 import :ao;
 import :ssr;
+import :ssgi;
 import :msaa_resolve;
 import :fxaa;
 import :debug_blit;
@@ -603,6 +604,7 @@ export namespace foundation::render
         // Screen-space reflections (borrowed pass); null = no SSR. Declared per view after sky+decals, before
         // AO/TAA (so TAA stabilizes the march). Set once per frame before End.
         void SetSsr(SsrPass* pass) noexcept { m_ssr = pass; }
+        void SetSsgi(SsgiPass* pass) noexcept { m_ssgi = pass; }
         // Scene-pass MSAA first-sample resolve (borrowed pass); null = no MSAA support. Used only when
         // a view's post.msaaSamples > 1, to resolve the MSAA depth+aux to 1x for the post consumers.
         void SetMsaaResolve(MsaaResolvePass* pass) noexcept { m_msaaResolve = pass; }
@@ -715,6 +717,7 @@ export namespace foundation::render
         FxaaPass* m_fxaa = nullptr;       // borrowed; TAA-off fallback AA (after tonemap)
         DecalPass* m_decalPass = nullptr; // borrowed; per-view screen-space decal pass
         SsrPass* m_ssr = nullptr; // borrowed; screen-space reflections (after sky/decals, pre-TAA)
+        SsgiPass* m_ssgi = nullptr; // borrowed; screen-space GI bounce (before SSR - reflections see it)
         MsaaResolvePass* m_msaaResolve =
             nullptr; // borrowed; MSAA depth+aux -> 1x resolve (only when a view is MSAA)
         bool m_ssrEnabled = false;

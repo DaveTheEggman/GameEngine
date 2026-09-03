@@ -17,6 +17,7 @@ target_sources(Render
         ReflectionProbeSystemImpl.cpp
         Debug/DebugDrawPassImpl.cpp
         SsrPassImpl.cpp
+        SsgiPassImpl.cpp
         AoPassImpl.cpp
         MsaaResolvePassImpl.cpp
         RenderDataImpl.cpp
@@ -50,6 +51,7 @@ target_sources(Render
             AoPass.cppm
             MsaaResolvePass.cppm
             SsrPass.cppm
+        SsgiPass.cppm
             FxaaPass.cppm
         DebugBlitPass.cppm ExposurePass.cppm
             DecalPass.cppm

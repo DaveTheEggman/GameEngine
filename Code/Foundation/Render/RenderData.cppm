@@ -585,6 +585,9 @@ export namespace foundation::render
         // stays frame-global).
         bool ssrEnabled = false;
         f32 ssrIntensity = 1.0f;
+        // Screen-space GI (tier 1): one additive diffuse bounce.
+        bool ssgiEnabled = false;
+        f32 ssgiIntensity = 1.0f;
         // Auto-exposure (eye adaptation): the tonemap multiplies exposure by
         // clamp(key / adaptedLuminance, autoMin..autoMax) when enabled.
         bool autoExposure = false;

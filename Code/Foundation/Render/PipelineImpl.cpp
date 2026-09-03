@@ -1815,17 +1815,30 @@ namespace foundation::render
                                                    v->ViewportWidth(), v->ViewportHeight(),
                                                    /*samples*/ 1u);
                     }
+                    // Screen-space GI (tier 1): one diffuse bounce gathered from the lit HDR, BEFORE
+                    // SSR so reflections see the bounce. Additive composite (unit-albedo v1 ruling -
+                    // see :ssgi); produces a fresh HDR the rest of the chain consumes.
+                    rendergraph::RGHandle sceneHdr = postHdr;
+                    if (m_ssgi != nullptr && post.ssgiEnabled)
+                    {
+                        SsgiPass::Params ssgiParams;
+                        ssgiParams.intensity = post.ssgiIntensity;
+                        sceneHdr = m_ssgi->DeclareSsgi(
+                            m_graph, sceneHdr, postDepth, postNormal, postVelocity, v->Width(),
+                            v->Height(), v->ViewportX(), v->ViewportY(), v->ViewportWidth(),
+                            v->ViewportHeight(), Inverse(v->Camera().projection),
+                            v->Camera().projection, ssgiParams, viewIndex, m_frameIndex);
+                    }
                     // Screen-space reflections: reflect the lit HDR (sky + opaque + decals) into itself, AFTER
                     // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
                     // G-buffer to gate/fade; LERP-replaces the IBL specular where it hits. Produces a fresh HDR.
-                    rendergraph::RGHandle sceneHdr = postHdr;
                     if (m_ssr != nullptr && post.ssrEnabled)
                     {
                         // Per-view enable + intensity over the frame-global SSR config.
                         SsrPass::Params ssrParams = m_ssrParams;
                         ssrParams.intensity = post.ssrIntensity;
                         sceneHdr = m_ssr->DeclareSsr(
-                            m_graph, postHdr, postDepth, postNormal, postMaterial, postVelocity,
+                            m_graph, sceneHdr, postDepth, postNormal, postMaterial, postVelocity,
                             v->Width(), v->Height(), v->ViewportX(), v->ViewportY(), v->ViewportWidth(),
                             v->ViewportHeight(), Inverse(v->Camera().projection),
                             v->Camera().projection, ssrParams, viewIndex, m_frameIndex);
