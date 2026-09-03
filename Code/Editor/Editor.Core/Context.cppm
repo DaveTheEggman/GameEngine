@@ -30,6 +30,28 @@ using namespace foundation::core;
 
 export namespace editor
 {
+    namespace detail
+    {
+        inline IAllocator*& EditorRootSlot() noexcept
+        {
+            static IAllocator* slot = &DefaultAllocator();
+            return slot;
+        }
+    }
+
+    /// The EDITOR BINARY's root allocator seam: the editor app installs its tagged
+    /// "Editor" root at startup, so free helpers and panel providers (which have no
+    /// owner parameter to thread) still attribute to the Editor tag. Outside the app
+    /// (unit tests) it is the process allocator - tests are their own roots.
+    inline void SetEditorRootAllocator(IAllocator& allocator) noexcept
+    {
+        detail::EditorRootSlot() = &allocator;
+    }
+    [[nodiscard]] inline IAllocator& EditorRootAllocator() noexcept
+    {
+        return *detail::EditorRootSlot();
+    }
+
     /// User-facing notification severity (the application maps these to UI toasts).
     enum class NoticeKind : u8
     {
@@ -55,7 +77,11 @@ export namespace editor
     class EditorContext : public IAssetEditSink
     {
     public:
-        EditorContext() = default;
+        // The allocator (required - the editor app passes its tagged "Editor" root)
+        // is the authority every page, panel, and editor service builds on.
+        explicit EditorContext(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
         EditorContext(const EditorContext&) = delete;
         EditorContext& operator=(const EditorContext&) = delete;
 
@@ -153,6 +179,7 @@ export namespace editor
         void Notify(NoticeKind kind, StringView message);
 
     private:
+        IAllocator* m_allocator;
         struct InterceptorEntry
         {
             u64 id = 0;

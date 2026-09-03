@@ -107,6 +107,6 @@ export namespace editor
     /// Registered by RegisterAudioClipEditor (the domain's one composition entry point).
     inline void RegisterAudioThumbnailGenerator(editor::ThumbnailService& service)
     {
-        service.RegisterGenerator(MakeUnique<AudioClipThumbnailGenerator>(foundation::core::DefaultAllocator()));
+        service.RegisterGenerator(MakeUnique<AudioClipThumbnailGenerator>(editor::EditorRootAllocator()));
     }
 }

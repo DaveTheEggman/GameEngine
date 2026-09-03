@@ -149,7 +149,7 @@ namespace editor
         }
 
         m_stack.PushBack(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<detail::BeginGroupCommand>(groupType), DefaultAllocator()));
+            editor::EditorRootAllocator().New<detail::BeginGroupCommand>(groupType), editor::EditorRootAllocator()));
         ++m_undoIndex;
         m_inGroup = true;
         m_groupType = String(groupType);
@@ -159,8 +159,8 @@ namespace editor
     {
         DIAGNOSTIC_ASSERT(m_inGroup);
         m_stack.PushBack(UniquePtr<IEditorCommand>(
-            DefaultAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()),
-            DefaultAllocator()));
+            editor::EditorRootAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()),
+            editor::EditorRootAllocator()));
         ++m_undoIndex;
         m_inGroup = false;
         Notify();

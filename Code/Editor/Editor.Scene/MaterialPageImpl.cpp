@@ -67,7 +67,8 @@ namespace editor
     MaterialEditorPage::MaterialEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                            ui::runtime::UIHost& uiHost,
                                            foundation::content::Instance& instance)
-        : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+        : app::UIEditorPage(context.Allocator()),
+          m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
         RefPtr<ISerializable> object = instance.ReadObject();
@@ -85,7 +86,7 @@ namespace editor
 
         // Shared preview substrate (viewport + preview scene + fly camera + render loop).
         m_preview =
-            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"material.preview");
+            MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"material.preview");
         m_preview->Camera().position = Float3{0.0f, 0.9f, 2.6f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
 
@@ -104,20 +105,20 @@ namespace editor
             ApplyPreviewMesh();
         }
 
-        m_grid = MakeRef<foundation::ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+        m_grid = MakeRef<foundation::ui::toolkit::PropertyGrid>(Allocator());
         RebuildGrid();
 
         // Inset the property grid off the pane edge (matches the scene inspector / hierarchy).
-        auto gridColumn = MakeRef<foundation::ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto gridColumn = MakeRef<foundation::ui::FlexLayout>(Allocator());
         gridColumn->Direction = foundation::ui::Orientation::Vertical;
         gridColumn->Padding = foundation::ui::Thickness{8, 6};
         {
-            auto grow = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             gridColumn->AddView(m_grid.Get(), grow);
         }
 
-        m_content = MakeRef<foundation::ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+        m_content = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
         m_content->SetSplitRatio(0.62f);
         m_content->SetPanes(m_preview->View(), gridColumn.Get());
 
@@ -236,8 +237,8 @@ namespace editor
         Array<byte> after = SnapshotSource();
         // The mutation already ran; Execute() re-applies `after` (idempotent).
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            foundation::core::DefaultAllocator().New<EditMaterialCommand>(*this, mergeKey, Move(before), Move(after)),
-            foundation::core::DefaultAllocator()));
+            Allocator().New<EditMaterialCommand>(*this, mergeKey, Move(before), Move(after)),
+            Allocator()));
     }
 
     void MaterialEditorPage::BuildPreviewScene()
@@ -249,7 +250,7 @@ namespace editor
         }
 
         m_sphere = scenePtr->CreateEntity(u8"PreviewSphere");
-        m_previewMesh = foundation::geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 1.0f, 48, 24);
+        m_previewMesh = foundation::geometry::Primitives::Sphere(Allocator(), 1.0f, 48, 24);
         if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
         {
             engine::render::MeshComponent& mc = meshes->Add(m_sphere);
@@ -277,7 +278,7 @@ namespace editor
         }
         const materials::MaterialSource& src = m_asset->source;
 
-        RefPtr<materials::Material> material = MakeRef<materials::Material>(foundation::core::DefaultAllocator());
+        RefPtr<materials::Material> material = MakeRef<materials::Material>(Allocator());
         material->name = String(src.name.AsView());
         material->shaderName = String(src.shaderName.AsView());
         material->shaderFlags = static_cast<foundation::shaders::ShaderFlags>(src.shaderFlags);
@@ -418,22 +419,22 @@ namespace editor
         switch (m_previewShape)
         {
         case 1:
-            m_previewMesh = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.4f);
+            m_previewMesh = geometry::Primitives::Cube(Allocator(), 1.4f);
             break;
         case 2:
-            m_previewMesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), 2.0f, 2.0f);
+            m_previewMesh = geometry::Primitives::Plane(Allocator(), 2.0f, 2.0f);
             break;
         case 3:
-            m_previewMesh = geometry::Primitives::Cylinder(foundation::core::DefaultAllocator(), 0.7f, 1.6f, 48);
+            m_previewMesh = geometry::Primitives::Cylinder(Allocator(), 0.7f, 1.6f, 48);
             break;
         case 4:
-            m_previewMesh = geometry::Primitives::Torus(foundation::core::DefaultAllocator(), 0.8f, 0.35f, 48, 24);
+            m_previewMesh = geometry::Primitives::Torus(Allocator(), 0.8f, 0.35f, 48, 24);
             break;
         case 5:
-            m_previewMesh = geometry::Primitives::Cone(foundation::core::DefaultAllocator(), 0.8f, 1.6f, 48);
+            m_previewMesh = geometry::Primitives::Cone(Allocator(), 0.8f, 1.6f, 48);
             break;
         default:
-            m_previewMesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 1.0f, 48, 24);
+            m_previewMesh = geometry::Primitives::Sphere(Allocator(), 1.0f, 48, 24);
             break;
         }
         mc->mesh.SetId(Guid{});
@@ -470,7 +471,7 @@ namespace editor
         // --- Material: shader + pipeline state ---
         const StringView shaderShown =
             src.shaderName.IsEmpty() ? StringView(u8"(shader asset)") : src.shaderName.AsView();
-        auto shader = MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), StringView(u8"Shader"),
+        auto shader = MakeRef<ui::toolkit::StringEditor>(Allocator(), StringView(u8"Shader"),
                                                          shaderShown, Function<void(StringView)>{},
                                                          StringView(u8"Material"));
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(shader.Get()));
@@ -480,7 +481,7 @@ namespace editor
             static constexpr StringView kShapes[] = {u8"Sphere",   u8"Cube",  u8"Plane",
                                                      u8"Cylinder", u8"Torus", u8"Cone"};
             auto shape = MakeRef<ui::toolkit::EnumEditor>(
-                foundation::core::DefaultAllocator(), StringView(u8"Shape"), static_cast<i32>(m_previewShape),
+                Allocator(), StringView(u8"Shape"), static_cast<i32>(m_previewShape),
                 Span<const StringView>{kShapes, 6},
                 Function<void(i32)>{[self](i32 index)
                                     {
@@ -511,7 +512,7 @@ namespace editor
                 }
                 return u8"(missing)";
             };
-            auto meshRow = MakeRef<ResourceRefEditor>(foundation::core::DefaultAllocator(), StringView(u8"Mesh"),
+            auto meshRow = MakeRef<ResourceRefEditor>(Allocator(), StringView(u8"Mesh"),
                                                       meshName(), StringView(u8"Preview"));
             ResourceRefEditor* meshRaw = meshRow.Get();
             meshRow->OnPick = [self, meshRaw, meshName]()
@@ -524,7 +525,7 @@ namespace editor
                 typeNames.PushBack(String(u8"StaticMeshAsset"));
                 typeNames.PushBack(String(u8"SkinnedMeshAsset"));
                 auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    foundation::core::DefaultAllocator(), *self->m_context, Move(typeNames));
+                    self->Allocator(), *self->m_context, Move(typeNames));
                 dialog->OnPicked = [self, meshRaw, meshName](const Guid& picked)
                 {
                     self->m_previewMeshGuid = picked; // nil (Clear) = back to the primitive
@@ -588,7 +589,7 @@ namespace editor
                 if (zeroToOne || zeroToTwo)
                 {
                     auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                        foundation::core::DefaultAllocator(), name.AsView(), static_cast<f32>(value()), 0.0f,
+                        Allocator(), name.AsView(), static_cast<f32>(value()), 0.0f,
                         zeroToTwo ? 2.0f : 1.0f, 0.01f,
                         Function<void(f32)>{[write](f32 v) { write(v); }},
                         StringView(u8"Properties"));
@@ -599,7 +600,7 @@ namespace editor
                 else
                 {
                     auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                        foundation::core::DefaultAllocator(), name.AsView(), value(), 0.0, 1e9, 0.01, 3,
+                        Allocator(), name.AsView(), value(), 0.0, 1e9, 0.01, 3,
                         Function<void(f64)>{[write](f64 v) { write(static_cast<f32>(v)); }},
                         StringView(u8"Properties"));
                     editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
@@ -616,7 +617,7 @@ namespace editor
                     return Color{v.x, v.y, v.z, v.w};
                 };
                 auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                    foundation::core::DefaultAllocator(), name.AsView(), value(),
+                    Allocator(), name.AsView(), value(),
                     Function<void(Color)>{[self, name](Color c)
                                           {
                                               self->ApplyEdit(
@@ -653,7 +654,7 @@ namespace editor
         };
         const String key(label);
         auto editor = MakeRef<ui::toolkit::EnumEditor>(
-            foundation::core::DefaultAllocator(), label, read(), items,
+            Allocator(), label, read(), items,
             Function<void(i32)>{[self, field, key](i32 index)
                                 {
                                     self->ApplyEdit(key.AsView(),
@@ -684,7 +685,7 @@ namespace editor
             }
             return Guid{};
         };
-        auto editor = MakeRef<ResourceRefEditor>(foundation::core::DefaultAllocator(), slot.AsView(),
+        auto editor = MakeRef<ResourceRefEditor>(Allocator(), slot.AsView(),
                                                  AssetNameFor(target()), StringView(u8"Textures"));
         editor->SetDisplayName(PrettifyPropertyName(slot.AsView()).AsView());
         ResourceRefEditor* raw = editor.Get();
@@ -697,7 +698,7 @@ namespace editor
             Array<String> typeNames;
             typeNames.PushBack(String(u8"TextureAsset"));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                foundation::core::DefaultAllocator(), *self->m_context, Move(typeNames));
+                self->Allocator(), *self->m_context, Move(typeNames));
             dialog->OnPicked = [self, slot](const Guid& picked)
             {
                 self->ApplyEdit(slot.AsView(),
@@ -810,7 +811,7 @@ namespace editor
                                           foundation::content::Instance& instance)
     {
         MaterialEditorPage* page =
-            foundation::core::DefaultAllocator().New<MaterialEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<MaterialEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 }

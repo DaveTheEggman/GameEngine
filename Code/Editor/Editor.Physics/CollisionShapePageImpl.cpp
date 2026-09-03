@@ -54,16 +54,16 @@ namespace editor
 
     static ui::FlexLayout* AddLabeledRow(ui::FlexLayout& column, StringView labelText)
     {
-        auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto row = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 6.0f;
-        auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), labelText);
-        auto llp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), labelText);
+        auto llp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
         llp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
         llp->AlignSelf = ui::Align::Center;
         row->AddView(label.Get(), llp);
         ui::FlexLayout* raw = row.Get();
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
         lp->Width = ui::SizeSpec::Match();
         column.AddView(row.Get(), lp);
         return raw;
@@ -73,7 +73,8 @@ namespace editor
                                                        runtime::IApplicationHost& host,
                                                        ui::runtime::UIHost& uiHost,
                                                        content::Instance& instance)
-        : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+        : app::UIEditorPage(context.Allocator()),
+          m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
         RefPtr<ISerializable> object = instance.ReadObject();
@@ -85,7 +86,7 @@ namespace editor
                                m_title);
         }
 
-        auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto column = MakeRef<ui::FlexLayout>(Allocator());
         column->Direction = ui::Orientation::Vertical;
         column->Spacing = 8.0f;
         column->Padding = ui::Thickness{10, 8};
@@ -95,12 +96,12 @@ namespace editor
         // Source mesh: a typed picker (no guid string).
         {
             ui::FlexLayout* row = AddLabeledRow(*column, u8"Source mesh");
-            m_meshLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            m_meshLabel = MakeRef<ui::Label>(Allocator(), StringView(u8""));
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Grow = 1.0f;
             lp->AlignSelf = ui::Align::Center;
             row->AddView(m_meshLabel.Get(), lp);
-            auto pick = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pick..."));
+            auto pick = MakeRef<ui::Button>(Allocator(), StringView(u8"Pick..."));
             pick->OnClick.Add([self](ui::ButtonBase*) { self->PickMesh(); });
             row->AddView(pick.Get());
         }
@@ -109,7 +110,7 @@ namespace editor
         {
             ui::FlexLayout* row = AddLabeledRow(*column, u8"Cook");
             m_cookButton = MakeRef<ui::Button>(
-                foundation::core::DefaultAllocator(),
+                Allocator(),
                 m_asset.Get() != nullptr ? CookLabel(m_asset->cook) : StringView(u8"-"));
             m_cookButton->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -130,19 +131,19 @@ namespace editor
 
         // Cook now + status.
         {
-            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(Allocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8.0f;
-            auto cook = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Cook now"));
+            auto cook = MakeRef<ui::Button>(Allocator(), StringView(u8"Cook now"));
             cook->OnClick.Add([self](ui::ButtonBase*) { (void)self->Save(); });
             row->AddView(cook.Get());
-            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
-            auto slp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto slp = MakeRef<ui::FlexLayoutParams>(Allocator());
             slp->Grow = 1.0f;
             slp->AlignSelf = ui::Align::Center;
             row->AddView(m_status.Get(), slp);
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             column->AddView(row.Get(), lp);
         }
@@ -150,22 +151,22 @@ namespace editor
         // 3D preview substrate (shared): a viewport over a private preview scene. The outline is
         // drawn as unlit debug lines each frame, so the scene needs no entities or light.
         m_preview =
-            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), *m_host, *m_uiHost, u8"collision.preview");
+            MakeUnique<PreviewViewport>(Allocator(), *m_host, *m_uiHost, u8"collision.preview");
 
         // Layout: the outline viewport on the left, the authoring controls on the right.
-        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.62f);
         split->SetPanes(m_preview->View(), column.Get());
 
         // The page action bar (Save / Undo / Redo / Discard) above the split.
-        m_toolbar = MakeRef<app::PageToolbar>(foundation::core::DefaultAllocator(), *this);
-        auto pageColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this);
+        auto pageColumn = MakeRef<ui::FlexLayout>(Allocator());
         pageColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             pageColumn->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             pageColumn->AddView(split.Get(), grow);
@@ -191,7 +192,7 @@ namespace editor
         typeNames.PushBack(String(u8"StaticMeshAsset"));
         typeNames.PushBack(String(u8"SkinnedMeshAsset"));
         auto dialog =
-            MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(typeNames));
+            MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(typeNames));
         CollisionShapeEditorPage* self = this;
         dialog->OnPicked = [self](const Guid& picked)
         {

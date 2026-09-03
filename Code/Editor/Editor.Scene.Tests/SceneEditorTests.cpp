@@ -186,11 +186,11 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     ctx.SetProject(project.Get());
 
     // No project -> null.
-    EditorContext empty;
+    EditorContext empty{DefaultAllocator()};
     CHECK(CreateSceneInstance(empty) == nullptr);
 
     foundation::content::Instance* first = CreateSceneInstance(ctx);
@@ -259,7 +259,7 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
     scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    EditorContext editor;
+    EditorContext editor{DefaultAllocator()};
     auto inspectorRef =
         foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
     SceneInspectorView& inspector = *inspectorRef;
@@ -377,7 +377,7 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     ctx.SetProject(project.Get());
 
     foundation::content::Instance* instance = CreateSceneInstance(ctx);
@@ -471,7 +471,7 @@ TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
     auto* anims = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
-    EditorContext editor;
+    EditorContext editor{DefaultAllocator()};
     auto inspectorRef =
         foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
     SceneInspectorView& inspector = *inspectorRef;

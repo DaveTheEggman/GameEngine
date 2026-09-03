@@ -52,7 +52,7 @@ namespace editor
             return;
         }
 
-        auto* slot = DefaultAllocator().New<JobSlot>();
+        auto* slot = editor::EditorRootAllocator().New<JobSlot>();
         slot->id = id;
         slot->generator = generator;
         // Unknown content hash (mid-cook, no record yet) = RAM-only: never write a cache file
@@ -72,7 +72,7 @@ namespace editor
         {
             if (!diskHit)
             {
-                DefaultAllocator().Delete(slot);
+                editor::EditorRootAllocator().Delete(slot);
                 if (m_activeSceneJob == id)
                 {
                     return; // being rendered right now
@@ -102,7 +102,7 @@ namespace editor
                             instance->Name(), instance->TypeName(),
                             static_cast<u32>(prepared.Code()));
                 m_entries.InsertOrAssign(id, Entry{});
-                DefaultAllocator().Delete(slot);
+                editor::EditorRootAllocator().Delete(slot);
                 return;
             }
         }
@@ -167,7 +167,7 @@ namespace editor
             if (slot->ok)
             {
                 Entry entry;
-                entry.drawable = MakeRef<OwnedThumbnailDrawable>(DefaultAllocator(),
+                entry.drawable = MakeRef<OwnedThumbnailDrawable>(editor::EditorRootAllocator(),
                                                                  Move(slot->pixels));
                 m_entries.InsertOrAssign(slot->id, Move(entry));
                 if (OnThumbnailReady)
@@ -190,7 +190,7 @@ namespace editor
                 m_entries.InsertOrAssign(slot->id, Entry{}); // negative: stop rescheduling
             }
         }
-        DefaultAllocator().Delete(slot);
+        editor::EditorRootAllocator().Delete(slot);
     }
 
     void ThumbnailService::AcceptSceneResult(const Guid& id, image::Image pixels, bool ok)
@@ -216,7 +216,7 @@ namespace editor
         const u64 hash = m_contentHash ? m_contentHash(id) : 0;
         if (hash != 0 && m_jobs != nullptr)
         {
-            auto* file = DefaultAllocator().New<image::Image>(pixels); // copy: publish keeps the original
+            auto* file = editor::EditorRootAllocator().New<image::Image>(pixels); // copy: publish keeps the original
             String path = CachePathFor(id, hash);
             m_jobs->SubmitLight(
                 Function<void()>{[file, path]()
@@ -224,11 +224,11 @@ namespace editor
                                      (void)image::io::SaveImage(*file, path.AsView(),
                                                                 image::io::ImageFileFormat::PNG);
                                  }},
-                Function<void()>{[file]() { DefaultAllocator().Delete(file); }});
+                Function<void()>{[file]() { editor::EditorRootAllocator().Delete(file); }});
         }
 
         Entry entry;
-        entry.drawable = MakeRef<OwnedThumbnailDrawable>(DefaultAllocator(), Move(pixels));
+        entry.drawable = MakeRef<OwnedThumbnailDrawable>(editor::EditorRootAllocator(), Move(pixels));
         m_entries.InsertOrAssign(id, Move(entry));
         if (OnThumbnailReady)
         {

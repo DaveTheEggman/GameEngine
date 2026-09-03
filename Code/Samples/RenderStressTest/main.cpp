@@ -50,6 +50,18 @@ namespace materials = foundation::materials;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     class StressTestApp final : public engine::runtime::DefaultApplication
     {
         static constexpr core::i32 kSpheresPerBatch = 8000;
@@ -100,7 +112,7 @@ namespace
                                                core::Float4{0.7f, 0.7f, 0.7f, 1.0f}, 0.1f, 0.4f);
 
             // One sphere mesh, shared by all instances (matches Sedulous: radius 0.5, 16x8).
-            m_sphere = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 0.5f, 16, 8);
+            m_sphere = geometry::Primitives::Sphere(AppRoot(), 0.5f, 16, 8);
 
             // Large ground plane so the bobbing spheres read against a surface.
             if (auto* meshes = m_scene->GetSystem<engine::render::MeshComponentManager>())
@@ -108,7 +120,7 @@ namespace
                 m_ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(m_ground, core::Float3{0.0f, 0.0f, 0.0f});
                 engine::render::MeshComponent& gm = meshes->Add(m_ground);
-                gm.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), kFloorBaseSize, kFloorBaseSize);
+                gm.mesh = geometry::Primitives::Plane(AppRoot(), kFloorBaseSize, kFloorBaseSize);
                 gm.SetMaterial(materials::CreatePBR(
                     u8"stress.ground", core::Float4{0.3f, 0.3f, 0.3f, 1.0f}, 0.0f, 0.8f));
             }
@@ -762,7 +774,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
+    auto shell = shell::CreateShell(AppRoot());
     graphics::GraphicsDeviceDesc gpuDesc{};
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

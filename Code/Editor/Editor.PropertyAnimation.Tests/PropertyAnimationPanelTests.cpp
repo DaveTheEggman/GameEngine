@@ -160,7 +160,7 @@ TEST_CASE("propanim-panel: the panel is a valid clip-editor host (add-track rout
     EnsureRegistered();
     scene::Scene sc(DefaultAllocator(), u8"host-test");
     Selection<Guid> selection;
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
@@ -234,7 +234,7 @@ TEST_CASE("propanim-panel: preview writes sampled values transiently, restores, 
 
     Selection<Guid> selection;
     selection.Set(id);
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
     panel->Clip().tracks.PushBack(MakePositionTrack(100.0f, 200.0f, 300.0f));
@@ -270,7 +270,7 @@ TEST_CASE("propanim-panel: preview is disabled outside EDIT (Simulate/Play locks
 
     Selection<Guid> selection;
     selection.Set(id);
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
     panel->Clip().tracks.PushBack(MakePositionTrack(9.0f, 9.0f, 9.0f));
@@ -303,7 +303,7 @@ TEST_CASE("propanim-panel: changing the selected entity restores the old one and
 
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(a));
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
     panel->Clip().tracks.PushBack(MakePositionTrack(50.0f, 0.0f, 0.0f));
@@ -332,7 +332,7 @@ TEST_CASE("propanim-panel: re-snapshots when the track set changes mid-preview (
     sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // scale defaults to (1,1,1)
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(e));
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
@@ -362,7 +362,7 @@ TEST_CASE("propanim-panel: add-from-selection seeds the entity Transform (positi
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(e));
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
     const usize added = panel->AddTracksFromSelection(panel->View());
@@ -405,7 +405,7 @@ TEST_CASE("propanim-panel: preview drives the entity's built-in Transform and re
     sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // original
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(e));
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
     panel->Clip().tracks.PushBack(MakePositionTrackOn(u8"Transform", 100.0f, 200.0f, 300.0f));
@@ -445,7 +445,7 @@ namespace
         scene::ComponentManager<PreviewComp>* mgr = nullptr;
         scene::EntityHandle e;
         Selection<Guid> selection;
-        EditorContext editorCtx;
+        EditorContext editorCtx{DefaultAllocator()};
         EditorCommandStack stack;
         RefPtr<PropertyAnimationPanel> panel;
 
@@ -545,7 +545,7 @@ TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-
     EnsurePreviewCompRegistered();
     scene::Scene sc(DefaultAllocator(), u8"dope");
     Selection<Guid> selection;
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
@@ -607,7 +607,7 @@ TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to t
     EnsurePreviewCompRegistered();
     scene::Scene sc(DefaultAllocator(), u8"dur");
     Selection<Guid> selection;
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
@@ -634,7 +634,7 @@ TEST_CASE("propanim-panel: exclusive empty state - no clip means no editing surf
     EnsurePreviewCompRegistered();
     scene::Scene sc(DefaultAllocator(), u8"empty-state");
     Selection<Guid> selection;
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 
@@ -658,7 +658,7 @@ TEST_CASE("propanim-panel: ReadSceneValue captures the live Transform + componen
 
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(e));
-    EditorContext editorCtx;
+    EditorContext editorCtx{DefaultAllocator()};
     EditorCommandStack stack;
     auto panel = MakePanel(editorCtx, sc, stack, selection);
 

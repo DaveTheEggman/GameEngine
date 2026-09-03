@@ -711,7 +711,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
-    editor::EditorContext ctx;
+    editor::EditorContext ctx{DefaultAllocator()};
     ctx.SetProject(project.Get());
 
     // PBR: the lit property set on the "forward" shader; lands in Materials/ (unique names).

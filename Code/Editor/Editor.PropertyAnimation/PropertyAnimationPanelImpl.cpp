@@ -393,7 +393,7 @@ namespace editor
             m_body->AddView(m_timeline.Get(), m_timelineParams);
         }
 
-        m_view = MakeUnique<ClipEditorView>(MemoryAllocator(), *this);
+        m_view = MakeUnique<ClipEditorView>(MemoryAllocator(), MemoryAllocator(), *this);
         {
             auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
             lp->Width = ui::SizeSpec::Match();

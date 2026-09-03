@@ -46,7 +46,7 @@ namespace
 TEST_CASE("clip-editor-view: builds headlessly and rebuilds on an empty clip")
 {
     FakeClipHost host;
-    ClipEditorView view(host);
+    ClipEditorView view(DefaultAllocator(), host);
     CHECK(view.Root() != nullptr);
     CHECK(host.rebuildCount >= 1); // the constructor's first Rebuild fired OnClipViewRebuilt
     const int before = host.rebuildCount;
@@ -57,7 +57,7 @@ TEST_CASE("clip-editor-view: builds headlessly and rebuilds on an empty clip")
 TEST_CASE("clip-editor-view: add-track routes through the host command stack (undo/redo)")
 {
     FakeClipHost host;
-    ClipEditorView view(host);
+    ClipEditorView view(DefaultAllocator(), host);
     CHECK(host.clip.tracks.Size() == 0);
 
     view.AddTrack(u8"Transform", u8"position", propanim::TrackValueKind::Float3);
@@ -78,7 +78,7 @@ TEST_CASE("clip-editor-view: add-track routes through the host command stack (un
 TEST_CASE("clip-editor-view: both track render paths build (scalar curve + quaternion table)")
 {
     FakeClipHost host;
-    ClipEditorView view(host);
+    ClipEditorView view(DefaultAllocator(), host);
 
     // A scalar track -> the CurveCanvas path; a quaternion track -> the key-table path. Building
     // headlessly must not crash and each add is one undo step.

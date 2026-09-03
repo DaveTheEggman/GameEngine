@@ -144,7 +144,7 @@ export namespace editor
         {
             return Status{ErrorCode::NotFound};
         }
-        vfs::NativeFileSystem fs(directory, DefaultAllocator());
+        vfs::NativeFileSystem fs(directory, foundation::core::DefaultAllocator());
         return project::LoadProjectSettings(fs, out);
     }
 

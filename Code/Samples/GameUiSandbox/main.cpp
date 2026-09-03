@@ -40,6 +40,18 @@ namespace ui = foundation::ui;
 namespace gamekit = foundation::ui::gamekit;
 namespace input = foundation::input;
 
+namespace
+{
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
 using core::f32;
 using core::i64;
 using core::RefPtr;
@@ -50,7 +62,7 @@ namespace
 {
     [[nodiscard]] RefPtr<ui::FlexLayout> Row(f32 spacing)
     {
-        auto row = core::MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto row = core::MakeRef<ui::FlexLayout>(AppRoot());
         row->Direction = ui::Orientation::Horizontal;
         row->AlignItems = ui::Align::Center;
         row->Spacing = spacing;
@@ -59,7 +71,7 @@ namespace
 
     [[nodiscard]] RefPtr<ui::Label> Text(StringView s, f32 size = 16.0f)
     {
-        auto label = core::MakeRef<ui::Label>(foundation::core::DefaultAllocator(), s);
+        auto label = core::MakeRef<ui::Label>(AppRoot(), s);
         label->FontSize.SetValue(size);
         return label;
     }
@@ -96,7 +108,7 @@ namespace
             }
 
             // Toast overlay: a ToastHost on the screen-tier root, above the pushed screens.
-            m_toasts = core::MakeRef<gamekit::ToastHost>(foundation::core::DefaultAllocator());
+            m_toasts = core::MakeRef<gamekit::ToastHost>(AppRoot());
             m_ui->ScreenRoot()->AddView(m_toasts.Get());
 
             BuildInputMap();
@@ -162,25 +174,25 @@ namespace
 
         [[nodiscard]] RefPtr<gamekit::UIScreen> BuildHudScreen()
         {
-            auto screen = core::MakeRef<gamekit::UIScreen>(foundation::core::DefaultAllocator());
+            auto screen = core::MakeRef<gamekit::UIScreen>(AppRoot());
             screen->SetMode(gamekit::ScreenMode::Opaque);
             screen->SetTransition(gamekit::TransitionDesc{gamekit::TransitionKind::Fade, 0.2f});
 
-            auto column = core::MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = core::MakeRef<ui::FlexLayout>(AppRoot());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 16.0f;
             column->Padding = ui::Thickness{48.0f, 40.0f};
 
             column->AddView(Text(u8"Game UI Kit Sandbox", 28.0f).Get());
 
-            auto prompt = core::MakeRef<gamekit::ButtonPrompt>(foundation::core::DefaultAllocator());
+            auto prompt = core::MakeRef<gamekit::ButtonPrompt>(AppRoot());
             prompt->SetFromAction(m_map, u8"Deliver", u8"Deliver");
             column->AddView(prompt.Get());
 
             {
                 auto row = Row(8.0f);
                 row->AddView(Text(u8"Score").Get());
-                auto ticker = core::MakeRef<gamekit::Ticker>(foundation::core::DefaultAllocator());
+                auto ticker = core::MakeRef<gamekit::Ticker>(AppRoot());
                 ticker->FontSize.SetValue(20.0f);
                 m_score = ticker.Get();
                 row->AddView(ticker.Get());
@@ -189,16 +201,16 @@ namespace
             {
                 auto row = Row(8.0f);
                 row->AddView(Text(u8"Health").Get());
-                auto bar = core::MakeRef<gamekit::Bar>(foundation::core::DefaultAllocator());
+                auto bar = core::MakeRef<gamekit::Bar>(AppRoot());
                 bar->SetFill(1.0f);
                 m_health = bar.Get();
-                auto lp = core::MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = core::MakeRef<ui::FlexLayoutParams>(AppRoot());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(220));
                 row->AddView(bar.Get(), lp);
                 column->AddView(row.Get());
             }
 
-            auto menu = core::MakeRef<gamekit::MenuList>(foundation::core::DefaultAllocator());
+            auto menu = core::MakeRef<gamekit::MenuList>(AppRoot());
             GameUiSandbox* self = this;
             menu->AddItem(u8"Score +250",
                           [self]()
@@ -250,7 +262,7 @@ namespace
 
         [[nodiscard]] RefPtr<gamekit::UIScreen> BuildPauseScreen()
         {
-            auto screen = core::MakeRef<gamekit::UIScreen>(foundation::core::DefaultAllocator());
+            auto screen = core::MakeRef<gamekit::UIScreen>(AppRoot());
             screen->SetMode(gamekit::ScreenMode::Modal); // shields the HUD below, keeps it visible
             screen->SetTransition(gamekit::TransitionDesc{gamekit::TransitionKind::Scale, 0.18f});
 
@@ -258,31 +270,31 @@ namespace
             // UIScreen lays out each child to fill, so a bare ColorView covers the whole screen; it is
             // added FIRST so it draws behind the centered card.
             auto scrim = core::MakeRef<ui::ColorView>(
-                foundation::core::DefaultAllocator(), core::Color{0.0f, 0.0f, 0.0f, 0.55f}, 0.0f, 0.0f);
+                AppRoot(), core::Color{0.0f, 0.0f, 0.0f, 0.55f}, 0.0f, 0.0f);
             screen->AddView(scrim.Get());
 
             // Center a solid CARD over the dimmed HUD so the menu reads clearly instead of
             // jumbling over the text beneath it.
-            auto center = core::MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto center = core::MakeRef<ui::FlexLayout>(AppRoot());
             center->Direction = ui::Orientation::Vertical;
             center->JustifyContent = ui::Justify::Center;
             center->AlignItems = ui::Align::Center;
 
-            auto card = core::MakeRef<ui::Panel>(foundation::core::DefaultAllocator());
+            auto card = core::MakeRef<ui::Panel>(AppRoot());
             card->SetStyle(ui::StyleProperty::Background,
                            core::RefPtr<ui::Drawable>(core::MakeRef<ui::ColorDrawable>(
-                               foundation::core::DefaultAllocator(), core::Color{0.12f, 0.13f, 0.17f, 0.98f})));
+                               AppRoot(), core::Color{0.12f, 0.13f, 0.17f, 0.98f})));
 
             // Padding lives on the inner FlexLayout (it honours Padding); the Panel wraps it + paints
             // the background behind it.
-            auto content = core::MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto content = core::MakeRef<ui::FlexLayout>(AppRoot());
             content->Direction = ui::Orientation::Vertical;
             content->AlignItems = ui::Align::Center;
             content->Spacing = 16.0f;
             content->Padding = ui::Thickness{40.0f, 28.0f};
 
             content->AddView(Text(u8"Paused", 26.0f).Get());
-            auto menu = core::MakeRef<gamekit::MenuList>(foundation::core::DefaultAllocator());
+            auto menu = core::MakeRef<gamekit::MenuList>(AppRoot());
             GameUiSandbox* self = this;
             menu->AddItem(u8"Resume", [self]() { self->m_ui->Screens().Pop(); });
             menu->AddItem(u8"Quit", [self]() { self->m_quit = true; });

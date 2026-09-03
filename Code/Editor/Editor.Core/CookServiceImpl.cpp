@@ -48,12 +48,12 @@ namespace editor
         m_project = &project;
         m_builders = &builders;
         m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(
-            DefaultAllocator(), project.SourcesRoot().AsView(), DefaultAllocator());
+            editor::EditorRootAllocator(), project.SourcesRoot().AsView(), editor::EditorRootAllocator());
         m_cache = MakeUnique<foundation::vfs::NativeFileSystem>(
-            DefaultAllocator(), project.CacheRoot().AsView(), DefaultAllocator());
-        m_jobs = MakeUnique<JobSystem>(DefaultAllocator(), DefaultAllocator());
+            editor::EditorRootAllocator(), project.CacheRoot().AsView(), editor::EditorRootAllocator());
+        m_jobs = MakeUnique<JobSystem>(editor::EditorRootAllocator(), editor::EditorRootAllocator());
         m_driver =
-            MakeUnique<CookDriver>(DefaultAllocator(), project.SourceDb(), project.CookedDb(),
+            MakeUnique<CookDriver>(editor::EditorRootAllocator(), project.SourceDb(), project.CookedDb(),
                                    builders, m_sources.Get(), m_cache.Get(), m_jobs.Get());
 
         // Watch Sources/ for external edits (stat sweep; throttled from Update).
@@ -110,7 +110,7 @@ namespace editor
         m_cooking.store(true);
         CookDriver* driver = m_driver.Get();
         EditorCookService* self = this;
-        m_worker = MakeUnique<Thread>(DefaultAllocator(),
+        m_worker = MakeUnique<Thread>(editor::EditorRootAllocator(),
                                       [self, driver, force]()
                                       {
                                           self->m_plan = driver->Plan(force);
@@ -155,7 +155,7 @@ namespace editor
         m_cooking.store(true);
         CookDriver* driver = m_driver.Get();
         EditorCookService* self = this;
-        m_worker = MakeUnique<Thread>(DefaultAllocator(),
+        m_worker = MakeUnique<Thread>(editor::EditorRootAllocator(),
                                       [self, driver, roots = Move(roots), force]()
                                       {
                                           self->m_plan = driver->PlanFor(
@@ -178,7 +178,7 @@ namespace editor
 
         CookDriver* driver = m_driver.Get();
         EditorCookService* self = this;
-        m_worker = MakeUnique<Thread>(DefaultAllocator(),
+        m_worker = MakeUnique<Thread>(editor::EditorRootAllocator(),
                                       [self, driver, total]()
                                       {
                                           CookPlan& plan = self->m_plan;

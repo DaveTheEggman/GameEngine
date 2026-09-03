@@ -60,7 +60,7 @@ export namespace editor::app
         {
             if (ar.Mode() == SerializeMode::Read)
             {
-                node.First = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+                node.First = MakeUnique<ui::toolkit::DockLayoutNode>(editor::EditorRootAllocator());
             }
             ar.Key("first");
             SerializeLayoutNode(ar, *node.First);
@@ -69,7 +69,7 @@ export namespace editor::app
         {
             if (ar.Mode() == SerializeMode::Read)
             {
-                node.Second = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+                node.Second = MakeUnique<ui::toolkit::DockLayoutNode>(editor::EditorRootAllocator());
             }
             ar.Key("second");
             SerializeLayoutNode(ar, *node.Second);
@@ -92,7 +92,7 @@ export namespace editor::app
             {
                 if (ar.Mode() == SerializeMode::Read)
                 {
-                    root = MakeUnique<ui::toolkit::DockLayoutNode>(DefaultAllocator());
+                    root = MakeUnique<ui::toolkit::DockLayoutNode>(editor::EditorRootAllocator());
                 }
                 ar.Key("root");
                 SerializeLayoutNode(ar, *root);
@@ -246,7 +246,7 @@ export namespace editor::app
     [[nodiscard]] inline Status LoadProjectEditorSettings(settings::Settings& store,
                                                           StringView directory)
     {
-        vfs::NativeFileSystem root(directory, DefaultAllocator());
+        vfs::NativeFileSystem root(directory, editor::EditorRootAllocator());
         UniquePtr<IStream> stream = root.Open(kProjectEditorSettingsFile, FileMode::Read);
         if (!stream)
         {
@@ -265,7 +265,7 @@ export namespace editor::app
         {
             return s;
         }
-        vfs::NativeFileSystem root(directory, DefaultAllocator());
+        vfs::NativeFileSystem root(directory, editor::EditorRootAllocator());
         vfs::IWritableFileSystem* writable = root.AsWritable();
         if (writable == nullptr)
         {

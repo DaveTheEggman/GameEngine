@@ -155,7 +155,7 @@ TEST_CASE("asset form: a conditional-branch patch changes the shape (rescan dete
 
 TEST_CASE("asset form: the fallback factory routes ANY serializable; bespoke pages win")
 {
-    editor::EditorContext context;
+    editor::EditorContext context{DefaultAllocator()};
     RegisterGenericAssetEditor(context);
     // The probe type routes to the fallback via its ISerializable base.
     editor::IEditorPageFactory* found =

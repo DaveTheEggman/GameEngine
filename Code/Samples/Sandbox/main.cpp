@@ -73,6 +73,18 @@ namespace particles = foundation::particles;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     class SandboxApp final : public engine::runtime::DefaultApplication
     {
     public:
@@ -201,20 +213,20 @@ namespace
                 m_floorEntity = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floorEntity, core::Float3{0.0f, 0.0f, 0.0f});
                 engine::render::MeshComponent& fmc = meshes->Add(m_floorEntity);
-                fmc.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), 120.0f, 120.0f);
+                fmc.mesh = geometry::Primitives::Plane(AppRoot(), 120.0f, 120.0f);
                 // Semi-glossy DIELECTRIC green floor (non-metallic, moderate roughness): shadows read
                 // clearly (not washed out by a mirror-metal reflection) while SSR still shows softly.
                 // Metallic/roughness are LIVE-tweakable from the Environment window (SSR eye test).
                 ApplyFloorMaterial();
 
-                core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 0.35f);
+                core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(AppRoot(), 0.35f);
                 BuildGrid(*meshes, cube, /*originX*/ -8.0f, /*instanced*/ true);
                 BuildGrid(*meshes, cube, /*originX*/ 8.0f, /*instanced*/ false);
 
                 // A row of cubes resting EXACTLY on the floor (bottom face flush at y=-7) - a static
                 // reference for judging shadow contact / peter-panning (the grids float in the air).
                 constexpr core::f32 kBoxSize = 2.5f, kFloorY = 0.0f;
-                core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), kBoxSize);
+                core::RefPtr<geometry::StaticMesh> box = geometry::Primitives::Cube(AppRoot(), kBoxSize);
                 core::RefPtr<materials::Material> boxMat = materials::CreatePBR(
                     u8"lit", core::Float4{0.85f, 0.55f, 0.2f, 1.0f}, 0.0f, 0.5f);
                 for (int k = 0; k < 4; ++k)
@@ -233,7 +245,7 @@ namespace
                 // floating grids, whose full shadow ellipse is visible on the ground).
                 constexpr core::f32 kBallR = 1.25f;
                 core::RefPtr<geometry::StaticMesh> ball =
-                    geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), kBallR, 24, 12);
+                    geometry::Primitives::Sphere(AppRoot(), kBallR, 24, 12);
                 // Metal spheres with INCREASING roughness across the row (0.05 -> 0.59), all fully metallic,
                 // so the probe reflection goes mirror-sharp -> blurry - showcasing the GGX roughness prefilter.
                 for (int k = 0; k < 4; ++k)
@@ -488,12 +500,12 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), outputDir, foundation::core::DefaultAllocator());
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(foundation::core::DefaultAllocator(), 
-                foundation::core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
+                core::MakeUnique<vfs::NativeFileSystem>(AppRoot(), outputDir, AppRoot());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(AppRoot(), 
+                AppRoot(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(AppRoot(), AppRoot(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -503,7 +515,7 @@ namespace
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *gfx->Raw());
+                    AppRoot(), AppRoot(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             model::RegisterModelResourceTypes(); // make the cooked types deserializable
@@ -584,7 +596,7 @@ namespace
                 return nullptr;
             }
             pipeline::TextureAssetBuilder builder;
-            foundation::vfs::NativeFileSystem imageMount(imageDir, foundation::core::DefaultAllocator());
+            foundation::vfs::NativeFileSystem imageMount(imageDir, AppRoot());
             pipeline::AssetBuildContext ctx;
             ctx.sources = &imageMount; // the mount resolves the PNG
             ctx.output = inst;
@@ -807,11 +819,11 @@ namespace
         core::RefPtr<animation::AnimationGraph> BuildClipCyclerGraph(model::ModelResource& model)
         {
             core::RefPtr<animation::AnimationGraph> graph =
-                core::MakeRef<animation::AnimationGraph>(foundation::core::DefaultAllocator());
+                core::MakeRef<animation::AnimationGraph>(AppRoot());
             const core::i32 nextParam =
                 graph->AddParameter(u8"Next", animation::AnimationParameterType::Trigger);
 
-            auto layer = core::MakeUnique<animation::AnimationLayer>(foundation::core::DefaultAllocator(),
+            auto layer = core::MakeUnique<animation::AnimationLayer>(AppRoot(),
                                                                      core::StringView(u8"Base"));
             const core::i32 clipCount = static_cast<core::i32>(model.animations.Size());
             for (core::i32 i = 0; i < clipCount; ++i)
@@ -819,9 +831,9 @@ namespace
                 animation::AnimationClip* clip =
                     model.animations[static_cast<core::usize>(i)].Get();
                 auto state = core::MakeUnique<animation::AnimationGraphState>(
-                    foundation::core::DefaultAllocator(),
+                    AppRoot(),
                     clip != nullptr ? clip->Name().AsView() : core::StringView(u8"State"),
-                    core::MakeUnique<animation::ClipStateNode>(foundation::core::DefaultAllocator(), clip));
+                    core::MakeUnique<animation::ClipStateNode>(AppRoot(), clip));
                 layer->AddState(
                     static_cast<core::UniquePtr<animation::AnimationGraphState>&&>(state));
             }
@@ -829,7 +841,7 @@ namespace
             for (core::i32 i = 0; i < clipCount; ++i)
             {
                 auto t =
-                    core::MakeUnique<animation::AnimationGraphTransition>(foundation::core::DefaultAllocator());
+                    core::MakeUnique<animation::AnimationGraphTransition>(AppRoot());
                 t->sourceStateIndex = i;
                 t->destStateIndex = (i + 1) % clipCount;
                 t->duration = 0.25f;
@@ -1203,12 +1215,12 @@ namespace
                 core::ContentFit fitR{.region = core::Rectangle{halfW, 0.0f, w - halfW, h},
                                       .contentSize = core::Float2{w - halfW, h},
                                       .mode = core::FitMode::Stretch};
-                m_surfaceL = core::MakeUnique<shell::InputSurface>(foundation::core::DefaultAllocator(), &input,
+                m_surfaceL = core::MakeUnique<shell::InputSurface>(AppRoot(), &input,
                                                                    win.Id(), fitL);
-                m_surfaceR = core::MakeUnique<shell::InputSurface>(foundation::core::DefaultAllocator(), &input,
+                m_surfaceR = core::MakeUnique<shell::InputSurface>(AppRoot(), &input,
                                                                    win.Id(), fitR);
                 m_inputRouter =
-                    core::MakeUnique<shell::InputRouter>(foundation::core::DefaultAllocator(), &input);
+                    core::MakeUnique<shell::InputRouter>(AppRoot(), &input);
                 m_inputRouter->AddSurface(m_surfaceL.Get());
                 m_inputRouter->AddSurface(m_surfaceR.Get());
                 // Click-to-focus (router default): a click sets keyboard focus to that half, so WASD/QE
@@ -1702,11 +1714,11 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        geometry::StaticMeshFactory m_meshFactory{foundation::core::DefaultAllocator()};
-        geometry::SkinnedMeshFactory m_skinnedMeshFactory{foundation::core::DefaultAllocator()};
+        geometry::StaticMeshFactory m_meshFactory{AppRoot()};
+        geometry::SkinnedMeshFactory m_skinnedMeshFactory{AppRoot()};
         materials::MaterialFactory m_materialFactory;
-        animation::SkeletonFactory m_skeletonFactory{foundation::core::DefaultAllocator()};
-        animation::AnimationClipFactory m_clipFactory{foundation::core::DefaultAllocator()};
+        animation::SkeletonFactory m_skeletonFactory{AppRoot()};
+        animation::AnimationClipFactory m_clipFactory{AppRoot()};
         core::UniquePtr<texture::TextureFactory> m_textureFactory; // needs the device
         resource::Proxy<texture::Texture>
             m_logoTex; // sprite-demo logo (kept alive for its GPU view)
@@ -1726,7 +1738,7 @@ namespace
 
 int main(int argc, char** argv)
 {
-    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
+    auto shell = shell::CreateShell(AppRoot());
     graphics::GraphicsDeviceDesc gpuDesc{};
     gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);

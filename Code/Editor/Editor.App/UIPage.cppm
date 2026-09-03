@@ -28,6 +28,11 @@ export namespace editor::app
     class UIEditorPage : public editor::EditorPage
     {
     public:
+        explicit UIEditorPage(foundation::core::IAllocator& allocator)
+            : editor::EditorPage(allocator)
+        {
+        }
+
         /// The view docked into the center document area (owned by the page).
         [[nodiscard]] virtual foundation::ui::View* ContentView() = 0;
 

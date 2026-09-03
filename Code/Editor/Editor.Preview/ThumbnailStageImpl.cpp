@@ -134,7 +134,7 @@ namespace editor
         foundation::resource::ResourceManager* resources = nullptr;
         engine::scene::SceneSubsystem* scenes = nullptr;
         engine::render::RenderSubsystem* render = nullptr;
-        scene::SceneManager sceneManager{DefaultAllocator()}; // the stage's OWN scene group (never simulated)
+        scene::SceneManager sceneManager{editor::EditorRootAllocator()}; // the stage's OWN scene group (never simulated)
         scene::Scene* scene = nullptr;
 
         // GPU objects (created lazily on the first Render with a live device).
@@ -230,7 +230,7 @@ namespace editor
 
     ThumbnailStage::ThumbnailStage(runtime::IApplicationHost& host, ThumbnailService& service,
                                    foundation::resource::ResourceManager* resources)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+        : m_impl(MakeUnique<Impl>(editor::EditorRootAllocator()))
     {
         m_impl->host = &host;
         m_impl->service = &service;

@@ -57,6 +57,18 @@ namespace geometry = foundation::geometry;
 namespace materials = foundation::materials;
 namespace script = foundation::script;
 
+namespace
+{
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
 using core::f32;
 
 namespace
@@ -162,7 +174,7 @@ namespace
 
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeMover()
     {
-        auto cls = core::MakeRef<script::ScriptClass>(foundation::core::DefaultAllocator());
+        auto cls = core::MakeRef<script::ScriptClass>(AppRoot());
         cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Mover");
         cls->source = core::String(UseLuau() ? kMoverSourceLuau : kMoverSource);
@@ -181,7 +193,7 @@ namespace
 
     [[nodiscard]] core::RefPtr<script::ScriptClass> MakeSpinner()
     {
-        auto cls = core::MakeRef<script::ScriptClass>(foundation::core::DefaultAllocator());
+        auto cls = core::MakeRef<script::ScriptClass>(AppRoot());
         cls->language = g_scriptLanguage;
         cls->className = core::String(u8"Spinner");
         cls->source = core::String(UseLuau() ? kSpinnerSourceLuau : kSpinnerSource);
@@ -273,13 +285,13 @@ namespace
                 return;
             }
 
-            core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 0.5f);
+            core::RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(AppRoot(), 0.5f);
 
             // A ground slab (static) for a sense of place.
             {
                 scene::EntityHandle ground = m_scene->CreateEntity(u8"ground");
                 m_scene->SetLocalPosition(ground, core::Float3{0.0f, -0.6f, 0.0f});
-                core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.0f);
+                core::RefPtr<geometry::StaticMesh> slab = geometry::Primitives::Cube(AppRoot(), 1.0f);
                 engine::render::MeshComponent& mc = meshes->Add(ground);
                 mc.mesh = slab;
                 mc.SetMaterial(materials::CreatePBR(

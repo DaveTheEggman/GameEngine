@@ -52,7 +52,8 @@ export namespace editor
     public:
         UIDocumentEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                              ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+            : app::UIEditorPage(context.Allocator()),
+              m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             m_ui = host.Ctx().GetSubsystem<engine::ui::UISubsystem>();
             SetInstanceId(instance.Id());
@@ -83,17 +84,17 @@ export namespace editor
                 }
             }
 
-            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(Allocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8.0f;
 
             // Left: the text pane (CodeEditView - gutter, monospace, native undo).
-            m_editor = MakeRef<ui::toolkit::CodeEditView>(foundation::core::DefaultAllocator());
+            m_editor = MakeRef<ui::toolkit::CodeEditView>(Allocator());
             m_editor->AllowBreakpoints = false; // markup has no debugger; keep the margin quiet
             // XML is a generic format the toolkit lexes natively - constructed directly, no
             // registry indirection needed (that seam is for dynamic language ids).
             m_editor->SetLexer(UniquePtr<ui::toolkit::ICodeLexer>(
-                foundation::core::DefaultAllocator().New<ui::toolkit::XmlLexer>(), foundation::core::DefaultAllocator()));
+                Allocator().New<ui::toolkit::XmlLexer>(), Allocator()));
             m_editor->CompletionTriggerCharacters = String(u8"<"); // tags open the popup
             m_editor->AddCompletionProvider(&m_markupProvider);
             m_editor->SetText(m_markup.AsView());
@@ -106,35 +107,35 @@ export namespace editor
                     self->m_previewDelay = 0.35f; // debounce: rebuild shortly after typing stops
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(m_editor.Get(), lp);
             }
 
             // Right: inline status over the live preview.
-            auto right = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto right = MakeRef<ui::FlexLayout>(Allocator());
             right->Direction = ui::Orientation::Vertical;
             right->Spacing = 4.0f;
-            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 right->AddView(m_status.Get(), lp);
             }
             // The preview surface: an offscreen target the RUNTIME UI subsystem renders
             // into (the editor UI just displays the texture).
-            m_viewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.08f, 0.09f, 0.11f, 1.0f};
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 right->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(right.Get(), lp);
@@ -199,8 +200,8 @@ export namespace editor
                                      ui::runtime::UIHost& uiHost)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<UIDocumentPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<UIDocumentPageFactory>(host, uiHost), editor::EditorRootAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<UIThemePageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<UIThemePageFactory>(host, uiHost), editor::EditorRootAllocator()));
     }
 }

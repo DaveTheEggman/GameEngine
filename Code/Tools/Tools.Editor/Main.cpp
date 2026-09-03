@@ -106,6 +106,16 @@ namespace shell = foundation::shell;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+namespace
+{
     // The builder + type registration set lives in Pipeline::Registration (the composition root):
     // RegisterPipelineTypes() + RegisterAllBuilders() below assemble the same set the CLI cooker
     // and export packager use. The editor ADDS its per-language editor-UI services (CodeEditView
@@ -188,18 +198,20 @@ namespace
     void RegisterPrimitiveMeshCreators(editor::EditorContext& context)
     {
         namespace geometry = foundation::geometry;
+
+
         struct Entry
         {
             const utf8char* label;
             RefPtr<geometry::StaticMesh> (*make)();
         };
         static const Entry entries[] = {
-            {u8"Cube", []() { return geometry::Primitives::Cube(DefaultAllocator()); }},
-            {u8"Sphere", []() { return geometry::Primitives::Sphere(DefaultAllocator()); }},
-            {u8"Plane", []() { return geometry::Primitives::Plane(DefaultAllocator()); }},
-            {u8"Cylinder", []() { return geometry::Primitives::Cylinder(DefaultAllocator()); }},
-            {u8"Cone", []() { return geometry::Primitives::Cone(DefaultAllocator()); }},
-            {u8"Torus", []() { return geometry::Primitives::Torus(DefaultAllocator()); }},
+            {u8"Cube", []() { return geometry::Primitives::Cube(AppRoot()); }},
+            {u8"Sphere", []() { return geometry::Primitives::Sphere(AppRoot()); }},
+            {u8"Plane", []() { return geometry::Primitives::Plane(AppRoot()); }},
+            {u8"Cylinder", []() { return geometry::Primitives::Cylinder(AppRoot()); }},
+            {u8"Cone", []() { return geometry::Primitives::Cone(AppRoot()); }},
+            {u8"Torus", []() { return geometry::Primitives::Torus(AppRoot()); }},
         };
         for (const Entry& e : entries)
         {
@@ -303,11 +315,11 @@ namespace
         }
 
         // 3) Primitive meshes (the same creator path as File > New > Primitives).
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", foundation::geometry::Primitives::Cube(DefaultAllocator()),
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Cube", foundation::geometry::Primitives::Cube(AppRoot()),
                                           nullptr);
         (void)CreatePrimitiveMeshInstance(ctx, u8"Sphere",
-                                          foundation::geometry::Primitives::Sphere(DefaultAllocator()), nullptr);
-        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(DefaultAllocator()),
+                                          foundation::geometry::Primitives::Sphere(AppRoot()), nullptr);
+        (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(AppRoot()),
                                           nullptr);
 
         LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
@@ -339,7 +351,7 @@ int main(int argc, char** argv)
 
     // Log capture FIRST: the editor buffer + console output go on the global
     // logger before shell/device creation, so early startup logs reach the Console panel.
-    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::EditorLogBuffer logBuffer{AppRoot()};
     ConsoleSink consoleSink;
     GlobalLogger().AddSink(&logBuffer);
     GlobalLogger().AddSink(&consoleSink);
@@ -840,7 +852,7 @@ int main(int argc, char** argv)
     ws.width = 1600;
     ws.height = 900;
 
-    auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
+    auto shellPtr = shell::CreateShell(AppRoot(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
         std::fprintf(stderr, "Tools.Editor: failed to create the OS shell/window\n");

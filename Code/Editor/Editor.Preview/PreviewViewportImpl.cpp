@@ -44,7 +44,7 @@ namespace editor
         runtime::IApplicationHost* host = nullptr;
         ui::runtime::UIHost* uiHost = nullptr;
         engine::scene::SceneSubsystem* scenes = nullptr;
-        scene::SceneManager sceneManager{DefaultAllocator()}; // this preview's OWN scene group
+        scene::SceneManager sceneManager{editor::EditorRootAllocator()}; // this preview's OWN scene group
         engine::render::RenderSubsystem* render = nullptr;
         scene::Scene* scene = nullptr;
         EditorCamera camera;
@@ -57,12 +57,12 @@ namespace editor
 
     PreviewViewport::PreviewViewport(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost,
                                      StringView sceneName)
-        : m_impl(MakeUnique<Impl>(DefaultAllocator()))
+        : m_impl(MakeUnique<Impl>(editor::EditorRootAllocator()))
     {
         m_impl->host = &host;
         m_impl->uiHost = &uiHost;
         m_impl->router =
-            MakeUnique<foundation::shell::InputRouter>(DefaultAllocator(), host.Shell()->Input());
+            MakeUnique<foundation::shell::InputRouter>(editor::EditorRootAllocator(), host.Shell()->Input());
 
         m_impl->scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
         m_impl->render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
@@ -74,7 +74,7 @@ namespace editor
             m_impl->scene->SetSimulationEnabled(false);
         }
 
-        m_impl->viewport = MakeRef<ui::viewport::ViewportView>(DefaultAllocator());
+        m_impl->viewport = MakeRef<ui::viewport::ViewportView>(editor::EditorRootAllocator());
         m_impl->viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
     }
 

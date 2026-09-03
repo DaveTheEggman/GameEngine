@@ -71,6 +71,18 @@ namespace fs = std::filesystem;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     [[nodiscard]] StringView Sv(const char* s)
     {
         return StringView(reinterpret_cast<const utf8char*>(s));
@@ -105,7 +117,7 @@ namespace
             // The FULL manager set (the scene-surface composition root - the same per-domain
             // functions the subsystems inject through), or the transcode would silently drop
             // records of any component type missing from the scratch.
-            scene::Scene scratch(DefaultAllocator(), u8"__export_transcode");
+            scene::Scene scratch(AppRoot(), u8"__export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
@@ -129,13 +141,13 @@ namespace
         return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                   editor::SceneReferences& out)
         {
-            scene::Scene scene{DefaultAllocator()};
+            scene::Scene scene{AppRoot()};
             engine::AddAllSceneManagers(scene);
             if (!scene::LoadScene(instance, scene).IsOk())
             {
                 return;
             }
-            foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), 
+            foundation::resource::ResourceManager collector(AppRoot(), 
                 db); // no factories -> all binds unresolved
             scene::ResolveSceneResources(scene, collector);
             collector.CollectUnresolved(out.resources);
@@ -169,10 +181,10 @@ namespace
         UniquePtr<vfs::NativeFileSystem> rootFs;
         if (fs::is_directory(Cs(templatesRoot), ec))
         {
-            rootFs = MakeUnique<vfs::NativeFileSystem>(DefaultAllocator(), templatesRoot,
-                                                       DefaultAllocator());
+            rootFs = MakeUnique<vfs::NativeFileSystem>(AppRoot(), templatesRoot,
+                                                       AppRoot());
         }
-        vfs::NativeFileSystem toolFs(toolDir, DefaultAllocator());
+        vfs::NativeFileSystem toolFs(toolDir, AppRoot());
         registry.Refresh(templatesRoot, rootFs.Get(), toolDir,
                          &toolFs); // reads runtime-libs synchronously
     }
@@ -343,7 +355,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), Sv(projectDir));
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(AppRoot(), Sv(projectDir));
     if (!project)
     {
         std::fprintf(stderr, "Tools.Export: failed to open project '%s'\n", projectDir);
@@ -369,7 +381,7 @@ int main(int argc, char** argv)
     // Presets: from <project>/export_presets.xml, else a synthesized host preset.
     editor::ExportPresetSet presets;
     {
-        vfs::NativeFileSystem projectFs(project->Directory(), DefaultAllocator());
+        vfs::NativeFileSystem projectFs(project->Directory(), AppRoot());
         if (!editor::LoadExportPresets(projectFs, presets).IsOk())
         {
             editor::DefaultExportPresets(presets);

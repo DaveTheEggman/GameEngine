@@ -68,6 +68,18 @@ namespace animation = foundation::animation;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     // How many characters each +/- press adds or removes (and the initial spawn).
     static constexpr core::u32 kBatchSize = 500;
     static constexpr core::f32 kCharacterSpacing = 8.0f; // grid spacing (world units)
@@ -151,7 +163,7 @@ namespace
                 m_floor = m_scene->CreateEntity(u8"floor");
                 m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -7.0f, 0.0f});
                 engine::render::MeshComponent& fmc = meshes->Add(m_floor);
-                fmc.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), kFloorBaseSize, kFloorBaseSize);
+                fmc.mesh = geometry::Primitives::Plane(AppRoot(), kFloorBaseSize, kFloorBaseSize);
                 fmc.SetMaterial(materials::CreatePBR(u8"lit", core::Float4{0.5f, 0.5f, 0.53f, 1.0f},
                                                      0.0f, 0.65f));
             }
@@ -204,12 +216,12 @@ namespace
             // Output DB (cooked resources) + resource manager + the factories. ModelFactory builds the
             // manifest into a ModelResource, resolving its meshes/materials/textures (dependency edges).
             m_contentFs =
-                core::MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(), outputDir, foundation::core::DefaultAllocator());
-            m_contentDb = core::MakeUnique<content::ContentDatabase>(foundation::core::DefaultAllocator(), 
-                foundation::core::DefaultAllocator(), *m_contentFs, core::BinarySerializerFactory(),
+                core::MakeUnique<vfs::NativeFileSystem>(AppRoot(), outputDir, AppRoot());
+            m_contentDb = core::MakeUnique<content::ContentDatabase>(AppRoot(), 
+                AppRoot(), *m_contentFs, core::BinarySerializerFactory(),
                 u8".rasset");
             m_resources =
-                core::MakeUnique<resource::ResourceManager>(foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *m_contentDb);
+                core::MakeUnique<resource::ResourceManager>(AppRoot(), AppRoot(), *m_contentDb);
             m_resources->AddFactory(&m_meshFactory);
             m_resources->AddFactory(&m_skinnedMeshFactory);
             m_resources->AddFactory(&m_modelFactory);
@@ -219,7 +231,7 @@ namespace
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
                 m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    foundation::core::DefaultAllocator(), foundation::core::DefaultAllocator(), *gfx->Raw());
+                    AppRoot(), AppRoot(), *gfx->Raw());
                 m_resources->AddFactory(m_textureFactory.Get());
             }
             model::RegisterModelResourceTypes(); // make the cooked types deserializable
@@ -318,7 +330,7 @@ namespace
         [[nodiscard]] core::RefPtr<geometry::StaticMesh> MergeSkinnedParts()
         {
             core::RefPtr<geometry::SkinnedMesh> merged =
-                core::MakeRef<geometry::SkinnedMesh>(foundation::core::DefaultAllocator());
+                core::MakeRef<geometry::SkinnedMesh>(AppRoot());
             core::u32 totalV = 0, totalI = 0;
             for (const Part& p : m_skinnedParts)
             {
@@ -938,11 +950,11 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        geometry::StaticMeshFactory m_meshFactory{foundation::core::DefaultAllocator()};
-        geometry::SkinnedMeshFactory m_skinnedMeshFactory{foundation::core::DefaultAllocator()};
+        geometry::StaticMeshFactory m_meshFactory{AppRoot()};
+        geometry::SkinnedMeshFactory m_skinnedMeshFactory{AppRoot()};
         materials::MaterialFactory m_materialFactory;
-        animation::SkeletonFactory m_skeletonFactory{foundation::core::DefaultAllocator()};
-        animation::AnimationClipFactory m_clipFactory{foundation::core::DefaultAllocator()};
+        animation::SkeletonFactory m_skeletonFactory{AppRoot()};
+        animation::AnimationClipFactory m_clipFactory{AppRoot()};
         core::UniquePtr<texture::TextureFactory> m_textureFactory; // needs the device
         model::ModelFactory m_modelFactory;
         resource::Proxy<model::ModelResource>
@@ -997,7 +1009,7 @@ namespace
 
 int main(int, char**)
 {
-    auto shell = shell::CreateShell(foundation::core::DefaultAllocator());
+    auto shell = shell::CreateShell(AppRoot());
     graphics::GraphicsDeviceDesc gpuDesc{};
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;

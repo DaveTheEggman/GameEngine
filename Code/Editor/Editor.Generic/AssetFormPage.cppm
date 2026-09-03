@@ -164,6 +164,6 @@ export namespace editor
     inline void RegisterGenericAssetEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<GenericAssetPageFactory>(), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<GenericAssetPageFactory>(), editor::EditorRootAllocator()));
     }
 }

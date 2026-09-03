@@ -123,7 +123,7 @@ namespace editor
     ui::Button* InputMapEditorPage::MakeButton(ui::FlexLayout& row, StringView label, f32 width,
                                                Function<void()> onClick)
     {
-        auto button = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), label);
+        auto button = MakeRef<ui::Button>(Allocator(), label);
         button->FontSize.SetValue(Optional<f32>{11.0f});
         button->OnClick.Add(
             [fn = Move(onClick)](ui::ButtonBase*)
@@ -133,7 +133,7 @@ namespace editor
                     fn();
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(button.Get(), lp);
@@ -142,11 +142,11 @@ namespace editor
 
     RefPtr<ui::FlexLayout> InputMapEditorPage::MakeRow(f32 indent, f32 height)
     {
-        auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto row = MakeRef<ui::FlexLayout>(Allocator());
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 4.0f;
         row->Padding = ui::Thickness{indent, 0};
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
         lp->Width = ui::SizeSpec::Match();
         lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(height));
         m_rows->AddView(row.Get(), lp);
@@ -155,9 +155,9 @@ namespace editor
 
     void InputMapEditorPage::AddLabel(ui::FlexLayout& row, StringView text, f32 grow, f32 width)
     {
-        auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
+        auto label = MakeRef<ui::Label>(Allocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
         if (grow > 0.0f)
         {
             lp->Grow = grow;
@@ -174,7 +174,7 @@ namespace editor
                                            Function<void(f32)> commit, f32 width)
     {
         AddLabel(row, label, 0.0f, static_cast<f32>(label.Size()) * 7.0f + 6.0f);
-        auto field = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
+        auto field = MakeRef<ui::EditableLabel>(Allocator());
         String text;
         AppendValue(text, value);
         field->SetText(text.AsView());
@@ -194,7 +194,7 @@ namespace editor
                     fn(parsed);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
         lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         lp->Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
@@ -218,7 +218,7 @@ namespace editor
     void InputMapEditorPage::AddNameEditor(ui::FlexLayout& row, StringView name,
                                            Function<void(StringView)> commit)
     {
-        auto label = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
+        auto label = MakeRef<ui::EditableLabel>(Allocator());
         label->SetText(name);
         label->FontSize.SetValue(12.0f);
         label->OnRenameCommitted.Add(
@@ -229,7 +229,7 @@ namespace editor
                     fn(value);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
         lp->Grow = 1.0f;
         lp->Height = ui::SizeSpec::Match();
         row.AddView(label.Get(), lp);
@@ -710,7 +710,7 @@ namespace editor
     UniquePtr<EditorPage> InputMapPageFactory::CreatePage(EditorContext& context,
                                                           foundation::content::Instance& instance)
     {
-        auto* page = foundation::core::DefaultAllocator().New<InputMapEditorPage>(context, *m_host, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+        auto* page = editor::EditorRootAllocator().New<InputMapEditorPage>(context, *m_host, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 }

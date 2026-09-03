@@ -30,6 +30,16 @@
 
 #if OPTION_HAS_EXTENSION_IMGUI
 #include "imgui.h"
+
+namespace
+{
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
 #endif
 
 namespace samples
@@ -45,6 +55,8 @@ namespace samples
     namespace ui = foundation::ui;
     namespace rhi = foundation::rhi;
     namespace navigation = foundation::navigation;
+
+
 
     class WebSceneApp : public engine::runtime::DefaultApplication
     {
@@ -301,7 +313,7 @@ namespace samples
             m_floor = m_scene->CreateEntity(u8"floor");
             m_scene->SetLocalPosition(m_floor, core::Float3{0.0f, -0.75f, 0.0f});
             engine::render::MeshComponent& fm = meshes->Add(m_floor);
-            fm.mesh = geometry::Primitives::Plane(foundation::core::DefaultAllocator(), 30.0f, 30.0f);
+            fm.mesh = geometry::Primitives::Plane(AppRoot(), 30.0f, 30.0f);
             ApplyFloorMaterial();
 
             // Roughness x metallic sphere grid: the PBR response matrix.
@@ -318,7 +330,7 @@ namespace samples
                                         0.0f,
                                         -4.0f - static_cast<core::f32>(r) * 1.5f});
                     engine::render::MeshComponent& mc = meshes->Add(e);
-                    mc.mesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 0.6f);
+                    mc.mesh = geometry::Primitives::Sphere(AppRoot(), 0.6f);
                     const core::f32 rough =
                         0.05f + 0.9f * static_cast<core::f32>(c) / (kCols - 1);
                     mc.SetMaterial(materials::CreatePBR(
@@ -331,14 +343,14 @@ namespace samples
             m_cube = m_scene->CreateEntity(u8"cube");
             m_scene->SetLocalPosition(m_cube, core::Float3{0.0f, 0.6f, 0.0f});
             engine::render::MeshComponent& mc = meshes->Add(m_cube);
-            mc.mesh = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 1.0f);
+            mc.mesh = geometry::Primitives::Cube(AppRoot(), 1.0f);
             mc.SetMaterial(materials::CreatePBR(
                 u8"web.cube", core::Float4{0.85f, 0.35f, 0.28f, 1.0f}, 0.1f, 0.4f));
 
             scene::EntityHandle chrome = m_scene->CreateEntity(u8"chrome");
             m_scene->SetLocalPosition(chrome, core::Float3{4.0f, 0.4f, 2.0f});
             engine::render::MeshComponent& cm = meshes->Add(chrome);
-            cm.mesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 1.1f);
+            cm.mesh = geometry::Primitives::Sphere(AppRoot(), 1.1f);
             cm.SetMaterial(materials::CreatePBR(
                 u8"web.chrome", core::Float4{0.95f, 0.95f, 0.97f, 1.0f}, 1.0f, 0.05f));
         }
@@ -412,7 +424,7 @@ namespace samples
             }
             scene::EntityHandle ring = m_scene->CreateEntity(u8"ring");
             engine::render::InstancedMeshComponent& ic = instanced->Add(ring);
-            ic.mesh = geometry::Primitives::Cube(foundation::core::DefaultAllocator(), 0.3f);
+            ic.mesh = geometry::Primitives::Cube(AppRoot(), 0.3f);
             ic.material = materials::CreatePBR(
                 u8"web.ring", core::Float4{0.3f, 0.8f, 0.5f, 1.0f}, 0.2f, 0.5f);
             ic.instances.Clear();
@@ -579,7 +591,7 @@ namespace samples
         void BuildGameUI(runtime::IApplicationHost& host)
         {
             // Scene-tier HUD canvas.
-            m_hudDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
+            m_hudDocument = core::MakeRef<ui::UIDocument>(AppRoot());
             m_hudDocument->markup = core::String(
                 u8"<Flex direction=\"vertical\" align=\"start\" padding=\"12\" spacing=\"8\">"
                 u8"  <Panel padding=\"12\" width=\"240\""
@@ -600,7 +612,7 @@ namespace samples
 
             // Billboard nameplate on the spinning cube (the moving anchor makes the
             // world-tracking path obvious at a glance).
-            m_plateDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
+            m_plateDocument = core::MakeRef<ui::UIDocument>(AppRoot());
             m_plateDocument->markup = core::String(
                 u8"<Panel padding=\"4\""
                 u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=4);\">"
@@ -620,7 +632,7 @@ namespace samples
             // layer's frame gravity.
             if (auto* gameUi = host.Ctx().GetSubsystem<engine::ui::UISubsystem>())
             {
-                m_badgeDocument = core::MakeRef<ui::UIDocument>(foundation::core::DefaultAllocator());
+                m_badgeDocument = core::MakeRef<ui::UIDocument>(AppRoot());
                 m_badgeDocument->markup = core::String(
                     u8"<Panel padding=\"6\""
                     u8"       style=\"background: rounded-rect(rgb(20, 24, 30), radius=6);\">"
@@ -629,7 +641,7 @@ namespace samples
                 m_badge = gameUi->PushScreenOverlay(*m_badgeDocument);
                 if (m_badge.Get() != nullptr)
                 {
-                    auto lp = core::MakeRef<ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
+                    auto lp = core::MakeRef<ui::FrameLayoutParams>(AppRoot());
                     lp->Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
                     m_badge->LayoutParams = lp;
                     // Passive watermark: a hit-testable screen overlay makes the global
@@ -948,8 +960,8 @@ namespace samples
                                 core::Span<const core::u32>{indices.Data(), indices.Size()},
                                 navigation::NavigationBakeParams{}, blob)
                                 .IsOk();
-            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(foundation::core::DefaultAllocator(),
-                                                                           foundation::core::DefaultAllocator());
+            m_navZone = core::MakeRef<navigation::NavigationZoneResource>(AppRoot(),
+                                                                           AppRoot());
             if (ok && !blob.IsEmpty())
             {
                 (void)m_navZone->mesh.Load(
@@ -992,7 +1004,7 @@ namespace samples
         {
             scene::EntityHandle e = m_scene->CreateEntity(u8"nav-agent");
             m_scene->SetLocalPosition(e, home);
-            meshes.Add(e).mesh = geometry::Primitives::Sphere(foundation::core::DefaultAllocator(), 0.5f);
+            meshes.Add(e).mesh = geometry::Primitives::Sphere(AppRoot(), 0.5f);
             agentMgr.Add(e); // defaults: radius 0.6, maxSpeed 3.5, MoveEntity
             m_navAgents.PushBack(NavAgent{e, home, away, false});
         }

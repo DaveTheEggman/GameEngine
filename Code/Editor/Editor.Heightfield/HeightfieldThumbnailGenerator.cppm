@@ -186,6 +186,6 @@ export namespace editor
     /// Registered by RegisterHeightfieldEditor (the domain's one composition entry point).
     inline void RegisterHeightfieldThumbnailGenerator(editor::ThumbnailService& service)
     {
-        service.RegisterGenerator(MakeUnique<HeightfieldThumbnailGenerator>(foundation::core::DefaultAllocator()));
+        service.RegisterGenerator(MakeUnique<HeightfieldThumbnailGenerator>(editor::EditorRootAllocator()));
     }
 }

@@ -34,6 +34,18 @@ namespace vg = foundation::vg;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
 #ifndef BUILTIN_VG_FONT_PATH
@@ -91,7 +103,7 @@ private:
         return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH)).IsEmpty();
     }
 
-    shaders::ShaderSystemHost m_shaderHost{foundation::core::DefaultAllocator()}; // owns the ShaderSystem + the VG modules
+    shaders::ShaderSystemHost m_shaderHost{AppRoot()}; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_dfFs = nullptr;         // MSDF distance-field fragment shader
@@ -111,7 +123,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
-    vg::renderer::VGRenderer m_renderer{foundation::core::DefaultAllocator()};
+    vg::renderer::VGRenderer m_renderer{AppRoot()};
     image::OwnedImageData m_checker;
 
     fonts::CachedFont* m_fontSmall = nullptr;
@@ -172,8 +184,8 @@ Status VGSandbox::OnInit()
         return ErrorCode::Unknown;
 
     // Fonts (Roboto at three sizes). Text is skipped if the font isn't available.
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(foundation::core::DefaultAllocator(),
-                                                           foundation::core::DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(AppRoot(),
+                                                           AppRoot());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_VG_FONT_PATH));
@@ -194,7 +206,7 @@ Status VGSandbox::OnInit()
         m_fontDF = m_fontService->GetFont(u8"RobotoDF", 48.0f);
     }
 
-    m_vg = MakeUnique<vg::VGContext>(foundation::core::DefaultAllocator(), m_fontService.Get());
+    m_vg = MakeUnique<vg::VGContext>(AppRoot(), m_fontService.Get());
     // The renderer was given the radial/conic gradient shaders above, so enable per-pixel
     // radial/conic gradients (exact falloff instead of the affine LUT approximation).
     m_vg->SetPerPixelGradients(true);

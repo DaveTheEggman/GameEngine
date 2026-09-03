@@ -52,7 +52,8 @@ export namespace editor
     public:
         UIThemeEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+            : app::UIEditorPage(context.Allocator()),
+              m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             m_ui = host.Ctx().GetSubsystem<engine::ui::UISubsystem>();
             SetInstanceId(instance.Id());
@@ -76,13 +77,13 @@ export namespace editor
                 m_previewMarkup = String(kStockPreviewMarkup); // preview against SOMETHING out of the box
             }
 
-            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(Allocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 8.0f;
 
             // Left: the SSS editor (the theme itself - the saved asset). CLikeLexer is the closest fit
             // for the CSS-like SSS grammar (braces / strings / numbers / comments) until an SSS lexer.
-            m_editor = MakeRef<ui::toolkit::CodeEditView>(foundation::core::DefaultAllocator());
+            m_editor = MakeRef<ui::toolkit::CodeEditView>(Allocator());
             m_editor->AllowBreakpoints = false;
             // SSS is CSS-like; the toolkit ships no SSS lexer yet, so v1 is plain text (gutter,
             // monospace, native undo) - syntax highlighting is a later refinement.
@@ -96,44 +97,44 @@ export namespace editor
                     self->m_previewDelay = 0.35f;
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(m_editor.Get(), lp);
             }
 
             // Right column: [pick button + status] / preview-markup editor / live preview.
-            auto right = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto right = MakeRef<ui::FlexLayout>(Allocator());
             right->Direction = ui::Orientation::Vertical;
             right->Spacing = 4.0f;
 
-            auto bar = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto bar = MakeRef<ui::FlexLayout>(Allocator());
             bar->Direction = ui::Orientation::Horizontal;
             bar->Spacing = 8.0f;
-            m_pickButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Preview Document..."));
+            m_pickButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Preview Document..."));
             m_pickButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewDocument(); });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 bar->AddView(m_pickButton.Get(), lp);
             }
-            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 bar->AddView(m_status.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 right->AddView(bar.Get(), lp);
             }
 
             // Preview markup (SML) - scaffolding only; XML lexer + tag completion like the document page.
-            m_previewEditor = MakeRef<ui::toolkit::CodeEditView>(foundation::core::DefaultAllocator());
+            m_previewEditor = MakeRef<ui::toolkit::CodeEditView>(Allocator());
             m_previewEditor->AllowBreakpoints = false;
             m_previewEditor->SetLexer(UniquePtr<ui::toolkit::ICodeLexer>(
-                foundation::core::DefaultAllocator().New<ui::toolkit::XmlLexer>(), foundation::core::DefaultAllocator()));
+                Allocator().New<ui::toolkit::XmlLexer>(), Allocator()));
             m_previewEditor->CompletionTriggerCharacters = String(u8"<");
             m_previewEditor->AddCompletionProvider(&m_markupProvider);
             m_previewEditor->SetText(m_previewMarkup.AsView());
@@ -145,23 +146,23 @@ export namespace editor
                     self->m_previewDelay = 0.35f;
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 right->AddView(m_previewEditor.Get(), lp);
             }
 
             // The live preview surface (offscreen; the runtime UI subsystem renders into it).
-            m_viewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.08f, 0.09f, 0.11f, 1.0f};
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Grow = 2.0f; // the render gets the lion's share of the right column
                 right->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 lp->Height = ui::SizeSpec::Match();
                 row->AddView(right.Get(), lp);

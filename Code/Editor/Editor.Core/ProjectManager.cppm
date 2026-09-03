@@ -98,7 +98,7 @@ export namespace editor
         // Later: a template parameter selects the scaffold instead of the bare layout.
         [[nodiscard]] Status Create(StringView directory, StringView name) const
         {
-            return EditorProject::Create(DefaultAllocator(), directory, name);
+            return EditorProject::Create(foundation::core::DefaultAllocator(), directory, name);
         }
 
         // The pre-upgrade manifest backup (see :project_registry). Returns the backup path.

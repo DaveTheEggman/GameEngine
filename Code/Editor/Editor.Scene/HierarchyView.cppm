@@ -204,7 +204,7 @@ export namespace editor
             }
             [[nodiscard]] RefPtr<ui::View> CreateView(i32) override
             {
-                auto row = MakeRef<Row>(foundation::core::DefaultAllocator());
+                auto row = MakeRef<Row>(editor::EditorRootAllocator());
                 row->FontSize.SetValue(
                     Optional<f32>{12.0f}); // match the inspector's dense 12px text
                 SceneEditContext* edit = m_owner->m_edit;

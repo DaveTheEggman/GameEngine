@@ -31,10 +31,14 @@ export namespace editor
     class EditorPage
     {
     public:
-        EditorPage()
+        // The allocator (required - the page factory forwards the EditorContext's
+        // tagged "Editor" root) backs everything this page creates.
+        explicit EditorPage(IAllocator& allocator) : m_allocator(&allocator)
         {
             m_commands.OnChanged = [this]() { m_dirty = true; };
         }
+
+        [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
         virtual ~EditorPage() = default;
         EditorPage(const EditorPage&) = delete;
         EditorPage& operator=(const EditorPage&) = delete;
@@ -82,6 +86,7 @@ export namespace editor
         void SetInstanceId(const Guid& id) noexcept { m_instanceId = id; }
 
     protected:
+        IAllocator* m_allocator;
         EditorCommandStack m_commands;
         Guid m_instanceId{};
         bool m_dirty = false;

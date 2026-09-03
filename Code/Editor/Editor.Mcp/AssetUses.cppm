@@ -70,13 +70,13 @@ namespace editor::mcp::detail
     inline bool CollectSceneReferences(content::Instance& instance, content::ContentDatabase& db,
                                        Array<Guid>& resources, Array<Guid>& prefabs)
     {
-        scene::Scene scratch{DefaultAllocator()};
+        scene::Scene scratch{editor::EditorRootAllocator()};
         engine::AddAllSceneManagers(scratch);
         if (!scene::LoadScene(instance, scratch).IsOk())
         {
             return false;
         }
-        foundation::resource::ResourceManager collector(DefaultAllocator(), db); // no factories -> all binds unresolved
+        foundation::resource::ResourceManager collector(editor::EditorRootAllocator(), db); // no factories -> all binds unresolved
         scene::ResolveSceneResources(scratch, collector);
         collector.CollectUnresolved(resources);
         scratch.ForEachPendingPrefabInstance([&prefabs](scene::Scene::PendingPrefabInstance& pending)
@@ -201,7 +201,7 @@ export namespace editor::mcp
                                       guidText.AsView()));
                 }
 
-                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView(), DefaultAllocator());
+                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView(), editor::EditorRootAllocator());
                 Array<detail::AssetUse> uses;
                 detail::CollectUses(db.RootGroup(), String(), id, db, *bld, sourcesMount, uses);
 

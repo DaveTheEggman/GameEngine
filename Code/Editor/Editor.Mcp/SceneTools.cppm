@@ -78,7 +78,7 @@ namespace editor::mcp::detail
         (void)stream.Write(xml.Data(), xml.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
 
-        scene::Scene scratch{DefaultAllocator()};
+        scene::Scene scratch{editor::EditorRootAllocator()};
         engine::AddAllSceneManagers(scratch);
         Result<Array<byte>> transcoded =
             scene::TranscodeSceneStreamToBinary(stream, scratch, /*includeSettings=*/true);

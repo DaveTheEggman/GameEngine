@@ -72,12 +72,12 @@ export namespace editor
     public:
         DebuggerPanel()
         {
-            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 4.0f;
             column->Padding = ui::Thickness{6, 6};
 
-            auto bar = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto bar = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             bar->Direction = ui::Orientation::Horizontal;
             bar->Spacing = 4.0f;
             DebuggerPanel* self = this;
@@ -116,23 +116,23 @@ export namespace editor
             column->AddView(bar.Get(), MatchWidth());
 
             m_status =
-                MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Debugger: not running"));
+                MakeRef<ui::Label>(editor::EditorRootAllocator(), StringView(u8"Debugger: not running"));
             m_status->FontSize.SetValue(12.0f);
             column->AddView(m_status.Get(), MatchWidth());
 
             column->AddView(
-                MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Call Stack")).Get(),
+                MakeRef<ui::Label>(editor::EditorRootAllocator(), StringView(u8"Call Stack")).Get(),
                 MatchWidth());
-            m_stackList = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            m_stackList = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             m_stackList->Direction = ui::Orientation::Vertical;
             column->AddView(m_stackList.Get(), MatchWidth());
 
-            column->AddView(MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Locals")).Get(),
+            column->AddView(MakeRef<ui::Label>(editor::EditorRootAllocator(), StringView(u8"Locals")).Get(),
                             MatchWidth());
-            m_localsList = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            m_localsList = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             m_localsList->Direction = ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
                 lp->Grow = 1.0f;
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_localsList.Get(), lp);
@@ -163,7 +163,7 @@ export namespace editor
         template <typename Fn>
         void AddToolButton(ui::FlexLayout& bar, StringView label, Fn onClick)
         {
-            auto button = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), label);
+            auto button = MakeRef<ui::Button>(editor::EditorRootAllocator(), label);
             button->FontSize.SetValue(12.0f);
             button->OnClick.Add([onClick](ui::ButtonBase*) { onClick(); });
             bar.AddView(button.Get(), RefPtr<ui::FlexLayoutParams>{});
@@ -234,7 +234,8 @@ export namespace editor
         GameEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                        ui::runtime::UIHost& uiHost, engine::runtime::DefaultApplication* embeddedApp,
                        engine::runtime::GameInstance* instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp),
+            : app::UIEditorPage(context.Allocator()),
+              m_context(&context), m_host(&host), m_uiHost(&uiHost), m_app(embeddedApp),
               m_gameInstance(instance)
         {
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
@@ -242,7 +243,7 @@ export namespace editor
             m_input = host.Ctx().GetSubsystem<engine::input::InputSubsystem>();
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
-            m_viewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.05f, 0.05f, 0.06f, 1.0f};
 
             // "Exit" from embedded game code = stop this play session (deferred by the
@@ -251,7 +252,7 @@ export namespace editor
 
             // Toolbar: Play / Stop / Restart + the run-state readout.
             GameEditorPage* self = this;
-            m_toolbar = MakeRef<ui::toolkit::Toolbar>(foundation::core::DefaultAllocator());
+            m_toolbar = MakeRef<ui::toolkit::Toolbar>(Allocator());
             m_playButton = m_toolbar->AddButton(u8"Play");
             m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->Play(); });
             m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
@@ -277,39 +278,39 @@ export namespace editor
             m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
             m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
                                             { self->CycleResolution(); });
-            m_statusLabel = MakeRef<foundation::ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_statusLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Height = foundation::ui::SizeSpec::Match();
                 m_toolbar->AddView(m_statusLabel.Get(), lp);
             }
 
-            auto column = MakeRef<foundation::ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = MakeRef<foundation::ui::FlexLayout>(Allocator());
             column->Direction = foundation::ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
                 column->AddView(m_toolbar.Get(), lp);
             }
             // The play stage: the game viewport (grows) beside the debugger panel (fixed).
-            auto stage = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto stage = MakeRef<ui::FlexLayout>(Allocator());
             stage->Direction = ui::Orientation::Horizontal;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Grow = 1.0f;
                 lp->Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(300));
                 lp->Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_debuggerPanel.RootView(), lp);
             }
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 column->AddView(stage.Get(), lp);
@@ -428,7 +429,7 @@ export namespace editor
         RefPtr<ui::viewport::ViewportView> m_viewport;
         UniquePtr<foundation::shell::InputRouter>
             m_router;                         // gates the viewport surface (hover/focus)
-        scene::SceneManager m_fallbackScenes{foundation::core::DefaultAllocator()}; // no-embedded-app placeholder group (see SceneGroup)
+        scene::SceneManager m_fallbackScenes{Allocator()}; // no-embedded-app placeholder group (see SceneGroup)
 
         String m_sceneTitle;
         bool m_running = false;

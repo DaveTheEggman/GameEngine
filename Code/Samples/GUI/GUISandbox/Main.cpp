@@ -34,6 +34,18 @@ namespace gui = experimental::gui;
 
 namespace
 {
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
+namespace
+{
     // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
 
 #ifndef BUILTIN_GUI_FONT_PATH
@@ -140,7 +152,7 @@ private:
     }
 
     // Render plumbing (mirrors VGSandbox).
-    shaders::ShaderSystemHost m_shaderHost{foundation::core::DefaultAllocator()}; // owns the ShaderSystem + the VG modules
+    shaders::ShaderSystemHost m_shaderHost{AppRoot()}; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
@@ -153,7 +165,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
-    vg::renderer::VGRenderer m_renderer{foundation::core::DefaultAllocator()};
+    vg::renderer::VGRenderer m_renderer{AppRoot()};
     fonts::CachedFont* m_font = nullptr;
     fonts::CachedFont* m_fontLarge = nullptr;
 
@@ -230,8 +242,8 @@ Status GUISandbox::OnInit()
     if (m_device->CreateFence(0, m_fence) != ErrorCode::Ok)
         return ErrorCode::Unknown;
 
-    m_fontService = MakeUnique<fonts::TrueTypeFontService>(foundation::core::DefaultAllocator(),
-                                                           foundation::core::DefaultAllocator());
+    m_fontService = MakeUnique<fonts::TrueTypeFontService>(AppRoot(),
+                                                           AppRoot());
     if (HasFonts())
     {
         const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH));
@@ -241,7 +253,7 @@ Status GUISandbox::OnInit()
         m_fontLarge = m_fontService->GetFont(u8"Roboto", 30.0f);
     }
 
-    m_vg = MakeUnique<vg::VGContext>(foundation::core::DefaultAllocator(), m_fontService.Get());
+    m_vg = MakeUnique<vg::VGContext>(AppRoot(), m_fontService.Get());
     m_vg->SetPerPixelGradients(true); // renderer was given the radial/conic gradient shaders
 
     BuildUI();
@@ -257,17 +269,17 @@ void GUISandbox::LoadFontSize(StringView path, f32 pixelHeight)
 
 void GUISandbox::BuildUI()
 {
-    m_root = MakeRef<gui::SceneNode>(foundation::core::DefaultAllocator());
+    m_root = MakeRef<gui::SceneNode>(AppRoot());
     m_root->SetSize(Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)});
 
     // Full-window scroller so the (now tall) page can scroll when content runs off-screen.
-    m_pageScroll = MakeRef<gui::ScrollView>(foundation::core::DefaultAllocator());
+    m_pageScroll = MakeRef<gui::ScrollView>(AppRoot());
     m_pageScroll->SetSize(Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)});
     m_root->AddChild(m_pageScroll.Get());
 
     // The panel stacks its children vertically and wraps its height to fit them (so the
     // scroller knows how tall the page is). Width stays the window width.
-    m_panel = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    m_panel = MakeRef<gui::LinearLayout>(AppRoot());
     m_panel->SetSize(Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)});
     m_panel->SetWrapContent(true);
     m_panel->SetPadding(gui::Thickness{28.0f});
@@ -279,7 +291,7 @@ void GUISandbox::BuildUI()
     // A menu bar across the top: File/Edit/View, each dropping a menu (with a submenu, a
     // separator, and a checkable item) below its button; hovering another button while one is
     // open switches to it.
-    m_menuBar = MakeRef<gui::MenuBar>(foundation::core::DefaultAllocator());
+    m_menuBar = MakeRef<gui::MenuBar>(AppRoot());
     m_menuBar->SetSize(Float2{600.0f, 28.0f});
     m_menuBar->SetFont(m_font);
     GUISandbox* menuSelf = this;
@@ -321,21 +333,21 @@ void GUISandbox::BuildUI()
     }
     m_panel->AddChild(m_menuBar.Get());
 
-    auto title = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto title = MakeRef<gui::Label>(AppRoot());
     title->SetSize(Float2{600.0f, 46.0f});
     title->SetText(u8"GUI Sandbox");
     title->SetFont(m_fontLarge);
     title->SetTextColor(Col(0.92f, 0.94f, 0.98f));
     m_panel->AddChild(title.Get());
 
-    m_counter = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    m_counter = MakeRef<gui::Label>(AppRoot());
     m_counter->SetSize(Float2{500.0f, 28.0f});
     m_counter->SetText(u8"Clicks: 0");
     m_counter->SetFont(m_font);
     m_counter->SetTextColor(Col(0.75f, 0.82f, 0.9f));
     m_panel->AddChild(m_counter.Get());
 
-    auto hint = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto hint = MakeRef<gui::Label>(AppRoot());
     hint->SetSize(Float2{600.0f, 22.0f});
     hint->SetText(u8"Tip: right-click the empty background for a context menu.");
     hint->SetFont(m_font);
@@ -345,7 +357,7 @@ void GUISandbox::BuildUI()
 
     // CSS @keyframes animation: a row of "activity light" dots pulsing/blinking at different
     // rates (all opacity-driven), plus a pulsing caption. Each animation is a CSS class.
-    auto animRow = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto animRow = MakeRef<gui::LinearLayout>(AppRoot());
     animRow->SetOrientation(gui::Orientation::Horizontal);
     animRow->SetSize(Float2{600.0f, 24.0f});
     animRow->SetSpacing(10.0f);
@@ -364,20 +376,20 @@ void GUISandbox::BuildUI()
     };
     for (const Dot& d : dots)
     {
-        auto dot = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+        auto dot = MakeRef<gui::Label>(AppRoot());
         dot->SetSize(Float2{18.0f, 18.0f});
-        dot->SetBackground(MakeRef<gui::RectangleDrawable>(foundation::core::DefaultAllocator(), d.color));
+        dot->SetBackground(MakeRef<gui::RectangleDrawable>(AppRoot(), d.color));
         dot->AddClass(StringView(d.cssClass));
         animRow->AddChild(dot.Get());
     }
 
     // A color-cycling box (background-color keyframes, not opacity).
-    auto colorBox = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto colorBox = MakeRef<gui::Label>(AppRoot());
     colorBox->SetSize(Float2{34.0f, 18.0f});
     colorBox->AddClass(StringView(u8"colorcycle"));
     animRow->AddChild(colorBox.Get());
 
-    auto pulseCaption = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto pulseCaption = MakeRef<gui::Label>(AppRoot());
     pulseCaption->SetSize(Float2{430.0f, 22.0f});
     pulseCaption->SetText(u8"@keyframes: opacity (dots) + background-color (box), varied rates");
     pulseCaption->SetFont(m_font);
@@ -385,7 +397,7 @@ void GUISandbox::BuildUI()
     animRow->AddChild(pulseCaption.Get());
 
     // A row of buttons.
-    auto row = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto row = MakeRef<gui::LinearLayout>(AppRoot());
     row->SetOrientation(gui::Orientation::Horizontal);
     row->SetSize(Float2{static_cast<f32>(m_width) - 56.0f, 50.0f});
     row->SetSpacing(14.0f);
@@ -398,7 +410,7 @@ void GUISandbox::BuildUI()
 
     auto makeButton = [&](const char8_t* label, const char8_t* cssClass, Function<void()> onClick)
     {
-        auto btn = MakeRef<gui::Button>(foundation::core::DefaultAllocator());
+        auto btn = MakeRef<gui::Button>(AppRoot());
         btn->SetSize(Float2{170.0f, 46.0f});
         btn->SetText(StringView(label));
         btn->SetFont(m_font);
@@ -435,13 +447,13 @@ void GUISandbox::BuildUI()
                }); // dark <-> light
 
     // A checkbox + label row: toggling it highlights the counter.
-    auto checkRow = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto checkRow = MakeRef<gui::LinearLayout>(AppRoot());
     checkRow->SetOrientation(gui::Orientation::Horizontal);
     checkRow->SetSize(Float2{360.0f, 30.0f});
     checkRow->SetSpacing(10.0f);
     m_panel->AddChild(checkRow.Get());
 
-    auto check = MakeRef<gui::CheckBox>(foundation::core::DefaultAllocator());
+    auto check = MakeRef<gui::CheckBox>(AppRoot());
     check->SetSize(Float2{22.0f, 22.0f});
     check->SetOnCheckedChanged(
         [counter](bool on)
@@ -454,7 +466,7 @@ void GUISandbox::BuildUI()
         });
     checkRow->AddChild(check.Get());
 
-    auto checkLabel = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto checkLabel = MakeRef<gui::Label>(AppRoot());
     checkLabel->SetSize(Float2{220.0f, 26.0f});
     checkLabel->SetText(u8"Highlight counter");
     checkLabel->SetFont(m_font);
@@ -462,24 +474,24 @@ void GUISandbox::BuildUI()
     checkRow->AddChild(checkLabel.Get());
 
     // A slider + live percent label.
-    auto sliderRow = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto sliderRow = MakeRef<gui::LinearLayout>(AppRoot());
     sliderRow->SetOrientation(gui::Orientation::Horizontal);
     sliderRow->SetSize(Float2{380.0f, 30.0f});
     sliderRow->SetSpacing(12.0f);
     m_panel->AddChild(sliderRow.Get());
 
-    auto slider = MakeRef<gui::Slider>(foundation::core::DefaultAllocator());
+    auto slider = MakeRef<gui::Slider>(AppRoot());
     slider->SetSize(Float2{220.0f, 24.0f});
     sliderRow->AddChild(slider.Get());
 
-    auto sliderLabel = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto sliderLabel = MakeRef<gui::Label>(AppRoot());
     sliderLabel->SetSize(Float2{80.0f, 26.0f});
     sliderLabel->SetFont(m_font);
     sliderLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     sliderRow->AddChild(sliderLabel.Get());
 
     // A progress bar driven by the slider (so they move together).
-    auto bar = MakeRef<gui::ProgressBar>(foundation::core::DefaultAllocator());
+    auto bar = MakeRef<gui::ProgressBar>(AppRoot());
     bar->SetSize(Float2{340.0f, 14.0f});
     m_panel->AddChild(bar.Get());
 
@@ -494,33 +506,33 @@ void GUISandbox::BuildUI()
     slider->SetValue(0.5f); // fires the callback -> label "50%", bar half-filled
 
     // An editable text field (the keyboard/text path) + a live echo label.
-    auto fieldRow = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto fieldRow = MakeRef<gui::LinearLayout>(AppRoot());
     fieldRow->SetOrientation(gui::Orientation::Horizontal);
     fieldRow->SetSize(Float2{560.0f, 40.0f});
     fieldRow->SetSpacing(12.0f);
     m_panel->AddChild(fieldRow.Get());
 
-    auto fieldPrompt = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto fieldPrompt = MakeRef<gui::Label>(AppRoot());
     fieldPrompt->SetSize(Float2{60.0f, 34.0f});
     fieldPrompt->SetText(u8"Name:");
     fieldPrompt->SetFont(m_font);
     fieldPrompt->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     fieldRow->AddChild(fieldPrompt.Get());
 
-    m_textField = MakeRef<gui::TextField>(foundation::core::DefaultAllocator());
+    m_textField = MakeRef<gui::TextField>(AppRoot());
     m_textField->SetSize(Float2{300.0f, 34.0f});
     m_textField->SetPadding(gui::Thickness{8.0f, 6.0f, 8.0f, 6.0f});
     m_textField->SetFont(m_font);
     m_textField->SetTextColor(Col(0.96f, 0.97f, 0.99f));
     m_textField->SetBackground(
-        MakeRef<gui::RectangleDrawable>(foundation::core::DefaultAllocator(), Col(0.20f, 0.22f, 0.27f)));
+        MakeRef<gui::RectangleDrawable>(AppRoot(), Col(0.20f, 0.22f, 0.27f)));
     // Placeholder shows while empty; select (shift+arrows / drag / double-click word),
     // Ctrl+A/C/X/V for select-all/copy/cut/paste; capped at 24 codepoints.
     m_textField->SetPlaceholder(u8"type here - select, Ctrl+C/V...");
     m_textField->SetMaxLength(24);
     fieldRow->AddChild(m_textField.Get());
 
-    m_echo = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    m_echo = MakeRef<gui::Label>(AppRoot());
     m_echo->SetSize(Float2{500.0f, 26.0f});
     m_echo->SetFont(m_font);
     m_echo->SetTextColor(Col(0.62f, 0.72f, 0.82f));
@@ -540,7 +552,7 @@ void GUISandbox::BuildUI()
         });
 
     // A word-wrapped multi-line paragraph (fixed width, SetWordWrap breaks at whitespace).
-    auto wrapLabel = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto wrapLabel = MakeRef<gui::Label>(AppRoot());
     wrapLabel->SetSize(Float2{560.0f, 66.0f});
     wrapLabel->SetFont(m_font);
     wrapLabel->SetTextColor(Col(0.78f, 0.82f, 0.88f));
@@ -553,14 +565,14 @@ void GUISandbox::BuildUI()
     m_panel->AddChild(wrapLabel.Get());
 
     // A virtualized, model-backed ListView: 500 rows but only the visible handful are realized.
-    auto listCaption = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto listCaption = MakeRef<gui::Label>(AppRoot());
     listCaption->SetSize(Float2{560.0f, 22.0f});
     listCaption->SetFont(m_font);
     listCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
     listCaption->SetText(u8"ListView (MVC, virtualized 500 rows) - click / arrow keys:");
     m_panel->AddChild(listCaption.Get());
 
-    m_listModel = MakeUnique<gui::StringListModel>(foundation::core::DefaultAllocator());
+    m_listModel = MakeUnique<gui::StringListModel>(AppRoot());
     {
         Array<String> rows;
         for (i32 i = 0; i < 500; ++i)
@@ -585,7 +597,7 @@ void GUISandbox::BuildUI()
         m_listModel->SetItems(Move(rows));
     }
 
-    m_listView = MakeRef<gui::ListView>(foundation::core::DefaultAllocator());
+    m_listView = MakeRef<gui::ListView>(AppRoot());
     m_listView->SetSize(Float2{260.0f, 160.0f});
     m_listView->SetFont(m_font);
     m_listView->SetRowHeight(24.0f);
@@ -610,14 +622,14 @@ void GUISandbox::BuildUI()
     // A sortable TableView: a TableModel behind a SortingProxyModel; clicking a column header
     // sorts by that column (numeric columns sort by value). No view changes needed - the header
     // click just calls the proxy, and the table (a client of the proxy) refreshes.
-    auto tableCaption = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto tableCaption = MakeRef<gui::Label>(AppRoot());
     tableCaption->SetSize(Float2{560.0f, 22.0f});
     tableCaption->SetFont(m_font);
     tableCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
     tableCaption->SetText(u8"TableView (MVC) - click a column header to sort:");
     m_panel->AddChild(tableCaption.Get());
 
-    m_tableModel = MakeUnique<gui::TableModel>(foundation::core::DefaultAllocator());
+    m_tableModel = MakeUnique<gui::TableModel>(AppRoot());
     {
         Array<String> cols;
         cols.PushBack(String(u8"Name"));
@@ -633,9 +645,9 @@ void GUISandbox::BuildUI()
             m_tableModel->AddRow(Move(cells));
         }
     }
-    m_tableProxy = MakeUnique<gui::SortingProxyModel>(foundation::core::DefaultAllocator(), m_tableModel.Get());
+    m_tableProxy = MakeUnique<gui::SortingProxyModel>(AppRoot(), m_tableModel.Get());
 
-    m_tableView = MakeRef<gui::TableView>(foundation::core::DefaultAllocator());
+    m_tableView = MakeRef<gui::TableView>(AppRoot());
     m_tableView->SetSize(Float2{300.0f, 180.0f});
     m_tableView->SetFont(m_font);
     m_tableView->SetRowHeight(24.0f);
@@ -646,14 +658,14 @@ void GUISandbox::BuildUI()
 
     // A TreeView over a small hierarchical TreeModel - click the arrows (or use arrow keys) to
     // expand/collapse; only the visible nodes are realized.
-    auto treeCaption = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto treeCaption = MakeRef<gui::Label>(AppRoot());
     treeCaption->SetSize(Float2{560.0f, 22.0f});
     treeCaption->SetFont(m_font);
     treeCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
     treeCaption->SetText(u8"TreeView (MVC) - click arrows / arrow keys to expand:");
     m_panel->AddChild(treeCaption.Get());
 
-    m_treeModel = MakeUnique<gui::TreeModel>(foundation::core::DefaultAllocator());
+    m_treeModel = MakeUnique<gui::TreeModel>(AppRoot());
     {
         const i32 src = m_treeModel->AddNode(gui::TreeModel::kRoot, u8"src");
         const i32 engine = m_treeModel->AddNode(src, u8"Engine");
@@ -666,7 +678,7 @@ void GUISandbox::BuildUI()
         m_treeModel->AddNode(docs, u8"design");
     }
 
-    m_treeView = MakeRef<gui::TreeView>(foundation::core::DefaultAllocator());
+    m_treeView = MakeRef<gui::TreeView>(AppRoot());
     m_treeView->SetSize(Float2{300.0f, 180.0f});
     m_treeView->SetFont(m_font);
     m_treeView->SetRowHeight(24.0f);
@@ -693,7 +705,7 @@ void GUISandbox::BuildUI()
 
     // A FlexLayout (markup) spreading three buttons across the row via justify-content.
     {
-        auto flexCaption = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+        auto flexCaption = MakeRef<gui::Label>(AppRoot());
         flexCaption->SetSize(Float2{560.0f, 22.0f});
         flexCaption->SetFont(m_font);
         flexCaption->SetTextColor(Col(0.78f, 0.82f, 0.88f));
@@ -716,21 +728,21 @@ void GUISandbox::BuildUI()
     // A scrollable grid: GridLayout of numbered cells inside a ScrollView. Scroll it with the
     // mouse wheel, by dragging the auto-managed scrollbar, or by clicking it (Tab-focus) and
     // using the arrow / PageUp-Down / Home-End keys.
-    auto scrollLabel = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto scrollLabel = MakeRef<gui::Label>(AppRoot());
     scrollLabel->SetSize(Float2{600.0f, 24.0f});
     scrollLabel->SetText(u8"Scrollable grid - wheel, drag the bar, or focus + arrow keys:");
     scrollLabel->SetFont(m_font);
     scrollLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     m_panel->AddChild(scrollLabel.Get());
 
-    m_scroll = MakeRef<gui::ScrollView>(foundation::core::DefaultAllocator());
+    m_scroll = MakeRef<gui::ScrollView>(AppRoot());
     m_scroll->SetSize(Float2{360.0f, 150.0f});
     m_scroll->SetPadding(gui::Thickness{6.0f});
     m_scroll->SetBackground(
-        MakeRef<gui::RectangleDrawable>(foundation::core::DefaultAllocator(), Col(0.08f, 0.09f, 0.11f)));
+        MakeRef<gui::RectangleDrawable>(AppRoot(), Col(0.08f, 0.09f, 0.11f)));
     m_panel->AddChild(m_scroll.Get());
 
-    auto grid = MakeRef<gui::GridLayout>(foundation::core::DefaultAllocator());
+    auto grid = MakeRef<gui::GridLayout>(AppRoot());
     grid->SetColumns(3);
     grid->SetSpacing(8.0f, 8.0f);
     grid->SetSize(Float2{336.0f, 7.0f * 48.0f - 8.0f}); // 7 rows of 40px cells + 8px gaps
@@ -738,11 +750,11 @@ void GUISandbox::BuildUI()
 
     for (i32 i = 0; i < 21; ++i)
     {
-        auto cell = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+        auto cell = MakeRef<gui::Label>(AppRoot());
         cell->SetSize(Float2{100.0f, 40.0f});
         const f32 t = static_cast<f32>(i) / 20.0f;
         cell->SetBackground(MakeRef<gui::RectangleDrawable>(
-            foundation::core::DefaultAllocator(), Col(0.20f + 0.30f * t, 0.35f, 0.55f - 0.25f * t)));
+            AppRoot(), Col(0.20f + 0.30f * t, 0.35f, 0.55f - 0.25f * t)));
         cell->SetFont(m_font);
         cell->SetTextColor(Col(0.96f, 0.97f, 0.99f));
         cell->SetTextAlignment(gui::TextHAlign::Center, gui::TextVAlign::Middle);
@@ -759,14 +771,14 @@ void GUISandbox::BuildUI()
     m_scroll->SetAutoMeasureContent(true); // content sizes to the grid -> vertical bar appears
 
     // A RelativeLayout: five labels pinned to the corners and centre of a box.
-    auto relLabel = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto relLabel = MakeRef<gui::Label>(AppRoot());
     relLabel->SetSize(Float2{600.0f, 24.0f});
     relLabel->SetText(u8"RelativeLayout - anchored to corners + centre:");
     relLabel->SetFont(m_font);
     relLabel->SetTextColor(Col(0.8f, 0.85f, 0.9f));
     m_panel->AddChild(relLabel.Get());
 
-    m_relative = MakeRef<gui::RelativeLayout>(foundation::core::DefaultAllocator());
+    m_relative = MakeRef<gui::RelativeLayout>(AppRoot());
     m_relative->SetSize(Float2{360.0f, 90.0f});
     m_relative->AddClass(StringView(u8"panel")); // themed surface
     m_panel->AddChild(m_relative.Get());
@@ -785,14 +797,14 @@ void GUISandbox::BuildUI()
     };
     for (const Pin& pin : pins)
     {
-        auto tag = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+        auto tag = MakeRef<gui::Label>(AppRoot());
         tag->SetSize(Float2{70.0f, 26.0f});
         tag->SetText(StringView(pin.text));
         tag->SetFont(m_font);
         tag->SetTextColor(Col(0.85f, 0.9f, 0.95f));
         tag->SetTextAlignment(gui::TextHAlign::Center, gui::TextVAlign::Middle);
         tag->SetBackground(
-            MakeRef<gui::RectangleDrawable>(foundation::core::DefaultAllocator(), Col(0.25f, 0.40f, 0.30f)));
+            MakeRef<gui::RectangleDrawable>(AppRoot(), Col(0.25f, 0.40f, 0.30f)));
         m_relative->AddChild(tag.Get());
         m_relative->SetAnchor(tag.Get(), pin.anchor);
     }
@@ -805,13 +817,13 @@ void GUISandbox::BuildUI()
     m_styles.SetFontService(m_fontService.Get());
     ApplyTheme();
 
-    m_bridge = MakeUnique<gui::GuiInputBridge>(foundation::core::DefaultAllocator(), m_root->GetEventDispatcher());
+    m_bridge = MakeUnique<gui::GuiInputBridge>(AppRoot(), m_root->GetEventDispatcher());
 
     // Give the dispatcher a clipboard so TextField cut/copy/paste (Ctrl+X/C/V) reach the OS
     // clipboard - the same seam headless tests exercise with an in-memory one.
     if (m_shell != nullptr)
     {
-        m_clipboard = MakeUnique<gui::ShellClipboard>(foundation::core::DefaultAllocator(), m_shell);
+        m_clipboard = MakeUnique<gui::ShellClipboard>(AppRoot(), m_shell);
         m_root->GetEventDispatcher()->SetClipboard(m_clipboard.Get());
     }
 }
@@ -820,7 +832,7 @@ void GUISandbox::ConfirmQuit()
 {
     if (!m_dialog)
     {
-        m_dialog = MakeRef<gui::MessageBox>(foundation::core::DefaultAllocator());
+        m_dialog = MakeRef<gui::MessageBox>(AppRoot());
         m_dialog->SetFont(m_font);
     }
     m_dialog->Configure(u8"Quit?", u8"Close the GUI sandbox? Any unsaved changes will be lost.",
@@ -848,14 +860,14 @@ void GUISandbox::BuildShowcaseWindow()
 {
     // A floating Window (drag its title bar, resize from the bottom-right grip) hosting a
     // TabWidget that surfaces the Priority-2 controls: ComboBox, ListBox, Radios, Image.
-    m_widgetWindow = MakeRef<gui::Window>(foundation::core::DefaultAllocator());
+    m_widgetWindow = MakeRef<gui::Window>(AppRoot());
     m_widgetWindow->SetSize(Float2{340.0f, 320.0f});
     m_widgetWindow->SetPosition(Float2{470.0f, 150.0f});
     m_widgetWindow->SetTitle(u8"Widgets  (drag / resize me)");
     m_widgetWindow->SetFont(m_font);
     m_root->AddChild(m_widgetWindow.Get());
 
-    auto tabs = MakeRef<gui::TabWidget>(foundation::core::DefaultAllocator());
+    auto tabs = MakeRef<gui::TabWidget>(AppRoot());
     tabs->SetFont(m_font);
     tabs->SetTabWidth(80.0f);
     tabs->SetTabBarHeight(28.0f);
@@ -864,11 +876,11 @@ void GUISandbox::BuildShowcaseWindow()
     tabs->SetSize(m_widgetWindow->GetContent()->GetSize());
 
     // --- Tab 1: a ComboBox + a ListBox + an echo label ---
-    auto pick = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto pick = MakeRef<gui::LinearLayout>(AppRoot());
     pick->SetPadding(gui::Thickness{10.0f});
     pick->SetSpacing(8.0f);
 
-    auto combo = MakeRef<gui::ComboBox>(foundation::core::DefaultAllocator());
+    auto combo = MakeRef<gui::ComboBox>(AppRoot());
     combo->SetSize(Float2{200.0f, 26.0f});
     combo->SetFont(m_font);
     combo->SetTextColor(Col(0.92f, 0.94f, 0.98f));
@@ -878,7 +890,7 @@ void GUISandbox::BuildShowcaseWindow()
         combo->AddItem(StringView(f));
     pick->AddChild(combo.Get());
 
-    auto list = MakeRef<gui::ListBox>(foundation::core::DefaultAllocator());
+    auto list = MakeRef<gui::ListBox>(AppRoot());
     list->SetSize(Float2{260.0f, 140.0f});
     list->SetFont(m_font);
     for (i32 i = 1; i <= 14; ++i)
@@ -894,7 +906,7 @@ void GUISandbox::BuildShowcaseWindow()
     }
     pick->AddChild(list.Get());
 
-    m_pickEcho = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    m_pickEcho = MakeRef<gui::Label>(AppRoot());
     m_pickEcho->SetSize(Float2{260.0f, 24.0f});
     m_pickEcho->SetFont(m_font);
     m_pickEcho->SetTextColor(Col(0.62f, 0.82f, 0.68f));
@@ -928,24 +940,24 @@ void GUISandbox::BuildShowcaseWindow()
         });
 
     // --- Tab 2: a radio group + a checkbox ---
-    auto opts = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto opts = MakeRef<gui::LinearLayout>(AppRoot());
     opts->SetPadding(gui::Thickness{10.0f});
     opts->SetSpacing(8.0f);
 
     const char8_t* choices[3] = {u8"Low", u8"Medium", u8"High"};
     for (const char8_t* c : choices)
     {
-        auto row = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+        auto row = MakeRef<gui::LinearLayout>(AppRoot());
         row->SetOrientation(gui::Orientation::Horizontal);
         row->SetSize(Float2{260.0f, 24.0f});
         row->SetSpacing(8.0f);
 
-        auto radio = MakeRef<gui::RadioButton>(foundation::core::DefaultAllocator());
+        auto radio = MakeRef<gui::RadioButton>(AppRoot());
         radio->SetSize(Float2{20.0f, 20.0f});
         m_radioGroup.Add(radio.Get());
         row->AddChild(radio.Get());
 
-        auto lbl = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+        auto lbl = MakeRef<gui::Label>(AppRoot());
         lbl->SetSize(Float2{200.0f, 22.0f});
         lbl->SetFont(m_font);
         lbl->SetTextColor(Col(0.85f, 0.88f, 0.92f));
@@ -954,15 +966,15 @@ void GUISandbox::BuildShowcaseWindow()
         opts->AddChild(row.Get());
     }
 
-    auto checkRow2 = MakeRef<gui::LinearLayout>(foundation::core::DefaultAllocator());
+    auto checkRow2 = MakeRef<gui::LinearLayout>(AppRoot());
     checkRow2->SetOrientation(gui::Orientation::Horizontal);
     checkRow2->SetSize(Float2{260.0f, 24.0f});
     checkRow2->SetSpacing(8.0f);
-    auto check2 = MakeRef<gui::CheckBox>(foundation::core::DefaultAllocator());
+    auto check2 = MakeRef<gui::CheckBox>(AppRoot());
     check2->SetSize(Float2{20.0f, 20.0f});
     check2->SetTooltip(u8"A checkbox with a tooltip");
     checkRow2->AddChild(check2.Get());
-    auto check2Label = MakeRef<gui::Label>(foundation::core::DefaultAllocator());
+    auto check2Label = MakeRef<gui::Label>(AppRoot());
     check2Label->SetSize(Float2{200.0f, 22.0f});
     check2Label->SetFont(m_font);
     check2Label->SetTextColor(Col(0.85f, 0.88f, 0.92f));
@@ -971,7 +983,7 @@ void GUISandbox::BuildShowcaseWindow()
     opts->AddChild(checkRow2.Get());
 
     // --- Tab 3: an Image (a generated checker) in Fit mode ---
-    auto picTab = MakeRef<gui::UIWidget>(foundation::core::DefaultAllocator());
+    auto picTab = MakeRef<gui::UIWidget>(AppRoot());
     {
         // Build a 16x16 RGBA checker/gradient image the Image widget can display.
         static u8 pixels[16 * 16 * 4];
@@ -986,11 +998,11 @@ void GUISandbox::BuildShowcaseWindow()
                 pixels[o + 3] = 255;
             }
         m_showcaseImage =
-            MakeUnique<image::OwnedImageData>(foundation::core::DefaultAllocator(), 16, 16, image::PixelFormat::RGBA8,
+            MakeUnique<image::OwnedImageData>(AppRoot(), 16, 16, image::PixelFormat::RGBA8,
                                               Span<const u8>(pixels, sizeof(pixels)));
-        m_showcaseDrawable = MakeRef<gui::ImageDrawable>(foundation::core::DefaultAllocator(), m_showcaseImage.Get());
+        m_showcaseDrawable = MakeRef<gui::ImageDrawable>(AppRoot(), m_showcaseImage.Get());
     }
-    auto imageView = MakeRef<gui::Image>(foundation::core::DefaultAllocator());
+    auto imageView = MakeRef<gui::Image>(AppRoot());
     imageView->SetSize(Float2{260.0f, 200.0f});
     imageView->SetPadding(gui::Thickness{12.0f});
     imageView->SetDrawable(m_showcaseDrawable);
@@ -1003,7 +1015,7 @@ void GUISandbox::BuildShowcaseWindow()
     tabs->AddTab(u8"Pic", picTab.Get());
 
     // A right-click context menu on the main panel.
-    m_contextMenu = MakeRef<gui::Menu>(foundation::core::DefaultAllocator());
+    m_contextMenu = MakeRef<gui::Menu>(AppRoot());
     m_contextMenu->SetFont(m_font);
     m_contextMenu->SetWidth(220.0f);
     GUISandbox* self = this;
@@ -1058,7 +1070,7 @@ void GUISandbox::BuildShowcaseWindow()
                               });
 
     // Tooltips: ticked each frame in OnRender.
-    m_tooltips = MakeUnique<gui::TooltipManager>(foundation::core::DefaultAllocator());
+    m_tooltips = MakeUnique<gui::TooltipManager>(AppRoot());
     m_tooltips->SetFont(m_font);
     m_tooltips->SetDelay(0.4);
 }
@@ -1076,8 +1088,8 @@ void GUISandbox::OnRender()
                                  Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)},
                                  FitMode::Stretch};
             m_surface =
-                MakeUnique<shell::InputSurface>(foundation::core::DefaultAllocator(), &input, m_window->Id(), fit);
-            m_router = MakeUnique<shell::InputRouter>(foundation::core::DefaultAllocator(), &input);
+                MakeUnique<shell::InputSurface>(AppRoot(), &input, m_window->Id(), fit);
+            m_router = MakeUnique<shell::InputRouter>(AppRoot(), &input);
             m_router->AddSurface(m_surface.Get());
             m_bridge->SetTextInputTarget(m_window); // the bridge drives IME on/off from focus
         }

@@ -355,7 +355,7 @@ export namespace editor
                                                TemplateOutput mode, String* outId = nullptr,
                                                String* outDir = nullptr)
     {
-        vfs::NativeFileSystem configFs(configDir, DefaultAllocator());
+        vfs::NativeFileSystem configFs(configDir, foundation::core::DefaultAllocator());
 
         ExportTemplate tmpl;
         SynthesizeHostTemplate(configDir, &configFs,
@@ -444,7 +444,7 @@ export namespace editor
         }
 
         tmpl.directory = bundleDir;
-        vfs::NativeFileSystem bundleFs(bundleDir.AsView(), DefaultAllocator());
+        vfs::NativeFileSystem bundleFs(bundleDir.AsView(), foundation::core::DefaultAllocator());
         if (Status s = SaveTemplateManifest(*bundleFs.AsWritable(), tmpl); !s.IsOk())
         {
             return s;
@@ -492,7 +492,7 @@ export namespace editor
                             const String manifestPath =
                                 PathJoin(entry.name.AsView(), kTemplateManifestFile);
                             UniquePtr<ExportTemplate> tmpl =
-                                MakeUnique<ExportTemplate>(DefaultAllocator());
+                                MakeUnique<ExportTemplate>(foundation::core::DefaultAllocator());
                             if (LoadTemplateManifest(*templatesRootFs, *tmpl, manifestPath.AsView())
                                     .IsOk())
                             {
@@ -506,7 +506,7 @@ export namespace editor
                 }
             }
 
-            UniquePtr<ExportTemplate> host = MakeUnique<ExportTemplate>(DefaultAllocator());
+            UniquePtr<ExportTemplate> host = MakeUnique<ExportTemplate>(foundation::core::DefaultAllocator());
             SynthesizeHostTemplate(hostToolDir, hostToolFs, *host);
             m_templates.PushBack(static_cast<UniquePtr<ExportTemplate>&&>(host));
         }

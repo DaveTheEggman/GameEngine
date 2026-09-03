@@ -122,16 +122,16 @@ namespace editor
 
     RefPtr<ui::FlexLayoutParams> DebuggerPanel::MatchWidth()
     {
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
         lp->Width = ui::SizeSpec::Match();
         return lp;
     }
 
     void DebuggerPanel::AddRow(ui::FlexLayout& list, StringView text, f32 indent)
     {
-        auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
+        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
         lp->Width = ui::SizeSpec::Match();
         lp->Margin = ui::Thickness{indent, 0, 0, 0};
         list.AddView(label.Get(), lp);
@@ -153,20 +153,20 @@ namespace editor
         if (expandable)
         {
             // A row with an ASCII expand toggle (the editor font renders only <=255).
-            auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto row = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
             auto toggle =
-                MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(expanded ? u8"-" : u8"+"));
+                MakeRef<ui::Button>(editor::EditorRootAllocator(), StringView(expanded ? u8"-" : u8"+"));
             toggle->FontSize.SetValue(12.0f);
             DebuggerPanel* self = this;
             const u64 ref = variable.objectRef;
             toggle->OnClick.Add([self, ref](ui::ButtonBase*) { self->ToggleExpand(ref); });
             row->AddView(toggle.Get(), RefPtr<ui::FlexLayoutParams>{});
-            auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text.AsView());
+            auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text.AsView());
             label->FontSize.SetValue(12.0f);
             row->AddView(label.Get(), RefPtr<ui::FlexLayoutParams>{});
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Margin = ui::Thickness{indent, 0, 0, 0};
             m_localsList->AddView(row.Get(), lp);
@@ -561,7 +561,7 @@ namespace editor
             // reads no keyboard - the game viewport must own a router or its input is dead.
             if (m_router.Get() == nullptr)
             {
-                m_router = MakeUnique<foundation::shell::InputRouter>(foundation::core::DefaultAllocator(),
+                m_router = MakeUnique<foundation::shell::InputRouter>(Allocator(),
                                                                     m_host->Shell()->Input());
             }
             if (m_viewport->Surface() != nullptr)

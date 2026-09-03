@@ -171,6 +171,14 @@ tight cluster) per commit.
   export/cook workers, thumbnails, MCP tools, log buffers, layout persist)
   made EXPLICIT composition-root decisions; `EditorProject`,
   `EditorJobService`, `EditorLogBuffer` take required allocators.
+- **P6b - the editor root** (DONE): `EditorApplication` owns
+  `TaggedAllocator{"Editor"}`; `EditorContext` and `EditorPage` carry it
+  (required ctor params; pages get `Allocator()`), the editor `UIHost` and
+  services construct from it - the editor's whole UI tree and page
+  allocations attribute to the Editor tag. ~570 page/app sites became
+  owner decisions (SceneEditContext commands ride `m_scene->Allocator()`;
+  ProjectManagerView takes the root). Also fixed a latent P6 bug: two
+  pre-UIHost sites dereferenced the null host for its allocator.
 - **P7 - the lockdown** (DONE): `Core.Tests/AllocatorTripwireTests.cpp`
   scans the source tree each run against the pinned
   `allocator-allowlist.txt` (194 files: composition roots + documented

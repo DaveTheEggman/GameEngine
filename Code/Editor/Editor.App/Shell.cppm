@@ -47,25 +47,25 @@ export namespace editor::app
         void Build(editor::EditorContext& context,
                    ui::toolkit::IDockableWindowHost* dockHost, u32 width, u32 height)
         {
-            m_root = MakeRef<ui::RootView>(foundation::core::DefaultAllocator());
+            m_root = MakeRef<ui::RootView>(editor::EditorRootAllocator());
             m_root->ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
             m_root->DpiScale = 1.0f;
 
-            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             column->Direction = ui::Orientation::Vertical;
 
-            m_menuBar = MakeRef<ui::toolkit::MenuBar>(foundation::core::DefaultAllocator());
+            m_menuBar = MakeRef<ui::toolkit::MenuBar>(editor::EditorRootAllocator());
             column->AddView(m_menuBar.Get());
 
-            m_dock = MakeRef<ui::toolkit::DockManager>(foundation::core::DefaultAllocator());
+            m_dock = MakeRef<ui::toolkit::DockManager>(editor::EditorRootAllocator());
             m_dock->DockableWindowHost = dockHost;
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto grow = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
                 grow->Grow = 1.0f;
                 column->AddView(m_dock.Get(), grow);
             }
 
-            m_statusBar = MakeRef<ui::toolkit::StatusBar>(foundation::core::DefaultAllocator());
+            m_statusBar = MakeRef<ui::toolkit::StatusBar>(editor::EditorRootAllocator());
             column->AddView(m_statusBar.Get());
 
             m_root->AddView(column.Get());
@@ -141,19 +141,19 @@ export namespace editor::app
         {
             m_welcome = m_dock->AddPanel(
                 u8"Welcome",
-                MakeRef<ui::Label>(foundation::core::DefaultAllocator(),
+                MakeRef<ui::Label>(editor::EditorRootAllocator(),
                                    StringView(u8"Editor - open an asset to begin"))
                     .Get());
             m_welcome->SetPersistenceId(kPanelWelcome);
             m_welcome->SetClosable(false);
 
-            m_logView = MakeRef<LogView>(foundation::core::DefaultAllocator());
+            m_logView = MakeRef<LogView>(editor::EditorRootAllocator());
             m_console = m_dock->AddPanel(u8"Console", m_logView.Get());
             m_console->SetPersistenceId(kPanelConsole);
 
             m_assets = m_dock->AddPanel(
                 u8"Assets",
-                MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Asset browser (phase 6)"))
+                MakeRef<ui::Label>(editor::EditorRootAllocator(), StringView(u8"Asset browser (phase 6)"))
                     .Get());
             m_assets->SetPersistenceId(kPanelAssets);
 

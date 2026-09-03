@@ -167,14 +167,14 @@ namespace editor
 
         RefPtr<ui::View> MakeRow(StringView title, f32 fontSize)
         {
-            auto lbl = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), title);
+            auto lbl = MakeRef<ui::Label>(editor::EditorRootAllocator(), title);
             lbl->FontSize.SetValue(Optional<f32>{fontSize});
             return lbl;
         }
 
         RefPtr<ui::FlexLayout> MakePanelRoot()
         {
-            auto root = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto root = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             root->Direction = ui::Orientation::Vertical;
             root->Spacing = 4.0f;
             return root;
@@ -246,7 +246,7 @@ namespace editor
                                                   f64 value, f64 lo, f64 hi, f64 step, i32 decimals,
                                                   Function<void(f64)> onChange)
         {
-            auto fe = MakeRef<ui::toolkit::FloatEditor>(foundation::core::DefaultAllocator(), label, value, lo, hi, step,
+            auto fe = MakeRef<ui::toolkit::FloatEditor>(editor::EditorRootAllocator(), label, value, lo, hi, step,
                                                         decimals, Move(onChange));
             grid.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
             return fe;
@@ -255,7 +255,7 @@ namespace editor
         // The property grid fills the panel body so it resizes with the FloatingPanel.
         void AddGrid(ui::FlexLayout& root, RefPtr<ui::toolkit::PropertyGrid> grid)
         {
-            auto glp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto glp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
             glp->Width = ui::SizeSpec::Match();
             glp->Grow = 1.0f;
             root.AddView(grid.Get(), glp);
@@ -281,14 +281,14 @@ namespace editor
 
                 auto root = MakePanelRoot();
                 root->AddView(MakeRow(u8"Sculpt mode", 12.0f).Get(),
-                              MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                              MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
 
-                auto modes = MakeRef<SegmentedToggle>(foundation::core::DefaultAllocator());
+                auto modes = MakeRef<SegmentedToggle>(editor::EditorRootAllocator());
                 modes->Build(
                     4,
                     [modeIcons](i32 i) -> RefPtr<ui::View> {
                         return RefPtr<ui::View>(
-                            MakeRef<IconGlyph>(foundation::core::DefaultAllocator(), modeIcons[i], 16.0f).Get());
+                            MakeRef<IconGlyph>(editor::EditorRootAllocator(), modeIcons[i], 16.0f).Get());
                     },
                     [t](i32 i) { t->SetMode(static_cast<TerrainSculptTool::Mode>(i)); },
                     [t]() { return static_cast<i32>(t->GetMode()); },
@@ -297,9 +297,9 @@ namespace editor
                                                                  u8"Flatten"};
                         return kNames[i];
                     });
-                root->AddView(modes.Get(), MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                root->AddView(modes.Get(), MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
 
-                auto grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+                auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =
                     AddFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
@@ -350,22 +350,22 @@ namespace editor
                 if (thumbs != nullptr && ls.count > 0)
                 {
                     root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get(),
-                                  MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
-                    auto baseSwatch = MakeRef<LayerSwatch>(foundation::core::DefaultAllocator(), thumbs, ls.baseId,
+                                  MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                    auto baseSwatch = MakeRef<LayerSwatch>(editor::EditorRootAllocator(), thumbs, ls.baseId,
                                                            fallbackIcon, 24.0f);
                     baseSwatch->TooltipText = SwatchAssetName(ectx, ls.baseId);
                     root->AddView(baseSwatch.Get(),
-                                  MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                                  MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
                 }
                 root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
-                              MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                              MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
 
                 // Slots 0..N-1 = palette layers; slot N = the eraser; slot N+1 = smooth (blur).
                 // The palette is UNBOUNDED: the resolved terrain's real count always wins
                 // (numbered labels when thumbnails are unavailable); 4 numbered slots only when
                 // no terrain resolved at all.
                 const i32 paletteCount = ls.count > 0 ? static_cast<i32>(ls.count) : 4;
-                auto layers = MakeRef<SegmentedToggle>(foundation::core::DefaultAllocator());
+                auto layers = MakeRef<SegmentedToggle>(editor::EditorRootAllocator());
                 layers->Build(
                     paletteCount + 2,
                     [useThumbs, thumbs, ls, fallbackIcon, paletteCount](i32 i) -> RefPtr<ui::View> {
@@ -373,18 +373,18 @@ namespace editor
                         {
                             const StringView text =
                                 i == paletteCount ? StringView(u8"E") : StringView(u8"S");
-                            auto lbl = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), text);
+                            auto lbl = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
                             lbl->FontSize.SetValue(Optional<f32>{12.0f});
                             return RefPtr<ui::View>(lbl.Get());
                         }
                         if (useThumbs)
                         {
-                            return RefPtr<ui::View>(MakeRef<LayerSwatch>(foundation::core::DefaultAllocator(), thumbs,
+                            return RefPtr<ui::View>(MakeRef<LayerSwatch>(editor::EditorRootAllocator(), thumbs,
                                                                         ls.ids[i], fallbackIcon, 24.0f)
                                                         .Get());
                         }
                         const String num = Format(u8"{}", i);
-                        auto lbl = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), num.AsView());
+                        auto lbl = MakeRef<ui::Label>(editor::EditorRootAllocator(), num.AsView());
                         lbl->FontSize.SetValue(Optional<f32>{12.0f});
                         return RefPtr<ui::View>(lbl.Get());
                     },
@@ -422,9 +422,9 @@ namespace editor
                                    ? names[static_cast<usize>(i)].AsView()
                                    : StringView(u8"Paint layer");
                     });
-                root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
 
-                auto grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+                auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =
                     AddFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
@@ -437,7 +437,7 @@ namespace editor
                 // Airbrush = time-cadence stamps while HOLDING (build-up by hovering).
                 {
                     auto ab = MakeRef<ui::toolkit::BoolEditor>(
-                        foundation::core::DefaultAllocator(), StringView(u8"Airbrush"), t->IsAirbrush(),
+                        editor::EditorRootAllocator(), StringView(u8"Airbrush"), t->IsAirbrush(),
                         Function<void(bool)>{[t](bool v) { t->SetAirbrush(v); }});
                     grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(ab.Get()));
                 }

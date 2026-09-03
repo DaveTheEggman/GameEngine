@@ -104,11 +104,12 @@ namespace editor
                                                      runtime::IApplicationHost& host,
                                                      ui::runtime::UIHost& uiHost,
                                                      foundation::content::Instance& instance)
-        : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+        : app::UIEditorPage(context.Allocator()),
+          m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
     {
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
-            MakeUnique<PreviewViewport>(foundation::core::DefaultAllocator(), host, uiHost, u8"animclip.preview");
+            MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"animclip.preview");
         m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
         m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
@@ -132,20 +133,20 @@ namespace editor
         BuildPreviewScene();
 
         // Transport: skeleton pick + play/pause + a normalized scrub slider + time readout.
-        auto transport = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto transport = MakeRef<ui::FlexLayout>(Allocator());
         transport->Direction = ui::Orientation::Horizontal;
         transport->Spacing = 6.0f;
         transport->Padding = ui::Thickness{6, 4};
         {
             AnimationClipEditorPage* self = this;
             m_skeletonButton =
-                MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Skeleton: (none)"));
+                MakeRef<ui::Button>(Allocator(), StringView(u8"Skeleton: (none)"));
             m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
             transport->AddView(m_skeletonButton.Get());
-            m_meshButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Mesh: (none)"));
+            m_meshButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Mesh: (none)"));
             m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
             transport->AddView(m_meshButton.Get());
-            m_playButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pause"));
+            m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
                 {
@@ -155,7 +156,7 @@ namespace editor
                 });
             transport->AddView(m_playButton.Get());
 
-            m_timeSlider = MakeRef<ui::Slider>(foundation::core::DefaultAllocator());
+            m_timeSlider = MakeRef<ui::Slider>(Allocator());
             m_timeSlider->Min.SetValue(0.0f);
             m_timeSlider->Max.SetValue(1.0f);
             m_timeSlider->OnValueChanged.Add(
@@ -173,34 +174,34 @@ namespace editor
                         self->m_playButton->SetText(u8"Play");
                     }
                 });
-            auto slp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto slp = MakeRef<ui::FlexLayoutParams>(Allocator());
             slp->Grow = 1.0f;
             transport->AddView(m_timeSlider.Get(), slp);
 
-            m_timeLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
+            m_timeLabel = MakeRef<ui::Label>(Allocator());
             m_timeLabel->FontSize.SetValue(Optional<f32>{12.0f});
             m_timeLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
-            auto tlp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto tlp = MakeRef<ui::FlexLayoutParams>(Allocator());
             tlp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
             transport->AddView(m_timeLabel.Get(), tlp);
         }
 
-        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(Allocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_preview->View(), grow);
         }
 
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(Allocator());
         RebuildGrid();
 
-        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.66f);
         split->SetPanes(previewColumn.Get(), m_grid.Get());
         m_content = split;
@@ -327,7 +328,7 @@ namespace editor
         AnimationClipEditorPage* self = this;
         Array<String> types;
         types.PushBack(String(u8"SkeletonAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
         dialog->OnPicked = [self](const Guid& picked)
         {
             self->m_skeletonGuid = picked;
@@ -372,7 +373,7 @@ namespace editor
         AnimationClipEditorPage* self = this;
         Array<String> types;
         types.PushBack(String(u8"SkinnedMeshAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(types));
+        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
         dialog->OnPicked = [self](const Guid& picked)
         {
             self->m_previewMeshId = picked;
@@ -485,7 +486,7 @@ namespace editor
             if (m_previewPlayer.Get() == nullptr || m_playerSkeleton != skeleton)
             {
                 m_previewPlayer =
-                    MakeUnique<animation::AnimationPlayer>(foundation::core::DefaultAllocator(), *skeleton);
+                    MakeUnique<animation::AnimationPlayer>(Allocator(), *skeleton);
                 m_playerSkeleton = skeleton;
                 m_playerClip = nullptr;
             }
@@ -533,7 +534,7 @@ namespace editor
             auto stat = [&](StringView name, String value)
             {
                 g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), name, value.AsView(),
+                    MakeRef<ui::toolkit::StringEditor>(Allocator(), name, value.AsView(),
                                                        Function<void(StringView)>{}, cat)
                         .Get()));
             };
@@ -542,7 +543,7 @@ namespace editor
             stat(u8"Tracks", Format(u8"{}", source.trackBone.Size()));
 
             g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                MakeRef<ui::toolkit::BoolEditor>(foundation::core::DefaultAllocator(), u8"Looping", source.isLooping,
+                MakeRef<ui::toolkit::BoolEditor>(Allocator(), u8"Looping", source.isLooping,
                                                  Function<void(bool)>{[self, &source](bool v)
                                                                       {
                                                                           source.isLooping = v;
@@ -567,7 +568,7 @@ namespace editor
             const String cat = Format(u8"Event {}", e);
             g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                 MakeRef<ui::toolkit::FloatEditor>(
-                    foundation::core::DefaultAllocator(), u8"Time (s)", static_cast<f64>(source.eventTimes[e]), 0.0,
+                    Allocator(), u8"Time (s)", static_cast<f64>(source.eventTimes[e]), 0.0,
                     static_cast<f64>(Max(source.duration, 0.0f)), 0.01, 3,
                     Function<void(f64)>{[self, &source, e](f64 v)
                                         {
@@ -578,7 +579,7 @@ namespace editor
                     .Get()));
             g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                 MakeRef<ui::toolkit::StringEditor>(
-                    foundation::core::DefaultAllocator(), u8"Name", source.eventNames[e].AsView(),
+                    Allocator(), u8"Name", source.eventNames[e].AsView(),
                     Function<void(StringView)>{[self, &source, e](StringView v)
                                                {
                                                    source.eventNames[e] = String(v);
@@ -589,7 +590,7 @@ namespace editor
             const usize eventIdx = e;
             g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                 MakeRef<ui::toolkit::ButtonEditor>(
-                    foundation::core::DefaultAllocator(), u8"Remove Event",
+                    Allocator(), u8"Remove Event",
                     Function<void()>{[self, eventIdx]()
                                      {
                                          self->QueueStructural(
@@ -614,7 +615,7 @@ namespace editor
         }
         g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
             MakeRef<ui::toolkit::ButtonEditor>(
-                foundation::core::DefaultAllocator(), u8"+ Add Event",
+                Allocator(), u8"+ Add Event",
                 Function<void()>{[self]()
                                  {
                                      self->QueueStructural(
@@ -642,9 +643,9 @@ namespace editor
             mutate();
             Array<byte> after = self->SnapshotAsset();
             (void)self->Commands().Execute(
-                UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<EditClipCommand>(
+                UniquePtr<IEditorCommand>(self->Allocator().New<EditClipCommand>(
                                               *self, key.AsView(), self->m_undoBaseline, after),
-                                          foundation::core::DefaultAllocator()));
+                                          self->Allocator()));
             self->m_undoBaseline = Move(after);
             self->RebuildGrid();
             self->MarkDirty();
@@ -735,8 +736,8 @@ namespace editor
     {
         Array<byte> after = SnapshotAsset();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            foundation::core::DefaultAllocator().New<EditClipCommand>(*this, mergeKey, m_undoBaseline, after),
-            foundation::core::DefaultAllocator()));
+            Allocator().New<EditClipCommand>(*this, mergeKey, m_undoBaseline, after),
+            Allocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
     }
@@ -808,8 +809,8 @@ namespace editor
                                          foundation::content::Instance& instance)
     {
         auto* page =
-            foundation::core::DefaultAllocator().New<AnimationClipEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<AnimationClipEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 
     void RegisterAnimationClipEditor(EditorContext& context, runtime::IApplicationHost& host,
@@ -820,7 +821,7 @@ namespace editor
         RegisterSerializable<ClipPreviewSettings>();
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<AnimationClipPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<AnimationClipPageFactory>(host, uiHost), editor::EditorRootAllocator()));
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(ClipPreviewSettings, "rtti::editor::editor.clip", 1)

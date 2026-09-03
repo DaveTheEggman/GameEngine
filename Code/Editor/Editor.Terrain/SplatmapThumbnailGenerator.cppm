@@ -203,6 +203,6 @@ export namespace editor
     /// Registered by RegisterTerrainEditor (the domain's one composition entry point).
     inline void RegisterSplatmapThumbnailGenerator(editor::ThumbnailService& service)
     {
-        service.RegisterGenerator(MakeUnique<SplatmapThumbnailGenerator>(foundation::core::DefaultAllocator()));
+        service.RegisterGenerator(MakeUnique<SplatmapThumbnailGenerator>(editor::EditorRootAllocator()));
     }
 }

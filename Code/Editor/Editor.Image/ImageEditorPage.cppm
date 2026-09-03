@@ -124,6 +124,6 @@ export namespace editor
     inline void RegisterImageEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<ImageEditorPageFactory>(), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<ImageEditorPageFactory>(), editor::EditorRootAllocator()));
     }
 }

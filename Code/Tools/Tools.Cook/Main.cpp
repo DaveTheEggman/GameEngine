@@ -29,6 +29,18 @@ import pipeline.cook;
 using namespace foundation::core;
 namespace vfs = foundation::vfs;
 
+namespace
+{
+    // This binary's composition root: the ONE ambient-allocator decision here.
+    [[nodiscard]] foundation::core::IAllocator& AppRoot() noexcept
+    {
+        return foundation::core::DefaultAllocator();
+    }
+}
+
+
+
+
 int main(int argc, char** argv)
 {
     if (argc < 2)
@@ -70,7 +82,7 @@ int main(int argc, char** argv)
 
     const StringView projectDir(reinterpret_cast<const utf8char*>(argv[1]));
     UniquePtr<editor::EditorProject> project =
-        editor::EditorProject::Open(DefaultAllocator(), projectDir);
+        editor::EditorProject::Open(AppRoot(), projectDir);
     if (!project)
     {
         std::fprintf(stderr, "Tools.Cook: failed to open project '%s'\n", argv[1]);
@@ -86,9 +98,9 @@ int main(int argc, char** argv)
     // only (no device/GPU/world), idempotent.
     engine::RegisterAllScriptFacades();
 
-    vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView(), DefaultAllocator());
-    vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView(), DefaultAllocator());
-    JobSystem jobs(DefaultAllocator()); // cook tool composition root
+    vfs::NativeFileSystem sourcesMount(project->SourcesRoot().AsView(), AppRoot());
+    vfs::NativeFileSystem cacheMount(project->CacheRoot().AsView(), AppRoot());
+    JobSystem jobs(AppRoot()); // cook tool composition root
 
     pipeline::CookProgress progress;
     progress.onItem = [](usize done, usize total, StringView path, bool ok)
@@ -135,9 +147,9 @@ int main(int argc, char** argv)
         (void)CreateDirectory(PathJoin(project->Directory(), u8".cache").AsView());
         (void)CreateDirectory(cacheDir.AsView());
 
-        vfs::NativeFileSystem targetCookedMount(cookedDir.AsView(), DefaultAllocator());
-        vfs::NativeFileSystem targetCacheMount(cacheDir.AsView(), DefaultAllocator());
-        foundation::content::ContentDatabase targetDb(foundation::core::DefaultAllocator(), targetCookedMount, BinarySerializerFactory(),
+        vfs::NativeFileSystem targetCookedMount(cookedDir.AsView(), AppRoot());
+        vfs::NativeFileSystem targetCacheMount(cacheDir.AsView(), AppRoot());
+        foundation::content::ContentDatabase targetDb(AppRoot(), targetCookedMount, BinarySerializerFactory(),
                                                       u8".rasset");
 
         const pipeline::CookStats targetStats = pipeline::CookForTarget(

@@ -188,7 +188,7 @@ namespace editor
         ui::MarkupLoader::Initialize();
         // Diagnostics for the PREVIEW-MARKUP editor (the SSS editor has no line info from the loader).
         {
-            foundation::xml::XmlDocument probe(foundation::core::DefaultAllocator());
+            foundation::xml::XmlDocument probe(Allocator());
             const foundation::xml::XmlResult result = probe.Parse(m_previewMarkup.AsView());
             Array<ui::toolkit::CodeDiagnostic> diagnostics;
             if (foundation::xml::IsError(result))
@@ -217,7 +217,7 @@ namespace editor
             return;
         }
         // Apply the EDITED stylesheet PER-ELEMENT (subtree-scoped) - never the shared game context.
-        ui::StyleSheetLoader loader(foundation::core::DefaultAllocator());
+        ui::StyleSheetLoader loader(Allocator());
         loader.SetPalette(ui::ThemePalette::Dark());
         RefPtr<ui::StyleSheet> sheet = loader.Load(m_stylesheet.AsView());
         String status;
@@ -247,7 +247,7 @@ namespace editor
         }
         Array<String> typeNames;
         typeNames.PushBack(String(u8"UIDocumentAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(foundation::core::DefaultAllocator(), *m_context, Move(typeNames));
+        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(typeNames));
         UIThemeEditorPage* self = this;
         dialog->OnPicked = [self](const Guid& picked)
         {
@@ -287,7 +287,7 @@ namespace editor
                                                          foundation::content::Instance& instance)
     {
         auto* page =
-            foundation::core::DefaultAllocator().New<UIThemeEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<UIThemeEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 }

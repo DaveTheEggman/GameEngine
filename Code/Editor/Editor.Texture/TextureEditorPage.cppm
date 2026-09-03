@@ -150,7 +150,7 @@ export namespace editor
     inline void RegisterTextureEditor(EditorContext& context)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<TextureEditorPageFactory>(), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<TextureEditorPageFactory>(), editor::EditorRootAllocator()));
         // The domain's thumbnail generator registers with its page:
         // one composition entry point per domain, no pipeline links in Editor.App.
         if (context.Thumbnails() != nullptr)

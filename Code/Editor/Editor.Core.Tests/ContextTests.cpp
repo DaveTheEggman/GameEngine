@@ -43,7 +43,7 @@ namespace
     class TestPage final : public EditorPage
     {
     public:
-        explicit TestPage(StringView title) : m_title(title) {}
+        explicit TestPage(StringView title) : EditorPage(DefaultAllocator()), m_title(title) {}
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] Status Save() override
         {
@@ -143,7 +143,7 @@ TEST_CASE("editor-context: open, focus, and close pages")
     REQUIRE(b != nullptr);
     REQUIRE(c != nullptr);
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     i32 pagesChanged = 0;
     ctx.OnPagesChanged = [&pagesChanged]() { ++pagesChanged; };
     ctx.Pages().Register(MakeFactory(BaseAsset::StaticType(), u8"base"));
@@ -185,7 +185,7 @@ TEST_CASE("editor-context: NotifyProjectSettingsChanged fires the subscribed hoo
     // The settings dialog fires this after a successful save; the app re-applies
     // settings-derived session state (default UI font/theme binds) - the fix for a
     // changed default font keeping its OLD bind until project reopen.
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     int fired = 0;
     ctx.NotifyProjectSettingsChanged(); // unsubscribed: safe no-op
     ctx.OnProjectSettingsChanged = [&fired]() { ++fired; };
@@ -198,7 +198,7 @@ TEST_CASE("editor-context: IsCookBusy defaults to not-busy and reads the wired q
 {
     // PIE's cook gate (GameEditorPage::Play latches, OnUpdate polls this): unwired
     // (tests, no project) must read NOT busy so a deferred start never hangs.
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     CHECK_FALSE(ctx.IsCookBusy());
     bool busy = true;
     ctx.CookBusy = [&busy]() { return busy; };
@@ -220,7 +220,7 @@ TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregi
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
 
     // No interceptors -> the open is not claimed.
     CHECK(!ctx.TryInterceptOpenAsset(*a));
@@ -267,7 +267,7 @@ TEST_CASE("editor-context: open-asset interceptors claim newest-first and unregi
 
 TEST_CASE("editor-context: adopted instance-less pages share the ownership flow")
 {
-    EditorContext context;
+    EditorContext context{DefaultAllocator()};
 
     // Adopt (the Game tab's path): owned by the context, becomes active, nil instance id.
     auto page = MakeUnique<TestPage>(DefaultAllocator(), u8"Game");
@@ -299,7 +299,7 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     auto* a = db.RootGroup()->CreateInstance(u8"a", BaseAsset::StaticType());
     REQUIRE(a != nullptr);
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     CHECK(!ctx.CanUndo()); // no active page
     ctx.Undo();            // safe no-op
 
@@ -379,7 +379,7 @@ TEST_CASE("editor-selection: set, dedup, primary, toggle")
 
 TEST_CASE("editor-context: Notify routes to OnNotice, falls back to the status bar")
 {
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     Array<String> statuses;
     ctx.OnStatus = [&statuses](StringView text) { statuses.PushBack(String(text)); };
 
@@ -403,7 +403,7 @@ TEST_CASE("editor-context: Notify routes to OnNotice, falls back to the status b
 
 TEST_CASE("editor-context: script execution point set/clear + version stamps")
 {
-    EditorContext context;
+    EditorContext context{DefaultAllocator()};
     CHECK(!context.ScriptExecution().active);
     const u64 v0 = context.ScriptExecutionVersion();
 
@@ -429,7 +429,7 @@ TEST_CASE("editor-context: script execution point set/clear + version stamps")
 
 TEST_CASE("editor-context: script value probe slot")
 {
-    EditorContext context;
+    EditorContext context{DefaultAllocator()};
     CHECK(!context.ScriptValueProbe); // absent by default
 
     context.ScriptValueProbe = [](StringView identifier) -> String
@@ -456,7 +456,7 @@ TEST_CASE("editor-context: pending asset-edit registry (register/replace/nil, dr
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
                                           u8".xasset");
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     bool cooked = false;
     ctx.OnCookRequested = [&cooked](bool) { cooked = true; };
 

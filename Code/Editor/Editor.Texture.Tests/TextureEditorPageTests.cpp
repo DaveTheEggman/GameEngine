@@ -33,7 +33,7 @@ TEST_CASE("TextureEditorPageFactory reports the TextureAsset primary type")
 
 TEST_CASE("TextureEditor registers a factory that the registry routes for TextureAsset")
 {
-    editor::EditorContext context;
+    editor::EditorContext context{DefaultAllocator()};
     editor::RegisterTextureEditor(context);
 
     editor::IEditorPageFactory* found =

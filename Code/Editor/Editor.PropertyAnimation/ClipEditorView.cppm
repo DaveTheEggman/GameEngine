@@ -104,7 +104,8 @@ export namespace editor
     class ClipEditorView
     {
     public:
-        explicit ClipEditorView(IClipEditorHost& host);
+        // The allocator (required - the owning panel forwards its view tree's).
+        ClipEditorView(IAllocator& allocator, IClipEditorHost& host);
 
         /// The scrollable rows container (transport + tracks). The host wraps this with its chrome.
         [[nodiscard]] ui::View* Root() { return m_scroll.Get(); }
@@ -200,8 +201,8 @@ export namespace editor
             // below the last key.
             after.duration = Max(after.duration, after.ComputeDuration());
             (void)m_host->Commands().Execute(UniquePtr<IEditorCommand>(
-                foundation::core::DefaultAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
-                foundation::core::DefaultAllocator()));
+                editor::EditorRootAllocator().New<ClipEditCommand>(*m_host, Move(before), Move(after)),
+                editor::EditorRootAllocator()));
         }
 
         // --- UI construction (bodies in the impl unit) ---
@@ -239,6 +240,7 @@ export namespace editor
 
         [[nodiscard]] propanim::PropertyAnimationClip& Clip() { return m_host->Clip(); }
 
+        IAllocator* m_allocator;
         IClipEditorHost* m_host;
         RefPtr<ui::ScrollView> m_scroll;
         RefPtr<ui::FlexLayout> m_rows;

@@ -397,10 +397,10 @@ namespace editor
                 Span<const u8>{m_beforeIndices.Data(), m_beforeIndices.Size()}, rasterW, m_region);
             Array<u8> afterI = SliceRegion(m_strokeWeights->Indices(), rasterW, m_region);
             m_commands->Execute(UniquePtr<IEditorCommand>(
-                foundation::core::DefaultAllocator().New<SplatStrokeCommand>(m_strokeWeights, m_region,
+                editor::EditorRootAllocator().New<SplatStrokeCommand>(m_strokeWeights, m_region,
                                                            Move(beforeW), Move(afterW),
                                                            Move(beforeI), Move(afterI)),
-                foundation::core::DefaultAllocator()));
+                editor::EditorRootAllocator()));
 
             // Register the write-back-to-source persist closure (drained on Save). It rewrites the
             // SOURCE SplatmapAsset envelope (dims synced, fileName cleared - an imported asset

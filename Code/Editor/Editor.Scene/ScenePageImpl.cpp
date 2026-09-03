@@ -75,8 +75,8 @@ namespace editor
                                                               foundation::content::Instance& instance)
     {
         return UniquePtr<EditorPage>(
-            foundation::core::DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
-            foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
+            editor::EditorRootAllocator());
     }
     void SceneEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
@@ -322,7 +322,7 @@ namespace editor
                    u8"updates to match. This cannot be undone.";
         SceneEditorPage* page = this;
         RefPtr<foundation::ui::Dialog> dialog =
-            foundation::ui::Dialog::Confirm(foundation::core::DefaultAllocator(), u8"Apply to Prefab", message.AsView());
+            foundation::ui::Dialog::Confirm(Allocator(), u8"Apply to Prefab", message.AsView());
         dialog->OnClosed.Add(
             foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
                 [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)
@@ -427,7 +427,7 @@ namespace editor
                    u8"be undone.";
         SceneEditorPage* page = this;
         RefPtr<foundation::ui::Dialog> dialog =
-            foundation::ui::Dialog::Confirm(foundation::core::DefaultAllocator(), u8"Revert Instance", message.AsView());
+            foundation::ui::Dialog::Confirm(Allocator(), u8"Revert Instance", message.AsView());
         dialog->OnClosed.Add(
             foundation::ui::Event<void(foundation::ui::Dialog*, foundation::ui::DialogResult)>::Handler{
                 [page, rootId](foundation::ui::Dialog*, foundation::ui::DialogResult result)
@@ -496,7 +496,7 @@ namespace editor
         Array<String> typeNames;
         typeNames.PushBack(String(u8"PrefabDocument"));
         auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-            foundation::core::DefaultAllocator(), *m_context, Move(typeNames));
+            Allocator(), *m_context, Move(typeNames));
         SceneEditorPage* page = this;
         dialog->OnPicked = [page, parent](const Guid& picked)
         {
@@ -732,7 +732,7 @@ namespace editor
         // The toolkit FloatingPanel owns drag / resize / collapse / close (and clamps itself to the
         // viewport frame). Closing it deactivates the active tool, which unmounts the panel via the
         // tool-panel host's clear callback - so close reads as "put the brush away".
-        m_toolFloat = MakeRef<ui::toolkit::FloatingPanel>(foundation::core::DefaultAllocator(), StringView(u8"Brush"));
+        m_toolFloat = MakeRef<ui::toolkit::FloatingPanel>(Allocator(), StringView(u8"Brush"));
         m_toolFloat->Visibility = ui::Visibility::Gone;
         SceneEditorPage* page = this;
         m_toolFloat->OnClose.Add([page]() { page->m_viewportTools.ActivateDefault(); });
@@ -759,7 +759,7 @@ namespace editor
             }
             if (view != nullptr)
             {
-                overlay->AddView(view, MakeRef<foundation::ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                overlay->AddView(view, MakeRef<foundation::ui::LayoutParams>(Allocator()));
                 overlay->Visibility = foundation::ui::Visibility::Visible;
             }
             else
@@ -805,7 +805,7 @@ namespace editor
             }
             if (view != nullptr)
             {
-                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(foundation::core::DefaultAllocator()));
+                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(Allocator()));
                 m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
             }
             break;
@@ -916,7 +916,7 @@ namespace editor
         {
             return;
         }
-        auto menu = MakeRef<foundation::ui::ContextMenu>(foundation::core::DefaultAllocator());
+        auto menu = MakeRef<foundation::ui::ContextMenu>(Allocator());
         SceneEditorPage* self = this;
         const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
         const auto add = [&](StringView label, bool render::ViewPostOverride::* field)
@@ -958,7 +958,7 @@ namespace editor
 
     void SceneEditorPage::BuildViewportToolbar()
     {
-        m_toolbar = MakeRef<ui::toolkit::Toolbar>(foundation::core::DefaultAllocator());
+        m_toolbar = MakeRef<ui::toolkit::Toolbar>(Allocator());
         editor::app::EditorIcons& icons = editor::app::EditorIcons::Get();
         GizmoController* gizmos = m_selectTool != nullptr ? &m_selectTool->Gizmos() : nullptr;
         auto icon = [](foundation::ui::SVGDrawable* drawable)
@@ -1076,8 +1076,8 @@ namespace editor
 
         // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
         {
-            auto spacer = MakeRef<foundation::ui::Panel>(foundation::core::DefaultAllocator());
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto spacer = MakeRef<foundation::ui::Panel>(Allocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
             lp->Grow = 1.0f;
             m_toolbar->AddView(spacer.Get(), lp);
         }
@@ -1092,10 +1092,10 @@ namespace editor
         m_stopButton = m_toolbar->AddButton(u8"Stop");
         m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StopSimulation(); });
         // The at-a-glance state readout (user report: Play gave no visual indication).
-        m_simLabel = MakeRef<foundation::ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+        m_simLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
         m_simLabel->FontSize.SetValue(13.0f);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
             lp->Height = foundation::ui::SizeSpec::Match();
             m_toolbar->AddView(m_simLabel.Get(), lp);
         }
@@ -1349,27 +1349,27 @@ namespace editor
         // Display-only viewport (input=nullptr at Initialize): it shows the previewed camera's
         // view and never takes hover/focus/pick from the main viewport. Fixed 16:9 resolution so
         // the aspect stays stable regardless of the floating panel's laid-out size.
-        m_previewViewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
+        m_previewViewport = MakeRef<ui::viewport::ViewportView>(Allocator());
         m_previewViewport->ClearColor = rhi::ClearColor{0.0f, 0.0f, 0.0f, 1.0f};
         m_previewViewport->SetFixedResolution(320, m_previewHeight);
 
-        m_previewPin = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pin"));
+        m_previewPin = MakeRef<ui::Button>(Allocator(), StringView(u8"Pin"));
         {
             SceneEditorPage* self = this;
             m_previewPin->OnClick.Add([self](ui::ButtonBase*) { self->ToggleCameraPin(); });
         }
 
-        auto container = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto container = MakeRef<ui::FlexLayout>(Allocator());
         container->Direction = ui::Orientation::Vertical;
         container->Visibility = ui::Visibility::Gone; // idle until a camera is previewed
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             container->AddView(m_previewPin.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(320.0f));
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(static_cast<f32>(m_previewHeight)));
             container->AddView(m_previewViewport.Get(), lp);
@@ -1545,7 +1545,7 @@ namespace editor
                                                              foundation::content::Instance& instance)
     {
         return UniquePtr<EditorPage>(
-            foundation::core::DefaultAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
-            foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
+            editor::EditorRootAllocator());
     }
 }

@@ -58,51 +58,52 @@ export namespace editor
     public:
         AudioClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                             foundation::content::Instance& instance)
-            : m_context(&context), m_title(instance.Name())
+            : app::UIEditorPage(context.Allocator()),
+              m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
             m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             LoadClip(instance);
 
-            auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto column = MakeRef<ui::FlexLayout>(Allocator());
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8.0f;
 
-            m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_info = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_info->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(m_info.Get(), lp);
             }
 
-            m_waveform = MakeRef<WaveformView>(foundation::core::DefaultAllocator());
+            m_waveform = MakeRef<WaveformView>(Allocator());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(160));
                 column->AddView(m_waveform.Get(), lp);
             }
 
-            auto controls = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto controls = MakeRef<ui::FlexLayout>(Allocator());
             controls->Direction = ui::Orientation::Horizontal;
             controls->Spacing = 8.0f;
             AudioClipEditorPage* self = this;
-            m_playButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Play"));
+            m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Play"));
             m_playButton->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
             controls->AddView(m_playButton.Get());
-            m_pauseButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Pause"));
+            m_pauseButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
             m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
             controls->AddView(m_pauseButton.Get());
-            m_stopButton = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"Stop"));
+            m_stopButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Stop"));
             m_stopButton->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
             controls->AddView(m_stopButton.Get());
 
             // Audition-local gain (not persisted - it only scales THIS page's preview voice).
-            auto volLabel = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8"Vol"));
+            auto volLabel = MakeRef<ui::Label>(Allocator(), StringView(u8"Vol"));
             volLabel->FontSize.SetValue(12.0f);
             controls->AddView(volLabel.Get());
-            m_volumeSlider = MakeRef<ui::Slider>(foundation::core::DefaultAllocator());
+            m_volumeSlider = MakeRef<ui::Slider>(Allocator());
             m_volumeSlider->Min.SetValue(0.0f);
             m_volumeSlider->Max.SetValue(1.0f);
             m_volumeSlider->Step.SetValue(0.05f);
@@ -110,17 +111,17 @@ export namespace editor
             m_volumeSlider->OnValueChanged.Add(ui::Event<void(ui::Slider*, f32)>::Handler{
                 [self](ui::Slider*, f32 v) { self->SetAuditionVolume(v); }});
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
                 lp->AlignSelf = ui::Align::Center;
                 controls->AddView(m_volumeSlider.Get(), lp);
             }
 
-            m_status = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+            m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             controls->AddView(m_status.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
                 lp->Width = ui::SizeSpec::Match();
                 column->AddView(controls.Get(), lp);
             }
@@ -183,9 +184,9 @@ export namespace editor
     inline void RegisterAudioClipEditor(EditorContext& context, runtime::IApplicationHost& host)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<AudioClipPageFactory>(host), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<AudioClipPageFactory>(host), editor::EditorRootAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<SoundCuePageFactory>(host), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<SoundCuePageFactory>(host), editor::EditorRootAllocator()));
         if (context.Thumbnails() != nullptr)
         {
             RegisterAudioThumbnailGenerator(*context.Thumbnails());

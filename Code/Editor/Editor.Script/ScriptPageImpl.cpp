@@ -37,8 +37,8 @@ namespace editor
     UniquePtr<EditorPage> ScriptClassPageFactory::CreatePage(EditorContext& context,
                                                              content::Instance& instance)
     {
-        auto* page = foundation::core::DefaultAllocator().New<ScriptEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+        auto* page = editor::EditorRootAllocator().New<ScriptEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 
     Status ScriptEditorPage::Save()

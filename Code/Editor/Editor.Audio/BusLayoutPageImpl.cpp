@@ -98,7 +98,7 @@ namespace editor
             key.Append(name);
             AddRow(g, RefPtr<ui::toolkit::PropertyEditor>(
                           MakeRef<ui::toolkit::FloatEditor>(
-                              foundation::core::DefaultAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
+                              editor::EditorRootAllocator(), name, static_cast<f64>(*field), mn, mx, step, 3,
                               Function<void(f64)>{[field, page, key](f64 v)
                                                   {
                                                       *field = static_cast<f32>(v);
@@ -114,7 +114,7 @@ namespace editor
             key.Append(name);
             AddRow(g, RefPtr<ui::toolkit::PropertyEditor>(
                           MakeRef<ui::toolkit::BoolEditor>(
-                              foundation::core::DefaultAllocator(), name, *field,
+                              editor::EditorRootAllocator(), name, *field,
                               Function<void(bool)>{[field, page, key](bool v)
                                                    {
                                                        *field = v;
@@ -206,7 +206,7 @@ namespace editor
     bool BusLayoutTreeAdapter::HasChildren(i32 nodeId) const { return GetChildCount(nodeId) > 0; }
     RefPtr<ui::View> BusLayoutTreeAdapter::CreateView(i32)
     {
-        auto row = MakeRef<ui::EditableLabel>(foundation::core::DefaultAllocator());
+        auto row = MakeRef<ui::EditableLabel>(editor::EditorRootAllocator());
         row->FontSize.SetValue(Optional<f32>{12.0f});
         row->Ellipsis.SetValue(true);
         row->DoubleClickToEdit.SetValue(false);
@@ -240,7 +240,8 @@ namespace editor
     AudioBusLayoutEditorPage::AudioBusLayoutEditorPage(EditorContext& context,
                                                        runtime::IApplicationHost& host,
                                                        foundation::content::Instance& instance)
-        : m_context(&context), m_title(instance.Name())
+        : app::UIEditorPage(context.Allocator()),
+          m_context(&context), m_title(instance.Name())
     {
         (void)host;
         SetInstanceId(instance.Id());
@@ -255,8 +256,8 @@ namespace editor
         m_undoBaseline = SnapshotAsset();
 
         // Left: the bus tree + Add Bus.
-        m_adapter = MakeUnique<BusLayoutTreeAdapter>(foundation::core::DefaultAllocator(), *this);
-        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(foundation::core::DefaultAllocator());
+        m_adapter = MakeUnique<BusLayoutTreeAdapter>(Allocator(), *this);
+        m_tree = MakeRef<ui::toolkit::DraggableTreeView>(Allocator());
         m_tree->SetItemHeight(22.0f);
         m_tree->SetDragEnabled(false);
         m_tree->SetAdapter(m_adapter.Get());
@@ -281,7 +282,7 @@ namespace editor
                     }
                 });
         }
-        auto addBus = MakeRef<ui::Button>(foundation::core::DefaultAllocator(), StringView(u8"+ Add Bus"));
+        auto addBus = MakeRef<ui::Button>(Allocator(), StringView(u8"+ Add Bus"));
         {
             AudioBusLayoutEditorPage* self = this;
             addBus->OnClick.Add(
@@ -309,52 +310,52 @@ namespace editor
                             }});
                 });
         }
-        auto leftColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto leftColumn = MakeRef<ui::FlexLayout>(Allocator());
         leftColumn->Direction = ui::Orientation::Vertical;
         leftColumn->Spacing = 4.0f;
         leftColumn->Padding = ui::Thickness{6, 4};
         {
-            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             leftColumn->AddView(m_tree.Get(), grow);
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
             leftColumn->AddView(addBus.Get(), lp);
         }
 
         // Right: the selected bus's inspector.
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
-        m_inspectorTitle = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(Allocator());
+        m_inspectorTitle = MakeRef<ui::Label>(Allocator());
         m_inspectorTitle->FontSize.SetValue(Optional<f32>{12.0f});
-        auto rightColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto rightColumn = MakeRef<ui::FlexLayout>(Allocator());
         rightColumn->Direction = ui::Orientation::Vertical;
         rightColumn->Spacing = 4.0f;
         rightColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             rightColumn->AddView(m_inspectorTitle.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             rightColumn->AddView(m_grid.Get(), grow);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.34f);
         split->SetPanes(leftColumn.Get(), rightColumn.Get());
 
         // The page action bar (Save / Undo / Redo / Discard) above the split.
-        m_toolbar = MakeRef<app::PageToolbar>(foundation::core::DefaultAllocator(), *this);
-        auto column = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this);
+        auto column = MakeRef<ui::FlexLayout>(Allocator());
         column->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             column->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
             grow->Grow = 1.0f;
             grow->Width = ui::SizeSpec::Match();
             column->AddView(split.Get(), grow);
@@ -524,7 +525,7 @@ namespace editor
             AddRow(*m_grid,
                    RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::StringEditor>(
-                           foundation::core::DefaultAllocator(), u8"Name", slot.name.AsView(),
+                           Allocator(), u8"Name", slot.name.AsView(),
                            Function<void(StringView)>{
                                [self, slotIndex](StringView v)
                                {
@@ -600,7 +601,7 @@ namespace editor
             AddRow(*m_grid,
                    RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::EnumEditor>(
-                           foundation::core::DefaultAllocator(), u8"Parent", current,
+                           Allocator(), u8"Parent", current,
                            Span<const StringView>{items.Data(), items.Size()},
                            Function<void(i32)>{
                                [self, slotIndex, ownedCopy = Move(ownedCopy)](i32 v)
@@ -625,7 +626,7 @@ namespace editor
             AddRow(*m_grid,
                    RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::ButtonEditor>(
-                           foundation::core::DefaultAllocator(), u8"Remove Bus",
+                           Allocator(), u8"Remove Bus",
                            Function<void()>{
                                [self, slotIndex]()
                                {
@@ -671,9 +672,9 @@ namespace editor
             mutate();
             Array<byte> after = self->SnapshotAsset();
             (void)self->Commands().Execute(
-                UniquePtr<IEditorCommand>(foundation::core::DefaultAllocator().New<EditBusLayoutCommand>(
+                UniquePtr<IEditorCommand>(self->Allocator().New<EditBusLayoutCommand>(
                                               *self, key.AsView(), self->m_undoBaseline, after),
-                                          foundation::core::DefaultAllocator()));
+                                          self->Allocator()));
             self->m_undoBaseline = Move(after);
             self->RebuildTree();
             self->RebuildInspector();
@@ -766,8 +767,8 @@ namespace editor
     {
         Array<byte> after = SnapshotAsset();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            foundation::core::DefaultAllocator().New<EditBusLayoutCommand>(*this, mergeKey, m_undoBaseline, after),
-            foundation::core::DefaultAllocator()));
+            Allocator().New<EditBusLayoutCommand>(*this, mergeKey, m_undoBaseline, after),
+            Allocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
     }
@@ -812,13 +813,13 @@ namespace editor
     AudioBusLayoutPageFactory::CreatePage(EditorContext& context,
                                           foundation::content::Instance& instance)
     {
-        auto* page = foundation::core::DefaultAllocator().New<AudioBusLayoutEditorPage>(context, *m_host, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+        auto* page = editor::EditorRootAllocator().New<AudioBusLayoutEditorPage>(context, *m_host, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 
     void RegisterBusLayoutEditor(EditorContext& context, runtime::IApplicationHost& host)
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<AudioBusLayoutPageFactory>(host), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<AudioBusLayoutPageFactory>(host), editor::EditorRootAllocator()));
     }
 }

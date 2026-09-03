@@ -113,14 +113,14 @@ export namespace editor
     // The editor uses these; tests use the fs-explicit forms above.
     [[nodiscard]] inline Status LoadEditorSettingsFromUserData(settings::Settings& out)
     {
-        vfs::NativeFileSystem fs(GetUserDataDirectory().AsView(), DefaultAllocator());
+        vfs::NativeFileSystem fs(GetUserDataDirectory().AsView(), foundation::core::DefaultAllocator());
         return LoadEditorSettings(fs, out);
     }
     [[nodiscard]] inline Status SaveEditorSettingsToUserData(const settings::Settings& in)
     {
         const String dir = GetUserDataDirectory();
         (void)CreateDirectory(dir.AsView()); // ensure the leaf dir exists before writing
-        vfs::NativeFileSystem fs(dir.AsView(), DefaultAllocator());
+        vfs::NativeFileSystem fs(dir.AsView(), foundation::core::DefaultAllocator());
         return SaveEditorSettings(*fs.AsWritable(), in);
     }
 

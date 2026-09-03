@@ -188,7 +188,7 @@ namespace editor
         // editor wants the failing LINE as an Error marker.
         ui::MarkupLoader::Initialize();
         {
-            foundation::xml::XmlDocument probe(foundation::core::DefaultAllocator());
+            foundation::xml::XmlDocument probe(Allocator());
             const foundation::xml::XmlResult result = probe.Parse(m_markup.AsView());
             Array<ui::toolkit::CodeDiagnostic> diagnostics;
             if (foundation::xml::IsError(result))
@@ -204,7 +204,7 @@ namespace editor
         }
         Array<String> warnings;
         RefPtr<ui::View> parsed =
-            ui::MarkupLoader::LoadFromString(foundation::core::DefaultAllocator(), m_markup.AsView(), nullptr,
+            ui::MarkupLoader::LoadFromString(Allocator(), m_markup.AsView(), nullptr,
                                              &warnings);
         if (parsed.Get() == nullptr)
         {
@@ -255,7 +255,7 @@ namespace editor
                                                             foundation::content::Instance& instance)
     {
         auto* page =
-            foundation::core::DefaultAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+            editor::EditorRootAllocator().New<UIDocumentEditorPage>(context, *m_host, *m_uiHost, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 }

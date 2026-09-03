@@ -204,9 +204,9 @@ export namespace editor
             m_resolve = Move(resolve);
             m_jobs = jobs;
             m_contentHash = Move(contentHash);
-            m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(),
+            m_sources = MakeUnique<foundation::vfs::NativeFileSystem>(foundation::core::DefaultAllocator(),
                                                                       sourcesRoot,
-                                                                      DefaultAllocator());
+                                                                      foundation::core::DefaultAllocator());
         }
 
         /// Project-close: drop the RAM cache and detach. In-flight jobs complete harmlessly

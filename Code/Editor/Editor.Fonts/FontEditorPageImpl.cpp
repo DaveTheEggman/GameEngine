@@ -110,7 +110,8 @@ namespace editor
     } // namespace
 
     FontEditorPage::FontEditorPage(EditorContext& context, foundation::content::Instance& instance)
-        : m_context(&context), m_title(instance.Name())
+        : app::UIEditorPage(context.Allocator()),
+          m_context(&context), m_title(instance.Name())
     {
         SetInstanceId(instance.Id());
 
@@ -123,41 +124,41 @@ namespace editor
         }
         m_undoBaseline = Snapshot();
 
-        m_image = MakeRef<ui::ImageView>(foundation::core::DefaultAllocator());
+        m_image = MakeRef<ui::ImageView>(Allocator());
         m_image->ScaleType.SetValue(ui::ScaleType::FitCenter);
 
-        m_info = MakeRef<ui::Label>(foundation::core::DefaultAllocator(), StringView(u8""));
+        m_info = MakeRef<ui::Label>(Allocator(), StringView(u8""));
         m_info->FontSize.SetValue(12.0f);
 
-        auto previewColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto previewColumn = MakeRef<ui::FlexLayout>(Allocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Width = ui::SizeSpec::Match();
             lp->Grow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
-        m_grid = MakeRef<ui::toolkit::PropertyGrid>(foundation::core::DefaultAllocator());
+        m_grid = MakeRef<ui::toolkit::PropertyGrid>(Allocator());
         BuildGrid();
 
-        auto gridColumn = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
+        auto gridColumn = MakeRef<ui::FlexLayout>(Allocator());
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
             lp->Grow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 
-        auto split = MakeRef<ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+        auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.6f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
         m_content = split;
@@ -247,12 +248,12 @@ namespace editor
                 return;
             }
             Result<fonts::IFontAtlas*, fonts::FontLoadResult> baked =
-                fonts::FontAtlasBakerFactory::Bake(font, options, foundation::core::DefaultAllocator());
+                fonts::FontAtlasBakerFactory::Bake(font, options, editor::EditorRootAllocator());
             if (!baked.HasValue())
             {
                 return;
             }
-            UniquePtr<fonts::IFontAtlas> atlas(baked.Value(), foundation::core::DefaultAllocator());
+            UniquePtr<fonts::IFontAtlas> atlas(baked.Value(), editor::EditorRootAllocator());
             for (i32 cp = options.firstCodepoint; cp <= options.lastCodepoint; ++cp)
             {
                 if (atlas->Contains(cp))
@@ -279,22 +280,22 @@ namespace editor
                 decoded[px + 3] = static_cast<u8>(alpha);
             }
             outcome.image = MakeUnique<image::OwnedImageData>(
-                foundation::core::DefaultAllocator(), atlas->Width(), atlas->Height(), image::PixelFormat::RGBA8,
+                editor::EditorRootAllocator(), atlas->Width(), atlas->Height(), image::PixelFormat::RGBA8,
                 Move(decoded), image::ImageColorSpace::Linear);
         }
         else
         {
             Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
-                fonts::FontImporter::Bake(fontBytes, options, foundation::core::DefaultAllocator());
+                fonts::FontImporter::Bake(fontBytes, options, editor::EditorRootAllocator());
             if (!baked.HasValue())
             {
                 return;
             }
-            UniquePtr<fonts::BakedFontData> data(baked.Value(), foundation::core::DefaultAllocator());
+            UniquePtr<fonts::BakedFontData> data(baked.Value(), editor::EditorRootAllocator());
             outcome.glyphs = data->atlas->Regions().Size();
             outcome.image = UniquePtr<image::OwnedImageData>(
-                fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas, foundation::core::DefaultAllocator()),
-                foundation::core::DefaultAllocator());
+                fonts::FontAtlasTexture::ExpandR8ToRGBA8(data->atlas, editor::EditorRootAllocator()),
+                editor::EditorRootAllocator());
         }
     }
 
@@ -324,7 +325,7 @@ namespace editor
     void FontEditorPage::StartBake(BakeRequest request)
     {
         EditorJobService* jobs = m_context->Jobs();
-        auto* slot = foundation::core::DefaultAllocator().New<BakeSlot>();
+        auto* slot = Allocator().New<BakeSlot>();
         m_activeSlot = slot;
         m_bakeBusy = true;
         if (m_info.Get() != nullptr)
@@ -352,7 +353,7 @@ namespace editor
                             self->StartBake(Move(self->m_pendingRequest));
                         }
                     }
-                    foundation::core::DefaultAllocator().Delete(slot);
+                    self->Allocator().Delete(slot);
                 }});
     }
 
@@ -393,8 +394,8 @@ namespace editor
     {
         Array<byte> after = Snapshot();
         (void)Commands().Execute(UniquePtr<IEditorCommand>(
-            foundation::core::DefaultAllocator().New<EditFontCommand>(*this, mergeKey, m_undoBaseline, after),
-            foundation::core::DefaultAllocator()));
+            Allocator().New<EditFontCommand>(*this, mergeKey, m_undoBaseline, after),
+            Allocator()));
         m_undoBaseline = Move(after);
         MarkDirty();
         RebakePreview();
@@ -438,7 +439,7 @@ namespace editor
         FontEditorPage* self = this;
 
         auto family = MakeRef<ui::toolkit::StringEditor>(
-            foundation::core::DefaultAllocator(), u8"Family", m_asset->family.AsView(),
+            Allocator(), u8"Family", m_asset->family.AsView(),
             Function<void(StringView)>{[self](StringView v)
                                        {
                                            self->m_asset->family = String(v);
@@ -449,7 +450,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(family.Get()));
 
         auto mode = MakeRef<ui::toolkit::EnumEditor>(
-            foundation::core::DefaultAllocator(), u8"Bake Mode", static_cast<i32>(m_asset->mode),
+            Allocator(), u8"Bake Mode", static_cast<i32>(m_asset->mode),
             Span<const StringView>{kModeItems, 2},
             Function<void(i32)>{[self](i32 v)
                                 {
@@ -463,7 +464,7 @@ namespace editor
         if (m_asset->mode == pipeline::FontBakeMode::RasterRamp)
         {
         auto sizes = MakeRef<ui::toolkit::StringEditor>(
-            foundation::core::DefaultAllocator(), u8"Sizes (px)", FormatSizes(m_asset->sizes).AsView(),
+            Allocator(), u8"Sizes (px)", FormatSizes(m_asset->sizes).AsView(),
             Function<void(StringView)>{[self](StringView v)
                                        {
                                            Array<f32> parsed;
@@ -484,7 +485,7 @@ namespace editor
         if (m_asset->mode == pipeline::FontBakeMode::DistanceField)
         {
         auto dfSize = MakeRef<ui::toolkit::FloatEditor>(
-            foundation::core::DefaultAllocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->dfSize), 8.0, 128.0,
+            Allocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->dfSize), 8.0, 128.0,
             1.0, 0,
             Function<void(f64)>{[self](f64 v)
                                 {
@@ -497,7 +498,7 @@ namespace editor
         }
 
         auto first = MakeRef<ui::toolkit::IntEditor>(
-            foundation::core::DefaultAllocator(), u8"First Codepoint", static_cast<i64>(m_asset->firstCodepoint), 0,
+            Allocator(), u8"First Codepoint", static_cast<i64>(m_asset->firstCodepoint), 0,
             0x10FFFF,
             Function<void(i64)>{[self](i64 v)
                                 {
@@ -509,7 +510,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(first.Get()));
 
         auto last = MakeRef<ui::toolkit::IntEditor>(
-            foundation::core::DefaultAllocator(), u8"Last Codepoint", static_cast<i64>(m_asset->lastCodepoint), 0,
+            Allocator(), u8"Last Codepoint", static_cast<i64>(m_asset->lastCodepoint), 0,
             0x10FFFF,
             Function<void(i64)>{[self](i64 v)
                                 {
@@ -521,7 +522,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(last.Get()));
 
         auto atlasWidth = MakeRef<ui::toolkit::IntEditor>(
-            foundation::core::DefaultAllocator(), u8"Atlas Width", static_cast<i64>(m_asset->atlasWidth), 64, 8192,
+            Allocator(), u8"Atlas Width", static_cast<i64>(m_asset->atlasWidth), 64, 8192,
             Function<void(i64)>{[self](i64 v)
                                 {
                                     self->m_asset->atlasWidth = static_cast<u32>(v);
@@ -532,7 +533,7 @@ namespace editor
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(atlasWidth.Get()));
 
         auto atlasHeight = MakeRef<ui::toolkit::IntEditor>(
-            foundation::core::DefaultAllocator(), u8"Atlas Height", static_cast<i64>(m_asset->atlasHeight), 64, 8192,
+            Allocator(), u8"Atlas Height", static_cast<i64>(m_asset->atlasHeight), 64, 8192,
             Function<void(i64)>{[self](i64 v)
                                 {
                                     self->m_asset->atlasHeight = static_cast<u32>(v);
@@ -544,14 +545,14 @@ namespace editor
 
         // Source file: read-only path display + a project-constrained picker. Free-typing
         // is deliberately not offered - a typo would cook a dangling reference.
-        auto file = MakeRef<ui::toolkit::StringEditor>(foundation::core::DefaultAllocator(), u8"File",
+        auto file = MakeRef<ui::toolkit::StringEditor>(Allocator(), u8"File",
                                                        m_asset->fileName.View(),
                                                        Function<void(StringView)>{}, u8"Source");
         m_fileRow = file.Get();
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(file.Get()));
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
             MakeRef<ui::toolkit::ButtonEditor>(
-                foundation::core::DefaultAllocator(), u8"Browse...",
+                Allocator(), u8"Browse...",
                 Function<void()>{[self]()
                                  {
                                      ui::UIContext* ctx = (self->m_grid.Get() != nullptr)
@@ -566,7 +567,7 @@ namespace editor
                                      extensions.PushBack(String(u8".otf"));
                                      extensions.PushBack(String(u8".ttc"));
                                      auto dialog = MakeRef<app::PathPickerDialog>(
-                                         foundation::core::DefaultAllocator(), u8"Select font file",
+                                         self->Allocator(), u8"Select font file",
                                          self->m_context->Project()->SourcesRoot().AsView(),
                                          Move(extensions));
                                      dialog->OnPicked = [self](StringView picked)
@@ -713,7 +714,7 @@ namespace editor
     UniquePtr<EditorPage> FontEditorPageFactory::CreatePage(EditorContext& context,
                                                             foundation::content::Instance& instance)
     {
-        auto* page = foundation::core::DefaultAllocator().New<FontEditorPage>(context, instance);
-        return UniquePtr<EditorPage>(page, foundation::core::DefaultAllocator());
+        auto* page = editor::EditorRootAllocator().New<FontEditorPage>(context, instance);
+        return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 }

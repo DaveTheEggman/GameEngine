@@ -35,7 +35,7 @@ namespace editor
         core::RegisterCoreTypes();
         foundation::script::RegisterScriptFacadeReflection();
         RefPtr<script::IScriptManager> manager =
-            script::CreateScriptManagerForLanguage(m_language.AsView(), foundation::core::DefaultAllocator());
+            script::CreateScriptManagerForLanguage(m_language.AsView(), editor::EditorRootAllocator());
         if (manager.Get() == nullptr)
         {
             return m_types;

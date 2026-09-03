@@ -26,7 +26,7 @@ TEST_CASE("ImageEditorPageFactory reports the ImageAsset primary type")
 
 TEST_CASE("ImageEditor registers a factory the registry routes for ImageAsset")
 {
-    editor::EditorContext context;
+    editor::EditorContext context{DefaultAllocator()};
     editor::RegisterImageEditor(context);
 
     editor::IEditorPageFactory* found =

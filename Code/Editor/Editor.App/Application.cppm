@@ -111,6 +111,9 @@ export namespace editor::app
     public:
         explicit EditorApplication(EditorAppConfig config) : m_config(Move(config))
         {
+            // Install the tagged Editor root for the free-helper seam (providers,
+            // gizmos, icon caches - code with no owner parameter to thread).
+            editor::SetEditorRootAllocator(m_editorAllocator);
             // Thumbnails must be reachable from the CONSTRUCTOR on: Tools.Editor's
             // registration block (where each domain's Register<X>Editor folds its
             // thumbnail generator in) runs before the UI-boot phase.
@@ -343,11 +346,17 @@ export namespace editor::app
         void ReportResourceMemory();
         f32 m_resourceReportTimer = 0.0f; // periodic I4 report cadence
 
+        // The editor's root: everything the editor allocates (UI tree, pages, panels,
+        // services) rolls up under the Editor memory tag. Declared FIRST in this block
+        // so every member below may thread it.
+        TaggedAllocator m_editorAllocator{editor::EditorRootAllocator(),
+                                          RegisterMemoryTag("Editor")};
+
         EditorAppConfig m_config;
         runtime::IApplicationHost* m_host = nullptr; // borrowed
         foundation::render::ISceneRenderer* m_sceneRenderer = nullptr;
         // The embedded runtime (v3): gameplay subsystems + ALL scene hosting live here.
-        runtime::Context m_runtimeContext{foundation::core::DefaultAllocator()}; // editor process root
+        runtime::Context m_runtimeContext{editor::EditorRootAllocator()}; // editor process root
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
         // (the transport pumps on NetworkSubsystem::PostUpdate)
         UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
@@ -363,15 +372,15 @@ export namespace editor::app
             UIEditorPage* page = nullptr;                // borrowed (context owns the page)
             ui::toolkit::DockablePanel* panel = nullptr; // borrowed (dock manager owns the panel)
         };
-        editor::EditorContext m_context;
+        editor::EditorContext m_context{m_editorAllocator};
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)
-        editor::EditorJobService m_jobService{DefaultAllocator()}; // background jobs (export, ...)
+        editor::EditorJobService m_jobService{m_editorAllocator}; // background jobs (export, ...)
         foundation::settings::Settings m_editorSettings{
-            foundation::core::DefaultAllocator()}; // per-user editor prefs (<userdata>/editor.settings.xml)
+            editor::EditorRootAllocator()}; // per-user editor prefs (<userdata>/editor.settings.xml)
         editor::ProjectManagerController m_projectManager{
             m_editorSettings}; // headless manager decisions (open gate, registry, create)
         UniquePtr<foundation::settings::Settings>

@@ -38,7 +38,7 @@ TEST_CASE("animation graph: creator path round-trips through a real project")
     REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     ctx.SetProject(project.Get());
 
     foundation::content::Group* root = project->SourceDb().RootGroup();

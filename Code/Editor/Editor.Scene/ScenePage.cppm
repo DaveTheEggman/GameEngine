@@ -79,7 +79,8 @@ export namespace editor
     public:
         SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                         ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
-            : m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
+            : app::UIEditorPage(context.Allocator()),
+              m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
             // Set the instance id NOW, before the viewport toolbar's ScenePage_GridToggleInit ->
             // LoadViewPrefs runs: the per-scene grid/LOD prefs are keyed by this guid, and the ctor
@@ -155,7 +156,7 @@ export namespace editor
             // No OnRender/RenderContent: the frame graph renders the scene into the color target
             // and manages its transitions via TargetState (ColorState()/SetColorState tracking),
             // inside the app's single per-frame bracket.
-            m_viewport = MakeRef<ui::viewport::ViewportView>(foundation::core::DefaultAllocator());
+            m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
 
             // Everything scene-scoped is PER PAGE (multi-scene): mutation mediator (all edits
@@ -163,7 +164,7 @@ export namespace editor
             if (m_scene != nullptr)
             {
                 m_editContext =
-                    MakeUnique<SceneEditContext>(foundation::core::DefaultAllocator(), *m_scene, Commands());
+                    MakeUnique<SceneEditContext>(Allocator(), *m_scene, Commands());
                 m_editContext->SetResources(context.Resources());
                 EditorContext* resolverContext = &context;
                 m_editContext->SetPrefabResolver(scene::PrefabPayloadResolver{
@@ -178,7 +179,7 @@ export namespace editor
                         return (prefab != nullptr) ? prefab->ReadData(u8"scene")
                                                    : UniquePtr<IStream>{};
                     }});
-                m_hierarchy = MakeRef<SceneHierarchyView>(foundation::core::DefaultAllocator(), *m_editContext);
+                m_hierarchy = MakeRef<SceneHierarchyView>(Allocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
                 {
                     SceneEditorPage* page = this;
@@ -192,10 +193,10 @@ export namespace editor
                     { page->RevertInstance(root); };
                 }
                 m_inspector =
-                    MakeRef<SceneInspectorView>(foundation::core::DefaultAllocator(), context, *m_editContext);
+                    MakeRef<SceneInspectorView>(Allocator(), context, *m_editContext);
                 {
                     auto selectTool =
-                        MakeUnique<SelectTransformTool>(foundation::core::DefaultAllocator(), *m_editContext);
+                        MakeUnique<SelectTransformTool>(Allocator(), *m_editContext);
                     m_selectTool = selectTool.Get();
                     m_viewportTools.Add(Move(selectTool)); // first added = the default tool
                     ViewportToolHostContext toolHost;
@@ -215,10 +216,10 @@ export namespace editor
             // gizmo state the W/E/R/X keys already control - the on-screen answer to "which
             // space am I in" (the recorded gap: X toggled with no visible state anywhere).
             BuildViewportToolbar();
-            auto viewportPane = MakeRef<foundation::ui::FlexLayout>(foundation::core::DefaultAllocator());
+            auto viewportPane = MakeRef<foundation::ui::FlexLayout>(Allocator());
             viewportPane->Direction = foundation::ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
                 viewportPane->AddView(m_toolbar.Get(), lp);
@@ -227,14 +228,14 @@ export namespace editor
                 // Wrap the viewport in a FrameLayout so the camera preview (task #118) overlays it
                 // in the bottom-right corner. The viewport fills the frame; the preview floats over.
                 BuildCameraPreview();
-                auto viewportFrame = MakeRef<foundation::ui::FrameLayout>(foundation::core::DefaultAllocator());
+                auto viewportFrame = MakeRef<foundation::ui::FrameLayout>(Allocator());
                 {
-                    auto vfp = MakeRef<foundation::ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
+                    auto vfp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
                     vfp->Gravity = foundation::ui::Gravity::Fill;
                     viewportFrame->AddView(m_viewport.Get(), vfp);
                 }
                 {
-                    auto pfp = MakeRef<foundation::ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
+                    auto pfp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
                     pfp->Gravity = static_cast<foundation::ui::Gravity>(
                         static_cast<u32>(foundation::ui::Gravity::Bottom) |
                         static_cast<u32>(foundation::ui::Gravity::Right));
@@ -244,11 +245,11 @@ export namespace editor
                 {
                     // The ViewportOverlay tool-panel target: a themed HUD panel floating top-right over
                     // the viewport. Idle (Gone) until a ViewportOverlay-placed tool panel mounts into it.
-                    m_toolOverlay = MakeRef<foundation::ui::Panel>(foundation::core::DefaultAllocator());
+                    m_toolOverlay = MakeRef<foundation::ui::Panel>(Allocator());
                     m_toolOverlay->AddClass(u8"panel"); // resolve the theme's panel background
                     m_toolOverlay->Visibility = foundation::ui::Visibility::Gone;
                     m_toolOverlay->Padding = foundation::ui::Thickness{8.0f, 8.0f, 8.0f, 8.0f};
-                    auto ofp = MakeRef<foundation::ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
+                    auto ofp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
                     ofp->Gravity = static_cast<foundation::ui::Gravity>(
                         static_cast<u32>(foundation::ui::Gravity::Top) |
                         static_cast<u32>(foundation::ui::Gravity::Right));
@@ -264,20 +265,20 @@ export namespace editor
                     // NOT hit-test-visible, so empty areas fall through to the 3D viewport; the panel
                     // positions itself by AbsoluteLayoutParams X/Y so its Bounds stay exact for input.
                     BuildToolFloat();
-                    m_toolFloatLayer = MakeRef<foundation::ui::AbsoluteLayout>(foundation::core::DefaultAllocator());
+                    m_toolFloatLayer = MakeRef<foundation::ui::AbsoluteLayout>(Allocator());
                     m_toolFloatLayer->IsHitTestVisible = false;
-                    auto layerLp = MakeRef<foundation::ui::FrameLayoutParams>(foundation::core::DefaultAllocator());
+                    auto layerLp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
                     layerLp->Gravity = foundation::ui::Gravity::Fill;
                     layerLp->Width = foundation::ui::SizeSpec::Match();
                     layerLp->Height = foundation::ui::SizeSpec::Match();
                     viewportFrame->AddView(m_toolFloatLayer.Get(), layerLp);
 
-                    auto alp = MakeRef<foundation::ui::AbsoluteLayoutParams>(foundation::core::DefaultAllocator());
+                    auto alp = MakeRef<foundation::ui::AbsoluteLayoutParams>(Allocator());
                     alp->X = 16.0f;
                     alp->Y = 16.0f;
                     m_toolFloatLayer->AddView(m_toolFloat.Get(), alp);
                 }
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
+                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
                 lp->Width = foundation::ui::SizeSpec::Match();
                 lp->Grow = 1.0f;
                 viewportPane->AddView(viewportFrame.Get(), lp);
@@ -289,7 +290,7 @@ export namespace editor
             // + stale-snapshot); its header carries a collapse toggle. Starts collapsed so the viewport
             // opens full-height; the user expands it (or drags the splitter) when authoring animation.
             m_propAnimPanel = MakeRef<PropertyAnimationPanel>(
-                foundation::core::DefaultAllocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
+                Allocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
                 m_editContext->EntitySelection());
 
             // Godot-style bottom dock: a persistent tab bar
@@ -297,7 +298,7 @@ export namespace editor
             // (draggable splitter between the two) and collapses back to just the bar. The panel view
             // lives for the page's whole life either way (the F1 invariant). Per-scene-page - editor
             // singletons (Console/Output) stay in the shell docking and never migrate here.
-            m_bottomDock = MakeRef<foundation::ui::toolkit::BottomDock>(foundation::core::DefaultAllocator());
+            m_bottomDock = MakeRef<foundation::ui::toolkit::BottomDock>(Allocator());
             m_bottomDock->AddTab(u8"animation", u8"Animation", m_propAnimPanel.Get());
 
             // Viewport-tool PANEL seam wired to the bottom dock (the parked editor.app:tool_panel
@@ -305,7 +306,7 @@ export namespace editor
             // slot; the ViewportToolPanelHost watches the active viewport tool and, on a change, swaps
             // the slot to that tool's registered panel (or empties it). BottomDock is append-only, so
             // we mount/clear the slot's child rather than adding/removing a tab.
-            m_toolPanelSlot = MakeRef<foundation::ui::FlexLayout>(foundation::core::DefaultAllocator());
+            m_toolPanelSlot = MakeRef<foundation::ui::FlexLayout>(Allocator());
             m_toolPanelSlot->Direction = foundation::ui::Orientation::Vertical;
             m_bottomDock->AddTab(u8"tool", u8"Brush", m_toolPanelSlot.Get());
             {
@@ -317,7 +318,7 @@ export namespace editor
                 panelCtx.assetEdits = &context;
                 panelCtx.editorContext = &context;
                 m_toolPanelHost = MakeUnique<ViewportToolPanelHost>(
-                    foundation::core::DefaultAllocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
+                    Allocator(), m_viewportTools, ViewportToolPanelRegistry::Get(), panelCtx,
                     core::Function<void(foundation::ui::View*, ToolPanelPlacement)>{
                         [page](foundation::ui::View* view, ToolPanelPlacement placement)
                         { page->MountToolPanel(view, placement); }},
@@ -329,7 +330,7 @@ export namespace editor
             // Viewport column: [ viewport (toolbar + 3D) / bottom dock ] as a vertical split. The dock
             // drives the split's pane-collapse: the divider vanishes when collapsed and the stored ratio
             // survives expand/collapse. Starts collapsed (bar only; viewport full-height).
-            m_viewportColumn = MakeRef<foundation::ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+            m_viewportColumn = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
             m_viewportColumn->Orientation = foundation::ui::Orientation::Vertical;
             m_viewportColumn->SetSplitRatio(0.72f);
             m_viewportColumn->SetPanes(viewportPane.Get(), m_bottomDock.Get());
@@ -362,7 +363,7 @@ export namespace editor
                     {
                         return;
                     }
-                    auto dialog = MakeRef<EntityPickerDialog>(foundation::core::DefaultAllocator(),
+                    auto dialog = MakeRef<EntityPickerDialog>(editor::EditorRootAllocator(),
                                                               page->m_editContext->Scene(),
                                                               current);
                     dialog->OnPicked = [cb = Move(onPicked)](const Guid& picked)
@@ -399,16 +400,16 @@ export namespace editor
             }
 
             // Page layout: [ hierarchy | (viewport-column | inspector) ].
-            auto inner = MakeRef<foundation::ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+            auto inner = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
             inner->SetSplitRatio(0.72f);
             inner->SetPanes(m_viewportColumn.Get(), m_inspector.Get());
-            auto topContent = MakeRef<foundation::ui::toolkit::SplitView>(foundation::core::DefaultAllocator());
+            auto topContent = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
             topContent->SetSplitRatio(0.2f);
             topContent->SetPanes(m_hierarchy.Get(), inner.Get());
             m_content = topContent;
 
             m_router =
-                MakeUnique<foundation::shell::InputRouter>(foundation::core::DefaultAllocator(), host.Shell()->Input());
+                MakeUnique<foundation::shell::InputRouter>(Allocator(), host.Shell()->Input());
 
             // Start framed on the origin (grid center), orbit pivot there, horizon level.
             m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
@@ -558,7 +559,7 @@ export namespace editor
         ui::runtime::UIHost* m_uiHost;             // borrowed
         engine::scene::SceneSubsystem* m_scenes = nullptr; // borrowed (context subsystem: registry + tick)
         scene::SceneManager m_sceneManager{
-            foundation::core::DefaultAllocator()}; // this page's OWN scene group (registered with m_scenes)
+            Allocator()}; // this page's OWN scene group (registered with m_scenes)
         foundation::messaging::EventBus m_pageEvents; // the page's run-scope bus (edit-mode Simulate)
         engine::render::RenderSubsystem* m_render = nullptr;
         engine::ui::UISubsystem* m_gameUI = nullptr; // RT-canvas host seam (borrowed)
@@ -731,7 +732,7 @@ export namespace editor
 
         // Seed one root entity so the prefab opens in the enforced single-root shape and is
         // spawnable immediately (an empty payload can't spawn).
-        scene::Scene seed(foundation::core::DefaultAllocator(), u8"seed");
+        scene::Scene seed(editor::EditorRootAllocator(), u8"seed");
         scene::EntityHandle root = seed.CreateEntity(name.AsView());
         MemoryStream buffer;
         if (scene::CapturePrefab(seed, root, buffer).IsOk())
@@ -789,7 +790,7 @@ export namespace editor
         // the classic "why is my duck untextured"). An authored entity, not editor magic: it
         // saves with the scene, shows in the hierarchy, and is free to edit or delete.
         {
-            scene::Scene seeded(foundation::core::DefaultAllocator(), name.AsView());
+            scene::Scene seeded(editor::EditorRootAllocator(), name.AsView());
             seeded.AddSystem<engine::render::LightComponentManager>();
             const scene::EntityHandle sun = seeded.CreateEntity(u8"Sun");
             Transform t;
@@ -823,9 +824,9 @@ export namespace editor
         }
 
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<SceneEditorPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<SceneEditorPageFactory>(host, uiHost), editor::EditorRootAllocator()));
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
-            foundation::core::DefaultAllocator().New<PrefabEditorPageFactory>(host, uiHost), foundation::core::DefaultAllocator()));
+            editor::EditorRootAllocator().New<PrefabEditorPageFactory>(host, uiHost), editor::EditorRootAllocator()));
 
         EditorContext::AssetCreator creator;
         creator.label = String(u8"Scene");
@@ -856,9 +857,9 @@ export namespace editor
             engine::runtime::GameInstance* instance =
                 newInstance ? embeddedApp->CreateInstance() : &embeddedApp->Instance();
             return UniquePtr<EditorPage>(
-                foundation::core::DefaultAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost,
+                editor::EditorRootAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost,
                                                        embeddedApp, instance),
-                foundation::core::DefaultAllocator());
+                editor::EditorRootAllocator());
         };
 
         // Export seam: scene/prefab TEXT sources transcode to the binary wire on the main
@@ -880,7 +881,7 @@ export namespace editor
             }
             // A transient scratch scene assembled from the full composition (no component type
             // silently skipped by a hand-listed set).
-            scene::Scene scratch(foundation::core::DefaultAllocator(), u8"__export_transcode");
+            scene::Scene scratch(editor::EditorRootAllocator(), u8"__export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
@@ -910,12 +911,12 @@ export namespace editor
             }
             // A transient scratch scene assembled from the full composition (no component type
             // silently skipped by a hand-listed set).
-            scene::Scene scratch(foundation::core::DefaultAllocator(), u8"__export_scan");
+            scene::Scene scratch(editor::EditorRootAllocator(), u8"__export_scan");
             engine::AddAllSceneManagers(scratch);
             const bool loaded = scene::LoadScene(instance, scratch).IsOk();
             if (loaded)
             {
-                foundation::resource::ResourceManager collector(foundation::core::DefaultAllocator(), 
+                foundation::resource::ResourceManager collector(editor::EditorRootAllocator(), 
                     db); // no factories -> all binds unresolved
                 scene::ResolveSceneResources(scratch, collector);
                 collector.CollectUnresolved(outResources);

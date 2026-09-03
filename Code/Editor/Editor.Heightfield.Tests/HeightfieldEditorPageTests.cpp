@@ -24,7 +24,7 @@ TEST_CASE("HeightfieldEditorPageFactory reports the HeightfieldAsset primary typ
 
 TEST_CASE("HeightfieldEditor registers a factory the registry routes for HeightfieldAsset")
 {
-    editor::EditorContext context;
+    editor::EditorContext context{DefaultAllocator()};
     editor::RegisterHeightfieldEditor(context);
 
     editor::IEditorPageFactory* found =

@@ -35,7 +35,7 @@ namespace
 
 TEST_CASE("editor-shell: builds the chrome with the global panels only")
 {
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
@@ -59,7 +59,7 @@ TEST_CASE("editor-shell: builds the chrome with the global panels only")
 
 TEST_CASE("editor-shell: page panels dock into the center document area as closable tabs")
 {
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
@@ -77,7 +77,7 @@ TEST_CASE("editor-shell: dock layout survives a save/restore round-trip")
     RemoveStateDir(dir);
     REQUIRE(CreateDirectory(dir));
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
@@ -149,7 +149,7 @@ TEST_CASE("editor-layout: restore from a missing file reports NotFound")
     RemoveStateDir(dir);
     REQUIRE(CreateDirectory(dir));
 
-    EditorContext ctx;
+    EditorContext ctx{DefaultAllocator()};
     EditorShell shell;
     shell.Build(ctx, nullptr, 640, 480);
     // A store with no captured snapshot (and a directory with no store file) both = NotFound.
