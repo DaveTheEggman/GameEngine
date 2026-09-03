@@ -193,7 +193,7 @@ export namespace foundation::render
         void RetireOrDrainBuffer(rhi::Buffer*& buffer);
         GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         struct ViewData
-        {                                // 528 (matches the View cbuffer)
+        {                                // 544 (matches the View cbuffer)
             Float4x4 viewProj;           // 64
             Float4x4 view;               // 64  (view-space depth: cluster + cascade select)
             Float4x4 cascadeViewProj[4]; // 256 (CSM: world -> each cascade's light clip)
@@ -221,6 +221,8 @@ export namespace foundation::render
             Float4 probeBoxMax = Float4{0, 0, 0, 0}; // 16  (xyz = box max, w = probe intensity)
             Float4 shadowParams =
                 Float4{40.0f, 0, 0, 0}; // 16  (x = CSM far-fade width in world units; yzw spare)
+            Float4 debugParams =
+                Float4{0, 0, 0, 0}; // 16  (x = semantic debug-view mode, 0 = off; yzw spare)
         };
         struct ObjectData
         {

@@ -365,6 +365,7 @@ namespace foundation::render
                 .post
                 .needsMotion; // per-view: skip prev-world when no temporal effect reads velocity
         ctx.shadowFarFade = m_shadowFarFade;
+        ctx.debugSemantic = static_cast<u8>(view.Settings().debug.semantic);
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
         // ring allocation). Split by the category's pass affinity (which pass draws it), then walk
@@ -1547,6 +1548,9 @@ namespace foundation::render
             {
                 RenderView* v = m_views.At(i);
                 const usize viewResourceBase = m_graph.Resources().Size();
+                // Semantic debug views blit the scene HDR RAW (tonemap would grade the
+                // encoded terms); set on the tonemap path, invalid = no blit needed.
+                rendergraph::RGHandle debugSemanticSrc{};
                 rhi::TextureView* tgt = v->Target();
                 if (tgt == nullptr)
                 {
@@ -1766,6 +1770,7 @@ namespace foundation::render
                     // msaaSamples == 1 the post* handles alias the originals - no resolve passes emitted.
                     rendergraph::RGHandle postHdr = hdr, postDepth = depth, postNormal = normalT,
                                           postVelocity = velocityT, postMaterial = materialT;
+                debugSemanticSrc = hdr; // updated to the 1x resolve below when MSAA is on
                     if (msaaSamples > 1)
                     {
                         postHdr = m_graph.CreateTransient(
@@ -1793,6 +1798,7 @@ namespace foundation::render
                         postVelocity = r.velocity;
                         postMaterial = r.material;
                         overlayDepth = postDepth; // 1x overlays (debug draw) test the resolved depth
+                        debugSemanticSrc = postHdr;
                     }
                     // Screen-space decals: reconstruct world position from the scene depth and blend the decal
                     // texture into the lit HDR. Placed AFTER the resolve so - like AO/SSR - decals SAMPLE the
@@ -1972,6 +1978,19 @@ namespace foundation::render
                 // texture (channel/range remap in the blit shader). Declared BEFORE overlays,
                 // so gizmos and HUD stay on top of the visualization. The read is a real graph
                 // dependency - transient aliasing keeps the source alive to this pass.
+                if (m_debugBlit != nullptr && v->Settings().debug.resource.IsEmpty() &&
+                    v->Settings().debug.semantic != ViewDebugSemantic::Off &&
+                    debugSemanticSrc.IsValid())
+                {
+                    // The forward shader already encoded the semantic term into the scene
+                    // color; show it untouched (identity range, RGB).
+                    ViewDebugView raw;
+                    m_debugBlit->DeclareDebugBlit(
+                        m_graph, debugSemanticSrc, colorH, v->TargetFormat(), v->ViewportX(),
+                        v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(), m_frameIndex,
+                        viewIndex, static_cast<f32>(v->Width()), static_cast<f32>(v->Height()),
+                        /*srcIsDepth*/ false, raw);
+                }
                 if (m_debugBlit != nullptr && !v->Settings().debug.resource.IsEmpty())
                 {
                     const StringView wanted = v->Settings().debug.resource.AsView();

@@ -21,6 +21,7 @@ cbuffer View : register(b0, space0) {        // shared with the VS (same layout)
     float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
     float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
     float4 ShadowParams;               // x = CSM far-fade width in WORLD UNITS; yzw spare
+    float4 DebugParams;                // x = semantic debug-view mode (0 = off); yzw spare
 };
 struct GpuLight {                            // matches render::GpuLight (64 bytes)
     float3 positionWS; float range;
@@ -310,6 +311,48 @@ float2 OctEncode(float3 n) {
 
 // Forward outputs. GBUFFER (opaque/masked MRT pass): shaded color + view-normal + motion vector.
 // Otherwise (the color-only transparent pass): just the blended color.
+// Editor semantic debug views (DebugParams.x, ViewDebugSemantic; 0 = off). A uniform
+// branch - every lane takes the same path, free when off; kept out of Material/variant
+// space on purpose (the drift lint never sees it). Values are meant to reach the screen
+// RAW (the compose blits scene color past tonemap when a semantic mode is active).
+float3 DebugSemanticColor(uint mode, float3 albedo, float3 N, float roughness, float metallic,
+                          float viewDepth, uint lightCount, float3 lit) {
+    if (mode == 1u) { return albedo; }
+    if (mode == 2u) { return N * 0.5 + 0.5; }
+    if (mode == 3u) { return roughness.xxx; }
+    if (mode == 4u) { return metallic.xxx; }
+    if (mode == 5u) {
+        // CSM cascade selection tinted over albedo luma (red/green/blue/yellow, grey = no shadow).
+        float luma = dot(albedo, float3(0.299, 0.587, 0.114));
+        int count = (int)ShadowCascadeCount;
+        float3 tint = float3(0.55, 0.55, 0.55);
+        if (count > 0) {
+            int cascade = count - 1;
+            [unroll] for (int i = 0; i < 4; ++i) {
+                if (i < count && viewDepth < CascadeSplitFar[i]) { cascade = i; break; }
+            }
+            const float3 tints[4] = { float3(1.0, 0.3, 0.3), float3(0.3, 1.0, 0.3),
+                                      float3(0.3, 0.5, 1.0), float3(1.0, 1.0, 0.3) };
+            tint = tints[cascade];
+        }
+        return tint * (0.35 + 0.65 * luma);
+    }
+    if (mode == 6u) {
+        // Light-count heatmap: 0 = deep blue, 8+ = red (the per-cluster budget scale).
+        float t = saturate((float)lightCount / 8.0);
+        return lerp(float3(0.05, 0.05, 0.6), float3(1.0, 0.1, 0.05), t);
+    }
+    if (mode == 7u) {
+        // Overbright/invalid: magenta where the lit result is not plausibly finite
+        // (NaN fails every comparison, so !(x < limit) catches NaN and +inf both).
+        float m = max(lit.r, max(lit.g, lit.b));
+        bool bad = !(m < 1e30) || !(m >= 0.0);
+        float luma = saturate(dot(lit, float3(0.299, 0.587, 0.114)));
+        return bad ? float3(1.0, 0.0, 1.0) : luma.xxx;
+    }
+    return lit;
+}
+
 #ifdef GBUFFER
 struct PSOutput {
     float4 color    : SV_Target0;   // shaded HDR (tonemapped later)
@@ -361,6 +404,7 @@ float4 main(PSInput input) : SV_Target0 {
     float  viewDepth = -viewPos.z;                             // cascade selection + cluster lookup
 
     float3 Lo = float3(0.0, 0.0, 0.0);
+    uint debugLightCount = (uint)LightCount;   // ClusterHeat: per-cluster count when clustering is on
     if (ClusterGridX == 0) {
         // Clustering unavailable - evaluate every light.
         uint count = (uint)LightCount;
@@ -374,6 +418,7 @@ float4 main(PSInput input) : SV_Target0 {
         // Clustered - evaluate only the lights binned into this fragment's cluster.
         uint   cluster = ClusterIndex(input.clip.xy, viewDepth);
         uint2  oc = ClusterOffsets[cluster];
+        debugLightCount = oc.y;
         for (uint ci = 0; ci < oc.y; ++ci) {
             uint li = ClusterLightIndices[oc.x + ci];
             GpuLight L = Lights[LightOffset + li];
@@ -450,13 +495,26 @@ float4 main(PSInput input) : SV_Target0 {
     float2 velocity = (curNDC - prevNDC) * float2(0.5, -0.5);
 
     PSOutput o;
-    o.color    = float4(ambient + Lo + emissive, alpha);
+    float3 litColor = ambient + Lo + emissive;
+    uint debugMode = (uint)(DebugParams.x + 0.5);
+    if (debugMode != 0u) {
+        litColor = DebugSemanticColor(debugMode, albedo, N, roughness, metallic, viewDepth,
+                                      debugLightCount, litColor);
+        alpha = 1.0;
+    }
+    o.color    = float4(litColor, alpha);
     o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));   // view-space MAPPED normal (octahedral)
     o.velocity = velocity;
     o.material = float2(roughness, metallic);   // SSR reads these to gate/fade reflections
     return o;
 #else
     float3 emissive = EmissiveColor.rgb * EmissiveMap.Sample(MainSampler, input.uv).rgb;
-    return float4(ambient + Lo + emissive, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
+    float3 litColor = ambient + Lo + emissive;
+    uint debugMode = (uint)(DebugParams.x + 0.5);
+    if (debugMode != 0u) {
+        litColor = DebugSemanticColor(debugMode, albedo, N, roughness, metallic, viewDepth,
+                                      debugLightCount, litColor);
+    }
+    return float4(litColor, alpha);   // color-only (transparent pass): alpha drives AlphaBlend
 #endif
 }

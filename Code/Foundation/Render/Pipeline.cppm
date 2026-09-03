@@ -143,6 +143,8 @@ export namespace foundation::render
             false; // camera depth prepass: build the FULL instance data + cache the per-group range so the forward reuses it (build once, not twice)
         f32 shadowFarFade =
             40.0f; // CSM far-fade width in world units (SampleCSM dissolves shadows over the last cascade's far edge)
+        u8 debugSemantic =
+            0; // editor semantic debug view (ViewDebugSemantic): forward outputs the term, not the lit result
     };
 
     // A fully-resolved draw: all GPU state resolved (PSO built, bind groups + ring slots allocated,

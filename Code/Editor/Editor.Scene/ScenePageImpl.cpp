@@ -971,9 +971,47 @@ namespace editor
         SceneEditorPage* self = this;
         const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
 
-        String finalText(mark(m_debugView.resource.IsEmpty()));
+        const bool debugOff = m_debugView.resource.IsEmpty() &&
+                              m_debugView.semantic == render::ViewDebugSemantic::Off;
+        String finalText(mark(debugOff));
         finalText += u8"Final (debug view off)";
-        menu->AddItem(finalText.AsView(), [self]() { self->m_debugView.resource.Clear(); });
+        menu->AddItem(finalText.AsView(),
+                      [self]()
+                      {
+                          self->m_debugView.resource.Clear();
+                          self->m_debugView.semantic = render::ViewDebugSemantic::Off;
+                      });
+        menu->AddSeparator();
+
+        // Semantic modes: the forward shader outputs the term itself (mesh materials only -
+        // sky and bespoke renderers draw normally), shown raw past tonemap.
+        struct SemanticEntry
+        {
+            StringView label;
+            render::ViewDebugSemantic mode;
+        };
+        static const SemanticEntry kSemantics[] = {
+            {u8"Albedo (base color)", render::ViewDebugSemantic::Albedo},
+            {u8"Normals (world, mapped)", render::ViewDebugSemantic::Normal},
+            {u8"Roughness", render::ViewDebugSemantic::Roughness},
+            {u8"Metallic", render::ViewDebugSemantic::Metallic},
+            {u8"Shadow cascades", render::ViewDebugSemantic::Cascades},
+            {u8"Light-cluster heatmap", render::ViewDebugSemantic::ClusterHeat},
+            {u8"Overbright / invalid", render::ViewDebugSemantic::Overbright},
+        };
+        for (const SemanticEntry& entry : kSemantics)
+        {
+            String text(mark(m_debugView.semantic == entry.mode &&
+                             m_debugView.resource.IsEmpty()));
+            text += entry.label;
+            const render::ViewDebugSemantic mode = entry.mode;
+            menu->AddItem(text.AsView(),
+                          [self, mode]()
+                          {
+                              self->m_debugView.resource.Clear(); // semantic + resource are exclusive
+                              self->m_debugView.semantic = mode;
+                          });
+        }
         menu->AddSeparator();
 
         // The renderer's last-frame graph-texture inventory. Multisampled sources can't
@@ -994,6 +1032,7 @@ namespace editor
                           [self, name]()
                           {
                               self->m_debugView.resource = name;
+                              self->m_debugView.semantic = render::ViewDebugSemantic::Off;
                               // Editor viewport camera planes for depth linearization.
                               self->m_debugView.nearZ = 0.1f;
                               self->m_debugView.farZ = 1000.0f;

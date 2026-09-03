@@ -89,9 +89,26 @@ export namespace foundation::render
     // ...); empty = final image. The compose appends a blit pass that overwrites the view's
     // sub-rect with the visualized resource - overlays/gizmos still draw on top. Never touches
     // the scene asset; ephemeral per RenderScene call, like ViewPostOverride.
+    // Semantic (shader-instrumented) debug modes: the forward shader outputs the named
+    // term instead of the lit result (a uniform branch - free when off, never a cooked
+    // variant). Values reach the screen RAW (the compose blits the scene color past
+    // tonemap). Mesh/forward materials only - sky and bespoke renderers draw normally.
+    enum class ViewDebugSemantic : u8
+    {
+        Off = 0,
+        Albedo,      // base color after vertex color + textures, pre-lighting
+        Normal,      // mapped world-space normal (0.5 remap)
+        Roughness,   // final clamped roughness
+        Metallic,    // final metallic
+        Cascades,    // CSM cascade selection tinted over albedo luma
+        ClusterHeat, // clustered-light count heatmap (blue -> red)
+        Overbright,  // magenta where the lit result is non-finite / implausibly hot
+    };
+
     struct ViewDebugView
     {
-        String resource;            // graph resource name; empty = off
+        String resource;            // graph resource name; empty = none
+        ViewDebugSemantic semantic = ViewDebugSemantic::Off; // shader-term mode; resource wins if both set
         f32 rangeMin = 0.0f;        // display remap: out = saturate((v - min) / (max - min))
         f32 rangeMax = 1.0f;
         u8 channel = 0;             // 0 RGB, 1 R, 2 G, 3 B, 4 A, 5 luma

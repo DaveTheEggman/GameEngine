@@ -863,6 +863,7 @@ namespace foundation::render
         // too, and local shadows exist without a valid directional CSM - the struct default (0)
         // would collapse every local lookup onto one atlas row.
         vd.shadowParams.y = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
+        vd.debugParams.x = static_cast<f32>(ctx.debugSemantic);
         // Ring base + THIS view's scene's entry base (scenes' entries are concatenated per frame;
         // lights carry scene-relative shadowIndex values).
         vd.localShadowBase = m_localShadowBase + ctx.localShadowEntryBase;

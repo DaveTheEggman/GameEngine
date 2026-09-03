@@ -20,6 +20,7 @@ cbuffer View : register(b0, space0) {
     float4 ProbeBoxMin;                // xyz = probe box min corner,  w = probe cube slice (index into ProbeArray)
     float4 ProbeBoxMax;                // xyz = probe box max corner,  w = probe intensity
     float4 ShadowParams;               // x = CSM far-fade width in WORLD UNITS; yzw spare
+    float4 DebugParams;                // x = semantic debug-view mode (0 = off); yzw spare
 };
 #ifdef SKINNED
 // GPU skinning: per-bone skinning matrices (= inverseBind * worldPose), v * skin (row-vector).

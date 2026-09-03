@@ -803,3 +803,87 @@ TEST_CASE("debug view: a named graph texture appends the blit pass; the inventor
         CHECK_FALSE(hasPass(u8"debug.blit"));
     }
 }
+
+TEST_CASE("debug view: semantic modes blit the raw scene HDR on the tonemap path only")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem,
+                              /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+
+    TonemapPass tonemap(h.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(tonemap.Initialize().IsOk());
+    DebugBlitPass debugBlit(h.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(debugBlit.Initialize().IsOk());
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    ExtractedScene scene{DefaultAllocator()};
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = cube.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+
+    const auto hasPass = [](const RenderFrame& frame, StringView name)
+    {
+        for (const foundation::rendergraph::RenderGraphPass* pass : frame.Graph().Passes())
+        {
+            if (pass != nullptr && pass->name == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Tonemap path: the semantic term rides the scene HDR, so the raw blit appears
+    // (tonemap would grade the encoded values).
+    {
+        RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2,
+                          /*clusters*/ nullptr, &tonemap, /*shadows*/ nullptr,
+                          /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr, /*taa*/ nullptr,
+                          /*ao*/ nullptr, /*fxaa*/ nullptr, /*exposure*/ nullptr, &debugBlit);
+        ViewSettings settings;
+        settings.debug.semantic = ViewDebugSemantic::Albedo;
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK(hasPass(frame, u8"debug.blit"));
+    }
+
+    // No-tonemap path: the forward writes the LDR target directly, so the semantic values
+    // are already raw on screen - no blit is (or should be) added.
+    {
+        RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2,
+                          /*clusters*/ nullptr, /*tonemap*/ nullptr, /*shadows*/ nullptr,
+                          /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr, /*taa*/ nullptr,
+                          /*ao*/ nullptr, /*fxaa*/ nullptr, /*exposure*/ nullptr, &debugBlit);
+        ViewSettings settings;
+        settings.debug.semantic = ViewDebugSemantic::Albedo;
+        frame.Begin(*h.encoder, 0);
+        frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                      256);
+        frame.End();
+        CHECK_FALSE(hasPass(frame, u8"debug.blit"));
+    }
+}
