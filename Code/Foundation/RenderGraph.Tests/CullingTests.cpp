@@ -16,7 +16,7 @@ namespace rhi = foundation::rhi;
 
 TEST_CASE("rg.cull: unused pass is culled")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -30,7 +30,7 @@ TEST_CASE("rg.cull: unused pass is culled")
 
 TEST_CASE("rg.cull: NeverCull prevents culling")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -48,7 +48,7 @@ TEST_CASE("rg.cull: NeverCull prevents culling")
 
 TEST_CASE("rg.cull: HasSideEffects prevents culling")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     graph.AddComputePass(u8"SideEffect", [](PassBuilder& b) { b.HasSideEffects(); });
 
@@ -58,7 +58,7 @@ TEST_CASE("rg.cull: HasSideEffects prevents culling")
 
 TEST_CASE("rg.cull: backward propagation keeps dependencies alive")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle depth =
         graph.CreateTransient(u8"Depth", RGTextureDesc(rhi::TextureFormat::Depth32Float));
@@ -81,7 +81,7 @@ TEST_CASE("rg.cull: backward propagation keeps dependencies alive")
 
 TEST_CASE("rg.cull: imported with final state prevents culling")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle backbuffer =
         graph.ImportTarget(u8"BB", nullptr, nullptr, rhi::ResourceState::Present);

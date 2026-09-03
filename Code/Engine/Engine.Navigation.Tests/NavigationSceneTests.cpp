@@ -90,7 +90,7 @@ TEST_CASE("navigation.scene: a MoveEntity agent navigates across a zone to its t
     manager.AddFactory(&factory);
 
     // Scene: nav managers + subsystem, a zone entity at the origin, an agent at (-5,0,0).
-    scene::Scene scene(u8"nav");
+    scene::Scene scene(DefaultAllocator(), u8"nav");
     AddNavigationSceneManagers(scene);
 
     // The scene system carries the debug-draw settings block (physics precedent), default off.
@@ -173,7 +173,7 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
-    scene::Scene scene(u8"nav-scaled");
+    scene::Scene scene(DefaultAllocator(), u8"nav-scaled");
     AddNavigationSceneManagers(scene);
 
     scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
@@ -242,7 +242,7 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
 
     // Scaled entity + legacy bake -> the zone is refused (agent gets no slot).
     {
-        scene::Scene scene(u8"nav-legacy-scaled");
+        scene::Scene scene(DefaultAllocator(), u8"nav-legacy-scaled");
         AddNavigationSceneManagers(scene);
         scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
         Transform t;
@@ -266,7 +266,7 @@ TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, o
 
     // Unit-scale entity + legacy bake -> loads and navigates (backwards compatible).
     {
-        scene::Scene scene(u8"nav-legacy-unit");
+        scene::Scene scene(DefaultAllocator(), u8"nav-legacy-unit");
         AddNavigationSceneManagers(scene);
         scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
         NavMeshZoneComponent& zc = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
@@ -311,7 +311,7 @@ TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arriv
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 
-    scene::Scene scene(u8"nav");
+    scene::Scene scene(DefaultAllocator(), u8"nav");
     AddNavigationSceneManagers(scene);
     scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
     NavMeshZoneComponent& zoneComp =

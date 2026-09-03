@@ -153,7 +153,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
-    vg::renderer::VGRenderer m_renderer;
+    vg::renderer::VGRenderer m_renderer{DefaultAllocator()};
     fonts::CachedFont* m_font = nullptr;
     fonts::CachedFont* m_fontLarge = nullptr;
 

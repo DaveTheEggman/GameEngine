@@ -164,7 +164,7 @@ TEST_CASE("terrain renderer: visible chunks draw (extract -> Resolve -> per-LOD 
 
     RendererRegistry registry;
     registry.Register(&renderer);
-    RenderFrame frame(harness.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), harness.device, registry, /*framesInFlight*/ 2);
 
     RefPtr<hf::Heightfield> h = MakeRampX();
     Array<tmodel::TerrainChunk> chunks;
@@ -178,7 +178,7 @@ TEST_CASE("terrain renderer: visible chunks draw (extract -> Resolve -> per-LOD 
     rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
     REQUIRE(heightView != nullptr);
 
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
     REQUIRE(rd != nullptr);
     FillTerrainRenderData(*rd, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
@@ -216,7 +216,7 @@ TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
     REQUIRE(renderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&renderer);
-    RenderFrame frame(harness.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), harness.device, registry, /*framesInFlight*/ 2);
 
     RefPtr<hf::Heightfield> h = MakeRampX();
     Array<tmodel::TerrainChunk> chunks;
@@ -228,7 +228,7 @@ TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
     rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
     REQUIRE(heightView != nullptr);
 
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
     FillTerrainRenderData(*rd, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
                           tree, heightView, renderer.RendererId());
@@ -306,7 +306,7 @@ TEST_CASE("terrain renderer: null-view depth passes cast at the COARSEST chunk L
     cam.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 1000.0f);
     cam.position = Float3{-40.0f, 12.0f, 0.0f};
     RenderView camView;
-    ExtractedScene dummyScene;
+    ExtractedScene dummyScene{DefaultAllocator()};
     ViewSettings settings{};
     camView.Bind(dummyScene, cam, settings, harness.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
                  256);

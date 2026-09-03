@@ -153,7 +153,7 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
     // collector reports bound ids - the referenced TYPE is irrelevant to the edge).
     String sceneGuid;
     {
-        scene::Scene authored(u8"level");
+        scene::Scene authored(DefaultAllocator(), u8"level");
         engine::AddAllSceneManagers(authored);
         scene::EntityHandle e = authored.CreateEntity(u8"rock");
         auto* meshes = authored.GetSystem<engine::render::MeshComponentManager>();
@@ -277,7 +277,7 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     }
     foundation::content::Instance* brokenScene = nullptr;
     {
-        scene::Scene authored(u8"broken");
+        scene::Scene authored(DefaultAllocator(), u8"broken");
         engine::AddAllSceneManagers(authored);
         scene::EntityHandle e = authored.CreateEntity(u8"ghost");
         authored.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(missing);
@@ -320,7 +320,7 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
         REQUIRE(badMat->WriteObject(asset).IsOk());
     }
     {
-        scene::Scene authored(u8"broken");
+        scene::Scene authored(DefaultAllocator(), u8"broken");
         engine::AddAllSceneManagers(authored);
         scene::EntityHandle e = authored.CreateEntity(u8"ghost");
         authored.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(tex->Id());

@@ -65,7 +65,7 @@ namespace
 
     struct Fixture
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         RefPtr<hf::Heightfield> grid;
         RefPtr<terrain::TerrainResource> res;
 
@@ -153,7 +153,7 @@ TEST_CASE("terrain sculpt: one command per stroke undoes/redoes the whole region
 TEST_CASE("terrain sculpt: unavailable with no terrain, and refuses edits while editingLocked")
 {
     // No terrain in the scene: the tool is not relevant.
-    scene::Scene empty;
+    scene::Scene empty{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(empty);
     empty.Start();
     editor::EditorCommandStack commandsA;

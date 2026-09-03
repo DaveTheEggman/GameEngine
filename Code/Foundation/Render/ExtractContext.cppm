@@ -29,6 +29,9 @@ export namespace foundation::render
     class RenderContext
     {
     public:
+        // The allocator (required - the owner decides) backs the per-slot arenas + lists.
+        explicit RenderContext(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         // Ensure `slotCount` (>= 1) per-worker slots exist, then reset every arena + item list for a
         // new frame. Call once at frame start (before any extraction).
         void BeginFrame(u32 slotCount)
@@ -39,8 +42,8 @@ export namespace foundation::render
             }
             while (static_cast<u32>(m_arenas.Size()) < slotCount)
             {
-                m_arenas.PushBack(MakeUnique<FrameArena>(DefaultAllocator()));
-                m_lists.PushBack(MakeUnique<Array<RenderData*>>(DefaultAllocator()));
+                m_arenas.PushBack(MakeUnique<FrameArena>(*m_allocator, *m_allocator));
+                m_lists.PushBack(MakeUnique<Array<RenderData*>>(*m_allocator));
             }
             m_slots = slotCount;
             for (u32 s = 0; s < m_slots; ++s)
@@ -78,6 +81,7 @@ export namespace foundation::render
     private:
         // UniquePtr slots so growing the pools never moves a live FrameArena / item list (the
         // FrameArena is non-movable, and parallel writers hold references for the extraction).
+        IAllocator* m_allocator;
         Array<UniquePtr<FrameArena>> m_arenas;
         Array<UniquePtr<Array<RenderData*>>> m_lists;
         u32 m_slots = 0;

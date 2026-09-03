@@ -136,14 +136,14 @@ namespace
             registry.Register(&meshRenderer);
             TonemapPass tonemap(device, shaderSystem, 2);
             REQUIRE(tonemap.Initialize().IsOk());
-            RenderFrame frame(device, registry, 2, nullptr, &tonemap);
+            RenderFrame frame(DefaultAllocator(), device, registry, 2, nullptr, &tonemap);
 
             RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(DefaultAllocator(), 3.2f);
             RefPtr<materials::Material> mat =
                 materials::CreateUnlit(u8"bc.probe", Float4{1, 1, 1, 1});
             mat->SetDefaultTexture(u8"AlbedoMap", albedo);
 
-            ExtractedScene scene;
+            ExtractedScene scene{DefaultAllocator()};
             MeshRenderData* cube = scene.Add<MeshRenderData>();
             cube->world = Float4x4::RotationY(0.3f) * Float4x4::RotationX(0.2f);
             cube->worldCenter = Float3{0, 0, 0};
@@ -308,7 +308,7 @@ namespace
 #endif
 #ifdef OPTION_HAS_WEBGPU
         rhi::Backend* webgpu = nullptr;
-        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
         if (rhi::Device* device = testsupport::MakeTestDevice(webgpu))
         {
             probe(*device, "webgpu");

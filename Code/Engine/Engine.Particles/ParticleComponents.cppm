@@ -89,6 +89,8 @@ export namespace engine::particles
         void SetEffect(ParticleEffect& fx)
         {
             effect = &fx;
+            // Component value-bound (spec): pool-resident component spill stays on the
+            // process allocator until a per-manager component-spill seam exists.
             instance = MakeUnique<ParticleEffectInstance>(DefaultAllocator(), fx);
         }
         // Cooked path: attach a bound ParticleEffectResource. The component clones the cooked template
@@ -386,7 +388,7 @@ export namespace engine::particles
             if (m_scratchUsed >= m_scratch.Size())
             {
                 m_scratch.PushBack(
-                    MakeUnique<Array<ParticleBillboardInstance>>(DefaultAllocator()));
+                    MakeUnique<Array<ParticleBillboardInstance>>(m_scene->Allocator()));
             }
             return *m_scratch[m_scratchUsed++];
         }
@@ -701,7 +703,7 @@ export namespace engine::particles
         {
             if (m_xformUsed >= m_xformScratch.Size())
             {
-                m_xformScratch.PushBack(MakeUnique<Array<Float4x4>>(DefaultAllocator()));
+                m_xformScratch.PushBack(MakeUnique<Array<Float4x4>>(m_scene->Allocator()));
             }
             return *m_xformScratch[m_xformUsed++];
         }
@@ -709,7 +711,7 @@ export namespace engine::particles
         {
             if (m_tintUsed >= m_tintScratch.Size())
             {
-                m_tintScratch.PushBack(MakeUnique<Array<Color>>(DefaultAllocator()));
+                m_tintScratch.PushBack(MakeUnique<Array<Color>>(m_scene->Allocator()));
             }
             return *m_tintScratch[m_tintUsed++];
         }
@@ -717,7 +719,7 @@ export namespace engine::particles
         {
             if (m_trailUsed >= m_trailScratch.Size())
             {
-                m_trailScratch.PushBack(MakeUnique<Array<TrailVertex>>(DefaultAllocator()));
+                m_trailScratch.PushBack(MakeUnique<Array<TrailVertex>>(m_scene->Allocator()));
             }
             return *m_trailScratch[m_trailUsed++];
         }

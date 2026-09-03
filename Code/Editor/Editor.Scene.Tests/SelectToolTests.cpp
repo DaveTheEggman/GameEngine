@@ -43,7 +43,7 @@ namespace
 
     struct Fixture
     {
-        foundation::scene::Scene scene;
+        foundation::scene::Scene scene{DefaultAllocator()};
         EditorCommandStack commands;
         SceneEditContext edit;
         SelectTransformTool tool;

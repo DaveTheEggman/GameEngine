@@ -137,7 +137,7 @@ namespace engine::runtime
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             m_render = host.Ctx().AddSubsystem<engine::render::RenderSubsystem>(
-                *gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().Allocator(), *gfx->Raw(), gfx->FramesInFlight());
             // Drives skeletal animation from the scene tick (injects the SkeletalAnimation manager,
             // ticks players, feeds bone matrices to mesh components). Needs the render managers.
             host.Ctx().AddSubsystem<engine::animation::AnimationSubsystem>();
@@ -171,7 +171,7 @@ namespace engine::runtime
         // The primary instance's per-instance input reads the shell devices by default (the player
         // path); the editor Game tab overrides this to its gated viewport source per tab.
         m_instance.SetInputSource(&m_input->ShellSource());
-        m_ui = host.Ctx().AddSubsystem<engine::ui::UISubsystem>();
+        m_ui = host.Ctx().AddSubsystem<engine::ui::UISubsystem>(host.Ctx().Allocator());
         if (!m_uiFontPath.IsEmpty())
         {
             m_ui->SetFontPath(m_uiFontPath.AsView());
@@ -583,8 +583,12 @@ namespace engine::runtime
             factoryAllocator, factoryAllocator);
         resources.AddFactory(m_scriptClassFactory.Get());
         resources.AddFactory(&m_modelFactory);
-        resources.AddFactory(&m_uiDocumentFactory);
-        resources.AddFactory(&m_uiThemeFactory);
+        m_uiDocumentFactory = core::MakeUnique<foundation::ui::UIDocumentFactory>(
+            factoryAllocator, factoryAllocator);
+        m_uiThemeFactory = core::MakeUnique<foundation::ui::UIThemeFactory>(factoryAllocator,
+                                                                            factoryAllocator);
+        resources.AddFactory(m_uiDocumentFactory.Get());
+        resources.AddFactory(m_uiThemeFactory.Get());
         m_fontFactory = core::MakeUnique<foundation::fonts::FontFactory>(
             host.Ctx().Allocator(), host.Ctx().Allocator());
         resources.AddFactory(m_fontFactory.Get());

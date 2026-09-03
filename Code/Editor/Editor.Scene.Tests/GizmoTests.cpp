@@ -213,7 +213,7 @@ namespace
 
 TEST_CASE("gizmo-controller: a drag session is exactly one undo entry restoring the start")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -266,7 +266,7 @@ TEST_CASE("gizmo-controller: a drag session is exactly one undo entry restoring 
 
 TEST_CASE("gizmo-controller: world drags convert into a rotated parent's space")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -306,7 +306,7 @@ TEST_CASE("gizmo-controller: world drags convert into a rotated parent's space")
 
 TEST_CASE("gizmo-controller: mode keys, space toggle, and scale forcing local")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -380,7 +380,7 @@ TEST_CASE("gizmo-registry: renderers resolve by component type; unselected entit
 
 TEST_CASE("gizmo-controller: pose tracks selection even while the pointer is off the viewport")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -440,7 +440,7 @@ TEST_CASE("gizmo-controller: a pointer-less update follows an entity the simulat
     // Simulate mode drives the gizmo with pointerValid=false every frame (read-only).
     // The reported bug: physics moved the selected box and the gizmo stayed at the
     // pre-play pose - the page skipped Update entirely while simulating.
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     GizmoController ctl(edit);
@@ -469,7 +469,7 @@ TEST_CASE("gizmo-controller: a pointer-less update follows an entity the simulat
 // distinct from the runtime PhysicsSceneSettings.debugDraw.
 TEST_CASE("component-gizmo: physics collider gizmo draws a box only when Show Colliders is on")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
     const auto e = scene.CreateEntity(u8"Box");
     engine::physics::RigidBodyComponent& body = bodies->Add(e);
@@ -498,7 +498,7 @@ TEST_CASE("component-gizmo: physics collider gizmo draws a box only when Show Co
 // axis arrow only for hinge/slider kinds. Same "Show Colliders" gate as the collider gizmos.
 TEST_CASE("component-gizmo: joint gizmo - gated, anchor-only for a nil target, hinge adds the axis")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* joints = scene.AddSystem<engine::physics::JointComponentManager>();
     const auto e = scene.CreateEntity(u8"Jointed");
     engine::physics::JointComponent& joint = joints->Add(e);
@@ -533,7 +533,7 @@ TEST_CASE("component-gizmo: joint gizmo - gated, anchor-only for a nil target, h
 // CharacterVirtual) - same "Show Colliders" gate as the collider gizmos.
 TEST_CASE("component-gizmo: character capsule draws only when Show Colliders is on")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* characters = scene.AddSystem<engine::physics::CharacterComponentManager>();
     const auto e = scene.CreateEntity(u8"Hero");
     (void)characters->Add(e); // defaults: radius 0.35, halfHeight 0.55
@@ -561,7 +561,7 @@ TEST_CASE("component-gizmo: character capsule draws only when Show Colliders is 
 // body-plus-children rig showing only the root shape reads as "the children are not registered".
 TEST_CASE("component-gizmo: child collider draws its wireframe only when Show Colliders is on")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* colliders = scene.AddSystem<engine::physics::ColliderComponentManager>();
     const auto parent = scene.CreateEntity(u8"Body");
     const auto child = scene.CreateEntity(u8"Fist");
@@ -593,7 +593,7 @@ TEST_CASE("component-gizmo: child collider draws its wireframe only when Show Co
 // DrawEntity sets ctx.entityEffectivelyActive from the scene.
 TEST_CASE("component-gizmo: an inactive entity's collider draws dimmed gray, not skipped")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
     const auto e = scene.CreateEntity(u8"Box");
     engine::physics::RigidBodyComponent& body = bodies->Add(e);
@@ -632,7 +632,7 @@ TEST_CASE("component-gizmo: an inactive entity's collider draws dimmed gray, not
 // a sphere inside a bounding box.
 TEST_CASE("component-gizmo: the capsule collider draws cap spheres + side lines, not a box")
 {
-    foundation::scene::Scene scene;
+    foundation::scene::Scene scene{DefaultAllocator()};
     auto* bodies = scene.AddSystem<engine::physics::RigidBodyComponentManager>();
     const auto e = scene.CreateEntity(u8"Cap");
     engine::physics::RigidBodyComponent& body = bodies->Add(e);

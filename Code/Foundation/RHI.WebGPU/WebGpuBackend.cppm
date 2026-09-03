@@ -433,8 +433,7 @@ export namespace foundation::rhi::webgpu
     /// Creates the WebGPU backend. Fails with NotFound when the wgpu-native sidecar is
     /// absent (desktop) - callers treat that as "backend unavailable", same as a
     /// missing Vulkan driver.
-    Status CreateBackend(const WebGpuBackendDesc& desc, Backend*& out,
-                         IAllocator& allocator = DefaultAllocator())
+    Status CreateBackend(const WebGpuBackendDesc& desc, Backend*& out, IAllocator& allocator)
     {
         out = nullptr;
         auto* backend = allocator.New<WebGpuBackend>(allocator);

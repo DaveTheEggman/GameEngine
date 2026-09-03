@@ -100,7 +100,7 @@ namespace foundation::render
 
     bool FrameArena::AddChunk(usize size)
     {
-        void* mem = DefaultAllocator().Allocate(size, kChunkAlign);
+        void* mem = m_allocator->Allocate(size, kChunkAlign);
         if (mem == nullptr)
         {
             return false;

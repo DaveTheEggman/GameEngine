@@ -253,8 +253,8 @@ export namespace engine::runtime
         core::UniquePtr<foundation::script::ScriptClassFactory> m_scriptClassFactory;
         foundation::audio::AudioEngineSettings m_audioEngineSettings;
         foundation::model::ModelFactory m_modelFactory;
-        foundation::ui::UIDocumentFactory m_uiDocumentFactory;
-        foundation::ui::UIThemeFactory m_uiThemeFactory;
+        core::UniquePtr<foundation::ui::UIDocumentFactory> m_uiDocumentFactory;
+        core::UniquePtr<foundation::ui::UIThemeFactory> m_uiThemeFactory;
         // Allocator-threaded factory (created in RegisterStandardFactories, like the
         // navigation zone factory).
         core::UniquePtr<foundation::fonts::FontFactory> m_fontFactory; // cooked default-UI font

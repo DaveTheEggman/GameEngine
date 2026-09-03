@@ -119,7 +119,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     String seedXml;
     String seedGuid;
     {
-        scene::Scene authored(u8"arena");
+        scene::Scene authored(DefaultAllocator(), u8"arena");
         engine::AddAllSceneManagers(authored);
         scene::EntityHandle hero = authored.CreateEntity(u8"hero");
         scene::EntityHandle torch = authored.CreateEntity(u8"torch");
@@ -195,7 +195,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     CHECK(okPrefab.Get(u8"written").AsBool() == true);
     // ...and a MULTI-root one is refused with the single-root rule.
     {
-        scene::Scene twoRoots(u8"pair");
+        scene::Scene twoRoots(DefaultAllocator(), u8"pair");
         (void)twoRoots.CreateEntity(u8"a");
         (void)twoRoots.CreateEntity(u8"b");
         auto* inst = session.project->SourceDb().RootGroup()->CreateInstance(

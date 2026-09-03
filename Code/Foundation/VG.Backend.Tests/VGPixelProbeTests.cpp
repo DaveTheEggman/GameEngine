@@ -65,7 +65,7 @@ namespace
             config.sampleCount = sampleCount;
             config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
 
-            vg::renderer::VGRenderer renderer;
+            vg::renderer::VGRenderer renderer{DefaultAllocator()};
             REQUIRE(renderer
                         .Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA8UnormSrgb, 2, dfFs,
                                     gradR, gradC, config)
@@ -381,7 +381,7 @@ TEST_CASE("vg.pixels: fills, clip, colors, spreads and blends on real backends")
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     bool any = false;
     if (rhi::Device* device = MakeDevice(vulkan))

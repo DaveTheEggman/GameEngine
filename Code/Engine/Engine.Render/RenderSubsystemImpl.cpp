@@ -652,15 +652,15 @@ namespace engine::render
         }
 
         m_psoCache =
-            MakeUnique<materials::PipelineStateCache>(DefaultAllocator(), *m_shaders, *m_device);
-        m_materialSystem = MakeUnique<materials::MaterialSystem>(DefaultAllocator());
+            MakeUnique<materials::PipelineStateCache>(m_allocator, *m_shaders, *m_device);
+        m_materialSystem = MakeUnique<materials::MaterialSystem>(m_allocator);
         if (!m_materialSystem->Initialize(*m_device).IsOk())
         {
             m_materialSystem.Reset();
             return;
         }
 
-        m_meshRenderer = MakeUnique<MeshRenderer>(DefaultAllocator(), *m_device, *m_shaders,
+        m_meshRenderer = MakeUnique<MeshRenderer>(m_allocator, *m_device, *m_shaders,
                                                   *m_psoCache, *m_materialSystem, m_framesInFlight);
         if (!m_meshRenderer->Initialize().IsOk())
         {
@@ -677,7 +677,7 @@ namespace engine::render
 
         // Sprites: registered after the mesh renderer (id 1); shares the blended forward pass.
         m_spriteRenderer =
-            MakeUnique<SpriteRenderer>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<SpriteRenderer>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (m_spriteRenderer->Initialize().IsOk())
         {
             m_registry.Register(m_spriteRenderer.Get());
@@ -698,7 +698,7 @@ namespace engine::render
         // RenderFrame). Optional - if it fails to init, the renderer runs without clustering.
         if (kEnableClusters)
         {
-            m_clusterSystem = MakeUnique<ClusterSystem>(DefaultAllocator(), *m_device, *m_shaders,
+            m_clusterSystem = MakeUnique<ClusterSystem>(m_allocator, *m_device, *m_shaders,
                                                         m_framesInFlight);
             if (!m_clusterSystem->Initialize().IsOk())
             {
@@ -713,7 +713,7 @@ namespace engine::render
         // HDR resolve: forward renders linear HDR, this pass tonemaps to the LDR target. Optional -
         // if it fails to init, the renderer falls back to writing the LDR target directly.
         m_tonemapPass =
-            MakeUnique<TonemapPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<TonemapPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_tonemapPass->Initialize().IsOk())
         {
             m_tonemapPass.Reset();
@@ -723,7 +723,7 @@ namespace engine::render
         if (kEnableShadows)
         {
             m_shadowSystem =
-                MakeUnique<ShadowSystem>(DefaultAllocator(), *m_device, m_framesInFlight);
+                MakeUnique<ShadowSystem>(m_allocator, *m_device, m_framesInFlight);
             if (!m_shadowSystem->Initialize().IsOk())
             {
                 m_shadowSystem.Reset();
@@ -735,14 +735,14 @@ namespace engine::render
         }
 
         // Image-based lighting. Optional - if it fails to init, the scene uses flat ambient.
-        m_iblSystem = MakeUnique<IBLSystem>(DefaultAllocator(), *m_device, *m_shaders);
+        m_iblSystem = MakeUnique<IBLSystem>(m_allocator, *m_device, *m_shaders);
         if (!m_iblSystem->Initialize().IsOk())
         {
             m_iblSystem.Reset();
         }
 
         m_probeSystem =
-            MakeUnique<ReflectionProbeSystem>(DefaultAllocator(), *m_device, *m_shaders);
+            MakeUnique<ReflectionProbeSystem>(m_allocator, *m_device, *m_shaders);
         if (!m_probeSystem->Initialize().IsOk())
         {
             m_probeSystem.Reset();
@@ -750,35 +750,35 @@ namespace engine::render
 
         // Visible sky (background) from the IBL environment. Optional.
         m_skyPass =
-            MakeUnique<SkyPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<SkyPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_skyPass->Initialize().IsOk())
         {
             m_skyPass.Reset();
         }
 
         // HDR bloom (composited at tonemap). Optional.
-        m_bloomPass = MakeUnique<BloomPass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_bloomPass = MakeUnique<BloomPass>(m_allocator, *m_device, *m_shaders);
         if (!m_bloomPass->Initialize().IsOk())
         {
             m_bloomPass.Reset();
         }
 
         // Temporal AA resolve (per-view history). Optional.
-        m_taaPass = MakeUnique<TaaPass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_taaPass = MakeUnique<TaaPass>(m_allocator, *m_device, *m_shaders);
         if (!m_taaPass->Initialize().IsOk())
         {
             m_taaPass.Reset();
         }
 
         // Ambient occlusion (GTAO/SSAO from the G-buffer). Optional.
-        m_aoPass = MakeUnique<AoPass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_aoPass = MakeUnique<AoPass>(m_allocator, *m_device, *m_shaders);
         if (!m_aoPass->Initialize().IsOk())
         {
             m_aoPass.Reset();
         }
 
         // Screen-space reflections (reflect the lit HDR before AO/TAA). Optional.
-        m_ssrPass = MakeUnique<SsrPass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_ssrPass = MakeUnique<SsrPass>(m_allocator, *m_device, *m_shaders);
         if (!m_ssrPass->Initialize().IsOk())
         {
             m_ssrPass.Reset();
@@ -786,7 +786,7 @@ namespace engine::render
 
         // Scene-pass MSAA first-sample resolve. Optional - null leaves MSAA unavailable
         // (views clamp to 1x), so the engine still renders without it.
-        m_msaaResolvePass = MakeUnique<MsaaResolvePass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_msaaResolvePass = MakeUnique<MsaaResolvePass>(m_allocator, *m_device, *m_shaders);
         if (!m_msaaResolvePass->Initialize().IsOk())
         {
             m_msaaResolvePass.Reset();
@@ -801,7 +801,7 @@ namespace engine::render
 
         // FXAA (TAA-off fallback AA). Optional.
         m_fxaaPass =
-            MakeUnique<FxaaPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<FxaaPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_fxaaPass->Initialize().IsOk())
         {
             m_fxaaPass.Reset();
@@ -809,7 +809,7 @@ namespace engine::render
 
         // Screen-space decals (project onto depth, blend into HDR before AO/TAA). Optional.
         m_decalPass =
-            MakeUnique<DecalPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<DecalPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_decalPass->Initialize().IsOk())
         {
             m_decalPass.Reset();
@@ -821,20 +821,21 @@ namespace engine::render
 
         // Debug draw (per-view gizmos + screen text). Optional.
         m_debugPass =
-            MakeUnique<DebugDrawPass>(DefaultAllocator(), *m_device, *m_shaders, m_framesInFlight);
+            MakeUnique<DebugDrawPass>(m_allocator, *m_device, *m_shaders, m_framesInFlight);
         if (!m_debugPass->Initialize().IsOk())
         {
             m_debugPass.Reset();
         }
 
-        m_exposurePass = MakeUnique<ExposurePass>(DefaultAllocator(), *m_device, *m_shaders);
+        m_exposurePass = MakeUnique<ExposurePass>(m_allocator, *m_device, *m_shaders);
         if (!m_exposurePass->Initialize().IsOk())
         {
             m_exposurePass.Reset(); // auto-exposure silently unavailable; fixed EV still works
         }
 
         m_frame = MakeUnique<RenderFrame>(
-            DefaultAllocator(), *m_device, m_registry, m_framesInFlight, m_clusterSystem.Get(),
+            m_allocator, m_allocator, *m_device, m_registry, m_framesInFlight,
+            m_clusterSystem.Get(),
             m_tonemapPass.Get(), m_shadowSystem.Get(), m_iblSystem.Get(), m_skyPass.Get(),
             m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(), m_fxaaPass.Get(),
             m_exposurePass.Get());
@@ -900,7 +901,7 @@ namespace engine::render
     {
         if (m_sceneCount == m_scenes.Size())
         {
-            m_scenes.PushBack(MakeUnique<ExtractedScene>(DefaultAllocator()));
+            m_scenes.PushBack(MakeUnique<ExtractedScene>(m_allocator, m_allocator));
         }
         ExtractedScene* s = m_scenes[m_sceneCount++].Get();
         s->Reset();

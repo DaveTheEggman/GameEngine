@@ -52,6 +52,10 @@ export namespace foundation::ui
     class UIDocumentFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit UIDocumentFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &UIDocument::StaticType();
@@ -65,10 +69,13 @@ export namespace foundation::ui
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<UIDocument> document = MakeRef<UIDocument>(DefaultAllocator());
+            RefPtr<UIDocument> document = MakeRef<UIDocument>(*m_allocator);
             document->markup = String(source->markup.AsView());
             return document;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     /// Cooked UI theme: a validated `.sss` stylesheet payload.
@@ -94,6 +101,10 @@ export namespace foundation::ui
     class UIThemeFactory final : public IResourceFactory
     {
     public:
+        // The allocator backs every product this factory creates (required - the
+        // application that registers the factory decides).
+        explicit UIThemeFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &UITheme::StaticType();
@@ -107,10 +118,13 @@ export namespace foundation::ui
             {
                 return RefPtr<Object>{};
             }
-            RefPtr<UITheme> theme = MakeRef<UITheme>(DefaultAllocator());
+            RefPtr<UITheme> theme = MakeRef<UITheme>(*m_allocator);
             theme->stylesheet = String(source->stylesheet.AsView());
             return theme;
         }
+    
+    private:
+        IAllocator* m_allocator;
     };
 
     inline void RegisterUIResource()

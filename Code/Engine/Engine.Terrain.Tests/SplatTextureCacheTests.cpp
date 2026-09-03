@@ -178,7 +178,7 @@ TEST_CASE("engine.terrain: a weights-bearing terrain derives the splat pair + pa
 {
     rhi::null::NullDevice device{DefaultAllocator()};
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(sceneObj);
     auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
     REQUIRE(mgr != nullptr);
@@ -202,7 +202,7 @@ TEST_CASE("engine.terrain: a weights-bearing terrain derives the splat pair + pa
     c.terrain = res.Get();
     sceneObj.Start();
 
-    foundation::render::ExtractedScene snapshot;
+    foundation::render::ExtractedScene snapshot{DefaultAllocator()};
     mgr->ExtractRenderData(snapshot);
     CHECK(mgr->SplatTextureCount() == 1u);   // the extract built + cached the GPU pair
     CHECK(mgr->PaletteTextureCount() == 1u); // ... and the palette array + tileScale buffer

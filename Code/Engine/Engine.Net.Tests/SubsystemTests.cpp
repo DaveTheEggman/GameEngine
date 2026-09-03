@@ -18,7 +18,7 @@ TEST_CASE("net-subsystem: the scene module injects the NetworkComponentManager")
 {
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
 
     // No net managers until the composition installs them (a bare scene is not networked).
     CHECK(scene.FindManagerBySerializationId(u8"net.Network") == nullptr);

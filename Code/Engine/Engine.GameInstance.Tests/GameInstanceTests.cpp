@@ -233,7 +233,7 @@ TEST_CASE("network-controller: a fresh endpoint replicates the cached scene")
     // SetReplicatedScene cached BEFORE going online is applied to the endpoint at StartServer (a server
     // assigns NetworkIds from the scene), and a live change is forwarded to the running endpoint too.
     engine::runtime::NetworkController controller;
-    scene::SceneManager scenes;
+    scene::SceneManager scenes{DefaultAllocator()};
     scene::Scene* level = scenes.CreateScene(u8"Level");
     REQUIRE(level != nullptr);
     controller.SetReplicatedScene(level); // cached while offline
@@ -255,7 +255,7 @@ TEST_CASE("network-controller: the replicated scene's NetworkSceneSystem drives 
     // (ASAN covers the teardown - the controller + scene destruct here holding a live endpoint.)
     foundation::net::RegisterReplicationComponents();
     engine::runtime::NetworkController controller;
-    scene::Scene s;
+    scene::Scene s{DefaultAllocator()};
     engine::net::AddNetworkSceneManagers(s); // installs the NetworkSceneSystem
     engine::net::NetworkSceneSystem* sys = s.GetSystem<engine::net::NetworkSceneSystem>();
     REQUIRE(sys != nullptr);
@@ -961,7 +961,7 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
     Guid sceneId;
     {
         // A tiny entities-only scene round-trips with no component managers.
-        scene::Scene authored(u8"level");
+        scene::Scene authored(DefaultAllocator(), u8"level");
         (void)authored.CreateEntity(u8"a");
         (void)authored.CreateEntity(u8"b");
         content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");

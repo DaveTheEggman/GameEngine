@@ -32,7 +32,7 @@ TEST_CASE("engine.scenesurface: full composition covers every domain")
     CHECK(engine::FullSceneComposition().ModuleCount() == 11u); // + terrain + spline
 
     // Reproducing the aggregate: Instantiate yields the full manager set with no parallel list.
-    scene::Scene scratch(u8"surface");
+    scene::Scene scratch(DefaultAllocator(), u8"surface");
     engine::AddAllSceneManagers(scratch);
 
     // The historically-dropped ones stay present by name (each was missing from the export

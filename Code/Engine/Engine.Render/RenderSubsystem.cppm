@@ -109,8 +109,11 @@ export namespace engine::render
                                   public scene::ISceneObserver
     {
     public:
-        RenderSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
-            : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight)
+        // Everything the renderer allocates (systems, passes, caches, per-frame graph
+        // objects) rolls up under the Render memory tag, backed by the owner's allocator.
+        RenderSubsystem(IAllocator& allocator, rhi::Device& device, u32 framesInFlight) noexcept
+            : m_allocator(allocator, RegisterMemoryTag("Render")), m_device(&device),
+              m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight)
         {
         }
 
@@ -291,13 +294,14 @@ export namespace engine::render
         // arena chunks reused) until the next BeginRendering. (One snapshot is taken per RenderScene
         // call.)
         [[nodiscard]] ExtractedScene* AcquireScene();
+        TaggedAllocator m_allocator;
 
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
         u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init)
         // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider
         // with hot reload otherwise). m_shaders caches its ShaderSystem for the passes to borrow.
-        shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()};
+        shaders::ShaderSystemHost m_shaderHost{m_allocator};
         shaders::ShaderSystem* m_shaders = nullptr;
         UniquePtr<materials::PipelineStateCache> m_psoCache;
         UniquePtr<materials::MaterialSystem> m_materialSystem;
@@ -379,7 +383,7 @@ export namespace engine::render
         Array<UniquePtr<ExtractedScene>> m_scenes; // snapshot pool
         usize m_sceneCount = 0;
         Array<scene::Scene*> m_snapshotOwners; // [i] = the scene m_scenes[i] holds this frame
-        RenderContext m_renderCtx;             // per-worker extraction arenas
+        RenderContext m_renderCtx{m_allocator}; // per-worker extraction arenas
     };
 
 } // namespace foundation::render

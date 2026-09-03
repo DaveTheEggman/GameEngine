@@ -35,7 +35,7 @@ namespace
 
 TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the camera")
 {
-    scene::Scene scene(u8"world");
+    scene::Scene scene(DefaultAllocator(), u8"world");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
@@ -72,7 +72,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     CHECK(Near(vc.view.m[3][2], -5.0f));            // view = inverse(camera world)
     CHECK_FALSE(Near(vc.projection.m[2][3], 0.0f)); // a real perspective projection
 
-    ExtractedScene snapshot;
+    ExtractedScene snapshot{DefaultAllocator()};
     ExtractSceneInto(scene, snapshot);
     REQUIRE(snapshot.Size() == 2);
 
@@ -97,7 +97,7 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
 
 TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary camera reported")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* meshes = scene.AddSystem<MeshComponentManager>();
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
@@ -129,21 +129,21 @@ TEST_CASE("ExtractSceneInto skips invisible + mesh-less components; no primary c
     ViewCamera vc;
     CHECK_FALSE(ExtractPrimaryCamera(scene, vc)); // no primary camera
 
-    ExtractedScene snapshot;
+    ExtractedScene snapshot{DefaultAllocator()};
     ExtractSceneInto(scene, snapshot);
     REQUIRE(snapshot.Size() == 1); // only the visible, meshed one
 }
 
 TEST_CASE("ExtractSceneInto on a scene without render managers yields an empty snapshot")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.CreateEntity();
     scene.UpdateTransforms();
 
     ViewCamera vc;
     CHECK_FALSE(ExtractPrimaryCamera(scene, vc));
 
-    ExtractedScene snapshot;
+    ExtractedScene snapshot{DefaultAllocator()};
     ExtractSceneInto(scene, snapshot);
     CHECK(snapshot.Size() == 0);
 }
@@ -184,14 +184,14 @@ TEST_CASE("ExtractSceneInto (parallel) extracts every renderable exactly once")
     InitGlobalJobSystem(4);
     {
         constexpr int N = 2000; // > kParallelExtractThreshold
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         RefPtr<geometry::StaticMesh> mesh;
         RefPtr<materials::Material> material;
         BuildBigScene(scene, N, mesh, material);
 
-        RenderContext ctx;
+        RenderContext ctx{DefaultAllocator()};
         ctx.BeginFrame(GlobalJobs().SlotCount());
-        ExtractedScene out;
+        ExtractedScene out{DefaultAllocator()};
         ExtractSceneInto(scene, out, ctx); // takes the parallel path
 
         REQUIRE(out.Size() == static_cast<usize>(N)); // no drops, no duplicates
@@ -203,14 +203,14 @@ TEST_CASE("ExtractSceneInto (parallel) extracts every renderable exactly once")
 TEST_CASE("ExtractSceneInto (ctx) falls back to serial with no job system")
 {
     REQUIRE_FALSE(HasGlobalJobSystem()); // none started in this test binary
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     RefPtr<geometry::StaticMesh> mesh;
     RefPtr<materials::Material> material;
     BuildBigScene(scene, 50, mesh, material);
 
-    RenderContext ctx;
+    RenderContext ctx{DefaultAllocator()};
     ctx.BeginFrame(1);
-    ExtractedScene out;
+    ExtractedScene out{DefaultAllocator()};
     ExtractSceneInto(scene, out, ctx);
 
     REQUIRE(out.Size() == 50u);
@@ -219,7 +219,7 @@ TEST_CASE("ExtractSceneInto (ctx) falls back to serial with no job system")
 
 TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent category")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
     RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad(DefaultAllocator());
@@ -234,7 +234,7 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
     }
     scene.UpdateTransforms();
 
-    ExtractedScene snapshot;
+    ExtractedScene snapshot{DefaultAllocator()};
     ExtractSceneInto(scene, snapshot);
     REQUIRE(snapshot.Size() == 1);
     const auto* md = static_cast<const MeshRenderData*>(snapshot.Items()[0]);
@@ -243,7 +243,7 @@ TEST_CASE("ExtractSceneInto maps a transparent material to the Transparent categ
 
 TEST_CASE("instanced-mesh: seeded identity instance + entity-relative composition")
 {
-    scene::Scene scene(u8"world");
+    scene::Scene scene(DefaultAllocator(), u8"world");
     auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
 
@@ -256,7 +256,7 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     c.mesh = cube;
     scene.UpdateTransforms();
 
-    ExtractedScene out;
+    ExtractedScene out{DefaultAllocator()};
     ExtractInstancedMeshesInto(scene, out);
     REQUIRE(out.Items().Size() == 1u);
     const auto* rd = static_cast<const MultiMeshRenderData*>(out.Items()[0]);
@@ -269,14 +269,14 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     // key (version) bumps even though the authored set didn't change.
     scene.SetLocalPosition(e, Float3{5, 7, 0});
     scene.UpdateTransforms();
-    ExtractedScene out2;
+    ExtractedScene out2{DefaultAllocator()};
     ExtractInstancedMeshesInto(scene, out2);
     const auto* rd2 = static_cast<const MultiMeshRenderData*>(out2.Items()[0]);
     CHECK(Near(rd2->transforms[0].m[3][1], 7.0f));
     CHECK(rd2->version != firstVersion);
 
     // Unmoved + unchanged: no recompose, same version (static sets stay zero-cost).
-    ExtractedScene out3;
+    ExtractedScene out3{DefaultAllocator()};
     ExtractInstancedMeshesInto(scene, out3);
     const auto* rd3 = static_cast<const MultiMeshRenderData*>(out3.Items()[0]);
     CHECK(rd3->version == rd2->version);
@@ -285,7 +285,7 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     const Float4x4 xf[2] = {Float4x4::Translation(Float3{1, 0, 0}),
                             Float4x4::Translation(Float3{-1, 0, 0})};
     c.SetInstances(Span<const Float4x4>{xf, 2});
-    ExtractedScene out4;
+    ExtractedScene out4{DefaultAllocator()};
     ExtractInstancedMeshesInto(scene, out4);
     const auto* rd4 = static_cast<const MultiMeshRenderData*>(out4.Items()[0]);
     REQUIRE(rd4->instanceCount == 2u);
@@ -295,7 +295,7 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
 
 TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity, cube flag)")
 {
-    foundation::scene::Scene scene(u8"s");
+    foundation::scene::Scene scene(DefaultAllocator(), u8"s");
     auto* env = scene.AddSystem<engine::render::EnvironmentSystem>();
     env->Environment().skyMode = foundation::render::SkyMode::Cubemap;
 
@@ -307,7 +307,7 @@ TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity,
     env->Environment().skyTexture =
         sky.Get(); // direct override (picker/serialized path binds by guid)
 
-    foundation::render::ExtractedScene out;
+    foundation::render::ExtractedScene out{DefaultAllocator()};
     engine::render::ExtractEnvironmentInto(scene, out);
     CHECK(out.Sky().mode == foundation::render::SkyMode::Cubemap);
     CHECK(out.Sky().textureUid == sky->Uid());
@@ -316,7 +316,7 @@ TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity,
 
     // No texture -> no identity (the IBL keeps its programmatic/procedural source).
     env->Environment().skyTexture = foundation::resource::Ref<foundation::texture::Texture>{};
-    foundation::render::ExtractedScene out2;
+    foundation::render::ExtractedScene out2{DefaultAllocator()};
     engine::render::ExtractEnvironmentInto(scene, out2);
     CHECK(out2.Sky().textureUid == 0u);
 }
@@ -326,7 +326,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     // The Sponza symptom: multi-materials that resolve AFTER the first frame (cook finishing
     // in the background) must not stay null - the cache is not a one-shot resolve-time
     // snapshot. Extraction re-reads the refs per frame.
-    scene::Scene scene(u8"world");
+    scene::Scene scene(DefaultAllocator(), u8"world");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
 
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
@@ -344,7 +344,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     late.SetId(Guid{0x1, 0x2});
     mc.materials.PushBack(late);
 
-    ExtractedScene first;
+    ExtractedScene first{DefaultAllocator()};
     ExtractSceneInto(scene, first);
     REQUIRE(first.Items().Size() == 1u);
     {
@@ -357,7 +357,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     // "The cook lands": the slot resolves (direct adopt stands in for the proxy binding).
     mc.materials[1].SetDirect(RefPtr<materials::Material>(matB.Get()));
 
-    ExtractedScene second;
+    ExtractedScene second{DefaultAllocator()};
     ExtractSceneInto(scene, second);
     REQUIRE(second.Items().Size() == 1u);
     {
@@ -368,7 +368,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     // Single-entry list = whole-mesh path (no submesh routing), serving the old single-
     // material setup through the same array.
     mc.materials.Resize(1);
-    ExtractedScene third;
+    ExtractedScene third{DefaultAllocator()};
     ExtractSceneInto(scene, third);
     {
         const auto* rd = static_cast<const MeshRenderData*>(third.Items()[0]);
@@ -379,7 +379,7 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
 
 TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored colors)")
 {
-    scene::Scene scene{u8"world"};
+    scene::Scene scene{DefaultAllocator(), u8"world"};
     scene.AddSystem<SpriteComponentManager>();
     const scene::EntityHandle e = scene.CreateEntity(u8"panel");
     SpriteComponent& sprite = scene.GetSystem<SpriteComponentManager>()->Add(e);
@@ -389,7 +389,7 @@ TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored c
     sprite.orientation = SpriteOrientation::EntityOriented;
     scene.UpdateTransforms();
 
-    ExtractedScene out;
+    ExtractedScene out{DefaultAllocator()};
     ExtractSpritesInto(scene, out, /*rendererId*/ 1);
     REQUIRE(out.Items().Size() == 1u);
     const auto* rd = static_cast<const SpriteRenderData*>(out.Items()[0]);
@@ -400,7 +400,7 @@ TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored c
 
     // The default path stays in Transparent.
     sprite.postTonemap = false;
-    ExtractedScene plain;
+    ExtractedScene plain{DefaultAllocator()};
     ExtractSpritesInto(scene, plain, 1);
     REQUIRE(plain.Items().Size() == 1u);
     CHECK(plain.Items()[0]->category == RenderCategories::Transparent);
@@ -435,7 +435,7 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
 
     // Edit a field of each kind (float, bool, all three enums), serialize the whole scene, reload:
     // the authored look survives (the "serialize with the scene, ship to the runtime" contract).
-    scene::Scene a(u8"look");
+    scene::Scene a(DefaultAllocator(), u8"look");
     PostProcessSystem* postA = a.AddSystem<PostProcessSystem>();
     postA->Post().exposureEV = 1.5f;
     postA->Post().tonemapOperator = TonemapOperator::Clamp;
@@ -453,7 +453,7 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
         REQUIRE(writer.IsOk());
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
-    scene::Scene b;
+    scene::Scene b{DefaultAllocator()};
     PostProcessSystem* postB = b.AddSystem<PostProcessSystem>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
@@ -645,7 +645,7 @@ TEST_CASE("components: reflected types carry authored displayName + category att
 TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task #118)")
 {
     rhi::null::NullDevice device{DefaultAllocator()};
-    RenderSubsystem sub{device, 2};
+    RenderSubsystem sub{DefaultAllocator(), device, 2};
 
     // Two distinct viewport keys (e.g. the main editor viewport + the camera-preview inset).
     int mainKey = 0;
@@ -671,7 +671,7 @@ TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task 
     // list and the scene's (2026-08-18 fix: the original either/or made keyed views - the edit
     // viewport - silently drop ALL scene-level debug draw: physics + navmesh invisible in the
     // editor while PIE showed them). Isolation still holds: scene list != any view list.
-    scene::Scene worldScene(u8"debug-scene");
+    scene::Scene worldScene(DefaultAllocator(), u8"debug-scene");
     debug::DebugDraw& sceneDbg = sub.DebugScene(worldScene);
     CHECK(&sceneDbg != &mainDbg);
     CHECK(&sceneDbg != &previewDbg);
@@ -700,7 +700,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
 {
     // One gate per extraction loop, driven by the effective-active cache - so an inactive
     // PARENT hides a child's renderables without touching own flags.
-    scene::Scene scene(u8"active-gate");
+    scene::Scene scene(DefaultAllocator(), u8"active-gate");
     auto* meshes = scene.AddSystem<MeshComponentManager>();
     auto* instanced = scene.AddSystem<InstancedMeshComponentManager>();
     auto* sprites = scene.AddSystem<SpriteComponentManager>();
@@ -738,7 +738,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     };
 
     {
-        ExtractedScene all;
+        ExtractedScene all{DefaultAllocator()};
         extractAll(all);
         CHECK(all.Size() == 3);                        // parent mesh + child instanced + bystander
         CHECK(all.Lights().Size() == 1);
@@ -748,7 +748,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     // Deactivate the PARENT: the whole subtree goes dark; own flags below are untouched.
     scene.SetActive(parent, false);
     {
-        ExtractedScene dark;
+        ExtractedScene dark{DefaultAllocator()};
         extractAll(dark);
         CHECK(dark.Size() == 1); // only the bystander survives
         CHECK(dark.Lights().Size() == 0);
@@ -759,7 +759,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     // Reactivate: everything returns.
     scene.SetActive(parent, true);
     {
-        ExtractedScene restored;
+        ExtractedScene restored{DefaultAllocator()};
         extractAll(restored);
         CHECK(restored.Size() == 3);
         CHECK(restored.Lights().Size() == 1);
@@ -770,7 +770,7 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
 
 TEST_CASE("extract: an inactive primary camera falls through to the next primary")
 {
-    scene::Scene scene(u8"cam-fallthrough");
+    scene::Scene scene(DefaultAllocator(), u8"cam-fallthrough");
     auto* cameras = scene.AddSystem<CameraComponentManager>();
 
     scene::EntityHandle first = scene.CreateEntity(u8"first");

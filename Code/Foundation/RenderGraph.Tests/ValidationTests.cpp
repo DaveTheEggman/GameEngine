@@ -47,7 +47,7 @@ namespace
 
 TEST_CASE("rg.validation: uninitialized read is an error")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -65,7 +65,7 @@ TEST_CASE("rg.validation: uninitialized read is an error")
 
 TEST_CASE("rg.validation: reading an imported resource is fine")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle imported = graph.ImportTarget(u8"External", nullptr, nullptr);
     graph.AddRenderPass(u8"ReadImported",
@@ -82,7 +82,7 @@ TEST_CASE("rg.validation: reading an imported resource is fine")
 
 TEST_CASE("rg.validation: empty pass is a warning")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     graph.AddRenderPass(u8"Empty", [](PassBuilder& b) { b.NeverCull(); });
 
@@ -93,7 +93,7 @@ TEST_CASE("rg.validation: empty pass is a warning")
 
 TEST_CASE("rg.validation: redundant write is a warning")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -117,7 +117,7 @@ TEST_CASE("rg.validation: redundant write is a warning")
 
 TEST_CASE("rg.validation: a clean graph produces no messages")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -143,7 +143,7 @@ TEST_CASE("rg.validation: a clean graph produces no messages")
 
 TEST_CASE("rg.validation: ValidateToString formats output")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));

@@ -85,7 +85,7 @@ namespace
             SsrPass ssr(device, shaderSystem);
             REQUIRE(ssr.Initialize().IsOk());
 
-            RenderFrame frame(device, registry, 2, /*clusters*/ nullptr, &tonemap, /*shadows*/ nullptr,
+            RenderFrame frame(DefaultAllocator(), device, registry, 2, /*clusters*/ nullptr, &tonemap, /*shadows*/ nullptr,
                               /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr,
                               cfg.taa ? &taa : nullptr, cfg.aoMode != 0 ? &ao : nullptr,
                               cfg.fxaa ? &fxaa : nullptr);
@@ -101,7 +101,7 @@ namespace
             RefPtr<geometry::StaticMesh> cubeMesh = geometry::Primitives::Cube(DefaultAllocator(), 2.2f);
             RefPtr<materials::Material> cubeMat =
                 materials::CreatePBR(u8"msaa.cube", Float4{1, 1, 1, 1}, 0.0f, 0.6f);
-            ExtractedScene scene;
+            ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
             MeshRenderData* cube = scene.Add<MeshRenderData>();
             cube->world = Float4x4::RotationY(0.6f) * Float4x4::RotationX(0.5f);
@@ -285,7 +285,7 @@ namespace
         rhi::Backend* vulkan = nullptr;
         (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
         rhi::Backend* webgpu = nullptr;
-        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+        (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 #ifdef OPTION_HAS_DX12
         rhi::Backend* dx12 = nullptr;
         (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);

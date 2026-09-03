@@ -78,7 +78,7 @@ TEST_CASE("inspector: removing the last collision group clears its bit from ever
 {
     engine::physics::RegisterPhysicsComponentReflection();
 
-    scene::Scene scene(u8"t");
+    scene::Scene scene(DefaultAllocator(), u8"t");
     auto* physics = scene.AddSystem<engine::physics::PhysicsSceneSystem>();
     auto& settings = physics->Settings();
     settings.groupNames.PushBack(String(u8"Default"));
@@ -123,7 +123,7 @@ TEST_CASE("inspector: collision group removal refuses non-last indices and the f
 {
     engine::physics::RegisterPhysicsComponentReflection();
 
-    scene::Scene scene(u8"t");
+    scene::Scene scene(DefaultAllocator(), u8"t");
     auto* physics = scene.AddSystem<engine::physics::PhysicsSceneSystem>();
     auto& settings = physics->Settings();
     settings.groupNames.PushBack(String(u8"Default"));

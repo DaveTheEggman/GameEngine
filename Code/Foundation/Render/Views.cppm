@@ -203,13 +203,18 @@ export namespace foundation::render
     class RenderViewPool
     {
     public:
+        explicit RenderViewPool(IAllocator& allocator) noexcept
+            : m_allocator(&allocator), m_views(allocator)
+        {
+        }
+
         void Begin() noexcept { m_count = 0; }
 
         [[nodiscard]] RenderView* Acquire()
         {
             if (m_count == m_views.Size())
             {
-                m_views.PushBack(MakeUnique<RenderView>(DefaultAllocator()));
+                m_views.PushBack(MakeUnique<RenderView>(*m_allocator));
             }
             return m_views[m_count++].Get();
         }
@@ -218,6 +223,7 @@ export namespace foundation::render
         [[nodiscard]] RenderView* At(usize i) const noexcept { return m_views[i].Get(); }
 
     private:
+        IAllocator* m_allocator;
         Array<UniquePtr<RenderView>> m_views;
         usize m_count = 0;
     };

@@ -557,8 +557,8 @@ export namespace editor
         runtime::IApplicationHost* m_host;         // borrowed
         ui::runtime::UIHost* m_uiHost;             // borrowed
         engine::scene::SceneSubsystem* m_scenes = nullptr; // borrowed (context subsystem: registry + tick)
-        scene::SceneManager
-            m_sceneManager; // this page's OWN scene group (registered with m_scenes)
+        scene::SceneManager m_sceneManager{
+            DefaultAllocator()}; // this page's OWN scene group (registered with m_scenes)
         foundation::messaging::EventBus m_pageEvents; // the page's run-scope bus (edit-mode Simulate)
         engine::render::RenderSubsystem* m_render = nullptr;
         engine::ui::UISubsystem* m_gameUI = nullptr; // RT-canvas host seam (borrowed)
@@ -731,7 +731,7 @@ export namespace editor
 
         // Seed one root entity so the prefab opens in the enforced single-root shape and is
         // spawnable immediately (an empty payload can't spawn).
-        scene::Scene seed(u8"seed");
+        scene::Scene seed(DefaultAllocator(), u8"seed");
         scene::EntityHandle root = seed.CreateEntity(name.AsView());
         MemoryStream buffer;
         if (scene::CapturePrefab(seed, root, buffer).IsOk())
@@ -789,7 +789,7 @@ export namespace editor
         // the classic "why is my duck untextured"). An authored entity, not editor magic: it
         // saves with the scene, shows in the hierarchy, and is free to edit or delete.
         {
-            scene::Scene seeded(name.AsView());
+            scene::Scene seeded(DefaultAllocator(), name.AsView());
             seeded.AddSystem<engine::render::LightComponentManager>();
             const scene::EntityHandle sun = seeded.CreateEntity(u8"Sun");
             Transform t;
@@ -880,7 +880,7 @@ export namespace editor
             }
             // A transient scratch scene assembled from the full composition (no component type
             // silently skipped by a hand-listed set).
-            scene::Scene scratch(u8"__export_transcode");
+            scene::Scene scratch(DefaultAllocator(), u8"__export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
@@ -910,7 +910,7 @@ export namespace editor
             }
             // A transient scratch scene assembled from the full composition (no component type
             // silently skipped by a hand-listed set).
-            scene::Scene scratch(u8"__export_scan");
+            scene::Scene scratch(DefaultAllocator(), u8"__export_scan");
             engine::AddAllSceneManagers(scratch);
             const bool loaded = scene::LoadScene(instance, scratch).IsOk();
             if (loaded)

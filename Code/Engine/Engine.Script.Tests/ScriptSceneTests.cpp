@@ -172,7 +172,7 @@ namespace
         // only a borrowed bus) - it owns the bus, injects it before systems bind, and
         // drains it at frame top exactly like GameInstance / the editor page do.
         foundation::messaging::EventBus bus;
-        scene::Scene scene{u8"script-test"};
+        scene::Scene scene{DefaultAllocator(), u8"script-test"};
         ScriptRunHost host{DefaultAllocator()};
         ScriptComponentManager* components = nullptr;
         ScriptSceneSystem* scripts = nullptr;
@@ -826,7 +826,7 @@ TEST_CASE("script.scene: component wire round-trips through SerializeScene (scri
           "refs, enabled flags, every override kind; symmetric + count-guarded)")
 {
     RegisterScriptComponentReflection();
-    scene::Scene scene(u8"wire");
+    scene::Scene scene(DefaultAllocator(), u8"wire");
     auto* manager = scene.AddSystem<ScriptComponentManager>();
 
     const scene::EntityHandle e = scene.CreateEntity(u8"scripted");
@@ -871,7 +871,7 @@ TEST_CASE("script.scene: component wire round-trips through SerializeScene (scri
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    scene::Scene loaded(u8"loaded");
+    scene::Scene loaded(DefaultAllocator(), u8"loaded");
     auto* loadedManager = loaded.AddSystem<ScriptComponentManager>();
     {
         BinarySerializer r(stream, SerializeMode::Read);
@@ -921,7 +921,7 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
     RegisterScriptComponentReflection();
 
     // Author the prefab: one entity with a scripted behavior, default speed.
-    scene::Scene author(u8"author");
+    scene::Scene author(DefaultAllocator(), u8"author");
     auto* authorScripts = author.AddSystem<ScriptComponentManager>();
     const scene::EntityHandle root = author.CreateEntity(u8"Bot");
     {
@@ -934,7 +934,7 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
     REQUIRE(scene::CapturePrefab(author, root, payload).IsOk());
 
     // Level: two instances; ONE overrides the behavior's speed.
-    scene::Scene level(u8"level");
+    scene::Scene level(DefaultAllocator(), u8"level");
     auto* levelScripts = level.AddSystem<ScriptComponentManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0xBB, 0x02};
@@ -959,7 +959,7 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
         scene::SerializeScene(w, level);
         REQUIRE(w.IsOk());
     }
-    scene::Scene loaded(u8"loaded");
+    scene::Scene loaded(DefaultAllocator(), u8"loaded");
     auto* loadedScripts = loaded.AddSystem<ScriptComponentManager>();
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
@@ -1351,7 +1351,7 @@ TEST_CASE("script.scene: updateInterval throttles onUpdate and delivers the accu
 TEST_CASE("script.scene: updateInterval survives the SerializeScene wire")
 {
     RegisterScriptComponentReflection();
-    scene::Scene scene(u8"interval-wire");
+    scene::Scene scene(DefaultAllocator(), u8"interval-wire");
     auto* manager = scene.AddSystem<ScriptComponentManager>();
     const scene::EntityHandle e = scene.CreateEntity(u8"scripted");
     ScriptComponent& c = manager->Add(e);
@@ -1369,7 +1369,7 @@ TEST_CASE("script.scene: updateInterval survives the SerializeScene wire")
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    scene::Scene loaded(u8"loaded");
+    scene::Scene loaded(DefaultAllocator(), u8"loaded");
     auto* loadedManager = loaded.AddSystem<ScriptComponentManager>();
     {
         BinarySerializer r(stream, SerializeMode::Read);
@@ -2379,7 +2379,7 @@ namespace
             }
             ctx.Startup();
             bridge.Install(*physics, *scripts); // the composition-root bridge (the real adapter)
-            sm = MakeUnique<scene::SceneManager>(DefaultAllocator());
+            sm = MakeUnique<scene::SceneManager>(DefaultAllocator(), DefaultAllocator());
             scenes->RegisterManager(sm.Get());
             scene = sm->CreateScene(u8"level");
         }
@@ -2520,7 +2520,7 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
     namespace runtime = foundation::runtime;
     runtime::Context ctx(foundation::core::DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
-    scene::SceneManager sm;
+    scene::SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
     {
         const scene::SceneModule scriptModule{u8"script", &engine::script::AddScriptSceneManagers,
@@ -2570,8 +2570,8 @@ TEST_CASE("script.scene: behaviors tick without error when no physics subsystem 
 TEST_CASE("script-facade: entity.scene() is bound to the entity's OWN scene (cross-scene isolation)")
 {
     // Pure facade test - no VM. Two scenes; an entity of A resolves + finds in A, never B.
-    scene::Scene a(u8"A");
-    scene::Scene b(u8"B");
+    scene::Scene a(DefaultAllocator(), u8"A");
+    scene::Scene b(DefaultAllocator(), u8"B");
     const scene::EntityHandle ea = a.CreateEntity(u8"ea");
     const scene::EntityHandle eb = b.CreateEntity(u8"eb");
     a.CreateEntity(u8"target"); // only in A
@@ -3159,7 +3159,7 @@ TEST_CASE("script.scene: DebugDraw.of(scene) appends to THIS scene's list on the
     engine::render::RegisterRenderScriptFacade();
 
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
-    engine::render::RenderSubsystem sub{device, 2};
+    engine::render::RenderSubsystem sub{DefaultAllocator(), device, 2};
 
     ScriptedScene bed;
     // The app-side wiring: ExposeToScript installs the per-context render service at context
@@ -3194,7 +3194,7 @@ TEST_CASE("script.scene: DebugDraw.of(scene) appends to THIS scene's list on the
     CHECK(drawn.LineVertices()[1].position.z == doctest::Approx(3.0f));
 
     // Another scene's list on the SAME subsystem stays empty - per-scene isolation, no bleed.
-    scene::Scene other{u8"other-scene"};
+    scene::Scene other{DefaultAllocator(), u8"other-scene"};
     CHECK_FALSE(sub.DebugScene(other).HasAnyDraws());
 }
 

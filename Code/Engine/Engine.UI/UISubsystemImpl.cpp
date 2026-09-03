@@ -166,7 +166,8 @@ namespace engine::ui
     // Per-target-format VG pipeline (backbuffer vs viewport formats differ).
     struct UISubsystem::RenderState
     {
-        foundation::shaders::ShaderSystemHost shaderHost{DefaultAllocator()}; // owns the ShaderSystem + VG modules
+        IAllocator* allocator;
+        foundation::shaders::ShaderSystemHost shaderHost; // owns the ShaderSystem + VG modules
         rhi::Device* device = nullptr;
         rhi::ShaderModule* vertexShader = nullptr;       // borrowed from shaderHost
         rhi::ShaderModule* fragmentShader = nullptr;     // borrowed from shaderHost
@@ -216,7 +217,10 @@ namespace engine::ui
         // 4x is universally supported for 8-bit color on Vulkan and guaranteed by WebGPU).
         static constexpr u32 kCanvasMsaaSamples = 4;
 
-        explicit RenderState(foundation::fonts::IFontService* fonts) : vgContext(fonts) {}
+        RenderState(IAllocator& alloc, foundation::fonts::IFontService* fonts)
+            : allocator(&alloc), shaderHost(alloc), vgContext(fonts)
+        {
+        }
 
         ~RenderState()
         {
@@ -447,7 +451,7 @@ namespace engine::ui
                 {
                     targetConfig.depthStencilFormat = canvasStencilFormat;
                 }
-                auto renderer = MakeUnique<vg::renderer::VGRenderer>(DefaultAllocator());
+                auto renderer = MakeUnique<vg::renderer::VGRenderer>(*allocator, *allocator);
                 if (!renderer
                          ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount,
                                       dfShader, gradRadialShader, gradConicShader, targetConfig)
@@ -472,15 +476,18 @@ namespace engine::ui
         }
     };
 
-    UISubsystem::UISubsystem() = default;
+    UISubsystem::UISubsystem(IAllocator& allocator)
+        : m_allocator(allocator, RegisterMemoryTag("GameUI"))
+    {
+    }
     UISubsystem::~UISubsystem() = default;
 
     void UISubsystem::OnInit()
     {
         MarkupLoader::Initialize();
         foundation::ui::gamekit::RegisterGamekitMarkup(); // the `<screen>` element for authored screens
-        m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(DefaultAllocator(),
-                                                                     DefaultAllocator());
+        m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(m_allocator,
+                                                                     m_allocator);
         StringView fontPath = m_fontPath.AsView();
         if (fontPath.IsEmpty())
         {
@@ -501,16 +508,16 @@ namespace engine::ui
                      fontPath);
         }
         m_context.SetFontService(m_fonts.Get());
-        m_theme = GameTheme::Create(DefaultAllocator());
+        m_theme = GameTheme::Create(m_allocator);
         m_context.SetStyleSheet(m_theme);
         // The scene-LESS screen tier: the screen root holds ONLY the global overlay
         // layer (each scene's canvases + billboards live in that scene's own root). It
         // only hit-tests while it HOLDS overlays - an empty full-screen layer must never
         // swallow the clicks meant for the scene canvases below it.
-        m_screenRoot = MakeRef<RootView>(DefaultAllocator());
+        m_screenRoot = MakeRef<RootView>(m_allocator);
         m_context.AddRootView(m_screenRoot.Get());
         m_screenStack.Attach(m_screenRoot.Get()); // the `ui` facade's push/pop operate on this root
-        auto overlay = MakeRef<FrameLayout>(DefaultAllocator());
+        auto overlay = MakeRef<FrameLayout>(m_allocator);
         overlay->IsHitTestVisible = false;
         m_overlayLayer = overlay;
         m_screenRoot->AddView(m_overlayLayer.Get());
@@ -669,7 +676,7 @@ namespace engine::ui
                                 // RenderTexture: a STANDALONE root - never parented into a
                                 // tier (not drawn by the overlay roles) and never an input
                                 // root (v1 RT canvases are non-interactive).
-                                c.renderRoot = MakeRef<RootView>(DefaultAllocator());
+                                c.renderRoot = MakeRef<RootView>(m_allocator);
                                 c.renderRoot->AddView(c.root.Get());
                                 m_context.AddRootView(c.renderRoot.Get());
                                 TextureCanvasRoot entry;
@@ -697,7 +704,7 @@ namespace engine::ui
                         // component - is swept below.)
                         if (c.host.Get() == nullptr)
                         {
-                            c.host = MakeRef<CanvasHostView>(DefaultAllocator());
+                            c.host = MakeRef<CanvasHostView>(m_allocator);
                             sceneUI.root->AddView(c.host.Get());
                         }
                         auto* host = static_cast<CanvasHostView*>(c.host.Get());
@@ -780,7 +787,7 @@ namespace engine::ui
                                 MarkupLoader::LoadFromString(m_context.Allocator(), document->markup.AsView(), &m_context);
                             if (c.root.Get() != nullptr)
                             {
-                                auto lp = MakeRef<AbsoluteLayoutParams>(DefaultAllocator());
+                                auto lp = MakeRef<AbsoluteLayoutParams>(m_allocator);
                                 c.root->LayoutParams = lp;
                                 sceneUI.billboardLayer->AddView(c.root.Get());
                             }
@@ -838,7 +845,7 @@ namespace engine::ui
                                                                       &m_context);
                                 if (c.root.Get() != nullptr)
                                 {
-                                    c.renderRoot = MakeRef<RootView>(DefaultAllocator());
+                                    c.renderRoot = MakeRef<RootView>(m_allocator);
                                     c.renderRoot->AddView(c.root.Get());
                                     m_context.AddRootView(c.renderRoot.Get());
                                     TextureCanvasRoot entry;
@@ -1814,7 +1821,7 @@ namespace engine::ui
         {
             return {};
         }
-        RefPtr<RootView> root = MakeRef<RootView>(DefaultAllocator());
+        RefPtr<RootView> root = MakeRef<RootView>(m_allocator);
         root->AddView(tree.Get());
         // Registered on the GAME context (styles/fonts/ids resolve there) but NEVER on
         // the screen root or a scene root - the overlay roles only draw those, so
@@ -1855,8 +1862,8 @@ namespace engine::ui
             m_context.SetFontService(m_fonts.Get());
             return;
         }
-        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(DefaultAllocator(),
-                                                                             DefaultAllocator());
+        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(m_allocator,
+                                                                             m_allocator);
         m_resourceFonts->AddFont(font);
         m_context.SetFontService(m_resourceFonts.Get());
         LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
@@ -1877,7 +1884,7 @@ namespace engine::ui
                     u8"UI", u8"default UI theme failed to parse - keeping the built-in GameTheme");
             }
         }
-        m_theme = sheet.Get() != nullptr ? sheet : GameTheme::Create(DefaultAllocator());
+        m_theme = sheet.Get() != nullptr ? sheet : GameTheme::Create(m_allocator);
         m_context.SetStyleSheet(m_theme);
     }
 
@@ -1886,7 +1893,7 @@ namespace engine::ui
     {
         if (m_render.Get() == nullptr)
         {
-            m_render = MakeUnique<RenderState>(DefaultAllocator(), m_context.FontService());
+            m_render = MakeUnique<RenderState>(m_allocator, m_allocator, m_context.FontService());
         }
         if (m_render->device != nullptr)
         {

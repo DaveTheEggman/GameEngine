@@ -541,7 +541,7 @@ export namespace engine::runtime
             foundation::core::DefaultAllocator()}; // owned: the game's script context (process
                                                    // root until the instance phase threads one)
         messaging::EventBus m_runEvents; // the run-scoped event bus (app-owned)
-        scene::SceneManager m_sceneManager; // owned; registered with the SceneSubsystem to tick
+        scene::SceneManager m_sceneManager{DefaultAllocator()}; // owned; registered with the SceneSubsystem to tick
         scene::Scene* m_scene = nullptr;
         script::IScriptErrorHandler* m_errorHandler = nullptr;
         bool m_headless = false;

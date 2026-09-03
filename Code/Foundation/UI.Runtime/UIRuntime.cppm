@@ -60,6 +60,8 @@ export namespace foundation::ui::runtime
     class UIWindowData final : public graphics::IRenderWindowData
     {
     public:
+        explicit UIWindowData(core::IAllocator& allocator) noexcept : renderer(allocator) {}
+
         core::RefPtr<RootView> root;
         core::UniquePtr<vg::VGContext> vg;
         vg::renderer::VGRenderer renderer;
@@ -273,7 +275,7 @@ export namespace foundation::ui::runtime
                 (void)BakeThemeIcons(m_uiScale);
             }
 
-            auto data = core::MakeUnique<UIWindowData>(*m_allocator);
+            auto data = core::MakeUnique<UIWindowData>(*m_allocator, *m_allocator);
             data->root = root;
             data->vg = core::MakeUnique<vg::VGContext>(*m_allocator, m_fonts);
             // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack
@@ -727,7 +729,7 @@ export namespace foundation::ui::runtime
                 vg::svg::SVGRenderer::Render(bakeVg, cell.drawable->Document(), rect, {});
             }
 
-            vg::renderer::VGRenderer bakeRenderer;
+            vg::renderer::VGRenderer bakeRenderer(*m_allocator);
             if (!bakeRenderer
                      .Initialize(*device, *m_vs, *m_fs, rhi::TextureFormat::RGBA8UnormSrgb, 1)
                      .IsOk())

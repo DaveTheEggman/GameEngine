@@ -108,7 +108,10 @@ export namespace engine::particles
             {
                 return;
             }
-            m_renderer = MakeUnique<ParticleRenderer>(DefaultAllocator(), *device, *sh,
+            foundation::runtime::Context* context = GetContext();
+            IAllocator& allocator =
+                context != nullptr ? context->Allocator() : DefaultAllocator();
+            m_renderer = MakeUnique<ParticleRenderer>(allocator, *device, *sh,
                                                       m_render->FramesInFlight());
             if (m_renderer->Initialize().IsOk())
             {

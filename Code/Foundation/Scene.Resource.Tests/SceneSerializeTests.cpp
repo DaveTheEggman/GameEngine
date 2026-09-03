@@ -36,7 +36,7 @@ namespace
 TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transforms, components)")
 {
     // --- author scene A ---
-    Scene a(u8"level");
+    Scene a(DefaultAllocator(), u8"level");
     HealthManager* mgrA = a.AddSystem<HealthManager>();
     EntityHandle root = a.CreateEntity(u8"root");
     EntityHandle child = a.CreateEntity(u8"child");
@@ -59,7 +59,7 @@ TEST_CASE("scene round-trips through SerializeScene (entities, hierarchy, transf
     (void)stream.Seek(0, SeekOrigin::Begin);
 
     // --- deserialize into a fresh scene B (with the same manager present) ---
-    Scene b;
+    Scene b{DefaultAllocator()};
     HealthManager* mgrB = b.AddSystem<HealthManager>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
@@ -104,7 +104,7 @@ TEST_CASE("scene load: an entity saved INACTIVE (incl. inactive parent / active 
     // SetActive during the entities block and relinks parents AFTER - the reparent choke
     // point must settle effective state, so a child that is own-active under a saved-inactive
     // parent loads effectively inactive with its own flag intact.
-    Scene a(u8"start-inactive");
+    Scene a(DefaultAllocator(), u8"start-inactive");
     EntityHandle parent = a.CreateEntity(u8"parent");
     EntityHandle child = a.CreateEntity(u8"child");
     a.SetParent(child, parent);
@@ -120,7 +120,7 @@ TEST_CASE("scene load: an entity saved INACTIVE (incl. inactive parent / active 
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    Scene b;
+    Scene b{DefaultAllocator()};
     {
         BinarySerializer reader(stream, SerializeMode::Read);
         SerializeScene(reader, b);
@@ -142,7 +142,7 @@ TEST_CASE("scene load: an entity saved INACTIVE (incl. inactive parent / active 
 
 TEST_CASE("empty scene round-trips")
 {
-    Scene a(u8"empty");
+    Scene a(DefaultAllocator(), u8"empty");
     MemoryStream stream;
     {
         BinarySerializer w(stream, SerializeMode::Write);
@@ -150,7 +150,7 @@ TEST_CASE("empty scene round-trips")
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    Scene b;
+    Scene b{DefaultAllocator()};
     {
         BinarySerializer r(stream, SerializeMode::Read);
         SerializeScene(r, b);
@@ -164,7 +164,7 @@ TEST_CASE("empty scene round-trips")
 // the editor hierarchy is reorderable and saves must preserve it.
 TEST_CASE("scene-serialize: sibling order round-trips after reorders")
 {
-    Scene scene(u8"ordered");
+    Scene scene(DefaultAllocator(), u8"ordered");
     EntityHandle a = scene.CreateEntity(u8"a");
     EntityHandle b = scene.CreateEntity(u8"b");
     EntityHandle c = scene.CreateEntity(u8"c");
@@ -181,7 +181,7 @@ TEST_CASE("scene-serialize: sibling order round-trips after reorders")
         SerializeScene(ar, scene);
     }
 
-    Scene loaded;
+    Scene loaded{DefaultAllocator()};
     (void)buffer.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer ar(buffer, SerializeMode::Read);
@@ -216,7 +216,7 @@ TEST_CASE("scene-serialize: fresh guids never collide with loaded entities")
     MemoryStream blob;
     Guid firstId;
     {
-        Scene scene;
+        Scene scene{DefaultAllocator()};
         firstId = scene.GetEntityId(scene.CreateEntity(u8"First"));
         BinarySerializer ar(blob, SerializeMode::Write);
         SerializeScene(ar, scene);
@@ -224,7 +224,7 @@ TEST_CASE("scene-serialize: fresh guids never collide with loaded entities")
     }
 
     // Session 2 (fresh scene = fresh deterministic RNG): load, then create MORE entities.
-    Scene loaded;
+    Scene loaded{DefaultAllocator()};
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(blob, SerializeMode::Read);
@@ -248,7 +248,7 @@ TEST_CASE("scene-serialize: a save with duplicate entity guids loads with recove
     MemoryStream blob;
     Guid shared;
     {
-        Scene scene;
+        Scene scene{DefaultAllocator()};
         shared = scene.GetEntityId(scene.CreateEntity(u8"Original"));
         (void)scene.CreateEntity(shared, u8"Impostor"); // explicit-guid create = the corruption
         BinarySerializer ar(blob, SerializeMode::Write);
@@ -256,7 +256,7 @@ TEST_CASE("scene-serialize: a save with duplicate entity guids loads with recove
         REQUIRE(ar.IsOk());
     }
 
-    Scene loaded;
+    Scene loaded{DefaultAllocator()};
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(blob, SerializeMode::Read);
@@ -276,7 +276,7 @@ TEST_CASE("scene-snapshot: capture -> simulate-style mutations -> restore into t
     // The editor's Simulate loop: snapshot, let the running scene mutate freely, restore the
     // exact pre-play state into the same Scene instance (borrowed pointers stay valid; guids
     // are part of the snapshot so guid-keyed state re-resolves).
-    Scene scene(u8"level");
+    Scene scene(DefaultAllocator(), u8"level");
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     EntityHandle hero = scene.CreateEntity(u8"hero");
     EntityHandle prop = scene.CreateEntity(u8"prop");
@@ -363,7 +363,7 @@ TEST_CASE("scene-serialize: component records carry the reflected type's data ve
     RttiRegisterValue_Turret(); // patches TypeOf<Turret> (name + dataVersion 3)
     REQUIRE(TypeOf<Turret>().dataVersion == 3u);
 
-    Scene a(u8"level");
+    Scene a(DefaultAllocator(), u8"level");
     a.AddSystem<TurretManager>()->Add(a.CreateEntity(u8"t")).range = 9.0f;
 
     MemoryStream blob;
@@ -373,7 +373,7 @@ TEST_CASE("scene-serialize: component records carry the reflected type's data ve
         REQUIRE(ar.IsOk());
     }
 
-    Scene b;
+    Scene b{DefaultAllocator()};
     TurretManager* mgr = b.AddSystem<TurretManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
@@ -422,7 +422,7 @@ namespace
 TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves still load")
 {
     // --- round-trip ---
-    Scene a(u8"level");
+    Scene a(DefaultAllocator(), u8"level");
     FogSystem* fogA = a.AddSystem<FogSystem>();
     fogA->settings.density = 2.25f;
     fogA->settings.tint = Color{0.2f, 0.4f, 0.6f, 1.0f};
@@ -436,7 +436,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     }
     {
         (void)stream.Seek(0, SeekOrigin::Begin);
-        Scene b;
+        Scene b{DefaultAllocator()};
         FogSystem* fogB = b.AddSystem<FogSystem>();
         BinarySerializer reader(stream, SerializeMode::Read);
         SerializeScene(reader, b, &stream);
@@ -449,7 +449,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     // Simulate by serializing a scene with NO settings systems and chopping the trailing
     // settings-count u32 - byte-identical to a pre-settings save. The legacyProbe stream
     // check must leave defaults standing with the serializer still OK.
-    Scene legacy(u8"old");
+    Scene legacy(DefaultAllocator(), u8"old");
     (void)legacy.CreateEntity(u8"e");
     MemoryStream legacyFull;
     {
@@ -465,7 +465,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     (void)legacyStream.Write(legacyFull.Bytes().Data(), legacyFull.Bytes().Size() - legacyChop);
     (void)legacyStream.Seek(0, SeekOrigin::Begin);
     {
-        Scene c;
+        Scene c{DefaultAllocator()};
         FogSystem* fogC = c.AddSystem<FogSystem>();
         BinarySerializer reader(legacyStream, SerializeMode::Read);
         SerializeScene(reader, c, &legacyStream);
@@ -480,7 +480,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
                                 legacyFull.Bytes().Size() - (sizeof(u8) + sizeof(u32)));
     (void)prePrefabStream.Seek(0, SeekOrigin::Begin);
     {
-        Scene c;
+        Scene c{DefaultAllocator()};
         FogSystem* fogC = c.AddSystem<FogSystem>();
         BinarySerializer reader(prePrefabStream, SerializeMode::Read);
         SerializeScene(reader, c, &prePrefabStream);
@@ -492,7 +492,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
     // Without the probe (a snapshot restore), the section is expected and reads normally.
     (void)stream.Seek(0, SeekOrigin::Begin);
     {
-        Scene d;
+        Scene d{DefaultAllocator()};
         FogSystem* fogD = d.AddSystem<FogSystem>();
         BinarySerializer reader(stream, SerializeMode::Read);
         SerializeScene(reader, d);
@@ -505,7 +505,7 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
 
 TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, baselines)")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Turret");
     EntityHandle barrel = author.CreateEntity(u8"Barrel");
@@ -519,7 +519,7 @@ TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, b
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
-    Scene target(u8"level");
+    Scene target(DefaultAllocator(), u8"level");
     HealthManager* health = target.AddSystem<HealthManager>();
     EntityHandle anchor = target.CreateEntity(u8"Anchor");
 
@@ -554,7 +554,7 @@ TEST_CASE("prefab: capture -> spawn twice (fresh guids, hierarchy, components, b
 
 TEST_CASE("prefab: an intra-prefab EntityRef remaps to the instance's own copy")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     RttiRegisterValue_Link(); // build Link's reflection (Properties) so the prefab remap sees `target`
     LinkManager* authorLinks = author.AddSystem<LinkManager>();
     EntityHandle root = author.CreateEntity(u8"Root");
@@ -565,7 +565,7 @@ TEST_CASE("prefab: an intra-prefab EntityRef remaps to the instance's own copy")
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
-    Scene target(u8"level");
+    Scene target(DefaultAllocator(), u8"level");
     LinkManager* links = target.AddSystem<LinkManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     EntityHandle inst1 = SpawnPrefab(target, payload, Guid{0xAA, 0xBB});
@@ -595,7 +595,7 @@ TEST_CASE("prefab: an EntityRef pointing OUTSIDE the prefab is left unchanged")
 {
     const Guid external{0x1234, 0x5678}; // an entity that is NOT part of the prefab
 
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     RttiRegisterValue_Link(); // build Link's reflection (Properties) so the prefab remap sees `target`
     LinkManager* authorLinks = author.AddSystem<LinkManager>();
     EntityHandle root = author.CreateEntity(u8"Root");
@@ -604,7 +604,7 @@ TEST_CASE("prefab: an EntityRef pointing OUTSIDE the prefab is left unchanged")
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
-    Scene target(u8"level");
+    Scene target(DefaultAllocator(), u8"level");
     LinkManager* links = target.AddSystem<LinkManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     EntityHandle inst = SpawnPrefab(target, payload, Guid{0xAA, 0xBB});
@@ -616,7 +616,7 @@ TEST_CASE("prefab: an EntityRef pointing OUTSIDE the prefab is left unchanged")
 TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrides survive)")
 {
     // Author + capture the payload.
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Tower");
     EntityHandle top = author.CreateEntity(u8"Top");
@@ -629,7 +629,7 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
     // Level: one plain entity + one instance with EVERY delta kind.
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     EntityHandle plain = level.CreateEntity(u8"Plain");
     health->Add(plain).value = 7.0f;
@@ -658,7 +658,7 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
     }
 
     // Load into a fresh scene + resolve prefabs with a payload resolver.
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
@@ -704,7 +704,7 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
 
 TEST_CASE("prefab: destroyed members stay destroyed across save/load")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     (void)author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Squad");
     EntityHandle a = author.CreateEntity(u8"A");
@@ -714,7 +714,7 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     (void)level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0x77, 0x88};
@@ -729,7 +729,7 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
         BinarySerializer w(saved, SerializeMode::Write);
         SerializeScene(w, level);
     }
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     (void)loaded.AddSystem<HealthManager>();
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
@@ -760,14 +760,14 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
 
 TEST_CASE("prefab: snapshots expand instances and restore their state resolver-free")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Prop");
     authorHealth->Add(root).value = 33.0f;
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0x42, 0x42};
@@ -796,7 +796,7 @@ TEST_CASE("prefab: snapshots expand instances and restore their state resolver-f
 
 TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"House");
     EntityHandle door = author.CreateEntity(u8"Door");
@@ -805,7 +805,7 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
     MemoryStream payloadV1;
     REQUIRE(CapturePrefab(author, root, payloadV1).IsOk());
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payloadV1.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0xF0, 0x0D};
@@ -851,7 +851,7 @@ TEST_CASE("prefab: template rebuild preserves deltas and picks up new members")
 
 TEST_CASE("prefab: apply-as-template keeps source ids; revert discards deltas")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     EntityHandle root = author.CreateEntity(u8"Cart");
     EntityHandle wheel = author.CreateEntity(u8"Wheel");
@@ -861,7 +861,7 @@ TEST_CASE("prefab: apply-as-template keeps source ids; revert discards deltas")
     REQUIRE(CapturePrefab(author, root, payload).IsOk());
     const Guid wheelSourceId = author.GetEntityId(wheel);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     (void)payload.Seek(0, SeekOrigin::Begin);
     const Guid prefabId{0xCA, 0x87};
@@ -885,7 +885,7 @@ TEST_CASE("prefab: apply-as-template keeps source ids; revert discards deltas")
     MemoryStream applied;
     REQUIRE(CaptureInstanceAsTemplate(level, *member.state, applied).IsOk());
 
-    Scene check(u8"check");
+    Scene check(DefaultAllocator(), u8"check");
     HealthManager* checkHealth = check.AddSystem<HealthManager>();
     (void)applied.Seek(0, SeekOrigin::Begin);
     HashMap<Guid, Guid> pin; // spawn with source ids AS live ids to inspect the template
@@ -929,7 +929,7 @@ TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
 {
     // Author TWO root entities and serialize the whole scene (the shape an old prefab-page
     // save produced before single-root enforcement).
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     (void)author.CreateEntity(u8"Ball");
     (void)author.CreateEntity(u8"Box");
     MemoryStream payload;
@@ -939,7 +939,7 @@ TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
     }
     (void)payload.Seek(0, SeekOrigin::Begin);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     EntityHandle root = SpawnPrefab(level, payload, Guid{0xAB, 0x12});
     REQUIRE(root.IsAssigned());
     CHECK(level.GetEntityName(root) == StringView(u8"Ball"));
@@ -956,7 +956,7 @@ TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
     MemoryStream captured;
     REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
     (void)captured.Seek(0, SeekOrigin::Begin);
-    Scene other(u8"other");
+    Scene other(DefaultAllocator(), u8"other");
     EntityHandle respawned = SpawnPrefab(other, captured, Guid{0xAB, 0x12});
     REQUIRE(respawned.IsAssigned());
     CHECK(other.GetFirstChild(respawned).IsAssigned());
@@ -967,7 +967,7 @@ TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
     // SavePrefab needs a content instance; the root-count gate rejects before any write, so
     // exercise the gate through SerializeScene's caller contract instead: the page blocks
     // multi-root saves and SavePrefab returns InvalidArgument (verified via the editor lib).
-    Scene scene(u8"prefab");
+    Scene scene(DefaultAllocator(), u8"prefab");
     (void)scene.CreateEntity(u8"A");
     (void)scene.CreateEntity(u8"B");
     usize roots = 0;
@@ -980,7 +980,7 @@ TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
 
 TEST_CASE("prefab: apply-as-template keeps the template root transform, not the placement")
 {
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     EntityHandle tmpl = author.CreateEntity(u8"Lamp");
     Transform authored;
     authored.position = Float3{1.0f, 2.0f, 3.0f};
@@ -988,7 +988,7 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     MemoryStream payload;
     REQUIRE(CapturePrefab(author, tmpl, payload).IsOk());
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     (void)payload.Seek(0, SeekOrigin::Begin);
     EntityHandle inst = SpawnPrefab(level, payload, Guid{0x77, 0x3});
     REQUIRE(inst.IsAssigned());
@@ -1004,7 +1004,7 @@ TEST_CASE("prefab: apply-as-template keeps the template root transform, not the 
     REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
 
     // Respawn the captured template elsewhere: the root sits at the AUTHORED transform.
-    Scene other(u8"other");
+    Scene other(DefaultAllocator(), u8"other");
     (void)captured.Seek(0, SeekOrigin::Begin);
     EntityHandle fresh = SpawnPrefab(other, captured, Guid{0x77, 0x3});
     REQUIRE(fresh.IsAssigned());
@@ -1021,7 +1021,7 @@ namespace
     // Author a Q template: root "Wheel" (health 10) + child "Hub" (health 5).
     Array<byte> AuthorInnerTemplate()
     {
-        Scene author(u8"author");
+        Scene author(DefaultAllocator(), u8"author");
         HealthManager* health = author.AddSystem<HealthManager>();
         EntityHandle wheel = author.CreateEntity(u8"Wheel");
         EntityHandle hub = author.CreateEntity(u8"Hub");
@@ -1048,7 +1048,7 @@ namespace
     };
     OuterAuthoring AuthorOuterTemplate(const Guid& innerId, const Array<byte>& innerPayload)
     {
-        Scene edit(u8"Cart");
+        Scene edit(DefaultAllocator(), u8"Cart");
         HealthManager* health = edit.AddSystem<HealthManager>();
         EntityHandle body = edit.CreateEntity(u8"Body");
         health->Add(body).value = 40.0f;
@@ -1110,7 +1110,7 @@ TEST_CASE("prefab: nested instance spawns linked, owner customization is BASELIN
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
@@ -1159,7 +1159,7 @@ TEST_CASE("prefab: scene round-trip preserves nesting links, guids, and scene ov
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
@@ -1192,7 +1192,7 @@ TEST_CASE("prefab: scene round-trip preserves nesting links, guids, and scene ov
         REQUIRE(w.IsOk());
     }
     (void)saved.Seek(0, SeekOrigin::Begin);
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
     {
         BinarySerializer r(saved, SerializeMode::Read);
@@ -1228,7 +1228,7 @@ TEST_CASE("prefab: inner-template edits propagate THROUGH the outer instance")
     // The edited inner template: Hub health becomes 50 (Wheel stays 10).
     Array<byte> innerV2;
     {
-        Scene author(u8"author");
+        Scene author(DefaultAllocator(), u8"author");
         HealthManager* health = author.AddSystem<HealthManager>();
         EntityHandle wheel = author.CreateEntity(u8"Wheel");
         EntityHandle hub = author.CreateEntity(u8"Hub");
@@ -1244,7 +1244,7 @@ TEST_CASE("prefab: inner-template edits propagate THROUGH the outer instance")
     }
 
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
@@ -1287,7 +1287,7 @@ TEST_CASE("prefab: apply-to-prefab keeps nested records with owner customization
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
@@ -1316,7 +1316,7 @@ TEST_CASE("prefab: apply-to-prefab keeps nested records with owner customization
     REQUIRE(CaptureInstanceAsTemplate(level, *cartState, captured, &resolver).IsOk());
 
     // Fresh spawn of the captured template elsewhere: nested link + the 13 travel.
-    Scene other(u8"other");
+    Scene other(DefaultAllocator(), u8"other");
     HealthManager* otherHealth = other.AddSystem<HealthManager>();
     (void)captured.Seek(0, SeekOrigin::Begin);
     EntityHandle fresh =
@@ -1347,7 +1347,7 @@ TEST_CASE(
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     HealthManager* health = level.AddSystem<HealthManager>();
     MemoryStream innerStream;
     (void)innerStream.Write(inner.Data(), inner.Size());
@@ -1391,7 +1391,7 @@ TEST_CASE("prefab: rebuild preserves user entities under NESTED sub-instance mem
     OuterAuthoring outer = AuthorOuterTemplate(innerId, inner);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outer.payload);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outer.payload.Data(), outer.payload.Size());
@@ -1450,7 +1450,7 @@ TEST_CASE("prefab: nested instances keep their captured sibling order")
     Array<byte> outerPayload;
     Guid wheelNs{};
     {
-        Scene edit(u8"Outer");
+        Scene edit(DefaultAllocator(), u8"Outer");
         edit.AddSystem<HealthManager>();
         EntityHandle body = edit.CreateEntity(u8"Body");
         MemoryStream innerStream;
@@ -1482,7 +1482,7 @@ TEST_CASE("prefab: nested instances keep their captured sibling order")
         return names;
     };
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outerPayload.Data(), outerPayload.Size());
@@ -1519,7 +1519,7 @@ TEST_CASE("prefab: un-overridden nested placement follows the outer template")
     // Author the outer with the inner instance at a given placement.
     auto authorOuter = [&](const Transform& wheelPlacement)
     {
-        Scene edit(u8"Outer");
+        Scene edit(DefaultAllocator(), u8"Outer");
         edit.AddSystem<HealthManager>();
         EntityHandle body = edit.CreateEntity(u8"Body");
         MemoryStream innerStream;
@@ -1547,7 +1547,7 @@ TEST_CASE("prefab: un-overridden nested placement follows the outer template")
     Array<byte> outerV1 = authorOuter(placementV1);
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner, outerId, &outerV1);
 
-    Scene level(u8"level");
+    Scene level(DefaultAllocator(), u8"level");
     level.AddSystem<HealthManager>();
     MemoryStream outerStream;
     (void)outerStream.Write(outerV1.Data(), outerV1.Size());
@@ -1602,7 +1602,7 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     // looping on a bogus count (the old behavior was an effective OOM/hang on project
     // open). Forge one: serialize a scene, then stamp the retired mode over the section
     // byte and garbage over the instance count.
-    Scene author(u8"author");
+    Scene author(DefaultAllocator(), u8"author");
     author.AddSystem<HealthManager>();
     (void)author.CreateEntity(u8"Plain");
     MemoryStream out;
@@ -1627,7 +1627,7 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     MemoryStream in;
     (void)in.Write(bytes.Data(), bytes.Size());
     (void)in.Seek(0, SeekOrigin::Begin);
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     loaded.AddSystem<HealthManager>();
     BinarySerializer read(in, SerializeMode::Read);
     SerializeScene(read, loaded, &in); // must return promptly: entities in, section out
@@ -1650,7 +1650,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
-    Scene scene(u8"level");
+    Scene scene(DefaultAllocator(), u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EntityHandle hero = scene.CreateEntity(u8"Hero");
     Transform t{};
@@ -1694,7 +1694,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     CHECK(contains(text1, u8">77<"));
 
     // Hop 2: load the XML (sniffed), resolve the instance.
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     loaded.AddSystem<HealthManager>();
     MemoryStream textStream;
     (void)textStream.Write(reinterpret_cast<const byte*>(text1.CStr()), text1.Size());
@@ -1718,7 +1718,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
         REQUIRE(ar.IsOk());
     }
     (void)binary.Seek(0, SeekOrigin::Begin);
-    Scene last(u8"last");
+    Scene last(DefaultAllocator(), u8"last");
     HealthManager* lastHealth = last.AddSystem<HealthManager>();
     {
         foundation::scene::detail::SceneStreamReader reader;
@@ -1754,7 +1754,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
 
 TEST_CASE("text scenes: unknown component types SKIP; later records still load")
 {
-    Scene scene(u8"author");
+    Scene scene(DefaultAllocator(), u8"author");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EntityHandle a = scene.CreateEntity(u8"A");
     EntityHandle b = scene.CreateEntity(u8"B");
@@ -1785,7 +1785,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     }
     REQUIRE(replaced);
 
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
     MemoryStream stream;
     (void)stream.Write(reinterpret_cast<const byte*>(mutated.CStr()), mutated.Size());
@@ -1811,7 +1811,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     Array<byte> inner = AuthorInnerTemplate();
     PrefabPayloadResolver resolver = MakeResolver(innerId, &inner);
 
-    Scene scene(u8"level");
+    Scene scene(DefaultAllocator(), u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     MemoryStream innerStream;
     (void)innerStream.Write(inner.Data(), inner.Size());
@@ -1826,7 +1826,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     xmlOut.GetOutput(text);
 
     // Transcode WITHOUT a resolver: pendings park and must re-emit verbatim.
-    Scene scratch(u8"scratch");
+    Scene scratch(DefaultAllocator(), u8"scratch");
     scratch.AddSystem<HealthManager>();
     MemoryStream in;
     (void)in.Write(reinterpret_cast<const byte*>(text.CStr()), text.Size());
@@ -1838,7 +1838,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
 
     // The binary loads like a player would: pendings restore + resolve into the instance
     // with its override intact.
-    Scene player(u8"player");
+    Scene player(DefaultAllocator(), u8"player");
     HealthManager* playerHealth = player.AddSystem<HealthManager>();
     MemoryStream binStream;
     (void)binStream.Write(binary.Value().Data(), binary.Value().Size());
@@ -1860,7 +1860,7 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
     // Save with health components; load into a scene WITHOUT the manager: entities +
     // hierarchy load, records skip with a warning, and the stream stays consumable to the
     // END (the prefab section after them still parses).
-    Scene a(u8"level");
+    Scene a(DefaultAllocator(), u8"level");
     HealthManager* mgr = a.AddSystem<HealthManager>();
     EntityHandle hero = a.CreateEntity(u8"Hero");
     mgr->Add(hero).value = 42.0f;
@@ -1872,7 +1872,7 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
         REQUIRE(w.IsOk());
     }
     (void)saved.Seek(0, SeekOrigin::Begin);
-    Scene b(u8"loaded"); // NO HealthManager
+    Scene b(DefaultAllocator(), u8"loaded"); // NO HealthManager
     {
         BinarySerializer r(saved, SerializeMode::Read);
         SerializeScene(r, b, &saved);
@@ -1889,7 +1889,7 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
     // reader that gates them on a Referenced-only flag misaligns on any snapshot of a
     // scene holding a prefab instance - the next count read is garbage in the billions and
     // the member loop allocates until the OS kills the editor. This guards against that.
-    Scene scene(u8"level");
+    Scene scene(DefaultAllocator(), u8"level");
     EntityHandle root = scene.CreateEntity(u8"outer-root");
     EntityHandle member = scene.CreateEntity(u8"outer-member");
     scene.SetParent(member, root);
@@ -1936,7 +1936,7 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
 TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still load")
 {
     // Reference scene: hierarchy + transform + a component.
-    Scene author(u8"legacy");
+    Scene author(DefaultAllocator(), u8"legacy");
     HealthManager* health = author.AddSystem<HealthManager>();
     EntityHandle hero = author.CreateEntity(u8"Hero");
     EntityHandle child = author.CreateEntity(u8"Child");
@@ -2053,7 +2053,7 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
     (void)stream.Write(reinterpret_cast<const byte*>(legacyText.CStr()), legacyText.Size());
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    Scene loaded(u8"loaded");
+    Scene loaded(DefaultAllocator(), u8"loaded");
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
     foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(stream);

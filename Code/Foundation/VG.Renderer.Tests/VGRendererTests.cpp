@@ -59,7 +59,7 @@ TEST_CASE("vg.renderer: initialize + prepare a batch (headless Null backend)")
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    VGRenderer renderer;
+    VGRenderer renderer{DefaultAllocator()};
     REQUIRE(
         renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
             .IsOk());
@@ -100,7 +100,7 @@ TEST_CASE("vg.renderer: external texture register / rebind / unregister")
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    VGRenderer renderer;
+    VGRenderer renderer{DefaultAllocator()};
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, /*frameCount*/ 2)
                 .IsOk());
 
@@ -160,7 +160,7 @@ TEST_CASE("vg.renderer: Dispose leaves a still-registered external view intact")
     REQUIRE(device.CreateTextureView(tex, rhi::TextureViewDesc{}, view).IsOk());
 
     {
-        VGRenderer renderer;
+        VGRenderer renderer{DefaultAllocator()};
         REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA16Float, 1).IsOk());
         image::ImageDataRef key(32, 32);
         renderer.RegisterExternalTexture(&key, view);
@@ -181,7 +181,7 @@ TEST_CASE("vg.renderer: empty batch yields an invalid slice")
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
-    VGRenderer renderer;
+    VGRenderer renderer{DefaultAllocator()};
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
     VGContext ctx; // nothing drawn
@@ -242,7 +242,7 @@ TEST_CASE("vg.renderer: batch eviction retires cached textures until frames age 
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    VGRenderer renderer;
+    VGRenderer renderer{DefaultAllocator()};
     REQUIRE(
         renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
             .IsOk());
@@ -293,7 +293,7 @@ TEST_CASE("vg.renderer: texture cache detects address reuse via ImageData::Insta
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    VGRenderer renderer;
+    VGRenderer renderer{DefaultAllocator()};
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
     // Two DIFFERENT images constructed at the SAME address (placement new models the
@@ -341,7 +341,7 @@ TEST_CASE("vg.renderer: stencil target config builds the stencil-then-cover pipe
 
     // Without a stencil format: no stencil support, stencil commands would be skipped.
     {
-        VGRenderer renderer;
+        VGRenderer renderer{DefaultAllocator()};
         REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1)
                     .IsOk());
         CHECK_FALSE(renderer.StencilFillsSupported());
@@ -350,7 +350,7 @@ TEST_CASE("vg.renderer: stencil target config builds the stencil-then-cover pipe
 
     // With MSAA + a stencil format: the cover pipelines exist and a stencil batch prepares.
     {
-        VGRenderer renderer;
+        VGRenderer renderer{DefaultAllocator()};
         VGTargetConfig config;
         config.sampleCount = 4;
         config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;

@@ -110,7 +110,8 @@ export namespace foundation::vg::renderer
     class VGRenderer
     {
     public:
-        VGRenderer() = default;
+        // The allocator (required - the owner decides) backs the texture cache.
+        explicit VGRenderer(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
         ~VGRenderer() { Dispose(); }
         VGRenderer(const VGRenderer&) = delete;
         VGRenderer& operator=(const VGRenderer&) = delete;
@@ -552,7 +553,7 @@ export namespace foundation::vg::renderer
                 return;
             }
 
-            UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(DefaultAllocator());
+            UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(*m_allocator);
             cached->source = key;
             cached->sourceId = key->InstanceId();
             cached->view = view;
@@ -1283,7 +1284,7 @@ export namespace foundation::vg::renderer
                 return nullptr;
             }
 
-            UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(DefaultAllocator());
+            UniquePtr<CachedTexture> cached = MakeUnique<CachedTexture>(*m_allocator);
             cached->source = texture;
             cached->sourceId = texture->InstanceId();
             cached->gpuTexture = gpuTexture;
@@ -1371,6 +1372,7 @@ export namespace foundation::vg::renderer
                     m_device->DestroyBuffer(buffers[i]);
             buffers.Clear();
         }
+        IAllocator* m_allocator;
 
         rhi::Device* m_device = nullptr;
         rhi::Queue* m_queue = nullptr;

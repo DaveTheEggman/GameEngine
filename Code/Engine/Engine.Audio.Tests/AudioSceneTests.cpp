@@ -61,7 +61,7 @@ namespace
     struct PlayScene
     {
         AudioEngine engine;
-        scene::Scene scene{u8"audio-test"};
+        scene::Scene scene{DefaultAllocator(), u8"audio-test"};
         AudioSceneSystem* audio = nullptr;
 
         PlayScene()
@@ -259,7 +259,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
           "kept, runtime voice handles NOT serialized)")
 {
     RegisterAudioComponentReflection();
-    scene::Scene a(u8"level");
+    scene::Scene a(DefaultAllocator(), u8"level");
     a.AddSystem<AudioSourceComponentManager>();
     a.AddSystem<AudioListenerComponentManager>();
 
@@ -301,7 +301,7 @@ TEST_CASE("audio.scene: components round-trip through SerializeScene (authored f
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    scene::Scene b;
+    scene::Scene b{DefaultAllocator()};
     b.AddSystem<AudioSourceComponentManager>();
     b.AddSystem<AudioListenerComponentManager>();
     {
@@ -355,7 +355,7 @@ TEST_CASE("audio.scene: sources sharing one clip each get their OWN voice (dedup
     settings.dedupeWindowSeconds = 1.0f / 30.0f;
     AudioEngine engine(DefaultAllocator(), settings);
     RegisterAudioComponentReflection();
-    scene::Scene scene{u8"audio-dedupe"};
+    scene::Scene scene{DefaultAllocator(), u8"audio-dedupe"};
     scene.AddSystem<AudioSourceComponentManager>();
     scene.AddSystem<AudioListenerComponentManager>();
     AudioSceneSystem* audio = scene.AddSystem<AudioSceneSystem>();

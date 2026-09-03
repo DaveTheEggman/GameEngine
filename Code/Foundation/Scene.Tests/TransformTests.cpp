@@ -21,7 +21,7 @@ namespace
 
 TEST_CASE("parenting links the sibling list + child queries")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity(u8"p");
     EntityHandle a = scene.CreateEntity(u8"a");
     EntityHandle b = scene.CreateEntity(u8"b");
@@ -46,7 +46,7 @@ TEST_CASE("parenting links the sibling list + child queries")
 
 TEST_CASE("world matrix composes local with parent (after UpdateTransforms)")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity();
     EntityHandle child = scene.CreateEntity();
     scene.SetLocalPosition(parent, Float3{10, 0, 0});
@@ -65,7 +65,7 @@ TEST_CASE("world matrix composes local with parent (after UpdateTransforms)")
 
 TEST_CASE("dirty cascade: moving a parent recomputes its descendants; nothing else")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity();
     EntityHandle child = scene.CreateEntity();
     EntityHandle other = scene.CreateEntity();
@@ -87,7 +87,7 @@ TEST_CASE("dirty cascade: moving a parent recomputes its descendants; nothing el
 
 TEST_CASE("motion vectors: previous world matrix snapshots the prior frame")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle e = scene.CreateEntity();
     scene.SetLocalPosition(e, Float3{1, 0, 0});
     scene.UpdateTransforms();
@@ -105,7 +105,7 @@ TEST_CASE("motion vectors: previous world matrix snapshots the prior frame")
 
 TEST_CASE("destroy is recursive: destroying a parent destroys its whole subtree")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity();
     EntityHandle child = scene.CreateEntity();
     EntityHandle grandchild = scene.CreateEntity();
@@ -124,7 +124,7 @@ TEST_CASE("destroy is recursive: destroying a parent destroys its whole subtree"
 
 TEST_CASE("reparent cycle guard: cannot parent an entity under its own descendant")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle a = scene.CreateEntity();
     EntityHandle b = scene.CreateEntity();
     EntityHandle c = scene.CreateEntity();
@@ -143,7 +143,7 @@ TEST_CASE("reparent cycle guard: cannot parent an entity under its own descendan
 
 TEST_CASE("destroying a child unlinks it from the parent's sibling list")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity();
     EntityHandle a = scene.CreateEntity();
     EntityHandle b = scene.CreateEntity();
@@ -161,7 +161,7 @@ TEST_CASE("destroying a child unlinks it from the parent's sibling list")
 
 TEST_CASE("keep-world reparent: the entity stays put in the world")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parentA = scene.CreateEntity(u8"A");
     EntityHandle parentB = scene.CreateEntity(u8"B");
     EntityHandle child = scene.CreateEntity(u8"child");
@@ -210,7 +210,7 @@ TEST_CASE("keep-world reparent: the entity stays put in the world")
 // dirty-subtree TOP (dirty node with a clean parent), not only from dirty roots.
 TEST_CASE("transforms: reparent under a clean parent recomputes the child's world matrix")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle parent = scene.CreateEntity(u8"parent");
     scene.SetLocalPosition(parent, Float3{10, 0, 0});
     scene.UpdateTransforms(); // parent world settled + CLEAN

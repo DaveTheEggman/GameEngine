@@ -39,12 +39,14 @@ export namespace foundation::rendergraph
     class RenderGraph
     {
     public:
-        explicit RenderGraph(rhi::Device* device, RenderGraphConfig config = {})
-            : m_device(device), m_config(config)
+        // The allocator (required - the owner decides) backs passes, resources,
+        // the transient texture pool, and the GPU profiler.
+        RenderGraph(IAllocator& allocator, rhi::Device* device, RenderGraphConfig config = {})
+            : m_allocator(&allocator), m_device(device), m_config(config)
         {
             if (device != nullptr)
             {
-                m_texturePool = MakeUnique<TransientTexturePool>(DefaultAllocator(), *device);
+                m_texturePool = MakeUnique<TransientTexturePool>((*m_allocator), *device);
             }
             const i32 slots = config.frameBufferCount > 0 ? config.frameBufferCount : 1;
             for (i32 i = 0; i < slots; ++i)
@@ -60,7 +62,7 @@ export namespace foundation::rendergraph
             {
                 return;
             }
-            m_gpuProfiler = MakeUnique<GraphProfiler>(DefaultAllocator());
+            m_gpuProfiler = MakeUnique<GraphProfiler>((*m_allocator));
             if (!m_gpuProfiler->Init(*m_device).IsOk())
             {
                 m_gpuProfiler.Reset();
@@ -141,13 +143,13 @@ export namespace foundation::rendergraph
             }
             for (RenderGraphPass* pass : m_passes)
             {
-                DefaultAllocator().Delete(pass);
+                (*m_allocator).Delete(pass);
             }
             for (RenderGraphResource* res : m_resources)
             {
                 if (res != nullptr)
                 {
-                    DefaultAllocator().Delete(res);
+                    (*m_allocator).Delete(res);
                 }
             }
         }
@@ -317,7 +319,7 @@ export namespace foundation::rendergraph
         // --- resource creation ---
         RGHandle CreateTransient(StringView name, RGTextureDesc desc)
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Texture, RGResourceLifetime::Transient);
             desc.Resolve(m_outputWidth, m_outputHeight);
             res->textureDesc = desc;
@@ -326,7 +328,7 @@ export namespace foundation::rendergraph
 
         RGHandle CreateTransientBuffer(StringView name, RGBufferDesc desc)
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Buffer, RGResourceLifetime::Transient);
             res->bufferDesc = desc;
             return AddResource(res);
@@ -334,23 +336,23 @@ export namespace foundation::rendergraph
 
         RGHandle RegisterPersistent(StringView name, rhi::Texture* texture, rhi::TextureView* view)
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Texture, RGResourceLifetime::Persistent);
             res->texture = texture;
             res->textureView = view;
-            res->persistentData = MakeUnique<PersistentResource>(DefaultAllocator(), texture, view);
+            res->persistentData = MakeUnique<PersistentResource>((*m_allocator), texture, view);
             return AddResource(res);
         }
 
         RGHandle RegisterPersistentPingPong(StringView name, rhi::Texture* tex0, rhi::Texture* tex1,
                                             rhi::TextureView* view0, rhi::TextureView* view1)
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Texture, RGResourceLifetime::Persistent);
             res->texture = tex0;
             res->textureView = view0;
             res->persistentData =
-                MakeUnique<PersistentResource>(DefaultAllocator(), tex0, tex1, view0, view1);
+                MakeUnique<PersistentResource>((*m_allocator), tex0, tex1, view0, view1);
             return AddResource(res);
         }
 
@@ -358,7 +360,7 @@ export namespace foundation::rendergraph
                               Optional<rhi::ResourceState> finalState = {},
                               Optional<rhi::ResourceState> currentState = {})
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Texture, RGResourceLifetime::Imported);
             res->texture = texture;
             res->textureView = view;
@@ -376,7 +378,7 @@ export namespace foundation::rendergraph
                               Optional<rhi::ResourceState> finalState = {},
                               Optional<rhi::ResourceState> currentState = {})
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Texture, RGResourceLifetime::Imported);
             res->texture = texture;
             res->textureView = view;
@@ -391,7 +393,7 @@ export namespace foundation::rendergraph
 
         RGHandle ImportBuffer(StringView name, rhi::Buffer* buffer)
         {
-            RenderGraphResource* res = DefaultAllocator().New<RenderGraphResource>(
+            RenderGraphResource* res = (*m_allocator).New<RenderGraphResource>(
                 name, RGResourceType::Buffer, RGResourceLifetime::Imported);
             res->buffer = buffer;
             return AddResource(res);
@@ -622,7 +624,7 @@ export namespace foundation::rendergraph
         template <typename Setup>
         PassHandle AddPassOfType(StringView name, RGPassType type, Setup&& setup)
         {
-            RenderGraphPass* pass = DefaultAllocator().New<RenderGraphPass>(name, type);
+            RenderGraphPass* pass = (*m_allocator).New<RenderGraphPass>(name, type);
             PassBuilder builder(*pass);
             setup(builder);
             const u32 idx = static_cast<u32>(m_passes.Size());
@@ -634,7 +636,7 @@ export namespace foundation::rendergraph
         {
             for (RenderGraphPass* p : m_passes)
             {
-                DefaultAllocator().Delete(p);
+                (*m_allocator).Delete(p);
             }
             m_passes.Clear();
             m_executionOrder.Clear();
@@ -652,7 +654,7 @@ export namespace foundation::rendergraph
                 if (res->lifetime != RGResourceLifetime::Persistent)
                 {
                     m_freeResourceSlots.PushBack(static_cast<i32>(i));
-                    DefaultAllocator().Delete(res);
+                    (*m_allocator).Delete(res);
                     m_resources[i] = nullptr;
                 }
                 else
@@ -1291,6 +1293,7 @@ export namespace foundation::rendergraph
             }
             pass.copyCallback(encoder);
         }
+        IAllocator* m_allocator;
 
         rhi::Device* m_device;
         RenderGraphConfig m_config;

@@ -46,7 +46,7 @@ TEST_CASE(
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
 
-    vg::renderer::VGRenderer renderer;
+    vg::renderer::VGRenderer renderer{DefaultAllocator()};
     REQUIRE(
         renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, /*frameCount*/ 2)
             .IsOk());
@@ -125,7 +125,7 @@ TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
     rhi::ShaderModule* vs = MakeModule(device);
     rhi::ShaderModule* fs = MakeModule(device);
 
-    vg::renderer::VGRenderer renderer;
+    vg::renderer::VGRenderer renderer{DefaultAllocator()};
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
     {
@@ -155,8 +155,8 @@ TEST_CASE("ui.viewport: AttachToWindow re-registers into a new renderer (undock 
     rhi::ShaderModule* fs = MakeModule(device);
 
     // Two renderers standing in for two windows' per-window VGRenderers.
-    vg::renderer::VGRenderer rendererA;
-    vg::renderer::VGRenderer rendererB;
+    vg::renderer::VGRenderer rendererA{foundation::core::DefaultAllocator()};
+    vg::renderer::VGRenderer rendererB{foundation::core::DefaultAllocator()};
     REQUIRE(rendererA.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
     REQUIRE(rendererB.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1).IsOk());
 
@@ -228,7 +228,7 @@ TEST_CASE("ui.viewport: SyncInputRegion emits a PHYSICAL surface region at DpiSc
     rhi::ShaderModule* fs = MakeModule(device);
     REQUIRE(vs != nullptr);
     REQUIRE(fs != nullptr);
-    vg::renderer::VGRenderer renderer;
+    vg::renderer::VGRenderer renderer{DefaultAllocator()};
     REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 2).IsOk());
 
     foundation::shell::NullInputManager input; // input != null -> the view creates an InputSurface

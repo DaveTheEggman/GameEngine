@@ -88,7 +88,7 @@ namespace
             TaaPass taa(device, shaderSystem);
             REQUIRE(taa.Initialize().IsOk());
 
-            RenderFrame frame(device, registry, /*framesInFlight*/ 2,
+            RenderFrame frame(DefaultAllocator(), device, registry, /*framesInFlight*/ 2,
                               /*clusters*/ nullptr, cfg.useTonemap ? &tonemap : nullptr,
                               /*shadows*/ nullptr,
                               /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr,
@@ -103,7 +103,7 @@ namespace
                 materials::CreatePBR(u8"probe.cube", Float4{1, 1, 1, 1}, 0.0f, 0.6f);
             RefPtr<materials::Material> planeMat =
                 materials::CreatePBR(u8"probe.plane", Float4{0.18f, 0.18f, 0.18f, 1}, 0.0f, 0.8f);
-            ExtractedScene scene;
+            ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
             if (cfg.includeCube)
             {
@@ -217,7 +217,7 @@ TEST_CASE("orientation: WebGPU matches Vulkan at every stage, cube on top, plane
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const struct
     {

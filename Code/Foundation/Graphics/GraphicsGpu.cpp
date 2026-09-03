@@ -77,7 +77,7 @@ namespace foundation::graphics
         {
 #ifdef OPTION_HAS_WEBGPU
             rhi::webgpu::WebGpuBackendDesc bd{};
-            if (!rhi::webgpu::CreateBackend(bd, raw).IsOk())
+            if (!rhi::webgpu::CreateBackend(bd, raw, core::DefaultAllocator()).IsOk())
             {
                 rhi::LogError("CreateGraphicsDevice: WebGPU CreateBackend failed");
                 return core::Err(core::ErrorCode::Unknown);

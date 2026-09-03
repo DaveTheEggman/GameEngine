@@ -16,7 +16,7 @@ namespace rhi = foundation::rhi;
 
 TEST_CASE("rg.graph: create transient returns a valid handle")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle handle = graph.CreateTransient(
         u8"Test", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm, SizeMode::FullSize));
@@ -26,7 +26,7 @@ TEST_CASE("rg.graph: create transient returns a valid handle")
 
 TEST_CASE("rg.graph: multiple resources get unique handles")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle h1 = graph.CreateTransient(u8"A", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
     const RGHandle h2 =
@@ -37,7 +37,7 @@ TEST_CASE("rg.graph: multiple resources get unique handles")
 
 TEST_CASE("rg.graph: get resource by name")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle h1 =
         graph.CreateTransient(u8"SceneColor", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -47,7 +47,7 @@ TEST_CASE("rg.graph: get resource by name")
 
 TEST_CASE("rg.graph: pass count is correct")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -65,7 +65,7 @@ TEST_CASE("rg.graph: pass count is correct")
 
 TEST_CASE("rg.graph: set output size affects resolution")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.SetOutputSize(1920, 1080);
     CHECK(graph.OutputWidth() == 1920u);
     CHECK(graph.OutputHeight() == 1080u);
@@ -73,7 +73,7 @@ TEST_CASE("rg.graph: set output size affects resolution")
 
 TEST_CASE("rg.graph: import target with final state")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle handle =
         graph.ImportTarget(u8"Backbuffer", nullptr, nullptr, rhi::ResourceState::Present);
@@ -82,7 +82,7 @@ TEST_CASE("rg.graph: import target with final state")
 
 TEST_CASE("rg.graph: reset keeps persistent, drops transient")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     graph.RegisterPersistent(u8"Shadow", nullptr, nullptr);
     graph.CreateTransient(u8"Temp", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -95,7 +95,7 @@ TEST_CASE("rg.graph: reset keeps persistent, drops transient")
 
 TEST_CASE("rg.graph: SetViewport records a per-pass viewport override")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -119,7 +119,7 @@ TEST_CASE("rg.graph: SetViewport records a per-pass viewport override")
 
 TEST_CASE("rg.graph: a pass without SetViewport has no viewport override (full attachment)")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"Color", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));

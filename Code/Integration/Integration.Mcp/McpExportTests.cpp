@@ -86,7 +86,7 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
 
     // One authored scene so the dist has content to stage.
     {
-        scene::Scene authored(u8"main");
+        scene::Scene authored(DefaultAllocator(), u8"main");
         engine::AddAllSceneManagers(authored);
         (void)authored.CreateEntity(u8"anchor");
         auto* inst = session.project->SourceDb().RootGroup()->CreateInstance(

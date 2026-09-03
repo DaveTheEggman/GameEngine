@@ -125,7 +125,7 @@ namespace
             renderer.SetSkirtsEnabled(cfg.skirts);
             RendererRegistry registry;
             registry.Register(&renderer);
-            RenderFrame frame(device, registry, /*framesInFlight*/ 2);
+            RenderFrame frame(DefaultAllocator(), device, registry, /*framesInFlight*/ 2);
 
             const hf::Heightfield& terrain = *cfg.terrain;
             Array<tmodel::TerrainChunk> chunks;
@@ -140,7 +140,7 @@ namespace
             static const f32 defaultThresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
             const f32* thresholds = cfg.thresholds != nullptr ? cfg.thresholds : defaultThresholds;
             const u32 thresholdCount = cfg.thresholds != nullptr ? cfg.thresholdCount : 7u;
-            ExtractedScene scene;
+            ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
             if (cfg.toLight != nullptr)
             {
@@ -498,7 +498,7 @@ namespace
                 shadows = MakeUnique<ShadowSystem>(DefaultAllocator(), device, /*framesInFlight*/ 2);
                 REQUIRE(shadows->Initialize().IsOk());
             }
-            RenderFrame frame(device, registry, /*framesInFlight*/ 2, /*clusters*/ nullptr,
+            RenderFrame frame(DefaultAllocator(), device, registry, /*framesInFlight*/ 2, /*clusters*/ nullptr,
                               /*tonemap*/ nullptr, shadows.Get());
             frame.SetShadowParams(800.0f, 20.0f); // shadow distance, far-fade width
 
@@ -517,7 +517,7 @@ namespace
             const Float3 travel = toLight * -1.0f;
 
             static const f32 thresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
-            ExtractedScene scene;
+            ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
             GpuLight sun{};
             sun.type = 0.0f;
@@ -712,7 +712,7 @@ TEST_CASE("terrain probe: every backend matches Vulkan (cross-backend shader-coo
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 #ifdef OPTION_HAS_DX12
     rhi::Backend* dx12 = nullptr;
     (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);
@@ -790,7 +790,7 @@ TEST_CASE("terrain probe: the ridge casts a CSM shadow onto the flat ground (cas
     // shadowed scene here is the regression net: with the bug, WebGPU drops the cast/receive work
     // and the asymmetry vanishes.
     rhi::Backend* webgpuBackend = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpuBackend);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpuBackend, DefaultAllocator());
     rhi::Device* webgpuDevice =
         webgpuBackend != nullptr ? testsupport::MakeTestDevice(webgpuBackend) : nullptr;
     if (webgpuDevice == nullptr)
@@ -872,7 +872,7 @@ TEST_CASE("terrain probe: SIX palette layers render distinct stripes (R5 - the 4
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe v = run(vulkan);
     if (!v.valid)
@@ -993,7 +993,7 @@ TEST_CASE("terrain probe: painting the CPU weights re-uploads and changes the bl
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     Probe vBefore, vAfter;
     run(vulkan, vBefore, vAfter);
@@ -1073,7 +1073,7 @@ TEST_CASE("terrain probe: a base normal map perturbs the flat-ground shading (R5
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe aPlus = run(vulkan, plusX, true); // normal + aligned sun
     if (!aPlus.valid)
@@ -1194,7 +1194,7 @@ TEST_CASE("terrain probe: ARRAY normal + ORM blend through top-K, and the R2 rot
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe nPlus = run(vulkan, plusX, 255, identity);
     if (!nPlus.valid)
@@ -1312,7 +1312,7 @@ TEST_CASE("terrain probe: height-blend biases the top-K toward the tallest layer
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe redTall = run(vulkan, 255, 0, 128, 128, true, 0.15f);
     if (!redTall.valid)
@@ -1438,7 +1438,7 @@ TEST_CASE("terrain probe: a coverage mask cuts a layer to reveal the base (Vk + 
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe off = run(vulkan, Off);
     if (!off.valid)
@@ -1667,7 +1667,7 @@ TEST_CASE("terrain probe: a masked layer reveals the PAINTED layer beneath, not 
     rhi::Backend* vulkan = nullptr;
     (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
     rhi::Backend* webgpu = nullptr;
-    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu);
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
 
     const Probe masked = run(vulkan, true);
     if (!masked.valid)

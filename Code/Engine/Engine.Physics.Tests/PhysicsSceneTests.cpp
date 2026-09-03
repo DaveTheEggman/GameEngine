@@ -29,7 +29,7 @@ namespace
 {
     struct PlayScene
     {
-        scene::Scene scene{u8"physics-test"};
+        scene::Scene scene{DefaultAllocator(), u8"physics-test"};
         PhysicsSceneSystem* physics = nullptr;
 
         PlayScene()
@@ -326,7 +326,7 @@ TEST_CASE("physics.scene: a heightfield collider drives a body via the component
 TEST_CASE("physics.scene: a heightfield RigidBody survives a scene serialize round-trip (v2 wire)")
 {
     RegisterPhysicsComponentReflection();
-    scene::Scene a{u8"hf-wire"};
+    scene::Scene a{DefaultAllocator(), u8"hf-wire"};
     a.AddSystem<RigidBodyComponentManager>();
     scene::EntityHandle e = a.CreateEntity(u8"hf");
     {
@@ -343,7 +343,7 @@ TEST_CASE("physics.scene: a heightfield RigidBody survives a scene serialize rou
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    scene::Scene b2{u8"hf-wire2"};
+    scene::Scene b2{DefaultAllocator(), u8"hf-wire2"};
     b2.AddSystem<RigidBodyComponentManager>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
@@ -962,7 +962,7 @@ TEST_CASE("physics.scene: the editor simulate cycle (capture/start/stop/restore)
     namespace runtime = foundation::runtime;
     runtime::Context ctx(DefaultAllocator());
     auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
-    scene::SceneManager sm;
+    scene::SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
     {
         const scene::SceneModule physicsModule{u8"physics", &AddPhysicsSceneManagers, nullptr};

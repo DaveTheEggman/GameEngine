@@ -217,7 +217,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
 
 TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     auto hierarchyRef =
@@ -256,7 +256,7 @@ TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 // Repro: switching the selected entity must rebuild the inspector for the NEW entity.
 TEST_CASE("inspector: rebuilds when the selection switches entities")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     EditorContext editor;
@@ -293,7 +293,7 @@ TEST_CASE("inspector: rebuilds when the selection switches entities")
 // trigger must preserve it.)
 TEST_CASE("hierarchy: selection survives snapshot rebuilds")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     auto hierarchyRef =
@@ -344,7 +344,7 @@ TEST_CASE("hierarchy: selection survives snapshot rebuilds")
 
 TEST_CASE("hierarchy: a selection-model change (keyboard nav) syncs the scene selection")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     auto hierarchyRef =
@@ -383,7 +383,7 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     foundation::content::Instance* instance = CreateSceneInstance(ctx);
     REQUIRE(instance != nullptr);
 
-    foundation::scene::Scene loaded;
+    foundation::scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<engine::render::LightComponentManager>();
     REQUIRE(foundation::scene::LoadScene(*instance, loaded).IsOk());
 
@@ -467,7 +467,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
 TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
 {
     engine::animation::RegisterAnimationComponentReflection();
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* anims = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);

@@ -127,7 +127,7 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     // Spawn the payload: hierarchy + refs mirror the manifest.
     UniquePtr<IStream> payload = generated.instance->ReadData(u8"scene");
     REQUIRE(payload.Get() != nullptr);
-    scene::Scene level(u8"level");
+    scene::Scene level(DefaultAllocator(), u8"level");
     auto* meshes = level.AddSystem<engine::render::MeshComponentManager>();
     auto* anims = level.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     scene::EntityHandle root = scene::SpawnPrefab(level, *payload, prefabId);
@@ -250,7 +250,7 @@ TEST_CASE("model-scene: manifest -> standalone scene; regeneration reuses the in
 
     // Load it back into a fresh scene whose managers are injected first (as a subsystem would):
     // the node hierarchy + mesh refs round-trip, a bare scene with NO default camera/light.
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     auto* meshes = loaded.AddSystem<engine::render::MeshComponentManager>();
     loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     REQUIRE(scene::LoadScene(*generated.instance, loaded).IsOk());

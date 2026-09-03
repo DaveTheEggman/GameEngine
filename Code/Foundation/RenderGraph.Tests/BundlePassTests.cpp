@@ -71,7 +71,7 @@ TEST_CASE("rg.bundle: a bundle pass records bundles before the pass + executes t
     GraphHarness h;
     REQUIRE(h.Init());
 
-    RenderGraph graph(&h.device);
+    RenderGraph graph(DefaultAllocator(), &h.device);
     graph.SetOutputSize(64, 64);
     graph.BeginFrame(0);
     const RGHandle color = graph.ImportTarget(u8"BB", h.tex, h.view, rhi::ResourceState::Present);
@@ -112,7 +112,7 @@ TEST_CASE("rg.bundle: a bundle pass that produces no bundles still runs (clears 
     GraphHarness h;
     REQUIRE(h.Init());
 
-    RenderGraph graph(&h.device);
+    RenderGraph graph(DefaultAllocator(), &h.device);
     graph.SetOutputSize(64, 64);
     graph.BeginFrame(0);
     const RGHandle color = graph.ImportTarget(u8"BB", h.tex, h.view, rhi::ResourceState::Present);

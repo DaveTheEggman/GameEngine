@@ -271,7 +271,7 @@ export namespace samples::framework
         {
 #ifdef OPTION_HAS_WEBGPU
             rhi::webgpu::WebGpuBackendDesc desc{};
-            if (!rhi::webgpu::CreateBackend(desc, raw).IsOk())
+            if (!rhi::webgpu::CreateBackend(desc, raw, core::DefaultAllocator()).IsOk())
             {
                 rhi::LogError("SampleApp: rhi::webgpu::CreateBackend failed (sidecar missing?)");
                 return ErrorCode::Unknown;

@@ -106,7 +106,7 @@ TEST_CASE("property animator: a kind/type mismatch disables the track (not a sil
 {
     EnsureReflected();
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();
@@ -150,7 +150,7 @@ TEST_CASE("property animator: a Transform track drives the entity's baked scene 
 {
     EnsureReflected(); // includes RegisterCoreTypes -> reflects core::Transform
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<PropertyAnimatorComponentManager>(); // Transform is built-in - no target manager
 
     auto* animators = sceneObj.GetSystem<PropertyAnimatorComponentManager>();
@@ -196,7 +196,7 @@ TEST_CASE("property animator: a Float3 clip drives the owning component's positi
 {
     EnsureReflected();
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
 
@@ -233,7 +233,7 @@ TEST_CASE("property animator: a Float3 clip drives the owning component's positi
 TEST_CASE("property animator: Once mode stops at the end; Loop keeps going")
 {
     EnsureReflected();
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();
@@ -258,7 +258,7 @@ TEST_CASE("property animator: Once mode stops at the end; Loop keeps going")
 TEST_CASE("property animator: a track to a missing component/property is disabled, not fatal")
 {
     EnsureReflected();
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();
@@ -306,7 +306,7 @@ TEST_CASE("property animator: a track to a missing component/property is disable
 TEST_CASE("property animator: reflected play/pause/stop/setTime drive the clock")
 {
     EnsureReflected();
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();
@@ -351,7 +351,7 @@ TEST_CASE("property animator: reflected play/pause/stop/setTime drive the clock"
 TEST_CASE("property animator: entity-active - starts-inactive never advances; toggle freezes/resumes")
 {
     EnsureReflected();
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();
@@ -392,7 +392,7 @@ TEST_CASE("property animator: SIMULATION-GATED - a non-simulating scene freezes;
     // User ruling 2026-08-18: animation must not advance in the editor's edit mode (scene
     // simulation disabled). Scenes default to simulating, so this is opt-out only.
     EnsureReflected();
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<AnimTargetManager>();
     sceneObj.AddSystem<PropertyAnimatorComponentManager>();
     auto* targets = sceneObj.GetSystem<AnimTargetManager>();

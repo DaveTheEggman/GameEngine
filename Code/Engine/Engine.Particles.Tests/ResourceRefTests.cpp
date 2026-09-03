@@ -78,7 +78,7 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
     // Author a scene whose ParticleEffectComponent references the effect BY GUID only.
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<engine::particles::ParticleEffectComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Emitter");
         engine::particles::ParticleEffectComponent& c =
@@ -91,7 +91,7 @@ TEST_CASE("resource-ref: scene round-trip resolves the effect ref and the manage
         REQUIRE(ar.IsOk());
     }
 
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<engine::particles::ParticleEffectComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
@@ -164,7 +164,7 @@ TEST_CASE("particles: entity-active - starts-inactive never attaches/emits; togg
 {
     particles::RegisterParticleEffectResource();
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     sceneObj.AddSystem<engine::particles::ParticleEffectComponentManager>();
     const scene::EntityHandle e = sceneObj.CreateEntity(u8"Emitter");
     engine::particles::ParticleEffectComponent& c =

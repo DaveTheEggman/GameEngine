@@ -17,7 +17,7 @@ namespace rhi = foundation::rhi;
 
 TEST_CASE("FrameArena: allocations are distinct, aligned, and reset reuses chunks")
 {
-    FrameArena arena;
+    FrameArena arena{DefaultAllocator()};
     MeshRenderData* a = arena.New<MeshRenderData>();
     MeshRenderData* b = arena.New<MeshRenderData>();
     MeshRenderData* c = arena.New<MeshRenderData>();
@@ -40,7 +40,7 @@ TEST_CASE("FrameArena: allocations are distinct, aligned, and reset reuses chunk
 
 TEST_CASE("ExtractedScene: Add registers items; Reset empties without freeing chunks")
 {
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     CHECK(scene.IsEmpty());
     for (int i = 0; i < 10; ++i)
     {
@@ -102,7 +102,7 @@ TEST_CASE("RadixSortDrawItems sorts ascending by key")
 TEST_CASE("RenderView::BuildDrawList sorts opaque front-to-back, transparent back-to-front")
 {
     // Three meshes in front of an identity camera at view-space depths 2, 5, 8.
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     auto add = [&](f32 z, u64 tag, RenderCategory cat)
     {
         MeshRenderData* rd = scene.Add<MeshRenderData>();
@@ -151,7 +151,7 @@ TEST_CASE("RenderView::BuildDrawList sorts opaque front-to-back, transparent bac
 
 TEST_CASE("RenderViewPool: Acquire hands out stable views; Begin rewinds")
 {
-    RenderViewPool pool;
+    RenderViewPool pool{DefaultAllocator()};
     pool.Begin();
     RenderView* a = pool.Acquire();
     RenderView* b = pool.Acquire();

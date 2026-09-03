@@ -158,7 +158,7 @@ TEST_CASE("propanim-panel: CollectAnimatableProperties seeds leaves + nested, sk
 TEST_CASE("propanim-panel: the panel is a valid clip-editor host (add-track routes through its stack)")
 {
     EnsureRegistered();
-    scene::Scene sc(u8"host-test");
+    scene::Scene sc(DefaultAllocator(), u8"host-test");
     Selection<Guid> selection;
     EditorContext editorCtx;
     EditorCommandStack stack;
@@ -226,7 +226,7 @@ TEST_CASE("propanim-panel: preview writes sampled values transiently, restores, 
 {
     EnsurePreviewCompRegistered();
 
-    scene::Scene sc(u8"preview-test");
+    scene::Scene sc(DefaultAllocator(), u8"preview-test");
     auto* mgr = sc.AddSystem<scene::ComponentManager<PreviewComp>>();
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     mgr->Add(e).position = Float3{5.0f, 6.0f, 7.0f}; // the original (pre-preview) value
@@ -262,7 +262,7 @@ TEST_CASE("propanim-panel: preview is disabled outside EDIT (Simulate/Play locks
 {
     EnsurePreviewCompRegistered();
 
-    scene::Scene sc(u8"preview-sim");
+    scene::Scene sc(DefaultAllocator(), u8"preview-sim");
     auto* mgr = sc.AddSystem<scene::ComponentManager<PreviewComp>>();
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     mgr->Add(e).position = Float3{1.0f, 1.0f, 1.0f};
@@ -294,7 +294,7 @@ TEST_CASE("propanim-panel: changing the selected entity restores the old one and
 {
     EnsurePreviewCompRegistered();
 
-    scene::Scene sc(u8"preview-swap");
+    scene::Scene sc(DefaultAllocator(), u8"preview-swap");
     auto* mgr = sc.AddSystem<scene::ComponentManager<PreviewComp>>();
     const scene::EntityHandle a = sc.CreateEntity(u8"a");
     const scene::EntityHandle b = sc.CreateEntity(u8"b");
@@ -327,7 +327,7 @@ TEST_CASE("propanim-panel: re-snapshots when the track set changes mid-preview (
 {
     EnsurePreviewCompRegistered();
 
-    scene::Scene sc(u8"resnapshot");
+    scene::Scene sc(DefaultAllocator(), u8"resnapshot");
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // scale defaults to (1,1,1)
     Selection<Guid> selection;
@@ -358,7 +358,7 @@ TEST_CASE("propanim-panel: add-from-selection seeds the entity Transform (positi
 {
     EnsurePreviewCompRegistered(); // RegisterCoreTypes reflects Transform
 
-    scene::Scene sc(u8"seed");
+    scene::Scene sc(DefaultAllocator(), u8"seed");
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     Selection<Guid> selection;
     selection.Set(sc.GetEntityId(e));
@@ -400,7 +400,7 @@ TEST_CASE("propanim-panel: preview drives the entity's built-in Transform and re
 {
     EnsurePreviewCompRegistered();
 
-    scene::Scene sc(u8"tprev");
+    scene::Scene sc(DefaultAllocator(), u8"tprev");
     const scene::EntityHandle e = sc.CreateEntity(u8"e0");
     sc.SetLocalPosition(e, Float3{5.0f, 6.0f, 7.0f}); // original
     Selection<Guid> selection;
@@ -441,7 +441,7 @@ namespace
     // A panel over a scene with one PreviewComp entity selected + a ramp track loaded.
     struct RampFixture
     {
-        scene::Scene sc{u8"xport"};
+        scene::Scene sc{DefaultAllocator(), u8"xport"};
         scene::ComponentManager<PreviewComp>* mgr = nullptr;
         scene::EntityHandle e;
         Selection<Guid> selection;
@@ -543,7 +543,7 @@ TEST_CASE("propanim-panel: playback drives the live preview; scrub is ignored wh
 TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-selects (D4)")
 {
     EnsurePreviewCompRegistered();
-    scene::Scene sc(u8"dope");
+    scene::Scene sc(DefaultAllocator(), u8"dope");
     Selection<Guid> selection;
     EditorContext editorCtx;
     EditorCommandStack stack;
@@ -605,7 +605,7 @@ TEST_CASE("propanim-panel: dopesheet lane feed + key drag commits a move and re-
 TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to the last key, undoable")
 {
     EnsurePreviewCompRegistered();
-    scene::Scene sc(u8"dur");
+    scene::Scene sc(DefaultAllocator(), u8"dur");
     Selection<Guid> selection;
     EditorContext editorCtx;
     EditorCommandStack stack;
@@ -632,7 +632,7 @@ TEST_CASE("propanim-panel: SetClipDuration authors the clip length, clamped to t
 TEST_CASE("propanim-panel: exclusive empty state - no clip means no editing surface")
 {
     EnsurePreviewCompRegistered();
-    scene::Scene sc(u8"empty-state");
+    scene::Scene sc(DefaultAllocator(), u8"empty-state");
     Selection<Guid> selection;
     EditorContext editorCtx;
     EditorCommandStack stack;
@@ -650,7 +650,7 @@ TEST_CASE("propanim-panel: exclusive empty state - no clip means no editing surf
 TEST_CASE("propanim-panel: ReadSceneValue captures the live Transform + component values")
 {
     EnsurePreviewCompRegistered();
-    scene::Scene sc(u8"capture");
+    scene::Scene sc(DefaultAllocator(), u8"capture");
     const scene::EntityHandle e = sc.CreateEntity(u8"hero");
     foundation::core::Transform t = sc.GetLocalTransform(e);
     t.position = Float3{4.0f, 5.0f, 6.0f};

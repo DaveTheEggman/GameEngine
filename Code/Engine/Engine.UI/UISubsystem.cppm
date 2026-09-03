@@ -350,7 +350,8 @@ export namespace engine::ui
                               public foundation::render::IScreenOverlay
     {
     public:
-        UISubsystem();           // defined in the impl unit (RenderState is opaque here)
+        // Everything the game-UI subsystem allocates rolls up under the GameUI tag.
+        explicit UISubsystem(IAllocator& allocator); // defined in the impl unit
         ~UISubsystem() override; // defined in the impl unit (RenderState is opaque here)
 
         /// Before the scene subsystem so canvas visibility/trees are current for pages;
@@ -486,8 +487,8 @@ export namespace engine::ui
             // canvases) that the scene-overlay pass draws wherever this scene renders.
             SceneUI ui;
             ui.scene = &scene;
-            ui.root = MakeRef<RootView>(DefaultAllocator());
-            auto billboards = MakeRef<AbsoluteLayout>(DefaultAllocator());
+            ui.root = MakeRef<RootView>(m_allocator);
+            auto billboards = MakeRef<AbsoluteLayout>(m_allocator);
             billboards->IsHitTestVisible = false; // nameplates never eat clicks
             ui.billboardLayer = billboards;
             ui.root->AddView(ui.billboardLayer.Get());
@@ -619,7 +620,8 @@ export namespace engine::ui
                             u32 sampleCount = 1);
 
         String m_fontPath;
-        UIContext m_context{DefaultAllocator()};
+        TaggedAllocator m_allocator;
+        UIContext m_context{m_allocator};
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
         foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)

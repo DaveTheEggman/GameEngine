@@ -49,9 +49,9 @@ TEST_CASE("net-scene-system: replication rides the scene fixed lane (server -> c
     net::NetworkManager client(*network.CreateSocket());
     client.SetInterpolationDelayMs(0.0); // sample the latest state (deterministic once movement stops)
 
-    scene::Scene serverScene;
+    scene::Scene serverScene{DefaultAllocator()};
     Bind(server, serverScene);
-    scene::Scene clientScene;
+    scene::Scene clientScene{DefaultAllocator()};
     Bind(client, clientScene);
 
     // An authored networked entity on the server (NetworkComponent + NetworkedTransform); SetReplicatedScene
@@ -117,9 +117,9 @@ TEST_CASE("net-scene-system: a scene whose fixed lane does not run sends no delt
     net::NetworkManager client(*network.CreateSocket());
     client.SetInterpolationDelayMs(0.0);
 
-    scene::Scene serverScene;
+    scene::Scene serverScene{DefaultAllocator()};
     Bind(server, serverScene);
-    scene::Scene clientScene;
+    scene::Scene clientScene{DefaultAllocator()};
     Bind(client, clientScene);
 
     const scene::EntityHandle e = serverScene.CreateEntity(u8"Mover");
@@ -159,7 +159,7 @@ TEST_CASE("net-scene-system: a scene whose fixed lane does not run sends no delt
 
 TEST_CASE("net-scene-system: a NetworkSceneSystem with no endpoint is inert")
 {
-    scene::Scene s;
+    scene::Scene s{DefaultAllocator()};
     engine::net::AddNetworkSceneManagers(s);
     engine::net::NetworkSceneSystem* sys = s.GetSystem<engine::net::NetworkSceneSystem>();
     REQUIRE(sys != nullptr);

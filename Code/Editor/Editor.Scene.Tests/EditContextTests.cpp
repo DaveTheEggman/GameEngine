@@ -47,7 +47,7 @@ namespace
 
 TEST_CASE("scene-edit: create entity - undo/redo keeps the same Guid, parents apply")
 {
-    scene::Scene scene(u8"t");
+    scene::Scene scene(DefaultAllocator(), u8"t");
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -72,7 +72,7 @@ TEST_CASE("scene-edit: create entity - undo/redo keeps the same Guid, parents ap
 
 TEST_CASE("scene-edit: rename merges and undoes to the original")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -89,7 +89,7 @@ TEST_CASE("scene-edit: rename merges and undoes to the original")
 
 TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -122,7 +122,7 @@ TEST_CASE("scene-edit: reparent - undo restores, cycles and no-ops are refused")
 
 TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -179,7 +179,7 @@ TEST_CASE("scene-edit: destroy undo restores the full subtree with components")
 
 TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -191,7 +191,7 @@ TEST_CASE("scene-edit: destroying a missing entity is a safe no-op")
 
 TEST_CASE("scene-edit: sibling reorder command with undo/redo")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -232,7 +232,7 @@ TEST_CASE("scene-edit: sibling reorder command with undo/redo")
 
 TEST_CASE("scene-edit: reparent preserves the world transform; undo restores the exact local")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
 
@@ -319,7 +319,7 @@ REFLECT_VALUE(WidgetComponent, "rtti::editor::editor::test")
 
 TEST_CASE("scene-edit: transform + active commands (merge, undo)")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
     const Guid id = edit.CreateEntity(u8"E");
@@ -350,7 +350,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
     RttiRegisterEnum_TestMode();
     RttiRegisterValue_WidgetComponent();
 
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* widgets = scene.AddSystem<WidgetManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -400,7 +400,7 @@ TEST_CASE("scene-edit: component property commands (variant + raw enum, merge, u
 
 TEST_CASE("scene-edit: remove-component undo via serialization blob (serializable manager)")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -420,7 +420,7 @@ TEST_CASE("scene-edit: remove-component undo via serialization blob (serializabl
 // scene saves).
 TEST_CASE("edit-context: destroy-undo restores light components (and their values)")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -452,7 +452,7 @@ TEST_CASE("edit-context: destroy-undo restores light components (and their value
 
 TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, one undo")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -497,7 +497,7 @@ TEST_CASE("edit-context: duplicate entity - fresh guids, subtree + components, o
 
 TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 {
-    scene::Scene sceneA;
+    scene::Scene sceneA{DefaultAllocator()};
     sceneA.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commandsA;
     SceneEditContext editA(sceneA, commandsA);
@@ -512,7 +512,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
     REQUIRE(!blob.IsEmpty());
 
     // Paste into a DIFFERENT scene (its own command stack), under a chosen parent.
-    scene::Scene sceneB;
+    scene::Scene sceneB{DefaultAllocator()};
     sceneB.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commandsB;
     SceneEditContext editB(sceneB, commandsB);
@@ -544,7 +544,7 @@ TEST_CASE("edit-context: copy/paste entities across scenes with fresh guids")
 
 TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 {
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.AddSystem<engine::render::LightComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -580,7 +580,7 @@ TEST_CASE("edit-context: copy/paste component - add, overwrite, and exact undo")
 TEST_CASE("edit-context: generic container mutation (MutateComponent-style add) persists + undoes")
 {
     engine::render::RegisterRenderComponentReflection();
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.AddSystem<engine::render::MeshComponentManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -672,7 +672,7 @@ namespace
 TEST_CASE("edit-context: scene-setting edits are undoable commands and merge like scrubs")
 {
     RegisterWindReflection();
-    scene::Scene scene(u8"s");
+    scene::Scene scene(DefaultAllocator(), u8"s");
     WindSystem* wind = scene.AddSystem<WindSystem>();
     editor::EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -852,7 +852,7 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
 TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME guids")
 {
     // Author a template in a scratch scene and capture its payload.
-    scene::Scene author(u8"author");
+    scene::Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     scene::EntityHandle root = author.CreateEntity(u8"Barrel");
     authorHealth->Add(root).amount = 12;
@@ -864,7 +864,7 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
         bytes.PushBack(b);
     }
 
-    scene::Scene scene(u8"level");
+    scene::Scene scene(DefaultAllocator(), u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -891,7 +891,7 @@ TEST_CASE("scene-edit: spawn prefab instance - undoable, redo recreates the SAME
 
 TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
 {
-    scene::Scene author(u8"author");
+    scene::Scene author(DefaultAllocator(), u8"author");
     (void)author.AddSystem<HealthManager>();
     scene::EntityHandle tmpl = author.CreateEntity(u8"Crate");
     MemoryStream payload;
@@ -902,7 +902,7 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
         bytes.PushBack(b);
     }
 
-    scene::Scene scene(u8"level");
+    scene::Scene scene(DefaultAllocator(), u8"level");
     (void)scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);
@@ -940,7 +940,7 @@ TEST_CASE("scene-edit: replace entity with prefab instance is ONE undo step")
 
 TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
 {
-    scene::Scene author(u8"author");
+    scene::Scene author(DefaultAllocator(), u8"author");
     HealthManager* authorHealth = author.AddSystem<HealthManager>();
     scene::EntityHandle tmpl = author.CreateEntity(u8"Guard");
     authorHealth->Add(tmpl).amount = 30;
@@ -952,7 +952,7 @@ TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
         bytes.PushBack(b);
     }
 
-    scene::Scene scene(u8"level");
+    scene::Scene scene(DefaultAllocator(), u8"level");
     HealthManager* health = scene.AddSystem<HealthManager>();
     EditorCommandStack commands;
     SceneEditContext edit(scene, commands);

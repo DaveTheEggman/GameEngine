@@ -44,7 +44,7 @@ namespace editor
         runtime::IApplicationHost* host = nullptr;
         ui::runtime::UIHost* uiHost = nullptr;
         engine::scene::SceneSubsystem* scenes = nullptr;
-        scene::SceneManager sceneManager; // this preview's OWN scene group
+        scene::SceneManager sceneManager{DefaultAllocator()}; // this preview's OWN scene group
         engine::render::RenderSubsystem* render = nullptr;
         scene::Scene* scene = nullptr;
         EditorCamera camera;

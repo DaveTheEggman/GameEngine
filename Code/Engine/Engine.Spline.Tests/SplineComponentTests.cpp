@@ -56,7 +56,7 @@ TEST_CASE("spline component: serialization round-trips points and rebuilds cache
 
 TEST_CASE("spline facade: world-space queries through SceneSplines")
 {
-    foundation::scene::Scene sceneObj(u8"splines");
+    foundation::scene::Scene sceneObj(DefaultAllocator(), u8"splines");
     engine::spline::AddSplineSceneManagers(sceneObj);
     auto* manager = sceneObj.GetSystem<engine::spline::SplineComponentManager>();
     REQUIRE(manager != nullptr);
@@ -99,7 +99,7 @@ TEST_CASE("spline facade: world-space queries through SceneSplines")
 
 TEST_CASE("path follow: the follower advances, aligns, and stops at an open end")
 {
-    foundation::scene::Scene sceneObj(u8"follow");
+    foundation::scene::Scene sceneObj(DefaultAllocator(), u8"follow");
     engine::spline::AddSplineSceneManagers(sceneObj);
     auto* splines = sceneObj.GetSystem<engine::spline::SplineComponentManager>();
     auto* follows = sceneObj.GetSystem<engine::spline::PathFollowComponentManager>();
@@ -142,7 +142,7 @@ TEST_CASE("path follow: the follower advances, aligns, and stops at an open end"
 
 TEST_CASE("path follow: a looping follower wraps instead of stopping")
 {
-    foundation::scene::Scene sceneObj(u8"follow_loop");
+    foundation::scene::Scene sceneObj(DefaultAllocator(), u8"follow_loop");
     engine::spline::AddSplineSceneManagers(sceneObj);
     auto* splines = sceneObj.GetSystem<engine::spline::SplineComponentManager>();
     auto* follows = sceneObj.GetSystem<engine::spline::PathFollowComponentManager>();

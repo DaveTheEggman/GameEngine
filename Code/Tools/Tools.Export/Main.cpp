@@ -105,7 +105,7 @@ namespace
             // The FULL manager set (the scene-surface composition root - the same per-domain
             // functions the subsystems inject through), or the transcode would silently drop
             // records of any component type missing from the scratch.
-            scene::Scene scratch(u8"__export_transcode");
+            scene::Scene scratch(DefaultAllocator(), u8"__export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
@@ -129,7 +129,7 @@ namespace
         return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                   editor::SceneReferences& out)
         {
-            scene::Scene scene;
+            scene::Scene scene{DefaultAllocator()};
             engine::AddAllSceneManagers(scene);
             if (!scene::LoadScene(instance, scene).IsOk())
             {

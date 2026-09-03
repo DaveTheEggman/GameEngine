@@ -134,13 +134,13 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
     // a scene snapshot: one cube at the origin
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     MeshRenderData* rd = scene.Add<MeshRenderData>();
     rd->world = Float4x4::Identity();
     rd->mesh = cube.Get();
@@ -184,14 +184,14 @@ TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced d
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
         materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
 
     // Eight cubes, one shared mesh + material, distinct world + color -> one instanced batch.
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     for (int n = 0; n < 8; ++n)
     {
         MeshRenderData* rd = scene.Add<MeshRenderData>();
@@ -235,13 +235,13 @@ TEST_CASE("RenderFrame parallel emit: many distinct draws fan out across the job
         REQUIRE(meshRenderer.Initialize().IsOk());
         RendererRegistry registry;
         registry.Register(&meshRenderer);
-        RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+        RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
         // 300 distinct materials (one shared mesh) -> 300 singleton draws (no batching) -> over
         // the parallel-emit threshold, so emission fans out across the job system's worker pools.
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         Array<RefPtr<materials::Material>> mats; // keep the materials alive for the frame
-        ExtractedScene scene;
+        ExtractedScene scene{DefaultAllocator()};
         for (int n = 0; n < 300; ++n)
         {
             RefPtr<materials::Material> m =
@@ -291,9 +291,9 @@ TEST_CASE("RenderFrame with an empty view still clears (no crash, no PSOs)")
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
-    ExtractedScene scene; // no renderables
+    ExtractedScene scene{DefaultAllocator()}; // no renderables
     ViewCamera camera;
     ViewSettings settings;
 
@@ -327,7 +327,7 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     registry.Register(&meshRenderer);
     ShadowSystem shadows(h.device, /*framesInFlight*/ 2);
     REQUIRE(shadows.Initialize().IsOk());
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2, nullptr, nullptr, &shadows);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2, nullptr, nullptr, &shadows);
 
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> material =
@@ -352,10 +352,10 @@ TEST_CASE("RenderFrame multi-scene shadows: each view sources its OWN scene (no 
     };
 
     // Scene A: spot caster only. Scene B: directional caster + spot caster.
-    ExtractedScene sceneA;
+    ExtractedScene sceneA{DefaultAllocator()};
     addCube(sceneA);
     addSpotCaster(sceneA, Float3{0, 5, 0});
-    ExtractedScene sceneB;
+    ExtractedScene sceneB{DefaultAllocator()};
     addCube(sceneB);
     addSpotCaster(sceneB, Float3{7, 3, 2});
     {
@@ -430,7 +430,7 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
     ReflectionProbeSystem probes(h.device, shaderSystem);
     REQUIRE(probes.Initialize().IsOk());
 
-    ExtractedScene sceneA, sceneB;
+    ExtractedScene sceneA{DefaultAllocator()}, sceneB{DefaultAllocator()};
     ReflectionProbe pa{};
     pa.key = 1;
     pa.center = Float3{0, 1, 0};
@@ -453,7 +453,7 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
     CHECK(probes.RangeFor(&sceneA).count == 1u);
     CHECK(probes.RangeFor(&sceneB).base == 1u);
     CHECK(probes.RangeFor(&sceneB).count == 2u);
-    ExtractedScene sceneC;
+    ExtractedScene sceneC{DefaultAllocator()};
     CHECK(probes.RangeFor(&sceneC).count == 0u); // unknown scene -> no probes
 
     // Every capture task carries its probe's OWNING scene (captures must render that scene's
@@ -513,7 +513,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     rhi::TextureView* view = nullptr;
     REQUIRE(h.device.CreateTextureView(tex, vd, view).IsOk());
 
-    ExtractedScene sceneA, sceneB;
+    ExtractedScene sceneA{DefaultAllocator()}, sceneB{DefaultAllocator()};
     const Float3 sun{0.0f, -1.0f, 0.0f};
 
     SkySnapshot procedural{};
@@ -526,7 +526,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // Two scenes with DIFFERENT skies get their own contexts and products.
     IBLSystem::Context *ctxA = nullptr, *ctxB = nullptr;
     {
-        foundation::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(DefaultAllocator(), &h.device);
         ibl.BeginFrame(graph);
         ctxA = ibl.Prepare(&sceneA, procedural, sun, graph);
         ctxB = ibl.Prepare(&sceneB, hdr, sun, graph);
@@ -544,7 +544,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // Steady state: same scenes re-Prepare into the SAME contexts with no rebuild.
     const u64 genA = ctxA->Generation(), genB = ctxB->Generation();
     {
-        foundation::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(DefaultAllocator(), &h.device);
         ibl.BeginFrame(graph);
         CHECK(ibl.Prepare(&sceneA, procedural, sun, graph) == ctxA);
         CHECK(ibl.Prepare(&sceneB, hdr, sun, graph) == ctxB);
@@ -556,7 +556,7 @@ TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-textur
     // only B rebuilds.
     hdr.textureUid = 102;
     {
-        foundation::rendergraph::RenderGraph graph(&h.device);
+        foundation::rendergraph::RenderGraph graph(DefaultAllocator(), &h.device);
         ibl.BeginFrame(graph);
         (void)ibl.Prepare(&sceneA, procedural, sun, graph);
         (void)ibl.Prepare(&sceneB, hdr, sun, graph);
@@ -587,7 +587,7 @@ TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO buil
     REQUIRE(meshRenderer.Initialize().IsOk());
     RendererRegistry registry;
     registry.Register(&meshRenderer);
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
     RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
     RefPtr<materials::Material> unlit = materials::CreateUnlit(u8"flat", Float4{1, 0, 0, 1});
@@ -596,7 +596,7 @@ TEST_CASE("RenderFrame draws an UNLIT material (unlit shader compiles + PSO buil
     CHECK(unlit->FindProperty(u8"AlbedoMap") != nullptr);
     CHECK(unlit->FindProperty(u8"Metallic") == nullptr); // the lit set stays out of the preset
 
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     MeshRenderData* rd = scene.Add<MeshRenderData>();
     rd->world = Float4x4::Identity();
     rd->mesh = cube.Get();
@@ -675,9 +675,9 @@ TEST_CASE("depth prepass context carries the camera view matrix (per-view LOD pa
     CtxCaptureRenderer capture;
     RendererRegistry registry;
     registry.Register(&capture);
-    RenderFrame frame(h.device, registry, /*framesInFlight*/ 2);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
 
-    ExtractedScene scene;
+    ExtractedScene scene{DefaultAllocator()};
     MeshRenderData* rd = scene.Add<MeshRenderData>();
     rd->world = Float4x4::Identity();
     rd->category = RenderCategories::Opaque;

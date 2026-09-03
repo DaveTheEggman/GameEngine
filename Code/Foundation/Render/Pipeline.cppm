@@ -498,15 +498,17 @@ export namespace foundation::render
     class RenderFrame
     {
     public:
-        RenderFrame(rhi::Device& device, RendererRegistry& registry, u32 framesInFlight,
+        RenderFrame(IAllocator& allocator, rhi::Device& device, RendererRegistry& registry,
+                    u32 framesInFlight,
                     ClusterSystem* clusters = nullptr, TonemapPass* tonemap = nullptr,
                     ShadowSystem* shadows = nullptr, IBLSystem* ibl = nullptr,
                     SkyPass* sky = nullptr, BloomPass* bloom = nullptr, TaaPass* taa = nullptr,
                     AoPass* ao = nullptr, FxaaPass* fxaa = nullptr,
                     ExposurePass* exposure = nullptr) noexcept
-            : m_registry(&registry), m_pass(device, framesInFlight), m_graph(&device),
+            : m_registry(&registry), m_pass(device, framesInFlight), m_graph(allocator, &device),
               m_clusters(clusters), m_tonemap(tonemap), m_shadows(shadows), m_ibl(ibl), m_sky(sky),
-              m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa), m_exposurePass(exposure)
+              m_bloom(bloom), m_taa(taa), m_ao(ao), m_fxaa(fxaa), m_exposurePass(exposure),
+              m_views(allocator)
         {
             m_device = &device;
         }

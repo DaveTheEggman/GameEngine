@@ -55,7 +55,7 @@ namespace
 
 TEST_CASE("add/get systems by type; the Scene owns them")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     REQUIRE(mgr != nullptr);
     CHECK(scene.GetSystem<HealthManager>() == mgr);
@@ -65,7 +65,7 @@ TEST_CASE("add/get systems by type; the Scene owns them")
 
 TEST_CASE("update runs the gameplay phases in ScenePhase order")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     Recorder* rec = scene.AddSystem<Recorder>();
     scene.Update(0.016f);
 
@@ -79,7 +79,7 @@ TEST_CASE("update runs the gameplay phases in ScenePhase order")
 
 TEST_CASE("component init is deferred to the scene's Initialize phase")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     EntityHandle e = scene.CreateEntity();
     mgr->Add(e).value = 50.0f;
@@ -91,7 +91,7 @@ TEST_CASE("component init is deferred to the scene's Initialize phase")
 
 TEST_CASE("destroying an entity frees its component via the manager")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     EntityHandle e = scene.CreateEntity();
     mgr->Add(e);
@@ -104,7 +104,7 @@ TEST_CASE("destroying an entity frees its component via the manager")
 
 TEST_CASE("destroy during update is deferred to Cleanup")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle target = scene.CreateEntity();
 
     // a system that destroys `target` during the Update phase
@@ -133,7 +133,7 @@ TEST_CASE("destroy during update is deferred to Cleanup")
 
 TEST_CASE("active change + start/stop notify systems; fixed update ticks")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     Recorder* rec = scene.AddSystem<Recorder>();
     EntityHandle e = scene.CreateEntity();
 
@@ -152,7 +152,7 @@ TEST_CASE("active change + start/stop notify systems; fixed update ticks")
 
 TEST_CASE("simulation gating: sim-only systems skip when simulation is disabled")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     SimOnly* sim = scene.AddSystem<SimOnly>();
 
     scene.Update(0.016f);     // enabled by default
@@ -182,7 +182,7 @@ TEST_CASE("systems run within a phase in UpdateOrder")
             }
         }
     };
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     scene.AddSystem<Ordered>(10, &order); // added first, but higher order
     scene.AddSystem<Ordered>(-5, &order); // added second, lower order -> runs first
     scene.Update(0.016f);
@@ -198,7 +198,7 @@ TEST_CASE("scene: Events() is the BORROWED scope bus - null unwired, never drain
     // fixtures inject a bus, exercising the exact runtime topology.
     namespace messaging = foundation::messaging;
 
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     CHECK(scene.Events() == nullptr); // unwired: no bus, nothing to emit into
 
     messaging::EventBus scope;

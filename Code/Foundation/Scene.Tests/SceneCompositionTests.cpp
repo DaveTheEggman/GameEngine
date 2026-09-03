@@ -95,7 +95,7 @@ TEST_CASE("composition: Build topologically sorts modules by dependsOn")
     SceneComposition comp = SceneComposition::Build(modules);
     REQUIRE(comp.ModuleCount() == 2u);
 
-    Scene scene(u8"probe");
+    Scene scene(DefaultAllocator(), u8"probe");
     comp.Instantiate(scene);
     CHECK(g_installOrder == u8"ab");
 
@@ -111,7 +111,7 @@ TEST_CASE("composition: a dependency absent from the module set is treated as sa
     CHECK(comp.ModuleCount() == 1u);
 
     ResetProbes();
-    Scene scene(u8"probe");
+    Scene scene(DefaultAllocator(), u8"probe");
     comp.Instantiate(scene);
     CHECK(g_installOrder == u8"b");
 }
@@ -132,7 +132,7 @@ TEST_CASE("composition: a dependency cycle does not hang Build")
     CHECK(comp.ModuleCount() == 2u);
 
     ResetProbes();
-    Scene scene(u8"probe");
+    Scene scene(DefaultAllocator(), u8"probe");
     comp.Instantiate(scene);
     // Both installs ran (Build broke the cycle and kept every module exactly once).
     CHECK(g_installOrder.Size() == 2u);
@@ -144,7 +144,7 @@ TEST_CASE("composition: a null install is skipped safely")
     const SceneModule* modules[] = {&noInstall};
     SceneComposition comp = SceneComposition::Build(modules);
 
-    Scene scene(u8"probe");
+    Scene scene(DefaultAllocator(), u8"probe");
     comp.Instantiate(scene); // must not fault
 
     ResetProbes();
@@ -162,7 +162,7 @@ TEST_CASE("scene-registry: observers fire at their stage, lower Order() first")
     registry.AddObserver(&b, SceneLifecycleStage::Destroying);
     registry.AddObserver(&a, SceneLifecycleStage::Destroying); // idempotent
 
-    Scene scene(u8"s");
+    Scene scene(DefaultAllocator(), u8"s");
 
     g_obsOrder = String{};
     registry.Notify(SceneLifecycleStage::Destroying, scene);
@@ -186,8 +186,8 @@ TEST_CASE("scene-registry: observers fire at their stage, lower Order() first")
 TEST_CASE("scene-registry: manager registry dedups and sweeps scenes")
 {
     SceneRegistry registry;
-    SceneManager m1;
-    SceneManager m2;
+    SceneManager m1{DefaultAllocator()};
+    SceneManager m2{DefaultAllocator()};
 
     registry.RegisterManager(&m1);
     registry.RegisterManager(&m1); // idempotent
@@ -213,8 +213,8 @@ TEST_CASE("scene-registry: manager registry dedups and sweeps scenes")
 TEST_CASE("scene-registry: lane fan-out ticks every registered manager's scenes")
 {
     SceneRegistry registry;
-    SceneManager m1;
-    SceneManager m2;
+    SceneManager m1{DefaultAllocator()};
+    SceneManager m2{DefaultAllocator()};
     registry.RegisterManager(&m1);
     registry.RegisterManager(&m2);
 
@@ -250,7 +250,7 @@ TEST_CASE("composition: OWNS its module copies - source modules may die after Bu
     } // both modules + the deps array are DEAD here
 
     CHECK(comp.ModuleCount() == 2u);
-    Scene scene(u8"lifetime");
+    Scene scene(DefaultAllocator(), u8"lifetime");
     comp.Instantiate(scene);            // dereferences the stored copies, not the corpses
     CHECK(g_installOrder == u8"ab");    // dependency order also survived the copy
     comp.RegisterReflection();
@@ -263,7 +263,7 @@ TEST_CASE("frame-time cutover: the manager lanes fold the FULL chain from one Fr
     // the manager contributes the GROUP term, the scene its own term. Assert the composed
     // dt reaching a scene's variable lane equals raw x context x group x scene, and the
     // fixed lane steps at the configured step under the same chain.
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
     mgr.SetTimeScale(0.5f); // the group term
     Scene* s = mgr.CreateScene(u8"chain");
     s->Start();

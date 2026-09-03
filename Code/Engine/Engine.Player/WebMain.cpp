@@ -130,7 +130,7 @@ namespace
                 .IsOk() &&
             probe != nullptr)
         {
-            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters();
+            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters(, DefaultAllocator());
             if (!adapters.IsEmpty())
             {
                 const foundation::rhi::AdapterInfo info = adapters[0]->Info();

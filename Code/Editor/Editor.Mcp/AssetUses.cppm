@@ -70,7 +70,7 @@ namespace editor::mcp::detail
     inline bool CollectSceneReferences(content::Instance& instance, content::ContentDatabase& db,
                                        Array<Guid>& resources, Array<Guid>& prefabs)
     {
-        scene::Scene scratch;
+        scene::Scene scratch{DefaultAllocator()};
         engine::AddAllSceneManagers(scratch);
         if (!scene::LoadScene(instance, scratch).IsOk())
         {

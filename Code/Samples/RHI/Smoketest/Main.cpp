@@ -528,7 +528,7 @@ int main(int /*argc*/, char** /*argv*/)
 
         Backend* wgpuBackend = nullptr;
         rhi::webgpu::WebGpuBackendDesc wgpuDesc{};
-        if (rhi::webgpu::CreateBackend(wgpuDesc, wgpuBackend) != ErrorCode::Ok)
+        if (rhi::webgpu::CreateBackend(wgpuDesc, wgpuBackend, DefaultAllocator()) != ErrorCode::Ok)
         {
             std::printf("WebGPU backend: sidecar unavailable - skipped\n");
         }

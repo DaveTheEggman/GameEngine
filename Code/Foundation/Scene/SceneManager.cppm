@@ -42,7 +42,9 @@ export namespace foundation::scene
         /// Type-erased scene teardown (the observer path's Destroying stage). Invoked on destroy/clear.
         using SceneUninstaller = Function<void(Scene&)>;
 
-        SceneManager() = default;
+        // The allocator (required - the owner decides) backs every scene this
+        // manager creates (and becomes each scene's own authority).
+        explicit SceneManager(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
         /// Install a composition installer: CreateScene assembles via `installer(scene)` while set (the
         /// only assembly path - there is no legacy fallback).
@@ -77,7 +79,7 @@ export namespace foundation::scene
         // have finalized, so a half-resolved scene never ticks or renders (task #123).
         Scene* CreateScene(StringView name = u8"Scene", bool activate = true)
         {
-            UniquePtr<Scene> owned = MakeUnique<Scene>(DefaultAllocator(), name);
+            UniquePtr<Scene> owned = MakeUnique<Scene>(*m_allocator, *m_allocator, name);
             Scene* scene = owned.Get();
             m_scenes.PushBack(Move(owned));
             if (activate)
@@ -289,6 +291,7 @@ export namespace foundation::scene
         messaging::EventBus* m_sceneEventBus = nullptr; // borrowed scope bus for created scenes
         f32 m_timeScale = 1.0f;       // the group / instance term
         Scene* m_current = nullptr;   // the group's current scene
+        IAllocator* m_allocator;
         Array<UniquePtr<Scene>> m_scenes; // ownership
         Array<Scene*> m_active;       // active (non-owning)
         Array<Scene*> m_pendingRemove;

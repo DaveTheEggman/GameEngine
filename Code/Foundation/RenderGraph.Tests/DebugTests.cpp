@@ -35,7 +35,7 @@ namespace
 
 TEST_CASE("rg.debug: ExportDOT produces valid syntax")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"SceneColor", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -68,7 +68,7 @@ TEST_CASE("rg.debug: ExportDOT produces valid syntax")
 
 TEST_CASE("rg.debug: ExportSummary includes counts")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.SetOutputSize(1920, 1080);
     graph.BeginFrame(0);
     const RGHandle color =
@@ -91,7 +91,7 @@ TEST_CASE("rg.debug: ExportSummary includes counts")
 
 TEST_CASE("rg.debug: DOT marks culled passes dashed")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));

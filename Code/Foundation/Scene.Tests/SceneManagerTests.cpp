@@ -25,7 +25,7 @@ namespace
 
 TEST_CASE("scene-manager: create/active/current + destroy")
 {
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
     CHECK(mgr.SceneCount() == 0u);
     CHECK(mgr.CurrentScene() == nullptr);
 
@@ -54,7 +54,7 @@ TEST_CASE("scene-manager: create/active/current + destroy")
 TEST_CASE("scene-manager: fans install/uninstall hooks around each scene")
 {
     Recording rec;
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
     // Type-erased: the caller owns whatever the hooks close over (a composition / observer list).
     mgr.SetSceneInstaller([&rec](Scene&) { ++rec.installed; });
     mgr.SetSceneUninstaller([&rec](Scene&) { ++rec.removed; });
@@ -69,7 +69,7 @@ TEST_CASE("scene-manager: fans install/uninstall hooks around each scene")
 
 TEST_CASE("scene-manager: group time scale folds into the tick (identity at 1.0)")
 {
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
     Scene* s = mgr.CreateScene(u8"S");
     s->Start();
     s->SetSimulationEnabled(true);
@@ -95,7 +95,7 @@ TEST_CASE("scene-manager: group time scale folds into the tick (identity at 1.0)
 TEST_CASE("scene-manager: Clear destroys the whole group and notifies")
 {
     Recording rec;
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
     mgr.SetSceneInstaller([&rec](Scene&) { ++rec.installed; });
     mgr.SetSceneUninstaller([&rec](Scene&) { ++rec.removed; });
 
@@ -111,7 +111,7 @@ TEST_CASE("scene-manager: Clear destroys the whole group and notifies")
 
 TEST_CASE("scene-manager: inactive create + activate/deactivate gate (task #123 async level load)")
 {
-    SceneManager mgr;
+    SceneManager mgr{DefaultAllocator()};
 
     // Inactive create: owned, but not ticked/rendered (not active) and not the spawn target.
     Scene* s = mgr.CreateScene(u8"loading", /*activate*/ false);
@@ -148,7 +148,7 @@ TEST_CASE("scene-manager: inactive create + activate/deactivate gate (task #123 
     CHECK(mgr.ActiveScenes().Size() == 2u);
 
     // Activating a scene this manager does not own is a no-op (Owns guard).
-    Scene foreign(u8"foreign");
+    Scene foreign(DefaultAllocator(), u8"foreign");
     mgr.ActivateScene(&foreign);
     CHECK_FALSE(mgr.IsActive(&foreign));
     CHECK(mgr.ActiveScenes().Size() == 2u);

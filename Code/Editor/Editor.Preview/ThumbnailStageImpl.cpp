@@ -134,7 +134,7 @@ namespace editor
         foundation::resource::ResourceManager* resources = nullptr;
         engine::scene::SceneSubsystem* scenes = nullptr;
         engine::render::RenderSubsystem* render = nullptr;
-        scene::SceneManager sceneManager; // the stage's OWN scene group (never simulated)
+        scene::SceneManager sceneManager{DefaultAllocator()}; // the stage's OWN scene group (never simulated)
         scene::Scene* scene = nullptr;
 
         // GPU objects (created lazily on the first Render with a live device).

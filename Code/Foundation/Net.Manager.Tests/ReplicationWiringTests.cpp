@@ -59,12 +59,12 @@ TEST_CASE("net-manager: state replicates server -> client through the manager + 
     net::NetworkManager server(*sv);
     net::NetworkManager client(*network.CreateSocket());
 
-    scene::Scene serverScene;
+    scene::Scene serverScene{DefaultAllocator()};
     serverScene.AddSystem<net::NetworkComponentManager>();
     RepMoverManager* serverMovers = serverScene.AddSystem<RepMoverManager>();
     server.SetReplicatedScene(&serverScene);
 
-    scene::Scene clientScene;
+    scene::Scene clientScene{DefaultAllocator()};
     clientScene.AddSystem<net::NetworkComponentManager>();
     clientScene.AddSystem<RepMoverManager>();
     client.SetReplicatedScene(&clientScene);
@@ -137,7 +137,7 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     // Server scene: an AUTHORED networked entity (NetworkComponent + NetworkedTransform), not yet
     // assigned an id - SetReplicatedScene on the server auto-assigns it (the "author + auto-assign"
     // path the demo uses; no manual AssignNetworkId).
-    scene::Scene serverScene;
+    scene::Scene serverScene{DefaultAllocator()};
     serverScene.AddSystem<net::NetworkComponentManager>();
     serverScene.AddSystem<net::NetworkedTransformComponentManager>();
     const scene::EntityHandle e = serverScene.CreateEntity(u8"Mover");
@@ -147,7 +147,7 @@ TEST_CASE("net-manager: a NetworkedTransform replicates an entity's movement ser
     t0.position = Float3{1, 0, 0};
     serverScene.SetLocalTransform(e, t0);
 
-    scene::Scene clientScene;
+    scene::Scene clientScene{DefaultAllocator()};
     clientScene.AddSystem<net::NetworkComponentManager>();
     clientScene.AddSystem<net::NetworkedTransformComponentManager>();
 
@@ -211,9 +211,9 @@ TEST_CASE("net-manager: a shared authored scene matches by stable id (no duplica
         s.GetSystem<net::NetworkedTransformComponentManager>()->Add(e);
         return e;
     };
-    scene::Scene serverScene;
+    scene::Scene serverScene{DefaultAllocator()};
     const scene::EntityHandle se = authorEntity(serverScene);
-    scene::Scene clientScene;
+    scene::Scene clientScene{DefaultAllocator()};
     const scene::EntityHandle ce = authorEntity(clientScene);
 
     server.StartServer(/*dedicated=*/true);

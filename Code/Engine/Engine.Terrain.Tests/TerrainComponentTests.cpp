@@ -39,7 +39,7 @@ TEST_CASE("engine.terrain: a TerrainComponent survives a scene serialize round-t
 {
     RegisterTerrainComponentReflection();
 
-    scene::Scene a{u8"terrain-wire"};
+    scene::Scene a{DefaultAllocator(), u8"terrain-wire"};
     a.AddSystem<TerrainComponentManager>();
     scene::EntityHandle e = a.CreateEntity(u8"terrain");
     {
@@ -56,7 +56,7 @@ TEST_CASE("engine.terrain: a TerrainComponent survives a scene serialize round-t
     }
     (void)stream.Seek(0, SeekOrigin::Begin);
 
-    scene::Scene b{u8"terrain-wire2"};
+    scene::Scene b{DefaultAllocator(), u8"terrain-wire2"};
     b.AddSystem<TerrainComponentManager>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
@@ -181,7 +181,7 @@ TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device i
     // and at shutdown - this pins the manager-level contract headless.
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
 
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(sceneObj);
     auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
     REQUIRE(mgr != nullptr);
@@ -197,7 +197,7 @@ TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device i
     c.terrain = res.Get();
     sceneObj.Start();
 
-    foundation::render::ExtractedScene snapshot;
+    foundation::render::ExtractedScene snapshot{DefaultAllocator()};
     mgr->ExtractRenderData(snapshot);
     CHECK(mgr->HeightTextureCount() == 1u); // the extract built + cached the GPU texture
 
@@ -216,10 +216,10 @@ TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device i
 // borrow here is a hard use-after-free).
 TEST_CASE("engine.terrain: the extracted snapshot outlives the scene it came from")
 {
-    foundation::render::ExtractedScene snapshot;
+    foundation::render::ExtractedScene snapshot{DefaultAllocator()};
     {
         rhi::null::NullDevice device{DefaultAllocator()};
-        scene::Scene sceneObj;
+        scene::Scene sceneObj{DefaultAllocator()};
         engine::terrain::AddTerrainSceneManagers(sceneObj);
         auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
         REQUIRE(mgr != nullptr);

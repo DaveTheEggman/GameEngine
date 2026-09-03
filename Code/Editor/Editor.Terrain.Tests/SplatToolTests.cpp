@@ -65,7 +65,7 @@ namespace
 
     struct Fixture
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         RefPtr<hf::Heightfield> grid;
         RefPtr<terrain::SplatWeights> weights;
         RefPtr<terrain::TerrainResource> res;
@@ -395,7 +395,7 @@ TEST_CASE("terrain splat: smooth mode feathers a hard seam and rides the stroke 
 TEST_CASE("terrain splat: unavailable with no weights, and refuses edits while editingLocked")
 {
     // A terrain with a heightfield but NO weights raster: the paint tool is not relevant.
-    scene::Scene bare;
+    scene::Scene bare{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(bare);
     auto* mgr = bare.GetSystem<engine::terrain::TerrainComponentManager>();
     RefPtr<hf::Heightfield> grid =

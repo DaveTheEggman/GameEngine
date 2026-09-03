@@ -247,7 +247,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(sceneInstance->WriteObject(doc).IsOk());
         sceneId = sceneInstance->Id();
         {
-            scene::Scene scene(u8"Main");
+            scene::Scene scene(DefaultAllocator(), u8"Main");
             scene.AddSystem<engine::render::MeshComponentManager>();
             const scene::EntityHandle e = scene.CreateEntity(u8"Box");
             engine::render::MeshComponent& mc =
@@ -274,7 +274,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         {
             UniquePtr<IStream> src = sceneInstance->ReadData(u8"scene");
             REQUIRE(src.Get() != nullptr);
-            scene::Scene scratch(u8"scratch");
+            scene::Scene scratch(DefaultAllocator(), u8"scratch");
             scratch.AddSystem<engine::render::MeshComponentManager>();
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*src, scratch, /*includeSettings=*/true);
@@ -321,7 +321,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(packed->Read(&first, 1) == 1u);
         CHECK(first != static_cast<byte>(u8'<'));
     }
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     REQUIRE(scene::LoadScene(*sceneInstance, scene).IsOk());
     foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db);
@@ -433,7 +433,7 @@ namespace
         return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                   editor::SceneReferences& out)
         {
-            scene::Scene scene;
+            scene::Scene scene{DefaultAllocator()};
             scene.AddSystem<engine::render::MeshComponentManager>();
             if (!scene::LoadScene(instance, scene).IsOk())
             {
@@ -1190,7 +1190,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     }
     const Guid sceneId = sceneInst->Id();
     {
-        scene::Scene scene(u8"Main");
+        scene::Scene scene(DefaultAllocator(), u8"Main");
         scene.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         scene.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
@@ -1304,7 +1304,7 @@ TEST_CASE(
     }
     const Guid sceneId = sceneInst->Id();
     {
-        scene::Scene scene(u8"Main");
+        scene::Scene scene(DefaultAllocator(), u8"Main");
         scene.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         scene.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshRefId);
@@ -1411,7 +1411,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     }
     const Guid prefabId = prefabInst->Id();
     {
-        scene::Scene author(u8"Barrel");
+        scene::Scene author(DefaultAllocator(), u8"Barrel");
         author.AddSystem<engine::render::MeshComponentManager>();
         const scene::EntityHandle e = author.CreateEntity(u8"Body");
         author.GetSystem<engine::render::MeshComponentManager>()->Add(e).mesh.SetId(meshInPrefab);
@@ -1434,7 +1434,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     }
     const Guid sceneId = sceneInst->Id();
     {
-        scene::Scene scene(u8"Main");
+        scene::Scene scene(DefaultAllocator(), u8"Main");
         scene.AddSystem<engine::render::MeshComponentManager>();
         UniquePtr<IStream> payloadStream = prefabInst->ReadData(u8"scene");
         REQUIRE(payloadStream.Get() != nullptr);

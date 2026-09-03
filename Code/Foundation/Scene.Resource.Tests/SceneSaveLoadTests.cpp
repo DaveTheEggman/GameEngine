@@ -52,7 +52,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
     Guid heroId, foeId;
     {
         // author + save a live scene
-        Scene scene(u8"arena");
+        Scene scene(DefaultAllocator(), u8"arena");
         TagManager* tags = scene.AddSystem<TagManager>();
         EntityHandle hero = scene.CreateEntity(u8"hero");
         EntityHandle foe = scene.CreateEntity(u8"foe");
@@ -82,7 +82,7 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
         REQUIRE(sd != nullptr);
         CHECK(sd->name == u8"arena");
 
-        Scene scene;
+        Scene scene{DefaultAllocator()};
         TagManager* tags = scene.AddSystem<TagManager>();
         REQUIRE(LoadScene(*inst, scene).IsOk());
 

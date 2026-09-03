@@ -99,6 +99,8 @@ export namespace foundation::rhi::webgpu
                 bool mapped = false;
                 bool orphaned = false; // waiter gave up; the callback owns deletion
             };
+            // Async map-callback box (captureless C callback; may outlive the buffer via
+            // orphaning): a process-scope pair by design, like the AS thunk boxes.
             auto* result = DefaultAllocator().New<Result>();
             result->allocator = &DefaultAllocator();
             WGPUBufferMapCallbackInfo callback = WGPU_BUFFER_MAP_CALLBACK_INFO_INIT;

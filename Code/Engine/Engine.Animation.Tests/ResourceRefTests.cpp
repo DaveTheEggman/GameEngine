@@ -115,7 +115,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     // Author a scene whose SkeletalAnimationComponent references both BY GUID only.
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Rig");
         engine::animation::SkeletalAnimationComponent& a =
@@ -131,7 +131,7 @@ TEST_CASE("resource-ref: scene round-trip resolves skeleton + clip refs through 
     }
 
     // Load into a FRESH scene, then run the post-load resolve pass.
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<engine::render::MeshComponentManager>();
     loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
@@ -199,7 +199,7 @@ TEST_CASE("resource-ref: sequential picks start playback (skeleton first, clip l
     // The editor flow: refs land ONE AT A TIME across frames. The manager must start playback
     // when the clip arrives after the player was already built for the skeleton (and re-play
     // when the clip behind the ref changes, e.g. a hot reload or a different pick).
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     scene.AddSystem<engine::render::MeshComponentManager>();
     auto* mgr = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     const scene::EntityHandle e = scene.CreateEntity(u8"Rig");
@@ -238,7 +238,7 @@ TEST_CASE("mesh-entities: one animator feeds multiple parts by EntityRef, and th
     clip->duration = 1.0f;
     clip->isLooping = true;
 
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     auto* mgr = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     const scene::EntityHandle rig = scene.CreateEntity(u8"Rig");
@@ -272,7 +272,7 @@ TEST_CASE("mesh-entities: one animator feeds multiple parts by EntityRef, and th
         scene::SerializeScene(ar, scene);
         REQUIRE(ar.IsOk());
     }
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<engine::render::MeshComponentManager>();
     auto* loadedMgr = loaded.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);

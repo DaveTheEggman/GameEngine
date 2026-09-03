@@ -144,7 +144,7 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     foundation::net::RegisterReplicationComponents();
 
     // --- server scene: two networked entities, each with a Mover ---
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* serverMovers = server.AddSystem<MoverManager>();
     net::StateReplication serverRep;
@@ -174,7 +174,7 @@ TEST_CASE("replication: a full snapshot round-trips networked entities server ->
     serverRep.CaptureSnapshot(server, writer);
 
     // --- apply into a fresh client scene with the SAME managers ---
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* clientMovers = client.AddSystem<MoverManager>();
     net::StateReplication clientRep;
@@ -216,7 +216,7 @@ TEST_CASE(
 {
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     server.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication serverRep;
@@ -238,7 +238,7 @@ TEST_CASE(
     serverRep.CaptureSnapshot(server, writer);
 
     // Client: apply the snapshot (fills the component), then push it onto the entity's transform.
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     client.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication clientRep;
@@ -259,7 +259,7 @@ TEST_CASE(
 {
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene scene;
+    scene::Scene scene{DefaultAllocator()};
     auto* netMgr = scene.AddSystem<net::NetworkComponentManager>();
     net::StateReplication rep;
 
@@ -286,7 +286,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
     RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
@@ -304,7 +304,7 @@ TEST_CASE("replication: per-peer delta sends only what changed since the peer's 
 
     const u32 peer = 1;
 
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -368,7 +368,7 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
     foundation::net::RegisterReplicationComponents();
 
     // Server: two entities network-spawned from prefabs, each with replicated Mover state.
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
@@ -384,7 +384,7 @@ TEST_CASE("replication: late-join full snapshot spawns prefabs via the spawn han
 
     // A late-joining client whose spawn handler stands in for SpawnPrefab: it records the prefab id
     // and produces a Mover-bearing entity (as the real prefab would).
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -432,13 +432,13 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
     RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
     const u32 peer = 1;
 
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -546,7 +546,7 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
     RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* movers = server.AddSystem<MoverManager>();
     net::StateReplication rep;
@@ -576,10 +576,10 @@ TEST_CASE("replication: per-peer relevancy hides non-relevant entities and remov
         s.AddSystem<net::NetworkComponentManager>();
         s.AddSystem<MoverManager>();
     };
-    scene::Scene c1;
+    scene::Scene c1{DefaultAllocator()};
     makeClient(c1);
     net::StateReplication crep1;
-    scene::Scene c2;
+    scene::Scene c2{DefaultAllocator()};
     makeClient(c2);
     net::StateReplication crep2;
     MoverManager* c1movers = c1.GetSystem<MoverManager>();
@@ -645,7 +645,7 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     RttiRegisterValue_Mover();
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     MoverManager* smovers = server.AddSystem<MoverManager>();
     net::StateReplication srep;
@@ -655,7 +655,7 @@ TEST_CASE("replication: ApplyDelta records interpolatable state, SampleInterpola
     sm.health = 5;
     const net::NetworkId id = srep.AssignNetworkId(server, a);
 
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     MoverManager* cmovers = client.AddSystem<MoverManager>();
     net::StateReplication crep;
@@ -724,7 +724,7 @@ TEST_CASE("replication: an effectively-inactive entity's transform state FREEZES
 {
     foundation::net::RegisterReplicationComponents();
 
-    scene::Scene server;
+    scene::Scene server{DefaultAllocator()};
     server.AddSystem<net::NetworkComponentManager>();
     server.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication serverRep;
@@ -750,7 +750,7 @@ TEST_CASE("replication: an effectively-inactive entity's transform state FREEZES
     // The entity is still IN the snapshot (a client spawns it - the flag is scene data).
     net::BitWriter writer;
     serverRep.CaptureSnapshot(server, writer);
-    scene::Scene client;
+    scene::Scene client{DefaultAllocator()};
     client.AddSystem<net::NetworkComponentManager>();
     client.AddSystem<net::NetworkedTransformComponentManager>();
     net::StateReplication clientRep;

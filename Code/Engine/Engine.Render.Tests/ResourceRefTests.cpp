@@ -79,7 +79,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     // Author a scene whose MeshComponent references the mesh BY GUID only.
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Box");
         MeshComponent& mc = scene.GetSystem<MeshComponentManager>()->Add(e);
@@ -92,7 +92,7 @@ TEST_CASE("resource-ref: scene round-trip resolves mesh refs through proxy handl
     }
 
     // Load into a FRESH scene, then run the post-load resolve pass.
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<MeshComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
@@ -163,7 +163,7 @@ TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
 
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<SpriteComponentManager>();
         scene.AddSystem<DecalComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Deco");
@@ -180,7 +180,7 @@ TEST_CASE("resource-ref: sprite + decal texture refs round-trip by guid")
         REQUIRE(ar.IsOk());
     }
 
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<SpriteComponentManager>();
     loaded.AddSystem<DecalComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
@@ -215,7 +215,7 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
 
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<InstancedMeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Scatter");
         InstancedMeshComponent& c = scene.GetSystem<InstancedMeshComponentManager>()->Add(e);
@@ -234,7 +234,7 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
         REQUIRE(ar.IsOk());
     }
 
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<InstancedMeshComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {
@@ -336,7 +336,7 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
     const Guid matB{0xB2, 0x2};
     MemoryStream blob;
     {
-        scene::Scene scene;
+        scene::Scene scene{DefaultAllocator()};
         scene.AddSystem<MeshComponentManager>();
         const scene::EntityHandle e = scene.CreateEntity(u8"Multi");
         MeshComponent& mc = scene.GetSystem<MeshComponentManager>()->Add(e);
@@ -351,7 +351,7 @@ TEST_CASE("resource-ref: per-submesh material refs round-trip and resolve to the
         REQUIRE(ar.IsOk());
     }
 
-    scene::Scene loaded;
+    scene::Scene loaded{DefaultAllocator()};
     loaded.AddSystem<MeshComponentManager>();
     REQUIRE(blob.Seek(0, SeekOrigin::Begin) == 0);
     {

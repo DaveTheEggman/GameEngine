@@ -137,7 +137,7 @@ TEST_CASE("component type id is stable + distinct per component type")
 TEST_CASE("scene: FindManagerByComponentType + re-resolution survives swap-remove / growth "
           "(entity.get safety, Correction 1)")
 {
-    Scene scene(u8"resolve");
+    Scene scene(DefaultAllocator(), u8"resolve");
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     const EntityHandle e0 = scene.CreateEntity(u8"e0");
     const EntityHandle e1 = scene.CreateEntity(u8"e1");
@@ -185,7 +185,7 @@ TEST_CASE("scene: FindManagerByComponentType + re-resolution survives swap-remov
 // live component address every time - connecting FindManagerByComponentType + Variant RESOLVE mode.
 TEST_CASE("scene: MakeComponentRef gives a RESOLVE Variant that re-resolves the live component")
 {
-    Scene scene(u8"ref");
+    Scene scene(DefaultAllocator(), u8"ref");
     HealthManager* mgr = scene.AddSystem<HealthManager>();
     const EntityHandle e0 = scene.CreateEntity(u8"e0");
     const EntityHandle e1 = scene.CreateEntity(u8"e1");

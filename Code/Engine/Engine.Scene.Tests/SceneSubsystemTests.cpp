@@ -86,7 +86,7 @@ TEST_CASE("the composition assembles a scene; SystemsReady observers then wire r
     scenes->SetComposition(SceneComposition::Build(modules));
 
     // An owner registers its own SceneManager (no shared default manager).
-    SceneManager sm;
+    SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
 
     Scene* level = sm.CreateScene(u8"level");
@@ -109,7 +109,7 @@ TEST_CASE("the subsystem ticks its scenes each Context update")
     const SceneModule* modules[] = {&kRenderModule};
     scenes->SetComposition(SceneComposition::Build(modules));
 
-    SceneManager sm;
+    SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
 
     Scene* level = sm.CreateScene();
@@ -134,7 +134,7 @@ TEST_CASE("destroying a scene fires Destroying observers + drops it from the act
     const SceneModule* modules[] = {&kRenderModule};
     scenes->SetComposition(SceneComposition::Build(modules));
 
-    SceneManager sm;
+    SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
 
     Scene* a = sm.CreateScene(u8"a");
@@ -156,7 +156,7 @@ TEST_CASE("per-scene time: scales isolate scenes; pause stops one without the ot
     runtime::Context ctx(DefaultAllocator());
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     ctx.Startup();
-    SceneManager sm;
+    SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
 
     Scene* normal = sm.CreateScene(u8"normal");
@@ -207,7 +207,7 @@ TEST_CASE("per-scene time: fixed alpha is the scene's own leftover fraction")
     runtime::Context ctx(DefaultAllocator());
     SceneSubsystem* scenes = ctx.AddSubsystem<SceneSubsystem>();
     ctx.Startup();
-    SceneManager sm;
+    SceneManager sm{DefaultAllocator()};
     scenes->RegisterManager(&sm);
     Scene* scene = sm.CreateScene(u8"alpha");
     scene->SetFixedTiming(1.0f / 60.0f, 4);

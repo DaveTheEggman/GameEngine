@@ -151,9 +151,19 @@ tight cluster) per commit.
   the same sweep; stack-constructed RefCounted views in tests moved to
   MakeRef (the assert catches them loudly). Editor pages/hosts currently
   pass process roots - P6 re-decides those.
-- **P5 - Engine subsystems**: render/physics/animation/terrain/particles/
-  scene managers - each subsystem tags; scene systems receive the scene's
-  allocator (Scene itself converts here, owning a per-scene tag).
+- **P5 - Engine subsystems** (DONE): Scene's ctor default REMOVED -
+  `Scene(IAllocator&, name)` and `SceneManager(IAllocator&)` make the
+  per-scene authority explicit (~200 construction sites); RenderSubsystem
+  owns a tagged "Render" allocator threading through every render system,
+  pass, cache, RenderFrame, RenderGraph (required allocator; passes/
+  resources/pool/profiler ride it), extraction arenas/pools/snapshots, and
+  the game-UI UISubsystem owns a tagged "GameUI" allocator (context, roots,
+  VG renderers, shader host); ParticleEffectComponentManager scratch rides
+  scene.Allocator() (component-struct spill stays value-bound);
+  VGRenderer/UIWindowData/animation-graph build helpers take required
+  allocators; WebGPU CreateBackend default removed (async map-callback box
+  documented as a process-scope pair); the profiler's per-thread slots stay
+  a process-global (compile-gated singleton).
 - **P6 - Pipeline + Editor + Samples + remaining tests**: importers/builders
   take the cook's allocator; editor app threads its root through pages/
   views (mostly free via the UI idiom); samples construct explicit roots.

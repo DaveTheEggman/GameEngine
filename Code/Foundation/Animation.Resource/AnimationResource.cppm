@@ -463,14 +463,14 @@ export namespace foundation::animation
             for (const GraphLayerData& ld : layers)
             {
                 UniquePtr<AnimationLayer> layer =
-                    MakeUnique<AnimationLayer>(DefaultAllocator(), ld.name.AsView());
+                    MakeUnique<AnimationLayer>(graph.MemoryAllocator(), ld.name.AsView());
                 layer->defaultStateIndex = ld.defaultState;
                 layer->blendMode = static_cast<LayerBlendMode>(ld.blendMode);
                 layer->weight = ld.weight;
                 if (!ld.maskWeights.IsEmpty())
                 {
                     UniquePtr<BoneMask> mask = MakeUnique<BoneMask>(
-                        DefaultAllocator(), static_cast<i32>(ld.maskWeights.Size()), 0.0f);
+                        graph.MemoryAllocator(), static_cast<i32>(ld.maskWeights.Size()), 0.0f);
                     for (usize b = 0; b < ld.maskWeights.Size(); ++b)
                     {
                         mask->SetWeight(static_cast<i32>(b), ld.maskWeights[b]);
@@ -480,7 +480,7 @@ export namespace foundation::animation
                 for (const GraphStateData& sd : ld.states)
                 {
                     UniquePtr<AnimationGraphState> state = MakeUnique<AnimationGraphState>(
-                        DefaultAllocator(), sd.name.AsView(), BuildNode(manager, sd.node));
+                        graph.MemoryAllocator(), sd.name.AsView(), BuildNode(manager, graph.MemoryAllocator(), sd.node));
                     state->speed = sd.speed;
                     state->loop = sd.loop;
                     layer->AddState(static_cast<UniquePtr<AnimationGraphState>&&>(state));
@@ -488,7 +488,7 @@ export namespace foundation::animation
                 for (const GraphTransitionData& td : ld.transitions)
                 {
                     UniquePtr<AnimationGraphTransition> tr =
-                        MakeUnique<AnimationGraphTransition>(DefaultAllocator());
+                        MakeUnique<AnimationGraphTransition>(graph.MemoryAllocator());
                     tr->sourceStateIndex = td.src;
                     tr->destStateIndex = td.dst;
                     tr->duration = td.duration;
@@ -514,11 +514,12 @@ export namespace foundation::animation
             return id.IsNil() ? nullptr : manager.Bind<AnimationClip>(id).Get();
         }
         [[nodiscard]] static UniquePtr<IAnimationStateNode>
-        BuildNode(resource::ResourceManager& manager, const GraphNodeData& n)
+        BuildNode(resource::ResourceManager& manager, IAllocator& allocator,
+                  const GraphNodeData& n)
         {
             if (n.kind == 1)
             { // blend1d
-                UniquePtr<BlendTree1D> t = MakeUnique<BlendTree1D>(DefaultAllocator());
+                UniquePtr<BlendTree1D> t = MakeUnique<BlendTree1D>(allocator);
                 t->parameterIndex = n.paramIndex;
                 for (usize i = 0; i < n.entryClips.Size(); ++i)
                 {
@@ -529,7 +530,7 @@ export namespace foundation::animation
             }
             if (n.kind == 2)
             { // blend2d
-                UniquePtr<BlendTree2D> t = MakeUnique<BlendTree2D>(DefaultAllocator());
+                UniquePtr<BlendTree2D> t = MakeUnique<BlendTree2D>(allocator);
                 t->parameterIndexX = n.paramIndexX;
                 t->parameterIndexY = n.paramIndexY;
                 for (usize i = 0; i < n.entryClips.Size(); ++i)
@@ -539,7 +540,7 @@ export namespace foundation::animation
                 }
                 return t;
             }
-            return MakeUnique<ClipStateNode>(DefaultAllocator(),
+            return MakeUnique<ClipStateNode>(allocator,
                                              ResolveClip(manager, n.clipRef)); // clip node
         }
     };

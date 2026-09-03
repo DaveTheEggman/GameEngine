@@ -25,7 +25,7 @@ namespace
 
 TEST_CASE("rg.dep: reader depends on writer")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -50,7 +50,7 @@ TEST_CASE("rg.dep: reader depends on writer")
 
 TEST_CASE("rg.dep: multiple readers fan out, writer first")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));
@@ -81,7 +81,7 @@ TEST_CASE("rg.dep: multiple readers fan out, writer first")
 
 TEST_CASE("rg.dep: subresource writes are independent, reader last")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     RGTextureDesc atlasDesc(rhi::TextureFormat::Depth32Float);
     atlasDesc.arrayLayerCount = 4;
@@ -115,7 +115,7 @@ TEST_CASE("rg.dep: subresource writes are independent, reader last")
 
 TEST_CASE("rg.dep: LoadOp on a color target creates a dependency on the writer")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle color =
         graph.CreateTransient(u8"SceneColor", RGTextureDesc(rhi::TextureFormat::RGBA16Float));
@@ -141,7 +141,7 @@ TEST_CASE("rg.dep: LoadOp on a color target creates a dependency on the writer")
 
 TEST_CASE("rg.dep: LoadOp on a depth target creates a dependency on the writer")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle depth =
         graph.CreateTransient(u8"Depth", RGTextureDesc(rhi::TextureFormat::Depth32Float));
@@ -167,7 +167,7 @@ TEST_CASE("rg.dep: LoadOp on a depth target creates a dependency on the writer")
 
 TEST_CASE("rg.dep: writer chain orders correctly")
 {
-    RenderGraph graph(nullptr);
+    RenderGraph graph(DefaultAllocator(), nullptr);
     graph.BeginFrame(0);
     const RGHandle tex =
         graph.CreateTransient(u8"Tex", RGTextureDesc(rhi::TextureFormat::RGBA8Unorm));

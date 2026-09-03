@@ -428,7 +428,7 @@ export namespace editor
         RefPtr<ui::viewport::ViewportView> m_viewport;
         UniquePtr<foundation::shell::InputRouter>
             m_router;                         // gates the viewport surface (hover/focus)
-        scene::SceneManager m_fallbackScenes; // no-embedded-app placeholder group (see SceneGroup)
+        scene::SceneManager m_fallbackScenes{DefaultAllocator()}; // no-embedded-app placeholder group (see SceneGroup)
 
         String m_sceneTitle;
         bool m_running = false;

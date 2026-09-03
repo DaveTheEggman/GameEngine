@@ -111,7 +111,7 @@ private:
 
     UniquePtr<fonts::TrueTypeFontService> m_fontService;
     UniquePtr<vg::VGContext> m_vg;
-    vg::renderer::VGRenderer m_renderer;
+    vg::renderer::VGRenderer m_renderer{DefaultAllocator()};
     image::OwnedImageData m_checker;
 
     fonts::CachedFont* m_fontSmall = nullptr;

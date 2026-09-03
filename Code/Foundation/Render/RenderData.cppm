@@ -496,14 +496,17 @@ export namespace foundation::render
     class FrameArena
     {
     public:
-        explicit FrameArena(usize chunkSize = kDefaultChunkSize) noexcept : m_chunkSize(chunkSize)
+        // The allocator (required - the owner decides) backs the arena's chunks.
+        explicit FrameArena(IAllocator& allocator,
+                            usize chunkSize = kDefaultChunkSize) noexcept
+            : m_allocator(&allocator), m_chunkSize(chunkSize)
         {
         }
         ~FrameArena()
         {
             for (Chunk& c : m_chunks)
             {
-                DefaultAllocator().Free(c.data);
+                m_allocator->Free(c.data);
             }
         }
 
@@ -536,6 +539,7 @@ export namespace foundation::render
         };
 
         bool AddChunk(usize size);
+        IAllocator* m_allocator;
 
         Array<Chunk> m_chunks;
         usize m_chunkSize;
@@ -636,6 +640,13 @@ export namespace foundation::render
     class ExtractedScene
     {
     public:
+        // The allocator (required - the owner decides) backs the arena + item lists.
+        explicit ExtractedScene(IAllocator& allocator)
+            : m_arena(allocator), m_items(allocator), m_lights(allocator),
+              m_localCasters(allocator)
+        {
+        }
+
         // Allocate a RenderData subclass from the arena and register it in the snapshot.
         template <typename T, typename... Args>
         [[nodiscard]] T* Add(Args&&... args)

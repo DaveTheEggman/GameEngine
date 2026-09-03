@@ -69,8 +69,8 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
 
-    UIDocumentFactory documentFactory;
-    UIThemeFactory themeFactory;
+    UIDocumentFactory documentFactory(DefaultAllocator());
+    UIThemeFactory themeFactory(DefaultAllocator());
     ResourceManager manager(DefaultAllocator(), outDb);
     manager.AddFactory(&documentFactory);
     manager.AddFactory(&themeFactory);

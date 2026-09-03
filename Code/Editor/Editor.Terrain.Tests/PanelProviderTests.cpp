@@ -38,7 +38,7 @@ TEST_CASE("terrain tool panels: providers register + build a panel for each brus
     // Build the tools the panels drive - over an in-memory terrain with a SIX-layer palette +
     // weights, so the splat panel's base + unbounded-swatch path actually runs past the old
     // 4-layer cap (top-K model).
-    scene::Scene sceneObj;
+    scene::Scene sceneObj{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(sceneObj);
     auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
     RefPtr<hf::Heightfield> grid =

@@ -37,7 +37,9 @@ export namespace foundation::scene
     class Scene
     {
     public:
-        explicit Scene(StringView name = {}, IAllocator& allocator = DefaultAllocator())
+        // The allocator (required - the owner decides; SceneManager threads its own) is
+        // the per-scene authority every scene system builds on (Allocator() below).
+        explicit Scene(IAllocator& allocator, StringView name = {})
             : m_allocator(&allocator), m_name(name, allocator)
         {
         }

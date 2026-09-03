@@ -120,7 +120,7 @@ namespace
     Array<byte> BakeTerrainZone(RefPtr<foundation::terrain::TerrainResource> terrain,
                                 Float3 zoneExtents, usize& outTriangles)
     {
-        scene::Scene sceneObj(u8"bake_terrain");
+        scene::Scene sceneObj(DefaultAllocator(), u8"bake_terrain");
         engine::navigation::AddNavigationSceneManagers(sceneObj);
         auto* terrains = sceneObj.AddSystem<engine::terrain::TerrainComponentManager>();
 
@@ -182,7 +182,7 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
     REQUIRE(assetInstance != nullptr);
 
     // Scene: a ground mesh at the origin + a zone entity that covers it.
-    scene::Scene sceneObj(u8"bake");
+    scene::Scene sceneObj(DefaultAllocator(), u8"bake");
     engine::navigation::AddNavigationSceneManagers(sceneObj);
     auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
 
@@ -243,7 +243,7 @@ TEST_CASE("editor.navigation: bake succeeds when the zone shares a SCALED entity
         db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
     REQUIRE(assetInstance != nullptr);
 
-    scene::Scene sceneObj(u8"bake_scaled");
+    scene::Scene sceneObj(DefaultAllocator(), u8"bake_scaled");
     engine::navigation::AddNavigationSceneManagers(sceneObj);
     auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
 

@@ -59,7 +59,7 @@ namespace editor::mcp::detail
             {
                 continue;
             }
-            scene::Scene scratch(u8"__mcp_export_transcode");
+            scene::Scene scratch(DefaultAllocator(), u8"__mcp_export_transcode");
             engine::AddAllSceneManagers(scratch);
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);

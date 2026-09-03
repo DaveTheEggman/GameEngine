@@ -182,7 +182,7 @@ export namespace editor
     GenerateModelPrefab(foundation::content::Instance& manifestInstance)
     {
         ModelPrefabResult result;
-        scene::Scene scene(manifestInstance.Name());
+        scene::Scene scene(DefaultAllocator(), manifestInstance.Name());
         scene::EntityHandle root;
         if (!BuildModelScene(manifestInstance, scene, root))
         {
@@ -240,7 +240,7 @@ export namespace editor
     GenerateModelScene(foundation::content::Instance& manifestInstance)
     {
         ModelPrefabResult result;
-        scene::Scene scene(manifestInstance.Name());
+        scene::Scene scene(DefaultAllocator(), manifestInstance.Name());
         scene::EntityHandle root;
         if (!BuildModelScene(manifestInstance, scene, root))
         {

@@ -108,7 +108,7 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     // 4. Author a scene through the tools (seed text from a real SaveScene).
     String seedXml;
     {
-        scene::Scene authored(u8"arena");
+        scene::Scene authored(DefaultAllocator(), u8"arena");
         engine::AddAllSceneManagers(authored);
         (void)authored.CreateEntity(u8"hero");
         auto* inst = session.project->SourceDb().RootGroup()->CreateInstance(

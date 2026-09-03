@@ -105,7 +105,7 @@ TEST_CASE("rg.transient: generation is non-zero and stable across pool reuse")
 {
     Harness h;
     REQUIRE(h.Init());
-    RenderGraph graph(&h.device);
+    RenderGraph graph(DefaultAllocator(), &h.device);
 
     u64 gen0 = 0, gen1 = 0;
     rhi::TextureView* v0 = nullptr;
@@ -123,7 +123,7 @@ TEST_CASE("rg.transient: distinct transients get distinct generations")
 {
     Harness h;
     REQUIRE(h.Init());
-    RenderGraph graph(&h.device);
+    RenderGraph graph(DefaultAllocator(), &h.device);
     graph.SetOutputSize(64, 64);
     graph.BeginFrame(0);
 

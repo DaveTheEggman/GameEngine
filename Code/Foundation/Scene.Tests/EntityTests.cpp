@@ -15,7 +15,7 @@ using namespace foundation::scene;
 
 TEST_CASE("entity create: unique valid handles + count")
 {
-    Scene scene(u8"world");
+    Scene scene(DefaultAllocator(), u8"world");
     CHECK(scene.Name() == u8"world");
     CHECK(scene.EntityCount() == 0);
 
@@ -32,7 +32,7 @@ TEST_CASE("entity create: unique valid handles + count")
 
 TEST_CASE("entity destroy: invalidates the handle")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle e = scene.CreateEntity();
     REQUIRE(scene.IsValid(e));
     scene.DestroyEntity(e);
@@ -44,7 +44,7 @@ TEST_CASE("entity destroy: invalidates the handle")
 
 TEST_CASE("slot reuse bumps generation: a stale handle is detected, not confused with the new one")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle first = scene.CreateEntity();
     const u32 reusedIndex = first.index;
     scene.DestroyEntity(first);
@@ -58,7 +58,7 @@ TEST_CASE("slot reuse bumps generation: a stale handle is detected, not confused
 
 TEST_CASE("invalid/unassigned handles never validate")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     CHECK_FALSE(scene.IsValid(EntityHandle::Invalid()));
     CHECK_FALSE(scene.IsValid(EntityHandle{999u, 1u})); // out of range
     CHECK(scene.GetEntityName(EntityHandle::Invalid()) == StringView{});
@@ -68,7 +68,7 @@ TEST_CASE("invalid/unassigned handles never validate")
 
 TEST_CASE("persistent Guid <-> handle: find resolves, survives a specific-id create")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle e = scene.CreateEntity(u8"named");
     const Guid id = scene.GetEntityId(e);
     CHECK(id != Guid{});
@@ -87,7 +87,7 @@ TEST_CASE("persistent Guid <-> handle: find resolves, survives a specific-id cre
 
 TEST_CASE("active + name are mutable on live entities")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle e = scene.CreateEntity(u8"orig");
     scene.SetActive(e, false);
     CHECK_FALSE(scene.IsActive(e));
@@ -97,7 +97,7 @@ TEST_CASE("active + name are mutable on live entities")
 
 TEST_CASE("ForEachEntity visits exactly the live entities")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle a = scene.CreateEntity();
     EntityHandle b = scene.CreateEntity();
     EntityHandle c = scene.CreateEntity();
@@ -130,7 +130,7 @@ TEST_CASE("ForEachEntity visits exactly the live entities")
 
 TEST_CASE("revision advances on structural change")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     const u64 r0 = scene.Revision();
     EntityHandle e = scene.CreateEntity();
     CHECK(scene.Revision() > r0);
@@ -144,7 +144,7 @@ TEST_CASE("revision advances on rename, reparent, and active toggle")
     // Observers (e.g. an editor hierarchy) rebuild off Revision(); every mutation that changes
     // what they display must advance it. Local transforms deliberately do NOT (they'd churn a
     // rebuild every frame of a gizmo drag).
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle a = scene.CreateEntity(u8"a");
     EntityHandle b = scene.CreateEntity(u8"b");
 
@@ -173,7 +173,7 @@ TEST_CASE("revision advances on rename, reparent, and active toggle")
 
 TEST_CASE("MoveBefore reorders siblings and roots")
 {
-    Scene scene;
+    Scene scene{DefaultAllocator()};
     EntityHandle a = scene.CreateEntity(u8"a");
     EntityHandle b = scene.CreateEntity(u8"b");
     EntityHandle c = scene.CreateEntity(u8"c");
@@ -225,7 +225,7 @@ TEST_CASE("MoveBefore reorders siblings and roots")
 
 TEST_CASE("entity find: by name (first match) and by hierarchy path")
 {
-    Scene scene(u8"world");
+    Scene scene(DefaultAllocator(), u8"world");
     EntityHandle player = scene.CreateEntity(u8"Player");
     EntityHandle weapon = scene.CreateEntity(u8"Weapon");
     EntityHandle muzzle = scene.CreateEntity(u8"Muzzle");
@@ -266,7 +266,7 @@ TEST_CASE("entity find: by name (first match) and by hierarchy path")
 
 TEST_CASE("effective active: deep chain - a mid-ancestor's flag darks the whole subtree")
 {
-    Scene scene(u8"eff");
+    Scene scene(DefaultAllocator(), u8"eff");
     EntityHandle a = scene.CreateEntity(u8"a");
     EntityHandle b = scene.CreateEntity(u8"b");
     EntityHandle c = scene.CreateEntity(u8"c");
@@ -294,7 +294,7 @@ TEST_CASE("effective active: deep chain - a mid-ancestor's flag darks the whole 
 
 TEST_CASE("effective active: child's own flag survives a parent toggle (restore matrix)")
 {
-    Scene scene(u8"eff2");
+    Scene scene(DefaultAllocator(), u8"eff2");
     EntityHandle parent = scene.CreateEntity(u8"p");
     EntityHandle onChild = scene.CreateEntity(u8"on");
     EntityHandle offChild = scene.CreateEntity(u8"off");
@@ -314,7 +314,7 @@ TEST_CASE("effective active: child's own flag survives a parent toggle (restore 
 
 TEST_CASE("effective active: reparent under an inactive parent and back out")
 {
-    Scene scene(u8"eff3");
+    Scene scene(DefaultAllocator(), u8"eff3");
     EntityHandle deadHost = scene.CreateEntity(u8"host");
     EntityHandle mover = scene.CreateEntity(u8"mover");
     EntityHandle moverChild = scene.CreateEntity(u8"mc");
@@ -333,7 +333,7 @@ TEST_CASE("effective active: reparent under an inactive parent and back out")
 
 TEST_CASE("effective active: MoveBefore across parents resettles the subtree")
 {
-    Scene scene(u8"eff4");
+    Scene scene(DefaultAllocator(), u8"eff4");
     EntityHandle activeParent = scene.CreateEntity(u8"ap");
     EntityHandle inactiveParent = scene.CreateEntity(u8"ip");
     EntityHandle anchor = scene.CreateEntity(u8"anchor");
@@ -349,7 +349,7 @@ TEST_CASE("effective active: MoveBefore across parents resettles the subtree")
 
 TEST_CASE("effective active: created under nothing = active; invalid handle answers false")
 {
-    Scene scene(u8"eff5");
+    Scene scene(DefaultAllocator(), u8"eff5");
     EntityHandle e = scene.CreateEntity(u8"e");
     CHECK(scene.IsEffectivelyActive(e));
     CHECK_FALSE(scene.IsEffectivelyActive(EntityHandle::Invalid()));

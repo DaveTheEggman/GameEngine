@@ -21,7 +21,7 @@ namespace
     Backend* TryCreateBackend()
     {
         Backend* backend = nullptr;
-        if (!webgpu::CreateBackend(webgpu::WebGpuBackendDesc{}, backend).IsOk())
+        if (!webgpu::CreateBackend(webgpu::WebGpuBackendDesc{}, backend, DefaultAllocator()).IsOk())
         {
             return nullptr;
         }
@@ -131,7 +131,7 @@ TEST_CASE("rhi.webgpu: a missing sidecar fails with NotFound, not a crash")
     desc.libraryPathOverride = u8"definitely_not_wgpu_native.so";
     // The override misses, and the fallback chain may still find the vendored lib -
     // either a clean failure or a working backend is acceptable; never a crash.
-    const Status status = webgpu::CreateBackend(desc, backend);
+    const Status status = webgpu::CreateBackend(desc, backend, DefaultAllocator());
     if (status.IsOk())
     {
         backend->Destroy();
