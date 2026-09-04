@@ -1,8 +1,6 @@
 # Pipeline::Geometry - `geometry.pipeline` (tooling: Static/SkinnedMeshAsset ->
 # Static/SkinnedMeshSource cook). Never linked by the runtime.
-add_library(Geometry.Pipeline STATIC)
-add_library(Pipeline::Geometry ALIAS Geometry.Pipeline)
-
+util_add_engine_library(Geometry.Pipeline ALIAS Pipeline::Geometry)
 target_link_libraries(Geometry.Pipeline
     PUBLIC Foundation::Core Pipeline::Core Foundation::Content
            Foundation::Geometry Foundation::Geometry.Resource Foundation::Policy

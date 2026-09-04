@@ -4,9 +4,7 @@
 # and cooks them through the editor stack into a content database. This is the only
 # library that depends on BOTH foundation.model (the loader IR) and the engine resource
 # stack, keeping that dependency out of the lower libraries.
-add_library(ModelImporter STATIC)
-add_library(Pipeline::ModelImporter ALIAS ModelImporter)
-
+util_add_engine_library(ModelImporter ALIAS Pipeline::ModelImporter)
 target_link_libraries(ModelImporter
     PUBLIC
         Foundation::Core Pipeline::Importer Foundation::Policy

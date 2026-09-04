@@ -1,9 +1,7 @@
 # Foundation::Runtime.Client - `foundation.runtime.client` (the Application base class).
 # Loop-agnostic: the desktop runner (foundation.runtime.desktop) drives Start/Tick/Stop against the shell.
 
-add_library(Runtime.Client STATIC)
-add_library(Foundation::Runtime.Client ALIAS Runtime.Client)
-
+util_add_engine_library(Runtime.Client ALIAS Foundation::Runtime.Client)
 target_link_libraries(Runtime.Client
     PUBLIC Foundation::Runtime Foundation::Shell Foundation::Graphics Foundation::Profiler Foundation::Policy)
 

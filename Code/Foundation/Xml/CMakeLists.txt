@@ -1,9 +1,7 @@
 # Foundation::Xml - `foundation.xml` (DOM XML parser + writer, UTF-8).
 # Faithful port of the hand-written Sedulous.Xml library. Depends only on Core.
 
-add_library(Xml STATIC)
-add_library(Foundation::Xml ALIAS Xml)
-
+util_add_engine_library(Xml ALIAS Foundation::Xml)
 target_link_libraries(Xml PUBLIC Foundation::Core Foundation::Policy)
 
 target_sources(Xml

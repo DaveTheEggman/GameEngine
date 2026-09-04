@@ -1,6 +1,5 @@
 # Pipeline::UI - `ui.pipeline` (tooling: UI document/theme assets + validating builders + importer).
-add_library(UI.Pipeline STATIC)
-add_library(Pipeline::UI ALIAS UI.Pipeline)
+util_add_engine_library(UI.Pipeline ALIAS Pipeline::UI)
 target_link_libraries(UI.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Pipeline::Importer Foundation::Content Foundation::UI Foundation::UI.Gamekit Foundation::UI.Resource Foundation::Policy)
 target_sources(UI.Pipeline

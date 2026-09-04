@@ -3,9 +3,7 @@
 # minimal-STL / -fno-exceptions / -fno-rtti policy. Backends (Null, Vulkan, DX12,
 # Validation) are separate targets.
 
-add_library(RHI STATIC)
-add_library(Foundation::RHI ALIAS RHI)
-
+util_add_engine_library(RHI ALIAS Foundation::RHI)
 target_link_libraries(RHI PUBLIC Foundation::Core Foundation::Policy)
 
 # Implementation units (headers they need stay OUT of the interface gcm - GCC hygiene).

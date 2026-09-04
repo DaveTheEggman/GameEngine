@@ -4,9 +4,7 @@
 # RHI-free; the scene component, editor tool, and future consumers (path-follow, scatter,
 # road extrusion, particle spline) all share this one curve.
 
-add_library(Spline STATIC)
-add_library(Foundation::Spline ALIAS Spline)
-
+util_add_engine_library(Spline ALIAS Foundation::Spline)
 target_link_libraries(Spline PUBLIC Foundation::Core Foundation::Policy)
 
 target_sources(Spline

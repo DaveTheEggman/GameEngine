@@ -4,9 +4,7 @@
 # keeping it apart from editor.preview is what lets ScenePage (and the other pages) share the
 # camera without the GCC module-merge ICE the combined interface triggered. Tooling only.
 
-add_library(Editor.Camera STATIC)
-add_library(Editor::Camera ALIAS Editor.Camera)
-
+util_add_engine_library(Editor.Camera ALIAS Editor::Camera)
 target_link_libraries(Editor.Camera
     PUBLIC Foundation::Core Foundation::Shell Foundation::Policy)
 

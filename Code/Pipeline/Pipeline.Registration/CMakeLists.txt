@@ -3,9 +3,7 @@
 # RegisterAllBuilders / RegisterAllImporters. Headless (no shell/GPU/editor): the CLI cooker, export
 # packager, editor, and MCP server all consume it. NO Editor::Core dependency by design.
 
-add_library(Pipeline.Registration STATIC)
-add_library(Pipeline::Registration ALIAS Pipeline.Registration)
-
+util_add_engine_library(Pipeline.Registration ALIAS Pipeline::Registration)
 target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Core Foundation::Content Foundation::VFS
     Foundation::Scene Foundation::Scene.Resource

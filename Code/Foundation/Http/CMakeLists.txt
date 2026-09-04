@@ -4,9 +4,7 @@
 # request), loopback tooling/tests. One request per connection (Connection: close) + SSE streams;
 # no TLS (localhost trust domain).
 
-add_library(Http STATIC)
-add_library(Foundation::Http ALIAS Http)
-
+util_add_engine_library(Http ALIAS Foundation::Http)
 target_link_libraries(Http PUBLIC Foundation::Net Foundation::Core Foundation::Policy)
 
 target_sources(Http

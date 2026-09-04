@@ -1,6 +1,5 @@
 # Pipeline::Heightfield - `heightfield.pipeline` (tooling: HeightfieldAsset + builder + importer).
-add_library(Heightfield.Pipeline STATIC)
-add_library(Pipeline::Heightfield ALIAS Heightfield.Pipeline)
+util_add_engine_library(Heightfield.Pipeline ALIAS Pipeline::Heightfield)
 target_link_libraries(Heightfield.Pipeline PUBLIC
     Foundation::Core Foundation::VFS Pipeline::Core Pipeline::Importer
     Foundation::Image Foundation::Image.IO

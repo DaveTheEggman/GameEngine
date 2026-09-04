@@ -1,9 +1,7 @@
 # Foundation::RHI.Validation - `foundation.rhi.validation` (a wrapping layer that checks
 # RHI API usage and forwards to an inner backend).
 
-add_library(RHI.Validation STATIC)
-add_library(Foundation::RHI.Validation ALIAS RHI.Validation)
-
+util_add_engine_library(RHI.Validation ALIAS Foundation::RHI.Validation)
 target_link_libraries(RHI.Validation PUBLIC Foundation::RHI Foundation::Core Foundation::Policy)
 
 target_sources(RHI.Validation

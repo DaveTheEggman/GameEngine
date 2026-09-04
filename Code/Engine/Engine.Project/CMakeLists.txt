@@ -1,8 +1,6 @@
 # Engine::Project - `engine.project`, the runtime-side project definition (manifest +
 # layout constants). Editor-free by design: shipping binaries link this, never the editor.
-add_library(Engine.Project STATIC)
-add_library(Engine::Project ALIAS Engine.Project)
-
+util_add_engine_library(Engine.Project ALIAS Engine::Project)
 target_link_libraries(Engine.Project
     PUBLIC Foundation::Core Foundation::VFS Foundation::Xml.Serialization Foundation::Policy)
 

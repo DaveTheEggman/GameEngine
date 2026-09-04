@@ -2,9 +2,7 @@
 # emscripten_set_main_loop callback driving an IApplication against an IShell, yielding to the
 # browser between frames). The Emscripten sibling of foundation.runtime.desktop - same interface
 # dependencies (Shell interface + client + graphics), different execution model. Emscripten-only.
-add_library(Runtime.Web STATIC)
-add_library(Foundation::Runtime.Web ALIAS Runtime.Web)
-
+util_add_engine_library(Runtime.Web ALIAS Foundation::Runtime.Web)
 target_link_libraries(Runtime.Web
     PUBLIC Foundation::Shell Foundation::Runtime.Client Foundation::Graphics Foundation::Policy)
 

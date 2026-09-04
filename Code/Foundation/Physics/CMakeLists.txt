@@ -1,8 +1,6 @@
 # Foundation::Physics - `foundation.physics`: the Jolt-backed rigid-body core.
 # Jolt is PRIVATE: JPH types never cross the module surface.
-add_library(Physics STATIC)
-add_library(Foundation::Physics ALIAS Physics)
-
+util_add_engine_library(Physics ALIAS Foundation::Physics)
 target_link_libraries(Physics
     PUBLIC Foundation::Core Foundation::Policy
     PRIVATE ThirdParty::Jolt)

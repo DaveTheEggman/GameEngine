@@ -1,8 +1,7 @@
 # Foundation::Script.Facades - `foundation.script.facades` (the curated behavior facades:
 # Entity/Log/Time/Random + the run-service binding). Shared by the runtime SUBSYSTEM
 # and the editor's COOK so both VMs register the same "main"-module surface.
-add_library(Script.Facades STATIC)
-add_library(Foundation::Script.Facades ALIAS Script.Facades)
+util_add_engine_library(Script.Facades ALIAS Foundation::Script.Facades)
 target_link_libraries(Script.Facades PUBLIC
     Foundation::Core Foundation::Scene Foundation::Script Foundation::Policy)
 target_sources(Script.Facades

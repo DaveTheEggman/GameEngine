@@ -2,8 +2,7 @@
 # The zone is authored in-scene and baked by the editor; this asset carries the baked navmesh
 # (as a sidecar stream - bulk-data-sidecar rule) and cooks it through to NavigationZoneSource.
 # No OS-file importer. Never linked by the runtime.
-add_library(Navigation.Pipeline STATIC)
-add_library(Pipeline::Navigation ALIAS Navigation.Pipeline)
+util_add_engine_library(Navigation.Pipeline ALIAS Pipeline::Navigation)
 target_link_libraries(Navigation.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Foundation::Content
     Foundation::Navigation Foundation::Navigation.Resource Foundation::Policy)

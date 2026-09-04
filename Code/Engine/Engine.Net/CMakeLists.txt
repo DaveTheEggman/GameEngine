@@ -1,9 +1,7 @@
 # Engine::Net - `engine.net`: the once-per-context NetworkSubsystem that
 # contributes the NetworkComponentManager to the scene composition + registers replicated-component
 # reflection. The scene-integration half of networking; the per-instance endpoint is NetManager.
-add_library(Engine.Net STATIC)
-add_library(Engine::Net ALIAS Engine.Net)
-
+util_add_engine_library(Engine.Net ALIAS Engine::Net)
 target_link_libraries(Engine.Net
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Net.Replication Foundation::Net.Manager Foundation::Policy)

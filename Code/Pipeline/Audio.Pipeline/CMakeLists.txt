@@ -1,6 +1,5 @@
 # Pipeline::Audio - `audio.pipeline` (tooling: audio clip asset/builder/importer).
-add_library(Audio.Pipeline STATIC)
-add_library(Pipeline::Audio ALIAS Audio.Pipeline)
+util_add_engine_library(Audio.Pipeline ALIAS Pipeline::Audio)
 target_link_libraries(Audio.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Pipeline::Importer Foundation::Content
     Foundation::Audio Foundation::Audio.Resource Foundation::Policy)

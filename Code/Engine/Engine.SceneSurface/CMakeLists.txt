@@ -5,9 +5,7 @@
 # manager set and can never drift from the runtime injection. Headless-safe: managers are value
 # pools; the settings systems construct inert.
 
-add_library(Engine.SceneSurface STATIC)
-add_library(Engine::SceneSurface ALIAS Engine.SceneSurface)
-
+util_add_engine_library(Engine.SceneSurface ALIAS Engine::SceneSurface)
 target_link_libraries(Engine.SceneSurface PUBLIC
     Foundation::Core Foundation::Scene
     Engine::Render Engine::Animation Engine::Particles Engine::Physics Engine::Terrain Engine::Spline Engine::Navigation

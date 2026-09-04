@@ -4,9 +4,7 @@
 # for server-initiated traffic. A satellite of foundation.mcp (the Mcp.Reflection pattern), so
 # the protocol core stays transport-free.
 
-add_library(Mcp.Http STATIC)
-add_library(Foundation::Mcp.Http ALIAS Mcp.Http)
-
+util_add_engine_library(Mcp.Http ALIAS Foundation::Mcp.Http)
 target_link_libraries(Mcp.Http PUBLIC
     Foundation::Mcp Foundation::Http Foundation::Core Foundation::Policy)
 

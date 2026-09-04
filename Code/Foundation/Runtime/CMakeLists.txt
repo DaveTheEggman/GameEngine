@@ -1,8 +1,6 @@
 # Foundation::Runtime - the `foundation.runtime` module (Context + Subsystems).
 
-add_library(Runtime STATIC)
-add_library(Foundation::Runtime ALIAS Runtime)
-
+util_add_engine_library(Runtime ALIAS Foundation::Runtime)
 target_link_libraries(Runtime PUBLIC Foundation::Core Foundation::Policy)
 
 target_sources(Runtime

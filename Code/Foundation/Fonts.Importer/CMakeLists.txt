@@ -1,9 +1,7 @@
 # Foundation::Fonts.Importer - `foundation.fonts.importer` (editor-time TTF -> baked).
 # Ported from Sedulous.Fonts.Importer (deps: Fonts, Fonts.Baked, Fonts.TTF).
 
-add_library(Fonts.Importer STATIC)
-add_library(Foundation::Fonts.Importer ALIAS Fonts.Importer)
-
+util_add_engine_library(Fonts.Importer ALIAS Foundation::Fonts.Importer)
 target_link_libraries(Fonts.Importer
     PUBLIC Foundation::Core Foundation::Fonts Foundation::Fonts.Baked Foundation::Fonts.TTF Foundation::Policy)
 

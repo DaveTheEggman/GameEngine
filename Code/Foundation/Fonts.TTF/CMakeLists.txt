@@ -1,9 +1,7 @@
 # Foundation::Fonts.TTF - `foundation.fonts.ttf` (stb_truetype backend + VFS service).
 # Ported from Sedulous.Fonts.TTF (deps: Fonts, Fonts.IO, Images, VFS, stb_truetype).
 
-add_library(Fonts.TTF STATIC)
-add_library(Foundation::Fonts.TTF ALIAS Fonts.TTF)
-
+util_add_engine_library(Fonts.TTF ALIAS Foundation::Fonts.TTF)
 target_link_libraries(Fonts.TTF
     PUBLIC Foundation::Core Foundation::Fonts Foundation::Fonts.IO Foundation::Image Foundation::VFS Foundation::Policy
     PRIVATE ThirdParty::Stb)

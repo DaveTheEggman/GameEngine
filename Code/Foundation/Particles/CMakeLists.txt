@@ -3,9 +3,7 @@
 # modules + effect/system/emitter/instance + CPU simulator. Pure logic over Core; the
 # cooked resource (.resource), the GPU-compute sim, the ECS/render integration, and the
 # authoring editor all layer on top.
-add_library(Particles STATIC)
-add_library(Foundation::Particles ALIAS Particles)
-
+util_add_engine_library(Particles ALIAS Foundation::Particles)
 target_link_libraries(Particles
     PUBLIC Foundation::Core Foundation::Policy)
 

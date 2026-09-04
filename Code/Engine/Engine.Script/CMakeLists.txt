@@ -2,9 +2,7 @@
 # (ScriptComponent + per-scene dispatch + the run's ONE gameplay script context).
 # Backend-neutral: links Foundation::Script for the REGISTRY only - entry points
 # register concrete backends.
-add_library(Engine.Script STATIC)
-add_library(Engine::Script ALIAS Engine.Script)
-
+util_add_engine_library(Engine.Script ALIAS Engine::Script)
 target_link_libraries(Engine.Script
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Script Foundation::Script.Resource Foundation::Script.Facades

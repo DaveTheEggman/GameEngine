@@ -2,9 +2,7 @@
 # Kept separate from the core Foundation::UI so the UI stays free of a VFS dependency
 # (the app links this and wires the provider into StyleSheetLoader). Mirrors
 # Sedulous.UI.IO.
-add_library(UI.VFS STATIC)
-add_library(Foundation::UI.VFS ALIAS UI.VFS)
-
+util_add_engine_library(UI.VFS ALIAS Foundation::UI.VFS)
 target_link_libraries(UI.VFS
     PUBLIC Foundation::Core Foundation::UI Foundation::Image Foundation::Image.IO Foundation::VFS Foundation::Policy)
 

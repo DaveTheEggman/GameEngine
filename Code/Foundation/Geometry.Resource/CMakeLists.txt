@@ -1,8 +1,6 @@
 # Foundation::Geometry.Resource - `foundation.geometry.resource` (meshes as resources:
 # Static/SkinnedMeshSource -> Static/SkinnedMesh via factories).
-add_library(Geometry.Resource STATIC)
-add_library(Foundation::Geometry.Resource ALIAS Geometry.Resource)
-
+util_add_engine_library(Geometry.Resource ALIAS Foundation::Geometry.Resource)
 target_link_libraries(Geometry.Resource
     PUBLIC Foundation::Core Foundation::Resource Foundation::Content Foundation::Geometry Foundation::Policy)
 

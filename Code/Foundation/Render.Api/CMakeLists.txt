@@ -3,9 +3,7 @@
 # so tools drive rendering through the interface without linking the renderer. foundation.render
 # re-exports it; RenderSubsystem implements it.
 
-add_library(Render.Api STATIC)
-add_library(Foundation::Render.Api ALIAS Render.Api)
-
+util_add_engine_library(Render.Api ALIAS Foundation::Render.Api)
 target_link_libraries(Render.Api PUBLIC Foundation::Core Foundation::RHI Foundation::Scene Foundation::Policy)
 
 target_sources(Render.Api

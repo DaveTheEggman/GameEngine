@@ -2,9 +2,7 @@
 # on the VG/Fonts stack.
 # Platform- and renderer-agnostic core; VG/Fonts/Image/Xml are linked in,
 # and the gui.shell input bridge is a separate library. Built bottom-up.
-add_library(GUI STATIC)
-add_library(Experimental::GUI ALIAS GUI)
-
+util_add_engine_library(GUI ALIAS Experimental::GUI)
 target_link_libraries(GUI
     PUBLIC Foundation::Core Foundation::VG Foundation::Image Foundation::Fonts Foundation::Xml Foundation::Policy)
 

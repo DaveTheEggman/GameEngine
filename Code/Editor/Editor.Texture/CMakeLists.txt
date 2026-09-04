@@ -1,8 +1,6 @@
 # Editor::Texture - `editor.texture`: the TextureAsset import-settings +
 # preview page + factory. Linked by the editor EXECUTABLE only.
-add_library(Editor.Texture STATIC)
-add_library(Editor::Texture ALIAS Editor.Texture)
-
+util_add_engine_library(Editor.Texture ALIAS Editor::Texture)
 target_link_libraries(Editor.Texture
     PUBLIC
         Foundation::Core Foundation::Content

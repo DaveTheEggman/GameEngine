@@ -1,8 +1,6 @@
 # Pipeline::Shaders - `shaders.pipeline` (tooling: ShaderAsset -> ShaderSource
 # cook). Reads .hlsl text through the VFS; never linked by the runtime.
-add_library(Shaders.Pipeline STATIC)
-add_library(Pipeline::Shaders ALIAS Shaders.Pipeline)
-
+util_add_engine_library(Shaders.Pipeline ALIAS Pipeline::Shaders)
 target_link_libraries(Shaders.Pipeline
     PUBLIC Foundation::Core Pipeline::Core Foundation::VFS Foundation::Shaders.Resource
            Foundation::Content Foundation::Policy)

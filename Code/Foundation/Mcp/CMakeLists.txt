@@ -2,9 +2,7 @@
 # The MCP protocol layer: transport-abstract (stdio + in-memory), implements the v1
 # subset. Depends on Json (the wire codec) + Core.
 
-add_library(Mcp STATIC)
-add_library(Foundation::Mcp ALIAS Mcp)
-
+util_add_engine_library(Mcp ALIAS Foundation::Mcp)
 target_link_libraries(Mcp PUBLIC Foundation::Json Foundation::Core Foundation::Policy)
 
 target_sources(Mcp

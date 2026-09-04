@@ -1,8 +1,7 @@
 # Foundation::Navigation.Resource - `foundation.navigation.resource` (cooked navmesh zones).
 # The collision-asset precedent: a Source record (serialized navmesh blob) produced by a bake
 # action, and a runtime product (a loaded NavigationMesh) a NavMeshZoneComponent's Ref<> binds.
-add_library(Navigation.Resource STATIC)
-add_library(Foundation::Navigation.Resource ALIAS Navigation.Resource)
+util_add_engine_library(Navigation.Resource ALIAS Foundation::Navigation.Resource)
 target_link_libraries(Navigation.Resource PUBLIC
     Foundation::Core Foundation::Resource Foundation::Content Foundation::Policy
     Foundation::Navigation)

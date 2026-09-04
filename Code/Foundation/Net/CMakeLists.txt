@@ -2,9 +2,7 @@
 # swappable backends - reliable-UDP (ours), loopback/sim, later websocket/webrtc - + session,
 # reliability, RPC, replication). Over Core (+ Core/System sockets, later).
 
-add_library(Net STATIC)
-add_library(Foundation::Net ALIAS Net)
-
+util_add_engine_library(Net ALIAS Foundation::Net)
 target_link_libraries(Net PUBLIC Foundation::Core Foundation::Policy)
 
 target_sources(Net

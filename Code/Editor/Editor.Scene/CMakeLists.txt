@@ -1,9 +1,7 @@
 # Editor::Scene - `editor.scene`: the scene editor plugin (SceneEditorPage +
 # factory + RegisterSceneEditor). Linked by the editor EXECUTABLE only (never by editor core/app).
 
-add_library(Editor.Scene STATIC)
-add_library(Editor::Scene ALIAS Editor.Scene)
-
+util_add_engine_library(Editor.Scene ALIAS Editor::Scene)
 target_link_libraries(Editor.Scene
     PUBLIC
         Foundation::Core Foundation::Content Foundation::RHI Foundation::Shell Foundation::Graphics

@@ -1,7 +1,5 @@
 # Foundation::Input.Resource - `foundation.input.resource`: cooked input map + factory.
-add_library(Input.Resource STATIC)
-add_library(Foundation::Input.Resource ALIAS Input.Resource)
-
+util_add_engine_library(Input.Resource ALIAS Foundation::Input.Resource)
 target_link_libraries(Input.Resource
     PUBLIC Foundation::Core Foundation::Content Foundation::Resource Foundation::Input Foundation::Policy)
 

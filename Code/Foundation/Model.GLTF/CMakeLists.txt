@@ -1,5 +1,4 @@
-add_library(Model.GLTF STATIC)
-add_library(Foundation::Model.GLTF ALIAS Model.GLTF)
+util_add_engine_library(Model.GLTF ALIAS Foundation::Model.GLTF)
 target_link_libraries(Model.GLTF PUBLIC Foundation::Core Foundation::Model Foundation::Model.IO Foundation::Image Foundation::Image.IO Foundation::Policy PRIVATE ThirdParty::Cgltf)
 target_sources(Model.GLTF PUBLIC FILE_SET model_gltf_modules TYPE CXX_MODULES FILES GltfLoader.cppm PRIVATE cgltf_impl.cpp)
 target_compile_definitions(Model.GLTF PRIVATE _CRT_SECURE_NO_WARNINGS)

@@ -3,9 +3,7 @@
 # type is RTTI-reflected so scripts can parse/build/query/stringify JSON. Deliberately NO ISerializer
 # backend - JSON is not an engine data format (engine data stays XML). Depends only on Core.
 
-add_library(Json STATIC)
-add_library(Foundation::Json ALIAS Json)
-
+util_add_engine_library(Json ALIAS Foundation::Json)
 target_link_libraries(Json PUBLIC Foundation::Core Foundation::Policy)
 
 # Reflection body (out-of-line impl unit): a regular source, NOT in the CXX_MODULES set.

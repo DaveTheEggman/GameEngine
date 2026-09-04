@@ -1,6 +1,5 @@
 # Foundation::Image.IO - `foundation.image.io` (load/save via stb).
-add_library(Image.IO STATIC)
-add_library(Foundation::Image.IO ALIAS Image.IO)
+util_add_engine_library(Image.IO ALIAS Foundation::Image.IO)
 target_link_libraries(Image.IO PUBLIC Foundation::Image Foundation::Core Foundation::Policy PRIVATE ThirdParty::Stb)
 target_sources(Image.IO
     PUBLIC FILE_SET image_io_modules TYPE CXX_MODULES FILES ImageIOModule.cppm

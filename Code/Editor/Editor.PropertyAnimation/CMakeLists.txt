@@ -1,9 +1,7 @@
 # Editor::PropertyAnimation - `editor.propertyanimation`: the persistent in-scene PropertyAnimationPanel
 # (host + preview + Timeline scrubber over the shared ClipEditorView) + the New Asset creator. Linked by
 # the editor EXECUTABLE only.
-add_library(Editor.PropertyAnimation STATIC)
-add_library(Editor::PropertyAnimation ALIAS Editor.PropertyAnimation)
-
+util_add_engine_library(Editor.PropertyAnimation ALIAS Editor::PropertyAnimation)
 target_link_libraries(Editor.PropertyAnimation
     PUBLIC
         Foundation::Core Foundation::Content Foundation::Scene Foundation::Render

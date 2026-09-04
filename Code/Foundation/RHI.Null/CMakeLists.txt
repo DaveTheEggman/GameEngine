@@ -1,8 +1,6 @@
 # Foundation::RHI.Null - `foundation.rhi.null` (headless no-op RHI backend, for tests/tools).
 
-add_library(RHI.Null STATIC)
-add_library(Foundation::RHI.Null ALIAS RHI.Null)
-
+util_add_engine_library(RHI.Null ALIAS Foundation::RHI.Null)
 target_link_libraries(RHI.Null PUBLIC Foundation::RHI Foundation::Core Foundation::Policy)
 
 target_sources(RHI.Null

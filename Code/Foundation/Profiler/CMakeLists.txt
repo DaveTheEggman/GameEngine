@@ -2,9 +2,7 @@
 # Instrumented across the engine via the PROFILE_SCOPE macro (Profiler.h); compiles to
 # nothing when BUILD_PROFILING is off.
 
-add_library(Profiler STATIC)
-add_library(Foundation::Profiler ALIAS Profiler)
-
+util_add_engine_library(Profiler ALIAS Foundation::Profiler)
 target_link_libraries(Profiler PUBLIC Foundation::Core Foundation::Policy)
 
 # Module implementation unit: the singleton + per-thread slot (one per process).

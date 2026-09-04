@@ -1,6 +1,5 @@
 # Editor::GameUI - `editor.gameui`: UI document page (text + live preview).
-add_library(Editor.GameUI STATIC)
-add_library(Editor::GameUI ALIAS Editor.GameUI)
+util_add_engine_library(Editor.GameUI ALIAS Editor::GameUI)
 target_link_libraries(Editor.GameUI PUBLIC
     Foundation::Core Foundation::Content Foundation::Runtime.Client Foundation::UI Foundation::UI.Toolkit Foundation::Xml
     Foundation::UI.Resource Pipeline::UI Engine::UI Foundation::UI.Runtime Foundation::UI.Viewport

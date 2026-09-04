@@ -2,9 +2,7 @@
 # windowing, input, events). The desktop run loop lives in foundation.runtime.desktop, so this
 # backend needs only the shell interface + SDL3 - no client/graphics dependency.
 
-add_library(Shell.Desktop STATIC)
-add_library(Foundation::Shell.Desktop ALIAS Shell.Desktop)
-
+util_add_engine_library(Shell.Desktop ALIAS Foundation::Shell.Desktop)
 target_link_libraries(Shell.Desktop
     PUBLIC Foundation::Shell Foundation::Policy
     PRIVATE ${ENGINE_SDL_TARGET}) # vendored static SDL3 (or system SDL3 under ENGINE_SYSTEM_SDL)

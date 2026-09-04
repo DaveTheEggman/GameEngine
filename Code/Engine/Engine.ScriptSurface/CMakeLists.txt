@@ -6,9 +6,7 @@
 # Metadata only: it never instantiates a subsystem, so it is headless (the subsystem libs are
 # headless-linkable - RHI.Null, audio Null mode).
 
-add_library(Engine.ScriptSurface STATIC)
-add_library(Engine::ScriptSurface ALIAS Engine.ScriptSurface)
-
+util_add_engine_library(Engine.ScriptSurface ALIAS Engine::ScriptSurface)
 target_link_libraries(Engine.ScriptSurface PUBLIC
     Foundation::Core Foundation::Script.Facades
     Engine::Physics Engine::Navigation Engine::Audio Engine::Input Engine::UI Engine::UI.Script Engine::Render

@@ -1,9 +1,7 @@
 # Engine::Render - `engine.render`, the scene side of rendering
 # (render components + extraction + later the RenderSubsystem). Depends on Scene AND
 # Render (one-way: the renderer never depends back on this or on Scene).
-add_library(Engine.Render STATIC)
-add_library(Engine::Render ALIAS Engine.Render)
-
+util_add_engine_library(Engine.Render ALIAS Engine::Render)
 target_link_libraries(Engine.Render
     PUBLIC Foundation::Core Foundation::Scene Engine::Scene Foundation::Render Foundation::Runtime
            Foundation::Geometry Foundation::Materials Foundation::Shaders Foundation::Shaders.System

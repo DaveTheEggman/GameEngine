@@ -3,9 +3,7 @@
 # One named module composed of partitions (one per subsystem), re-exported by
 # CoreModule.cppm. Built as a static library.
 
-add_library(Core STATIC)
-add_library(Foundation::Core ALIAS Core)
-
+util_add_engine_library(Core ALIAS Foundation::Core)
 target_link_libraries(Core PUBLIC Foundation::Policy)
 
 # Classic (non-module) translation units: macro-centric subsystems whose

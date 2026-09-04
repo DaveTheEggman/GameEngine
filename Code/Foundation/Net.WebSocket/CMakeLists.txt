@@ -2,9 +2,7 @@
 # (RFC 6455 handshake through foundation.http + frame codec + server gateway) and the hybrid
 # UDP+WS datagram socket, so a desktop host accepts browser clients on the unchanged net stack.
 
-add_library(Net.WebSocket STATIC)
-add_library(Foundation::Net.WebSocket ALIAS Net.WebSocket)
-
+util_add_engine_library(Net.WebSocket ALIAS Foundation::Net.WebSocket)
 target_link_libraries(Net.WebSocket PUBLIC Foundation::Core Foundation::Net Foundation::Http Foundation::Policy)
 
 target_sources(Net.WebSocket

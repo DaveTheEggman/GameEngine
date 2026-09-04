@@ -2,9 +2,7 @@
 # node graph, color pickers, curve editor, menu/tool/status bars) layered on foundation.ui. Faithful port
 # of Sedulous.UI.Toolkit. A separate library/module so the core foundation.ui stays lean; consumers write
 # `import foundation.ui.toolkit;`.
-add_library(UI.Toolkit STATIC)
-add_library(Foundation::UI.Toolkit ALIAS UI.Toolkit)
-
+util_add_engine_library(UI.Toolkit ALIAS Foundation::UI.Toolkit)
 target_link_libraries(UI.Toolkit
     PUBLIC Foundation::Core Foundation::VG Foundation::VG.SVG Foundation::Fonts Foundation::Image Foundation::UI Foundation::Policy)
 

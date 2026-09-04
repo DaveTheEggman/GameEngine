@@ -1,9 +1,7 @@
 # Foundation::Particles.Resource - `foundation.particles.resource`: the cooked ParticleEffectResource
 # (runtime input), its bidirectional serializer, and its resource factory. Layers on the runtime
 # particle types + the content DB + resource manager.
-add_library(Particles.Resource STATIC)
-add_library(Foundation::Particles.Resource ALIAS Particles.Resource)
-
+util_add_engine_library(Particles.Resource ALIAS Foundation::Particles.Resource)
 target_link_libraries(Particles.Resource
     PUBLIC Foundation::Core Foundation::Particles Foundation::Content Foundation::Resource
            Foundation::Texture Foundation::Texture.Resource

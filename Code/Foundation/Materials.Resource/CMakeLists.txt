@@ -1,8 +1,6 @@
 # Foundation::Materials.Resource - `foundation.materials.resource` (materials as resources:
 # MaterialSource -> Material via MaterialFactory; depends on the ShaderResource).
-add_library(Materials.Resource STATIC)
-add_library(Foundation::Materials.Resource ALIAS Materials.Resource)
-
+util_add_engine_library(Materials.Resource ALIAS Foundation::Materials.Resource)
 target_link_libraries(Materials.Resource
     PUBLIC Foundation::Core Foundation::Resource Foundation::Content Foundation::Shaders
            Foundation::Texture Foundation::Texture.Resource

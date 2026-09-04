@@ -2,9 +2,7 @@
 # own tool contribution against foundation.mcp; resolves backends live from the ScriptBackendRegistry
 # (does NOT link any backend - the host registers those).
 
-add_library(Mcp.Script STATIC)
-add_library(Foundation::Mcp.Script ALIAS Mcp.Script)
-
+util_add_engine_library(Mcp.Script ALIAS Foundation::Mcp.Script)
 target_link_libraries(Mcp.Script PUBLIC
     Foundation::Mcp Foundation::Json Foundation::Script Foundation::Script.Facades
     Foundation::Core Foundation::Policy)

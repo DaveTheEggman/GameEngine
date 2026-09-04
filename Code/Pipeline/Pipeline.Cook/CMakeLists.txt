@@ -1,9 +1,7 @@
 # Pipeline::Cook - `pipeline.cook` (the incremental cook driver + pipeline DB).
 # Tooling only; headless (no shell/GPU) so the CLI cooker can link it.
 
-add_library(Pipeline.Cook STATIC)
-add_library(Pipeline::Cook ALIAS Pipeline.Cook)
-
+util_add_engine_library(Pipeline.Cook ALIAS Pipeline::Cook)
 target_link_libraries(Pipeline.Cook PUBLIC
     Foundation::Core Foundation::Content Foundation::VFS Pipeline::Core Foundation::Policy)
 

@@ -1,6 +1,5 @@
 # Foundation::Image - `foundation.image` (CPU-side image data + manipulation).
-add_library(Image STATIC)
-add_library(Foundation::Image ALIAS Image)
+util_add_engine_library(Image ALIAS Foundation::Image)
 target_link_libraries(Image PUBLIC Foundation::Core Foundation::Policy)
 target_sources(Image
     PRIVATE

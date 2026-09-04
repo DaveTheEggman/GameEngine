@@ -7,9 +7,7 @@ if(NOT TARGET ThirdParty::DXCHeaders)
     return()
 endif()
 
-add_library(Shaders STATIC)
-add_library(Foundation::Shaders ALIAS Shaders)
-
+util_add_engine_library(Shaders ALIAS Foundation::Shaders)
 target_link_libraries(Shaders
     PUBLIC Foundation::Core ThirdParty::DXCHeaders Foundation::Policy ThirdParty::ShaderCookTools
     PRIVATE ${CMAKE_DL_LIBS})

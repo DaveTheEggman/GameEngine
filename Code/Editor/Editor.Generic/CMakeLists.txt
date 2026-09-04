@@ -1,8 +1,6 @@
 # Editor::Generic - `editor.generic`: the serialize-driven FALLBACK asset
 # page (every asset without a bespoke page). Linked by the editor EXECUTABLE only.
-add_library(Editor.Generic STATIC)
-add_library(Editor::Generic ALIAS Editor.Generic)
-
+util_add_engine_library(Editor.Generic ALIAS Editor::Generic)
 target_link_libraries(Editor.Generic
     PUBLIC
         Foundation::Core Foundation::Content

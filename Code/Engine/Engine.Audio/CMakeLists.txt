@@ -1,8 +1,6 @@
 # Engine::Audio - `engine.audio`: scene integration
 # (components + per-scene voice group + transform/listener sync + one-shot API).
-add_library(Engine.Audio STATIC)
-add_library(Engine::Audio ALIAS Engine.Audio)
-
+util_add_engine_library(Engine.Audio ALIAS Engine::Audio)
 target_link_libraries(Engine.Audio
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Audio Foundation::Resource Foundation::Content Foundation::Script

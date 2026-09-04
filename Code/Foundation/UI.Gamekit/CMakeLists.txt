@@ -3,9 +3,7 @@
 # declared transition + default focus) and a ScreenStack (push/pop/replace over a RootView, with focus
 # save/restore, modal input shielding, and built-in tween transitions on the CORE Animation layer).
 # Pure view-layer: no scene/render/script deps. Consumers write `import foundation.ui.gamekit;`.
-add_library(UI.Gamekit STATIC)
-add_library(Foundation::UI.Gamekit ALIAS UI.Gamekit)
-
+util_add_engine_library(UI.Gamekit ALIAS Foundation::UI.Gamekit)
 target_link_libraries(UI.Gamekit
     # Foundation::Input is the one non-view dep: ButtonPrompt renders an action's binding via
     # foundation.input's DescribeBinding (the shared :binding_names helpers).

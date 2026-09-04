@@ -4,9 +4,7 @@
 # (IApplication/ApplicationHost) and graphics (GraphicsDevice). The web/emscripten runner will
 # be its sibling.
 
-add_library(Runtime.Desktop STATIC)
-add_library(Foundation::Runtime.Desktop ALIAS Runtime.Desktop)
-
+util_add_engine_library(Runtime.Desktop ALIAS Foundation::Runtime.Desktop)
 target_link_libraries(Runtime.Desktop
     PUBLIC Foundation::Shell Foundation::Runtime.Client Foundation::Graphics Foundation::Policy)
 

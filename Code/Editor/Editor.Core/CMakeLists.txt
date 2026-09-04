@@ -1,9 +1,7 @@
 # Editor::Core - `editor.core` (headless editor domain: context, registries,
 # command stack, pages, selection, project). Tooling only - the runtime never links this.
 
-add_library(Editor.Core STATIC)
-add_library(Editor::Core ALIAS Editor.Core)
-
+util_add_engine_library(Editor.Core ALIAS Editor::Core)
 target_link_libraries(Editor.Core
     PUBLIC Pipeline::Importer Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
            Foundation::Settings Foundation::Scene.Resource

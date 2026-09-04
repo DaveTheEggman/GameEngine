@@ -1,8 +1,6 @@
 # Foundation::Audio - `foundation.audio`: the miniaudio-backed audio engine core.
 # miniaudio is PRIVATE: ma_* types never cross the module surface.
-add_library(Audio STATIC)
-add_library(Foundation::Audio ALIAS Audio)
-
+util_add_engine_library(Audio ALIAS Foundation::Audio)
 target_link_libraries(Audio
     PUBLIC Foundation::Core Foundation::VFS Foundation::Policy
     PRIVATE ThirdParty::Miniaudio)

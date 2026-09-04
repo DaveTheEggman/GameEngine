@@ -27,6 +27,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # dynamically-loaded plugin shared objects (Foundation::Runtime plugin host).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Build the engine's library targets as SHARED (.so/.dll) instead of STATIC.
+# Every first-party library goes through util_add_engine_library, which reads
+# this; the deliberate option (BUILD_SHARED_LIBS would silently no-op against
+# hardcoded types). Design + hazard inventory: Documentation/Specs/shared-libraries.md.
+option(ENGINE_SHARED_LIBS "Build engine libraries as shared libraries" OFF)
+if(ENGINE_SHARED_LIBS)
+    # Binaries and libraries land together in Bin/<cfg>/<plat>; $ORIGIN makes the
+    # loader find sibling .so files without LD_LIBRARY_PATH (the DXC/wgpu sidecar
+    # precedent, generalized).
+    list(APPEND CMAKE_BUILD_RPATH "$ORIGIN")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+
 # Single-config generators default to Debug.
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)

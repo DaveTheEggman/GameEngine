@@ -1,9 +1,7 @@
 # Editor::App - `editor.app`: the editor UI shell (chrome + layout persistence +
 # EditorApplication) on foundation.ui / toolkit / the runtime docking host. Tooling only.
 
-add_library(Editor.App STATIC)
-add_library(Editor::App ALIAS Editor.App)
-
+util_add_engine_library(Editor.App ALIAS Editor::App)
 target_link_libraries(Editor.App
     PUBLIC
         Foundation::Core Foundation::VFS Foundation::Xml.Serialization Pipeline::Core Foundation::Resource

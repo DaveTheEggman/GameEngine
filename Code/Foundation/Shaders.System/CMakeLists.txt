@@ -2,9 +2,7 @@
 # plus the dev file-backed source provider). Needs the RHI (to create GPU modules) on
 # top of the RHI-free foundation.shaders; the VFS for the file provider.
 
-add_library(Shaders.System STATIC)
-add_library(Foundation::Shaders.System ALIAS Shaders.System)
-
+util_add_engine_library(Shaders.System ALIAS Foundation::Shaders.System)
 target_link_libraries(Shaders.System
     PUBLIC Foundation::Core Foundation::RHI Foundation::Shaders Foundation::VFS Foundation::Policy)
 

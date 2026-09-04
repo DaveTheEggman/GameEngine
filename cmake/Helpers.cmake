@@ -55,3 +55,23 @@ function(util_copy_runtime_deps target)
         CONTENT "$<JOIN:$<PATH:GET_FILENAME,${_dr_libs}>,\n>\n"
         TARGET  ${target})
 endfunction()
+
+# util_add_engine_library(<name> ALIAS <ns::alias>)
+#
+# The one place first-party library targets are declared (all 179 of them):
+# STATIC by default, SHARED when ENGINE_SHARED_LIBS is ON. Declaring through a
+# single seam means the shared-build switch, visibility presets, export macros,
+# and SOVERSION land here once instead of as a 179-file edit
+# (Documentation/Specs/shared-libraries.md, phase P3).
+function(util_add_engine_library name)
+    cmake_parse_arguments(UAEL "" "ALIAS" "" ${ARGN})
+    if(NOT UAEL_ALIAS)
+        message(FATAL_ERROR "util_add_engine_library(${name}): ALIAS <ns::name> is required")
+    endif()
+    if(ENGINE_SHARED_LIBS)
+        add_library(${name} SHARED)
+    else()
+        add_library(${name} STATIC)
+    endif()
+    add_library(${UAEL_ALIAS} ALIAS ${name})
+endfunction()

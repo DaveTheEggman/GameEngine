@@ -4,9 +4,7 @@
 # The BAKE is a pure function (triangle soup in, serialized navmesh out) with no scene,
 # geometry, or device dependency - it runs headless. Scene integration (components, zones,
 # per-scene crowds, debug draw) lives in engine.navigation.
-add_library(Navigation STATIC)
-add_library(Foundation::Navigation ALIAS Navigation)
-
+util_add_engine_library(Navigation ALIAS Foundation::Navigation)
 target_link_libraries(Navigation
     PUBLIC Foundation::Core Foundation::Policy
     PRIVATE ThirdParty::Recast Foundation::Profiler)

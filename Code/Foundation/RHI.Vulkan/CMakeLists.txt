@@ -1,9 +1,7 @@
 # Foundation::RHI.Vulkan - `foundation.rhi.vulkan` (the Vulkan RHI backend). Links the Vulkan
 # loader; built only when the Vulkan SDK/headers are available.
 
-add_library(RHI.Vulkan STATIC)
-add_library(Foundation::RHI.Vulkan ALIAS RHI.Vulkan)
-
+util_add_engine_library(RHI.Vulkan ALIAS Foundation::RHI.Vulkan)
 # VkApplicationInfo identity: the app + engine names reported to the Vulkan driver/tools, baked
 # from the CMake project name (VkBackend.cppm requires these - no in-source default).
 target_compile_definitions(RHI.Vulkan PRIVATE

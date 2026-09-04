@@ -1,9 +1,7 @@
 # Foundation::Scene - `foundation.scene`, the scene / ECS foundation (entities, transform
 # hierarchy, components + per-scene systems, SceneSubsystem). Pure data + logic on
 # top of Core; renderer-agnostic.
-add_library(Scene STATIC)
-add_library(Foundation::Scene ALIAS Scene)
-
+util_add_engine_library(Scene ALIAS Foundation::Scene)
 target_link_libraries(Scene
     PUBLIC Foundation::Core Foundation::Resource Foundation::Messaging Foundation::Policy)
 

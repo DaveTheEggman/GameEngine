@@ -1,9 +1,7 @@
 # Foundation::RHI.DX12 - `foundation.rhi.dx12` (the DX12 RHI backend). Links the DX12
 # system libraries; built only on Windows.
 
-add_library(RHI.DX12 STATIC)
-add_library(Foundation::RHI.DX12 ALIAS RHI.DX12)
-
+util_add_engine_library(RHI.DX12 ALIAS Foundation::RHI.DX12)
 target_link_libraries(RHI.DX12
     PUBLIC Foundation::RHI Foundation::Core Foundation::Policy
     PRIVATE d3d12 dxgi dxguid d3dcompiler)

@@ -1,9 +1,7 @@
 # Editor::Terrain - `editor.terrain`. The TerrainAsset composition + 3D-preview page (references +
 # layers + castShadows on the right, a cooked-terrain orbit preview on the left). All UI lives here;
 # the Terrain.Pipeline stays UI-free. Brushes are NOT here (scene-viewport IViewportTools, later).
-add_library(Editor.Terrain STATIC)
-add_library(Editor::Terrain ALIAS Editor.Terrain)
-
+util_add_engine_library(Editor.Terrain ALIAS Editor::Terrain)
 target_link_libraries(Editor.Terrain PUBLIC
     Foundation::Core Foundation::Content
     Foundation::Runtime Foundation::Runtime.Client Foundation::Graphics

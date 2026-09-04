@@ -6,9 +6,7 @@
 # interface without linking any page; the scene page hosts the manager. No ui.toolkit dependency:
 # input is a plain struct the host fills (the GizmoFrameInput precedent).
 
-add_library(Editor.ViewportTools STATIC)
-add_library(Editor::ViewportTools ALIAS Editor.ViewportTools)
-
+util_add_engine_library(Editor.ViewportTools ALIAS Editor::ViewportTools)
 target_link_libraries(Editor.ViewportTools
     PUBLIC
         Foundation::Core Foundation::Scene Foundation::Render Foundation::Shell

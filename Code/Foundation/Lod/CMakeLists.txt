@@ -5,9 +5,7 @@
 # so both foundation.render (mesh chains) and foundation.terrain (chunk geo-mip) share
 # the one formula from either side of the RHI ceiling.
 
-add_library(Lod STATIC)
-add_library(Foundation::Lod ALIAS Lod)
-
+util_add_engine_library(Lod ALIAS Foundation::Lod)
 target_link_libraries(Lod PUBLIC Foundation::Core Foundation::Policy)
 
 target_sources(Lod

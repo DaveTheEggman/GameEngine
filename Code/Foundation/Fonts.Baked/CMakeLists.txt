@@ -1,9 +1,7 @@
 # Foundation::Fonts.Baked - `foundation.fonts.baked` (rasterizer-free IFont/IFontAtlas).
 # Ported from Sedulous.Fonts.Baked (deps: Sedulous.Fonts).
 
-add_library(Fonts.Baked STATIC)
-add_library(Foundation::Fonts.Baked ALIAS Fonts.Baked)
-
+util_add_engine_library(Fonts.Baked ALIAS Foundation::Fonts.Baked)
 target_link_libraries(Fonts.Baked PUBLIC Foundation::Core Foundation::Fonts Foundation::Policy)
 
 target_sources(Fonts.Baked

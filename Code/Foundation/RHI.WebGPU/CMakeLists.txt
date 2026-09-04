@@ -2,8 +2,7 @@
 # webgpu.h. Desktop loads the wgpu-native sidecar at RUN TIME (the vendored
 # ThirdParty::WgpuHeaders supply webgpu.h + wgpu.h as a headers-only build dependency);
 # web gets both the header and the browser binding from Emscripten's emdawnwebgpu port.
-add_library(RHI.WebGPU STATIC)
-add_library(Foundation::RHI.WebGPU ALIAS RHI.WebGPU)
+util_add_engine_library(RHI.WebGPU ALIAS Foundation::RHI.WebGPU)
 target_link_libraries(RHI.WebGPU
     PUBLIC Foundation::RHI Foundation::Core Foundation::Policy)
 

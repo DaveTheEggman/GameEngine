@@ -1,6 +1,5 @@
 # Pipeline::Terrain - `terrain.pipeline` (tooling: TerrainAsset + builder; a reference pass-through).
-add_library(Terrain.Pipeline STATIC)
-add_library(Pipeline::Terrain ALIAS Terrain.Pipeline)
+util_add_engine_library(Terrain.Pipeline ALIAS Pipeline::Terrain)
 target_link_libraries(Terrain.Pipeline PUBLIC
     Foundation::Core Foundation::VFS Pipeline::Core Pipeline::Importer
     Foundation::Image Foundation::Image.IO Pipeline::Texture

@@ -1,9 +1,7 @@
 # Foundation::Mcp.Reflection - `foundation.mcp.reflection`: the reflection MCP tools (type_list,
 # type_info). A module's own tool contribution against foundation.mcp; pure TypeRegistry queries.
 
-add_library(Mcp.Reflection STATIC)
-add_library(Foundation::Mcp.Reflection ALIAS Mcp.Reflection)
-
+util_add_engine_library(Mcp.Reflection ALIAS Foundation::Mcp.Reflection)
 target_link_libraries(Mcp.Reflection PUBLIC
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 

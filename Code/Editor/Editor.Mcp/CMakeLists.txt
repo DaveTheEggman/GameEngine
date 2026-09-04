@@ -1,9 +1,7 @@
 # Editor::Mcp - `editor.mcp`: the project MCP tools (project_create/open/info) over foundation.mcp,
 # built on the headless EditorProject. A module's own tool contribution; headless (no UI).
 
-add_library(Editor.Mcp STATIC)
-add_library(Editor::Mcp ALIAS Editor.Mcp)
-
+util_add_engine_library(Editor.Mcp ALIAS Editor::Mcp)
 target_link_libraries(Editor.Mcp PUBLIC
     Editor::Core Foundation::Content Foundation::VFS
     Pipeline::Core Pipeline::Importer Pipeline::Cook Pipeline::Audio # SoundCueAsset (health audit)

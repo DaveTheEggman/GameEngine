@@ -9,9 +9,7 @@ if(NOT ((TARGET Foundation::RHI.Vulkan OR TARGET Foundation::RHI.DX12 OR TARGET 
     return()
 endif()
 
-add_library(SamplesFramework STATIC)
-add_library(Samples::Framework ALIAS SamplesFramework)
-
+util_add_engine_library(SamplesFramework ALIAS Samples::Framework)
 target_link_libraries(SamplesFramework PUBLIC
     Foundation::Core
     Foundation::RHI

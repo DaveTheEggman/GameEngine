@@ -1,5 +1,4 @@
-add_library(Model.FBX STATIC)
-add_library(Foundation::Model.FBX ALIAS Model.FBX)
+util_add_engine_library(Model.FBX ALIAS Foundation::Model.FBX)
 target_link_libraries(Model.FBX PUBLIC Foundation::Core Foundation::Model Foundation::Model.IO Foundation::Image Foundation::Image.IO Foundation::Policy PRIVATE ThirdParty::Ufbx)
 target_sources(Model.FBX PUBLIC FILE_SET model_fbx_modules TYPE CXX_MODULES FILES FbxLoader.cppm PRIVATE ufbx_impl.cpp)
 target_compile_definitions(Model.FBX PRIVATE _CRT_SECURE_NO_WARNINGS)

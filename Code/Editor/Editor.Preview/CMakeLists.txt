@@ -3,9 +3,7 @@
 # a viewport + preview scene + camera + render loop. Linked by editor page libs (Editor.Scene,
 # Editor.Physics, ...); never by the runtime.
 
-add_library(Editor.Preview STATIC)
-add_library(Editor::Preview ALIAS Editor.Preview)
-
+util_add_engine_library(Editor.Preview ALIAS Editor::Preview)
 target_link_libraries(Editor.Preview
     PUBLIC
         Foundation::Core Foundation::Shell Foundation::Runtime Foundation::Runtime.Client

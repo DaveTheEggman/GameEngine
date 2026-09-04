@@ -1,8 +1,6 @@
 # Foundation::Shaders.Resource - `foundation.shaders.resource` (shaders as resources: ShaderSource
 # -> ShaderResource via ShaderFactory; ties into the resource manager + ShaderSystem).
-add_library(Shaders.Resource STATIC)
-add_library(Foundation::Shaders.Resource ALIAS Shaders.Resource)
-
+util_add_engine_library(Shaders.Resource ALIAS Foundation::Shaders.Resource)
 target_link_libraries(Shaders.Resource
     PUBLIC Foundation::Core Foundation::RHI Foundation::Shaders Foundation::Shaders.System
            Foundation::Resource Foundation::Content Foundation::Policy)

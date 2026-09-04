@@ -1,6 +1,5 @@
 # Editor::Audio - `editor.audio`: audio clip audition page (waveform + play).
-add_library(Editor.Audio STATIC)
-add_library(Editor::Audio ALIAS Editor.Audio)
+util_add_engine_library(Editor.Audio ALIAS Editor::Audio)
 target_link_libraries(Editor.Audio PUBLIC
     Foundation::Core Foundation::Content Foundation::Runtime.Client Foundation::UI Foundation::UI.Toolkit
     Foundation::Audio Pipeline::Audio Engine::Audio Foundation::Image Foundation::Image.IO Foundation::VFS

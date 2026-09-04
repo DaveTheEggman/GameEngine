@@ -2,9 +2,7 @@
 # RuntimeDockableWindowHost implements the toolkit IDockableWindowHost on the runtime multi-window host
 # (IApplicationHost + UIHost + shell geometry). The ONLY UI module that links foundation.ui.toolkit, so
 # docking cannot bleed into games or the toolkit-free ui.shell / ui.runtime layers.
-add_library(UI.Application STATIC)
-add_library(Foundation::UI.Application ALIAS UI.Application)
-
+util_add_engine_library(UI.Application ALIAS Foundation::UI.Application)
 target_link_libraries(UI.Application
     PUBLIC
         Foundation::Core Foundation::Shell Foundation::Graphics Foundation::Runtime.Client

@@ -1,6 +1,5 @@
 # Pipeline::Texture - `texture.pipeline` (tooling: TextureAsset + builder + importer).
-add_library(Texture.Pipeline STATIC)
-add_library(Pipeline::Texture ALIAS Texture.Pipeline)
+util_add_engine_library(Texture.Pipeline ALIAS Pipeline::Texture)
 target_link_libraries(Texture.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Pipeline::Importer Foundation::RHI Foundation::Texture Foundation::Texture.Resource
     Foundation::Image Foundation::Image.IO Foundation::Content Foundation::Policy Pipeline::Texture.Compression)

@@ -1,9 +1,7 @@
 # Foundation::Fonts.DistanceField.Baker - `foundation.fonts.distancefield.baker` (import-time MSDF atlas generation).
 # Links msdfgen; not needed at runtime.
 
-add_library(Fonts.DistanceField.Baker STATIC)
-add_library(Foundation::Fonts.DistanceField.Baker ALIAS Fonts.DistanceField.Baker)
-
+util_add_engine_library(Fonts.DistanceField.Baker ALIAS Foundation::Fonts.DistanceField.Baker)
 target_link_libraries(Fonts.DistanceField.Baker
     PUBLIC  Foundation::Core Foundation::Fonts Foundation::Fonts.DistanceField Foundation::Fonts.IO Foundation::Fonts.TTF Foundation::Policy
     PRIVATE ThirdParty::MsdfgenCore ThirdParty::Stb)

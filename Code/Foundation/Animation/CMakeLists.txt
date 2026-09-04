@@ -1,9 +1,7 @@
 # Foundation::Animation - `foundation.animation`, the skeletal-animation foundation
 # (skeleton/pose/clip/sampler/player + animation graph). A faithful port of
 # Sedulous.Animation; pure logic over Core math + containers, no renderer dep.
-add_library(Animation STATIC)
-add_library(Foundation::Animation ALIAS Animation)
-
+util_add_engine_library(Animation ALIAS Foundation::Animation)
 target_link_libraries(Animation
     PUBLIC Foundation::Core Foundation::Policy)
 

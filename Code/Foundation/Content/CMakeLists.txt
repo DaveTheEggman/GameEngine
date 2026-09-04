@@ -1,9 +1,7 @@
 # Foundation::Content - `foundation.content` (content database: Groups + Instances of
 # serializable objects, addressed by Guid/path, stored over a VFS mount).
 
-add_library(Content STATIC)
-add_library(Foundation::Content ALIAS Content)
-
+util_add_engine_library(Content ALIAS Foundation::Content)
 target_link_libraries(Content PUBLIC Foundation::Core Foundation::VFS Foundation::Policy)
 
 target_sources(Content

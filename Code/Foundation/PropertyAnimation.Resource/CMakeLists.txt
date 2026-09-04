@@ -1,8 +1,6 @@
 # Foundation::PropertyAnimation.Resource - `foundation.propertyanimation.resource`: the cooked
 # property-animation clip as a runtime resource (Source -> Factory -> PropertyAnimationClipResource).
-add_library(PropertyAnimation.Resource STATIC)
-add_library(Foundation::PropertyAnimation.Resource ALIAS PropertyAnimation.Resource)
-
+util_add_engine_library(PropertyAnimation.Resource ALIAS Foundation::PropertyAnimation.Resource)
 target_link_libraries(PropertyAnimation.Resource
     PUBLIC Foundation::Core Foundation::Resource Foundation::Content Foundation::PropertyAnimation
     PRIVATE Foundation::Policy)

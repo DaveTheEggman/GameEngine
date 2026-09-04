@@ -1,9 +1,7 @@
 # Engine::Animation - `engine.animation`, the scene side of skeletal
 # animation (SkeletalAnimationComponent + manager + AnimationSubsystem). Sits at the
 # animation<->render seam: depends on Animation + Scene + RenderSubsystem (one-way).
-add_library(Engine.Animation STATIC)
-add_library(Engine::Animation ALIAS Engine.Animation)
-
+util_add_engine_library(Engine.Animation ALIAS Engine::Animation)
 target_link_libraries(Engine.Animation
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Animation Foundation::Resource Engine::Render Foundation::Script.Facades

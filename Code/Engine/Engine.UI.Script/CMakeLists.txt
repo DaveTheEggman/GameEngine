@@ -3,9 +3,7 @@
 # consuming CORE foundation.ui + foundation.ui.gamekit; joins RegisterAllScriptFacades. The app installs
 # its per-context service (screen root + stack + document instantiator); this library holds no live
 # subsystem state, so it stays headless-linkable.
-add_library(Engine.UI.Script STATIC)
-add_library(Engine::UI.Script ALIAS Engine.UI.Script)
-
+util_add_engine_library(Engine.UI.Script ALIAS Engine::UI.Script)
 target_link_libraries(Engine.UI.Script
     PUBLIC Foundation::Core Foundation::UI Foundation::UI.Gamekit
            Foundation::Script Foundation::Script.Facades Foundation::Policy)

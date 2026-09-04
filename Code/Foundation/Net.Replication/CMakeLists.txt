@@ -2,9 +2,7 @@
 # NetworkId + authority, and the REFLECTION-DRIVEN field codec (marked properties -> :wire, no
 # hand-written per-component net code). Over Core (reflection) + Net (wire).
 
-add_library(Net.Replication STATIC)
-add_library(Foundation::Net.Replication ALIAS Net.Replication)
-
+util_add_engine_library(Net.Replication ALIAS Foundation::Net.Replication)
 target_link_libraries(Net.Replication PUBLIC Foundation::Core Foundation::Net Foundation::Scene Foundation::Resource Foundation::Script.Facades Foundation::Policy)
 
 target_sources(Net.Replication

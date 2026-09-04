@@ -2,9 +2,7 @@
 # Ported from Sedulous.VG. Pure CPU - emits a VGBatch of vertices/commands that
 # foundation.vg.renderer uploads to the GPU. Deps: Core (math/containers) + Image.
 
-add_library(VG STATIC)
-add_library(Foundation::VG ALIAS VG)
-
+util_add_engine_library(VG ALIAS Foundation::VG)
 target_link_libraries(VG PUBLIC Foundation::Core Foundation::Image Foundation::Fonts Foundation::Policy)
 
 target_sources(VG

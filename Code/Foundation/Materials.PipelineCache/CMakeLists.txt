@@ -1,8 +1,6 @@
 # Foundation::Materials.PipelineCache - `foundation.materials.pipelinecache` (render-side PSO cache with shader
 # version polling). Bridges the ShaderSystem (variants) and Materials (PipelineConfig).
-add_library(Materials.PipelineCache STATIC)
-add_library(Foundation::Materials.PipelineCache ALIAS Materials.PipelineCache)
-
+util_add_engine_library(Materials.PipelineCache ALIAS Foundation::Materials.PipelineCache)
 target_link_libraries(Materials.PipelineCache
     PUBLIC Foundation::Core Foundation::RHI Foundation::Shaders Foundation::Shaders.System
            Foundation::Materials Foundation::Policy)

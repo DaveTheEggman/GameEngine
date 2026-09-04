@@ -3,8 +3,7 @@
 # Cook-only; the SDK (ThirdParty::AngelScript) is a PRIVATE dep (impl unit #includes angelscript.h
 # + scriptbuilder for metadata harvest - GCC module hygiene). The editor-UI half lives in
 # Editor/Editor.Script.AngelScript.
-add_library(Script.AngelScript.Pipeline STATIC)
-add_library(Pipeline::Script.AngelScript ALIAS Script.AngelScript.Pipeline)
+util_add_engine_library(Script.AngelScript.Pipeline ALIAS Pipeline::Script.AngelScript)
 target_link_libraries(Script.AngelScript.Pipeline
     PUBLIC
         Foundation::Core Pipeline::Core Foundation::Content

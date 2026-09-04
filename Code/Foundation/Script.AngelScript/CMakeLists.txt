@@ -4,9 +4,7 @@
 # is PRIVATE: consumers see only the foundation.script.angelscript module (the
 # factory + registry registration), never the AngelScript C++ API.
 
-add_library(Script.AngelScript STATIC)
-add_library(Foundation::Script.AngelScript ALIAS Script.AngelScript)
-
+util_add_engine_library(Script.AngelScript ALIAS Foundation::Script.AngelScript)
 target_link_libraries(Script.AngelScript
     PUBLIC Foundation::Script Foundation::Policy
     PRIVATE ThirdParty::AngelScript)

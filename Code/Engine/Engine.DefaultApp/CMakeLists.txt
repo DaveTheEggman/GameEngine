@@ -4,9 +4,7 @@
 # engine subsystem libraries - only apps that opt into the defaults link this.
 # As engine subsystems land, add them as link dependencies HERE.
 
-add_library(Engine.DefaultApp STATIC)
-add_library(Engine::DefaultApp ALIAS Engine.DefaultApp)
-
+util_add_engine_library(Engine.DefaultApp ALIAS Engine::DefaultApp)
 target_link_libraries(Engine.DefaultApp
     PUBLIC Foundation::Core Foundation::RHI Foundation::Runtime.Client Engine::GameInstance Foundation::Shell Foundation::Graphics
            Foundation::Scene Engine::Scene Engine::Render Engine::Animation

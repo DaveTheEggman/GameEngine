@@ -1,7 +1,6 @@
 # Editor::Script - `editor.script`: the ScriptPage (behavior source text
 # editor + save->recook->hot-reload + inline compile errors). Editor exe only.
-add_library(Editor.Script STATIC)
-add_library(Editor::Script ALIAS Editor.Script)
+util_add_engine_library(Editor.Script ALIAS Editor::Script)
 target_link_libraries(Editor.Script PUBLIC
     Foundation::Core Foundation::Content Foundation::Runtime.Client Foundation::UI Foundation::UI.Toolkit
     Foundation::Script Foundation::Script.Facades Pipeline::Script Foundation::Script.Resource

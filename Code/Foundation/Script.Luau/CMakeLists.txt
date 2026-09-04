@@ -5,9 +5,7 @@
 # for the -fno-exceptions engine). Consumers see only the foundation.script.luau
 # module (the factory), never the Luau C API (the lib link is PRIVATE).
 
-add_library(Script.Luau STATIC)
-add_library(Foundation::Script.Luau ALIAS Script.Luau)
-
+util_add_engine_library(Script.Luau ALIAS Foundation::Script.Luau)
 target_link_libraries(Script.Luau
     PUBLIC Foundation::Script Foundation::Script.Facades Foundation::Policy
     PRIVATE ThirdParty::Luau)

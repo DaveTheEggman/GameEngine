@@ -1,8 +1,6 @@
 # Foundation::Input - `foundation.input`: the action-mapping layer (data model + ActionRuntime)
 # over Core + Shell. Engine-global (per player, not per scene).
-add_library(Input STATIC)
-add_library(Foundation::Input ALIAS Input)
-
+util_add_engine_library(Input ALIAS Foundation::Input)
 target_link_libraries(Input
     PUBLIC Foundation::Core Foundation::Shell Foundation::Policy)
 

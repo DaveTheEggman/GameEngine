@@ -1,9 +1,7 @@
 # Editor::Physics - `editor.physics` (the CollisionShapeAsset authoring page:
 # typed mesh picker + cook-kind toggle + Cook now + status). Tooling only.
 
-add_library(Editor.Physics STATIC)
-add_library(Editor::Physics ALIAS Editor.Physics)
-
+util_add_engine_library(Editor.Physics ALIAS Editor::Physics)
 target_link_libraries(Editor.Physics
     PUBLIC Foundation::Core Foundation::Content Foundation::Runtime Foundation::Runtime.Client
            Foundation::Resource Pipeline::Physics Foundation::Physics.Resource

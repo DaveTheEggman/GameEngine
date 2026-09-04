@@ -3,9 +3,7 @@
 # base RHI, so it builds everywhere (incl. headless, no Vulkan). Backend factories
 # (Null / Vulkan) are sibling modules so heavy backend modules never enter this
 # interface (GCC's module reader rejects that).
-add_library(Graphics STATIC)
-add_library(Foundation::Graphics ALIAS Graphics)
-
+util_add_engine_library(Graphics ALIAS Foundation::Graphics)
 target_link_libraries(Graphics
     PUBLIC
         Foundation::Core
@@ -20,9 +18,7 @@ target_sources(Graphics
 
 # Foundation::Graphics.Null - `foundation.graphics.null` (headless device
 # factory over the Null RHI backend). No GPU/Vulkan required.
-add_library(Graphics.Null STATIC)
-add_library(Foundation::Graphics.Null ALIAS Graphics.Null)
-
+util_add_engine_library(Graphics.Null ALIAS Foundation::Graphics.Null)
 target_link_libraries(Graphics.Null
     PUBLIC
         Foundation::Core
@@ -41,9 +37,7 @@ target_sources(Graphics.Null
 # present backend (OPTION_HAS_*). The backend imports live in the implementation unit, off every
 # consumer's module closure.
 if(TARGET Foundation::RHI.Vulkan OR TARGET Foundation::RHI.DX12 OR TARGET Foundation::RHI.WebGPU)
-    add_library(Graphics.Gpu STATIC)
-    add_library(Foundation::Graphics.Gpu ALIAS Graphics.Gpu)
-
+    util_add_engine_library(Graphics.Gpu ALIAS Foundation::Graphics.Gpu)
     target_link_libraries(Graphics.Gpu
         PUBLIC
             Foundation::Core

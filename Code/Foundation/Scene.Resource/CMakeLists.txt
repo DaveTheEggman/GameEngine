@@ -1,8 +1,6 @@
 # Foundation::Scene.Resource - `foundation.scene.resource` (whole-scene serialization +
 # runtime LoadScene from a content-DB instance).
-add_library(Scene.Resource STATIC)
-add_library(Foundation::Scene.Resource ALIAS Scene.Resource)
-
+util_add_engine_library(Scene.Resource ALIAS Foundation::Scene.Resource)
 target_link_libraries(Scene.Resource
     PUBLIC Foundation::Core Foundation::Content Foundation::Scene Foundation::Policy
            Foundation::Xml.Serialization)

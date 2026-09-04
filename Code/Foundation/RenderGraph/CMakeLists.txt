@@ -2,9 +2,7 @@
 # pass dependency resolution, transient resource aliasing, automatic barriers).
 # Ported from Sedulous.RenderGraph.
 
-add_library(RenderGraph STATIC)
-add_library(Foundation::RenderGraph ALIAS RenderGraph)
-
+util_add_engine_library(RenderGraph ALIAS Foundation::RenderGraph)
 target_link_libraries(RenderGraph PUBLIC Foundation::Core Foundation::RHI Foundation::Policy)
 
 target_sources(RenderGraph

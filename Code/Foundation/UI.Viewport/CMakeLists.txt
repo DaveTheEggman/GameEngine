@@ -1,9 +1,7 @@
 # Foundation::UI.Viewport - `foundation.ui.viewport`: ViewportView, a ui::View that hosts 3D-rendered
 # content (offscreen color+depth RT, an OnRender callback, displayed via the UI's VGContext as an
 # external texture; gated input through a shell::InputSurface). Layered on foundation.ui; toolkit-free.
-add_library(UI.Viewport STATIC)
-add_library(Foundation::UI.Viewport ALIAS UI.Viewport)
-
+util_add_engine_library(UI.Viewport ALIAS Foundation::UI.Viewport)
 target_link_libraries(UI.Viewport
     PUBLIC Foundation::Core Foundation::RHI Foundation::Image Foundation::VG Foundation::VG.Renderer Foundation::UI Foundation::Shell)
 
