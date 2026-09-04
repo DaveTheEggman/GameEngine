@@ -17,6 +17,17 @@
       }
     },
     {
+      "name": "clang-shared",
+      "displayName": "Clang (Ninja, Debug, shared engine libraries)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-shared",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENGINE_SHARED_LIBS": "ON"
+      }
+    },
+    {
       "name": "clang-reldbg",
       "displayName": "Clang (Ninja, RelWithDebInfo)",
       "generator": "Ninja",
@@ -122,6 +133,10 @@
       "configurePreset": "clang"
     },
     {
+      "name": "clang-shared",
+      "configurePreset": "clang-shared"
+    },
+    {
       "name": "clang-reldbg",
       "configurePreset": "clang-reldbg"
     },
@@ -162,6 +177,13 @@
     {
       "name": "clang",
       "configurePreset": "clang",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-shared",
+      "configurePreset": "clang-shared",
       "output": {
         "outputOnFailure": true
       }

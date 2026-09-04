@@ -1,7 +1,8 @@
 name: CI
 
-# Build + test on every master push / PR: Linux clang Debug, Linux gcc Debug (the
-# house battery is BOTH compilers), and Windows MSVC Debug (D3D12 + WebGPU coverage).
+# Build + test on every master push / PR: Linux clang Debug, Linux clang Debug with
+# SHARED engine libraries (the .so lane), Linux gcc Debug (the house battery is BOTH
+# compilers), and Windows MSVC Debug (D3D12 + WebGPU coverage).
 # Release distribution lives in release.yml. Peak-memory notes: a single modules TU
 # can need several GB; the swapfile step is OOM insurance, and lavapipe (software
 # Vulkan) lets device-creating tests run headless.
@@ -111,6 +112,99 @@ jobs:
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: xvfb-run -a ctest --preset clang --output-on-failure --timeout 300 --no-tests=error
+
+  # The SHARED-ENGINE lane (Documentation/Specs/shared-libraries.md): the same clang
+  # battery with ENGINE_SHARED_LIBS=ON - 179 .so files, and the suites (incl. the
+  # cross-boundary plugin case, which only exists in this lane) run across real
+  # dlopen boundaries. Identity + rendezvous regressions that a static build hides
+  # fail here.
+  linux-clang-shared:
+    name: Linux / clang / Debug / shared libraries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180 # a cold modules build is slow; the cache warms subsequent runs
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 (or 1) if the modules build OOMs
+    steps:
+      - uses: actions/checkout@v4
+
+      # The C++23-modules build writes a large volume of .pcm + object files and can exhaust the
+      # runner's root disk (the previous run died at ~87% with "No space left on device"). Reclaim
+      # the ~20-25 GB of preinstalled toolchains we do not use (Android SDK, .NET, GHC, CodeQL,
+      # Swift, PowerShell) before building. df prints before/after so the headroom is visible.
+      - name: Free up disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/powershell
+          sudo apt-get clean
+          df -h /
+
+      # Build + runtime deps (mirrors README "Ubuntu / Debian"). mesa-vulkan-drivers
+      # gives lavapipe (software Vulkan) so device-creating tests can run headless.
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang pkg-config xvfb \
+            libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+          cmake --version
+
+      # Ubuntu 24.04 ships Clang 18, but the codebase targets a current Clang (the dev toolchain
+      # is 21) - e.g. -Wno-c2y-extensions is unknown to Clang 18 and, under -Werror, fails the
+      # build, and Clang 18's C++23-modules support is weaker. Install Clang 21 from apt.llvm.org;
+      # the Configure step selects the versioned clang++-21 binary explicitly (see there).
+      - name: Install Clang 21 (match the dev toolchain)
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 21
+          clang++-21 --version   # fail loudly here if the install did not produce the binary
+
+      # SDL3 is vendored as source (ThirdParty/SDL3) and built statically in-tree, so there is no
+      # SDL to install here - only its build deps (the X11/Wayland/audio -dev packages above),
+      # which the source build compiles against.
+
+      # OOM insurance for the memory-heavy modules build: a large swapfile means a
+      # spike gets paged instead of OOM-killed (slower, but the job survives). The runner
+      # already ships an active /swapfile, so disable and remove it first (fallocate on the
+      # in-use file fails "Text file busy"), then create the larger one on the roomy /mnt disk.
+      - name: Add swap headroom
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      # NO ccache: it does not hash the module BMIs behind CMake's @modmap files, so an
+      # interface (.cppm) change gets importer TUs served as stale cached objects - a silent
+      # ABI/constant mismatch (bit locally 2026-08-30, then this lane on the facade-count
+      # bump). Re-adding it would need a launcher scoped to non-module TUs only (ThirdParty).
+      - name: Configure
+        # Override the preset's CMAKE_CXX_COMPILER ('clang++') with the versioned Clang 21 binary.
+        # A command-line -D beats the preset cache var (and beats CC/CXX env), so this does not
+        # depend on update-alternatives having repointed /usr/bin/clang++. ASM uses the CXX driver.
+        run: >
+          cmake --preset clang-shared
+          -DCMAKE_C_COMPILER=clang-21
+          -DCMAKE_CXX_COMPILER=clang++-21
+          -DCMAKE_ASM_COMPILER=clang++-21
+
+      - name: Build
+        run: cmake --build --preset clang-shared
+
+      # Run the doctest suites under a virtual X server; VK_ICD points the loader at
+      # lavapipe so any test that creates a real Vulkan device works without a GPU.
+      # --timeout bounds any single suite (all run in seconds) so a hang fails that test fast
+      # instead of blocking the whole job until the 180-minute job timeout.
+      - name: Test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: xvfb-run -a ctest --preset clang-shared --output-on-failure --timeout 300 --no-tests=error
 
   linux-gcc:
     name: Linux / gcc / Debug
