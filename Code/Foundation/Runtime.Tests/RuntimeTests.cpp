@@ -373,3 +373,59 @@ TEST_CASE("embedded host routes Ctx to the runtime context and exit to the embed
     embedded.RequestExit(7);
     CHECK(exitCode == 7);
 }
+
+// ---------------------------------------------------------------------------
+// Plugin cross-boundary identity (ENGINE_SHARED_LIBS lanes only) - the supported
+// plugin model is plugins linked against the SHARED engine; this proves the
+// shared-libraries work across a real dlopen boundary (shared-libraries.md P4).
+// ---------------------------------------------------------------------------
+#ifdef CROSS_PLUGIN_PATH
+#include "CrossBoundaryProbe.h"
+
+TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the host")
+{
+    const StringView path{reinterpret_cast<const utf8char*>(CROSS_PLUGIN_PATH)};
+
+    Context ctx(DefaultAllocator());
+    // Host-side probe subsystem, registered BEFORE the plugin loads.
+    crossprobe::HostProbeSubsystem hostProbe;
+    ctx.RegisterSubsystem<crossprobe::HostProbeSubsystem>(&hostProbe);
+
+    PluginHost host(ctx);
+    auto loaded = host.Load(path);
+    REQUIRE(loaded.HasValue());
+    CHECK(loaded.Value()->Name() == StringView{u8"CrossPlugin"});
+
+    DynamicLibrary probe{path};
+    REQUIRE(probe.IsLoaded());
+
+    // 1. The plugin resolved the HOST's subsystem through the TypeId-keyed Context
+    //    (its own TypeOf<HostProbeSubsystem> copy lives at a different address).
+    const auto resolved = probe.GetSymbol<int (*)()>(u8"CrossPluginResolvedHostValue");
+    REQUIRE(resolved != nullptr);
+    CHECK(resolved() == 41);
+
+    // 2. An object MakeRef'd inside the plugin crosses the boundary alive (the
+    //    RefControl handshake slot is process-single), casts by id, and releases
+    //    cleanly from the host side.
+    const auto create = probe.GetSymbol<Object* (*)(int)>(u8"CrossPluginCreateObject");
+    REQUIRE(create != nullptr);
+    {
+        RefPtr<Object> adopted{create(7), AdoptRef{}};
+        REQUIRE(adopted.Get() != nullptr);
+        CHECK(adopted->GetType() != nullptr);
+        CHECK(adopted->GetType()->id == crossprobe::ProbeObject::StaticType().id);
+        crossprobe::ProbeObject* cast = Cast<crossprobe::ProbeObject>(adopted.Get());
+        REQUIRE(cast != nullptr);
+        CHECK(cast->payload == 7);
+    } // host-side release of a plugin-created object
+
+    // 3. The type the plugin registered is visible through the shared registry.
+    const TypeInfo* found = GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject");
+    REQUIRE(found != nullptr);
+    CHECK(found->id == crossprobe::ProbeObject::StaticType().id);
+
+    host.UnloadAll();
+    ctx.RemoveSubsystem<crossprobe::HostProbeSubsystem>();
+}
+#endif // CROSS_PLUGIN_PATH

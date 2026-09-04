@@ -174,9 +174,14 @@ pinned allowlist that also fails on stale entries.
   179 libraries as .so with zero link errors, the full 151-suite battery
   passes ON the shared build, and Tools.Editor boots a real project linked
   against 163 engine .so files. P1-P3 cleared the ground completely (ELF
-  default visibility does the rest). REMAINING P4 TAIL: (a) PluginHost test
-  upgraded to exercise cross-boundary identity (plugin registers a type +
-  resolves a host subsystem; RTLD_LOCAL -> RTLD_GLOBAL or Core-shared);
+  default visibility does the rest). REMAINING P4 TAIL: (a) DONE (user
+  approved 2026-09-04): the SUPPORTED PLUGIN MODEL is plugins linked against
+  the SHARED engine (ENGINE_SHARED_LIBS builds) - static-engine plugins
+  would re-embed Core and are explicitly unsupported (the old TestPlugin
+  stays as the plugin-local-state regression). Runtime.CrossPlugin (shared
+  lanes only) + a RuntimeTests case prove identity + rendezvous across a
+  real dlopen boundary: TypeId-keyed host-subsystem resolution, MakeRef'd
+  object crossing + host-side Cast/Release, shared GlobalTypeRegistry;
   (b) OUTPUT DIR: DONE (user ruling 2026-09-04) - ENGINE_SHARED_LIBS defaults
   BUILDSYSTEM_OUTPUT_SUFFIX to "-Shared" (the -ASAN precedent), so shared
   builds land in Bin/<cfg>/<plat>-<comp>-Shared; an explicit suffix wins; (c) a CI-able smoke lane.

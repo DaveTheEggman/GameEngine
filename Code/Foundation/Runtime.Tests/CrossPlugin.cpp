@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
+// The cross-boundary identity plugin: built ONLY in ENGINE_SHARED_LIBS lanes, where
+// it links the engine's .so set (the supported plugin model - a plugin against a
+// static engine would re-embed Core and duplicate every global; explicitly
+// unsupported). Loaded by the RuntimeTests cross-boundary case, it proves the
+// shared-libraries work end to end across a real dlopen boundary:
+//   - resolves a HOST-registered subsystem via TypeId-keyed Context lookup
+//   - creates a ref-counted object through the (single) MakeRef handshake slot
+//   - registers a type the host then finds in the (single) GlobalTypeRegistry
+
+#include "Core/Prelude.h"
+
+import foundation.core;
+import foundation.runtime;
+
+#include "CrossBoundaryProbe.h"
+
+using namespace foundation::core;
+using namespace foundation::runtime;
+
+#if defined(_WIN32)
+#define PLUGIN_EXPORT __declspec(dllexport)
+#else
+#define PLUGIN_EXPORT __attribute__((visibility("default")))
+#endif
+
+namespace
+{
+    int g_resolvedHostValue = -1; // HostProbeSubsystem::hostValue seen at OnLoad, or -1
+
+    class CrossPlugin final : public IRuntimePlugin
+    {
+    public:
+        [[nodiscard]] StringView Name() const noexcept override { return u8"CrossPlugin"; }
+
+        void OnLoad(Context& context) override
+        {
+            // TypeId-keyed lookup of a subsystem the HOST registered: this binary's
+            // TypeOf<HostProbeSubsystem>() static is its own copy at its own address -
+            // only the id makes this resolve (the pre-P1 pointer-keyed map returned null).
+            if (crossprobe::HostProbeSubsystem* probe =
+                    context.GetSubsystem<crossprobe::HostProbeSubsystem>())
+            {
+                g_resolvedHostValue = probe->hostValue;
+            }
+            // Register this binary's ProbeObject metadata; the host looks it up by name
+            // through the shared registry instance.
+            GlobalTypeRegistry().Register(crossprobe::ProbeObject::StaticType());
+        }
+        void OnUnload(Context&) override {}
+    };
+} // namespace
+
+extern "C" PLUGIN_EXPORT IRuntimePlugin* CreatePlugin()
+{
+    static CrossPlugin plugin;
+    return &plugin;
+}
+
+// The host-value the plugin observed while resolving the host's subsystem (-1 = miss).
+extern "C" PLUGIN_EXPORT int CrossPluginResolvedHostValue() { return g_resolvedHostValue; }
+
+// Create a ProbeObject in THIS binary via MakeRef and hand the caller an owning
+// reference (detached: +1 strong the host adopts and releases). Exercises the
+// RefControl handshake and the release path across the boundary.
+extern "C" PLUGIN_EXPORT foundation::core::Object* CrossPluginCreateObject(int payload)
+{
+    RefPtr<crossprobe::ProbeObject> object =
+        MakeRef<crossprobe::ProbeObject>(DefaultAllocator());
+    object->payload = payload;
+    object->AddRef(); // the caller adopts this reference
+    return object.Get();
+}
