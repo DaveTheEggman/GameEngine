@@ -56,6 +56,14 @@ export namespace editor::app
                                     project != nullptr ? project->Settings().name.AsView()
                                                        : StringView(u8""));
 
+            // Native game module (game-native-code.md N2): a project-relative path to the
+            // built module (e.g. Native/libMyGame.so); empty = scripts only. Free text -
+            // the module is built outside the editor, so there is nothing to pick from.
+            m_nativeModuleEdit =
+                AddTextRow(*column, u8"Native module",
+                           project != nullptr ? project->Settings().nativeModule.AsView()
+                                              : StringView(u8""));
+
             // Default scene: read-only path + [Pick...] (the picker owns clearing too).
             {
                 ui::FlexLayout* row = AddRow(*column, u8"Default scene");
@@ -414,6 +422,7 @@ export namespace editor::app
         Guid m_uiFontId{};
         RefPtr<ui::Label> m_uiFontLabel;
         ui::EditText* m_nameEdit = nullptr;
+        ui::EditText* m_nativeModuleEdit = nullptr; // project-relative path; empty = none
         RefPtr<ui::Label> m_scriptLabel;
         Guid m_scriptId{};
         RefPtr<ui::Label> m_sceneLabel;

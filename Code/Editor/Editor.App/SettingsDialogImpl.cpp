@@ -272,6 +272,7 @@ namespace editor::app
             return;
         }
         project->Settings().name = String(m_nameEdit->Text());
+        project->Settings().nativeModule = String(m_nativeModuleEdit->Text());
         project->Settings().startupScriptId = m_scriptId;
         project->Settings().startupScript =
             String(); // the source-DB path mirror (display / v<6 fallback)

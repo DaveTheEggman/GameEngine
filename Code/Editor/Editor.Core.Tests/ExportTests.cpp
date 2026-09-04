@@ -2061,3 +2061,37 @@ TEST_CASE("export: ship output suffix is per-project and filesystem-safe")
     CHECK(ShipOutputSuffix(u8"PaperKid") == u8"-Ship-PaperKid");
     CHECK(ShipOutputSuffix(u8"My Game 2!") == u8"-Ship-My-Game-2-");
 }
+
+TEST_CASE("export: the NativeSample fixture pins the native-game conventions")
+{
+    // The committed reference project (SampleProjects/NativeSample) must stay a valid
+    // input to the native pipeline: manifest parses, the module path derives the target
+    // that its Native/CMakeLists.txt actually declares, and the source dir exists.
+    const String root = Format(u8"{}/SampleProjects/NativeSample",
+                               StringView(reinterpret_cast<const char8_t*>(RAPTOR_SOURCE_DIR)));
+    foundation::vfs::NativeFileSystem fs(root.AsView(), foundation::core::DefaultAllocator());
+    engine::project::ProjectSettings settings;
+    REQUIRE(engine::project::LoadProjectSettings(fs, settings).IsOk());
+    CHECK(settings.name == u8"NativeSample");
+    REQUIRE(settings.nativeModule == u8"Native/libNativeSample.so");
+
+    const String target =
+        editor::detail::NativeTargetFromModulePath(settings.nativeModule.AsView());
+    CHECK(target == u8"NativeSample");
+
+    // The fixture's CMakeLists declares exactly that target through the engine seam.
+    UniquePtr<IStream> cml = fs.Open(u8"Native/CMakeLists.txt", FileMode::Read);
+    REQUIRE(static_cast<bool>(cml));
+    Array<char> text;
+    text.Resize(static_cast<usize>(cml->Size()));
+    REQUIRE(cml->Read(text.Data(), text.Size()) == text.Size());
+    const StringView body(reinterpret_cast<const utf8char*>(text.Data()), text.Size());
+    bool declaresTarget = false;
+    const StringView needle = u8"util_add_engine_library(NativeSample ";
+    for (usize i = 0; i + needle.Size() <= body.Size() && !declaresTarget; ++i)
+    {
+        declaresTarget = StringView(body.Data() + i, needle.Size()) == needle;
+    }
+    CHECK(declaresTarget);
+    CHECK(fs.Exists(u8"Native/NativeSamplePlugin.cpp"));
+}

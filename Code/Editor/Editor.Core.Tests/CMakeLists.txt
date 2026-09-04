@@ -19,3 +19,5 @@ target_compile_definitions(Editor.Core.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTION
 target_compile_options(Editor.Core.Tests PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")
 add_test(NAME Editor.Core.Tests COMMAND Editor.Core.Tests)
+
+target_compile_definitions(Editor.Core.Tests PRIVATE RAPTOR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
