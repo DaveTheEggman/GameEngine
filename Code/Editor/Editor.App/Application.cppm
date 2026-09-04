@@ -415,6 +415,9 @@ export namespace editor::app
         Array<foundation::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer
         Array<UniquePtr<foundation::resource::IResourceFactory>> m_resourceFactories; // exe-assembled
         UniquePtr<foundation::resource::ResourceManager> m_resources;
+        // The project's native game module, loaded against the EMBEDDED runtime context
+        // for the project's lifetime (game-native-code.md N2; null = none/failed/static).
+        UniquePtr<foundation::runtime::PluginHost> m_gamePlugins;
 
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         ui::toolkit::ToolkitThemeExtension m_toolkitTheme;

@@ -2274,6 +2274,38 @@ namespace editor::app
         }
         m_context.SetResources(m_resources.Get());
         m_embeddedApp->AttachResourceManager(m_resources.Get(), *m_embeddedHost);
+
+        // Native game module (game-native-code.md N2, editor half): loaded against the
+        // EMBEDDED runtime context at project open - play-in-editor, Simulate, and
+        // previews all resolve the plugin's registrations there. Placed after the
+        // resource attach so OnLoad sees the full runtime; unloaded in CloseProject
+        // BEFORE resources detach (game teardown first). Requires a shared-engine
+        // editor build (the ruled plugin model); failure is a toast + console error
+        // and the project still opens (scripts work regardless).
+        if (!m_project->Settings().nativeModule.IsEmpty())
+        {
+            m_gamePlugins =
+                MakeUnique<runtime::PluginHost>(m_editorAllocator, m_runtimeContext);
+            const String modulePath = PathJoin(m_project->Directory(),
+                                               m_project->Settings().nativeModule.AsView());
+            auto loaded = m_gamePlugins->Load(modulePath.AsView());
+            if (loaded.HasValue())
+            {
+                LOG_INFO(u8"Editor", u8"native game module '{}' loaded ('{}')",
+                         m_project->Settings().nativeModule, loaded.Value()->Name());
+            }
+            else
+            {
+                m_context.Notify(editor::NoticeKind::Error,
+                                 u8"Native game module failed to load (see Console).");
+                LOG_ERROR(u8"Editor",
+                          u8"native game module '{}' failed to load - continuing without "
+                          u8"it (a static editor build cannot load native modules; use a "
+                          u8"shared build, or check the path)",
+                          modulePath);
+                m_gamePlugins = nullptr;
+            }
+        }
         // The GPU half of thumbnails: constructed HERE, after the resource manager exists -
         // the stage captures it, and a null capture would stall every queued job. The host is
         // the EMBEDDED one: scene/render subsystems live on the embedded runtime context (the
@@ -2541,6 +2573,13 @@ namespace editor::app
         m_context.OnCookRequested = {};
         m_context.CookBusy = {};
         m_context.OnFavoritesChanged = {};
+        // Native game teardown FIRST: OnUnload deregisters the module's subsystems while
+        // the embedded runtime and resources are still alive (game-native-code.md N2).
+        if (m_gamePlugins.Get() != nullptr)
+        {
+            m_gamePlugins->UnloadAll();
+            m_gamePlugins = nullptr;
+        }
         // Detach the per-project resources from the embedded runtime BEFORE destroying them
         // (its Resources() consumers are lazy and null-tolerant between projects).
         if (m_embeddedApp)

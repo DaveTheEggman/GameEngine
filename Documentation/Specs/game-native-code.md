@@ -69,6 +69,41 @@ single artifact, works on every platform incl. web). Same source both ways.
   web (SHIP-only by design - the game module compiles into the wasm player
   in the export wasm build; no dev-loop dlopen on web).
 
+- N6 - hot reload (DESIGNED, not scheduled; the gnarly part). What the
+  plugin left behind decides everything - the inventory on unload:
+  subsystems in Context (OnUnload removes - existing contract), TypeInfo*
+  in GlobalTypeRegistry pointing INTO the .so, factory/function pointers in
+  SerializableRegistry + script facade registries + resource factories,
+  live RefCounted objects whose vtables + destroy fns live in the .so,
+  script bindings + live script objects over plugin types, scene components
+  from plugin managers.
+
+  RULING - RUN-BRACKETED RELOAD ONLY: reload happens between runs, never
+  during one. Editor flow: stop the PIE run (scenes + script contexts are
+  transient and die with it - plugin-created objects go with them) ->
+  scope-reversed unregistration -> dlclose -> dlopen the rebuilt module ->
+  OnLoad -> restart the run (scene state reloads from disk). NO live-state
+  migration/reinstancing - out of scope BY DESIGN (that is the Unreal
+  reinstancing swamp; run-transient PIE makes it unnecessary).
+
+  MECHANISM - RegistrationScope: OnLoad registers through a recording scope
+  owned by PluginHost (type ids, factory keys, facade names); unload
+  REVERSES the recording automatically instead of trusting hand-written
+  OnUnload symmetry. Prereq: Unregister APIs on TypeRegistry /
+  SerializableRegistry / script registries - cheap and safe now that maps
+  key on TypeId (remove by id; the P1 groundwork pays off again).
+
+  SAFETY - liveness guard before dlclose: verify the run is stopped and the
+  module's types have no live instances; on ANY doubt, SKIP dlclose (leak
+  the old .so deliberately - unreachable stale code is harmless, a freed
+  page under a live vtable is not) and still load + register the new
+  module (the scope removed the old registry entries, so the new ones
+  take by id).
+
+  CACHE RULE (extends the P1 identity rule): long-lived caches store
+  TypeId and re-resolve TypeInfo* per use via FindById/Canonical - a
+  cached TypeInfo* does not survive a reload.
+
 ## Rules established
 
 - Native game code never registers via static initializers; OnLoad is the
