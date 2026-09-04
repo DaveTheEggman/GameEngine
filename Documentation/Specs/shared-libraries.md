@@ -201,3 +201,24 @@ they land first and independently.
   disk formats keep authored names/SerializationTypeId.
 - Process-wide state lives behind non-inline accessors defined in impl
   units; the tripwire enforces it.
+
+## 7. Future: game native code (seeded 2026-09-04, not scheduled)
+
+Game native code is authored as a PLUGIN (IRuntimePlugin + explicit
+registration functions) - one source shape, two link modes:
+
+- DEV: the shared-build editor dlopens the game plugin (the ruled model;
+  proven by Runtime.CrossPlugin). Opens the door to rebuild-and-reload of
+  game code without restarting the editor.
+- SHIPPING: the Traktor pattern (user precedent) - the EXPORT PIPELINE
+  invokes the final native link: engine static libs + game native code + a
+  generated main that calls the plugin's registration DIRECTLY (no loader).
+  Full LTO, single artifact; web is the same path via the wasm toolchain
+  (web is always static - enforced at configure).
+
+New prerequisite this creates: the shipping link needs engine static libs +
+module BMIs visible to the game compile. Options: (a) exporter drives a
+cmake build against the engine checkout (v1 - sidesteps SDK packaging),
+(b) prebuilt SDK (blocked-ish: install(FILE_SET CXX_MODULES) is still
+experimental in CMake). Fits the existing export-template machinery (the
+exporter already orchestrates naga/DXC/templates).
