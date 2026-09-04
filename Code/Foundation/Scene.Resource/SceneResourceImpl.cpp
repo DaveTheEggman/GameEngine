@@ -2158,5 +2158,46 @@ namespace foundation::scene
         {
             scene.ForEachSystem([&](SceneSystem& sys) { ResolveUnresolvedSettings(scene, sys); });
         }
+        // Prefab-instance ops of types that now have a manager: apply + drop.
+        scene.ForEachPrefabInstance(
+            [&](Scene::PrefabInstanceState& state)
+            {
+                for (usize i = state.unresolvedComponentOps.Size(); i-- > 0;)
+                {
+                    const Scene::PendingPrefabComponentOp& op = state.unresolvedComponentOps[i];
+                    ComponentManagerBase* manager =
+                        scene.FindManagerBySerializationId(op.typeId.AsView());
+                    if (manager == nullptr)
+                    {
+                        continue;
+                    }
+                    EntityHandle live = EntityHandle::Invalid();
+                    for (usize k = 0; k < state.sourceIds.Size(); ++k)
+                    {
+                        if (state.sourceIds[k] == op.sourceEntity)
+                        {
+                            live = scene.FindEntity(state.liveIds[k]);
+                            break;
+                        }
+                    }
+                    if (live.IsAssigned())
+                    {
+                        if (op.op == 2u)
+                        {
+                            if (manager->HasComponent(live))
+                            {
+                                manager->RemoveComponent(live);
+                            }
+                        }
+                        else
+                        {
+                            detail::ComponentFromBlob(*manager, live,
+                                                      Span<const u8>{op.blob.Data(),
+                                                                     op.blob.Size()});
+                        }
+                    }
+                    state.unresolvedComponentOps.RemoveAt(i);
+                }
+            });
     }
 }

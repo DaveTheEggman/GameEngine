@@ -115,6 +115,13 @@ export namespace foundation::scene
             String typeId;  // the owning manager's SerializationTypeId
             Array<u8> blob; // binary WriteComponent capture at spawn
         };
+        struct PendingPrefabComponentOp
+        {
+            Guid sourceEntity;
+            String typeId;
+            u8 op = 0;      // 0 = modify, 1 = add, 2 = remove (blob empty)
+            Array<u8> blob; // binary component payload for modify/add
+        };
         struct PrefabInstanceState
         {
             Guid prefabId;         // the prefab asset/product instance guid
@@ -124,6 +131,10 @@ export namespace foundation::scene
             Array<Transform>
                 baselineTransforms; // parallel to sourceIds (template local transforms)
             Array<PrefabComponentBaseline> componentBaselines;
+            // Instance component ops whose manager was absent when the instance spawned (a
+            // plugin's types; game-native-code.md S3): kept verbatim so the next save
+            // re-emits them, and applied the moment the manager arrives.
+            Array<PendingPrefabComponentOp> unresolvedComponentOps;
 
             // NESTING: an instance spawned BY another instance's payload record links to its
             // owner; nestedRootSourceId is this instance's stable identity in the owner's
@@ -175,13 +186,6 @@ export namespace foundation::scene
         // can't resolve prefab assets itself (no DB access), so it parks descriptors here and
         // ResolveScenePrefabs (scene.resource) respawns them with a caller-supplied resolver -
         // the same two-phase shape as component resource Refs + ResolveSceneResources.
-        struct PendingPrefabComponentOp
-        {
-            Guid sourceEntity;
-            String typeId;
-            u8 op = 0;      // 0 = modify, 1 = add, 2 = remove (blob empty)
-            Array<u8> blob; // binary component payload for modify/add
-        };
         struct PendingPrefabInstance
         {
             Guid prefabId;

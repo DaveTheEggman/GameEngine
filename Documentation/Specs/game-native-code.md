@@ -229,9 +229,19 @@ single artifact, works on every platform incl. web). Same source both ways.
   components/settings the moment their manager/system arrives
   (ResolveAllUnresolvedRecords - the live-install hook). Proven by
   round-trip tests in both encodings incl. late-arrival resolve.
-  Not covered (follow-up): prefab-instance baseline records of unknown
-  types still skip (override loss for plugin components on prefab
-  instances while the plugin is absent).
+  Prefab instances too (2026-09-04): component ops (instance overrides)
+  of an absent type are stashed on the PrefabInstanceState
+  (unresolvedComponentOps), re-emitted by ComputeInstanceDeltas on save,
+  and applied by ResolveAllUnresolvedRecords when the manager arrives.
+
+  SCRIPT-FACADE AUDIT (2026-09-04, closed - no work needed): the script
+  manager is PER RUN - ScriptSubsystem::EnsureContext creates it lazily at
+  a run's first script use and binds every type then registered
+  (RegisterReflectedTypes over GlobalTypeRegistry().All()); the run host's
+  Teardown (GameInstance stop) destroys it. Reload is run-bracketed
+  (StopGameRun first), so a reloaded module's facades bind fresh at the
+  next run and AngelScript's inability to unregister types never matters.
+  The only rule: never reload during a run (already enforced).
 
 ## Rules established
 

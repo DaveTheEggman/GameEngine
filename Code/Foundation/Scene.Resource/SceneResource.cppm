@@ -399,6 +399,11 @@ export namespace foundation::scene
                             static_cast<Scene::PendingPrefabComponentOp&&>(op));
                     });
             }
+            // Ops of still-absent types pass through untouched (S3 preservation).
+            for (const Scene::PendingPrefabComponentOp& op : state.unresolvedComponentOps)
+            {
+                pending->componentOps.PushBack(op);
+            }
             return pending;
         }
 
@@ -444,6 +449,13 @@ export namespace foundation::scene
                 EntityHandle e = liveOf(op.sourceEntity);
                 ComponentManagerBase* manager =
                     scene.FindManagerBySerializationId(op.typeId.AsView());
+                if (e.IsAssigned() && manager == nullptr && state != nullptr)
+                {
+                    // Unknown type (its plugin is absent): keep the op so the next save
+                    // re-emits it and the manager's arrival applies it (S3).
+                    state->unresolvedComponentOps.PushBack(op);
+                    continue;
+                }
                 if (!e.IsAssigned() || manager == nullptr)
                 {
                     continue;
