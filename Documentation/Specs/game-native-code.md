@@ -86,6 +86,24 @@ single artifact, works on every platform incl. web). Same source both ways.
   migration/reinstancing - out of scope BY DESIGN (that is the Unreal
   reinstancing swamp; run-transient PIE makes it unnecessary).
 
+  EDITING SCENES (the MyFancyComponent case - a plugin component authored
+  in a scene that is OPEN FOR EDITING when the reload happens): the run
+  bracket extends to a SCENE BRACKET riding the existing Simulate-snapshot
+  machinery. (1) SNAPSHOT every open scene to memory through the wire
+  format (unsaved edits included - the wire format is the contract, not
+  the memory layout); (2) DESTROY the scenes while the OLD .so is still
+  loaded (component + manager teardown runs against the code that created
+  them); (3) scope-reverse, liveness-guard (now also: no scene alive holds
+  module types), dlclose, dlopen, OnLoad; (4) RESTORE from snapshots -
+  components resolve by name/id through the NEW module's registrations,
+  managers are recreated by its scene-manager contribution, inspectors
+  rebuild via TypeId. Serialization IS the migration layer: a layout
+  change goes through the normal DataVersion gates; an ungated change
+  fails that payload LOUDLY (the strict-versioning rule working as
+  intended during native iteration - a signal, never corruption). Raw
+  pointers into component storage across the reload are already illegal
+  (resolve-per-use rule; pools swap-remove even without reloads).
+
   MECHANISM - RegistrationScope: OnLoad registers through a recording scope
   owned by PluginHost (type ids, factory keys, facade names); unload
   REVERSES the recording automatically instead of trusting hand-written
