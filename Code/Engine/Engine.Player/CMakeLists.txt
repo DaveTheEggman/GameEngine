@@ -8,8 +8,11 @@
 if(EMSCRIPTEN)
 
     # --- Browser player: WebMain.cpp + the web platform trio + preloaded content ---
-    add_executable(Engine.Player WebMain.cpp)
-    target_link_libraries(Engine.Player PRIVATE
+    # One link list, two players: Engine.Player is the reusable TEMPLATE (no game code);
+    # Engine.GamePlayer (below, only when a game is wired in) compiles the game's native
+    # module IN - browsers have no dlopen, so web native is ship-only by design
+    # (game-native-code.md N5).
+    set(_web_player_libs
         Foundation::Core
         Foundation::Runtime Foundation::Runtime.Client Foundation::Runtime.Web Engine::DefaultApp
         Foundation::Shell.Web Foundation::Shell Foundation::Graphics Foundation::Graphics.Gpu
@@ -25,6 +28,9 @@ if(EMSCRIPTEN)
         Foundation::Physics Foundation::Physics.Resource Engine::Physics
         Engine::Project Foundation::VFS.Pak Foundation::Content Foundation::VFS Foundation::Xml.Serialization)
 
+    add_executable(Engine.Player WebMain.cpp)
+    target_link_libraries(Engine.Player PRIVATE ${_web_player_libs})
+
     # NOTHING is baked into this binary: the player FETCHES player.xml + Content.pak (the export
     # output) and shaders.dpak (the export-cooked WGSL engine pack) from the serving folder at
     # startup (WebMain.cpp, synchronous under ASYNCIFY). That makes the build a reusable EXPORT
@@ -39,8 +45,28 @@ if(EMSCRIPTEN)
         "--shell-file=${_web_shell}"
         "-sASYNCIFY"               # device bring-up + per-frame GPU fence waits yield to the browser
         "-sASYNCIFY_STACK_SIZE=1048576" # the deep render-frame pump overflows the 4KB default
+        "-lwebsocket.js"           # Net.WebSocket's INTERFACE option does not cross static
+                                   # private deps ($<LINK_ONLY>) - restate it (WebScene precedent)
     )
     set_target_properties(Engine.Player PROPERTIES SUFFIX ".html")
+
+    # The web SHIP player: the game's native module statically compiled in.
+    if(ENGINE_GAME_NATIVE_TARGET)
+        add_executable(Engine.GamePlayer WebMain.cpp)
+        target_link_libraries(Engine.GamePlayer PRIVATE
+            ${_web_player_libs} ${ENGINE_GAME_NATIVE_TARGET})
+        target_compile_definitions(Engine.GamePlayer PRIVATE ENGINE_SHIP_NATIVE_GAME)
+        target_link_options(Engine.GamePlayer PRIVATE
+            "--shell-file=${_web_shell}"
+            "-sASYNCIFY"
+            "-sASYNCIFY_STACK_SIZE=1048576"
+            "-lwebsocket.js")
+        set_source_files_properties(WebMain.cpp PROPERTIES OBJECT_DEPENDS "${_web_shell}")
+        # Its own basename (emscripten bakes the .js name into the .html and the .wasm name
+        # into the .js, so the trio stays self-consistent as Engine.GamePlayer.*; it cannot
+        # reuse the template's name - both targets live in one build).
+        set_target_properties(Engine.GamePlayer PROPERTIES SUFFIX ".html")
+    endif()
 
     # Stage serve.py (COOP/COEP + wasm MIME + no-store static server) beside the output, and emit
     # the runtime-libs manifest the export template machinery reads: `--template create <this build

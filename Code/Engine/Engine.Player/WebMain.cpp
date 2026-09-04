@@ -77,6 +77,10 @@ import foundation.vfs.pak;
 
 using namespace foundation::core;
 
+#if defined(ENGINE_SHIP_NATIVE_GAME)
+extern "C" foundation::runtime::IRuntimePlugin* CreatePlugin();
+#endif
+
 namespace
 {
     // Pull one dist file from the serving folder into the MEMFS root. Synchronous under
@@ -126,11 +130,12 @@ namespace
         bool bc = false;
         bool astc = false;
         foundation::rhi::Backend* probe = nullptr;
-        if (foundation::rhi::webgpu::CreateBackend(foundation::rhi::webgpu::WebGpuBackendDesc{}, probe)
+        if (foundation::rhi::webgpu::CreateBackend(foundation::rhi::webgpu::WebGpuBackendDesc{},
+                                                   probe, DefaultAllocator())
                 .IsOk() &&
             probe != nullptr)
         {
-            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters(, DefaultAllocator());
+            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters();
             if (!adapters.IsEmpty())
             {
                 const foundation::rhi::AdapterInfo info = adapters[0]->Info();
@@ -172,6 +177,11 @@ namespace
             FetchDistFile("shaders.dpak");
             engine::player::PlayerOptions options;
             options.projectDir = String(u8".");
+#if defined(ENGINE_SHIP_NATIVE_GAME)
+            // The web SHIP player (game-native-code.md N5): no dlopen in a browser - the
+            // game's plugin is compiled in, same contract as the desktop ship stub.
+            options.nativeGame = CreatePlugin();
+#endif
             return options;
         }
     };

@@ -102,9 +102,28 @@ single artifact, works on every platform incl. web). Same source both ways.
   landing at the manifest path. The NativeSample fixture carries the same
   output-dir rule so fixture and generator stay one shape.
 - N5 - platforms. Windows (waits on the MSVC modules/dllexport prototype
-  for the DEV loop; the SHIP path is static and needs no export macros);
-  web (SHIP-only by design - the game module compiles into the wasm player
-  in the export wasm build; no dev-loop dlopen on web).
+  for the DEV loop; the SHIP path is static and needs no export macros).
+  WEB SHIPPED 2026-09-04 (ship-only by design - no dlopen in browsers):
+  the wasm lane hosts the game the same way (the Emscripten branch of the
+  root CMakeLists return()s early, so it carries its own game-native
+  hook), and Engine.GamePlayer (web) = WebMain.cpp + ENGINE_SHIP_NATIVE_GAME
+  (MakeOptions passes CreatePlugin()) + the game target, as
+  Engine.GamePlayer.{html,js,wasm} - its OWN basename (emscripten bakes the
+  js name into the html and the wasm name into the js, and the template
+  player shares the build, so the template's name cannot be reused).
+  Exporter: a Web preset + nativeModule -> BuildShipPlayer(web=true):
+  Emscripten toolchain from $EMSDK (clear error when unset: launch from a
+  shell with emsdk_env.sh sourced), <project>/.cache/ship-web-<config>,
+  -j2 (wasm-ld + ASYNCIFY is memory-hungry - an earlier -j4 wasm link
+  OOM-killed the machine), stages the trio and SKIPS the template's
+  js/wasm sidecars so they never clobber it. PROVEN end to end via
+  Tools.Export: the web dist carries Engine.GamePlayer.{html,js,wasm}
+  (plugin inside the wasm), WGSL shaders.dpak, per-family paks, serve.py.
+  Found + fixed on the way: WebMain.cpp had been broken since the I5
+  allocator sweep (a mangled EnumerateAdapters call + a missing
+  CreateBackend allocator arg - the wasm lane is not in the commit gates),
+  and both web players now restate -lwebsocket.js (Net.WebSocket's
+  INTERFACE link option does not cross static private deps).
 
 - N6 - hot reload (DESIGNED, not scheduled; the gnarly part). What the
   plugin left behind decides everything - the inventory on unload:

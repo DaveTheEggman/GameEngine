@@ -793,6 +793,12 @@ if(EMSCRIPTEN)
             add_subdirectory(Code/Samples/TerrainPlayground) # in-code heightfield -> engine.terrain -> TerrainPlayground.html
         endif()
     endif()
+    # Game native code (game-native-code.md N5): the wasm lane hosts the game too - the
+    # web SHIP player compiles the module in (no dlopen in browsers). Mirrors the
+    # non-Emscripten block at the file end (this branch return()s before reaching it).
+    if(ENGINE_GAME_NATIVE_DIR)
+        add_subdirectory(${ENGINE_GAME_NATIVE_DIR} game-native)
+    endif()
     return()
 endif()
 

@@ -706,13 +706,33 @@ namespace editor
         // (ENGINE_GAME_NATIVE_DIR/_TARGET), a persistent per-project build dir under the
         // project's .cache (incremental relinks), and a per-project Bin suffix so ship
         // outputs never collide with dev builds. Returns the built player's path.
-        [[nodiscard]] Status BuildShipPlayer(EditorProject& project, StringView config,
+        // `web` = the wasm ship player (game-native-code.md N5): the same mechanism through
+        // the Emscripten toolchain ($EMSDK must be in the environment - launch the editor/CLI
+        // from a shell with emsdk_env.sh sourced), a lighter -j (wasm-ld + ASYNCIFY is
+        // memory-hungry), and the output is the html/js/wasm trio under the TEMPLATE basename.
+        [[nodiscard]] Status BuildShipPlayer(EditorProject& project, StringView config, bool web,
                                              const ExportProgress& onProgress, String& outPlayer)
         {
             const StringView engineRoot =
                 StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_ENGINE_ROOT));
             const StringView cmakePath =
                 StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CMAKE_PATH));
+            String toolchainDef;
+            if (web)
+            {
+                const Optional<String> emsdk = GetEnvironmentVariable(u8"EMSDK");
+                if (!emsdk.HasValue() || emsdk.Value().IsEmpty())
+                {
+                    LOG_ERROR(u8"Export",
+                              u8"web native export needs the Emscripten SDK: EMSDK is not set - "
+                              u8"launch the editor/CLI from a shell with emsdk_env.sh sourced");
+                    return Status{ErrorCode::NotFound};
+                }
+                toolchainDef = Format(
+                    u8"-DCMAKE_TOOLCHAIN_FILE={}/upstream/emscripten/cmake/Modules/Platform/"
+                    u8"Emscripten.cmake",
+                    emsdk.Value());
+            }
             if (!DirectoryExists(PathJoin(engineRoot, u8"Code").AsView()))
             {
                 LOG_ERROR(u8"Export",
@@ -742,7 +762,9 @@ namespace editor
             const String buildType = config.IsEmpty() ? String(u8"Release") : String(config);
             const String shipDir = PathJoin(
                 project.Directory(),
-                Format(u8"{}/ship-{}", engine::project::kProjectCacheDir, buildType).AsView());
+                Format(u8"{}/ship-{}{}", engine::project::kProjectCacheDir,
+                       web ? StringView(u8"web-") : StringView(u8""), buildType)
+                    .AsView());
 
             if (onProgress)
             {
@@ -757,10 +779,13 @@ namespace editor
             const String defGameDir = Format(u8"-DENGINE_GAME_NATIVE_DIR={}", nativeDir);
             const String defGameTarget = Format(u8"-DENGINE_GAME_NATIVE_TARGET={}", target);
             const String defSuffix = Format(u8"-DBUILDSYSTEM_OUTPUT_SUFFIX={}", suffix);
+            // Web: the toolchain file selects the compiler (never pin clang++ under it).
+            const StringView compilerOrToolchain =
+                web ? toolchainDef.AsView() : defCompiler.AsView();
             const StringView cfgArgs[] = {u8"-S",       engineRoot,
                                           u8"-B",       shipDir.AsView(),
                                           u8"-G",       u8"Ninja",
-                                          defCompiler.AsView(),  defBuildType.AsView(),
+                                          compilerOrToolchain,   defBuildType.AsView(),
                                           defGameDir.AsView(),   defGameTarget.AsView(),
                                           defSuffix.AsView()};
             const ProcessResult configured =
@@ -777,7 +802,8 @@ namespace editor
                 onProgress(u8"Building native ship player (this can take a while)...", 0.88f);
             }
             const StringView buildArgs[] = {u8"--build", shipDir.AsView(), u8"--target",
-                                            u8"Engine.GamePlayer", u8"-j", u8"4"};
+                                            u8"Engine.GamePlayer", u8"-j",
+                                            web ? StringView(u8"2") : StringView(u8"4")};
             const ProcessResult built =
                 RunProcess(cmakePath, Span<const StringView>(buildArgs, 6));
             if (!built.Ok())
@@ -800,8 +826,11 @@ namespace editor
                     {
                         if (entry.isDirectory && entry.name.AsView().EndsWith(suffix.AsView()))
                         {
-                            const String candidate = Format(u8"{}/{}/Engine.GamePlayer", binRoot,
-                                                            entry.name);
+                            // Web = the page of the html/js/wasm trio; desktop = the executable.
+                            const String candidate =
+                                Format(u8"{}/{}/{}", binRoot, entry.name,
+                                       web ? StringView(u8"Engine.GamePlayer.html")
+                                           : StringView(u8"Engine.GamePlayer"));
                             if (FileExists(candidate.AsView()))
                             {
                                 outPlayer = candidate;
@@ -1032,14 +1061,14 @@ namespace editor
         // Engine.GamePlayer, freshly built with the game's native module statically linked.
         // Web presets keep the template player (the wasm game build is N5); the manifest's
         // dlopen module is ignored by ship players (the static plugin takes precedence).
-        const bool nativeShip = !project.Settings().nativeModule.IsEmpty() &&
-                                !preset.platform.AsView().StartsWith(u8"Web") &&
-                                !preset.platform.AsView().StartsWith(u8"Wasm");
+        const bool nativeShip = !project.Settings().nativeModule.IsEmpty();
+        const bool nativeWeb = nativeShip && (preset.platform.AsView().StartsWith(u8"Web") ||
+                                              preset.platform.AsView().StartsWith(u8"Wasm"));
         String shipPlayerPath;
         if (nativeShip)
         {
-            const Status shipStatus = BuildShipPlayer(project, preset.config.AsView(), onProgress,
-                                                      shipPlayerPath);
+            const Status shipStatus = BuildShipPlayer(project, preset.config.AsView(), nativeWeb,
+                                                      onProgress, shipPlayerPath);
             if (!shipStatus.IsOk())
             {
                 if (outResult != nullptr)
@@ -1049,9 +1078,16 @@ namespace editor
                 return shipStatus;
             }
         }
-        const String outName = detail::PlayerOutputName(
-            preset.platform.AsView(), preset.playerName.AsView(),
-            nativeShip ? StringView(u8"Engine.GamePlayer") : tmpl->playerBinary.AsView());
+        // Web native ships as Engine.GamePlayer.{html,js,wasm}: the trio cross-references by
+        // basename, so a preset playerName cannot rename it (desktop renames freely).
+        const String outName =
+            nativeWeb ? String(u8"Engine.GamePlayer.html")
+                      : detail::PlayerOutputName(preset.platform.AsView(),
+                                                 preset.playerName.AsView(),
+                                                 nativeShip ? StringView(u8"Engine.GamePlayer")
+                                                            : tmpl->playerBinary.AsView());
+        const StringView shipPlayerName =
+            nativeWeb ? StringView(u8"Engine.GamePlayer.html") : StringView(u8"Engine.GamePlayer");
         String shipPlayerDir;
         if (nativeShip)
         {
@@ -1068,8 +1104,7 @@ namespace editor
         }
         const bool playerStaged =
             nativeShip
-                ? detail::CopyFilePreserving(shipPlayerDir.AsView(),
-                                             StringView(u8"Engine.GamePlayer"),
+                ? detail::CopyFilePreserving(shipPlayerDir.AsView(), shipPlayerName,
                                              result.outputDir.AsView(), outName.AsView())
                 : detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
                                              result.outputDir.AsView(), outName.AsView());
@@ -1086,6 +1121,27 @@ namespace editor
             return Status{ErrorCode::Internal};
         }
         ++result.filesStaged;
+        if (nativeWeb)
+        {
+            // The rest of the ship trio (the js glue + the wasm), same basenames.
+            const StringView trio[] = {StringView(u8"Engine.GamePlayer.js"),
+                                       StringView(u8"Engine.GamePlayer.wasm")};
+            for (StringView part : trio)
+            {
+                if (!detail::CopyFilePreserving(shipPlayerDir.AsView(), part,
+                                                result.outputDir.AsView(), part))
+                {
+                    LOG_ERROR(u8"Export", u8"failed to stage web ship part '{}' from '{}'", part,
+                              shipPlayerDir);
+                    if (outResult != nullptr)
+                    {
+                        *outResult = result;
+                    }
+                    return Status{ErrorCode::Internal};
+                }
+                ++result.filesStaged;
+            }
+        }
 
         // Cooked engine shaders: produce shaders.dpak beside the player so the dist renders with no
         // runtime compiler. A cook failure is fatal - a dist without shaders cannot render.
@@ -1118,6 +1174,11 @@ namespace editor
         // (retires the DXC-runtime-sidecar fragility class for dists).
         for (const String& sidecar : tmpl->sidecars)
         {
+            if (nativeWeb && (sidecar.AsView().EndsWith(u8".js") ||
+                              sidecar.AsView().EndsWith(u8".wasm")))
+            {
+                continue; // the ship build provided the trio - never clobber it with the template's
+            }
             if (IsDxcRuntimeLib(sidecar.AsView()))
             {
                 LOG_INFO(u8"Export", u8"omitting DXC sidecar '{}' (dist renders from the "
