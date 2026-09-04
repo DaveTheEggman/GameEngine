@@ -177,9 +177,9 @@ pinned allowlist that also fails on stale entries.
   default visibility does the rest). REMAINING P4 TAIL: (a) PluginHost test
   upgraded to exercise cross-boundary identity (plugin registers a type +
   resolves a host subsystem; RTLD_LOCAL -> RTLD_GLOBAL or Core-shared);
-  (b) OUTPUT DIR: build/clang and build/clang-shared currently share
-  Bin/Debug/Linux64-Clang and overwrite each other - give shared builds a
-  suffixed dir (the -ASAN precedent); (c) a CI-able smoke lane.
+  (b) OUTPUT DIR: DONE (user ruling 2026-09-04) - ENGINE_SHARED_LIBS defaults
+  BUILDSYSTEM_OUTPUT_SUFFIX to "-Shared" (the -ASAN precedent), so shared
+  builds land in Bin/<cfg>/<plat>-<comp>-Shared; an explicit suffix wins; (c) a CI-able smoke lane.
 - **P5 - hidden visibility + Windows.** CXX_VISIBILITY_PRESET hidden +
   VISIBILITY_INLINES_HIDDEN (converts residual duplication into link
   errors), export annotations, MSVC prototype verdict applied.

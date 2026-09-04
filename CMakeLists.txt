@@ -72,6 +72,12 @@ endif()
 # project that lived beside the binaries). Set BUILDSYSTEM_OUTPUT_SUFFIX (e.g. "-ASAN") in
 # sanitizer configure runs.
 set(BUILDSYSTEM_OUTPUT_SUFFIX "" CACHE STRING "Suffix for the Bin output dir (e.g. -ASAN)")
+# Shared builds get their own dir the same way (the -ASAN precedent): build/clang and
+# build/clang-shared sharing one Bin overwrote each other's binaries. An explicit
+# BUILDSYSTEM_OUTPUT_SUFFIX still wins over the default.
+if(ENGINE_SHARED_LIBS AND BUILDSYSTEM_OUTPUT_SUFFIX STREQUAL "")
+    set(BUILDSYSTEM_OUTPUT_SUFFIX "-Shared")
+endif()
 set(BUILDSYSTEM_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/$<CONFIG>/${_dr_plat}-${_dr_comp}${BUILDSYSTEM_OUTPUT_SUFFIX}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # exes + Windows DLLs
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # .so plugins/modules (beside the exe)
