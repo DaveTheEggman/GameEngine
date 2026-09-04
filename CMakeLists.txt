@@ -32,6 +32,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # this; the deliberate option (BUILD_SHARED_LIBS would silently no-op against
 # hardcoded types). Design + hazard inventory: Documentation/Specs/shared-libraries.md.
 option(ENGINE_SHARED_LIBS "Build engine libraries as shared libraries" OFF)
+if(ENGINE_SHARED_LIBS AND EMSCRIPTEN)
+    # Web is a single self-contained binary by design: browsers have no runtime
+    # plugin loading, Emscripten dynamic linking forfeits whole-program optimization
+    # and bloats the main module, and web extensibility flows through scripts.
+    message(FATAL_ERROR "ENGINE_SHARED_LIBS is not supported for Emscripten - the web "
+                        "target is always a static single binary (shared-libraries.md).")
+endif()
 if(ENGINE_SHARED_LIBS)
     # Binaries and libraries land together in Bin/<cfg>/<plat>; $ORIGIN makes the
     # loader find sibling .so files without LD_LIBRARY_PATH (the DXC/wgpu sidecar
