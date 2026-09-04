@@ -7,6 +7,9 @@ add_library(Foundation::Profiler ALIAS Profiler)
 
 target_link_libraries(Profiler PUBLIC Foundation::Core Foundation::Policy)
 
+# Module implementation unit: the singleton + per-thread slot (one per process).
+target_sources(Profiler PRIVATE ProfilerImpl.cpp)
+
 target_sources(Profiler
     PUBLIC
         FILE_SET profiler_modules TYPE CXX_MODULES FILES

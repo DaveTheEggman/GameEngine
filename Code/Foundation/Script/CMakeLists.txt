@@ -10,6 +10,9 @@ add_library(Foundation::Script ALIAS Script)
 # root (so module GMFs can #include "Core/Prelude.h").
 target_link_libraries(Script PUBLIC Foundation::Core Foundation::Policy)
 
+# Module implementation unit: the current-script-context slot (one per process).
+target_sources(Script PRIVATE ScriptContextImpl.cpp)
+
 target_sources(Script
     PUBLIC
         FILE_SET script_modules TYPE CXX_MODULES FILES

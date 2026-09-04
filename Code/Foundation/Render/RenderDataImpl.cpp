@@ -34,6 +34,12 @@ using namespace foundation::core;
 
 namespace foundation::render
 {
+    CategoryRegistry& Categories() noexcept
+    {
+        static CategoryRegistry s_registry;
+        return s_registry;
+    }
+
     RenderCategory CategoryRegistry::Register(StringView name, SortMode sort, PassAffinity affinity)
     {
         for (u16 i = 0; i < m_count; ++i)

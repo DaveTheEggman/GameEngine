@@ -157,23 +157,29 @@ export namespace foundation::script
     // scripted calls). Backends push it around every reflected dispatch; native facades
     // (the Input class) resolve their per-context services through it. Nesting-safe
     // (script -> native -> script restores the previous).
+    //
+    // The slot accessor is NON-inline, defined in ScriptContextImpl.cpp: the backend
+    // pushing (Script.AngelScript/.Luau) and the facade reading (Engine.*) live in
+    // different libraries, and an inline thread_local would duplicate per shared
+    // library - the facade would read null and lose its per-context services
+    // (shared-libraries.md rendezvous rule).
     namespace detail
     {
-        inline thread_local IScriptContext* g_currentContext = nullptr;
+        [[nodiscard]] IScriptContext*& CurrentScriptContextSlot() noexcept;
     }
     [[nodiscard]] inline IScriptContext* CurrentScriptContext() noexcept
     {
-        return detail::g_currentContext;
+        return detail::CurrentScriptContextSlot();
     }
     class ScriptCallScope
     {
     public:
         explicit ScriptCallScope(IScriptContext* context) noexcept
-            : m_previous(detail::g_currentContext)
+            : m_previous(detail::CurrentScriptContextSlot())
         {
-            detail::g_currentContext = context;
+            detail::CurrentScriptContextSlot() = context;
         }
-        ~ScriptCallScope() { detail::g_currentContext = m_previous; }
+        ~ScriptCallScope() { detail::CurrentScriptContextSlot() = m_previous; }
         ScriptCallScope(const ScriptCallScope&) = delete;
         ScriptCallScope& operator=(const ScriptCallScope&) = delete;
 

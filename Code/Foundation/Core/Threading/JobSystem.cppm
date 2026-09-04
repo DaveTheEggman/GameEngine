@@ -453,14 +453,11 @@ export namespace foundation::core
         static void YieldThread() noexcept { sys::ThreadYield(); }
 
         // The calling thread's worker slot: a worker's index, or -1 for any non-worker thread.
-        // A function-local thread_local (single COMDAT instance across TUs) rather than a static
-        // data member - the latter, odr-used by an inline accessor from an importing TU, would
-        // emit a duplicate definition and fail to link.
-        static i32& WorkerSlot() noexcept
-        {
-            static thread_local i32 slot = -1;
-            return slot;
-        }
+        // Defined OUT-OF-LINE in JobSystemImpl.cpp: an in-class body is implicitly inline, so
+        // each shared library would get its own thread_local copy - a worker calling an inline
+        // JobSystem method instantiated in another library would then read -1 and corrupt the
+        // work-stealing deque indexing (shared-libraries.md rendezvous rule).
+        static i32& WorkerSlot() noexcept;
 
         IAllocator* m_allocator;
         u32 m_workerCount = 0;
@@ -485,35 +482,18 @@ export namespace foundation::core
     // never initialized. The JobSystem class itself stays instance-constructible (tests build
     // their own); this is just a managed global instance.
 
-    namespace detail
-    {
-        inline JobSystem* g_globalJobs = nullptr;
-    }
+    // All four are defined in JobSystemImpl.cpp - NON-inline, so the pointer they manage
+    // exists exactly once in the process. Inline definitions would give each shared
+    // library its own g_globalJobs: the app initializes copy A, a consumer in another
+    // library sees copy B as null and silently falls back to serial
+    // (shared-libraries.md rendezvous rule).
 
     // Create the global JobSystem (no-op if already created). workerCount 0 => cores-1.
-    inline void InitGlobalJobSystem(u32 workerCount = 0)
-    {
-        if (detail::g_globalJobs == nullptr)
-        {
-            // Process-root decision: the engine-wide pool lives on the system allocator
-            // (this accessor pair IS a composition root, like DefaultAllocator itself).
-            detail::g_globalJobs = DefaultAllocator().New<JobSystem>(DefaultAllocator(), workerCount);
-        }
-    }
+    void InitGlobalJobSystem(u32 workerCount = 0);
 
     // Destroy the global JobSystem (joins its workers; no-op if absent).
-    inline void ShutdownGlobalJobSystem()
-    {
-        if (detail::g_globalJobs != nullptr)
-        {
-            DefaultAllocator().Delete(detail::g_globalJobs);
-            detail::g_globalJobs = nullptr;
-        }
-    }
+    void ShutdownGlobalJobSystem();
 
-    [[nodiscard]] inline bool HasGlobalJobSystem() noexcept
-    {
-        return detail::g_globalJobs != nullptr;
-    }
-    [[nodiscard]] inline JobSystem& GlobalJobs() noexcept { return *detail::g_globalJobs; }
+    [[nodiscard]] bool HasGlobalJobSystem() noexcept;
+    [[nodiscard]] JobSystem& GlobalJobs() noexcept;
 }

@@ -138,11 +138,11 @@ export namespace foundation::render
     };
 
     // The one process-wide category registry (built-ins pre-registered on first use).
-    [[nodiscard]] inline CategoryRegistry& Categories() noexcept
-    {
-        static CategoryRegistry s_registry;
-        return s_registry;
-    }
+    // NON-inline (RenderDataImpl.cpp): producers (Engine.Terrain, Engine.Particles)
+    // register categories and the sorter reads them from Foundation.Render - per-library
+    // copies would diverge the ids and draw items would sort into the wrong pass
+    // (shared-libraries.md rendezvous rule).
+    [[nodiscard]] CategoryRegistry& Categories() noexcept;
 
     // Base for a unit of renderable work. Arena-allocated, trivially destructible, valid one
     // frame. Dispatch is by `category` (not virtual) - the registered `Renderer` knows the

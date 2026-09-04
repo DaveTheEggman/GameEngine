@@ -46,7 +46,11 @@ namespace foundation::core::detail
     // constructors - a view can create its children from its own tree's allocator while
     // it is still being built. Thread-local: concurrent MakeRefs never cross wires, and
     // nested MakeRef calls consume their own slot before the outer ctor body continues.
-    inline thread_local RefControl* t_pendingControl = nullptr;
+    // NON-INLINE accessor defined in RefCountedImpl.cpp: MakeRef<T> instantiates in the
+    // CALLING library while the ctor may live in another - an inline thread_local would
+    // duplicate per shared library and the handshake would cross wires at the boundary
+    // (shared-libraries.md rendezvous rule; this is the single worst hazard in the tree).
+    [[nodiscard]] RefControl*& PendingRefControl() noexcept;
 
     inline void ReleaseWeak(RefControl* control) noexcept
     {
@@ -121,9 +125,9 @@ export namespace foundation::core
 
     protected:
         RefCounted() noexcept
-            : m_control(detail::t_pendingControl)
+            : m_control(detail::PendingRefControl())
         {
-            detail::t_pendingControl = nullptr;
+            detail::PendingRefControl() = nullptr;
         }
         virtual ~RefCounted() = default;
 
@@ -273,9 +277,9 @@ export namespace foundation::core
         control->allocator = &allocator;
         control->allocation = base;
 
-        detail::t_pendingControl = control;
+        detail::PendingRefControl() = control;
         T* object = Construct<T>(static_cast<byte*>(base) + objectOffset, Forward<Args>(args)...);
-        detail::t_pendingControl = nullptr; // belt-and-braces (the base ctor consumed it)
+        detail::PendingRefControl() = nullptr; // belt-and-braces (the base ctor consumed it)
 
         control->object = object;
         control->destroyObject = [](void* p) noexcept { Destruct(static_cast<T*>(p)); };

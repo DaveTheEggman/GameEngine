@@ -35,11 +35,10 @@ export namespace foundation::script
     class ScriptBackendRegistry
     {
     public:
-        [[nodiscard]] static ScriptBackendRegistry& Get()
-        {
-            static ScriptBackendRegistry instance;
-            return instance;
-        }
+        // NON-inline, defined in ScriptContextImpl.cpp: backends register from their
+        // own libraries and hosts resolve from others - per-library copies would mean
+        // "no script backend found" (shared-libraries.md rendezvous rule).
+        [[nodiscard]] static ScriptBackendRegistry& Get();
 
         /// Idempotent by languageId (a re-register replaces - hot-reload friendly).
         void Register(ScriptBackendDesc desc)

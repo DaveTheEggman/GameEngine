@@ -45,6 +45,7 @@ Code/Foundation/Core/Serialization/SerializableRegistry.cppm
 Code/Foundation/Core/Text/Format.cppm
 Code/Foundation/Core/Text/String.cppm
 Code/Foundation/Core/Threading/JobSystem.cppm
+Code/Foundation/Core/Threading/JobSystemImpl.cpp
 Code/Foundation/Core/Threading/Thread.cppm
 Code/Foundation/Fonts.DistanceField.Baker/DFFonts.cppm
 Code/Foundation/Fonts.IO/Factories.cppm

@@ -17,6 +17,8 @@ target_sources(Core PRIVATE
 # Module IMPLEMENTATION units (`module foundation.core;`): definitions kept out of the
 # interface partitions. Listed as regular sources, NOT in the CXX_MODULES file set.
 target_sources(Core PRIVATE
+    RefCountedImpl.cpp                   # MakeRef handshake slot (one per process, not per library)
+    Threading/JobSystemImpl.cpp          # global JobSystem pointer + worker slot (one per process)
     Reflection/CoreReflectionImpl.cpp)   # REFLECT_* bodies (see CoreReflection.cppm)
 
 # Module interface units. The primary unit (CoreModule.cppm) must be listed;

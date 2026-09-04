@@ -51,11 +51,10 @@ export namespace foundation::profiler
     class Profiler
     {
     public:
-        [[nodiscard]] static Profiler& Get() noexcept
-        {
-            static Profiler instance;
-            return instance;
-        }
+        // NON-inline, defined in ProfilerImpl.cpp: an in-class body would give each
+        // shared library its own Profiler (frames bracketed on one copy, scopes
+        // accumulating in another - shared-libraries.md rendezvous rule).
+        [[nodiscard]] static Profiler& Get() noexcept;
 
         void SetEnabled(bool e) noexcept { m_enabled = e; }
         [[nodiscard]] bool Enabled() const noexcept { return m_enabled; }
@@ -211,18 +210,22 @@ export namespace foundation::profiler
             Array<ActiveScope> stack;     // currently-open scopes
         };
 
-        // Per-thread state, created + registered on first use (registry guarded by the mutex).
+        // Per-thread state, created + registered on first use (registry guarded by the
+        // mutex). LocalSlot is NON-inline (ProfilerImpl.cpp) for the same per-library
+        // duplication reason as Get().
+        [[nodiscard]] static ThreadData*& LocalSlot() noexcept;
         [[nodiscard]] ThreadData& Local()
         {
-            if (s_local == nullptr)
+            ThreadData*& local = LocalSlot();
+            if (local == nullptr)
             {
                 ThreadData* td = DefaultAllocator().New<ThreadData>();
                 ScopedLock lock(m_mutex);
                 td->index = m_nextThreadIndex++;
                 m_threads.PushBack(td);
-                s_local = td;
+                local = td;
             }
-            return *s_local;
+            return *local;
         }
 
         void PushHistory(f64 ms) noexcept
@@ -248,7 +251,6 @@ export namespace foundation::profiler
         u32 m_historyHead = 0;
         u32 m_historyCount = 0;
 
-        inline static thread_local ThreadData* s_local = nullptr;
     };
 
     // RAII scope: brackets a profiled region. Use via PROFILE_SCOPE (Profiler.h).
