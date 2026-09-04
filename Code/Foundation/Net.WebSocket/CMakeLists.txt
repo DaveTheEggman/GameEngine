@@ -11,3 +11,9 @@ target_sources(Net.WebSocket
     PUBLIC
         FILE_SET net_websocket_modules TYPE CXX_MODULES FILES
             WebSocketGateway.cppm)
+
+# The browser WS client socket: whoever links this library on wasm needs emscripten's
+# websocket JS shim. INTERFACE so every consumer (web players, samples) inherits it.
+if(EMSCRIPTEN)
+    target_link_options(Net.WebSocket INTERFACE "-lwebsocket.js")
+endif()
