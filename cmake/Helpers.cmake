@@ -70,6 +70,12 @@ function(util_add_engine_library name)
     endif()
     if(ENGINE_SHARED_LIBS)
         add_library(${name} SHARED)
+        # Inline-function symbols stay DSO-local (smaller dynamic symbol tables,
+        # faster loads). Safe: static locals in inline functions are still unified
+        # by the linker, and the sharedlib tripwire keeps STATE out of interface
+        # inlines anyway. Full hidden visibility + export annotations wait on the
+        # MSVC modules+dllexport prototype (shared-libraries.md P5).
+        set_target_properties(${name} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
     else()
         add_library(${name} STATIC)
     endif()
