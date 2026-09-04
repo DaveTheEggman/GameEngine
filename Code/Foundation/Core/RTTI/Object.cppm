@@ -28,16 +28,11 @@ export namespace foundation::core
 
         [[nodiscard]] virtual const TypeInfo* GetType() const noexcept { return &StaticType(); }
 
-        [[nodiscard]] static const TypeInfo& StaticType() noexcept
-        {
-            static const TypeInfo info{ComputeTypeId("rtti::core", "Object"),
-                                       "Object",
-                                       "rtti::core",
-                                       static_cast<u32>(sizeof(Object)),
-                                       static_cast<u32>(alignof(Object)),
-                                       nullptr};
-            return info;
-        }
+        // NON-inline (RefCountedImpl.cpp): the root of every base chain - an in-class
+        // body is implicitly inline and would duplicate per shared library
+        // (shared-libraries.md rendezvous rule; id compares make lookups safe, one
+        // definition keeps chain walks cheap and the metadata single-instance).
+        [[nodiscard]] static const TypeInfo& StaticType() noexcept;
     };
 
     // =======================================================================

@@ -160,7 +160,7 @@ export namespace foundation::script
     //
     // The slot accessor is NON-inline, defined in ScriptContextImpl.cpp: the backend
     // pushing (Script.AngelScript/.Luau) and the facade reading (Engine.*) live in
-    // different libraries, and an inline thread_local would duplicate per shared
+    // different libraries, and a vague-linkage thread_local would duplicate per shared
     // library - the facade would read null and lose its per-context services
     // (shared-libraries.md rendezvous rule).
     namespace detail

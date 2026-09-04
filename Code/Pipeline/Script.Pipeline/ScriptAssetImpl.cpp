@@ -20,6 +20,12 @@ using namespace foundation::core;
 using namespace foundation::script;
 
 namespace pipeline{
+    ScriptLanguageCookRegistry& ScriptLanguageCookRegistry::Get()
+    {
+        static ScriptLanguageCookRegistry instance;
+        return instance;
+    }
+
     REFLECT_MEMBERS(ScriptClassAsset, "rtti::pipeline::script")
     {
         builder.Attribute("displayName", String(u8"Script"))

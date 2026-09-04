@@ -47,9 +47,9 @@ namespace foundation::core::detail
     // it is still being built. Thread-local: concurrent MakeRefs never cross wires, and
     // nested MakeRef calls consume their own slot before the outer ctor body continues.
     // NON-INLINE accessor defined in RefCountedImpl.cpp: MakeRef<T> instantiates in the
-    // CALLING library while the ctor may live in another - an inline thread_local would
-    // duplicate per shared library and the handshake would cross wires at the boundary
-    // (shared-libraries.md rendezvous rule; this is the single worst hazard in the tree).
+    // CALLING library while the ctor may live in another - a vague-linkage thread_local
+    // would duplicate per shared library and the handshake would cross wires at the
+    // boundary (shared-libraries.md rendezvous rule; the single worst hazard in the tree).
     [[nodiscard]] RefControl*& PendingRefControl() noexcept;
 
     inline void ReleaseWeak(RefControl* control) noexcept

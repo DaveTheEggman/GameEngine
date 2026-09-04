@@ -17,6 +17,18 @@ module foundation.ui;
 
 namespace foundation::ui
 {
+    // The process-wide ViewId counter (declared in ViewId.cppm).
+    ViewId ViewId::Create() noexcept
+    {
+        static foundation::core::Atomic<foundation::core::u32> s_next{1u};
+        ViewId id;
+        id.m_value = s_next.fetch_add(1u);
+        return id;
+    }
+} // namespace foundation::ui
+
+namespace foundation::ui
+{
     void UITypeRegistry::RegisterBuiltins()
     {
         static bool registered = false;

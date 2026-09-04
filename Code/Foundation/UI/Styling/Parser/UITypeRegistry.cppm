@@ -24,11 +24,8 @@ using namespace foundation::core;
 
 namespace foundation::ui::detail
 {
-    inline HashMap<String, const TypeInfo*>& UITypeMap()
-    {
-        static HashMap<String, const TypeInfo*> types;
-        return types;
-    }
+    // NON-inline (UiRegistryStateImpl.cpp): shared-libraries.md rendezvous rule.
+    [[nodiscard]] HashMap<String, const TypeInfo*>& UITypeMap();
 }
 
 export namespace foundation::ui

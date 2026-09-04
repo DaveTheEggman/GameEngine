@@ -176,4 +176,5 @@ target_sources(UI
         DragDrop/DragImpl.cpp
         Debug/UIDebugOverlayImpl.cpp
         Styling/Parser/SSSParserImpl.cpp
-        Styling/Parser/UITypeRegistryImpl.cpp)
+        Styling/Parser/UITypeRegistryImpl.cpp
+        UiRegistryStateImpl.cpp)

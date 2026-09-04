@@ -32,11 +32,11 @@ export namespace editor
 {
     namespace detail
     {
-        inline IAllocator*& EditorRootSlot() noexcept
-        {
-            static IAllocator* slot = &DefaultAllocator();
-            return slot;
-        }
+        // NON-inline (ContextImpl.cpp): a per-library slot would let the app install
+        // the tagged root in its copy while other editor libraries keep allocating
+        // from the untagged fallback - and a block allocated under one root freed
+        // under another is a cross-allocator free (shared-libraries.md rendezvous rule).
+        [[nodiscard]] IAllocator*& EditorRootSlot() noexcept;
     }
 
     /// The EDITOR BINARY's root allocator seam: the editor app installs its tagged

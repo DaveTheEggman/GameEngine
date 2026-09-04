@@ -868,11 +868,12 @@ export namespace foundation::ui
 
     namespace detail
     {
-        inline HashMap<String, DrawableFactoryRegistry::FactoryFn>& FactoryMap()
-        {
-            static HashMap<String, DrawableFactoryRegistry::FactoryFn> factories;
-            return factories;
-        }
+        // NON-inline (UiRegistryStateImpl.cpp): shared-libraries.md rendezvous rule.
+        [[nodiscard]] HashMap<String, DrawableFactoryRegistry::FactoryFn>& FactoryMap();
+
+        // The RegisterBuiltins run-once flag - same rule: an inline function-local flag
+        // would let one library's registration satisfy only its own guard.
+        [[nodiscard]] bool& DrawableBuiltinsRegisteredFlag();
 
         [[nodiscard]] inline ControlState ParseStateName(StringView name)
         {
@@ -912,7 +913,7 @@ export namespace foundation::ui
     {
         // Idempotent: the factory map is a global static, so register once even if called from several
         // entry points (StyleSheetLoader::Load and SSSParser::ApplyInlineStyle both ensure this).
-        static bool registered = false;
+        bool& registered = detail::DrawableBuiltinsRegisteredFlag();
         if (registered)
         {
             return;

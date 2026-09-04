@@ -1,0 +1,23 @@
+# Pinned exceptions to the shared-libraries rendezvous tripwire. Each entry is
+# either single-library state, a module-linkage definition in a non-exported
+# block (one definition already), or work queued in shared-libraries.md.
+# SAFE shape: non-inline module-linkage accessors (one definition in their library);
+# the Meyers pattern matches but there is no vague linkage. Need only export
+# annotations at P5.
+Code/Foundation/Core/Log/Logger.cppm
+Code/Foundation/Core/Memory/Allocator.cppm
+Code/Foundation/Core/RTTI/TypeRegistry.cppm
+Code/Foundation/Core/Reflection/ConstantRegistry.cppm
+Code/Foundation/Core/Serialization/SerializableRegistry.cppm
+# Registration-co-located template statics: written and read only by the library
+# that runs the registrar (audited in shared-libraries.md section 2.5).
+Code/Foundation/Core/Reflection/EnumReflection.cppm
+Code/Foundation/Core/Reflection/Reflection.cppm
+# Single-library state (never crosses its own module).
+Code/Foundation/Fonts.DistanceField.Baker/DFFonts.cppm
+Code/Foundation/Fonts.TTF/TrueTypeFonts.cppm
+# Module-linkage stores in a non-exported block (one definition); the inline
+# dispatchers over them are a P5 visibility concern, not duplication.
+Code/Foundation/Fonts.IO/Factories.cppm
+# Emscripten single-binary target: no shared-library split on wasm.
+Code/Foundation/Runtime.Web/WebRunner.cppm

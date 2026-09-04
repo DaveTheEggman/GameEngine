@@ -566,11 +566,10 @@ export namespace pipeline{
     class ScriptLanguageCookRegistry
     {
     public:
-        [[nodiscard]] static ScriptLanguageCookRegistry& Get()
-        {
-            static ScriptLanguageCookRegistry instance;
-            return instance;
-        }
+        // NON-inline (ScriptAssetImpl.cpp): language libraries register their cooks
+        // and the builder resolves from another - per-library copies would mean "no
+        // cook for language" (shared-libraries.md rendezvous rule).
+        [[nodiscard]] static ScriptLanguageCookRegistry& Get();
 
         /// Idempotent by languageId (a re-register replaces - hot-reload friendly).
         void Register(String languageId, UniquePtr<IScriptLanguageCook> cook)

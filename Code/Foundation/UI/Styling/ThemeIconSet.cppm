@@ -83,11 +83,9 @@ export namespace foundation::ui
         /// Tripwire: bump when ThemeIcon gains a glyph (Initialize materializes ALL of them).
         static constexpr usize kGlyphCount = 10;
 
-        [[nodiscard]] static ThemeIconSet& Get()
-        {
-            static ThemeIconSet instance;
-            return instance;
-        }
+        // NON-inline (UiRegistryStateImpl.cpp): shared glyph RefPtrs, one set per
+        // process (shared-libraries.md rendezvous rule).
+        [[nodiscard]] static ThemeIconSet& Get();
 
         /// Materialize the shared glyphs (idempotent). Called by UIHost's constructor - BEFORE
         /// apps build their themes - so every theme references the shared instances.

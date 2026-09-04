@@ -51,11 +51,9 @@ export namespace foundation::core
             MemoryTagRegistry() { names[0] = "Default"; }
         };
 
-        [[nodiscard]] inline MemoryTagRegistry& MemoryTags() noexcept
-        {
-            static MemoryTagRegistry registry;
-            return registry;
-        }
+        // NON-inline (RefCountedImpl.cpp): per-library registries would diverge the
+        // tag names in tracking output (shared-libraries.md rendezvous rule).
+        [[nodiscard]] MemoryTagRegistry& MemoryTags() noexcept;
 
         [[nodiscard]] inline bool TagNameEquals(const char* a, const char* b) noexcept
         {

@@ -24,11 +24,8 @@ using namespace foundation::core;
 
 namespace foundation::ui::detail
 {
-    inline Array<IThemeExtension*>& ThemeExtensionList()
-    {
-        static Array<IThemeExtension*> extensions;
-        return extensions;
-    }
+    // NON-inline (UiRegistryStateImpl.cpp): shared-libraries.md rendezvous rule.
+    [[nodiscard]] Array<IThemeExtension*>& ThemeExtensionList();
 }
 
 export namespace foundation::ui

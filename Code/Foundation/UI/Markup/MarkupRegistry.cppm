@@ -356,26 +356,14 @@ export namespace foundation::ui
         static void RegisterBuiltins();
 
     private:
-        [[nodiscard]] static HashMap<String, ViewFactory>& ViewFactories()
-        {
-            static HashMap<String, ViewFactory> v;
-            return v;
-        }
-        [[nodiscard]] static HashMap<String, PropertySetter>& ViewProps()
-        {
-            static HashMap<String, PropertySetter> v;
-            return v;
-        }
-        [[nodiscard]] static HashMap<String, LayoutParamsFactory>& LayoutFactories()
-        {
-            static HashMap<String, LayoutParamsFactory> v;
-            return v;
-        }
-        [[nodiscard]] static HashMap<String, LayoutParamSetter>& LayoutParams_()
-        {
-            static HashMap<String, LayoutParamSetter> v;
-            return v;
-        }
+        // Registry storage accessors are NON-inline (UiRegistryStateImpl.cpp): the
+        // function-local statics were chosen for init-order safety, but an inline body
+        // duplicates the map per shared library - registered in one, empty in another
+        // (shared-libraries.md rendezvous rule).
+        [[nodiscard]] static HashMap<String, ViewFactory>& ViewFactories();
+        [[nodiscard]] static HashMap<String, PropertySetter>& ViewProps();
+        [[nodiscard]] static HashMap<String, LayoutParamsFactory>& LayoutFactories();
+        [[nodiscard]] static HashMap<String, LayoutParamSetter>& LayoutParams_();
 
         [[nodiscard]] static String Key(StringView elem, StringView name)
         {

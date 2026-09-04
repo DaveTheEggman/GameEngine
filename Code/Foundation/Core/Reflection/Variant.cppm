@@ -86,11 +86,10 @@ export namespace foundation::core
     // borrow is a cached raw pointer, same rule as the bind-group-cache generation). Main-thread:
     // reflection mutation is main-thread by the async rules. Lives here (the lowest partition both the
     // Variant borrow and the :reflection container wrappers share) to avoid a partition cycle.
-    [[nodiscard]] inline u64& ReflectionMutationGenerationRef() noexcept
-    {
-        static u64 generation = 1; // start at 1 so a default (0) borrow generation never matches
-        return generation;
-    }
+    // NON-inline (RefCountedImpl.cpp): a per-library generation counter would let a
+    // stale Variant borrow revalidate (mutation in library A never bumps library B's
+    // counter) - a use-after-free (shared-libraries.md rendezvous rule).
+    [[nodiscard]] u64& ReflectionMutationGenerationRef() noexcept;
     [[nodiscard]] inline u64 GlobalReflectionMutationGeneration() noexcept
     {
         return ReflectionMutationGenerationRef();

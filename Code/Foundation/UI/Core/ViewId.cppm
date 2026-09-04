@@ -21,7 +21,9 @@ export namespace foundation::ui
 {
     struct ViewId
     {
-        /// Creates a new unique ViewId.
+        /// Creates a new unique ViewId. NON-inline (UITypeRegistryImpl.cpp): a
+        /// per-library counter would mint duplicate ids across shared-library
+        /// boundaries (shared-libraries.md rendezvous rule).
         [[nodiscard]] static ViewId Create() noexcept;
 
         [[nodiscard]] constexpr bool IsValid() const noexcept { return m_value != 0u; }
@@ -52,11 +54,4 @@ export namespace foundation::ui
 
     inline const ViewId ViewId::Invalid{};
 
-    inline ViewId ViewId::Create() noexcept
-    {
-        static core::Atomic<u32> s_next{1u};
-        ViewId id;
-        id.m_value = s_next.fetch_add(1u);
-        return id;
-    }
 }
