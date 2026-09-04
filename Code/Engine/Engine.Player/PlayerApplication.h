@@ -132,7 +132,42 @@ namespace engine::player
             {
                 UI()->SetTextInputTarget(host.Shell()->MainWindow());
             }
+
+            // Native game plugin (game-native-code.md N2). Placed AFTER the base startup so
+            // OnLoad can resolve engine subsystems from Ctx(), and BEFORE the initial scene
+            // resolves so plugin-registered types deserialize. Two convergent paths:
+            // a SHIP stub hands the statically-linked plugin through PlayerOptions; a dev
+            // build loads the manifest's nativeModule (a project-relative path to the
+            // built module - shared-engine builds only, the ruled plugin model). A missing
+            // or unloadable module is reported and the run continues (scripts still work).
+            m_plugins = MakeUnique<runtime::PluginHost>(AppRoot(), host.Ctx());
+            if (m_options.nativeGame != nullptr)
+            {
+                m_plugins->Add(m_options.nativeGame);
+                LOG_INFO(u8"Player", u8"native game plugin '{}' (static)",
+                         m_options.nativeGame->Name());
+            }
+            else if (!m_settings.nativeModule.IsEmpty())
+            {
+                const String modulePath = PathJoin(m_options.projectDir.AsView(),
+                                                   m_settings.nativeModule.AsView());
+                auto loaded = m_plugins->Load(modulePath.AsView());
+                if (loaded.HasValue())
+                {
+                    LOG_INFO(u8"Player", u8"native game module '{}' loaded ('{}')",
+                             m_settings.nativeModule, loaded.Value()->Name());
+                }
+                else
+                {
+                    LOG_ERROR(u8"Player",
+                              u8"native game module '{}' failed to load - continuing "
+                              u8"without it (a static engine build cannot load native "
+                              u8"modules; use a shared build, or re-export)",
+                              modulePath);
+                }
+            }
         }
+
 
         void OnLaunch(runtime::IApplicationHost& host) override
         {
@@ -371,6 +406,14 @@ namespace engine::player
 
         void OnShutdown(runtime::IApplicationHost& host) override
         {
+            // Native game teardown FIRST: OnUnload deregisters the plugin's subsystems
+            // while Ctx() and the engine are still alive (game-native-code.md N2).
+            if (m_plugins.Get() != nullptr)
+            {
+                m_plugins->UnloadAll();
+                m_plugins = nullptr;
+            }
+
             // Persist the user's mixer state (see the startup load).
             if (Audio() != nullptr && Audio()->Engine() != nullptr)
             {
@@ -545,6 +588,7 @@ namespace engine::player
         PlayerOptions m_options;
         f32 m_elapsed = 0.0f;
         engine::project::ProjectSettings m_settings;
+        UniquePtr<runtime::PluginHost> m_plugins; // the native game (static or dev-loaded)
         UniquePtr<foundation::vfs::NativeFileSystem> m_root;
         UniquePtr<foundation::vfs::PakFileSystem> m_pak;             // dist mode only
         UniquePtr<foundation::vfs::NativeFileSystem> m_contentMount; // project mode only

@@ -39,14 +39,20 @@ single artifact, works on every platform incl. web). Same source both ways.
   behavior change; verified in static + shared lanes. (The Traktor trick:
   Runtime.App builds as an executable in dev and a main()-carrying static
   library for the ship link.)
-- N2 - dev loop. Project manifest (Project.xml) gains an optional native
-  module declaration (name + built path). PlayerOptions carries it;
-  DefaultApplication hosts a PluginHost and loads the module when running
-  shared (editor play-in-editor + shared player), or accepts the
-  PlayerMain-provided plugin when static. OnLoad ordering: after engine
-  registration roots, before project content/scene load. Editor UX: project
-  settings page names the module; a stale/missing module is a toast +
-  console error, never a crash.
+- N2 - dev loop (player half SHIPPED 2026-09-04). The manifest field
+  ALREADY EXISTED (ProjectSettings.nativeModule, reserved + serialized -
+  no version bump). Convention: a PROJECT-RELATIVE path to the built
+  module (e.g. Native/libMyGame.so). PlayerApplication::OnStartup hosts a
+  PluginHost after the base startup (engine subsystems resolvable in
+  OnLoad) and before initial-scene resolution (plugin types deserialize):
+  ship path = PluginHost::Add(options.nativeGame); dev path =
+  PluginHost::Load(projectDir/nativeModule), failure reported and the run
+  continues (scripts still work). OnShutdown unloads the game FIRST, while
+  Ctx() lives. Proven end to end: shared player + a scratch project
+  declaring Runtime.CrossPlugin -> "native game module ... loaded
+  ('CrossPlugin')". REMAINING N2 TAIL: editor play-in-editor loads the
+  module at its embedded host seam; a project-settings editor row for the
+  field; a toast (console-only today).
 - N3 - ship link. Tools.Export gains the native step: GENERATE A SMALL
   CMAKE PROJECT (never raw linker driving - the Traktor anti-lesson):
   a stub cpp (calls PlayerMain(CreateGamePlugin())) + the game module
