@@ -542,6 +542,125 @@ namespace foundation::scene
         return {m_transformsUpdatedThisFrame.Data(), m_transformsUpdatedThisFrame.Size()};
     }
 
+    // ---- SceneModuleContributions (declared in :composition) --------------------------------------
+    SceneModuleContributions& SceneModuleContributions::Global() noexcept
+    {
+        static SceneModuleContributions instance; // one per process (rendezvous rule)
+        return instance;
+    }
+
+    bool SceneModuleContributions::Contains(TypeId systemType) const noexcept
+    {
+        for (const Contribution& c : m_contributions)
+        {
+            if (c.systemType == systemType)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void SceneModuleContributions::Add(const Contribution& contribution)
+    {
+        if (contribution.systemType == 0 || contribution.install == nullptr ||
+            Contains(contribution.systemType))
+        {
+            return;
+        }
+        m_contributions.PushBack(contribution);
+        if (contribution.registerReflection != nullptr)
+        {
+            contribution.registerReflection();
+        }
+        // Scenes already alive get the manager now (project-open ordering, hot reload), and
+        // the owner resolves any preserved records of its type into it.
+        struct LiveInstall
+        {
+            Contribution contribution;
+            LiveInstallHook hook;
+            void* hookContext;
+        } live{contribution, m_liveInstallHook, m_liveInstallContext};
+        ForEachLiveScene(
+            [](void* ctx, Scene& scene)
+            {
+                LiveInstall* li = static_cast<LiveInstall*>(ctx);
+                li->contribution.install(scene);
+                if (li->hook != nullptr)
+                {
+                    li->hook(li->hookContext, scene);
+                }
+            },
+            &live);
+        if (m_observer != nullptr)
+        {
+            m_observer(m_observerContext, contribution.systemType);
+        }
+    }
+
+    void SceneModuleContributions::Remove(TypeId systemType)
+    {
+        for (usize i = 0; i < m_contributions.Size(); ++i)
+        {
+            if (m_contributions[i].systemType == systemType)
+            {
+                TypeId key = systemType;
+                ForEachLiveScene([](void* ctx, Scene& scene)
+                                 { (void)scene.RemoveSystem(*static_cast<TypeId*>(ctx)); },
+                                 &key);
+                m_contributions.RemoveAt(i);
+                return;
+            }
+        }
+    }
+
+    void SceneModuleContributions::InstallAll(Scene& scene) const
+    {
+        for (const Contribution& c : m_contributions)
+        {
+            c.install(scene);
+        }
+    }
+
+    void SceneModuleContributions::RegisterAllReflection() const
+    {
+        for (const Contribution& c : m_contributions)
+        {
+            if (c.registerReflection != nullptr)
+            {
+                c.registerReflection();
+            }
+        }
+    }
+
+    bool Scene::RemoveSystem(TypeId systemType)
+    {
+        SceneSystem* const* found = m_systemsByType.Find(systemType);
+        if (found == nullptr)
+        {
+            return false;
+        }
+        SceneSystem* system = *found;
+        m_systemsByType.Remove(systemType);
+        for (usize i = 0; i < m_sortedSystems.Size(); ++i)
+        {
+            if (m_sortedSystems[i] == system)
+            {
+                m_sortedSystems.RemoveAt(i);
+                break;
+            }
+        }
+        for (usize i = 0; i < m_systems.Size(); ++i)
+        {
+            if (m_systems[i].Get() == system)
+            {
+                m_systems.RemoveAt(i); // the UniquePtr destroys it (a manager frees its pool)
+                break;
+            }
+        }
+        return true;
+    }
+
     ComponentManagerBase* Scene::FindManagerBySerializationId(StringView typeId)
     {
         for (SceneSystem* s : m_sortedSystems)

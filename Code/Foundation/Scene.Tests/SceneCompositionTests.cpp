@@ -281,3 +281,111 @@ TEST_CASE("frame-time cutover: the manager lanes fold the FULL chain from one Fr
     CHECK(probe->fixedSteps == 1u);
     CHECK(s->FixedTimeStep() == doctest::Approx(1.0f / 250.0f)); // seeded from the lane config
 }
+
+// --- Runtime contributions (game-native-code.md S1): a plugin's managers/systems -------------
+namespace
+{
+    // A contributed system with a settings block (managers and plain systems alike).
+    struct ContribSettings
+    {
+        i32 value = 7;
+    };
+    class ContribSystem final : public SceneSystem
+    {
+    public:
+        ContribSettings settings;
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<ContribSettings>();
+        }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"contrib"; }
+    };
+    void InstallContrib(Scene& scene) { scene.AddSystem<ContribSystem>(); }
+
+    // A test live-scene sink over a plain list (what the SceneSubsystem does over its registry).
+    Array<Scene*> g_liveScenes;
+    void VisitLive(void*, void (*fn)(void*, Scene&), void* fnContext)
+    {
+        for (Scene* s : g_liveScenes)
+        {
+            fn(fnContext, *s);
+        }
+    }
+    SceneModuleContributions::Contribution MakeContrib()
+    {
+        SceneModuleContributions::Contribution c;
+        c.id = u8"contrib";
+        c.install = &InstallContrib;
+        c.systemType = TypeOf<ContribSystem>().id;
+        return c;
+    }
+}
+
+TEST_CASE("contributions: Instantiate appends contributed systems; Remove withdraws them")
+{
+    SceneModuleContributions& reg = SceneModuleContributions::Global();
+    reg.Remove(TypeOf<ContribSystem>().id); // clean slate (shared process state)
+
+    Array<TypeId> recorded;
+    reg.SetRegistrationObserver(
+        [](void* ctx, TypeId id) { static_cast<Array<TypeId>*>(ctx)->PushBack(id); }, &recorded);
+    reg.Add(MakeContrib());
+    reg.Add(MakeContrib()); // idempotent by system type: no second insert, no second record
+    reg.SetRegistrationObserver(nullptr, nullptr);
+    REQUIRE(recorded.Size() == 1u);
+    CHECK(recorded[0] == TypeOf<ContribSystem>().id);
+    CHECK(reg.Contains(TypeOf<ContribSystem>().id));
+
+    // A scene composed AFTER the contribution gets the system through Instantiate's tail.
+    const SceneModule* none[] = {&kModuleA};
+    SceneComposition comp = SceneComposition::Build(Span<const SceneModule*>{none, 1});
+    Scene scene(DefaultAllocator(), u8"contrib-new");
+    comp.Instantiate(scene);
+    CHECK(scene.HasSystem<ContribSystem>());
+    CHECK(scene.GetSystem<ContribSystem>()->settings.value == 7);
+
+    reg.Remove(TypeOf<ContribSystem>().id);
+    CHECK_FALSE(reg.Contains(TypeOf<ContribSystem>().id));
+    Scene later(DefaultAllocator(), u8"contrib-after-remove");
+    comp.Instantiate(later);
+    CHECK_FALSE(later.HasSystem<ContribSystem>());
+}
+
+TEST_CASE("contributions: live scenes gain the system on Add and lose it on Remove")
+{
+    SceneModuleContributions& reg = SceneModuleContributions::Global();
+    reg.Remove(TypeOf<ContribSystem>().id);
+
+    Scene live(DefaultAllocator(), u8"contrib-live");
+    g_liveScenes.Clear();
+    g_liveScenes.PushBack(&live);
+    reg.SetLiveSceneSink(&VisitLive, nullptr);
+
+    reg.Add(MakeContrib());
+    CHECK(live.HasSystem<ContribSystem>()); // applied to the already-alive scene
+
+    reg.Remove(TypeOf<ContribSystem>().id);
+    CHECK_FALSE(live.HasSystem<ContribSystem>()); // withdrawn (RemoveSystem) while its code lives
+
+    reg.SetLiveSceneSink(nullptr, nullptr);
+    g_liveScenes.Clear();
+}
+
+TEST_CASE("scene: RemoveSystem destroys the system and every lookup forgets it")
+{
+    Scene scene(DefaultAllocator(), u8"remove-system");
+    ContribSystem* sys = scene.AddSystem<ContribSystem>();
+    REQUIRE(sys != nullptr);
+    usize count = 0;
+    scene.ForEachSystem([&](SceneSystem&) { ++count; });
+    CHECK(count == 1u);
+
+    CHECK(scene.RemoveSystem(TypeOf<ContribSystem>().id));
+    CHECK_FALSE(scene.HasSystem<ContribSystem>());
+    CHECK(scene.GetSystem<ContribSystem>() == nullptr);
+    count = 0;
+    scene.ForEachSystem([&](SceneSystem&) { ++count; });
+    CHECK(count == 0u);
+    CHECK_FALSE(scene.RemoveSystem(TypeOf<ContribSystem>().id)); // idempotent
+}

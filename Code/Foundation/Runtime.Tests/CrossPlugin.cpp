@@ -14,6 +14,7 @@
 
 import foundation.core;
 import foundation.runtime;
+import foundation.scene;
 
 #include "CrossBoundaryProbe.h"
 
@@ -48,6 +49,13 @@ namespace
             // Register this binary's ProbeObject metadata; the host looks it up by name
             // through the shared registry instance.
             GlobalTypeRegistry().Register(crossprobe::ProbeObject::StaticType());
+            // Contribute the Fancy component manager to every scene - live ones included
+            // (game-native-code.md S1). The host's recorder reverses it on unload.
+            foundation::scene::SceneModuleContributions::Contribution fancy;
+            fancy.id = u8"crossprobe.fancy";
+            fancy.install = &crossprobe::InstallFancy;
+            fancy.systemType = TypeOf<crossprobe::FancyManager>().id;
+            foundation::scene::SceneModuleContributions::Global().Add(fancy);
         }
         void OnUnload(Context&) override {}
     };

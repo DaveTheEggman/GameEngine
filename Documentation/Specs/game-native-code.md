@@ -178,10 +178,16 @@ single artifact, works on every platform incl. web). Same source both ways.
   DynamicLibrary::Detach - never free pages under a pointer teardown
   missed), then loads a FRESH VERSIONED COPY from .cache/native-hot/
   (dlopen refcounts by path; only a new file yields a new module), OnLoad
-  re-registers; toasts the outcome. The scene bracket is deliberately
-  ABSENT in v1: plugin scene-manager contributions do not exist yet, so no
-  plugin component data can live in editing scenes - the snapshot/restore
-  bracket lands WITH that seam. Still open: script-facade registries (die
+  re-registers; toasts the outcome. SCENE BRACKET SHIPPED with S1
+  (2026-09-04): Reload snapshots every live scene on the embedded runtime
+  (SceneSnapshot::Capture over the SceneSubsystem registry) BEFORE the
+  unload withdraws contributed managers/systems, and restores AFTER the
+  rebuild re-contributes them - plugin components rehydrate by name; the
+  restore runs even when the reload fails (records stay preserved as
+  unresolved). PROVEN at the runtime level by the cross-boundary test's
+  MyFancyComponent walkthrough (live scene -> plugin contributes its
+  manager -> component authored -> snapshot -> unload strips the manager
+  -> rebuilt copy loads -> restore -> the value survives). Still open: script-facade registries (die
   with per-run script contexts; audit when dynamic rebinding lands).
 
   SAFETY - liveness guard before dlclose: verify the run is stopped and the
@@ -194,6 +200,38 @@ single artifact, works on every platform incl. web). Same source both ways.
   CACHE RULE (extends the P1 identity rule): long-lived caches store
   TypeId and re-resolve TypeInfo* per use via FindById/Canonical - a
   cached TypeInfo* does not survive a reload.
+
+- S1 - scene-manager/system contributions (SHIPPED 2026-09-04). The seam
+  was already the right shape: every scene - runtime (SceneSubsystem's
+  installer) and headless (AddAllSceneManagers) - instantiates from a
+  SceneComposition, so SceneModuleContributions (foundation.scene, one per
+  process) holds runtime-added modules and Instantiate/RegisterReflection
+  append them. A plugin contributes from OnLoad: {id, install fn,
+  reflection fn, systemType = TypeOf<TheSystem>().id}; that covers
+  component MANAGERS, plain SCENE SYSTEMS, and their SETTINGS blocks alike
+  (a contributed system is a SceneSystem with SettingsType/SettingsId).
+  Live scenes: the SceneSubsystem installs itself as the registry's
+  live-scene sink while registered, so Add applies to scenes already alive
+  (project-open ordering, hot reload) and Remove withdraws via the new
+  Scene::RemoveSystem(TypeId) - the system dies while its code is mapped.
+  Recording: PluginHost gained pluggable IRegistrationRecorders;
+  Engine.Scene's SceneContributionRecorder (player + editor hosts add it)
+  records contributions per plugin and reverses them FIRST on unload.
+- S3 - unresolved-record preservation (SHIPPED 2026-09-04). The reader
+  used to SKIP records of unknown component types / system settings
+  (data loss on the next save). Now both are kept verbatim on the Scene
+  (UnresolvedComponent / UnresolvedSettings: owner or system id + payload
+  + which encoding captured it) via the serializer's existing
+  RawRemainder passthrough (hoisted to ISerializer; binary = the v2
+  length-prefixed blob, text = the captured XML element children), written
+  back untouched in the SAME encoding (a cross-encoding write drops them
+  LOUDLY - an unknown type cannot be re-encoded), and RESOLVED into real
+  components/settings the moment their manager/system arrives
+  (ResolveAllUnresolvedRecords - the live-install hook). Proven by
+  round-trip tests in both encodings incl. late-arrival resolve.
+  Not covered (follow-up): prefab-instance baseline records of unknown
+  types still skip (override loss for plugin components on prefab
+  instances while the plugin is absent).
 
 ## Rules established
 

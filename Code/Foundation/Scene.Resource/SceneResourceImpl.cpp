@@ -230,6 +230,30 @@ namespace foundation::scene
                     }
                 });
             componentCount = static_cast<u32>(records.Size());
+            // Unresolved records (their manager was absent at load) write back VERBATIM in the
+            // encoding they were captured in - a save never drops a plugin's components
+            // (game-native-code.md S3). A cross-encoding write cannot re-encode an unknown
+            // type: those are dropped LOUDLY.
+            u32 dropped = 0;
+            for (const Scene::UnresolvedComponent& u : scene.UnresolvedComponents())
+            {
+                if (u.text == text)
+                {
+                    ++componentCount;
+                }
+                else
+                {
+                    ++dropped;
+                }
+            }
+            if (dropped > 0)
+            {
+                LOG_WARNING(u8"Scene",
+                            u8"dropping {} unresolved component record(s) captured in the other "
+                            u8"encoding (their plugin was not loaded; load it and re-save to "
+                            u8"convert)",
+                            dropped);
+            }
         }
         ar.Key("components");
         ar.BeginArray(componentCount);
@@ -240,6 +264,30 @@ namespace foundation::scene
             for (Record& r : records)
             {
                 detail::WriteComponentRecord(ar, scene, *r.manager, r.owner, text);
+            }
+            for (const Scene::UnresolvedComponent& u : scene.UnresolvedComponents())
+            {
+                if (u.text != text)
+                {
+                    continue;
+                }
+                Guid ownerId = u.owner;
+                String typeId = u.typeId;
+                Array<u8> payload = u.payload;
+                if (text)
+                {
+                    ar.BeginObject();
+                    detail::SerializeGuid(ar, "owner", ownerId);
+                    foundation::core::Serialize(ar, "type", typeId);
+                    (void)ar.RawRemainder(payload); // re-injects the captured <data> element
+                    ar.EndObject();
+                }
+                else
+                {
+                    detail::SerializeGuid(ar, "owner", ownerId);
+                    foundation::core::Serialize(ar, "type", typeId);
+                    foundation::core::Serialize(ar, "data", payload);
+                }
             }
         }
         else
@@ -264,11 +312,27 @@ namespace foundation::scene
                         manager->ReadComponent(ar, owner);
                         ar.EndObject();
                     }
-                    else if (manager == nullptr && warned.Find(typeId) == nullptr)
+                    else if (manager == nullptr)
                     {
-                        warned.InsertOrAssign(typeId, 1u);
-                        LOG_WARNING(
-                            u8"Scene", u8"skipping records of unknown component type '{}'", typeId);
+                        // Preserve verbatim (S3): the record's remaining element (<data>) is
+                        // captured raw and written back untouched on save; it resolves into a
+                        // real component the moment its manager arrives.
+                        Scene::UnresolvedComponent record;
+                        record.owner = ownerId;
+                        record.typeId = typeId;
+                        record.text = true;
+                        if (ar.RawRemainder(record.payload))
+                        {
+                            scene.AddUnresolvedComponent(Move(record));
+                        }
+                        if (warned.Find(typeId) == nullptr)
+                        {
+                            warned.InsertOrAssign(typeId, 1u);
+                            LOG_WARNING(u8"Scene",
+                                        u8"component type '{}' has no manager in this build - "
+                                        u8"records kept unresolved (preserved on save)",
+                                        typeId);
+                        }
                     }
                     ar.EndObject();
                     continue;
@@ -288,11 +352,22 @@ namespace foundation::scene
                         detail::ComponentFromBlob(*manager, owner,
                                                   Span<const u8>{blob.Data(), blob.Size()});
                     }
-                    else if (manager == nullptr && warned.Find(typeId) == nullptr)
+                    else if (manager == nullptr)
                     {
-                        warned.InsertOrAssign(typeId, 1u);
-                        LOG_WARNING(
-                            u8"Scene", u8"skipping records of unknown component type '{}'", typeId);
+                        Scene::UnresolvedComponent record; // preserved verbatim (S3)
+                        record.owner = ownerId;
+                        record.typeId = typeId;
+                        record.payload = Move(blob);
+                        record.text = false;
+                        scene.AddUnresolvedComponent(Move(record));
+                        if (warned.Find(typeId) == nullptr)
+                        {
+                            warned.InsertOrAssign(typeId, 1u);
+                            LOG_WARNING(u8"Scene",
+                                        u8"component type '{}' has no manager in this build - "
+                                        u8"records kept unresolved (preserved on save)",
+                                        typeId);
+                        }
                     }
                 }
                 else
@@ -328,6 +403,29 @@ namespace foundation::scene
                 });
         }
         ar.Key("systemSettings");
+        if (writing)
+        {
+            // Preserved settings of absent systems write back verbatim in their encoding (S3).
+            u32 droppedSettings = 0;
+            for (const Scene::UnresolvedSettings& u : scene.UnresolvedSettingsRecords())
+            {
+                if (u.text == text)
+                {
+                    ++settingsCount;
+                }
+                else
+                {
+                    ++droppedSettings;
+                }
+            }
+            if (droppedSettings > 0)
+            {
+                LOG_WARNING(u8"Scene",
+                            u8"dropping {} unresolved settings record(s) captured in the other "
+                            u8"encoding (their plugin was not loaded)",
+                            droppedSettings);
+            }
+        }
         ar.BeginArray(settingsCount);
         if (writing)
         {
@@ -375,6 +473,27 @@ namespace foundation::scene
                     }
                     foundation::core::Serialize(ar, "data", blob);
                 });
+            for (const Scene::UnresolvedSettings& u : scene.UnresolvedSettingsRecords())
+            {
+                if (u.text != text)
+                {
+                    continue;
+                }
+                String id = u.systemId;
+                Array<u8> payload = u.payload;
+                if (text)
+                {
+                    ar.BeginObject();
+                    foundation::core::Serialize(ar, "system", id);
+                    (void)ar.RawRemainder(payload); // dataVersions + <settings>, verbatim
+                    ar.EndObject();
+                }
+                else
+                {
+                    foundation::core::Serialize(ar, "system", id);
+                    foundation::core::Serialize(ar, "data", payload);
+                }
+            }
         }
         else
         {
@@ -406,8 +525,17 @@ namespace foundation::scene
                     }
                     else
                     {
+                        Scene::UnresolvedSettings record; // preserved verbatim (S3)
+                        record.systemId = id;
+                        record.text = true;
+                        if (ar.RawRemainder(record.payload))
+                        {
+                            scene.AddUnresolvedSettings(Move(record));
+                        }
                         LOG_WARNING(u8"Scene",
-                                             u8"skipping settings of unknown system '{}'", id);
+                                    u8"settings of system '{}' kept unresolved (no such system in "
+                                    u8"this build; preserved on save)",
+                                    id);
                     }
                     ar.EndObject();
                     continue;
@@ -430,8 +558,15 @@ namespace foundation::scene
                     foundation::core::Serialize(ar, "data", blob);
                     if (target == nullptr)
                     {
+                        Scene::UnresolvedSettings record; // preserved verbatim (S3)
+                        record.systemId = id;
+                        record.payload = Move(blob);
+                        record.text = false;
+                        scene.AddUnresolvedSettings(Move(record));
                         LOG_WARNING(u8"Scene",
-                                             u8"skipping settings of unknown system '{}'", id);
+                                    u8"settings of system '{}' kept unresolved (no such system in "
+                                    u8"this build; preserved on save)",
+                                    id);
                         continue;
                     }
                     MemoryStream buffer;
@@ -1919,4 +2054,109 @@ namespace foundation::scene
     RTTI_DEFINE_OBJECT(SceneDocument, "rtti::scene")
 
     RTTI_DEFINE_OBJECT(PrefabDocument, "rtti::scene")
+
+    void ResolveUnresolvedComponents(Scene& scene, ComponentManagerBase& manager)
+    {
+        Array<Scene::UnresolvedComponent> pending;
+        scene.TakeUnresolvedComponents(manager.SerializationTypeId(), pending);
+        for (Scene::UnresolvedComponent& record : pending)
+        {
+            const EntityHandle owner = scene.FindEntity(record.owner);
+            if (!owner.IsAssigned())
+            {
+                continue; // its entity is gone - nothing to attach to
+            }
+            if (!record.text)
+            {
+                detail::ComponentFromBlob(manager, owner,
+                                          Span<const u8>{record.payload.Data(),
+                                                         record.payload.Size()});
+                continue;
+            }
+            // TEXT: the captured <data> element, replayed through the XML serializer.
+            String wrapped;
+            wrapped += StringView(u8"<root>");
+            wrapped += StringView(reinterpret_cast<const utf8char*>(record.payload.Data()),
+                                  record.payload.Size());
+            wrapped += StringView(u8"</root>");
+            foundation::xml::XmlDocument doc(scene.Allocator());
+            if (doc.Parse(wrapped.AsView()) != foundation::xml::XmlResult::Ok)
+            {
+                LOG_WARNING(u8"Scene", u8"unresolved component of type '{}' failed to re-parse",
+                            record.typeId);
+                continue;
+            }
+            foundation::xml::XmlSerializer ar(doc);
+            ar.Key("data");
+            ar.BeginObject();
+            manager.ReadComponent(ar, owner);
+            ar.EndObject();
+        }
+    }
+
+    void ResolveUnresolvedSettings(Scene& scene, SceneSystem& system)
+    {
+        if (system.SettingsType() == nullptr)
+        {
+            return;
+        }
+        Scene::UnresolvedSettings record;
+        if (!scene.TakeUnresolvedSettings(system.SettingsId(), record))
+        {
+            return;
+        }
+        if (!record.text)
+        {
+            MemoryStream buffer;
+            (void)buffer.Write(reinterpret_cast<const byte*>(record.payload.Data()),
+                               record.payload.Size());
+            (void)buffer.Seek(0, SeekOrigin::Begin);
+            BinarySerializer sub(buffer, SerializeMode::Read);
+            foundation::core::BeginVersionedPayload(sub, *system.SettingsType());
+            sub.Key("settings");
+            sub.BeginObject();
+            system.SerializeSettings(sub);
+            sub.EndObject();
+            foundation::core::EndVersionedPayload(sub);
+            return;
+        }
+        String wrapped;
+        wrapped += StringView(u8"<root>");
+        wrapped += StringView(reinterpret_cast<const utf8char*>(record.payload.Data()),
+                              record.payload.Size());
+        wrapped += StringView(u8"</root>");
+        foundation::xml::XmlDocument doc(scene.Allocator());
+        if (doc.Parse(wrapped.AsView()) != foundation::xml::XmlResult::Ok)
+        {
+            LOG_WARNING(u8"Scene", u8"unresolved settings of system '{}' failed to re-parse",
+                        record.systemId);
+            return;
+        }
+        foundation::xml::XmlSerializer ar(doc);
+        foundation::core::BeginVersionedPayload(ar, *system.SettingsType());
+        ar.Key("settings");
+        ar.BeginObject();
+        system.SerializeSettings(ar);
+        ar.EndObject();
+        foundation::core::EndVersionedPayload(ar);
+    }
+
+    void ResolveAllUnresolvedRecords(Scene& scene)
+    {
+        if (!scene.UnresolvedComponents().IsEmpty())
+        {
+            scene.ForEachManager(
+                [&](ComponentManagerBase& m)
+                {
+                    if (m.IsSerializable())
+                    {
+                        ResolveUnresolvedComponents(scene, m);
+                    }
+                });
+        }
+        if (!scene.UnresolvedSettingsRecords().IsEmpty())
+        {
+            scene.ForEachSystem([&](SceneSystem& sys) { ResolveUnresolvedSettings(scene, sys); });
+        }
+    }
 }

@@ -22,10 +22,33 @@ namespace core = foundation::core;
 
 export namespace foundation::runtime
 {
+    // A registry the RegistrationScope can record: armed around a plugin's OnLoad, it
+    // reports every REAL insert to the sink; Reverse undoes one. The two core registries
+    // are built in; layers above (scene-manager contributions, Engine.Scene) plug theirs
+    // in through PluginHost::AddRecorder so one unload reverses everything a plugin did.
+    class IRegistrationRecorder
+    {
+    public:
+        virtual ~IRegistrationRecorder() = default;
+        virtual void Arm(core::Array<core::TypeId>& sink) = 0;
+        virtual void Disarm() = 0;
+        virtual void Reverse(core::TypeId id) = 0;
+    };
+
     class PluginHost
     {
     public:
         explicit PluginHost(Context& context) noexcept : m_context(&context) {}
+
+        // Registers an extra recorder (borrowed; must outlive the host). Add BEFORE loading
+        // plugins - later loads record through it, earlier ones do not.
+        void AddRecorder(IRegistrationRecorder* recorder)
+        {
+            if (recorder != nullptr)
+            {
+                m_recorders.PushBack(recorder);
+            }
+        }
         ~PluginHost() { UnloadAll(); }
 
         PluginHost(const PluginHost&) = delete;
@@ -39,7 +62,7 @@ export namespace foundation::runtime
             {
                 return nullptr;
             }
-            Entry entry{plugin, core::DynamicLibrary{}, {}, {}};
+            Entry entry{plugin, core::DynamicLibrary{}, {}, {}, {}};
             RecordedOnLoad(entry);
             m_entries.PushBack(core::Move(entry));
             return plugin;
@@ -67,7 +90,7 @@ export namespace foundation::runtime
                 return core::Err(core::ErrorCode::Internal);
             }
 
-            Entry entry{plugin, core::Move(library), {}, {}};
+            Entry entry{plugin, core::Move(library), {}, {}, {}};
             RecordedOnLoad(entry);
             m_entries.PushBack(core::Move(entry));
             return plugin;
@@ -109,6 +132,7 @@ export namespace foundation::runtime
             // (game-native-code.md N6 RegistrationScope).
             core::Array<core::TypeId> registeredTypes;
             core::Array<core::TypeId> registeredSerializables;
+            core::Array<core::Array<core::TypeId>> recorded; // one list per extra recorder
         };
 
         // The RegistrationScope: arm ambient observers on the global registries for the
@@ -129,13 +153,39 @@ export namespace foundation::runtime
                 [](void* ctx, core::TypeId id)
                 { static_cast<Capture*>(ctx)->serializables->PushBack(id); },
                 &capture);
+            entry.recorded.Clear();
+            for (core::usize i = 0; i < m_recorders.Size(); ++i)
+            {
+                entry.recorded.PushBack(core::Array<core::TypeId>{});
+            }
+            for (core::usize i = 0; i < m_recorders.Size(); ++i)
+            {
+                m_recorders[i]->Arm(entry.recorded[i]);
+            }
             entry.plugin->OnLoad(*m_context);
+            for (core::usize i = m_recorders.Size(); i-- > 0;)
+            {
+                m_recorders[i]->Disarm();
+            }
             core::GlobalTypeRegistry().SetRegistrationObserver(nullptr, nullptr);
             core::GlobalSerializableRegistry().SetRegistrationObserver(nullptr, nullptr);
         }
 
         void ReverseRecorded(Entry& entry)
         {
+            // Extra recorders first (a scene manager leaves live scenes before the types it
+            // depends on vanish), each in reverse order.
+            for (core::usize r = entry.recorded.Size(); r-- > 0;)
+            {
+                if (r < m_recorders.Size())
+                {
+                    for (core::usize i = entry.recorded[r].Size(); i-- > 0;)
+                    {
+                        m_recorders[r]->Reverse(entry.recorded[r][i]);
+                    }
+                }
+                entry.recorded[r].Clear();
+            }
             for (core::usize i = entry.registeredSerializables.Size(); i-- > 0;)
             {
                 core::GlobalSerializableRegistry().Unregister(entry.registeredSerializables[i]);
@@ -150,5 +200,6 @@ export namespace foundation::runtime
 
         Context* m_context;
         core::Array<Entry> m_entries;
+        core::Array<IRegistrationRecorder*> m_recorders; // borrowed
     };
 }

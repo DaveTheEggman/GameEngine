@@ -121,7 +121,7 @@ export namespace foundation::core
         // it unchanged. XML moves the remaining child subtree; binary moves the framed bytes. Returns
         // false where an unknown region cannot be preserved (a positional backend with no active frame),
         // so the caller can drop it with a warning. Default: unsupported.
-        virtual bool RawRemainder(Array<u8>& blob)
+        bool RawRemainder(Array<u8>& blob) override
         {
             (void)blob;
             return false;

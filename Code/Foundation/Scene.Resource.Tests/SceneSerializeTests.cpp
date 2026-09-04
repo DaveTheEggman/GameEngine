@@ -11,6 +11,7 @@
 import foundation.core;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.xml;
 import foundation.xml.serialization;
 
 using namespace foundation::core;
@@ -2074,4 +2075,139 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
     CHECK(loaded.GetParent(loadedChild) == loadedHero); // hi/lo parent guid resolved
     REQUIRE(loadedHealth->Get(loadedHero) != nullptr);
     CHECK(loadedHealth->Get(loadedHero)->value == 41.5f);
+}
+
+// --- Unresolved records (game-native-code.md S3): a plugin's components + settings survive a
+// --- load/save round-trip in a build that lacks the plugin, and resolve when it arrives. ----
+namespace
+{
+    struct PluginSettings
+    {
+        i32 level = 3;
+    };
+    void Serialize(ISerializer& ar, PluginSettings& s) { foundation::core::Serialize(ar, "level", s.level); }
+
+    // A system with a settings block - the shape a plugin-contributed system has.
+    class PluginSettingsSystem final : public SceneSystem
+    {
+    public:
+        PluginSettings settings;
+        [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
+        {
+            return &TypeOf<PluginSettings>();
+        }
+        [[nodiscard]] void* SettingsInstance() noexcept override { return &settings; }
+        [[nodiscard]] StringView SettingsId() const noexcept override { return u8"plugin.settings"; }
+        void SerializeSettings(ISerializer& ar) override { Serialize(ar, settings); }
+    };
+
+    // Author a scene WITH the plugin's manager + system, serialize it in `text` encoding.
+    void WriteScene(MemoryStream& stream, Scene& scene, bool text)
+    {
+        if (text)
+        {
+            foundation::xml::XmlSerializer writer(DefaultAllocator());
+            SerializeScene(writer, scene, nullptr, ScenePrefabMode::Referenced, true,
+                           foundation::scene::detail::SceneStreamEncoding::Text);
+            String xml;
+            writer.GetOutput(xml);
+            (void)stream.Write(reinterpret_cast<const byte*>(xml.Data()), xml.Size());
+        }
+        else
+        {
+            BinarySerializer writer(stream, SerializeMode::Write);
+            SerializeScene(writer, scene, nullptr, ScenePrefabMode::Referenced, true,
+                           foundation::scene::detail::SceneStreamEncoding::Binary);
+        }
+        (void)stream.Seek(0, SeekOrigin::Begin);
+    }
+
+    void WriteAuthoredScene(MemoryStream& stream, bool text)
+    {
+        Scene a(DefaultAllocator(), u8"authored");
+        HealthManager* hm = a.AddSystem<HealthManager>();
+        PluginSettingsSystem* ps = a.AddSystem<PluginSettingsSystem>();
+        ps->settings.level = 42;
+        const EntityHandle e = a.CreateEntity(u8"hero");
+        hm->Add(e).value = 64.0f;
+        WriteScene(stream, a, text);
+    }
+
+    void ReadInto(MemoryStream& stream, Scene& scene, bool text)
+    {
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        if (text)
+        {
+            const Span<const byte> bytes = stream.Bytes();
+            const StringView xml(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size());
+            foundation::xml::XmlDocument doc(DefaultAllocator());
+            REQUIRE(doc.Parse(xml) == foundation::xml::XmlResult::Ok);
+            foundation::xml::XmlSerializer reader(doc);
+            SerializeScene(reader, scene, nullptr, ScenePrefabMode::Referenced, true,
+                           foundation::scene::detail::SceneStreamEncoding::Text);
+        }
+        else
+        {
+            BinarySerializer reader(stream, SerializeMode::Read);
+            SerializeScene(reader, scene, nullptr, ScenePrefabMode::Referenced, true,
+                           foundation::scene::detail::SceneStreamEncoding::Binary);
+        }
+    }
+
+    void WriteBack(MemoryStream& stream, Scene& scene, bool text) { WriteScene(stream, scene, text); }
+
+    void CheckPreservationRoundTrip(bool text)
+    {
+        MemoryStream authored;
+        WriteAuthoredScene(authored, text);
+
+        // A build WITHOUT the plugin: nothing to route the records to - they are kept.
+        Scene bare(DefaultAllocator(), u8"bare");
+        ReadInto(authored, bare, text);
+        CHECK(bare.EntityCount() == 1u);
+        REQUIRE(bare.UnresolvedComponents().Size() == 1u);
+        CHECK(bare.UnresolvedComponents()[0].typeId == u8"demo.Health");
+        CHECK(bare.UnresolvedComponents()[0].text == text);
+        REQUIRE(bare.UnresolvedSettingsRecords().Size() == 1u);
+        CHECK(bare.UnresolvedSettingsRecords()[0].systemId == u8"plugin.settings");
+
+        // Saving that scene writes the records back untouched...
+        MemoryStream resaved;
+        WriteBack(resaved, bare, text);
+
+        // ...so a build WITH the plugin reads the authored values out of the re-save.
+        Scene full(DefaultAllocator(), u8"full");
+        HealthManager* hm = full.AddSystem<HealthManager>();
+        PluginSettingsSystem* ps = full.AddSystem<PluginSettingsSystem>();
+        ReadInto(resaved, full, text);
+        CHECK(full.UnresolvedComponents().IsEmpty());
+        CHECK(full.UnresolvedSettingsRecords().IsEmpty());
+        const EntityHandle hero = full.FindEntityByName(u8"hero");
+        REQUIRE(hero.IsAssigned());
+        REQUIRE(hm->Get(hero) != nullptr);
+        CHECK(hm->Get(hero)->value == doctest::Approx(64.0f));
+        CHECK(ps->settings.level == 42);
+
+        // And the plugin ARRIVING on the bare scene (a contribution to a live scene) resolves
+        // the kept records in place - components and settings.
+        HealthManager* lateHm = bare.AddSystem<HealthManager>();
+        PluginSettingsSystem* latePs = bare.AddSystem<PluginSettingsSystem>();
+        ResolveAllUnresolvedRecords(bare);
+        CHECK(bare.UnresolvedComponents().IsEmpty());
+        CHECK(bare.UnresolvedSettingsRecords().IsEmpty());
+        const EntityHandle bareHero = bare.FindEntityByName(u8"hero");
+        REQUIRE(lateHm->Get(bareHero) != nullptr);
+        CHECK(lateHm->Get(bareHero)->value == doctest::Approx(64.0f));
+        CHECK(latePs->settings.level == 42);
+    }
+}
+
+TEST_CASE("unresolved: a plugin's components + settings survive load/save without the plugin (binary)")
+{
+    CheckPreservationRoundTrip(false);
+}
+
+TEST_CASE("unresolved: a plugin's components + settings survive load/save without the plugin (text)")
+{
+    CheckPreservationRoundTrip(true);
 }

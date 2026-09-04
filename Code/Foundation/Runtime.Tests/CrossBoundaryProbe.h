@@ -30,6 +30,23 @@ namespace crossprobe
         int payload = 0;
     };
 
+    // The "MyFancyComponent" case (game-native-code.md N6/S1): a component the PLUGIN's
+    // manager owns, authored into a scene that outlives the plugin across a reload.
+    struct FancyComponent
+    {
+        foundation::core::i32 payload = 0;
+    };
+    inline void Serialize(foundation::core::ISerializer& ar, FancyComponent& c)
+    {
+        foundation::core::Serialize(ar, "payload", c.payload);
+    }
+    class FancyManager final : public foundation::scene::SerializableComponentManager<FancyComponent>
+    {
+    public:
+        FancyManager() : SerializableComponentManager<FancyComponent>(u8"crossprobe.Fancy") {}
+    };
+    inline void InstallFancy(foundation::scene::Scene& scene) { scene.AddSystem<FancyManager>(); }
+
     inline const foundation::core::TypeInfo& ProbeObjectStaticTypeDef() noexcept
     {
         static const foundation::core::TypeInfo info =

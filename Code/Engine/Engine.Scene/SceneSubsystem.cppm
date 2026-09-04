@@ -28,12 +28,25 @@ export module engine.scene;
 import foundation.core;
 import foundation.runtime;
 import foundation.scene;
+import foundation.scene.resource; // ResolveAllUnresolvedComponents (preserved records, S3)
 
 using namespace foundation::core;
 using namespace foundation::scene;
 
 export namespace engine::scene
 {
+
+    // The PluginHost recorder for scene-manager contributions (game-native-code.md S1): armed
+    // around a plugin's OnLoad, it records the managers the plugin contributes and reverses
+    // them on unload. One per process (defined in SceneSubsystemImpl.cpp).
+    class SceneContributionRecorder final : public foundation::runtime::IRegistrationRecorder
+    {
+    public:
+        void Arm(Array<TypeId>& sink) override;
+        void Disarm() override;
+        void Reverse(TypeId id) override;
+    };
+    [[nodiscard]] SceneContributionRecorder& GlobalSceneContributionRecorder() noexcept;
 
     class SceneSubsystem final : public foundation::runtime::Subsystem
     {
@@ -42,6 +55,29 @@ export namespace engine::scene
         {
             return -500;
         } // scenes tick early
+
+        // While registered, this subsystem is the contribution registry's LIVE-SCENE sink:
+        // a manager a plugin contributes (or withdraws) after scenes exist is applied to every
+        // live scene here, and preserved records of its type resolve into it (S3).
+        void OnRegister(foundation::runtime::Context* context) override
+        {
+            Subsystem::OnRegister(context);
+            SceneModuleContributions::Global().SetLiveSceneSink(
+                [](void* ctx, void (*fn)(void*, Scene&), void* fnContext)
+                {
+                    static_cast<SceneSubsystem*>(ctx)->m_scenes.ForEachScene(
+                        [&](Scene& scene) { fn(fnContext, scene); });
+                },
+                this);
+            SceneModuleContributions::Global().SetLiveInstallHook(
+                [](void*, Scene& scene) { ResolveAllUnresolvedRecords(scene); }, nullptr);
+        }
+        void OnUnregister() override
+        {
+            SceneModuleContributions::Global().SetLiveSceneSink(nullptr, nullptr);
+            SceneModuleContributions::Global().SetLiveInstallHook(nullptr, nullptr);
+            Subsystem::OnUnregister();
+        }
 
         // ---- observer broker (reactive scene-lifecycle stages) ----
 

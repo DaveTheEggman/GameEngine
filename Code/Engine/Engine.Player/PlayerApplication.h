@@ -141,6 +141,9 @@ namespace engine::player
             // built module - shared-engine builds only, the ruled plugin model). A missing
             // or unloadable module is reported and the run continues (scripts still work).
             m_plugins = MakeUnique<runtime::PluginHost>(AppRoot(), host.Ctx());
+            // Record the managers/systems the game contributes to scenes so unload reverses
+            // them (game-native-code.md S1).
+            m_plugins->AddRecorder(&engine::scene::GlobalSceneContributionRecorder());
             if (m_options.nativeGame != nullptr)
             {
                 m_plugins->Add(m_options.nativeGame);

@@ -880,6 +880,13 @@ export namespace foundation::scene
     // idempotent (re-binding an already-bound ref is a cache hit).
     void ResolveSceneResources(Scene& scene, foundation::resource::ResourceManager& resources);
 
+    // Unresolved component records (their manager was absent at load; preserved verbatim -
+    // game-native-code.md S3) become real components once the manager exists: called for a
+    // manager that just joined a live scene (a plugin's contribution), or for all managers.
+    void ResolveUnresolvedComponents(Scene& scene, ComponentManagerBase& manager);
+    void ResolveUnresolvedSettings(Scene& scene, SceneSystem& system);
+    void ResolveAllUnresolvedRecords(Scene& scene); // components + settings, every system
+
     // ============================== Prefabs (ref + deltas) ==================================
     //
     // A prefab is a content-DB instance whose "scene" data stream is a LoadScene-compatible

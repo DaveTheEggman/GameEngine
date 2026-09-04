@@ -344,6 +344,79 @@ export namespace foundation::scene
         // to route a component record to its pool).
         [[nodiscard]] ComponentManagerBase* FindManagerBySerializationId(StringView typeId);
 
+        // Removes (and destroys) the system registered under `systemType` - a manager's pool
+        // dies with it. The hot-reload seam (game-native-code.md N6): a plugin-contributed
+        // manager leaves live scenes BEFORE its module's registrations reverse, while the
+        // code that built it is still mapped. No-op when absent. Returns whether removed.
+        bool RemoveSystem(TypeId systemType);
+
+        // ---- unresolved components (game-native-code.md S3) ----
+        // A component record whose manager was not present at load (its plugin did not
+        // load, or has not loaded YET). Kept verbatim so a save writes it back untouched -
+        // never dropped - and resolved into a real component the moment its manager
+        // arrives (Scene.Resource's ResolveUnresolvedComponents). `text` says which
+        // serializer captured `payload` (the XML element children vs the binary blob);
+        // it is written back through the SAME encoding only.
+        struct UnresolvedComponent
+        {
+            Guid owner;
+            String typeId; // the manager's SerializationTypeId
+            Array<u8> payload;
+            bool text = false;
+        };
+        void AddUnresolvedComponent(UnresolvedComponent record)
+        {
+            m_unresolvedComponents.PushBack(Move(record));
+        }
+        [[nodiscard]] const Array<UnresolvedComponent>& UnresolvedComponents() const noexcept
+        {
+            return m_unresolvedComponents;
+        }
+        // Moves out every record for `typeId` (the resolve path takes ownership).
+        void TakeUnresolvedComponents(StringView typeId, Array<UnresolvedComponent>& out)
+        {
+            for (usize i = m_unresolvedComponents.Size(); i-- > 0;)
+            {
+                if (m_unresolvedComponents[i].typeId.AsView() == typeId)
+                {
+                    out.PushBack(Move(m_unresolvedComponents[i]));
+                    m_unresolvedComponents.RemoveAt(i);
+                }
+            }
+        }
+        void ClearUnresolvedComponents() { m_unresolvedComponents.Clear(); }
+
+        // Same for a scene SYSTEM's settings block (managers and plain systems alike carry
+        // one via SettingsType/SettingsId): preserved verbatim while the system is absent,
+        // replayed into it when its plugin arrives.
+        struct UnresolvedSettings
+        {
+            String systemId; // the system's SettingsId
+            Array<u8> payload;
+            bool text = false;
+        };
+        void AddUnresolvedSettings(UnresolvedSettings record)
+        {
+            m_unresolvedSettings.PushBack(Move(record));
+        }
+        [[nodiscard]] const Array<UnresolvedSettings>& UnresolvedSettingsRecords() const noexcept
+        {
+            return m_unresolvedSettings;
+        }
+        bool TakeUnresolvedSettings(StringView systemId, UnresolvedSettings& out)
+        {
+            for (usize i = 0; i < m_unresolvedSettings.Size(); ++i)
+            {
+                if (m_unresolvedSettings[i].systemId.AsView() == systemId)
+                {
+                    out = Move(m_unresolvedSettings[i]);
+                    m_unresolvedSettings.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // The component manager whose component type is `componentType`, or null. This is the
         // scene-side resolve for `entity.get(Type)`: callers hold {scene, entity, manager} and
         // re-resolve the LIVE component via manager->GetComponentInstance(entity) on every access
@@ -522,6 +595,8 @@ export namespace foundation::scene
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<TypeId, SceneSystem*> m_systemsByType; // lookup by type (id: DLL-safe)
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted
+        Array<UnresolvedComponent> m_unresolvedComponents;      // records awaiting their manager
+        Array<UnresolvedSettings> m_unresolvedSettings;         // settings awaiting their system
         Array<EntityHandle> m_pendingDestroys;
         bool m_isUpdating = false;
         bool m_started = false;

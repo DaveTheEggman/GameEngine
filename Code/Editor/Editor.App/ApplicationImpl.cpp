@@ -28,6 +28,9 @@ import foundation.fonts.distancefield.baker; // DFFonts (MSDF baker registration
 import foundation.runtime;
 import foundation.runtime.client;
 import engine.defaultapp; // the embedded game application (v3)
+import engine.scene; // GlobalSceneContributionRecorder (game-native-code.md S1)
+import foundation.scene;          // Scene (the reload scene bracket)
+import foundation.scene.resource; // SceneSnapshot (the reload scene bracket)
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
 import engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
@@ -2286,6 +2289,7 @@ namespace editor::app
         {
             m_gamePlugins =
                 MakeUnique<runtime::PluginHost>(m_editorAllocator, m_runtimeContext);
+            m_gamePlugins->AddRecorder(&engine::scene::GlobalSceneContributionRecorder());
             const String modulePath = PathJoin(m_project->Directory(),
                                                m_project->Settings().nativeModule.AsView());
             auto loaded = m_gamePlugins->Load(modulePath.AsView());
@@ -2558,6 +2562,43 @@ namespace editor::app
         {
             m_context.StopGameRun();
         }
+        // Scene bracket (game-native-code.md N6/S1): every live scene on the embedded runtime
+        // is snapshotted through the wire format BEFORE the unload withdraws the plugin's
+        // contributed managers/systems (their component pools die with them, while the code
+        // that built them is still mapped), and restored AFTER the rebuild re-contributes
+        // them - plugin components rehydrate by name through the new module's registrations.
+        // Restore runs even if the reload fails: the scene is never left stripped (records
+        // of the absent plugin's types stay preserved as unresolved).
+        struct SceneBracket
+        {
+            foundation::scene::Scene* scene;
+            UniquePtr<foundation::scene::SceneSnapshot> snapshot;
+        };
+        Array<SceneBracket> brackets;
+        if (auto* scenes = m_runtimeContext.GetSubsystem<engine::scene::SceneSubsystem>())
+        {
+            scenes->Registry().ForEachScene(
+                [&](foundation::scene::Scene& scene)
+                {
+                    SceneBracket b{&scene, foundation::scene::SceneSnapshot::Capture(scene)};
+                    if (b.snapshot)
+                    {
+                        brackets.PushBack(Move(b));
+                    }
+                });
+        }
+        auto restoreScenes = [&]()
+        {
+            for (SceneBracket& b : brackets)
+            {
+                if (!b.snapshot->Restore(*b.scene, m_resources.Get()).IsOk())
+                {
+                    LOG_ERROR(u8"Editor", u8"native reload: scene '{}' failed to restore",
+                              b.scene->Name());
+                }
+            }
+            brackets.Clear();
+        };
         // Scope-reversed unload; the OLD library stays mapped for the process lifetime
         // (leak-on-purpose: never free pages under a pointer the teardown missed).
         if (m_gamePlugins.Get() != nullptr)
@@ -2576,6 +2617,7 @@ namespace editor::app
             m_context.Notify(editor::NoticeKind::Error,
                              u8"Native module not found - build it first (see Console).");
             LOG_ERROR(u8"Editor", u8"native module reload: cannot read '{}'", src);
+            restoreScenes();
             return;
         }
         const String hotDir = PathJoin(
@@ -2600,11 +2642,14 @@ namespace editor::app
             m_context.Notify(editor::NoticeKind::Error,
                              u8"Native module reload failed (see Console).");
             LOG_ERROR(u8"Editor", u8"native module reload: cannot stage '{}'", dst);
+            restoreScenes();
             return;
         }
 
         m_gamePlugins = MakeUnique<runtime::PluginHost>(m_editorAllocator, m_runtimeContext);
+        m_gamePlugins->AddRecorder(&engine::scene::GlobalSceneContributionRecorder());
         auto loaded = m_gamePlugins->Load(dst.AsView());
+        restoreScenes(); // after the (re)contribution, so plugin components rehydrate
         if (loaded.HasValue())
         {
             m_context.Notify(editor::NoticeKind::Success,

@@ -8,6 +8,8 @@
 import foundation.core;
 import foundation.runtime;
 import foundation.runtime.client;
+import foundation.scene;          // SceneModuleContributions (the cross-boundary scene case)
+import foundation.scene.resource; // SceneSnapshot
 import foundation.shell;
 import foundation.graphics;
 
@@ -391,10 +393,34 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
     crossprobe::HostProbeSubsystem hostProbe;
     ctx.RegisterSubsystem<crossprobe::HostProbeSubsystem>(&hostProbe);
 
+    // The scene-contribution recorder (what Engine.Scene's SceneContributionRecorder does):
+    // records the managers a plugin contributes so unload reverses them.
+    struct ContributionRecorder final : IRegistrationRecorder
+    {
+        void Arm(Array<TypeId>& sink) override
+        {
+            foundation::scene::SceneModuleContributions::Global().SetRegistrationObserver(
+                [](void* c, TypeId id) { static_cast<Array<TypeId>*>(c)->PushBack(id); }, &sink);
+        }
+        void Disarm() override
+        {
+            foundation::scene::SceneModuleContributions::Global().SetRegistrationObserver(nullptr,
+                                                                                         nullptr);
+        }
+        void Reverse(TypeId id) override
+        {
+            foundation::scene::SceneModuleContributions::Global().Remove(id);
+        }
+    } contributionRecorder;
+
     PluginHost host(ctx);
+    host.AddRecorder(&contributionRecorder);
     auto loaded = host.Load(path);
     REQUIRE(loaded.HasValue());
     CHECK(loaded.Value()->Name() == StringView{u8"CrossPlugin"});
+    // The plugin contributed its Fancy manager (S1) - recorded, and reversed below.
+    CHECK(foundation::scene::SceneModuleContributions::Global().Contains(
+        TypeOf<crossprobe::FancyManager>().id));
 
     DynamicLibrary probe{path};
     REQUIRE(probe.IsLoaded());
@@ -444,6 +470,7 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
     //    (leak-on-purpose), then load a fresh versioned COPY - dlopen refcounts by
     //    path, so only a new file yields a genuinely new module. Registrations land
     //    in the freed slots.
+    const StringView copyPath = u8".test-scratch/reload-copy-crossplugin.so";
     {
         auto again = host.Load(path);
         REQUIRE(again.HasValue());
@@ -453,7 +480,6 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
 
         auto original = ReadFile(path, DefaultAllocator());
         REQUIRE(original.HasValue());
-        const StringView copyPath = u8".test-scratch/reload-copy-crossplugin.so";
         (void)foundation::core::CreateDirectory(u8".test-scratch");
         REQUIRE(WriteFile(copyPath, Span<const byte>{original.Value().Data(),
                                                      original.Value().Size()})
@@ -464,6 +490,54 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
         CHECK(resolved() == 41); // the copy's OnLoad ran against the live host subsystem
         host.UnloadAll();
         CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
+        CHECK_FALSE(foundation::scene::SceneModuleContributions::Global().Contains(
+            TypeOf<crossprobe::FancyManager>().id)); // the contribution reversed with it
+    }
+
+    // 6. The MyFancyComponent walkthrough (game-native-code.md N6 + S1): a scene ALIVE across
+    //    a plugin reload keeps a plugin-owned component through the snapshot bracket.
+    {
+        using foundation::scene::Scene;
+        using foundation::scene::SceneModuleContributions;
+        Scene scene(DefaultAllocator(), u8"editing");
+        Scene* live[] = {&scene};
+        SceneModuleContributions::Global().SetLiveSceneSink(
+            [](void* c, void (*fn)(void*, Scene&), void* fnCtx)
+            {
+                for (Scene* s : Span<Scene* const>{static_cast<Scene**>(c), 1})
+                {
+                    fn(fnCtx, *s);
+                }
+            },
+            live);
+
+        // Plugin loads AFTER the scene exists: the contribution reaches the live scene.
+        auto again = host.Load(copyPath);
+        REQUIRE(again.HasValue());
+        crossprobe::FancyManager* fancy = scene.GetSystem<crossprobe::FancyManager>();
+        REQUIRE(fancy != nullptr);
+        const foundation::scene::EntityHandle hero = scene.CreateEntity(u8"hero");
+        fancy->Add(hero).payload = 9;
+
+        // The reload bracket: snapshot -> unload (the manager leaves the live scene while its
+        // code is mapped; the old mapping is kept) -> load the rebuild -> restore.
+        auto snapshot = foundation::scene::SceneSnapshot::Capture(scene);
+        REQUIRE(snapshot);
+        host.UnloadAll(/*closeLibraries*/ false);
+        CHECK(scene.GetSystem<crossprobe::FancyManager>() == nullptr);
+
+        auto rebuilt = host.Load(copyPath);
+        REQUIRE(rebuilt.HasValue());
+        REQUIRE(scene.GetSystem<crossprobe::FancyManager>() != nullptr); // contributed anew
+        REQUIRE(snapshot->Restore(scene).IsOk());
+        const foundation::scene::EntityHandle restoredHero = scene.FindEntityByName(u8"hero");
+        REQUIRE(restoredHero.IsAssigned());
+        crossprobe::FancyManager* newFancy = scene.GetSystem<crossprobe::FancyManager>();
+        REQUIRE(newFancy->Get(restoredHero) != nullptr);
+        CHECK(newFancy->Get(restoredHero)->payload == 9); // MyFancyComponent survived the reload
+
+        host.UnloadAll();
+        SceneModuleContributions::Global().SetLiveSceneSink(nullptr, nullptr);
     }
     ctx.RemoveSubsystem<crossprobe::HostProbeSubsystem>();
 }

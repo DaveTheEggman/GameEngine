@@ -114,6 +114,86 @@ export namespace foundation::scene
         Span<const SceneModule*> m_dependsOn;
     };
 
+    // ---- SceneModuleContributions: modules added at RUNTIME (game-native-code.md S1) ---------------
+    // A game's native plugin contributes its component managers here from OnLoad; EVERY
+    // SceneComposition::Instantiate appends the contributed modules after its own order (so the
+    // runtime SceneSubsystem path and the headless AddAllSceneManagers path both see them), and
+    // scenes already alive get them applied through the live-scene sink the SceneSubsystem
+    // installs. Keyed by the installed system's TypeId (one manager type per contribution) so
+    // removal can find it in live scenes. Process-single: the accessor is defined in the
+    // implementation unit (shared-libraries.md rendezvous rule), and PluginHost records
+    // contributions through the observer so unload reverses them.
+    class SceneModuleContributions
+    {
+    public:
+        struct Contribution
+        {
+            StringView id;        // borrowed literal (the plugin's)
+            SceneModule::InstallFn install = nullptr;
+            SceneModule::RegisterReflectionFn registerReflection = nullptr;
+            TypeId systemType = 0; // TypeOf<TheManager>().id - the live-removal key
+        };
+
+        [[nodiscard]] static SceneModuleContributions& Global() noexcept;
+
+        // Idempotent by systemType. Applies to live scenes (when a sink is installed) and
+        // fires the observer only on a REAL insert.
+        void Add(const Contribution& contribution);
+        // Removes from live scenes first (the manager dies while its code is mapped), then
+        // forgets the contribution. No-op when absent.
+        void Remove(TypeId systemType);
+        [[nodiscard]] bool Contains(TypeId systemType) const noexcept;
+        [[nodiscard]] usize Count() const noexcept { return m_contributions.Size(); }
+
+        // Appends every contribution's systems to `scene` (Instantiate's tail) / registers
+        // their reflection (RegisterReflection's tail).
+        void InstallAll(Scene& scene) const;
+        void RegisterAllReflection() const;
+
+        // The live-scene sink: visits every live scene (the SceneSubsystem installs one over
+        // its registry; null = no live scenes, e.g. headless tools).
+        using LiveSceneVisitor = void (*)(void* context, void (*fn)(void* fnContext, Scene&),
+                                          void* fnContext);
+        void SetLiveSceneSink(LiveSceneVisitor visitor, void* context) noexcept
+        {
+            m_liveVisitor = visitor;
+            m_liveContext = context;
+        }
+        // After a contribution installs into a LIVE scene: the owner's chance to resolve
+        // preserved component records into the new manager (Scene.Resource does that; this
+        // partition is runtime- and resource-free, so it is a hook).
+        using LiveInstallHook = void (*)(void* context, Scene& scene);
+        void SetLiveInstallHook(LiveInstallHook hook, void* context) noexcept
+        {
+            m_liveInstallHook = hook;
+            m_liveInstallContext = context;
+        }
+
+        // PluginHost's recording hook (one at a time; fires only on real inserts).
+        void SetRegistrationObserver(void (*observer)(void*, TypeId), void* context) noexcept
+        {
+            m_observer = observer;
+            m_observerContext = context;
+        }
+
+    private:
+        void ForEachLiveScene(void (*fn)(void*, Scene&), void* fnContext) const
+        {
+            if (m_liveVisitor != nullptr)
+            {
+                m_liveVisitor(m_liveContext, fn, fnContext);
+            }
+        }
+
+        Array<Contribution> m_contributions;
+        LiveSceneVisitor m_liveVisitor = nullptr;
+        void* m_liveContext = nullptr;
+        LiveInstallHook m_liveInstallHook = nullptr;
+        void* m_liveInstallContext = nullptr;
+        void (*m_observer)(void*, TypeId) = nullptr;
+        void* m_observerContext = nullptr;
+    };
+
     // ---- SceneComposition: the one-time-built, topological blueprint --------------------------------
     class SceneComposition
     {
@@ -205,22 +285,26 @@ export namespace foundation::scene
             return comp;
         }
 
-        // Adds every module's declared systems to `scene`, in dependency order.
+        // Adds every module's declared systems to `scene`, in dependency order - then every
+        // runtime CONTRIBUTION (a game's native managers; game-native-code.md S1).
         void Instantiate(Scene& scene) const
         {
             for (const SceneModule& m : m_order)
             {
                 m.Install(scene);
             }
+            SceneModuleContributions::Global().InstallAll(scene);
         }
 
-        // Registers every module's component reflection (idempotent aggregate; call once at startup).
+        // Registers every module's component reflection (idempotent aggregate; call once at
+        // startup) - contributions included.
         void RegisterReflection() const
         {
             for (const SceneModule& m : m_order)
             {
                 m.RegisterReflection();
             }
+            SceneModuleContributions::Global().RegisterAllReflection();
         }
 
         [[nodiscard]] usize ModuleCount() const noexcept { return m_order.Size(); }

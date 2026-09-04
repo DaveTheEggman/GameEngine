@@ -9,7 +9,9 @@ add_executable(Runtime.Tests
     TestsMain.cpp
     RuntimeTests.cpp)
 
-target_link_libraries(Runtime.Tests PRIVATE Foundation::Runtime Foundation::Runtime.Client doctest::doctest)
+target_link_libraries(Runtime.Tests PRIVATE Foundation::Runtime Foundation::Runtime.Client
+    Foundation::Scene Foundation::Scene.Resource # the cross-boundary scene-contribution case
+    doctest::doctest)
 add_dependencies(Runtime.Tests Runtime.TestPlugin)
 
 target_compile_definitions(Runtime.Tests PRIVATE
@@ -27,7 +29,8 @@ target_compile_options(Runtime.Tests PRIVATE
 if(ENGINE_SHARED_LIBS)
     add_library(Runtime.CrossPlugin MODULE CrossPlugin.cpp)
     set_target_properties(Runtime.CrossPlugin PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_link_libraries(Runtime.CrossPlugin PRIVATE Foundation::Runtime Foundation::Policy)
+    target_link_libraries(Runtime.CrossPlugin PRIVATE Foundation::Runtime Foundation::Scene
+        Foundation::Policy) # contributes a component manager (game-native-code.md S1)
     add_dependencies(Runtime.Tests Runtime.CrossPlugin)
     target_compile_definitions(Runtime.Tests PRIVATE
         CROSS_PLUGIN_PATH="$<TARGET_FILE:Runtime.CrossPlugin>")

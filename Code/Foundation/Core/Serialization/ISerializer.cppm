@@ -14,6 +14,7 @@ module;
 export module foundation.core:iserializer;
 
 import :base;
+import :array; // RawRemainder's raw payload
 import :string;
 import :guid;
 
@@ -104,6 +105,17 @@ export namespace foundation::core
         // data loads loudly, never silently. The Serializer base routes this into its status;
         // the defaults keep bare mocks working.
         virtual void FailPayload(ErrorCode code) noexcept { (void)code; }
+
+        // Unknown-section passthrough (see Serializer for the contract): capture (READ) /
+        // re-inject (WRITE) the current region's remaining content verbatim, so a payload whose
+        // type this build cannot instantiate survives a round-trip. Declared on the interface
+        // so consumers holding an ISerializer& (scene records) can preserve unknown types;
+        // default unsupported - Serializer's backends override.
+        virtual bool RawRemainder(Array<u8>& blob)
+        {
+            (void)blob;
+            return false;
+        }
         [[nodiscard]] virtual bool IsPayloadOk() const noexcept { return true; }
     };
 }
