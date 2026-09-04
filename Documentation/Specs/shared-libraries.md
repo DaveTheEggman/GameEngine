@@ -169,11 +169,17 @@ pinned allowlist that also fails on stale entries.
 - **P3 - build plumbing.** util_add_engine_library + 179-target migration +
   ENGINE_SHARED_LIBS option + $ORIGIN rpaths + AngelScript single-owner.
   Static build stays byte-equivalent.
-- **P4 - first shared build (Linux/clang).** Flip ENGINE_SHARED_LIBS in a
-  dedicated build dir (build/clang-shared); fix link fallout; editor +
-  player + cook smoke; PluginHost test upgraded to actually exercise
-  cross-boundary identity (plugin registers a type + resolves a host
-  subsystem - the case that is broken today under RTLD_LOCAL).
+- **P4 - first shared build (Linux/clang).** STATUS 2026-09-04: the flip
+  WORKED FIRST TRY - build/clang-shared (ENGINE_SHARED_LIBS=ON) builds all
+  179 libraries as .so with zero link errors, the full 151-suite battery
+  passes ON the shared build, and Tools.Editor boots a real project linked
+  against 163 engine .so files. P1-P3 cleared the ground completely (ELF
+  default visibility does the rest). REMAINING P4 TAIL: (a) PluginHost test
+  upgraded to exercise cross-boundary identity (plugin registers a type +
+  resolves a host subsystem; RTLD_LOCAL -> RTLD_GLOBAL or Core-shared);
+  (b) OUTPUT DIR: build/clang and build/clang-shared currently share
+  Bin/Debug/Linux64-Clang and overwrite each other - give shared builds a
+  suffixed dir (the -ASAN precedent); (c) a CI-able smoke lane.
 - **P5 - hidden visibility + Windows.** CXX_VISIBILITY_PRESET hidden +
   VISIBILITY_INLINES_HIDDEN (converts residual duplication into link
   errors), export annotations, MSVC prototype verdict applied.
