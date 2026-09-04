@@ -2042,3 +2042,22 @@ TEST_CASE("export: player output name carries the Windows .exe extension (target
     // Non-Windows targets carry no executable suffix.
     CHECK(PlayerOutputName(u8"Linux64", u8"MyGame", u8"Engine.Player") == StringView(u8"MyGame"));
 }
+
+// --- Native ship link derivations (game-native-code.md N3) --------------------------------
+TEST_CASE("export: native target derives from the manifest's dev-module path")
+{
+    using editor::detail::NativeTargetFromModulePath;
+    CHECK(NativeTargetFromModulePath(u8"Native/libScratchGame.so") == u8"ScratchGame");
+    CHECK(NativeTargetFromModulePath(u8"libGameOnly.so") == u8"GameOnly");
+    CHECK(NativeTargetFromModulePath(u8"Native/MyGame.dll") == u8"MyGame");
+    CHECK(NativeTargetFromModulePath(u8"Native\\libWinPath.dll") == u8"WinPath");
+    CHECK(NativeTargetFromModulePath(u8"BareName") == u8"BareName");
+    CHECK(NativeTargetFromModulePath(u8"") == u8"");
+}
+
+TEST_CASE("export: ship output suffix is per-project and filesystem-safe")
+{
+    using editor::detail::ShipOutputSuffix;
+    CHECK(ShipOutputSuffix(u8"PaperKid") == u8"-Ship-PaperKid");
+    CHECK(ShipOutputSuffix(u8"My Game 2!") == u8"-Ship-My-Game-2-");
+}

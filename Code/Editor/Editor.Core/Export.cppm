@@ -109,6 +109,53 @@ export namespace editor
 
     namespace detail
     {
+        // The game native target name from the manifest's dev-module path:
+        // "Native/libScratchGame.so" -> "ScratchGame" (also handles .dll / no-lib-prefix).
+        // Empty when the shape is unrecognizable - callers treat that as "no native ship".
+        [[nodiscard]] inline foundation::core::String
+        NativeTargetFromModulePath(foundation::core::StringView nativeModule)
+        {
+            namespace core = foundation::core;
+            core::StringView name = nativeModule;
+            for (core::usize i = name.Size(); i > 0; --i)
+            {
+                if (name.Data()[i - 1] == '/' || name.Data()[i - 1] == '\\')
+                {
+                    name = core::StringView(name.Data() + i, name.Size() - i);
+                    break;
+                }
+            }
+            if (name.EndsWith(u8".so"))
+            {
+                name = core::StringView(name.Data(), name.Size() - 3);
+            }
+            else if (name.EndsWith(u8".dll"))
+            {
+                name = core::StringView(name.Data(), name.Size() - 4);
+            }
+            if (name.StartsWith(u8"lib"))
+            {
+                name = core::StringView(name.Data() + 3, name.Size() - 3);
+            }
+            return core::String(name);
+        }
+
+        // The ship build's Bin suffix: "-Ship-<sanitized project name>" - per-project so two
+        // games' ship outputs never collide in the checkout's Bin (the -Shared/-ASAN precedent).
+        [[nodiscard]] inline foundation::core::String
+        ShipOutputSuffix(foundation::core::StringView projectName)
+        {
+            foundation::core::String s(u8"-Ship-");
+            for (foundation::core::usize i = 0; i < projectName.Size(); ++i)
+            {
+                const char c = static_cast<char>(projectName.Data()[i]);
+                const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                                (c >= '0' && c <= '9');
+                s.PushBack(ok ? projectName.Data()[i] : u8'-');
+            }
+            return s;
+        }
+
         // The staged player filename: the chosen name (preset.playerName, else the template's player
         // binary) with the TARGET platform's executable extension ensured. Windows executables must end
         // in .exe or the OS will not launch them ("MyGame" -> "MyGame.exe"); other platforms carry no

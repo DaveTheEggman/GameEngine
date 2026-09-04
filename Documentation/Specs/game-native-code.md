@@ -66,12 +66,22 @@ single artifact, works on every platform incl. web). Same source both ways.
   target + runtime-dep staging + $ORIGIN. PROVEN: a scratch game module
   wired by hand builds Engine.GamePlayer with ZERO engine .so deps, and
   its plugin OnLoad runs through PluginHost::Add, taking precedence over
-  the manifest's dlopen module. REMAINING: Tools.Export/editor export
-  drives configure+build of a ship build dir with these vars (persistent
-  per-project cache dir for incremental relinks; engine root derived from
-  the running binary, setting-overridable) and stages Engine.GamePlayer
-  into the dist in place of the template player; a committed fixture +
-  test for the wiring.
+  the manifest's dlopen module. EXPORTER HALF SHIPPED
+  2026-09-04: ExportOne detects nativeModule (non-web presets), invokes the
+  BAKED cmake (BUILDSYSTEM_CMAKE_PATH) over the BAKED engine root with the
+  BAKED compiler (the system default silently differed - pinned to the
+  editor's own toolchain), builds Engine.GamePlayer in a persistent
+  per-project dir (<project>/.cache/ship-<config>; incremental relinks;
+  build type = preset.config), with a per-project Bin suffix
+  (-Ship-<name>), and stages it as the dist player in place of the
+  template binary. Convention: native source at <project>/Native; target
+  name derived from the nativeModule basename. PROVEN end to end via
+  Tools.Export on the scratch project: the dist's ScratchGame binary boots
+  dist mode and runs the statically-linked plugin. Speed note: the
+  target-scoped build compiles only the player's dependency closure (~a
+  quarter of the tree). Tests: target-derivation + suffix helpers.
+  Remaining: a committed fixture project for CI-able E2E; editor-side
+  export UI needs no change (same ExportOne).
 - N4 - authoring. New-project wizard/template for a native game module
   (CMakeLists via util_add_engine_library, plugin skeleton, facade
   registration example + tests). Docs.

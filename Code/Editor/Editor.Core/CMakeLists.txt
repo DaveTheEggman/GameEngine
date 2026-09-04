@@ -21,6 +21,14 @@ endif()
 target_compile_definitions(Editor.Core PRIVATE
     BUILTIN_PLAYER_BASENAME=u8"${BUILTIN_PLAYER_BASENAME}")
 
+# Native ship link (game-native-code.md N3): the exporter re-invokes THIS cmake over THIS
+# checkout to build Engine.GamePlayer with the project's native module statically linked.
+# Both baked like the shader dir above; a relocated editor reports clearly instead of guessing.
+target_compile_definitions(Editor.Core PRIVATE
+    BUILDSYSTEM_CMAKE_PATH="${CMAKE_COMMAND}"
+    BUILDSYSTEM_ENGINE_ROOT="${CMAKE_SOURCE_DIR}"
+    BUILDSYSTEM_CXX_COMPILER="${CMAKE_CXX_COMPILER}")
+
 target_sources(Editor.Core
     PRIVATE
         CookServiceImpl.cpp

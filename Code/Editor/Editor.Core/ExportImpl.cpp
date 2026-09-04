@@ -699,6 +699,125 @@ namespace editor
         return s;
     }
 
+    namespace
+    {
+        // Build Engine.GamePlayer for a native project (game-native-code.md N3): re-invoke
+        // cmake over the engine checkout with the game's native dir wired in
+        // (ENGINE_GAME_NATIVE_DIR/_TARGET), a persistent per-project build dir under the
+        // project's .cache (incremental relinks), and a per-project Bin suffix so ship
+        // outputs never collide with dev builds. Returns the built player's path.
+        [[nodiscard]] Status BuildShipPlayer(EditorProject& project, StringView config,
+                                             const ExportProgress& onProgress, String& outPlayer)
+        {
+            const StringView engineRoot =
+                StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_ENGINE_ROOT));
+            const StringView cmakePath =
+                StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CMAKE_PATH));
+            if (!DirectoryExists(PathJoin(engineRoot, u8"Code").AsView()))
+            {
+                LOG_ERROR(u8"Export",
+                          u8"native ship link needs the engine source checkout at '{}' - not "
+                          u8"found (relocated editor?)",
+                          engineRoot);
+                return Status{ErrorCode::NotFound};
+            }
+            const String nativeDir = PathJoin(project.Directory(), u8"Native");
+            if (!DirectoryExists(nativeDir.AsView()))
+            {
+                LOG_ERROR(u8"Export",
+                          u8"project declares a native module but '{}' does not exist "
+                          u8"(the native source convention is <project>/Native)",
+                          nativeDir);
+                return Status{ErrorCode::NotFound};
+            }
+            const String target =
+                detail::NativeTargetFromModulePath(project.Settings().nativeModule.AsView());
+            if (target.IsEmpty())
+            {
+                LOG_ERROR(u8"Export", u8"cannot derive the native target from nativeModule '{}'",
+                          project.Settings().nativeModule);
+                return Status{ErrorCode::InvalidArgument};
+            }
+            const String suffix = detail::ShipOutputSuffix(project.Settings().name.AsView());
+            const String buildType = config.IsEmpty() ? String(u8"Release") : String(config);
+            const String shipDir = PathJoin(
+                project.Directory(),
+                Format(u8"{}/ship-{}", engine::project::kProjectCacheDir, buildType).AsView());
+
+            if (onProgress)
+            {
+                onProgress(u8"Configuring native ship build...", 0.86f);
+            }
+            // Pin the ship toolchain to the one that built THIS editor (the system default
+            // may be a different compiler; the checkout's lane conventions stay authoritative).
+            const String defCompiler =
+                Format(u8"-DCMAKE_CXX_COMPILER={}",
+                       StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CXX_COMPILER)));
+            const String defBuildType = Format(u8"-DCMAKE_BUILD_TYPE={}", buildType);
+            const String defGameDir = Format(u8"-DENGINE_GAME_NATIVE_DIR={}", nativeDir);
+            const String defGameTarget = Format(u8"-DENGINE_GAME_NATIVE_TARGET={}", target);
+            const String defSuffix = Format(u8"-DBUILDSYSTEM_OUTPUT_SUFFIX={}", suffix);
+            const StringView cfgArgs[] = {u8"-S",       engineRoot,
+                                          u8"-B",       shipDir.AsView(),
+                                          u8"-G",       u8"Ninja",
+                                          defCompiler.AsView(),  defBuildType.AsView(),
+                                          defGameDir.AsView(),   defGameTarget.AsView(),
+                                          defSuffix.AsView()};
+            const ProcessResult configured =
+                RunProcess(cmakePath, Span<const StringView>(cfgArgs, 11));
+            if (!configured.Ok())
+            {
+                LOG_ERROR(u8"Export", u8"native ship configure failed ({}):\n{}",
+                          configured.exitCode, configured.output);
+                return Status{ErrorCode::Internal};
+            }
+
+            if (onProgress)
+            {
+                onProgress(u8"Building native ship player (this can take a while)...", 0.88f);
+            }
+            const StringView buildArgs[] = {u8"--build", shipDir.AsView(), u8"--target",
+                                            u8"Engine.GamePlayer", u8"-j", u8"4"};
+            const ProcessResult built =
+                RunProcess(cmakePath, Span<const StringView>(buildArgs, 6));
+            if (!built.Ok())
+            {
+                LOG_ERROR(u8"Export", u8"native ship build failed ({}) - tail:\n{}",
+                          built.exitCode, built.output);
+                return Status{ErrorCode::Internal};
+            }
+
+            // The player lands under the CHECKOUT's suffixed Bin; the platform-compiler tag is
+            // the build's own concern, so find it rather than recompose it.
+            const String binRoot = Format(u8"{}/Bin/{}", engineRoot, buildType);
+            vfs::NativeFileSystem bin(binRoot.AsView(), editor::EditorRootAllocator());
+            if (vfs::IEnumerableFileSystem* enumerable = bin.AsEnumerable())
+            {
+                Array<vfs::DirEntry> entries;
+                if (enumerable->Enumerate(u8"", entries).IsOk())
+                {
+                    for (const vfs::DirEntry& entry : entries)
+                    {
+                        if (entry.isDirectory && entry.name.AsView().EndsWith(suffix.AsView()))
+                        {
+                            const String candidate = Format(u8"{}/{}/Engine.GamePlayer", binRoot,
+                                                            entry.name);
+                            if (FileExists(candidate.AsView()))
+                            {
+                                outPlayer = candidate;
+                                return Status{};
+                            }
+                        }
+                    }
+                }
+            }
+            LOG_ERROR(u8"Export", u8"native ship build succeeded but Engine.GamePlayer was not "
+                                  u8"found under '{}/*{}'",
+                      binRoot, suffix);
+            return Status{ErrorCode::NotFound};
+        }
+    }
+
     Status ExportOne(EditorProject& project, const ExportPreset& preset,
                      const TemplateRegistry& templates, BuilderRegistry& builders,
                      StringView outRoot, bool rebuild, ExportResult* outResult,
@@ -836,13 +955,58 @@ namespace editor
         // Player: <template dir>/<playerBinary> -> <outDir>/<name>. The name is the preset's playerName
         // (else the template binary), with the target platform's executable extension ensured - Windows
         // needs .exe or the OS will not launch it.
-        const String outName = detail::PlayerOutputName(
-            preset.platform.AsView(), preset.playerName.AsView(), tmpl->playerBinary.AsView());
-        if (!detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
-                                        result.outputDir.AsView(), outName.AsView()))
+        //
+        // NATIVE projects (game-native-code.md N3): the player is not the template's - it is
+        // Engine.GamePlayer, freshly built with the game's native module statically linked.
+        // Web presets keep the template player (the wasm game build is N5); the manifest's
+        // dlopen module is ignored by ship players (the static plugin takes precedence).
+        const bool nativeShip = !project.Settings().nativeModule.IsEmpty() &&
+                                !preset.platform.AsView().StartsWith(u8"Web") &&
+                                !preset.platform.AsView().StartsWith(u8"Wasm");
+        String shipPlayerPath;
+        if (nativeShip)
         {
-            LOG_ERROR(u8"Export", u8"failed to stage player '{}' from template '{}'",
-                               tmpl->playerBinary, tmpl->id);
+            const Status shipStatus = BuildShipPlayer(project, preset.config.AsView(), onProgress,
+                                                      shipPlayerPath);
+            if (!shipStatus.IsOk())
+            {
+                if (outResult != nullptr)
+                {
+                    *outResult = result;
+                }
+                return shipStatus;
+            }
+        }
+        const String outName = detail::PlayerOutputName(
+            preset.platform.AsView(), preset.playerName.AsView(),
+            nativeShip ? StringView(u8"Engine.GamePlayer") : tmpl->playerBinary.AsView());
+        String shipPlayerDir;
+        if (nativeShip)
+        {
+            // Split the built player's absolute path into (dir, name) for the copy helper.
+            const StringView full = shipPlayerPath.AsView();
+            for (usize i = full.Size(); i > 0; --i)
+            {
+                if (full.Data()[i - 1] == '/')
+                {
+                    shipPlayerDir = String(StringView(full.Data(), i - 1));
+                    break;
+                }
+            }
+        }
+        const bool playerStaged =
+            nativeShip
+                ? detail::CopyFilePreserving(shipPlayerDir.AsView(),
+                                             StringView(u8"Engine.GamePlayer"),
+                                             result.outputDir.AsView(), outName.AsView())
+                : detail::CopyFilePreserving(tmpl->directory.AsView(), tmpl->playerBinary.AsView(),
+                                             result.outputDir.AsView(), outName.AsView());
+        if (!playerStaged)
+        {
+            LOG_ERROR(u8"Export", u8"failed to stage player '{}' from {}",
+                               nativeShip ? StringView(u8"Engine.GamePlayer")
+                                          : tmpl->playerBinary.AsView(),
+                               nativeShip ? shipPlayerPath.AsView() : tmpl->id.AsView());
             if (outResult != nullptr)
             {
                 *outResult = result;
