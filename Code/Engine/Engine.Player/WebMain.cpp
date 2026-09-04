@@ -126,11 +126,12 @@ namespace
         bool bc = false;
         bool astc = false;
         foundation::rhi::Backend* probe = nullptr;
-        if (foundation::rhi::webgpu::CreateBackend(foundation::rhi::webgpu::WebGpuBackendDesc{}, probe)
+        if (foundation::rhi::webgpu::CreateBackend(foundation::rhi::webgpu::WebGpuBackendDesc{},
+                                                   probe, DefaultAllocator())
                 .IsOk() &&
             probe != nullptr)
         {
-            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters(, DefaultAllocator());
+            const Span<foundation::rhi::Adapter* const> adapters = probe->EnumerateAdapters();
             if (!adapters.IsEmpty())
             {
                 const foundation::rhi::AdapterInfo info = adapters[0]->Info();
