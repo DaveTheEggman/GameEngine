@@ -94,6 +94,12 @@ set(BUILDSYSTEM_OUTPUT_SUFFIX "" CACHE STRING "Suffix for the Bin output dir (e.
 if(ENGINE_SHARED_LIBS AND BUILDSYSTEM_OUTPUT_SUFFIX STREQUAL "")
     set(BUILDSYSTEM_OUTPUT_SUFFIX "-Shared")
 endif()
+# Sanitizer builds too - STRUCTURALLY, not by remembering to pass the suffix: an ASAN
+# configure without it once clobbered the plain build's binaries AND archives in the
+# shared Bin (mtime-newer outputs even dodge ninja's relink).
+if(BUILDSYSTEM_OUTPUT_SUFFIX STREQUAL "" AND CMAKE_CXX_FLAGS MATCHES "-fsanitize")
+    set(BUILDSYSTEM_OUTPUT_SUFFIX "-ASAN")
+endif()
 set(BUILDSYSTEM_BIN_DIR "${CMAKE_SOURCE_DIR}/Bin/$<CONFIG>/${_dr_plat}-${_dr_comp}${BUILDSYSTEM_OUTPUT_SUFFIX}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # exes + Windows DLLs
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY     "${BUILDSYSTEM_BIN_DIR}")       # .so plugins/modules (beside the exe)
