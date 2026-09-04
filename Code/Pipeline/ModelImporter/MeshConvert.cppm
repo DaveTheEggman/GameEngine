@@ -220,36 +220,41 @@ namespace pipeline
         // (embedded textures with no identity). Callers unique-ify per destination group.
         [[nodiscard]] String ImportedTextureName(const model::ModelTexture& texture, usize index)
         {
-            StringView base = texture.name();
-            if (base.IsEmpty())
+            // FILE STEM first, authored image name as the fallback (embedded GLB images have
+            // no uri). The file is the identity the user sees on disk and greps for; authored
+            // names can lie about it - Poly Haven names its packed arm textures "*_rough",
+            // which imported an asset whose name matched neither the file nor its content.
+            StringView base;
+            StringView uri = texture.uri();
+            if (!uri.IsEmpty())
             {
-                StringView uri = texture.uri();
-                if (!uri.IsEmpty())
+                usize start = 0;
+                for (usize i = uri.Size(); i > 0; --i)
                 {
-                    usize start = 0;
-                    for (usize i = uri.Size(); i > 0; --i)
+                    const utf8char c = uri.Data()[i - 1];
+                    if (c == u8'/' || c == u8'\\')
                     {
-                        const utf8char c = uri.Data()[i - 1];
-                        if (c == u8'/' || c == u8'\\')
-                        {
-                            start = i;
-                            break;
-                        }
-                    }
-                    usize end = uri.Size();
-                    for (usize i = uri.Size(); i > start; --i)
-                    {
-                        if (uri.Data()[i - 1] == u8'.')
-                        {
-                            end = i - 1;
-                            break;
-                        }
-                    }
-                    if (end > start)
-                    {
-                        base = uri.SubStr(start, end - start);
+                        start = i;
+                        break;
                     }
                 }
+                usize end = uri.Size();
+                for (usize i = uri.Size(); i > start; --i)
+                {
+                    if (uri.Data()[i - 1] == u8'.')
+                    {
+                        end = i - 1;
+                        break;
+                    }
+                }
+                if (end > start)
+                {
+                    base = uri.SubStr(start, end - start);
+                }
+            }
+            if (base.IsEmpty())
+            {
+                base = texture.name();
             }
             return ImportedAssetName(base, u8"tex", index);
         }

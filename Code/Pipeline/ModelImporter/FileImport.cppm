@@ -702,8 +702,14 @@ export namespace pipeline
                         ? foundation::image::ImageColorSpace::Linear // data maps (normal/MR/AO)
                         : foundation::image::ImageColorSpace::Srgb;  // color maps (albedo/emissive)
                 asset.generateMipmaps = true; // mips at cook (2026-08-12) - shimmer was the no-mips gap
+                // Provenance for the texture page: the model's image uri (display-only -
+                // asset names prefer the FILE STEM, but a review-dialog rename or an
+                // authored-name fallback can still diverge from the file).
+                asset.sourceHint = String(t.uri());
 
-                // Real names when the source has them (rules out slot mix-ups at a glance).
+                // Asset names prefer the FILE STEM (authored image names can lie about the
+                // file - the Poly Haven "*_rough"-named arm maps); embedded images fall
+                // back to the authored name.
                 const String texBase = ImportedTextureName(t, i);
                 if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Texture, texBase.AsView()))
                 {

@@ -64,6 +64,10 @@ export namespace pipeline{
         // to the policy table to pick the cooked rhi::TextureFormat; the runtime never sees them.
         texcomp::TextureUsage usage = texcomp::TextureUsage::Color;
         texcomp::CompressionChoice compression = texcomp::CompressionChoice::Default;
+        // Provenance, DISPLAY-ONLY: where an embedded fan-out texture came from (the model's
+        // image uri, e.g. "textures/board_arm_4k.jpg"). Never drives loading - the embedded
+        // vs file branch keys on fileName/embeddedWidth, and this must stay out of it.
+        String sourceHint;
 
         void Serialize(ISerializer& ar) override
         {
@@ -88,6 +92,10 @@ export namespace pipeline{
             foundation::core::Serialize(ar, "wrapW", wrapW);
             foundation::core::Serialize(ar, "generateMipmaps", generateMipmaps);
             foundation::core::Serialize(ar, "anisotropy", anisotropy);
+            if (ar.Version() >= 3) // v3: display-only provenance for embedded fan-out textures
+            {
+                foundation::core::Serialize(ar, "sourceHint", sourceHint);
+            }
         }
 
         // Profiles (Sedulous-derived samplers + the usage/colorSpace pair): each configures the

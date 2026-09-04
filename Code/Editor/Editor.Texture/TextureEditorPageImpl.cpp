@@ -394,6 +394,17 @@ namespace editor
             AddEditor(editor.Get(), [self, raw = editor.Get()]()
                       { raw->SetValue(static_cast<i32>(self->m_asset->compression)); });
         }
+        if (!m_asset->sourceHint.IsEmpty())
+        {
+            // Provenance for model fan-out textures: the asset NAME prefers the file stem,
+            // but a review rename or an authored-name fallback can diverge from the file -
+            // this row always tells the truth about where the pixels came from.
+            auto source = MakeRef<ui::toolkit::StringEditor>(
+                Allocator(), StringView(u8"Source"), m_asset->sourceHint.AsView(),
+                Function<void(StringView)>{}, StringView(u8"Content"));
+            AddEditor(source.Get(), [self, raw = source.Get()]()
+                      { raw->SetValue(self->m_asset->sourceHint.AsView()); });
+        }
         {
             // "Default" stops being opaque: the policy evaluated for the desktop profile (and
             // the mobile one when it differs). Read-only; recomputed after every edit.

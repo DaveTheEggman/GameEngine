@@ -1599,4 +1599,16 @@ TEST_CASE("model-import: nested-subfolder sidecars survive the DEFERRED write pa
     CHECK(FileExists(PathJoin(dir, u8"Sources/Fox.gltf").AsView()));
     CHECK(FileExists(PathJoin(dir, u8"Sources/Fox.bin").AsView()));
     CHECK(FileExists(PathJoin(dir, u8"Sources/textures/Texture.png").AsView()));
+
+    // Naming prefers the FILE STEM over the authored image name (this fixture's image is
+    // named "authored_name_lies" - the Poly Haven arm-as-"rough" shape), and the asset
+    // records its provenance uri for the texture page's Source row.
+    foundation::content::Instance* tex =
+        imported.Value()->OwningGroup().GetInstance(u8"Texture");
+    REQUIRE(tex != nullptr);
+    CHECK(imported.Value()->OwningGroup().GetInstance(u8"authored_name_lies") == nullptr);
+    RefPtr<ISerializable> texObject = tex->ReadObject();
+    auto* texAsset = Cast<pipeline::TextureAsset>(texObject.Get());
+    REQUIRE(texAsset != nullptr);
+    CHECK(texAsset->sourceHint == u8"textures/Texture.png");
 }
