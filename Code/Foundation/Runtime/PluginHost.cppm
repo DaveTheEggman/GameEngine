@@ -79,7 +79,10 @@ export namespace foundation::runtime
         // RECORDED registrations (the engine-verified half of teardown - a registry
         // entry or factory pointing into a closed library is a dangling read), then
         // close libraries (which may invalidate library-owned plugin objects).
-        void UnloadAll()
+        // closeLibraries=false is the HOT-RELOAD mode: the old modules stay mapped for
+        // the process lifetime (leak-on-purpose - never free pages under a pointer the
+        // teardown missed) and the rebuilt module loads from a fresh versioned copy.
+        void UnloadAll(bool closeLibraries = true)
         {
             for (core::usize i = m_entries.Size(); i-- > 0;)
             {
@@ -88,8 +91,12 @@ export namespace foundation::runtime
                     m_entries[i].plugin->OnUnload(*m_context);
                 }
                 ReverseRecorded(m_entries[i]);
+                if (!closeLibraries)
+                {
+                    m_entries[i].library.Detach();
+                }
             }
-            m_entries.Clear(); // DynamicLibrary dtors close the shared libraries
+            m_entries.Clear(); // DynamicLibrary dtors close the (non-detached) libraries
         }
 
     private:

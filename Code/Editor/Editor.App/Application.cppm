@@ -418,6 +418,13 @@ export namespace editor::app
         // The project's native game module, loaded against the EMBEDDED runtime context
         // for the project's lifetime (game-native-code.md N2; null = none/failed/static).
         UniquePtr<foundation::runtime::PluginHost> m_gamePlugins;
+        u32 m_nativeReloadCount = 0; // versions the hot-reload copies (N6)
+
+        // Hot reload (game-native-code.md N6): stop the run, scope-reversed unload
+        // (leaking the old mapping on purpose), load a FRESH VERSIONED COPY of the
+        // module (dlopen refcounts by path - reloading the same file returns the old
+        // mapping), OnLoad re-registers.
+        void ReloadNativeModule();
 
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         ui::toolkit::ToolkitThemeExtension m_toolkitTheme;

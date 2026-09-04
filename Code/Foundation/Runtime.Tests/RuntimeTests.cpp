@@ -439,6 +439,32 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
 
     host.UnloadAll();
     CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
+
+    // 5. The editor's hot-reload shape (N6): unload KEEPING the old mapping alive
+    //    (leak-on-purpose), then load a fresh versioned COPY - dlopen refcounts by
+    //    path, so only a new file yields a genuinely new module. Registrations land
+    //    in the freed slots.
+    {
+        auto again = host.Load(path);
+        REQUIRE(again.HasValue());
+        REQUIRE(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") != nullptr);
+        host.UnloadAll(/*closeLibraries*/ false); // old mapping stays; recording reversed
+        CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
+
+        auto original = ReadFile(path, DefaultAllocator());
+        REQUIRE(original.HasValue());
+        const StringView copyPath = u8".test-scratch/reload-copy-crossplugin.so";
+        (void)foundation::core::CreateDirectory(u8".test-scratch");
+        REQUIRE(WriteFile(copyPath, Span<const byte>{original.Value().Data(),
+                                                     original.Value().Size()})
+                    .IsOk());
+        auto reloaded = host.Load(copyPath);
+        REQUIRE(reloaded.HasValue());
+        CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") != nullptr);
+        CHECK(resolved() == 41); // the copy's OnLoad ran against the live host subsystem
+        host.UnloadAll();
+        CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
+    }
     ctx.RemoveSubsystem<crossprobe::HostProbeSubsystem>();
 }
 #endif // CROSS_PLUGIN_PATH

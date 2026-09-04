@@ -2545,6 +2545,82 @@ namespace editor::app
         m_context.SetStatus(message.AsView());
     }
 
+    void EditorApplication::ReloadNativeModule()
+    {
+        if (!m_project || m_project->Settings().nativeModule.IsEmpty())
+        {
+            m_context.Notify(editor::NoticeKind::Info,
+                             u8"No native module declared (Project Settings > Native module).");
+            return;
+        }
+        // Run bracket: a live game run executes plugin code - stop it before teardown.
+        if (m_context.StopGameRun)
+        {
+            m_context.StopGameRun();
+        }
+        // Scope-reversed unload; the OLD library stays mapped for the process lifetime
+        // (leak-on-purpose: never free pages under a pointer the teardown missed).
+        if (m_gamePlugins.Get() != nullptr)
+        {
+            m_gamePlugins->UnloadAll(/*closeLibraries*/ false);
+            m_gamePlugins = nullptr;
+        }
+
+        // Load a FRESH VERSIONED COPY: dlopen refcounts by path, so opening the original
+        // file again would hand back the old (leaked) mapping, not the rebuild.
+        const String src =
+            PathJoin(m_project->Directory(), m_project->Settings().nativeModule.AsView());
+        auto bytes = foundation::core::ReadFile(src.AsView(), m_editorAllocator);
+        if (!bytes.HasValue())
+        {
+            m_context.Notify(editor::NoticeKind::Error,
+                             u8"Native module not found - build it first (see Console).");
+            LOG_ERROR(u8"Editor", u8"native module reload: cannot read '{}'", src);
+            return;
+        }
+        const String hotDir = PathJoin(
+            m_project->Directory(),
+            Format(u8"{}/native-hot", engine::project::kProjectCacheDir).AsView());
+        (void)foundation::core::CreateDirectory(hotDir.AsView());
+        StringView base = m_project->Settings().nativeModule.AsView();
+        for (usize i = base.Size(); i > 0; --i)
+        {
+            if (base.Data()[i - 1] == '/' || base.Data()[i - 1] == '\\')
+            {
+                base = StringView(base.Data() + i, base.Size() - i);
+                break;
+            }
+        }
+        const String dst = Format(u8"{}/reload-{}-{}", hotDir, ++m_nativeReloadCount, base);
+        if (!foundation::core::WriteFile(dst.AsView(),
+                                         Span<const byte>{bytes.Value().Data(),
+                                                          bytes.Value().Size()})
+                 .IsOk())
+        {
+            m_context.Notify(editor::NoticeKind::Error,
+                             u8"Native module reload failed (see Console).");
+            LOG_ERROR(u8"Editor", u8"native module reload: cannot stage '{}'", dst);
+            return;
+        }
+
+        m_gamePlugins = MakeUnique<runtime::PluginHost>(m_editorAllocator, m_runtimeContext);
+        auto loaded = m_gamePlugins->Load(dst.AsView());
+        if (loaded.HasValue())
+        {
+            m_context.Notify(editor::NoticeKind::Success,
+                             u8"Native module reloaded.");
+            LOG_INFO(u8"Editor", u8"native game module reloaded ('{}', copy {})",
+                     loaded.Value()->Name(), static_cast<u64>(m_nativeReloadCount));
+        }
+        else
+        {
+            m_context.Notify(editor::NoticeKind::Error,
+                             u8"Native module reload failed to load (see Console).");
+            LOG_ERROR(u8"Editor", u8"native module reload: load failed for '{}'", dst);
+            m_gamePlugins = nullptr;
+        }
+    }
+
     void EditorApplication::CloseProject()
     {
         if (!m_project)
@@ -3072,6 +3148,8 @@ namespace editor::app
                                      dialog->Show(&m_uiHost->Context());
                                  }
                              });
+            project->AddItem(u8"Reload Native Module",
+                             [this]() { ReloadNativeModule(); });
             project->AddSeparator();
             project->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
             project->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });

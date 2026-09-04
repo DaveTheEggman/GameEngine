@@ -137,10 +137,18 @@ single artifact, works on every platform incl. web). Same source both ways.
   (remove-by-id - the P1 groundwork). PROVEN in the shared lane: the
   cross-boundary case now runs the full round-trip (load -> registered ->
   unload -> GONE from the registry -> reload -> re-registered + OnLoad
-  resolves the host subsystem again). Still open here: script-facade
-  registries (their bindings die with the per-run script contexts, so the
-  run bracket covers them - audit when dynamic script rebinding lands) and
-  the editor reload FLOW below.
+  resolves the host subsystem again). EDITOR RELOAD FLOW SHIPPED
+  (v1): Project > Reload Native Module - stops any game run
+  (StopGameRun), scope-reversed UnloadAll(closeLibraries=false) so the OLD
+  mapping stays alive for the process lifetime (leak-on-purpose:
+  DynamicLibrary::Detach - never free pages under a pointer teardown
+  missed), then loads a FRESH VERSIONED COPY from .cache/native-hot/
+  (dlopen refcounts by path; only a new file yields a new module), OnLoad
+  re-registers; toasts the outcome. The scene bracket is deliberately
+  ABSENT in v1: plugin scene-manager contributions do not exist yet, so no
+  plugin component data can live in editing scenes - the snapshot/restore
+  bracket lands WITH that seam. Still open: script-facade registries (die
+  with per-run script contexts; audit when dynamic rebinding lands).
 
   SAFETY - liveness guard before dlclose: verify the run is stopped and the
   module's types have no live instances; on ANY doubt, SKIP dlclose (leak
