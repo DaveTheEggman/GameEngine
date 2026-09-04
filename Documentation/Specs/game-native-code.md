@@ -50,9 +50,10 @@ single artifact, works on every platform incl. web). Same source both ways.
   continues (scripts still work). OnShutdown unloads the game FIRST, while
   Ctx() lives. Proven end to end: shared player + a scratch project
   declaring Runtime.CrossPlugin -> "native game module ... loaded
-  ('CrossPlugin')". REMAINING N2 TAIL: editor play-in-editor loads the
-  module at its embedded host seam; a project-settings editor row for the
-  field; a toast (console-only today).
+  ('CrossPlugin')". N2 COMPLETE: the editor half loads the
+  module against the embedded runtime context at project open (toast +
+  console on failure), and the Project Settings dialog carries the
+  free-text "Native module" row.
 - N3 - ship link (mechanism SHIPPED 2026-09-04; exporter integration
   remaining). SIMPLIFICATION over the original plan: nothing is generated.
   The engine build HOSTS the game - ENGINE_GAME_NATIVE_DIR (cache var) adds
