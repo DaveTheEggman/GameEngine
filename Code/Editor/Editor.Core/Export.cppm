@@ -548,6 +548,13 @@ export namespace editor
                                // pruned=false for a pack-everything (non-pruned) export.
     };
 
+    /// Build the project's native module for the DEV loop (game-native-code.md N4): a
+    /// persistent per-project SHARED-engine build (<project>/.cache/native-dev) over the
+    /// engine checkout, building just the game target - whose .so lands at the manifest's
+    /// nativeModule path (the Native/CMakeLists output-dir rule). Pair with the editor's
+    /// Reload Native Module action for the full in-editor loop. Blocking; run off-UI.
+    [[nodiscard]] Status BuildDevNativeModule(EditorProject& project);
+
     /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
     /// (ExportProject), then stage the template's player + sidecars and the preset's additionalFiles.
     /// The whole dist from one entry point - the CLI and the editor call this identically (the cook

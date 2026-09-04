@@ -7,3 +7,6 @@
 util_add_engine_library(NativeSample ALIAS Game::NativeSample)
 target_sources(NativeSample PRIVATE NativeSamplePlugin.cpp)
 target_link_libraries(NativeSample PRIVATE Foundation::Runtime Foundation::Core Foundation::Policy)
+# The dev .so lands HERE - exactly where the manifest's nativeModule points - so the
+# editor/player dlopen what was just built. Ship (static) archives are unaffected.
+set_target_properties(NativeSample PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

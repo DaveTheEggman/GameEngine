@@ -818,6 +818,78 @@ namespace editor
         }
     }
 
+    Status BuildDevNativeModule(EditorProject& project)
+    {
+        const StringView engineRoot =
+            StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_ENGINE_ROOT));
+        const StringView cmakePath =
+            StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CMAKE_PATH));
+        if (project.Settings().nativeModule.IsEmpty())
+        {
+            return Status{ErrorCode::NotFound};
+        }
+        if (!DirectoryExists(PathJoin(engineRoot, u8"Code").AsView()))
+        {
+            LOG_ERROR(u8"Export", u8"native dev build needs the engine checkout at '{}'",
+                      engineRoot);
+            return Status{ErrorCode::NotFound};
+        }
+        const String nativeDir = PathJoin(project.Directory(), u8"Native");
+        const String target =
+            detail::NativeTargetFromModulePath(project.Settings().nativeModule.AsView());
+        if (target.IsEmpty() || !DirectoryExists(nativeDir.AsView()))
+        {
+            return Status{ErrorCode::InvalidArgument};
+        }
+        const String suffix =
+            Format(u8"-Dev-{}", detail::ShipOutputSuffix(project.Settings().name.AsView())
+                                    .AsView()
+                                    .Data() + 6); // reuse the sanitizer, swap the prefix
+        const String devDir = PathJoin(
+            project.Directory(),
+            Format(u8"{}/native-dev", engine::project::kProjectCacheDir).AsView());
+
+        const String defCompiler =
+            Format(u8"-DCMAKE_CXX_COMPILER={}",
+                   StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CXX_COMPILER)));
+        const String defGameDir = Format(u8"-DENGINE_GAME_NATIVE_DIR={}", nativeDir);
+        const String defGameTarget = Format(u8"-DENGINE_GAME_NATIVE_TARGET={}", target);
+        const String defSuffix = Format(u8"-DBUILDSYSTEM_OUTPUT_SUFFIX={}", suffix);
+        const StringView cfgArgs[] = {u8"-S",
+                                      engineRoot,
+                                      u8"-B",
+                                      devDir.AsView(),
+                                      u8"-G",
+                                      u8"Ninja",
+                                      defCompiler.AsView(),
+                                      u8"-DCMAKE_BUILD_TYPE=Debug",
+                                      u8"-DENGINE_SHARED_LIBS=ON",
+                                      defGameDir.AsView(),
+                                      defGameTarget.AsView(),
+                                      defSuffix.AsView()};
+        const ProcessResult configured =
+            RunProcess(cmakePath, Span<const StringView>(cfgArgs, 12));
+        if (!configured.Ok())
+        {
+            LOG_ERROR(u8"Export", u8"native dev configure failed ({}):\n{}",
+                      configured.exitCode, configured.output);
+            return Status{ErrorCode::Internal};
+        }
+        const StringView buildArgs[] = {u8"--build", devDir.AsView(), u8"--target",
+                                        target.AsView(), u8"-j", u8"4"};
+        const ProcessResult built = RunProcess(cmakePath, Span<const StringView>(buildArgs, 6));
+        if (!built.Ok())
+        {
+            LOG_ERROR(u8"Export", u8"native dev build failed ({}) - tail:\n{}",
+                      built.exitCode, built.output);
+            return Status{ErrorCode::Internal};
+        }
+        // Success = the .so is at the manifest path (the Native/CMakeLists output-dir rule).
+        const String modulePath =
+            PathJoin(project.Directory(), project.Settings().nativeModule.AsView());
+        return FileExists(modulePath.AsView()) ? Status{} : Status{ErrorCode::NotFound};
+    }
+
     Status ExportOne(EditorProject& project, const ExportPreset& preset,
                      const TemplateRegistry& templates, BuilderRegistry& builders,
                      StringView outRoot, bool rebuild, ExportResult* outResult,

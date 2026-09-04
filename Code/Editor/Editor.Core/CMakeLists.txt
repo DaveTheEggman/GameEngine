@@ -34,6 +34,7 @@ target_sources(Editor.Core
         CookServiceImpl.cpp
         ThumbnailServiceImpl.cpp
         ContextImpl.cpp
+        ProjectScaffoldImpl.cpp
         CommandImpl.cpp
         ExportTemplateImpl.cpp
         ExportImpl.cpp

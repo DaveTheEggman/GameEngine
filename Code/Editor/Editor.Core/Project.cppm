@@ -260,4 +260,17 @@ export namespace editor
         UniquePtr<foundation::content::ContentDatabase> m_cookedDb;
     };
 
+    // --- Native-code scaffolding (game-native-code.md N4) --------------------------------
+
+    // A CMake-safe target name from the project name ("My Game 2!" -> "MyGame2";
+    // "Native" fallback when nothing survives).
+    [[nodiscard]] String NativeTargetNameFromProjectName(StringView projectName);
+
+    // "Add Native Code": generate <project>/Native (CMakeLists + <Target>Plugin.cpp -
+    // the NativeSample reference shape, parameterized), point the manifest's
+    // nativeModule at Native/lib<Target>.so, and save it. Fails with AlreadyExists
+    // when the project already declares a module or Native/ exists - never overwrites
+    // user code. Defined in ProjectScaffoldImpl.cpp.
+    [[nodiscard]] Status ScaffoldNativeModule(EditorProject& project);
+
 }

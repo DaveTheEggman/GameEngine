@@ -3148,6 +3148,79 @@ namespace editor::app
                                      dialog->Show(&m_uiHost->Context());
                                  }
                              });
+            project->AddItem(u8"Add Native Code...",
+                             [this]()
+                             {
+                                 if (!m_project)
+                                 {
+                                     return;
+                                 }
+                                 if (!m_project->Settings().nativeModule.IsEmpty())
+                                 {
+                                     m_context.Notify(editor::NoticeKind::Info,
+                                                      u8"This project already has native code "
+                                                      u8"(see Project Settings).");
+                                     return;
+                                 }
+                                 const Status scaffolded =
+                                     editor::ScaffoldNativeModule(*m_project);
+                                 if (scaffolded.IsOk())
+                                 {
+                                     m_context.Notify(
+                                         editor::NoticeKind::Success,
+                                         u8"Native code scaffolded in Native/ - use Project > "
+                                         u8"Build Native Module, then Reload.");
+                                     LOG_INFO(u8"Editor",
+                                              u8"native scaffold: Native/ created, manifest "
+                                              u8"nativeModule = '{}'",
+                                              m_project->Settings().nativeModule);
+                                 }
+                                 else if (scaffolded.Code() == ErrorCode::AlreadyExists)
+                                 {
+                                     m_context.Notify(editor::NoticeKind::Warning,
+                                                      u8"Native/ already exists - not touching "
+                                                      u8"it (set Project Settings > Native "
+                                                      u8"module manually).");
+                                 }
+                                 else
+                                 {
+                                     m_context.Notify(editor::NoticeKind::Error,
+                                                      u8"Native scaffold failed (see Console).");
+                                 }
+                             });
+            project->AddItem(u8"Build Native Module",
+                             [this]()
+                             {
+                                 if (!m_project || m_project->Settings().nativeModule.IsEmpty())
+                                 {
+                                     m_context.Notify(editor::NoticeKind::Info,
+                                                      u8"No native module declared - Project > "
+                                                      u8"Add Native Code... first.");
+                                     return;
+                                 }
+                                 editor::EditorProject* project = m_project.Get();
+                                 m_jobService.Submit(
+                                     u8"Native Build",
+                                     [this, project](editor::JobContext&) -> Status
+                                     {
+                                         const Status built =
+                                             editor::BuildDevNativeModule(*project);
+                                         if (built.IsOk())
+                                         {
+                                             m_context.Notify(
+                                                 editor::NoticeKind::Success,
+                                                 u8"Native module built - Project > Reload "
+                                                 u8"Native Module to pick it up.");
+                                         }
+                                         else
+                                         {
+                                             m_context.Notify(
+                                                 editor::NoticeKind::Error,
+                                                 u8"Native build failed (see Console).");
+                                         }
+                                         return built;
+                                     });
+                             });
             project->AddItem(u8"Reload Native Module",
                              [this]() { ReloadNativeModule(); });
             project->AddSeparator();

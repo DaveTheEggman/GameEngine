@@ -2095,3 +2095,33 @@ TEST_CASE("export: the NativeSample fixture pins the native-game conventions")
     CHECK(declaresTarget);
     CHECK(fs.Exists(u8"Native/NativeSamplePlugin.cpp"));
 }
+
+TEST_CASE("export: Add Native Code scaffolds the reference shape and wires the manifest")
+{
+    const StringView dir = u8"scaffold-proj"; // harness cwd = .test-scratch
+    NukeTree(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"My Scaffold 7!").IsOk());
+    auto project = editor::EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(project);
+
+    CHECK(editor::NativeTargetNameFromProjectName(u8"My Scaffold 7!") == u8"MyScaffold7");
+    CHECK(editor::NativeTargetNameFromProjectName(u8"123!") == u8"Native"); // leading digits drop
+
+    REQUIRE(editor::ScaffoldNativeModule(*project).IsOk());
+    CHECK(project->Settings().nativeModule == u8"Native/libMyScaffold7.so");
+
+    // The manifest persisted; the generated files exist and follow the fixture shape.
+    foundation::vfs::NativeFileSystem fs(dir, DefaultAllocator());
+    engine::project::ProjectSettings reread;
+    REQUIRE(engine::project::LoadProjectSettings(fs, reread).IsOk());
+    CHECK(reread.nativeModule == u8"Native/libMyScaffold7.so");
+    CHECK(fs.Exists(u8"Native/CMakeLists.txt"));
+    CHECK(fs.Exists(u8"Native/MyScaffold7Plugin.cpp"));
+    CHECK(editor::detail::NativeTargetFromModulePath(reread.nativeModule.AsView()) ==
+          u8"MyScaffold7");
+
+    // Never overwrites: a second call refuses (module declared / dir exists).
+    CHECK(editor::ScaffoldNativeModule(*project).Code() == ErrorCode::AlreadyExists);
+
+    NukeTree(dir);
+}

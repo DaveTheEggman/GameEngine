@@ -83,9 +83,24 @@ single artifact, works on every platform incl. web). Same source both ways.
   quarter of the tree). Tests: target-derivation + suffix helpers.
   Remaining: a committed fixture project for CI-able E2E; editor-side
   export UI needs no change (same ExportOne).
-- N4 - authoring. New-project wizard/template for a native game module
-  (CMakeLists via util_add_engine_library, plugin skeleton, facade
-  registration example + tests). Docs.
+- N4 - authoring (SHIPPED 2026-09-04 as GRADUATION, not a new-project
+  checkbox - projects start scripts-only and graduate, matching the
+  Main.cpp seam comment). Three Project-menu actions complete the loop:
+  * Add Native Code... - editor::ScaffoldNativeModule generates the
+    NativeSample reference shape parameterized by the project name
+    (NativeTargetNameFromProjectName sanitizes; the generated CMakeLists
+    sets LIBRARY_OUTPUT_DIRECTORY so the dev .so lands AT the manifest
+    path), wires nativeModule, saves the manifest; refuses (AlreadyExists)
+    when Native/ exists or a module is declared - never overwrites.
+  * Build Native Module - editor::BuildDevNativeModule (background job):
+    a persistent per-project SHARED-engine build (.cache/native-dev,
+    -Dev-<name> Bin suffix, pinned compiler) building just the game
+    target; success = the .so at the manifest path.
+  * Reload Native Module - the N6 flow.
+  PROVEN: scaffold tests (shape, manifest wiring, sanitization, refusal)
+  + the GENERATED code compile-proven in the shared lane with its .so
+  landing at the manifest path. The NativeSample fixture carries the same
+  output-dir rule so fixture and generator stay one shape.
 - N5 - platforms. Windows (waits on the MSVC modules/dllexport prototype
   for the DEV loop; the SHIP path is static and needs no export macros);
   web (SHIP-only by design - the game module compiles into the wasm player
