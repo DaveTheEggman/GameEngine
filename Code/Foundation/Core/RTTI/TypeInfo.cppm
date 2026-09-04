@@ -81,20 +81,46 @@ export namespace foundation::core
         return info;
     }
 
-    // Lazily-created TypeInfo for any value type. Identity is the returned
-    // object's address (process-stable); used by Variant/Instance for type
-    // checks. Object-derived types should prefer their StaticType() instead.
-    // Value types have no stable name or hashed id here - only the address identity above.
+    namespace detail
+    {
+        // FNV-1a over the compiler's signature string for this instantiation: distinct
+        // per T, and - unlike an address - identical in every translation unit AND every
+        // shared library produced by one toolchain. This is the RUNTIME identity for
+        // unregistered value types; it is never serialized (disk formats go through
+        // authored names). See Documentation/Specs/shared-libraries.md.
+        template <typename T>
+        [[nodiscard]] consteval TypeId SignatureTypeId() noexcept
+        {
+#if COMPILER_MSVC
+            const char* s = __FUNCSIG__;
+#else
+            const char* s = __PRETTY_FUNCTION__;
+#endif
+            u64 hash = 14695981039346656037ull;
+            for (; *s != '\0'; ++s)
+            {
+                hash = (hash ^ static_cast<u64>(static_cast<unsigned char>(*s))) *
+                       1099511628211ull;
+            }
+            return hash == 0 ? 1 : hash;
+        }
+    }
+
+    // Lazily-created TypeInfo for any value type not covered by REFLECT_VALUE /
+    // REFLECT_ENUM; used by Variant/Instance for type checks. Object-derived types
+    // should prefer their StaticType() instead. The id is the compile-time signature
+    // hash above, so identity survives shared-library boundaries where the old
+    // address-derived id (and this static's address itself) do not. Registration
+    // (REFLECT_VALUE/EnumBuilder) still overwrites id + name with the authored ones.
     template <typename T>
     [[nodiscard]] const TypeInfo& TypeOf() noexcept
     {
-        static TypeInfo info = MakeTypeInfo<T>("<value>", "", nullptr);
-        static const bool initialized = []() noexcept
+        static TypeInfo info = []() noexcept
         {
-            info.id = static_cast<TypeId>(reinterpret_cast<uptr>(&info));
-            return true;
+            TypeInfo t = MakeTypeInfo<T>("<value>", "", nullptr);
+            t.id = detail::SignatureTypeId<T>();
+            return t;
         }();
-        (void)initialized;
         return info;
     }
 }

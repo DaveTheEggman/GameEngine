@@ -1244,3 +1244,59 @@ TEST_CASE("rtti: legacy subsystem-flavored 'draconic::<lib>' asset identities re
     // Misses stay misses.
     CHECK(registry.FindByName("draconic::physics", "NoSuchAsset") == nullptr);
 }
+
+// --- Shared-library identity (P1): TypeId is THE identity, pointers are a fast
+// --- path. A shared library gets its own copy of every vague-linkage TypeInfo
+// --- static, so these tests simulate the duplicate: same ids, different
+// --- addresses - every check must behave exactly as it does on the original.
+TEST_CASE("rtti-shared: value-type ids are signature-derived, distinct, and name-independent")
+{
+    // Distinct types get distinct ids; repeated calls are stable.
+    const TypeInfo& f = TypeOf<f32>();
+    const TypeInfo& i = TypeOf<i32>();
+    const TypeInfo& u = TypeOf<u32>();
+    CHECK(f.id != 0u);
+    CHECK(f.id != i.id);
+    CHECK(i.id != u.id);
+    CHECK(TypeOf<f32>().id == f.id);
+    // The id must NOT be the storage address (the pre-shared-libs identity).
+    CHECK(f.id != static_cast<TypeId>(reinterpret_cast<uptr>(&f)));
+}
+
+TEST_CASE("rtti-shared: IsDerivedFrom matches a duplicated TypeInfo chain by id")
+{
+    // Simulate another library's copies: byte-wise clones at new addresses.
+    TypeInfo dupAnimal = Animal::StaticType();
+    TypeInfo dupDog = Dog::StaticType();
+    dupDog.base = &dupAnimal; // the clone's chain points into the clone library
+
+    // The original hierarchy resolves against the duplicate metadata...
+    CHECK(IsDerivedFrom(&Dog::StaticType(), &dupAnimal));
+    CHECK(IsDerivedFrom(&dupDog, &Animal::StaticType()));
+    // ...and unrelated types still do not.
+    CHECK(!IsDerivedFrom(&Cat::StaticType(), &dupDog));
+    CHECK(!IsDerivedFrom(&dupDog, &Cat::StaticType()));
+    CHECK(!IsDerivedFrom(&dupDog, nullptr));
+
+    // IsA through an object whose GetType() came from "the other library".
+    Dog dog;
+    CHECK(IsDerivedFrom(dog.GetType(), &dupAnimal));
+}
+
+TEST_CASE("rtti-shared: Instance and Variant checks hold across duplicated metadata")
+{
+    // Instance built against a duplicated TypeInfo (different address, same id).
+    TypeInfo dupF32 = TypeOf<f32>();
+    f32 value = 4.0f;
+    const Instance other{&value, &dupF32};
+    CHECK(other.TryGet<f32>() == &value);
+    CHECK(other.TryGet<i32>() == nullptr);
+
+    // Variant's vtable fast path still works in-library...
+    Variant v = Variant::From(7);
+    CHECK(v.Is<i32>());
+    CHECK(!v.Is<f32>());
+    // ...and the id fallback agrees with the vtable-reported TypeInfo.
+    REQUIRE(v.Type() != nullptr);
+    CHECK(v.Type()->id == TypeOf<i32>().id);
+}

@@ -42,12 +42,20 @@ export namespace foundation::core
 
     // =======================================================================
     // Cast / IsA - replace dynamic_cast by walking the single-inheritance chain.
+    // Comparison is by TypeId, not pointer: each shared library holds its own copy
+    // of vague-linkage TypeInfo statics, so addresses diverge across boundaries
+    // while ids do not (shared-libraries.md identity rule). The chain pointers
+    // stay - they are internally consistent within whichever library built them.
     // =======================================================================
     [[nodiscard]] inline bool IsDerivedFrom(const TypeInfo* type, const TypeInfo* base) noexcept
     {
+        if (base == nullptr)
+        {
+            return false;
+        }
         for (const TypeInfo* t = type; t != nullptr; t = t->base)
         {
-            if (t == base)
+            if (t == base || t->id == base->id)
             {
                 return true;
             }

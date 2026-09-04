@@ -38,7 +38,12 @@ export namespace foundation::core
         template <typename T>
         [[nodiscard]] T* TryGet() const noexcept
         {
-            return (m_type == &TypeOf<T>()) ? static_cast<T*>(m_ptr) : nullptr;
+            // Pointer equality is the same-library fast path; the id compare makes the
+            // check hold across shared-library boundaries (per-library TypeOf statics).
+            const TypeInfo* want = &TypeOf<T>();
+            return (m_type == want || (m_type != nullptr && m_type->id == want->id))
+                       ? static_cast<T*>(m_ptr)
+                       : nullptr;
         }
 
     private:

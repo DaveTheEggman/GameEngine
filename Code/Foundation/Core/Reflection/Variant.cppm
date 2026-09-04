@@ -415,7 +415,20 @@ export namespace foundation::core
         template <typename T>
         [[nodiscard]] bool Is() const noexcept
         {
-            return m_vtable == &detail::kVariantVTable<T>;
+            // Vtable-address equality is the same-library fast path; kVariantVTable<T>
+            // is an inline variable, so each shared library holds its own copy. The
+            // TypeId compare (via the vtable's typeInfo) makes Is<T> hold across
+            // library boundaries (shared-libraries.md identity rule).
+            if (m_vtable == &detail::kVariantVTable<T>)
+            {
+                return true;
+            }
+            if (m_vtable == nullptr)
+            {
+                return false;
+            }
+            const TypeInfo* have = m_vtable->typeInfo();
+            return have != nullptr && have->id == TypeOf<T>().id;
         }
 
         template <typename T>
