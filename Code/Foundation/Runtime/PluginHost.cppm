@@ -39,8 +39,9 @@ export namespace foundation::runtime
             {
                 return nullptr;
             }
-            plugin->OnLoad(*m_context);
-            m_entries.PushBack(Entry{plugin, core::DynamicLibrary{}});
+            Entry entry{plugin, core::DynamicLibrary{}, {}, {}};
+            RecordedOnLoad(entry);
+            m_entries.PushBack(core::Move(entry));
             return plugin;
         }
 
@@ -66,14 +67,17 @@ export namespace foundation::runtime
                 return core::Err(core::ErrorCode::Internal);
             }
 
-            plugin->OnLoad(*m_context);
-            m_entries.PushBack(Entry{plugin, core::Move(library)});
+            Entry entry{plugin, core::Move(library), {}, {}};
+            RecordedOnLoad(entry);
+            m_entries.PushBack(core::Move(entry));
             return plugin;
         }
 
         [[nodiscard]] core::usize Count() const noexcept { return m_entries.Size(); }
 
-        // Unloads everything in reverse load order: OnUnload each plugin, then
+        // Unloads everything in reverse load order: OnUnload each plugin, reverse its
+        // RECORDED registrations (the engine-verified half of teardown - a registry
+        // entry or factory pointing into a closed library is a dangling read), then
         // close libraries (which may invalidate library-owned plugin objects).
         void UnloadAll()
         {
@@ -83,6 +87,7 @@ export namespace foundation::runtime
                 {
                     m_entries[i].plugin->OnUnload(*m_context);
                 }
+                ReverseRecorded(m_entries[i]);
             }
             m_entries.Clear(); // DynamicLibrary dtors close the shared libraries
         }
@@ -92,7 +97,49 @@ export namespace foundation::runtime
         {
             IRuntimePlugin* plugin;
             core::DynamicLibrary library;
+            // Everything OnLoad registered, recorded by the ambient observers below -
+            // reversed on unload so the plugin never hand-mirrors its registrations
+            // (game-native-code.md N6 RegistrationScope).
+            core::Array<core::TypeId> registeredTypes;
+            core::Array<core::TypeId> registeredSerializables;
         };
+
+        // The RegistrationScope: arm ambient observers on the global registries for the
+        // duration of OnLoad. Observers fire only on REAL inserts, so a type another
+        // party already owns is never recorded (and never torn down by this plugin).
+        void RecordedOnLoad(Entry& entry)
+        {
+            struct Capture
+            {
+                core::Array<core::TypeId>* types;
+                core::Array<core::TypeId>* serializables;
+            } capture{&entry.registeredTypes, &entry.registeredSerializables};
+            core::GlobalTypeRegistry().SetRegistrationObserver(
+                [](void* ctx, core::TypeId id)
+                { static_cast<Capture*>(ctx)->types->PushBack(id); },
+                &capture);
+            core::GlobalSerializableRegistry().SetRegistrationObserver(
+                [](void* ctx, core::TypeId id)
+                { static_cast<Capture*>(ctx)->serializables->PushBack(id); },
+                &capture);
+            entry.plugin->OnLoad(*m_context);
+            core::GlobalTypeRegistry().SetRegistrationObserver(nullptr, nullptr);
+            core::GlobalSerializableRegistry().SetRegistrationObserver(nullptr, nullptr);
+        }
+
+        void ReverseRecorded(Entry& entry)
+        {
+            for (core::usize i = entry.registeredSerializables.Size(); i-- > 0;)
+            {
+                core::GlobalSerializableRegistry().Unregister(entry.registeredSerializables[i]);
+            }
+            for (core::usize i = entry.registeredTypes.Size(); i-- > 0;)
+            {
+                core::GlobalTypeRegistry().Unregister(entry.registeredTypes[i]);
+            }
+            entry.registeredTypes.Clear();
+            entry.registeredSerializables.Clear();
+        }
 
         Context* m_context;
         core::Array<Entry> m_entries;

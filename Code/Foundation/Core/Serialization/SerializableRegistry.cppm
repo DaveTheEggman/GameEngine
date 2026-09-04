@@ -33,7 +33,25 @@ export namespace foundation::core
     public:
         void Register(TypeId id, SerializableFactory factory)
         {
+            const bool inserted = m_factories.Find(id) == nullptr;
             m_factories.InsertOrAssign(id, factory);
+            if (inserted && m_observer != nullptr)
+            {
+                m_observer(m_observerContext, id); // fires only on a REAL insert
+            }
+        }
+
+        // Remove a factory (hot reload: a plugin's recorded registrations reverse before
+        // its library closes - a factory pointer into an unloaded module is a dangling
+        // call). No-op for unknown ids; the rebuilt module re-registers into the slot.
+        void Unregister(TypeId id) { m_factories.Remove(id); }
+
+        // Registration observer (one at a time) - the PluginHost recording hook; see
+        // TypeRegistry::SetRegistrationObserver for the contract.
+        void SetRegistrationObserver(void (*observer)(void*, TypeId), void* context) noexcept
+        {
+            m_observer = observer;
+            m_observerContext = context;
         }
 
         // Default-builds the ISerializable for `id`, or null if unregistered.
@@ -47,6 +65,8 @@ export namespace foundation::core
 
     private:
         HashMap<TypeId, SerializableFactory> m_factories;
+        void (*m_observer)(void*, TypeId) = nullptr;
+        void* m_observerContext = nullptr;
     };
 
     [[nodiscard]] SerializableRegistry& GlobalSerializableRegistry() noexcept

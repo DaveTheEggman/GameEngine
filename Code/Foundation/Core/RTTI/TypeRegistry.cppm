@@ -65,6 +65,43 @@ export namespace foundation::core
             {
                 m_domains.InsertOrAssign(info.id, domain);
             }
+            if (m_observer != nullptr)
+            {
+                m_observer(m_observerContext, info.id); // fires only on a REAL insert
+            }
+        }
+
+        // Remove a type (hot reload: a plugin's RegistrationScope reverses what it
+        // recorded before its library closes - a registry entry pointing into an
+        // unloaded module is a dangling read). No-op for unknown ids. A later
+        // Register with the same id (the rebuilt module) takes the freed slot.
+        void Unregister(TypeId id)
+        {
+            if (!m_byId.Contains(id))
+            {
+                return;
+            }
+            m_byId.Remove(id);
+            m_domains.Remove(id);
+            for (usize i = 0; i < m_all.Size(); ++i)
+            {
+                if (m_all[i]->id == id)
+                {
+                    m_all.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
+        // Registration observer (one at a time): PluginHost records what a plugin's
+        // OnLoad registers so unload can reverse it exactly - the plugin never
+        // hand-mirrors its registrations. Fires only on REAL inserts (a duplicate
+        // Register is a no-op and stays owned by the first registrant).
+        void SetRegistrationObserver(void (*observer)(void*, TypeId),
+                                     void* context) noexcept
+        {
+            m_observer = observer;
+            m_observerContext = context;
         }
 
         // The domain `id` was registered under; unknown ids (and unregistered types)
@@ -221,6 +258,8 @@ export namespace foundation::core
 
     private:
         HashMap<TypeId, const TypeInfo*> m_byId;
+        void (*m_observer)(void*, TypeId) = nullptr;
+        void* m_observerContext = nullptr;
         Array<const TypeInfo*> m_all;
         HashMap<TypeId, TypeDomain> m_domains; // sparse: only non-Runtime entries
     };

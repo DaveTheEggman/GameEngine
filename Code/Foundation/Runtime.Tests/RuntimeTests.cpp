@@ -425,7 +425,20 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
     REQUIRE(found != nullptr);
     CHECK(found->id == crossprobe::ProbeObject::StaticType().id);
 
+    // 4. Unload reverses the RECORDED registrations (the N6 RegistrationScope): the
+    //    registry entry pointing into the closed library is gone...
     host.UnloadAll();
+    CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
+
+    //    ...and a reload (the rebuilt module in a real flow; the same one here)
+    //    re-registers into the freed slot.
+    auto reloaded = host.Load(path);
+    REQUIRE(reloaded.HasValue());
+    CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") != nullptr);
+    CHECK(resolved() == 41); // OnLoad ran again against the live host subsystem
+
+    host.UnloadAll();
+    CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") == nullptr);
     ctx.RemoveSubsystem<crossprobe::HostProbeSubsystem>();
 }
 #endif // CROSS_PLUGIN_PATH

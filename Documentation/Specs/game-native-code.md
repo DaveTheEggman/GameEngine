@@ -126,12 +126,21 @@ single artifact, works on every platform incl. web). Same source both ways.
   pointers into component storage across the reload are already illegal
   (resolve-per-use rule; pools swap-remove even without reloads).
 
-  MECHANISM - RegistrationScope: OnLoad registers through a recording scope
-  owned by PluginHost (type ids, factory keys, facade names); unload
-  REVERSES the recording automatically instead of trusting hand-written
-  OnUnload symmetry. Prereq: Unregister APIs on TypeRegistry /
-  SerializableRegistry / script registries - cheap and safe now that maps
-  key on TypeId (remove by id; the P1 groundwork pays off again).
+  MECHANISM - RegistrationScope (SHIPPED 2026-09-04 for the type +
+  serializable registries): PluginHost arms AMBIENT registration observers
+  for the duration of OnLoad - the plugin registers through the normal
+  global calls, everything actually INSERTED is recorded per entry, and
+  UnloadAll reverses the recording (reverse order) after OnUnload, before
+  dlclose. Observers fire only on real inserts, so a type another party
+  already owns is never recorded or torn down. TypeRegistry +
+  SerializableRegistry gained Unregister + SetRegistrationObserver
+  (remove-by-id - the P1 groundwork). PROVEN in the shared lane: the
+  cross-boundary case now runs the full round-trip (load -> registered ->
+  unload -> GONE from the registry -> reload -> re-registered + OnLoad
+  resolves the host subsystem again). Still open here: script-facade
+  registries (their bindings die with the per-run script contexts, so the
+  run bracket covers them - audit when dynamic script rebinding lands) and
+  the editor reload FLOW below.
 
   SAFETY - liveness guard before dlclose: verify the run is stopped and the
   module's types have no live instances; on ANY doubt, SKIP dlclose (leak

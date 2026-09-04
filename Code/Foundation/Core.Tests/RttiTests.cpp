@@ -1314,3 +1314,40 @@ TEST_CASE("rtti-shared: Canonical resolves a duplicated TypeInfo to the register
     const TypeInfo local = MakeTypeInfo<int>("NeverRegistered", "rtti::test", nullptr);
     CHECK(&GlobalTypeRegistry().Canonical(local) == &local);
 }
+
+TEST_CASE("rtti-shared: Unregister frees the id slot and a re-register takes it")
+{
+    // A private registry (the global one is shared test state).
+    TypeRegistry registry;
+    const TypeInfo infoA = MakeTypeInfo<int>("ReloadProbe", "rtti::test", nullptr);
+    TypeInfo infoB = infoA; // "the rebuilt module's copy": same id, new address
+
+    registry.Register(infoA);
+    REQUIRE(registry.FindById(infoA.id) == &infoA);
+
+    registry.Unregister(infoA.id);
+    CHECK(registry.FindById(infoA.id) == nullptr);
+    CHECK(registry.All().Size() == 0u);
+    registry.Unregister(infoA.id); // idempotent
+
+    registry.Register(infoB);
+    CHECK(registry.FindById(infoA.id) == &infoB); // the freed slot re-registers
+}
+
+TEST_CASE("rtti-shared: the registration observer fires only on real inserts")
+{
+    TypeRegistry registry;
+    const TypeInfo info = MakeTypeInfo<int>("ObserverProbe", "rtti::test", nullptr);
+
+    Array<TypeId> recorded;
+    registry.SetRegistrationObserver(
+        [](void* ctx, TypeId id) { static_cast<Array<TypeId>*>(ctx)->PushBack(id); },
+        &recorded);
+    registry.Register(info);
+    registry.Register(info); // duplicate: no-op, NOT recorded (owned by the first registrant)
+    registry.SetRegistrationObserver(nullptr, nullptr);
+    registry.Register(info); // observer cleared: nothing recorded either way
+
+    REQUIRE(recorded.Size() == 1u);
+    CHECK(recorded[0] == info.id);
+}
