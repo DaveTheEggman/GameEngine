@@ -66,11 +66,26 @@ PSOut main(float4 pos : SV_Position, float2 uv : TEXCOORD0) {
 
             float2 histFull = pc.VpMin + histLoc * pc.VpSize;
             float4 hist    = HistoryTex.SampleLevel(LinearSamp, histFull, 0);
+            // Self-heal: a NaN that ever reaches the ping-pong history would otherwise
+            // live forever (lerp with NaN is NaN). No isnan: naga cannot translate
+            // OpIsNan (WGSL removed isNan) - NaN fails hist == hist instead
+            // (select = OpSelect, naga-safe); clamp's min/max eat infinities.
+            hist.rgb = select(hist.rgb == hist.rgb, clamp(hist.rgb, 0.0, 65504.0),
+                              float3(0.0, 0.0, 0.0));
             float3 rawHistY = RGBToYCoCg(hist.rgb);
-            float3 histY   = ClipToAABB(rawHistY, boxMin, boxMax);
             float3 curY    = RGBToYCoCg(curG.rgb);
-            float  ghost = saturate(1.0 - abs(rawHistY.x - curY.x) * pc.GhostReject);
+            // Ghost-reject ONLY when HISTORY is the bright outlier (a trailing glow after
+            // light moved away). A bright CURRENT outlier is precisely what accumulation
+            // must average away - dropping history on it was the firefly FLASH path.
+            float  ghost = saturate(1.0 - max(rawHistY.x - curY.x, 0.0) * pc.GhostReject);
             float  motionMag = saturate(length(vel) * pc.MotionScale);
+            // Variance-clip only under motion / ghost suspicion. When the camera is still
+            // the clip is the OTHER flash path: a blurred firefly elevates its whole 3x3
+            // neighborhood, so the box sits at the blob and drags trusted history up into
+            // it regardless of blend weight. Still + trusted history = raw accumulation;
+            // the estimator variance then dies at blend^n as intended.
+            float  clipStrength = saturate(motionMag + (1.0 - ghost));
+            float3 histY = lerp(rawHistY, ClipToAABB(rawHistY, boxMin, boxMax), clipStrength);
             float  blend = pc.BlendFactor * (1.0 - 0.5 * motionMag) * ghost;
             accum = float4(max(YCoCgToRGB(lerp(curY, histY, blend)), 0.0), lerp(curG.a, hist.a, blend));
         }

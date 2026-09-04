@@ -8,7 +8,10 @@
 // nothing - the ambient/IBL already in the HDR stands in for off-screen light.
 
 #include "push_constant.hlsli"
-Texture2D<float4> SceneTex  : register(t0, space0);   // lit HDR (the bounce source)
+Texture2D<float4> SceneTex  : register(t0, space0);   // PREFILTERED lit HDR (quarter-res box
+                                                      // average, ssgi_down) - every gather tap
+                                                      // is a ~16-pixel mean, so one blown-out
+                                                      // texel cannot spike a low-ray estimate
 Texture2D         DepthTex  : register(t1, space0);
 Texture2D         NormalTex : register(t2, space0);   // octahedral view-space normal
 SamplerState      PointSamp : register(s0, space0);   // depth / reconstruction (exact)
@@ -27,6 +30,9 @@ struct SsgiPush {
     int    RayCount;              // hemisphere rays per pixel (1..4)
     float  YSign;                 // scene-NDC Y sign: -1 Vulkan (neg viewport), +1 Y-flip targets
     uint   FrameIndex;            // rotates the noise so temporal accumulation converges
+    float  MaxRadiance;           // per-hit gather clamp (firefly suppression: a sun-lit or
+                                  // specular hit would otherwise spike a 1-4 ray estimate white)
+    float  _pad0;
 };
 PUSH_CONSTANT(SsgiPush, pc, space1);
 
@@ -100,8 +106,29 @@ float3 MarchRay(float3 P, float3 D, float2 luv0start, float iz0, float jit, out 
         if (1.0 / lerp(iz0, iz1, m) - mSurf > 0.0) { b = m; } else { a = m; }
     }
     float2 hitLocal = lerp(luv0, luv1, b);
+    // The refine walks toward the surface CROSSING, not the surface: at silhouette edges it
+    // can land on a sky texel next to the geometry - gathering bright sky as "bounce" gives
+    // persistent jittering white speckle no temporal filter can fix. Reject non-surface hits.
+    float hitDepth = DepthTex.SampleLevel(PointSamp, LocalToFull(hitLocal), 0).r;
+    if (hitDepth >= 1.0) { return float3(0.0, 0.0, 0.0); }
+    // Distance falloff to ZERO at the gather radius (Godot SSIL's obscurance falloff):
+    // the thickness band can accept a refined hit whose actual surface is far past the
+    // ray - a bright far-field surface must attenuate out, not spike.
+    float3 hitVS = ViewPos(hitLocal, hitDepth);
+    float3 hitDelta = hitVS - P;
+    float  falloff = saturate(1.0 - dot(hitDelta, hitDelta) / (pc.Radius * pc.Radius));
+    if (falloff <= 0.0) { return float3(0.0, 0.0, 0.0); }
     hitOut = 1.0;
-    return SceneTex.SampleLevel(LinearSamp, LocalToFull(hitLocal), 0).rgb;
+    // Firefly clamp: one bright hit (sun-lit wall, specular hotspot) must not spike the
+    // whole pixel's low-ray-count estimate - the resolve's ghost-reject would then KEEP
+    // the spike (a large history delta drops the history). Clamp preserves hue.
+    // The prefiltered source is sanitized + pre-averaged at ssgi_down; the clamp stays as
+    // the belt on top of those suspenders.
+    float3 radiance = SceneTex.SampleLevel(LinearSamp, LocalToFull(hitLocal), 0).rgb;
+    radiance = clamp(radiance, 0.0, 65504.0);
+    float  m = max(radiance.r, max(radiance.g, radiance.b));
+    if (m > pc.MaxRadiance) { radiance *= pc.MaxRadiance / m; }
+    return radiance * falloff;
 }
 
 // Trace outputs the GI buffer (rgb = one-bounce radiance estimate, a = hit fraction). The
@@ -140,9 +167,16 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
 
         float hit;
         float jit = frac(rnd.x + rnd.y + float(rI) * 0.3819660113);
-        gi += MarchRay(P, D, luv, iz0, jit, hit);
+        // Reinhard-weighted average (Godot SSIL / Karis): compress each tap by its own
+        // luma BEFORE averaging, invert after - a luma-100 hit then contributes ~0.99,
+        // barely more than a luma-1 hit. At 1-4 rays this kills firefly variance harder
+        // than any downstream filter can.
+        float3 r = MarchRay(P, D, luv, iz0, jit, hit);
+        gi += r / (1.0 + dot(r, float3(0.299, 0.587, 0.114)));
         hits += hit;
     }
     float inv = 1.0 / float(rays);
-    return float4(gi * inv, hits * inv);
+    float3 mean = gi * inv;
+    mean /= max(1.0 - dot(mean, float3(0.299, 0.587, 0.114)), 0.05);
+    return float4(mean, hits * inv);
 }

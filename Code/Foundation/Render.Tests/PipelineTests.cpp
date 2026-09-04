@@ -1046,18 +1046,24 @@ TEST_CASE("ssgi: enabling the per-view flag declares trace + resolve; the chain 
         frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128,
                       128);
         frame.End();
+        CHECK(hasPass(u8"ssgi.down"));
         CHECK(hasPass(u8"ssgi.trace"));
+        CHECK(hasPass(u8"ssgi.blur"));
         CHECK(hasPass(u8"ssgi.resolve"));
 
         Array<DebugResourceInfo> rows;
         frame.CollectDebugResources(rows);
-        bool sawRaw = false, sawScene = false;
+        bool sawQuarter = false, sawRaw = false, sawFiltered = false, sawScene = false;
         for (const DebugResourceInfo& row : rows)
         {
+            sawQuarter = sawQuarter || row.name == u8"ssgi.scene.quarter";
             sawRaw = sawRaw || row.name == u8"ssgi.raw";
+            sawFiltered = sawFiltered || row.name == u8"ssgi.filtered";
             sawScene = sawScene || row.name == u8"ssgi.scene";
         }
+        CHECK(sawQuarter);
         CHECK(sawRaw);
+        CHECK(sawFiltered);
         CHECK(sawScene);
     }
 

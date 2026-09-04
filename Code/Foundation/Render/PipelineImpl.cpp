@@ -553,6 +553,7 @@ namespace foundation::render
     {
         m_encoder = &encoder;
         m_frameIndex = frameIndex;
+        ++m_noiseFrame;
         m_views.Begin();
         // Motion vectors are only consumed by TAA + SSR-temporal; when neither is active, the forward skips
         // the per-instance prev-world lookup (a full-scene hashmap rebuild/frame at stress scale).
@@ -1832,7 +1833,7 @@ namespace foundation::render
                             m_graph, sceneHdr, postDepth, postNormal, postVelocity, v->Width(),
                             v->Height(), v->ViewportX(), v->ViewportY(), v->ViewportWidth(),
                             v->ViewportHeight(), Inverse(v->Camera().projection),
-                            v->Camera().projection, ssgiParams, viewIndex, m_frameIndex);
+                            v->Camera().projection, ssgiParams, viewIndex, m_noiseFrame);
                     }
                     // Screen-space reflections: reflect the lit HDR (sky + opaque + decals) into itself, AFTER
                     // decals and BEFORE AO/TAA (pre-TAA so the resolve stabilizes the march). Reads the roughness
