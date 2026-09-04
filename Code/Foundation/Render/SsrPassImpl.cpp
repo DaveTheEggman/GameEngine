@@ -19,6 +19,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 
 module foundation.render;
 
@@ -228,6 +229,16 @@ namespace foundation::render
             (void)CreateTracePipeline();
             (void)CreateResolvePipeline();
             m_pipelineShaderVersion = shaderVersion;
+            if (m_pipeline == nullptr || m_resolvePipeline == nullptr)
+            {
+                // A hot-reloaded shader that no longer matches this binary (e.g. its push
+                // block grew) fails pipeline creation and the pass silently skips - say so
+                // once per version instead of leaving only the validation spam.
+                LOG_WARNING(u8"Render",
+                            u8"SSR pipelines failed to rebuild after shader reload - the "
+                            u8"pass is OFF (shader/binary mismatch? restart with a rebuilt "
+                            u8"editor)");
+            }
         }
         if (m_pipeline == nullptr || m_resolvePipeline == nullptr)
         {

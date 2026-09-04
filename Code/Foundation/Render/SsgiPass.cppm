@@ -52,13 +52,15 @@ export namespace foundation::render
         struct Params
         {
             f32 intensity = 1.0f;     // additive bounce strength
+            f32 maxRadiance = 4.0f;   // per-hit gather clamp (firefly suppression)
             f32 radius = 3.0f;        // view-space gather radius (world units)
             f32 thickness = 0.6f;     // hit acceptance band (view-space linear depth)
             i32 maxSteps = 24;        // march budget PER RAY
             i32 rayCount = 2;         // hemisphere rays per pixel (1..4)
             bool temporal = true;     // temporal accumulate (reproject + variance-clip history)
-            f32 historyBlend = 0.92f; // max history weight (GI is noisier than SSR - lean on it)
-            f32 varianceGamma = 1.5f; // neighborhood clip half-width in stddevs
+            f32 historyBlend = 0.95f; // max history weight (GI is noisier than SSR - lean on it)
+            f32 varianceGamma = 2.5f; // neighborhood clip half-width in stddevs (post-blur)
+            f32 depthSigma = 0.05f;   // spatial-denoise depth tolerance (relative)
             f32 motionScale = 24.0f;  // how fast history drops with motion
             f32 ghostReject = 3.0f;   // history-vs-current luma-diff rejection strength
             i32 debug = 0;            // >0 = show the accumulated GI raw (no composite)
@@ -92,9 +94,35 @@ export namespace foundation::render
             i32 rayCount = 2;
             f32 ySign = -1.0f;
             u32 frameIndex = 0;
+            f32 maxRadiance = 4.0f;
+            f32 pad0 = 0.0f;
         };
         static_assert(sizeof(SsgiPushC) <= 128,
                       "SSGI push exceeds the portable 128-byte push-constant limit");
+
+        // Byte-identical to the HLSL SsgiDownPush.
+        struct SsgiDownPushC
+        {
+            Float2 srcTexelSize{};
+            Float2 pad0{};
+        };
+        static_assert(sizeof(SsgiDownPushC) <= 128,
+                      "SSGI downsample push exceeds the portable 128-byte limit");
+
+        // Byte-identical to the HLSL SsgiBlurPush.
+        struct SsgiBlurPushC
+        {
+            Float2 texelSize{};
+            f32 depthSigma = 0.05f;
+            f32 pad0 = 0.0f;
+            Float4x4 invProj{};
+            Float2 vpMin{0.0f, 0.0f};
+            Float2 vpSize{1.0f, 1.0f};
+            f32 ySign = -1.0f;
+            f32 pad1 = 0.0f;
+        };
+        static_assert(sizeof(SsgiBlurPushC) <= 128,
+                      "SSGI blur push exceeds the portable 128-byte limit");
 
         // Byte-identical to the HLSL SsgiResolvePush.
         struct SsgiResolvePushC
@@ -128,6 +156,8 @@ export namespace foundation::render
         bool EnsureHistory(ViewHistory& hist, u32 w, u32 h);
         void DestroyHistory(ViewHistory& hist);
         bool CreateTracePipeline();
+        bool CreateDownPipeline();
+        bool CreateBlurPipeline();
         bool CreateResolvePipeline();
 
         static u64 Combine(rendergraph::RenderGraph& g, rendergraph::RGHandle a,
@@ -137,9 +167,16 @@ export namespace foundation::render
         // in-flight frames - the :ssr discipline).
         void Tick(u32 frameIndex);
 
+        // Downsample bind group (full-res hdr + linear sampler), cached by (hdr view, gen).
+        rhi::BindGroup* EnsureDownBindGroup(rhi::TextureView* hdr, u64 generation);
+
         // Trace bind group (scene, depth, normal + 2 samplers), cached by (scene view, gen).
         rhi::BindGroup* EnsureBindGroup(rhi::TextureView* scene, rhi::TextureView* depth,
                                         rhi::TextureView* normal, u64 generation);
+
+        // Blur bind group (raw gi + depth + point sampler), cached by (gi view, gen).
+        rhi::BindGroup* EnsureBlurBindGroup(rhi::TextureView* gi, rhi::TextureView* depth,
+                                            u64 generation);
 
         // Resolve bind group (gi, history, velocity, hdr + 2 samplers), cached by (history view, gen).
         rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* gi, rhi::TextureView* histPrev,
@@ -153,6 +190,17 @@ export namespace foundation::render
             rhi::BindGroup* bg = nullptr;
             rhi::TextureView* depth = nullptr;
             rhi::TextureView* normal = nullptr;
+            u64 gen = 0;
+        };
+        struct DownEntry
+        {
+            rhi::BindGroup* bg = nullptr;
+            u64 gen = 0;
+        };
+        struct BlurEntry
+        {
+            rhi::BindGroup* bg = nullptr;
+            rhi::TextureView* depth = nullptr;
             u64 gen = 0;
         };
         struct ResolveEntry
@@ -175,6 +223,12 @@ export namespace foundation::render
         rhi::BindGroupLayout* m_layout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr; // trace
+        rhi::BindGroupLayout* m_downLayout = nullptr;
+        rhi::PipelineLayout* m_downPipelineLayout = nullptr;
+        rhi::RenderPipeline* m_downPipeline = nullptr; // radiance prefilter (quarter-res)
+        rhi::BindGroupLayout* m_blurLayout = nullptr;
+        rhi::PipelineLayout* m_blurPipelineLayout = nullptr;
+        rhi::RenderPipeline* m_blurPipeline = nullptr; // spatial denoise (trace -> resolve)
         rhi::BindGroupLayout* m_resolveLayout = nullptr;
         rhi::PipelineLayout* m_resolvePipelineLayout = nullptr;
         rhi::RenderPipeline* m_resolvePipeline = nullptr; // temporal resolve + composite
@@ -183,6 +237,8 @@ export namespace foundation::render
         rhi::Sampler* m_linearSampler = nullptr; // linear: radiance gather
         ViewHistory m_views[kMaxViews];
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
+        HashMap<rhi::TextureView*, DownEntry> m_downBindGroups;
+        HashMap<rhi::TextureView*, BlurEntry> m_blurBindGroups;
         HashMap<rhi::TextureView*, ResolveEntry> m_resolveBindGroups;
         Array<Retired> m_retired;
         u32 m_lastFrame = 0xFFFFFFFFu;

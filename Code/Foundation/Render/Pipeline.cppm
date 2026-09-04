@@ -764,6 +764,11 @@ export namespace foundation::render
         DebugBlitPass* m_debugBlit = nullptr; // borrowed; editor debug-view blit (after compose)
         f32 m_deltaSeconds = 1.0f / 60.0f;
         u32 m_jitterIndex = 0; // Halton phase, advances once per frame (mod 8)
+        // Monotonic frame counter for stochastic-pass noise rotation. The frameIndex the
+        // host passes to Begin() is the frames-in-flight RING index (0..2) - feeding that
+        // to the SSGI trace gave the "rotating" noise only 3 patterns, so the temporal
+        // accumulator converged to a 3-frame average that stays speckled forever.
+        u32 m_noiseFrame = 0;
         bool m_anyViewTaa =
             false; // set per frame when any view enables TAA (drives the jitter advance)
         // Motion vectors + TAA: last frame's view-proj + jitter per view index (this frame's collected into
