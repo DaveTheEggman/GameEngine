@@ -202,23 +202,58 @@ they land first and independently.
 - Process-wide state lives behind non-inline accessors defined in impl
   units; the tripwire enforces it.
 
-## 7. Future: game native code (seeded 2026-09-04, not scheduled)
+## 7. Future: game native code (researched 2026-09-04, not scheduled)
 
-Game native code is authored as a PLUGIN (IRuntimePlugin + explicit
-registration functions) - one source shape, two link modes:
+Traktor (checkout audited in full) is the precedent, and its answers converge
+with this track's choices - adopt the shape, modernize the mechanisms.
 
-- DEV: the shared-build editor dlopens the game plugin (the ruled model;
-  proven by Runtime.CrossPlugin). Opens the door to rebuild-and-reload of
-  game code without restarting the editor.
-- SHIPPING: the Traktor pattern (user precedent) - the EXPORT PIPELINE
-  invokes the final native link: engine static libs + game native code + a
-  generated main that calls the plugin's registration DIRECTLY (no loader).
-  Full LTO, single artifact; web is the same path via the wasm toolchain
-  (web is always static - enforced at configure).
+### What Traktor does (verified, file:line in the audit)
+- NO engine-vs-game distinction: every module (engine subsystem or
+  MyGame.Shared) builds BOTH ways - shared lib in dev configs, static lib in
+  ship configs; one define (T_STATIC) flips export macros AND compiles out
+  the dlopen call sites. Game code is "a plugin" only because everything is.
+- Dev loop: dlopen(RTLD_GLOBAL) a module-name list from settings; the game's
+  module enters the list via a data-driven Feature object attached to the
+  target config. No per-plugin entrypoint symbol: loaded modules are
+  discovered by scanning the type registry for IRuntimePlugin / IPipeline /
+  editor-factory subclasses (their registry scan = our EnumerateDerived).
+- Identity: pointer-based, made safe by OUR rendezvous rule (registry =
+  file-static array in Core, out-of-line EXPORTED TypeInfo ctor) - plus an
+  init_seg hack, a 16384 cap, and a duplicate assert that silently corrupts
+  in release. Our TypeId identity is strictly stronger.
+- SHIP LINK (the Traktor pattern proper): the editor's Deploy action feeds
+  an env-var contract to a Lua script that invokes link.exe/clang++ RAW.
+  main() is never generated: Traktor.Runtime.App builds TWICE - executable
+  in shared configs, static LIBRARY carrying main() in ship configs - and
+  the deploy link is launcher.lib + engine .libs + game .lib -> branded exe.
+  Static registration survives archive pruning via hand-listed
+  T_FORCE_LINK_REF chains in per-module Module.cpp + /INCLUDE:__module__X.
+  Gaps: Linux/macOS deploys cannot static-link at all; the Lua/env-var link
+  driver is untyped and 5x duplicated ("link in reverse order" scar).
+- SDK: prebuilt engine binaries under bin/latest/<plat>/<config> + engine
+  source include path; games never build the engine.
 
-New prerequisite this creates: the shipping link needs engine static libs +
-module BMIs visible to the game compile. Options: (a) exporter drives a
-cmake build against the engine checkout (v1 - sidesteps SDK packaging),
-(b) prebuilt SDK (blocked-ish: install(FILE_SET CXX_MODULES) is still
-experimental in CMake). Fits the existing export-template machinery (the
-exporter already orchestrates naga/DXC/templates).
+### Raptor plan (adopt / modernize / skip)
+- ADOPT one-artifact-kind: game native code = a module through
+  util_add_engine_library, same as every engine library (already true).
+- ADOPT dev = shared editor dlopens the game module (ruled model; proven by
+  Runtime.CrossPlugin). ADOPT the launcher-as-library trick: build the
+  player main() as a static lib in ship configs; the exporter links
+  launcher + engine + game into the branded executable.
+- ADOPT Feature-style data-driven module lists + headless deploy parity
+  (same action classes for editor buttons and CI).
+- MODERNIZE the link driver: the exporter GENERATES A SMALL CMAKE PROJECT
+  and runs cmake --build (correct link order, toolchain location,
+  cross-compilation, incremental relink) - never a raw linker invocation.
+- MODERNIZE registration: we need NO Module.cpp/T_FORCE_LINK_REF/INCLUDE
+  chains - registration is already explicit function calls, so the ship
+  build's generated main simply CALLS the game's registration function
+  directly. (If self-registering statics are ever wanted, use
+  $<LINK_LIBRARY:WHOLE_ARCHIVE> or OBJECT libraries, not forced refs.)
+- SKIP their RTLD_GLOBAL requirement: our plugins share state through the
+  shared engine's exported accessors (proven under RTLD_LOCAL).
+- SDK/BMI: BMIs are compiler/flag-specific and cannot ship like Traktor's
+  .libs. v1 = exporter drives a cmake build against the engine checkout
+  (prebuilt libs + module interface SOURCES; local BMI compile, cached).
+  install(FILE_SET CXX_MODULES) is the eventual packaged-SDK path once
+  CMake's support matures.
