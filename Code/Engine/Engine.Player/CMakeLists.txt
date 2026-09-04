@@ -84,6 +84,21 @@ else()
     add_executable(Engine.Player Main.cpp)
     target_link_libraries(Engine.Player PRIVATE Engine.Player.Main Foundation::Policy)
 
+    # The SHIP player (game-native-code.md N3): only when a game's native directory is
+    # wired into this build (ENGINE_GAME_NATIVE_DIR/_TARGET - the exporter's seam, also
+    # usable by hand). Links the game's plugin STATICALLY through the same launcher;
+    # ShipMain's CreatePlugin reference pulls the registration from the game archive.
+    if(ENGINE_GAME_NATIVE_TARGET)
+        add_executable(Engine.GamePlayer ShipMain.cpp)
+        target_link_libraries(Engine.GamePlayer PRIVATE
+            Engine.Player.Main ${ENGINE_GAME_NATIVE_TARGET} Foundation::Policy)
+        util_copy_runtime_deps(Engine.GamePlayer EXTRA ${BUILDSYSTEM_DXC_LIB} ${BUILDSYSTEM_WGPU_LIB})
+        if(UNIX AND NOT APPLE)
+            set_property(TARGET Engine.GamePlayer APPEND PROPERTY BUILD_RPATH "$ORIGIN")
+            set_property(TARGET Engine.GamePlayer PROPERTY INSTALL_RPATH "$ORIGIN")
+        endif()
+    endif()
+
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
     # host-template reads that list for its sidecars). SDL3 links statically (no DLL to stage);
     # DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by

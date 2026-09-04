@@ -32,6 +32,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # this; the deliberate option (BUILD_SHARED_LIBS would silently no-op against
 # hardcoded types). Design + hazard inventory: Documentation/Specs/shared-libraries.md.
 option(ENGINE_SHARED_LIBS "Build engine libraries as shared libraries" OFF)
+
+# A game project's native directory, wired into THIS build as a subdirectory
+# (game-native-code.md N3): the game's module builds like any engine library (full
+# C++20-module/BMI access, util_add_engine_library, both lanes - the dev .so and the
+# ship static lib come from the same source), and Engine.GamePlayer (the ship player
+# with the game statically linked) materializes when ENGINE_GAME_NATIVE_TARGET names
+# the game's target. The exporter drives these; setting them by hand works too.
+set(ENGINE_GAME_NATIVE_DIR "" CACHE PATH "Game project's native source directory (adds it to this build)")
+set(ENGINE_GAME_NATIVE_TARGET "" CACHE STRING "The game native target name (enables Engine.GamePlayer)")
 if(ENGINE_SHARED_LIBS AND EMSCRIPTEN)
     # Web is a single self-contained binary by design: browsers have no runtime
     # plugin loading, Emscripten dynamic linking forfeits whole-program optimization
@@ -783,4 +792,10 @@ endif()
 
 if(OPTION_BUILD_SAMPLES)
     add_subdirectory(Code/Samples)
+endif()
+
+# Game native code (game-native-code.md N3): the game's native directory joins the
+# build AFTER every engine target exists, so it can link any of them.
+if(ENGINE_GAME_NATIVE_DIR)
+    add_subdirectory(${ENGINE_GAME_NATIVE_DIR} game-native)
 endif()

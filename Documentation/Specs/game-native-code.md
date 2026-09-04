@@ -53,14 +53,25 @@ single artifact, works on every platform incl. web). Same source both ways.
   ('CrossPlugin')". REMAINING N2 TAIL: editor play-in-editor loads the
   module at its embedded host seam; a project-settings editor row for the
   field; a toast (console-only today).
-- N3 - ship link. Tools.Export gains the native step: GENERATE A SMALL
-  CMAKE PROJECT (never raw linker driving - the Traktor anti-lesson):
-  a stub cpp (calls PlayerMain(CreateGamePlugin())) + the game module
-  sources/lib + the engine built as static libs from the engine checkout
-  (v1 SDK answer; BMIs are not shippable artifacts, so the game compiles
-  against engine module sources with local BMIs, cached). Invoke
-  cmake --build via the export pipeline; stage into the dist exactly like
-  the current prebuilt-player templates.
+- N3 - ship link (mechanism SHIPPED 2026-09-04; exporter integration
+  remaining). SIMPLIFICATION over the original plan: nothing is generated.
+  The engine build HOSTS the game - ENGINE_GAME_NATIVE_DIR (cache var) adds
+  the game's native directory as a subdirectory after all engine targets
+  (full module/BMI access; util_add_engine_library gives the dev .so and
+  the ship static lib from one source), and ENGINE_GAME_NATIVE_TARGET
+  materializes Engine.GamePlayer: a CHECKED-IN ShipMain.cpp (extern "C"
+  CreatePlugin - the same symbol PluginHost dlopens in dev - statically
+  referenced, so the game archive's registration links with no
+  whole-archive/forced-ref machinery) + Engine.Player.Main + the game
+  target + runtime-dep staging + $ORIGIN. PROVEN: a scratch game module
+  wired by hand builds Engine.GamePlayer with ZERO engine .so deps, and
+  its plugin OnLoad runs through PluginHost::Add, taking precedence over
+  the manifest's dlopen module. REMAINING: Tools.Export/editor export
+  drives configure+build of a ship build dir with these vars (persistent
+  per-project cache dir for incremental relinks; engine root derived from
+  the running binary, setting-overridable) and stages Engine.GamePlayer
+  into the dist in place of the template player; a committed fixture +
+  test for the wiring.
 - N4 - authoring. New-project wizard/template for a native game module
   (CMakeLists via util_add_engine_library, plugin skeleton, facade
   registration example + tests). Docs.
