@@ -56,9 +56,16 @@ if(EMSCRIPTEN)
 
 else()
 
-    # --- Desktop player: Main.cpp + SDL shell + a device + the blocking runner ---
-    add_executable(Engine.Player Main.cpp)
-    target_link_libraries(Engine.Player PRIVATE
+    # --- Desktop player: launcher-as-library (game-native-code.md N1) ---
+    # The whole boot is Engine.Player.Main (a STATIC lib in every mode - it carries main
+    # logic, not engine state); the dev executable is a thin stub calling
+    # PlayerMain(nullptr), and the exporter's generated SHIP stub links this same library
+    # with the game's static plugin. Deliberately NOT util_add_engine_library.
+    add_library(Engine.Player.Main STATIC)
+    target_sources(Engine.Player.Main
+        PUBLIC FILE_SET player_main_modules TYPE CXX_MODULES FILES PlayerMain.cppm
+        PRIVATE PlayerMain.cpp)
+    target_link_libraries(Engine.Player.Main PRIVATE
         Foundation::Core
         Foundation::Runtime Foundation::Runtime.Client Foundation::Runtime.Desktop Engine::DefaultApp
         Foundation::Shell.Desktop Foundation::Shell Foundation::Graphics Foundation::Graphics.Gpu
@@ -73,6 +80,9 @@ else()
         Foundation::UI.Resource Engine::UI
         Foundation::Physics Foundation::Physics.Resource Engine::Physics
         Engine::Project Foundation::VFS.Pak Foundation::Content Foundation::VFS Foundation::Xml.Serialization)
+
+    add_executable(Engine.Player Main.cpp)
+    target_link_libraries(Engine.Player PRIVATE Engine.Player.Main Foundation::Policy)
 
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
     # host-template reads that list for its sidecars). SDL3 links statically (no DLL to stage);

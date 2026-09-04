@@ -45,6 +45,10 @@ namespace engine::player
         String projectDir;
         String sceneOverride; // source-DB path; empty = the manifest's defaultScene
         f32 exitAfterSeconds = 0.0f;
+        // The project's statically-linked native game plugin (SHIP stubs pass it through
+        // PlayerMain; dev builds leave it null and load any native module dynamically).
+        // Consumed at the host seam in N2 (game-native-code.md); borrowed, ship-stub-owned.
+        foundation::runtime::IRuntimePlugin* nativeGame = nullptr;
     };
 
     class PlayerApplication : public engine::runtime::DefaultApplication

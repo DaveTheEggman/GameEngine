@@ -17,7 +17,7 @@ Code/Engine/Engine.GameInstance/NetworkControllerImpl.cpp
 Code/Engine/Engine.Particles/ParticleComponents.cppm
 Code/Engine/Engine.Particles/ParticleSubsystem.cppm
 Code/Engine/Engine.Physics/PhysicsSubsystem.cppm
-Code/Engine/Engine.Player/Main.cpp
+Code/Engine/Engine.Player/PlayerMain.cpp
 Code/Engine/Engine.Player/PlayerApplication.h
 Code/Engine/Engine.Player/WebMain.cpp
 Code/Engine/Engine.Script/ScriptSubsystem.cppm
