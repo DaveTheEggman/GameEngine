@@ -76,14 +76,14 @@ export namespace foundation::runtime
         template <typename T>
         [[nodiscard]] T* GetSubsystem() noexcept
         {
-            Subsystem* const* found = m_byType.Find(&core::TypeOf<T>());
+            Subsystem* const* found = m_byType.Find(core::TypeOf<T>().id);
             return (found != nullptr) ? static_cast<T*>(*found) : nullptr;
         }
 
         template <typename T>
         [[nodiscard]] bool HasSubsystem() const noexcept
         {
-            return m_byType.Contains(&core::TypeOf<T>());
+            return m_byType.Contains(core::TypeOf<T>().id);
         }
 
         // Init then Ready, in UpdateOrder; marks the context running.
@@ -179,7 +179,7 @@ export namespace foundation::runtime
         // the sorted phase list, wire the context, and bring it up if running.
         void RegisterInternal(const core::TypeInfo* type, Subsystem* subsystem)
         {
-            m_byType.InsertOrAssign(type, subsystem);
+            m_byType.InsertOrAssign(type->id, subsystem);
             InsertSorted(subsystem);
             subsystem->OnRegister(this);
             if (m_running)
@@ -193,7 +193,7 @@ export namespace foundation::runtime
         // drop from the lookup/phase lists, and destroy it if Context-owned.
         void RemoveByType(const core::TypeInfo* type)
         {
-            Subsystem* const* found = m_byType.Find(type);
+            Subsystem* const* found = m_byType.Find(type->id);
             if (found == nullptr)
             {
                 return;
@@ -215,7 +215,7 @@ export namespace foundation::runtime
                     break;
                 }
             }
-            m_byType.Remove(type);
+            m_byType.Remove(type->id);
 
             // If the Context owns it, destroying the UniquePtr frees the object.
             for (core::usize i = 0; i < m_owned.Size(); ++i)
@@ -243,7 +243,10 @@ export namespace foundation::runtime
         }
 
         core::IAllocator* m_allocator;
-        core::HashMap<const core::TypeInfo*, Subsystem*> m_byType;
+        // Keyed by TypeId, not TypeInfo*: a plugin library resolving GetSubsystem<T>()
+        // holds its own copy of TypeOf<T>'s static, so addresses diverge across shared
+        // library boundaries while ids do not (shared-libraries.md identity rule).
+        core::HashMap<core::TypeId, Subsystem*> m_byType;
         core::Array<Subsystem*> m_sorted;                // non-owning, UpdateOrder-sorted
         core::Array<core::UniquePtr<Subsystem>> m_owned; // ownership
         bool m_running = false;

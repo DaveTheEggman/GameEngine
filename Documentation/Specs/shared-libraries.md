@@ -89,7 +89,13 @@ What we do NOT have to solve (verified):
    registry lookups for disk paths; audit the direct `TypeOf<T>().properties`
    reads.
 5. **PolymorphicElementFactory<Base> static-inline function pointers**
-   (Reflection.cppm:866) move into a registry keyed by base TypeId.
+   (Reflection.cppm:866): audited P1 - NOT cross-library load-bearing. The
+   readers are the ContainerInfo lambdas instantiated inside the same
+   RegisterPolymorphicArrayType<Base> call that writes the pointers, so
+   write and read are always co-located in the registering library. The
+   actual cross-library gap is a consumer trusting its LOCAL
+   TypeOf<Arr>().container (unpatched copy) - covered by the Canonical()
+   rule, not by moving the factory.
 
 Blast-radius numbers for planning: 314 TypeOf<> sites, 670 StaticType()
 sites, 328 Cast<> sites, 54-compare inspector chain, 46 script-binding

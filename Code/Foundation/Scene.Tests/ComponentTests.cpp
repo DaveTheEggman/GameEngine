@@ -151,6 +151,11 @@ TEST_CASE("scene: FindManagerByComponentType + re-resolution survives swap-remov
     REQUIRE(found == static_cast<ComponentManagerBase*>(mgr));
     CHECK(scene.FindManagerByComponentType(TypeOf<int>()) == nullptr); // no manager -> null
 
+    // Shared-libraries identity rule: a CLONE of the TypeInfo (another library's copy -
+    // same id, different address) must route to the same manager.
+    const TypeInfo dupHealth = TypeOf<Health>();
+    CHECK(scene.FindManagerByComponentType(dupHealth) == found);
+
     // Cache e2's CURRENT component address - what a borrow handle would keep.
     Instance before = found->GetComponentInstance(e2);
     REQUIRE(before.Pointer() != nullptr);

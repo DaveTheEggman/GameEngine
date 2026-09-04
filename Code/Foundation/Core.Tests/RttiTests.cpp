@@ -1300,3 +1300,17 @@ TEST_CASE("rtti-shared: Instance and Variant checks hold across duplicated metad
     REQUIRE(v.Type() != nullptr);
     CHECK(v.Type()->id == TypeOf<i32>().id);
 }
+
+TEST_CASE("rtti-shared: Canonical resolves a duplicated TypeInfo to the registered one")
+{
+    GlobalTypeRegistry().Register(Animal::StaticType());
+    // A clone (another library's copy): same id, different address, UNPATCHED metadata.
+    TypeInfo dup = Animal::StaticType();
+    const TypeInfo& canonical = GlobalTypeRegistry().Canonical(dup);
+    CHECK(&canonical == &Animal::StaticType());
+    CHECK(&canonical != &dup);
+
+    // Unregistered types resolve to the argument itself - always usable.
+    const TypeInfo local = MakeTypeInfo<int>("NeverRegistered", "rtti::test", nullptr);
+    CHECK(&GlobalTypeRegistry().Canonical(local) == &local);
+}

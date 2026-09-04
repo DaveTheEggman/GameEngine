@@ -300,7 +300,7 @@ export namespace foundation::scene
             T* system = m_allocator->New<T>(Forward<Args>(args)...);
             m_systems.PushBack(
                 UniquePtr<SceneSystem>(static_cast<SceneSystem*>(system), *m_allocator));
-            m_systemsByType.InsertOrAssign(&TypeOf<T>(), static_cast<SceneSystem*>(system));
+            m_systemsByType.InsertOrAssign(TypeOf<T>().id, static_cast<SceneSystem*>(system));
             InsertSortedSystem(static_cast<SceneSystem*>(system));
             system->OnSceneCreate(*this);
             return system;
@@ -309,13 +309,13 @@ export namespace foundation::scene
         template <typename T>
         [[nodiscard]] T* GetSystem() noexcept
         {
-            SceneSystem* const* found = m_systemsByType.Find(&TypeOf<T>());
+            SceneSystem* const* found = m_systemsByType.Find(TypeOf<T>().id);
             return (found != nullptr) ? static_cast<T*>(*found) : nullptr;
         }
         template <typename T>
         [[nodiscard]] bool HasSystem() const noexcept
         {
-            return m_systemsByType.Contains(&TypeOf<T>());
+            return m_systemsByType.Contains(TypeOf<T>().id);
         }
 
         // Visits every component manager (systems that are managers), in UpdateOrder.
@@ -356,7 +356,10 @@ export namespace foundation::scene
             ForEachManager(
                 [&](ComponentManagerBase& m)
                 {
-                    if (found == nullptr && m.ComponentType() == &componentType)
+                    // Id compare, not pointer: the caller's TypeInfo may be another shared
+                    // library's copy (shared-libraries.md identity rule).
+                    if (found == nullptr && m.ComponentType() != nullptr &&
+                        m.ComponentType()->id == componentType.id)
                     {
                         found = &m;
                     }
@@ -517,7 +520,7 @@ export namespace foundation::scene
         // per-scene systems
         messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (injected by the run scope); null = none
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
-        HashMap<const TypeInfo*, SceneSystem*> m_systemsByType; // lookup by type
+        HashMap<TypeId, SceneSystem*> m_systemsByType; // lookup by type (id: DLL-safe)
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted
         Array<EntityHandle> m_pendingDestroys;
         bool m_isUpdating = false;

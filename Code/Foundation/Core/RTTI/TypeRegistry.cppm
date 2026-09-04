@@ -81,6 +81,18 @@ export namespace foundation::core
             return (found != nullptr) ? *found : nullptr;
         }
 
+        // Resolves possibly-foreign type metadata (another shared library's copy of the
+        // same type - Register() keeps exactly one canonical TypeInfo per id) to the
+        // registered instance. Unregistered types resolve to the argument itself, so the
+        // result is always usable. Consumers reading PATCHED metadata (properties,
+        // container, enumerators - filled in by REFLECT_* registrars) must go through
+        // this rather than trusting a local TypeOf<T>() copy (shared-libraries.md).
+        [[nodiscard]] const TypeInfo& Canonical(const TypeInfo& info) const noexcept
+        {
+            const TypeInfo* found = FindById(info.id);
+            return (found != nullptr) ? *found : info;
+        }
+
         [[nodiscard]] const TypeInfo* FindByName(const char* namespaceName,
                                                  const char* name) const noexcept
         {
