@@ -145,10 +145,12 @@ single artifact, works on every platform incl. web). Same source both ways.
   `cmd /c "vcvarsall && cmake ..."` was rejected: `RunProcess` takes an exe
   path with no shell, so it buys a guess at the VS install, a second quoting
   layer around every argument, and an exit code that could come from either
-  command. The check is narrow on purpose - **Windows hosts clang too**, and
-  clang/clang-cl locate an MSVC installation themselves, so it fires only when
-  the baked `BUILDSYSTEM_CXX_COMPILER` basename is exactly `cl`
-  (deliberately not matching `clang-cl`).
+  command. The check is narrow on purpose - **Windows hosts clang too** (the
+  `clang` preset drives clang++ at the MSVC ABI with lld-link), and clang finds
+  an MSVC installation itself, so it fires only when the baked
+  `BUILDSYSTEM_CXX_COMPILER` basename is exactly `cl` (deliberately not
+  matching `clang-cl` or `clang++`). Measured: configuring the whole tree with
+  clang++ and NO vcvars succeeds.
   WEB SHIPPED 2026-09-04 (ship-only by design - no dlopen in browsers):
   the wasm lane hosts the game the same way (the Emscripten branch of the
   root CMakeLists return()s early, so it carries its own game-native

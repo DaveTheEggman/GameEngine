@@ -455,16 +455,32 @@ beyond game modules:
   every data export and failed at link on exactly the symbols the macro exists
   for. Now `#if PLATFORM_WINDOWS`, which all three understand. The same
   question is worth asking of anything else keyed on `COMPILER_MSVC`.
-- **The generated-`.def` path assumes dumpbin is findable.** `if(MSVC)` is
-  also true for clang-cl, whose compiler lives in `LLVM/bin` - nowhere near
-  dumpbin - so only `find_program`'s PATH search saves it. A missing dumpbin
-  used to fall back to the bare name and fail identically in the PRE_LINK step
-  of all 179 libraries; it is now a configure-time FATAL_ERROR naming
-  `-DUTIL_DUMPBIN=` as the escape hatch, and only when ENGINE_SHARED_LIBS is on.
+- **The generated-`.def` path was gated on `MSVC`, and that skipped the
+  `clang` preset entirely.** There are THREE Windows configurations, not two:
 
-Windows-with-clang is NOT otherwise exercised: there is no clang-cl preset or
-CI lane, so these two are reasoned fixes, not tested ones. Adding a lane is
-the honest way to keep them true.
+  | driver | CMake `MSVC` | `COMPILER_MSVC` | preset |
+  |---|---|---|---|
+  | `cl.exe` | true | 1 | `msvc`, `msvc-shared` |
+  | `clang-cl.exe` | true | 0 | none |
+  | `clang++.exe` (GNU driver, MSVC ABI, lld-link) | **false** | 0 | `clang`, `clang-reldbg` |
+
+  CMake sets `MSVC` from the compiler FRONTEND, so it is false for the `clang`
+  preset even though the output is PE and the ABI is MSVC's. Measured before
+  the fix: `Core.dll` exported **92 of 2416** functions - only the explicitly
+  `dllexport`'d ones - and every consumer would have failed to link. Both the
+  dumpbin lookup and the `.def` step are now gated on `WIN32`, and the flag is
+  passed as `LINKER:/DEF:` rather than a bare `/DEF:` (clang++ in GNU mode
+  reads a leading-slash token as a filename and would swallow it silently).
+  After: **2405** exports under clang++ vs 2416 under cl - the delta is just
+  differing inline decisions - and `lld-link` accepts the module-decorated
+  names. A missing dumpbin is now a configure-time FATAL_ERROR naming
+  `-DUTIL_DUMPBIN=`, instead of failing identically in the PRE_LINK step of
+  all 179 libraries.
+
+Verified on the `clang` preset: `Foundation::Core` builds and exports
+correctly as a DLL. NOT verified: the whole-tree clang shared build and its
+battery, and clang-cl at all (no preset). There is still no Windows-clang CI
+lane, so the guard against regressing this is a person remembering.
 
 P1 and P2 are pure wins even if shared builds never ship (they fix the
 plugin path that exists today and remove latent UAF/identity traps), so

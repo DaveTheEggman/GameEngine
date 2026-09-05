@@ -7,10 +7,12 @@ set(UTIL_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "cmake/ helper dir
 
 # dumpbin, for the MSVC shared-library export .def (see util_add_engine_library). It sits
 # beside cl.exe in the toolchain; look there first so we get the toolset's own copy rather
-# than whatever a Developer prompt happened to put on PATH. NOTE that MSVC is also true for
-# clang-cl, whose CMAKE_CXX_COMPILER lives in LLVM/bin - nowhere near dumpbin - so the PATH
-# search find_program does after HINTS is the one that matters there.
-if(MSVC AND NOT UTIL_DUMPBIN)
+# than whatever a Developer prompt happened to put on PATH. For the clang drivers
+# (clang-cl, clang++) CMAKE_CXX_COMPILER is in LLVM/bin - nowhere near dumpbin - so the
+# PATH search find_program does after HINTS is the one that matters there.
+# WIN32, not MSVC: the clang preset targets the MSVC ABI with MSVC unset (see
+# util_add_engine_library), and it needs the .def exactly as much as cl does.
+if(WIN32 AND NOT UTIL_DUMPBIN)
     get_filename_component(_util_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
     find_program(UTIL_DUMPBIN NAMES dumpbin HINTS "${_util_cl_dir}")
     if(NOT UTIL_DUMPBIN)
@@ -102,12 +104,18 @@ function(util_add_engine_library name)
         # inlines anyway. Full hidden visibility + export annotations wait on the
         # MSVC modules+dllexport prototype (shared-libraries.md P5).
         set_target_properties(${name} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
-        # MSVC has no default-visibility equivalent: nothing leaves a DLL without an
+        # PE has no default-visibility equivalent: nothing leaves a DLL without an
         # export. WINDOWS_EXPORT_ALL_SYMBOLS is the obvious answer and does NOT work here
         # - it drops every C++20 module-attached symbol (Core exported 221 CRT/STL names
         # and none of its own 1994 module functions). Generate the .def ourselves instead;
-        # link.exe accepts the module-decorated names fine. shared-libraries.md P5.
-        if(MSVC)
+        # the linker accepts the module-decorated names fine. shared-libraries.md P5.
+        #
+        # Gated on WIN32, NOT on MSVC: CMake sets MSVC only when the compiler FRONTEND is
+        # MSVC-style (cl, clang-cl). The `clang` preset drives clang++ in GNU mode at the
+        # MSVC ABI, where MSVC is FALSE - so this used to silently skip, and Core.dll
+        # exported 92 of its 2416 functions (only the explicitly dllexport'd ones) while
+        # every consumer failed to link. The output is PE either way, so key on the target.
+        if(WIN32)
             set(_uael_def "${CMAKE_CURRENT_BINARY_DIR}/${name}_exports.def")
             # The object list goes through a FILE, not the command line: passing
             # $<TARGET_OBJECTS> as a -D argument needs COMMAND_EXPAND_LISTS, which then
@@ -126,7 +134,10 @@ function(util_add_engine_library name)
                 VERBATIM
                 COMMENT "Generating module-aware export .def for ${name}")
             # The .def is written by the PRE_LINK step above, so it exists by link time.
-            target_link_options(${name} PRIVATE "/DEF:${_uael_def}")
+            # LINKER: rather than a bare /DEF: - CMake renders it per driver. A raw /DEF:
+            # reaches cl fine, but clang++ in GNU mode reads a leading-slash token as a
+            # FILENAME, so the flag would be swallowed and the .def silently ignored.
+            target_link_options(${name} PRIVATE "LINKER:/DEF:${_uael_def}")
         endif()
     else()
         add_library(${name} STATIC)
