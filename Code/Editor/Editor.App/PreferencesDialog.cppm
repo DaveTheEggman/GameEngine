@@ -121,9 +121,11 @@ export namespace editor::app
                 for (const editor::EditorContext::EditorSettingsBoolField& field :
                      contribution.bools)
                 {
-                    const bool current = field.get ? field.get() : false;
+                    // `checked`, not `current`: the StringView `current` above (the templates
+                    // root) is still in scope, and reusing the name is MSVC C4456, fatal under /WX.
+                    const bool checked = field.get ? field.get() : false;
                     auto check =
-                        MakeRef<ui::CheckBox>(MemoryAllocator(), field.label.AsView(), current);
+                        MakeRef<ui::CheckBox>(MemoryAllocator(), field.label.AsView(), checked);
                     check->FontSize.SetValue(12.0f);
                     if (!field.description.IsEmpty())
                     {

@@ -2030,20 +2030,20 @@ namespace foundation::render
                         }
                         return -1;
                     };
-                    i64 found = findIn(viewResourceBase, m_graph.Resources().Size());
-                    if (found < 0)
+                    i64 foundResource = findIn(viewResourceBase, m_graph.Resources().Size());
+                    if (foundResource < 0)
                     {
-                        found = findIn(0, frameGlobalResourceEnd);
+                        foundResource = findIn(0, frameGlobalResourceEnd);
                     }
-                    if (found >= 0)
+                    if (foundResource >= 0)
                     {
                         const rendergraph::RenderGraphResource* res =
-                            m_graph.Resources()[static_cast<usize>(found)];
+                            m_graph.Resources()[static_cast<usize>(foundResource)];
                         // Multisampled sources can't Load through a Texture2D binding
                         // (WebGPU rule); the resolved twin is in the list instead.
                         if (res->textureDesc.sampleCount <= 1)
                         {
-                            const rendergraph::RGHandle srcH{static_cast<u32>(found),
+                            const rendergraph::RGHandle srcH{static_cast<u32>(foundResource),
                                                              res->generation};
                             m_debugBlit->DeclareDebugBlit(
                                 m_graph, srcH, colorH, v->TargetFormat(), v->ViewportX(),
