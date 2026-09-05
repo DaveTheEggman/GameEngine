@@ -2290,15 +2290,23 @@ namespace editor::app
             m_gamePlugins =
                 MakeUnique<runtime::PluginHost>(m_editorAllocator, m_runtimeContext);
             m_gamePlugins->AddRecorder(&engine::scene::GlobalSceneContributionRecorder());
-            const String modulePath = PathJoin(m_project->Directory(),
-                                               m_project->Settings().nativeModule.AsView());
-            auto loaded = m_gamePlugins->Load(modulePath.AsView());
-            if (loaded.HasValue())
+            // Through a staged copy, not the declared path: on Windows LoadLibraryW holds
+            // the image open against writes, so mapping Native/<Target>.dll directly would
+            // make "Build Native Module" unable to relink it until the project closes.
+            // Reload needs the copy anyway (dlopen refcounts by path), so one path for both.
+            const String modulePath = StageNativeModuleCopy();
+            bool ok = false;
+            if (!modulePath.IsEmpty())
             {
-                LOG_INFO(u8"Editor", u8"native game module '{}' loaded ('{}')",
-                         m_project->Settings().nativeModule, loaded.Value()->Name());
+                auto loaded = m_gamePlugins->Load(modulePath.AsView());
+                ok = loaded.HasValue();
+                if (ok)
+                {
+                    LOG_INFO(u8"Editor", u8"native game module '{}' loaded ('{}')",
+                             m_project->Settings().nativeModule, loaded.Value()->Name());
+                }
             }
-            else
+            if (!ok)
             {
                 m_context.Notify(editor::NoticeKind::Error,
                                  u8"Native game module failed to load (see Console).");
@@ -2306,7 +2314,7 @@ namespace editor::app
                           u8"native game module '{}' failed to load - continuing without "
                           u8"it (a static editor build cannot load native modules; use a "
                           u8"shared build, or check the path)",
-                          modulePath);
+                          m_project->Settings().nativeModule);
                 m_gamePlugins = nullptr;
             }
         }
@@ -2549,6 +2557,68 @@ namespace editor::app
         m_context.SetStatus(message.AsView());
     }
 
+    String EditorApplication::StageNativeModuleCopy()
+    {
+        // The manifest holds ONE path, but a project is checked into source control and
+        // opened on BOTH platforms, where the same module is Native/libX.so and Native/X.dll.
+        // Prefer the declared path; when it is absent, fall back to this platform's spelling
+        // of the same target, so a Linux-authored project still loads its module on Windows
+        // (and vice versa) without a per-platform manifest. shared-libraries.md W3.
+        const StringView declared = m_project->Settings().nativeModule.AsView();
+        String src = PathJoin(m_project->Directory(), declared);
+        if (!foundation::core::FileExists(src.AsView()))
+        {
+            const String target = editor::detail::NativeTargetFromModulePath(declared);
+            if (!target.IsEmpty())
+            {
+#if PLATFORM_WINDOWS
+                const String alt = Format(u8"Native/{}.dll", target);
+#else
+                const String alt = Format(u8"Native/lib{}.so", target);
+#endif
+                const String altPath = PathJoin(m_project->Directory(), alt.AsView());
+                if (foundation::core::FileExists(altPath.AsView()))
+                {
+                    LOG_INFO(u8"Editor",
+                             u8"native module '{}' not present; using this platform's '{}'",
+                             declared, alt);
+                    src = altPath;
+                }
+            }
+        }
+        auto bytes = foundation::core::ReadFile(src.AsView(), m_editorAllocator);
+        if (!bytes.HasValue())
+        {
+            LOG_ERROR(u8"Editor", u8"native module: cannot read '{}'", src);
+            return String{};
+        }
+        const String hotDir = PathJoin(
+            m_project->Directory(),
+            Format(u8"{}/native-hot", engine::project::kProjectCacheDir).AsView());
+        (void)foundation::core::CreateDirectory(hotDir.AsView());
+        // From the RESOLVED path, so the staged copy keeps the extension actually loaded
+        // (a .dll staged as ".so" would still load, but every log line would lie).
+        StringView base = src.AsView();
+        for (usize i = base.Size(); i > 0; --i)
+        {
+            if (base.Data()[i - 1] == '/' || base.Data()[i - 1] == '\\')
+            {
+                base = StringView(base.Data() + i, base.Size() - i);
+                break;
+            }
+        }
+        String dst = Format(u8"{}/reload-{}-{}", hotDir, ++m_nativeReloadCount, base);
+        if (!foundation::core::WriteFile(
+                 dst.AsView(),
+                 Span<const byte>{bytes.Value().Data(), bytes.Value().Size()})
+                 .IsOk())
+        {
+            LOG_ERROR(u8"Editor", u8"native module: cannot stage '{}'", dst);
+            return String{};
+        }
+        return dst;
+    }
+
     void EditorApplication::ReloadNativeModule()
     {
         if (!m_project || m_project->Settings().nativeModule.IsEmpty())
@@ -2607,41 +2677,11 @@ namespace editor::app
             m_gamePlugins = nullptr;
         }
 
-        // Load a FRESH VERSIONED COPY: dlopen refcounts by path, so opening the original
-        // file again would hand back the old (leaked) mapping, not the rebuild.
-        const String src =
-            PathJoin(m_project->Directory(), m_project->Settings().nativeModule.AsView());
-        auto bytes = foundation::core::ReadFile(src.AsView(), m_editorAllocator);
-        if (!bytes.HasValue())
+        const String dst = StageNativeModuleCopy();
+        if (dst.IsEmpty())
         {
             m_context.Notify(editor::NoticeKind::Error,
-                             u8"Native module not found - build it first (see Console).");
-            LOG_ERROR(u8"Editor", u8"native module reload: cannot read '{}'", src);
-            restoreScenes();
-            return;
-        }
-        const String hotDir = PathJoin(
-            m_project->Directory(),
-            Format(u8"{}/native-hot", engine::project::kProjectCacheDir).AsView());
-        (void)foundation::core::CreateDirectory(hotDir.AsView());
-        StringView base = m_project->Settings().nativeModule.AsView();
-        for (usize i = base.Size(); i > 0; --i)
-        {
-            if (base.Data()[i - 1] == '/' || base.Data()[i - 1] == '\\')
-            {
-                base = StringView(base.Data() + i, base.Size() - i);
-                break;
-            }
-        }
-        const String dst = Format(u8"{}/reload-{}-{}", hotDir, ++m_nativeReloadCount, base);
-        if (!foundation::core::WriteFile(dst.AsView(),
-                                         Span<const byte>{bytes.Value().Data(),
-                                                          bytes.Value().Size()})
-                 .IsOk())
-        {
-            m_context.Notify(editor::NoticeKind::Error,
-                             u8"Native module reload failed (see Console).");
-            LOG_ERROR(u8"Editor", u8"native module reload: cannot stage '{}'", dst);
+                             u8"Native module reload failed - build it first (see Console).");
             restoreScenes();
             return;
         }

@@ -268,7 +268,9 @@ export namespace editor
 
     // "Add Native Code": generate <project>/Native (CMakeLists + <Target>Plugin.cpp -
     // the NativeSample reference shape, parameterized), point the manifest's
-    // nativeModule at Native/lib<Target>.so, and save it. Fails with AlreadyExists
+    // nativeModule at the platform's dev-module path (Native/<Target>.dll on Windows,
+    // Native/lib<Target>.so elsewhere - it is what gets loaded), and save it.
+    // Fails with AlreadyExists
     // when the project already declares a module or Native/ exists - never overwrites
     // user code. Defined in ProjectScaffoldImpl.cpp.
     [[nodiscard]] Status ScaffoldNativeModule(EditorProject& project);

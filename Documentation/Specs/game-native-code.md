@@ -101,8 +101,54 @@ single artifact, works on every platform incl. web). Same source both ways.
   + the GENERATED code compile-proven in the shared lane with its .so
   landing at the manifest path. The NativeSample fixture carries the same
   output-dir rule so fixture and generator stay one shape.
-- N5 - platforms. Windows (waits on the MSVC modules/dllexport prototype
-  for the DEV loop; the SHIP path is static and needs no export macros).
+- N5 - platforms. **WINDOWS SHIPPED 2026-09-05** (was: waits on the MSVC
+  modules/dllexport prototype). The dev loop works: the module builds as
+  `Native/<Target>.dll` through the same `util_add_engine_library` seam, the
+  editor loads it via `LoadLibraryW`, and `CreatePlugin` exports with no
+  annotation beyond the existing `PLUGIN_EXPORT` (verified on the NativeSample
+  reference module against a shared engine). Four Windows-specific things had
+  to change, all small:
+
+  - **The manifest path is platform-shaped.** MSVC names the module
+    `<Target>.dll` (no `lib` prefix), ELF `lib<Target>.so`, so
+    `ScaffoldNativeModule` writes the local platform's spelling. But a project
+    is checked into source control and opened on BOTH platforms while the
+    manifest holds ONE string - so the editor now RESOLVES: it takes the
+    declared path when the file exists, and otherwise falls back to this
+    platform's spelling of the same target (`NativeTargetFromModulePath`
+    already parsed both shapes). A Linux-authored project opens on Windows.
+  - **`RUNTIME_OUTPUT_DIRECTORY` as well as `LIBRARY_OUTPUT_DIRECTORY`.** On
+    Windows the DLL is governed by RUNTIME_*; with only LIBRARY_* set the .dll
+    lands in the default bin dir and the manifest points at nothing. Fixed in
+    the scaffold template and in NativeSample's CMakeLists.
+  - **THE HOT-RELOAD WRINKLE, and it is real.** Measured on this machine:
+    with the module mapped by `LoadLibraryW`, overwriting that file is
+    **BLOCKED**; with only a staged copy mapped, overwriting the original
+    **SUCCEEDS**. Reload already loaded a versioned copy (dlopen refcounts by
+    path), but the FIRST load at project open mapped the declared path
+    directly - so "Build Native Module" would fail to relink for as long as
+    the project stayed open. Now EVERY load goes through
+    `StageNativeModuleCopy()`; the declared path is only ever read. No change
+    to the build tool was needed, which is the outcome the plan hoped for.
+  - **Dependent-DLL search resolves favourably.** The module links the engine
+    DLLs, and Windows searches the loading process's exe directory - which is
+    `Bin/<cfg>/Win64-MSVC-Shared`, where those DLLs already live. Nothing to
+    stage, no PATH setup. (A bare `LoadLibraryW` from a process elsewhere does
+    fail; that is a property of the caller, not of the module.)
+
+  Ship path (static, no export macros) is unchanged. Both the ship and dev
+  builds shell out to cmake, and when the pinned toolchain is **MSVC cl.exe**
+  they need the Visual Studio environment in the editor/CLI process. RULING:
+  require it and say so - a preflight check on `VCToolsInstallDir` fails with
+  one clear message, exactly as the web lane already does with `EMSDK`.
+  Discovering `vcvarsall.bat` and running everything through
+  `cmd /c "vcvarsall && cmake ..."` was rejected: `RunProcess` takes an exe
+  path with no shell, so it buys a guess at the VS install, a second quoting
+  layer around every argument, and an exit code that could come from either
+  command. The check is narrow on purpose - **Windows hosts clang too**, and
+  clang/clang-cl locate an MSVC installation themselves, so it fires only when
+  the baked `BUILDSYSTEM_CXX_COMPILER` basename is exactly `cl`
+  (deliberately not matching `clang-cl`).
   WEB SHIPPED 2026-09-04 (ship-only by design - no dlopen in browsers):
   the wasm lane hosts the game the same way (the Emscripten branch of the
   root CMakeLists return()s early, so it carries its own game-native

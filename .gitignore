@@ -17,6 +17,17 @@ Thumbs.db
 /Data/Output/
 .claude/settings.local.json
 
+# Native game module dev output. It lands in the project's SOURCE tree on purpose - the
+# manifest's nativeModule points there and that is what the editor loads (game-native-code.md),
+# so the build artifacts sit beside the two tracked files (CMakeLists.txt + <T>Plugin.cpp).
+**/Native/*.so
+**/Native/*.dll
+**/Native/*.dylib
+**/Native/*.lib
+**/Native/*.exp
+**/Native/*.pdb
+**/Native/*.ilk
+
 # Test-written scratch data (content DBs, cooked projects, temp outputs)
 /.test-scratch/
 .test-scratch/

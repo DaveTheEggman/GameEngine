@@ -442,6 +442,30 @@ the output directory so the loader finds them with no PATH setup,
 generated `.def` (Editor.Scene) is 11918 functions - still a fraction of the
 64K export cap.
 
+### P5 / W3 - game native code on Windows (2026-09-05): GREEN
+
+The dev loop works end to end; details and the vcvars ruling live in
+game-native-code.md N5. Two findings belong here because they generalize
+beyond game modules:
+
+- **`ENGINE_EXPORT_DATA` must key on the TARGET, not the compiler.** It was
+  `#if COMPILER_MSVC`, and `COMPILER_MSVC` is **0 for clang-cl** - Prelude.h
+  tests `defined(__clang__)` first. Windows hosts cl, clang-cl and clang, all
+  emitting PE/COFF, so a clang-cl shared build would have silently dropped
+  every data export and failed at link on exactly the symbols the macro exists
+  for. Now `#if PLATFORM_WINDOWS`, which all three understand. The same
+  question is worth asking of anything else keyed on `COMPILER_MSVC`.
+- **The generated-`.def` path assumes dumpbin is findable.** `if(MSVC)` is
+  also true for clang-cl, whose compiler lives in `LLVM/bin` - nowhere near
+  dumpbin - so only `find_program`'s PATH search saves it. A missing dumpbin
+  used to fall back to the bare name and fail identically in the PRE_LINK step
+  of all 179 libraries; it is now a configure-time FATAL_ERROR naming
+  `-DUTIL_DUMPBIN=` as the escape hatch, and only when ENGINE_SHARED_LIBS is on.
+
+Windows-with-clang is NOT otherwise exercised: there is no clang-cl preset or
+CI lane, so these two are reasoned fixes, not tested ones. Adding a lane is
+the honest way to keep them true.
+
 P1 and P2 are pure wins even if shared builds never ship (they fix the
 plugin path that exists today and remove latent UAF/identity traps), so
 they land first and independently.

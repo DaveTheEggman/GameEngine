@@ -77,18 +77,22 @@ namespace editor
         const String cmake = instantiate(
             u8"# @T@ - this project's native game module (game-native-code.md).\n"
             u8"#\n"
-            u8"# Builds like any engine module: the dev .so in shared-engine builds (the\n"
-            u8"# editor/player dlopen it via the manifest's nativeModule) and a static\n"
-            u8"# library in ship builds (the exporter links it into the game player).\n"
+            u8"# Builds like any engine module: the dev shared library in shared-engine\n"
+            u8"# builds (the editor/player load it via the manifest's nativeModule) and a\n"
+            u8"# static library in ship builds (the exporter links it into the game player).\n"
             u8"# One source, both worlds.\n"
             u8"util_add_engine_library(@T@ ALIAS Game::@T@)\n"
             u8"target_sources(@T@ PRIVATE @T@Plugin.cpp)\n"
             u8"target_link_libraries(@T@ PRIVATE Foundation::Runtime Foundation::Core "
             u8"Foundation::Policy)\n"
-            u8"# The dev .so lands HERE - exactly where the manifest's nativeModule points -\n"
-            u8"# so the editor/player dlopen what was just built. Ship archives unaffected.\n"
-            u8"set_target_properties(@T@ PROPERTIES LIBRARY_OUTPUT_DIRECTORY "
-            u8"${CMAKE_CURRENT_SOURCE_DIR})\n");
+            u8"# The dev module lands HERE - exactly where the manifest's nativeModule points -\n"
+            u8"# so the editor/player load what was just built. Ship archives unaffected.\n"
+            u8"# BOTH properties are required: RUNTIME_OUTPUT_DIRECTORY governs the .dll on\n"
+            u8"# Windows, LIBRARY_OUTPUT_DIRECTORY the .so elsewhere. The Windows import\n"
+            u8"# library (ARCHIVE_*) is deliberately left in the build tree - nothing loads it.\n"
+            u8"set_target_properties(@T@ PROPERTIES\n"
+            u8"    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}\n"
+            u8"    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})\n");
 
         const String plugin = instantiate(
             u8"// @T@Plugin - this project's native game plugin (game-native-code.md).\n"
@@ -151,7 +155,16 @@ namespace editor
             return Status{ErrorCode::Internal};
         }
 
+        // Platform-shaped, because the manifest path is what the editor/player actually
+        // dlopens: MSVC names a DLL "<Target>.dll" with no "lib" prefix, ELF names it
+        // "lib<Target>.so". NativeTargetFromModulePath parses both back, so a manifest
+        // authored on one platform still yields the right SHIP target name on the other -
+        // only the dev-load path is platform-specific.
+#if PLATFORM_WINDOWS
+        project.Settings().nativeModule = Format(u8"Native/{}.dll", target);
+#else
         project.Settings().nativeModule = Format(u8"Native/lib{}.so", target);
+#endif
         return project.SaveSettings();
     }
 } // namespace editor

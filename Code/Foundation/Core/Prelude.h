@@ -169,7 +169,13 @@
 //     it once another library odr-uses it (binds it to a const& parameter, takes its
 //     address): the definition lives only in the owning library's TU.
 // See Documentation/Specs/shared-libraries.md section 5 (P5).
-#if COMPILER_MSVC && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
+// Keyed on the TARGET, not the compiler: Windows hosts cl, clang-cl and clang, and all of
+// them emit PE/COFF where nothing leaves a DLL without an export. COMPILER_MSVC would be
+// wrong here - it is 0 for clang-cl (the COMPILER_CLANG branch above is tested first), so
+// keying on it would silently drop every data export from a clang-cl shared build and fail
+// at link on exactly the symbols this macro exists for. __declspec(dllexport) is understood
+// by all three. Elsewhere (ELF/Mach-O) default visibility already exports, so this is empty.
+#if PLATFORM_WINDOWS && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
 #define ENGINE_EXPORT_DATA __declspec(dllexport)
 #else
 #define ENGINE_EXPORT_DATA

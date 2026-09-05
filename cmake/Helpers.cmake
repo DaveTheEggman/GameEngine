@@ -7,11 +7,22 @@ set(UTIL_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "cmake/ helper dir
 
 # dumpbin, for the MSVC shared-library export .def (see util_add_engine_library). It sits
 # beside cl.exe in the toolchain; look there first so we get the toolset's own copy rather
-# than whatever a Developer prompt happened to put on PATH.
+# than whatever a Developer prompt happened to put on PATH. NOTE that MSVC is also true for
+# clang-cl, whose CMAKE_CXX_COMPILER lives in LLVM/bin - nowhere near dumpbin - so the PATH
+# search find_program does after HINTS is the one that matters there.
 if(MSVC AND NOT UTIL_DUMPBIN)
     get_filename_component(_util_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
     find_program(UTIL_DUMPBIN NAMES dumpbin HINTS "${_util_cl_dir}")
     if(NOT UTIL_DUMPBIN)
+        # Only fatal for a SHARED build - a static build never generates a .def. Failing here
+        # beats a PRE_LINK step failing identically on all 179 libraries with no explanation.
+        if(ENGINE_SHARED_LIBS)
+            message(FATAL_ERROR
+                "ENGINE_SHARED_LIBS on Windows needs dumpbin.exe to generate export .def files "
+                "(cmake/GenerateModuleDef.cmake), and it was not found beside "
+                "'${CMAKE_CXX_COMPILER}' or on PATH. Configure from a Developer Command Prompt, "
+                "or pass -DUTIL_DUMPBIN=<path to dumpbin.exe>.")
+        endif()
         set(UTIL_DUMPBIN "dumpbin" CACHE FILEPATH "dumpbin used to build export .def files")
     endif()
 endif()

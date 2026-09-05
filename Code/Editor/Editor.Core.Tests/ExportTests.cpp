@@ -2108,13 +2108,19 @@ TEST_CASE("export: Add Native Code scaffolds the reference shape and wires the m
     CHECK(editor::NativeTargetNameFromProjectName(u8"123!") == u8"Native"); // leading digits drop
 
     REQUIRE(editor::ScaffoldNativeModule(*project).IsOk());
-    CHECK(project->Settings().nativeModule == u8"Native/libMyScaffold7.so");
+    // Platform-shaped: the manifest points at what this platform actually loads.
+#if PLATFORM_WINDOWS
+    const StringView expectedModule = u8"Native/MyScaffold7.dll";
+#else
+    const StringView expectedModule = u8"Native/libMyScaffold7.so";
+#endif
+    CHECK(project->Settings().nativeModule == expectedModule);
 
     // The manifest persisted; the generated files exist and follow the fixture shape.
     foundation::vfs::NativeFileSystem fs(dir, DefaultAllocator());
     engine::project::ProjectSettings reread;
     REQUIRE(engine::project::LoadProjectSettings(fs, reread).IsOk());
-    CHECK(reread.nativeModule == u8"Native/libMyScaffold7.so");
+    CHECK(reread.nativeModule == expectedModule);
     CHECK(fs.Exists(u8"Native/CMakeLists.txt"));
     CHECK(fs.Exists(u8"Native/MyScaffold7Plugin.cpp"));
     CHECK(editor::detail::NativeTargetFromModulePath(reread.nativeModule.AsView()) ==

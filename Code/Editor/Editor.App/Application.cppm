@@ -426,6 +426,15 @@ export namespace editor::app
         // mapping), OnLoad re-registers.
         void ReloadNativeModule();
 
+        // Copies the project's declared native module to .cache/native-hot/reload-N-<base>
+        // and returns that path (empty on failure - the caller reports). EVERY load goes
+        // through this, including the first at project open, for two reasons: dlopen
+        // refcounts by path (so a reload of the same path returns the stale mapping), and
+        // on Windows LoadLibraryW holds the image file open against writes - mapping the
+        // declared path directly would make "Build Native Module" fail to relink it for as
+        // long as the project stays open (game-native-code.md N5/N6, shared-libraries.md W3).
+        [[nodiscard]] foundation::core::String StageNativeModuleCopy();
+
         UniquePtr<fonts::TrueTypeFontService> m_fontService;
         ui::toolkit::ToolkitThemeExtension m_toolkitTheme;
         RefPtr<foundation::ui::StyleSheet> m_styleSheet;

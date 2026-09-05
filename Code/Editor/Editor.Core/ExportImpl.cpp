@@ -701,6 +701,37 @@ namespace editor
 
     namespace
     {
+        // Windows hosts BOTH toolchains, and only one of them needs the developer environment
+        // pre-set in this process. cl.exe finds its headers/libs ONLY through the vcvars
+        // variables (INCLUDE/LIB/VCToolsInstallDir); clang and clang-cl locate an MSVC
+        // installation themselves (registry + Program Files probing), so demanding vcvars
+        // from a clang-built editor would block a setup that works. The pinned compiler is
+        // the one that built THIS editor, so this asks about that exact binary: basename
+        // minus .exe == "cl", which deliberately does NOT match "clang-cl" or "clang++".
+        [[nodiscard]] bool ShipCompilerIsMsvcCl()
+        {
+            StringView path =
+                StringView(reinterpret_cast<const char8_t*>(BUILDSYSTEM_CXX_COMPILER));
+            for (usize i = path.Size(); i > 0; --i)
+            {
+                if (path.Data()[i - 1] == '/' || path.Data()[i - 1] == '\\')
+                {
+                    path = StringView(path.Data() + i, path.Size() - i);
+                    break;
+                }
+            }
+            if (path.Size() >= 4)
+            {
+                const StringView tail(path.Data() + path.Size() - 4, 4);
+                if (tail == u8".exe" || tail == u8".EXE")
+                {
+                    path = StringView(path.Data(), path.Size() - 4);
+                }
+            }
+            return path.Size() == 2 && (path.Data()[0] == 'c' || path.Data()[0] == 'C') &&
+                   (path.Data()[1] == 'l' || path.Data()[1] == 'L');
+        }
+
         // Build Engine.GamePlayer for a native project (game-native-code.md N3): re-invoke
         // cmake over the engine checkout with the game's native dir wired in
         // (ENGINE_GAME_NATIVE_DIR/_TARGET), a persistent per-project build dir under the
@@ -733,6 +764,29 @@ namespace editor
                     u8"Emscripten.cmake",
                     emsdk.Value());
             }
+#if PLATFORM_WINDOWS
+            // RULING (shared-libraries.md W3): when the pinned toolchain is MSVC cl.exe, the
+            // desktop ship build REQUIRES the Visual Studio developer environment in this
+            // process, and we require it explicitly rather than trying to synthesize it.
+            // RunProcess takes an exe path with no shell, so the alternative is discovering
+            // vcvarsall.bat and running the whole configure/build through
+            // `cmd.exe /c "vcvarsall && cmake ..."` - which buys a guess at the VS install, a
+            // second quoting layer around every argument, and an exit code that can come from
+            // either command. Requiring a Developer Command Prompt is the same contract the
+            // web lane already has with EMSDK, and it fails here with one clear message
+            // instead of a compiler error 200 lines into a build. A clang/clang-cl editor
+            // skips this: clang finds MSVC itself.
+            if (!web && ShipCompilerIsMsvcCl() &&
+                !GetEnvironmentVariable(u8"VCToolsInstallDir").HasValue())
+            {
+                LOG_ERROR(u8"Export",
+                          u8"native ship export with MSVC needs the Visual Studio build "
+                          u8"environment: VCToolsInstallDir is not set - launch the editor/CLI "
+                          u8"from a Developer Command Prompt (or a shell that has run "
+                          u8"vcvars64.bat)");
+                return Status{ErrorCode::NotFound};
+            }
+#endif
             if (!DirectoryExists(PathJoin(engineRoot, u8"Code").AsView()))
             {
                 LOG_ERROR(u8"Export",
@@ -863,6 +917,18 @@ namespace editor
                       engineRoot);
             return Status{ErrorCode::NotFound};
         }
+#if PLATFORM_WINDOWS
+        // Same contract as the ship build (shared-libraries.md W3), and same narrow gate:
+        // only cl.exe needs vcvars pre-set in this process; clang/clang-cl find MSVC alone.
+        if (ShipCompilerIsMsvcCl() && !GetEnvironmentVariable(u8"VCToolsInstallDir").HasValue())
+        {
+            LOG_ERROR(u8"Export",
+                      u8"native dev build with MSVC needs the Visual Studio build environment: "
+                      u8"VCToolsInstallDir is not set - launch the editor/CLI from a "
+                      u8"Developer Command Prompt (or a shell that has run vcvars64.bat)");
+            return Status{ErrorCode::NotFound};
+        }
+#endif
         const String nativeDir = PathJoin(project.Directory(), u8"Native");
         const String target =
             detail::NativeTargetFromModulePath(project.Settings().nativeModule.AsView());
