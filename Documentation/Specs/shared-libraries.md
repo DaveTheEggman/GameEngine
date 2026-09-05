@@ -199,13 +199,15 @@ pinned allowlist that also fails on stale entries.
 
 Prototype: Foundation::Core built SHARED (Core.dll, 2415 exports) with
 Core.Tests as the consumer, build/msvc-shared-proto, MSVC 14.51.36231.
-Result: **the export mechanism works - Windows does NOT have to stay static** -
-but one identity gap blocks W2. The slice links with **zero unresolved
-symbols**, and **266 of 284 test cases pass against a shared Core** (28337
-assertions). The 18 `core-reflection` cases are the exception: 16 fail, and the
-first one segfaults, which aborts the process and marks the rest of a normal
-run "skipped". That failure is not an export problem (see "The one real gap"
-below). The MSVC **static** build is unaffected: 284/284, unchanged.
+Result: **it works. Windows does NOT have to stay static.** The slice links
+with **zero unresolved symbols** and, after the TypeOf-slot ruling below,
+**Core.Tests is 286/286 against a shared Core** (28556 assertions) with the
+MSVC static build unchanged at 286/286.
+
+As first prototyped (2026-09-04, before the ruling) it was 266 of 284: the 18
+`core-reflection` cases were the exception - 16 failed and the first
+segfaulted, aborting the process and marking the rest of a normal run
+"skipped". That was never an export problem; see "The identity gap" below.
 
 **Which hypothesis holds.** Both 1 and 2 work, and they cover *disjoint*
 problems, so the shipped shape is a hybrid. Hypothesis 3 (per-library
@@ -279,8 +281,8 @@ values), so one global macro genuinely serves every library.
 - **Scale is a non-issue.** Core: 2252 unique External function symbols (1994
   module-attached), 481 data symbols - 3.4% of the 64K export cap.
 
-**The one real gap (gates W2): templates duplicate per image.** Confirmed by
-dumpbin on the consumer object:
+**The identity gap (gated W2; RESOLVED 2026-09-05): templates duplicate per
+image.** Confirmed by dumpbin on the consumer object:
 
 - `GlobalTypeRegistry` -> `UNDEF` = **imported from Core.dll**. Non-template
   module-attached functions - *including `inline` ones with function-local
@@ -357,8 +359,15 @@ HOST ran `RegisterCoreTypes()` - the W1 scenario across a real dlopen
 boundary, and the plugin's `TypeOf` resolves through Core's single exported
 `TypeInfoSlot` (`nm` shows it as the plugin's only reference).
 
-Consequences: W2 is unblocked - shared Core.Tests on Windows should be
-284/284 with no Windows-side change. `Object::StaticType()` needs nothing
+**CONFIRMED ON WINDOWS 2026-09-05.** The prediction held exactly, with no
+Windows-side change: pulling the ruling into build/msvc-shared-proto and
+rebuilding gives shared Core.Tests **286/286** (28556 assertions, was 266 of
+284, and 286 rather than 284 because the ruling adds two `rtti-shared` cases);
+MSVC static is **286/286** too, so the slot costs the static lane nothing.
+Both `TypeOf<Float3>` reads and the `REFLECT_*` patches now agree across the
+Core.dll boundary. **W2 is unblocked.**
+
+Consequences: `Object::StaticType()` needs nothing
 (non-template, one definition per owning library, imported by consumers).
 The unused `CORE_EXPORT`/`CORE_IMPORT`/`CORE_API` placeholders are deleted;
 `COMPILER_ATTR_HIDDEN` took their place in Prelude.h. This was an
