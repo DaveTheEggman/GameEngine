@@ -19,7 +19,10 @@ using namespace foundation::core;
 export namespace foundation::ui
 {
     /// Short UI-friendly names for the core easing functions.
-    struct Easing
+    // ENGINE_EXPORT_DATA: these are static DATA members (function pointers). Taking one
+    // by address from another library needs the annotation - a .def entry is not enough,
+    // since only a dllimport declaration changes the use site. shared-libraries.md P5/W1.
+    struct ENGINE_EXPORT_DATA Easing
     {
         static constexpr EasingFunction Linear = &EaseInLinear;
 

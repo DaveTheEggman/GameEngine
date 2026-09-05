@@ -155,7 +155,12 @@ pinned allowlist that also fails on stale entries.
   archive): under shared libs that is two AngelScript runtimes incl. two
   thread managers. Fix: single wrapper library owns the archive (OBJECT lib
   or make the wrapper the only consumer).
-- SDL3/Jolt/Luau/imgui/etc: single-consumer static links, fine as-is.
+- Jolt/Luau/imgui/etc: single-consumer static links, fine as-is.
+  CORRECTION 2026-09-05 (W2): SDL3 was on this list and should not have been -
+  Shell.Desktop AND Shell.Desktop.Tests both link it, so a shared build got two
+  SDL runtimes with two event queues. It now follows ENGINE_SHARED_LIBS like
+  AngelScript. The test for this list is "how many targets link it?", not
+  "does it look like a leaf dependency".
 - MSVC + modules + dllexport was the highest-uncertainty item (one BMI read
   by producer and consumers; the classic FOO_API export/import macro dance
   does not transfer). RESOLVED 2026-09-04 - see the P5/W1 verdict in
@@ -373,6 +378,69 @@ The unused `CORE_EXPORT`/`CORE_IMPORT`/`CORE_API` placeholders are deleted;
 `COMPILER_ATTR_HIDDEN` took their place in Prelude.h. This was an
 **identity** problem, not an export problem: W4's export-annotation pass
 remains unnecessary.
+
+### P5 / W2 - the full shared build on Windows (2026-09-05): GREEN
+
+`cmake --preset msvc-shared` (new; mirrors `clang-shared`) + a
+`windows-msvc-shared` CI job. **All 182 DLLs build and the full 148-suite
+battery passes 100%**, including `Runtime.Tests` - whose "a shared-engine
+plugin shares identity + rendezvous with the host" case proves W1's slot
+across a real `LoadLibraryW` boundary - and `Script.AngelScript.Tests`, which
+exercises the x64 MASM trampoline inside a DLL. The MSVC static lane is
+unchanged. Getting there needed three things, and only the first was expected:
+
+**1. Export annotations for static data, demand-driven (8 sites).** The
+generated `.def` carries functions; static DATA members still need
+`ENGINE_EXPORT_DATA`, exactly as W1 predicted. The linker names them one at a
+time, so these were added as they appeared rather than by a speculative sweep:
+`ViewId::Invalid`, `Easing`'s 31 function pointers, `ViewTransform::Identity`,
+`VGVertex::SizeInBytes` (UI/VG), `CookDb::kDefaultName` (Pipeline.Cook),
+`LoopbackLink::kRemotePeer` (Net), `RecentProjectsSettings::kMaxEntries` and
+`ThumbnailService::kThumbnailSize` (Editor.Core). Two refinements to the W1
+guidance:
+
+- **`const`-integral is NOT exempt.** `kRemotePeer` (`static constexpr PeerId`)
+  and `kMaxEntries` (`usize`) still failed: odr-using one - binding it to a
+  `const&` parameter, taking its address - needs the definition, which in a
+  module interface is emitted only in the owning library's TU.
+- **Annotate the MEMBER, not the class, for anything non-trivial.**
+  `class ENGINE_EXPORT_DATA CookDb` does not compile: `dllexport` on a class
+  forces emission of every implicit member, and CookDb holds move-only
+  `UniquePtr` storage, so its deleted copy constructor is referenced (C2280);
+  it also flags each non-exported member type C4251, which is an error under
+  our warnings-as-errors. Class-level is fine only for trivially copyable
+  value types with no non-static members (the Core 7, `Easing`, `ViewId`,
+  `ViewTransform`, `VGVertex`).
+
+**2. Third-party runtimes that MORE THAN ONE target links must follow the
+engine's library type.** Two cases, same bug, and the second is new:
+
+- AngelScript was already handled (P3), but as a Windows DLL it exported
+  nothing, so no import library was produced at all and consumers failed with
+  `LNK1104: cannot open angelscript.lib`. It is a classic C++ target, not a
+  module, so CMake's own `WINDOWS_EXPORT_ALL_SYMBOLS` works - the
+  module-attached-symbol gap that forced our `.def` generator does not apply.
+- **SDL3 was NOT handled, and Section 4's "single-consumer static links, fine
+  as-is" was wrong about it.** `Foundation::Shell.Desktop` links it, and so
+  does `Shell.Desktop.Tests` (directly, so it can push synthetic events). A
+  static archive embedded in both a DLL and the exe is **two SDL runtimes with
+  two event queues**: the events the test pushed went to its own copy while the
+  shell polled the DLL's, so window-close and keyboard cases failed. SDL now
+  follows `ENGINE_SHARED_LIBS` like AngelScript. Audit the remaining vendored
+  archives against "how many targets link this?" rather than assuming.
+
+**3. Windows is where this class of bug surfaces first - again.** Both the SDL
+double-runtime and W1's `TypeOf<T>` slot are the same underlying story: ELF
+interposition unifies duplicated symbols across `.so` boundaries and hides the
+duplication; PE has no interposition, so the duplicates stay real. The Linux
+shared lane passes these tests today for a reason that is not correctness.
+
+Also confirmed on the W2 checklist: import libraries land in
+`Bin/<cfg>/<plat>-MSVC-Shared/lib/`, executables and their engine DLLs share
+the output directory so the loader finds them with no PATH setup,
+`VISIBILITY_INLINES_HIDDEN` is a harmless no-op on MSVC, and the largest
+generated `.def` (Editor.Scene) is 11918 functions - still a fraction of the
+64K export cap.
 
 P1 and P2 are pure wins even if shared builds never ship (they fix the
 plugin path that exists today and remove latent UAF/identity traps), so

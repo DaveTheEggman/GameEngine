@@ -141,7 +141,8 @@ export namespace editor
     {
     public:
         /// Thumbnail edge size (square, aspect-fit letterboxed by the generators' helper).
-        static constexpr u32 kThumbnailSize = 128;
+        // ENGINE_EXPORT_DATA: odr-used from another library (shared-libraries.md P5/W1).
+        static constexpr ENGINE_EXPORT_DATA u32 kThumbnailSize = 128;
         /// Scheduling budget (the cross-engine lesson): at most this many loads in flight; a
         /// bind sweep over a big folder trickles instead of flooding the light lane - the NEXT
         /// Get for a skipped id (every bind re-queries) schedules it once a slot frees.

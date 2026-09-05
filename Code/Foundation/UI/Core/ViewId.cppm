@@ -19,7 +19,10 @@ namespace core = foundation::core;
 
 export namespace foundation::ui
 {
-    struct ViewId
+    // ENGINE_EXPORT_DATA for ViewId::Invalid: a static data member crossing a
+    // shared-library boundary needs the annotation (a .def entry is not enough -
+    // only a dllimport declaration changes the use site). shared-libraries.md P5/W1.
+    struct ENGINE_EXPORT_DATA ViewId
     {
         /// Creates a new unique ViewId. NON-inline (UITypeRegistryImpl.cpp): a
         /// per-library counter would mint duplicate ids across shared-library

@@ -18,14 +18,30 @@ option(ENGINE_SYSTEM_SDL "Use a system SDL3 (find_package) instead of the vendor
 unset(ENGINE_SDL_TARGET CACHE)
 if(NOT EMSCRIPTEN)
     if(NOT ENGINE_SYSTEM_SDL AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL3/CMakeLists.txt)
-        set(SDL_SHARED OFF CACHE BOOL "" FORCE)       # static only - no runtime .so/.dll
-        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        # SDL follows the engine's library type, for the same reason AngelScript does
+        # (below): MORE THAN ONE target links it - Foundation::Shell.Desktop and, so it can
+        # push synthetic events, Shell.Desktop.Tests. A static archive embedded in both a DLL
+        # and the exe is TWO SDL runtimes with two event queues, so events pushed by one are
+        # invisible to the other. A static engine link dedups and never sees this; ELF
+        # interposition unifies the duplicate symbols and hides it on Linux; PE has neither,
+        # so the shell tests fail there first. shared-libraries.md P5/W2.
+        if(ENGINE_SHARED_LIBS)
+            set(SDL_SHARED ON CACHE BOOL "" FORCE)
+            set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+        else()
+            set(SDL_SHARED OFF CACHE BOOL "" FORCE)   # static only - no runtime .so/.dll
+            set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        endif()
         set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE) # skip SDL_test, tests, examples, install
         set(SDL_TESTS OFF CACHE BOOL "" FORCE)
         set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
         set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
         add_subdirectory(SDL3 EXCLUDE_FROM_ALL)       # compiled only when the shell links it
-        set(ENGINE_SDL_TARGET SDL3::SDL3-static CACHE INTERNAL "SDL link target for the desktop shell")
+        if(ENGINE_SHARED_LIBS)
+            set(ENGINE_SDL_TARGET SDL3::SDL3 CACHE INTERNAL "SDL link target for the desktop shell")
+        else()
+            set(ENGINE_SDL_TARGET SDL3::SDL3-static CACHE INTERNAL "SDL link target for the desktop shell")
+        endif()
     else()
         find_package(SDL3 QUIET GLOBAL)               # system SDL3 (escape hatch / distro packaging)
         if(SDL3_FOUND)
@@ -332,6 +348,13 @@ target_include_directories(angelscript SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/angelscript/add_on)
 target_compile_features(angelscript PRIVATE cxx_std_17)
 set_target_properties(angelscript PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Windows: nothing leaves a DLL without an export, and a DLL that exports nothing
+# produces no import library at all (consumers then fail with LNK1104 "cannot open
+# angelscript.lib"). Unlike our own libraries this is a CLASSIC C++ target, not a
+# C++20 module, so CMake's built-in bindexplib handles it - the module-attached
+# symbol gap that forced our own .def generator does not apply here.
+# shared-libraries.md P5/W2.
+set_target_properties(angelscript PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 if(NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
     target_link_libraries(angelscript PUBLIC Threads::Threads)

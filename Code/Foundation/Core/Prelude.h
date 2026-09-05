@@ -156,6 +156,18 @@
 // by everyone that imports it, so the macro cannot mean two things. It does not need to -
 // MSVC records the dllexport in the BMI and gives consumers the import side automatically
 // (verified end to end: consumers link with no dllimport anywhere and read correct values).
+//
+// WHERE TO PUT IT (learned in W2, from link failures across UI/VG/Net/Pipeline/Editor):
+//   - Put it on the MEMBER for anything non-trivial:
+//         static constexpr ENGINE_EXPORT_DATA StringView kDefaultName = u8"cook.db";
+//     Putting it on the CLASS makes MSVC emit every implicit member, so a class holding
+//     move-only state (UniquePtr, etc.) fails on its deleted copy constructor (C2280), and
+//     every non-exported member type warns C4251 - an error under warnings-as-errors.
+//     Class-level is fine ONLY for trivially copyable value types with no non-static data
+//     members (Float3, Color, Guid, ViewId...).
+//   - const-INTEGRAL members are NOT exempt. `static constexpr u32 kSize = 128;` still needs
+//     it once another library odr-uses it (binds it to a const& parameter, takes its
+//     address): the definition lives only in the owning library's TU.
 // See Documentation/Specs/shared-libraries.md section 5 (P5).
 #if COMPILER_MSVC && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
 #define ENGINE_EXPORT_DATA __declspec(dllexport)

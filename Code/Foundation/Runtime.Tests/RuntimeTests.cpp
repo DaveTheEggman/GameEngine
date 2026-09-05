@@ -499,8 +499,8 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
         REQUIRE(WriteFile(copyPath, Span<const byte>{original.Value().Data(),
                                                      original.Value().Size()})
                     .IsOk());
-        auto reloaded = host.Load(copyPath);
-        REQUIRE(reloaded.HasValue());
+        auto reloadedCopy = host.Load(copyPath);
+        REQUIRE(reloadedCopy.HasValue());
         CHECK(GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject") != nullptr);
         CHECK(resolved() == 41); // the copy's OnLoad ran against the live host subsystem
         host.UnloadAll();

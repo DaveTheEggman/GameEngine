@@ -19,7 +19,9 @@ namespace core = foundation::core;
 
 export namespace foundation::ui
 {
-    struct ViewTransform
+    // ENGINE_EXPORT_DATA for ViewTransform::Identity: a static data member read from
+    // another library needs the annotation (shared-libraries.md P5/W1).
+    struct ENGINE_EXPORT_DATA ViewTransform
     {
         /// Translation offset (pixels).
         core::Float2 Translation{0.0f, 0.0f};

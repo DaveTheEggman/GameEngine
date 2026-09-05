@@ -274,3 +274,30 @@ jobs:
       # ones with no software path skip themselves. --timeout bounds any hang.
       - name: Test
         run: ctest --preset msvc --output-on-failure --timeout 300 --no-tests=error
+
+  # The Windows half of the shared-library lane. PE has no vague-linkage interposition,
+  # so this job catches identity/rendezvous regressions that BOTH the static builds and
+  # (until a template is COMPILER_ATTR_HIDDEN) the Linux shared lane hide - it is where
+  # the W1 TypeOf<T> slot regression would surface first. Also the only lane exercising
+  # the generated module-aware .def export path (cmake/GenerateModuleDef.cmake) and
+  # Runtime.CrossPlugin across a real LoadLibraryW boundary.
+  # shared-libraries.md P5/W2.
+  windows-msvc-shared:
+    name: Windows / MSVC / Debug / shared libraries
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 if the modules build OOMs on the 16 GB runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1 # puts cl + the Windows SDK on PATH for the later steps
+      - name: Install Ninja
+        run: choco install ninja -y # the msvc-shared preset uses the Ninja generator (C++20 modules)
+      - name: Configure
+        run: cmake --preset msvc-shared
+      - name: Build
+        run: cmake --build --preset msvc-shared
+      # Executables and their engine DLLs share Bin/Debug/Win64-MSVC-Shared, so the loader
+      # finds them next to the exe with no PATH setup; import libs live in that dir's lib/.
+      - name: Test
+        run: ctest --preset msvc-shared --output-on-failure --timeout 300 --no-tests=error

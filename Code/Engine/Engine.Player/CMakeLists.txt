@@ -126,7 +126,9 @@ else()
     endif()
 
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
-    # host-template reads that list for its sidecars). SDL3 links statically (no DLL to stage);
+    # host-template reads that list for its sidecars). SDL3 links statically in a static engine
+    # build (no DLL to stage) and shared under ENGINE_SHARED_LIBS, where TARGET_RUNTIME_DLLS
+    # stages it like any other link dependency;
     # DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
     # the renderer's shader compiler and is NOT a link dependency, so it must be staged explicitly -
     # without it a copied dist finds no DXC and the renderer stays inert. On Linux, $ORIGIN on the

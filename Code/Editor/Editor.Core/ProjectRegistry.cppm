@@ -63,7 +63,8 @@ export namespace editor
     {
         RTTI_OBJECT(RecentProjectsSettings, ISerializable)
     public:
-        static constexpr usize kMaxEntries = 20;
+        // ENGINE_EXPORT_DATA: odr-used from another library (shared-libraries.md P5/W1).
+        static constexpr ENGINE_EXPORT_DATA usize kMaxEntries = 20;
 
         Array<RecentProjectEntry> entries;
 

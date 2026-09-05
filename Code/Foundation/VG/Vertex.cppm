@@ -23,7 +23,9 @@ using namespace foundation::core;
 export namespace foundation::vg
 {
     /// Vertex structure for vector graphics with analytical AA support.
-    struct VGVertex
+    // ENGINE_EXPORT_DATA for SizeInBytes: a static data member read from another
+    // library needs the annotation (shared-libraries.md P5/W1).
+    struct ENGINE_EXPORT_DATA VGVertex
     {
         Float2 position;     ///< Position in screen/world coordinates.
         Float2 texCoord;     ///< Texture coordinates (UV).

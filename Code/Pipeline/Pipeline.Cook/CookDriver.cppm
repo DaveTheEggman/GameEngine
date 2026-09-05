@@ -76,7 +76,10 @@ export namespace pipeline
         explicit CookDb(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
         static constexpr u32 kVersion = 1;
-        static constexpr StringView kDefaultName = u8"cook.db";
+        // Annotated on the MEMBER, not the class: dllexport on a class emits every
+        // implicit member (CookDb holds move-only UniquePtr storage, so its copy ctor is
+        // deleted) and flags each non-exported member type C4251. shared-libraries.md P5/W1.
+        static constexpr ENGINE_EXPORT_DATA StringView kDefaultName = u8"cook.db";
 
         [[nodiscard]] CookRecord* Find(const Guid& source);
 

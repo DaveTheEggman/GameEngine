@@ -103,6 +103,18 @@
       }
     },
     {
+      "name": "msvc-shared",
+      "displayName": "MSVC (Ninja, Debug, shared engine libraries)",
+      "description": "Requires a Developer Command Prompt (vcvars64) so cl.exe and the Windows SDK are on PATH; Ninja is used for C++20 module support.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc-shared",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENGINE_SHARED_LIBS": "ON"
+      }
+    },
+    {
       "name": "wasm",
       "displayName": "Emscripten wasm32 (Ninja, Debug)",
       "generator": "Ninja",
@@ -165,6 +177,10 @@
       "configurePreset": "msvc"
     },
     {
+      "name": "msvc-shared",
+      "configurePreset": "msvc-shared"
+    },
+    {
       "name": "wasm",
       "configurePreset": "wasm"
     },
@@ -205,6 +221,13 @@
     {
       "name": "msvc",
       "configurePreset": "msvc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "msvc-shared",
+      "configurePreset": "msvc-shared",
       "output": {
         "outputOnFailure": true
       }

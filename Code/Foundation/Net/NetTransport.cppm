@@ -168,7 +168,11 @@ export namespace foundation::net
             }
         }
 
-        static constexpr PeerId kRemotePeer = 1;
+        // Annotated on the MEMBER, not the class: dllexport on a class emits every implicit
+        // member and flags each non-exported member type C4251. const-integral is NOT exempt
+        // from needing this - odr-using it (binding to a const& parameter, taking its address)
+        // still needs the definition the owning DLL holds. shared-libraries.md P5/W1.
+        static constexpr ENGINE_EXPORT_DATA PeerId kRemotePeer = 1;
 
     private:
         friend class LoopbackEndpoint;
