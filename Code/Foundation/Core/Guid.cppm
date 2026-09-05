@@ -20,7 +20,7 @@ import :string;
 
 export namespace foundation::core
 {
-    struct Guid
+    struct ENGINE_EXPORT_DATA Guid
     {
         u64 high = 0;
         u64 low = 0;

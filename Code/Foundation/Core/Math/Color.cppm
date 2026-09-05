@@ -15,7 +15,7 @@ export namespace foundation::core
     // =======================================================================
     // Color - linear RGBA, float components (typically 0..1).
     // =======================================================================
-    struct Color
+    struct ENGINE_EXPORT_DATA Color
     {
         f32 r = 0.0f;
         f32 g = 0.0f;
@@ -98,7 +98,7 @@ export namespace foundation::core
     // 0..255 <-> 0..1 with NO gamma; sRGB<->linear is handled explicitly at the
     // texture/format edge (ImageColorSpace, *UnormSrgb formats).
     // =======================================================================
-    struct Color32
+    struct ENGINE_EXPORT_DATA Color32
     {
         u8 r = 0;
         u8 g = 0;

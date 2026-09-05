@@ -151,11 +151,12 @@ pinned allowlist that also fails on stale entries.
   thread managers. Fix: single wrapper library owns the archive (OBJECT lib
   or make the wrapper the only consumer).
 - SDL3/Jolt/Luau/imgui/etc: single-consumer static links, fine as-is.
-- MSVC + modules + dllexport is the highest-uncertainty item (one BMI read
+- MSVC + modules + dllexport was the highest-uncertainty item (one BMI read
   by producer and consumers; the classic FOO_API export/import macro dance
-  does not transfer). Linux/clang first; prototype the Windows story on
-  Foundation::Core + one consumer before committing to it. CORE_EXPORT /
-  CORE_IMPORT / CORE_API placeholders exist in Prelude.h:120-138, unused.
+  does not transfer). RESOLVED 2026-09-04 - see the P5/W1 verdict in
+  Section 5: generated `.def` for functions + `ENGINE_EXPORT_DATA` for static
+  data, no import macros at all. The CORE_EXPORT / CORE_IMPORT / CORE_API
+  placeholders in Prelude.h:120-138 stay unused and can be deleted.
 
 ## 5. Phases
 
@@ -188,6 +189,149 @@ pinned allowlist that also fails on stale entries.
 - **P5 - hidden visibility + Windows.** CXX_VISIBILITY_PRESET hidden +
   VISIBILITY_INLINES_HIDDEN (converts residual duplication into link
   errors), export annotations, MSVC prototype verdict applied.
+
+### P5 / W1 verdict - MSVC + C++20 modules + DLL (prototyped 2026-09-04)
+
+Prototype: Foundation::Core built SHARED (Core.dll, 2415 exports) with
+Core.Tests as the consumer, build/msvc-shared-proto, MSVC 14.51.36231.
+Result: **the export mechanism works - Windows does NOT have to stay static** -
+but one identity gap blocks W2. The slice links with **zero unresolved
+symbols**, and **266 of 284 test cases pass against a shared Core** (28337
+assertions). The 18 `core-reflection` cases are the exception: 16 fail, and the
+first one segfaults, which aborts the process and marks the rest of a normal
+run "skipped". That failure is not an export problem (see "The one real gap"
+below). The MSVC **static** build is unaffected: 284/284, unchanged.
+
+**Which hypothesis holds.** Both 1 and 2 work, and they cover *disjoint*
+problems, so the shipped shape is a hybrid. Hypothesis 3 (per-library
+`CORE_API` macro dance) is **not needed and should not be built** - see
+"Why not per-library macros".
+
+- **H1 - `WINDOWS_EXPORT_ALL_SYMBOLS`: fails as shipped, but is rescuable.**
+  CMake's own `bindexplib` skips module-attached symbols, which carry a
+  `::<!module.name>` suffix (`?Foo@@YAHXZ::<!foundation.core>`); it exported
+  **0** of Core's functions. The symbols are perfectly ordinary `External`
+  `notype ()` entries in the objects - only the def *generator* was blind to
+  them. Replacing it with `cmake/GenerateModuleDef.cmake` (dumpbin `/symbols`
+  -> filter External functions -> emit a `.def`) exports **2390** functions
+  with **zero source churn**. This is the workhorse.
+- **H2 - `export __declspec(dllexport)` in the module interface: works
+  completely, and is the ONLY thing that works for DATA.** MSVC is
+  module-aware here: the BMI records the export, and consumers reading that
+  same BMI get the *import* side automatically. There is no `dllimport`
+  anywhere in `Code/` (the `CORE_IMPORT` placeholder in Prelude.h:127 stays
+  unused). Verified runtime-correct for virtuals, out-of-line members, static
+  member functions, `thread_local` accessors, function-local statics, and
+  static data members.
+
+**The exact incantation.**
+
+1. `cmake/GenerateModuleDef.cmake` + the `ENGINE_SHARED_LIBS` branch of
+   `util_add_engine_library`: a PRE_LINK step generates `<name>_exports.def`
+   and adds `/DEF:` to the link. Object paths are passed through a
+   `file(GENERATE)`d list file - NOT as a command argument, because
+   `COMMAND_EXPAND_LISTS` splits `$<TARGET_OBJECTS>` on `;` and the script
+   then sees a single object (this silently produced 8 symbols instead of
+   2252 during bring-up).
+2. `ENGINE_EXPORT_DATA` (Prelude.h) = `__declspec(dllexport)` when
+   `BUILDSYSTEM_SHARED_LIBS`, empty otherwise. Applied to **static DATA
+   members only** - 7 sites today: Guid, Color, Color32, Float2, Float3,
+   Float4, Quaternion. Functions never need it.
+3. `BUILDSYSTEM_SHARED_LIBS=1` is defined **globally** on the `policy`
+   interface target, not per-target. That is deliberate and load-bearing: one
+   BMI is read by the definer *and* every consumer, so the macro must expand
+   identically in both. A per-target define would make the definer's BMI
+   disagree with the consumer's view of it.
+
+**Why not per-library macros (`FOUNDATION_CORE_API` etc.).** The classic
+Windows pattern needs a *different* expansion in the producer (dllexport) and
+the consumer (dllimport) of the same header. A module interface is compiled
+**once**, into one BMI that both sides read, so that split cannot be
+expressed - the macro has already been baked. What makes the single-spelling
+approach work is that MSVC records the export *in the BMI* and derives the
+import side per consumer. Verified with a deliberate two-library test (a
+second DLL consuming the first through two boundaries returned correct
+values), so one global macro genuinely serves every library.
+
+**Limits found.**
+
+- **DATA cannot go through the `.def`.** Exporting a data symbol by name in a
+  `.def` is not enough: the consumer still emits a *direct* reference rather
+  than an `__imp_` indirection, because only a `dllimport` declaration
+  changes the use site - and the single BMI cannot carry one. Data must use
+  the `ENGINE_EXPORT_DATA` annotation. This is the whole reason both
+  hypotheses are needed.
+- **STL template statics reachable through a module interface break
+  consumers.** `std::to_chars`/`from_chars`' *floating-point* path instantiates
+  `std::_General_precision_tables_2<double>` whose static data members hit
+  exactly the limit above - every consumer of a shared Core failed to link on
+  them. Fix: the three float conversions now route through non-inline
+  `detail::FloatToChars` / `FloatFromChars` / `FloatToCharsFixed`, defined in
+  `Core/Text/TextImpl.cpp`, so the instantiation stays inside Core and no
+  consumer ever references it. Integral `to_chars` has no such tables and
+  stays inline. **Generalizes:** any STL facility with template-static state
+  used from a module interface needs the same treatment.
+- **Scale is a non-issue.** Core: 2252 unique External function symbols (1994
+  module-attached), 481 data symbols - 3.4% of the 64K export cap.
+
+**The one real gap (gates W2): templates duplicate per image.** Confirmed by
+dumpbin on the consumer object:
+
+- `GlobalTypeRegistry` -> `UNDEF` = **imported from Core.dll**. Non-template
+  module-attached functions - *including `inline` ones with function-local
+  statics* - are emitted once, in the owning module's TU, and consumers import
+  them. Rendezvous is therefore safe **by construction** on MSVC, with no
+  de-inlining required. This is stronger than ELF, which needs default
+  visibility to get the same result.
+- `TypeOf<Float3>` -> `SECT25E` = **the consumer emitted its own copy**.
+  Templates must instantiate per-TU, so `TypeOf<T>()`'s function-local
+  `TypeInfo` is **one instance per image**. `RegisterCoreTypes()` runs inside
+  Core.dll and patches *Core's* copy; the executable reads its own unpatched
+  copy and sees 0 properties, then dereferences the resulting null
+  `PropertyInfo*`. This is not one bad test - it means **every REFLECT_*-patched
+  type is invisible across a DLL boundary**, which is why 16 of the 18
+  `core-reflection` cases fail (properties, methods, constants, constructors,
+  enums, container access, registry-by-name). Everything else in Core - 266
+  cases - is unaffected.
+
+Linux never surfaced this because ELF unifies vague-linkage symbols across
+`.so` boundaries at load time. PE has no such interposition - Windows behaves
+like the hidden-visibility end state P5 is aiming at, so **it detects the gap
+that Linux-shared is currently papering over**. Expect the same failures on
+Linux the moment `VISIBILITY_INLINES_HIDDEN` lands.
+
+Two candidate fixes, both consistent with the Section 6 rules; **neither is
+implemented - this needs a ruling before W2**:
+
+- **(a) Canonicalize in the readers.** Route the ~20 metadata accessors in
+  Reflection.cppm (`Properties`, `FindProperty`, `Methods`, `Attributes`,
+  `Constants`, container/enumerator readers) through
+  `GlobalTypeRegistry().Canonical()`, which already exists for exactly this
+  and whose comment already states the rule. Localized to one file; no
+  behavior change on static or Linux-shared builds (there the canonical
+  instance *is* the argument). Costs one registry hash lookup per call on
+  metadata-enumeration paths. Does **not** fix `TypeInfo*` equality across
+  images - the test's `x->type == &TypeOf<f32>()` would have to become an id
+  compare, which Section 6 already mandates anyway.
+- **(b) Move the slot out of the template.** `TypeOf<T>()` obtains its
+  `TypeInfo` from a non-inline `detail::TypeInfoSlot(id, prototype)` defined
+  in an impl unit, backed by a process-wide id-keyed map. One change point,
+  zero per-call cost, and it restores `TypeInfo*` pointer identity across
+  images so every reader and every existing pointer compare just works. It is
+  also the literal application of the Section 6 rule ("process-wide state
+  lives behind non-inline accessors defined in impl units") to the one piece
+  of process-wide state still living in a template. Heavier: introduces
+  allocation and a lock on a path that is currently allocation-free, so
+  static-init ordering, teardown ordering and hot-reload interaction all need
+  design work.
+
+Recommendation: **(b)**. With 16 failures spanning properties, methods,
+constants, constructors, enums and registry-by-name lookups, (a) would also
+drag in a sweep of every `TypeInfo*` comparison in engine and test code, so
+its "cheaper" edge largely evaporates - while (b) fixes all of it at one
+point and leaves pointer identity meaningful. Either way this is an
+**identity** problem, not an export problem: W4's export-annotation pass
+remains unnecessary.
 
 P1 and P2 are pure wins even if shared builds never ship (they fix the
 plugin path that exists today and remove latent UAF/identity traps), so

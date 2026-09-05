@@ -137,6 +137,29 @@
 // plugin targets define it per target when building shared libraries.
 #define CORE_API
 
+// ENGINE_EXPORT_DATA - for STATIC DATA MEMBERS of types that cross a shared-library
+// boundary (Float3::Zero, Color::Red, Guid::Nil...). NOT the classic FOO_API dance and NOT
+// needed on functions.
+//
+// Functions do not need it: on MSVC the shared build generates a .def exporting every
+// module-attached function symbol (cmake/GenerateModuleDef.cmake), so the ~2200 functions
+// of a library like Core export with no source annotation at all. DATA cannot go that
+// route - a .def DATA export still leaves the consumer emitting a direct reference that
+// the import library cannot satisfy (verified), because reading imported data needs the
+// declaration itself to say so.
+//
+// One spelling for producer AND consumer, deliberately. The classic export/import macro
+// pair cannot work here: there is ONE BMI, read by the library that defines the entity and
+// by everyone that imports it, so the macro cannot mean two things. It does not need to -
+// MSVC records the dllexport in the BMI and gives consumers the import side automatically
+// (verified end to end: consumers link with no dllimport anywhere and read correct values).
+// See Documentation/Specs/shared-libraries.md section 5 (P5).
+#if COMPILER_MSVC && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
+#define ENGINE_EXPORT_DATA __declspec(dllexport)
+#else
+#define ENGINE_EXPORT_DATA
+#endif
+
 // Expression-form branch hints are pass-throughs: Clang miscompiles
 // __builtin_expect when it is reachable across C++ module units (it conflates
 // call sites and reports an ambiguous call). For real hot paths, use the

@@ -216,9 +216,13 @@ export namespace foundation::core
         requires std::is_floating_point_v<T>
     void AppendValue(Sink& out, T value)
     {
+        // Through detail::FloatToChars (defined in Core's Text/TextImpl.cpp), NOT std::to_chars
+        // directly: instantiating the STL's floating-point path in a module interface leaves
+        // consumers referencing STL static DATA members that a shared Core cannot hand them.
+        // See the declaration in String.cppm for the full reason.
         char temp[48];
-        const std::to_chars_result result = std::to_chars(temp, temp + sizeof(temp), value);
-        detail::AppendAsciiDigits(out, temp, static_cast<usize>(result.ptr - temp));
+        const usize n = detail::FloatToChars(temp, sizeof(temp), static_cast<f64>(value));
+        detail::AppendAsciiDigits(out, temp, n);
     }
 
     // UTF-8 view: append directly.

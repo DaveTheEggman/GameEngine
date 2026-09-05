@@ -1,6 +1,21 @@
 # Reusable CMake helpers. Included once from the root CMakeLists, so the
 # functions defined here are visible in every add_subdirectory() below it.
 
+# Where these helpers live, so a helper can invoke a sibling script by path from a
+# custom command (CMAKE_CURRENT_LIST_DIR is the CALLER's directory inside a function).
+set(UTIL_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL "cmake/ helper directory")
+
+# dumpbin, for the MSVC shared-library export .def (see util_add_engine_library). It sits
+# beside cl.exe in the toolchain; look there first so we get the toolset's own copy rather
+# than whatever a Developer prompt happened to put on PATH.
+if(MSVC AND NOT UTIL_DUMPBIN)
+    get_filename_component(_util_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(UTIL_DUMPBIN NAMES dumpbin HINTS "${_util_cl_dir}")
+    if(NOT UTIL_DUMPBIN)
+        set(UTIL_DUMPBIN "dumpbin" CACHE FILEPATH "dumpbin used to build export .def files")
+    endif()
+endif()
+
 # util_copy_runtime_deps(<target> [EXTRA <file>...])
 #
 # POST_BUILD, stage everything <target> needs to run next to its executable:
@@ -76,6 +91,32 @@ function(util_add_engine_library name)
         # inlines anyway. Full hidden visibility + export annotations wait on the
         # MSVC modules+dllexport prototype (shared-libraries.md P5).
         set_target_properties(${name} PROPERTIES VISIBILITY_INLINES_HIDDEN ON)
+        # MSVC has no default-visibility equivalent: nothing leaves a DLL without an
+        # export. WINDOWS_EXPORT_ALL_SYMBOLS is the obvious answer and does NOT work here
+        # - it drops every C++20 module-attached symbol (Core exported 221 CRT/STL names
+        # and none of its own 1994 module functions). Generate the .def ourselves instead;
+        # link.exe accepts the module-decorated names fine. shared-libraries.md P5.
+        if(MSVC)
+            set(_uael_def "${CMAKE_CURRENT_BINARY_DIR}/${name}_exports.def")
+            # The object list goes through a FILE, not the command line: passing
+            # $<TARGET_OBJECTS> as a -D argument needs COMMAND_EXPAND_LISTS, which then
+            # splits the ;-list into separate argv entries and the script sees only the
+            # first object (found 8 symbols instead of 2252 - this exact bug).
+            set(_uael_objs "${CMAKE_CURRENT_BINARY_DIR}/${name}_objects.txt")
+            file(GENERATE OUTPUT "${_uael_objs}"
+                 CONTENT "$<JOIN:$<TARGET_OBJECTS:${name}>,\n>\n" TARGET ${name})
+            add_custom_command(
+                TARGET ${name} PRE_LINK
+                COMMAND ${CMAKE_COMMAND}
+                        -DDUMPBIN=${UTIL_DUMPBIN}
+                        -DOBJECTS_FILE=${_uael_objs}
+                        -DDEF_FILE=${_uael_def}
+                        -P "${UTIL_CMAKE_DIR}/GenerateModuleDef.cmake"
+                VERBATIM
+                COMMENT "Generating module-aware export .def for ${name}")
+            # The .def is written by the PRE_LINK step above, so it exists by link time.
+            target_link_options(${name} PRIVATE "/DEF:${_uael_def}")
+        endif()
     else()
         add_library(${name} STATIC)
     endif()

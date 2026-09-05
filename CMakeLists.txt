@@ -212,6 +212,10 @@ target_compile_definitions(policy INTERFACE
     $<$<CONFIG:Debug>:BUILD_DEBUG=1>
     $<$<AND:$<CONFIG:Release,RelWithDebInfo,MinSizeRel>,$<NOT:$<BOOL:${OPTION_SHIPPING_BUILD}>>>:BUILD_RELEASE=1>
     $<$<BOOL:${OPTION_SHIPPING_BUILD}>:BUILD_SHIPPING=1>
+    # Drives ENGINE_EXPORT_DATA (Core/Prelude.h). GLOBAL, not per-target, and that is the
+    # point: one BMI is shared by the library that defines an entity and every consumer, so
+    # the annotation must expand the same way everywhere (shared-libraries.md P5).
+    $<$<BOOL:${ENGINE_SHARED_LIBS}>:BUILDSYSTEM_SHARED_LIBS=1>
     # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
     $<$<CONFIG:Debug,RelWithDebInfo>:BUILD_PROFILING=1>
     # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export

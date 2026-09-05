@@ -24,6 +24,30 @@ import :hash;
 
 export namespace foundation::core
 {
+    namespace detail
+    {
+        /// Format a double as ASCII (shortest round-trip), returning the byte count written.
+        /// Declared here, DEFINED in Text/TextImpl.cpp, and that placement is load-bearing on
+        /// Windows: std::to_chars' floating-point path instantiates STL tables
+        /// (std::_General_precision_tables_2<double>::_Max_P and friends) whose static DATA
+        /// members MSVC will not let a consumer emit for itself once the instantiation is
+        /// reachable through a module interface - the consumer references them and expects the
+        /// producing DLL to own them, which a .def cannot deliver (exported DATA needs
+        /// dllimport at the use site). Keeping the instantiation inside Core means no consumer
+        /// ever needs those symbols. Integral to_chars is unaffected (no such tables), so only
+        /// the float path routes through here. See shared-libraries.md section 5 (P5).
+        [[nodiscard]] usize FloatToChars(char* buffer, usize capacity, f64 value) noexcept;
+
+        /// The parse direction, out of line for the same reason: std::from_chars' float path
+        /// instantiates the same STL tables. Returns false unless the WHOLE [begin, end) is a
+        /// valid number, so callers keep their all-or-nothing contract.
+        [[nodiscard]] bool FloatFromChars(const char* begin, const char* end, f64& out) noexcept;
+
+        /// Fixed-precision form (printf %.*f), out of line for the same reason as the two above.
+        [[nodiscard]] usize FloatToCharsFixed(char* buffer, usize capacity, f64 value,
+                                              i32 decimals) noexcept;
+    }
+
     template <typename CharT>
     [[nodiscard]] constexpr usize CStringLength(const CharT* str) noexcept
     {
@@ -484,7 +508,18 @@ export namespace foundation::core
 
         BasicStringBuilder& AppendInt(i64 value) { return AppendChars(value); }
         BasicStringBuilder& AppendUInt(u64 value) { return AppendChars(value); }
-        BasicStringBuilder& AppendFloat(f64 value) { return AppendChars(value); }
+        // Not AppendChars: the float to_chars instantiation stays inside Core (see
+        // detail::FloatToChars).
+        BasicStringBuilder& AppendFloat(f64 value)
+        {
+            char temp[48];
+            const usize n = detail::FloatToChars(temp, sizeof(temp), value);
+            for (usize i = 0; i < n; ++i)
+            {
+                m_string.PushBack(static_cast<CharT>(static_cast<unsigned char>(temp[i])));
+            }
+            return *this;
+        }
         BasicStringBuilder& AppendBool(bool value) { return AppendAscii(value ? "true" : "false"); }
 
         void Clear() noexcept { m_string.Clear(); }
@@ -779,8 +814,7 @@ export namespace foundation::core
         const char* begin = reinterpret_cast<const char*>(t.Data());
         const char* end = begin + t.Size();
         f64 value = 0.0;
-        const std::from_chars_result r = std::from_chars(begin, end, value);
-        if (r.ec != std::errc{} || r.ptr != end)
+        if (!detail::FloatFromChars(begin, end, value))
         {
             return {};
         }
@@ -811,11 +845,9 @@ export namespace foundation::core
                                             IAllocator& allocator = DefaultAllocator())
     {
         char temp[64];
-        const std::to_chars_result r =
-            std::to_chars(temp, temp + sizeof(temp), value, std::chars_format::fixed,
-                          decimals < 0 ? 0 : decimals);
+        const usize n = detail::FloatToCharsFixed(temp, sizeof(temp), value, decimals);
         String out(allocator);
-        out.Append(reinterpret_cast<const utf8char*>(temp), static_cast<usize>(r.ptr - temp));
+        out.Append(reinterpret_cast<const utf8char*>(temp), n);
         return out;
     }
 

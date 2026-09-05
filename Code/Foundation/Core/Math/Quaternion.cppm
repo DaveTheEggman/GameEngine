@@ -25,7 +25,7 @@ export namespace foundation::core
     // =======================================================================
     // Quaternion - unit quaternion rotation (x, y, z, w).
     // =======================================================================
-    struct Quaternion
+    struct ENGINE_EXPORT_DATA Quaternion
     {
         f32 x = 0.0f;
         f32 y = 0.0f;
