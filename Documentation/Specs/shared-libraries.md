@@ -448,13 +448,29 @@ The dev loop works end to end; details and the vcvars ruling live in
 game-native-code.md N5. Two findings belong here because they generalize
 beyond game modules:
 
-- **`ENGINE_EXPORT_DATA` must key on the TARGET, not the compiler.** It was
-  `#if COMPILER_MSVC`, and `COMPILER_MSVC` is **0 for clang-cl** - Prelude.h
-  tests `defined(__clang__)` first. Windows hosts cl, clang-cl and clang, all
-  emitting PE/COFF, so a clang-cl shared build would have silently dropped
-  every data export and failed at link on exactly the symbols the macro exists
-  for. Now `#if PLATFORM_WINDOWS`, which all three understand. The same
-  question is worth asking of anything else keyed on `COMPILER_MSVC`.
+- **`ENGINE_EXPORT_DATA` must key on the COMPILER, and `COMPILER_MSVC` is
+  right.** This was briefly "corrected" to `PLATFORM_WINDOWS` on the theory
+  that PE needs exports regardless of compiler; the full-tree clang build
+  disproved it (12 targets failing). The two compilers need OPPOSITE things:
+
+  - `cl` emits a module-attached inline variable ONLY in its owning module's
+    TU - the same one-definition behaviour that makes `GlobalTypeRegistry`
+    show up `UNDEF` in consumers (W1). A consumer therefore REFERENCES Core's
+    copy, and the export is what makes that resolve.
+  - `clang` emits its own COMDAT copy in every TU that uses the variable, so a
+    consumer needs no export at all - and it takes the `dllexport` literally in
+    each of those TUs, planting `/EXPORT:<sym>,DATA` in the CONSUMER's object.
+    The consumer then asks the linker to export a symbol only Core.dll defines:
+    `lld-link: error: <root>: undefined symbol: ...Float3::Zero`. Verified with
+    `dumpbin -directives` on Animation's objects.
+
+  Everything the macro is applied to is an inline CONSTANT, so clang's
+  per-image copies are value-identical and harmless - the W1 identity rule is
+  about mutable patched metadata, not constants. **Corollary: MSVC's
+  "the BMI carries the export and consumers get the import side" behaviour,
+  which the whole W1 verdict rests on, is an MSVC property and NOT a clang
+  one.** Anything keyed on `COMPILER_MSVC` deserves this same question, but
+  the answer is not automatically "widen it".
 - **The generated-`.def` path was gated on `MSVC`, and that skipped the
   `clang` preset entirely.** There are THREE Windows configurations, not two:
 
@@ -477,10 +493,20 @@ beyond game modules:
   `-DUTIL_DUMPBIN=`, instead of failing identically in the PRE_LINK step of
   all 179 libraries.
 
-Verified on the `clang` preset: `Foundation::Core` builds and exports
-correctly as a DLL. NOT verified: the whole-tree clang shared build and its
-battery, and clang-cl at all (no preset). There is still no Windows-clang CI
-lane, so the guard against regressing this is a person remembering.
+**Full-tree clang shared build on Windows: GREEN.** `clang++` at the MSVC ABI
+with lld-link, `ENGINE_SHARED_LIBS=ON`: **6196/6196 targets build and the
+148-suite battery passes 100%**. The MSVC shared lane is unchanged at 148/148,
+so the two Windows compilers now both work shared, from one source, with the
+`.def` mechanism shared and the data-export annotation deliberately
+MSVC-only.
+
+Still NOT verified: clang-cl (no preset exists for it), and there is no
+Windows-clang CI lane - so the guard against regressing this is a person
+remembering. Note also that this whole session's builds ran with a stale
+`VULKAN_SDK` pointing at an uninstalled SDK, so `Foundation::RHI.Vulkan` and
+the three cross-backend pixel-probe suites it gates (Render.Backend.Tests,
+VG.Backend.Tests, Engine.Terrain.Backend.Tests) were configured OUT. Every
+"148/148" here is 148 of the configured suites, not the full battery.
 
 P1 and P2 are pure wins even if shared builds never ship (they fix the
 plugin path that exists today and remove latent UAF/identity traps), so

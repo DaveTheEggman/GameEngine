@@ -169,13 +169,22 @@
 //     it once another library odr-uses it (binds it to a const& parameter, takes its
 //     address): the definition lives only in the owning library's TU.
 // See Documentation/Specs/shared-libraries.md section 5 (P5).
-// Keyed on the TARGET, not the compiler: Windows hosts cl, clang-cl and clang, and all of
-// them emit PE/COFF where nothing leaves a DLL without an export. COMPILER_MSVC would be
-// wrong here - it is 0 for clang-cl (the COMPILER_CLANG branch above is tested first), so
-// keying on it would silently drop every data export from a clang-cl shared build and fail
-// at link on exactly the symbols this macro exists for. __declspec(dllexport) is understood
-// by all three. Elsewhere (ELF/Mach-O) default visibility already exports, so this is empty.
-#if PLATFORM_WINDOWS && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
+// COMPILER_MSVC, not PLATFORM_WINDOWS - the two compilers need OPPOSITE things here, and
+// this was measured (a full-tree clang shared build, 12 targets failing, W2/W3 notes):
+//
+//   cl   emits a module-attached inline variable ONLY in its owning module's TU (the same
+//        one-definition behaviour that makes GlobalTypeRegistry show up UNDEF in consumers),
+//        so a consumer REFERENCES Core's copy and the export is what makes that resolve.
+//   clang emits its own COMDAT copy of the inline variable in every TU that uses it, so a
+//        consumer needs no export at all - and worse, it takes the dllexport literally in
+//        each of those TUs and plants /EXPORT:<sym>,DATA in the consumer's object. The
+//        consumer then asks the linker to export a symbol only Core.dll defines:
+//        "lld-link: error: <root>: undefined symbol: ...Float3::Zero".
+//
+// Everything this macro is applied to is an inline CONSTANT, so clang's per-image copies are
+// value-identical and harmless (the W1 identity rule is about mutable patched metadata, not
+// constants). Elsewhere (ELF/Mach-O) default visibility already exports, so this is empty.
+#if COMPILER_MSVC && defined(BUILDSYSTEM_SHARED_LIBS) && BUILDSYSTEM_SHARED_LIBS
 #define ENGINE_EXPORT_DATA __declspec(dllexport)
 #else
 #define ENGINE_EXPORT_DATA
