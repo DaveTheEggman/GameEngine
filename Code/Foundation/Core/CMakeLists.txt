@@ -16,6 +16,7 @@ target_sources(Core PRIVATE
 # interface partitions. Listed as regular sources, NOT in the CXX_MODULES file set.
 target_sources(Core PRIVATE
     RefCountedImpl.cpp                   # MakeRef handshake slot (one per process, not per library)
+    RTTI/TypeInfoImpl.cpp                # TypeOf<T>() slot table (one TypeInfo per process)
     Threading/JobSystemImpl.cpp          # global JobSystem pointer + worker slot (one per process)
     Text/TextImpl.cpp                    # float to_chars (STL tables must not reach consumers)
     Reflection/CoreReflectionImpl.cpp)   # REFLECT_* bodies (see CoreReflection.cppm)

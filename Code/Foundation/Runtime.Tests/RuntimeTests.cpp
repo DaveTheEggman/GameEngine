@@ -389,6 +389,7 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
     const StringView path{reinterpret_cast<const utf8char*>(CROSS_PLUGIN_PATH)};
 
     Context ctx(DefaultAllocator());
+    RegisterCoreTypes(); // the host image patches Float3's metadata (see 3b)
     // Host-side probe subsystem, registered BEFORE the plugin loads.
     crossprobe::HostProbeSubsystem hostProbe;
     ctx.RegisterSubsystem<crossprobe::HostProbeSubsystem>(&hostProbe);
@@ -450,6 +451,20 @@ TEST_CASE("runtime: a shared-engine plugin shares identity + rendezvous with the
     const TypeInfo* found = GlobalTypeRegistry().FindByName("crossprobe", "ProbeObject");
     REQUIRE(found != nullptr);
     CHECK(found->id == crossprobe::ProbeObject::StaticType().id);
+
+    // 3b. TypeOf<T>() is ONE TypeInfo per process: the plugin's own TypeOf<Float3>() is
+    //     the host's slot and carries the properties Core's registrar patched in (with a
+    //     per-image TypeInfo the plugin would read an unpatched copy: 0 properties, the
+    //     W1 finding). Core types are registered by the host, before the plugin loaded.
+    const auto pluginTypeOf =
+        probe.GetSymbol<const TypeInfo* (*)()>(u8"CrossPluginTypeOfFloat3");
+    const auto pluginPropertyCount =
+        probe.GetSymbol<unsigned (*)()>(u8"CrossPluginFloat3PropertyCount");
+    REQUIRE(pluginTypeOf != nullptr);
+    REQUIRE(pluginPropertyCount != nullptr);
+    CHECK(pluginTypeOf() == &TypeOf<Float3>());
+    CHECK(pluginPropertyCount() == 3u);
+    CHECK(Properties(TypeOf<Float3>()).Size() == 3u);
 
     // 4. Unload reverses the RECORDED registrations (the N6 RegistrationScope): the
     //    registry entry pointing into the closed library is gone...

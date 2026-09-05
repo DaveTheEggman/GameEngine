@@ -70,6 +70,18 @@ extern "C" PLUGIN_EXPORT IRuntimePlugin* CreatePlugin()
 // The host-value the plugin observed while resolving the host's subsystem (-1 = miss).
 extern "C" PLUGIN_EXPORT int CrossPluginResolvedHostValue() { return g_resolvedHostValue; }
 
+// THIS binary's TypeOf<Float3>(): the slot must be the host's (one TypeInfo per process),
+// carrying the properties Core's registrar patched in - the W1 finding that gated W2
+// (metadata patched inside one image invisible to another).
+extern "C" PLUGIN_EXPORT const foundation::core::TypeInfo* CrossPluginTypeOfFloat3()
+{
+    return &TypeOf<Float3>();
+}
+extern "C" PLUGIN_EXPORT unsigned CrossPluginFloat3PropertyCount()
+{
+    return static_cast<unsigned>(Properties(TypeOf<Float3>()).Size());
+}
+
 // Create a ProbeObject in THIS binary via MakeRef and hand the caller an owning
 // reference (detached: +1 strong the host adopts and releases). Exercises the
 // RefControl handshake and the release path across the boundary.

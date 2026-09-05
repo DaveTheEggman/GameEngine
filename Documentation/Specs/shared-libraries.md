@@ -88,6 +88,11 @@ What we do NOT have to solve (verified):
    local copy's properties. Inspector/serialization already go through
    registry lookups for disk paths; audit the direct `TypeOf<T>().properties`
    reads.
+   SUPERSEDED 2026-09-05 (W1 ruling, Section 5): the `TypeInfo` behind
+   `TypeOf<T>()` is now PROCESS-SINGLE (`detail::TypeInfoSlot`, Core impl
+   unit), so a registrar's patch is what every library reads and
+   `&TypeOf<T>()` is one address per process. `Canonical()` stays as the
+   belt-and-braces resolver for metadata that arrives as a by-value clone.
 5. **PolymorphicElementFactory<Base> static-inline function pointers**
    (Reflection.cppm:866): audited P1 - NOT cross-library load-bearing. The
    readers are the ContainerInfo lambdas instantiated inside the same
@@ -300,36 +305,63 @@ like the hidden-visibility end state P5 is aiming at, so **it detects the gap
 that Linux-shared is currently papering over**. Expect the same failures on
 Linux the moment `VISIBILITY_INLINES_HIDDEN` lands.
 
-Two candidate fixes, both consistent with the Section 6 rules; **neither is
-implemented - this needs a ruling before W2**:
+Two candidate fixes were on the table - (a) canonicalize the ~20 metadata
+readers in Reflection.cppm through `GlobalTypeRegistry().Canonical()`, or
+(b) move the slot out of the template - and the Windows session recommended
+(b).
 
-- **(a) Canonicalize in the readers.** Route the ~20 metadata accessors in
-  Reflection.cppm (`Properties`, `FindProperty`, `Methods`, `Attributes`,
-  `Constants`, container/enumerator readers) through
-  `GlobalTypeRegistry().Canonical()`, which already exists for exactly this
-  and whose comment already states the rule. Localized to one file; no
-  behavior change on static or Linux-shared builds (there the canonical
-  instance *is* the argument). Costs one registry hash lookup per call on
-  metadata-enumeration paths. Does **not** fix `TypeInfo*` equality across
-  images - the test's `x->type == &TypeOf<f32>()` would have to become an id
-  compare, which Section 6 already mandates anyway.
-- **(b) Move the slot out of the template.** `TypeOf<T>()` obtains its
-  `TypeInfo` from a non-inline `detail::TypeInfoSlot(id, prototype)` defined
-  in an impl unit, backed by a process-wide id-keyed map. One change point,
-  zero per-call cost, and it restores `TypeInfo*` pointer identity across
-  images so every reader and every existing pointer compare just works. It is
-  also the literal application of the Section 6 rule ("process-wide state
-  lives behind non-inline accessors defined in impl units") to the one piece
-  of process-wide state still living in a template. Heavier: introduces
-  allocation and a lock on a path that is currently allocation-free, so
-  static-init ordering, teardown ordering and hot-reload interaction all need
-  design work.
+**RULING 2026-09-05 (Linux session): (b), applied.** The deciding facts, from
+the code rather than the failure count:
 
-Recommendation: **(b)**. With 16 failures spanning properties, methods,
-constants, constructors, enums and registry-by-name lookups, (a) would also
-drag in a sweep of every `TypeInfo*` comparison in engine and test code, so
-its "cheaper" edge largely evaporates - while (b) fixes all of it at one
-point and leaves pointer identity meaningful. Either way this is an
+- (a) is not localized: 170 raw `TypeInfo*` compares live outside
+  Reflection.cppm (replication, scene resource, both script backends, the
+  inspector) and every one would need the id-compare sweep.
+- (a) does not even find the right instance: `REFLECT_VALUE` patches by
+  whole-struct assignment and REWRITES `id` to the authored name hash, so the
+  consumer's unpatched copy still carries the signature id and an id-keyed
+  `Canonical()` lookup misses it.
+- (b)'s "design work" collapses once the semantics are pinned: the table is
+  STATIC STORAGE (zero-initialized .bss: usable from the first call in static
+  init, nothing to destroy, no allocator on the common path), the lock is a
+  constant-initialized `SpinLock` taken once per (image, T) first use (the
+  per-image cache is a REFERENCE, so the steady-state cost is the same
+  guarded load as before), and hot reload is exactly right because a rebuilt
+  module finds its slots already there: `REFLECT_VALUE` / `EnumBuilder`
+  re-patch them (last registrar wins) and the slot refreshes only the
+  prototype-derived layout facts (`size`/`align`).
+
+Shape (Core/RTTI/TypeInfo.cppm + the new Core/RTTI/TypeInfoImpl.cpp):
+`TypeOf<T>()` = `static TypeInfo& info = detail::TypeInfoSlot(SignatureTypeId<T>(),
+ValuePrototype<T>()); return info;`. The table = an open-addressing index
+(16384 entries, <= 50% load) keyed by SIGNATURE id (stable even after the
+authored id is patched in) + a pool of 4096 `TypeInfo` slots, both in .bss;
+past those sizes it grows onto the heap (index rehash, further pool chunks),
+which is never freed - a slot must outlive its first registrar's image.
+Why not the heap from the start: the first cut allocated the table lazily
+and ASAN's `Runtime.Tests` reported 472 bytes leaked from `<unknown module>`
+- the STATIC-lane test plugin embeds its own Core (the unsupported model,
+but a test dlcloses it) and its private table was orphaned on unload; static
+storage leaves nothing behind. `TypeInfo.cppm` is on the tripwire allowlist
+for the per-image reference; `TypeInfoImpl.cpp` on the allocator allowlist
+for the growth path (a composition root).
+
+**Linux now models PE for this symbol.** `TypeOf<T>()` is
+`COMPILER_ATTR_HIDDEN` (`visibility("hidden")` on GCC/clang, nothing on
+MSVC). Proof it matters: with the attribute alone, the Linux shared lane's
+Core.Tests reproduced the Windows failure EXACTLY (`core-reflection:
+value-type properties are reflected` - `Properties(vec3).Size() == 0`, null
+`PropertyInfo*`, SIGSEGV, 34 passed / 1 crashed); with the slot, 287/287.
+The shared-lane cross-boundary test now also has the plugin hand back its own
+`&TypeOf<Float3>()` (== the host's) and its property count (3) after the
+HOST ran `RegisterCoreTypes()` - the W1 scenario across a real dlopen
+boundary, and the plugin's `TypeOf` resolves through Core's single exported
+`TypeInfoSlot` (`nm` shows it as the plugin's only reference).
+
+Consequences: W2 is unblocked - shared Core.Tests on Windows should be
+284/284 with no Windows-side change. `Object::StaticType()` needs nothing
+(non-template, one definition per owning library, imported by consumers).
+The unused `CORE_EXPORT`/`CORE_IMPORT`/`CORE_API` placeholders are deleted;
+`COMPILER_ATTR_HIDDEN` took their place in Prelude.h. This was an
 **identity** problem, not an export problem: W4's export-annotation pass
 remains unnecessary.
 
@@ -345,6 +377,12 @@ they land first and independently.
   disk formats keep authored names/SerializationTypeId.
 - Process-wide state lives behind non-inline accessors defined in impl
   units; the tripwire enforces it.
+- A template's function-local static is ONE INSTANCE PER IMAGE on PE (and
+  on ELF once hidden). It may cache a REFERENCE to impl-unit-owned state
+  (`TypeOf<T>()` -> `detail::TypeInfoSlot`); it may never BE the state.
+- Templates whose per-image duplication is by design carry
+  `COMPILER_ATTR_HIDDEN`, so the Linux shared lane proves the rendezvous
+  the way PE does instead of letting ELF interposition paper over it.
 
 ## 7. Future: game native code (researched 2026-09-04, not scheduled)
 

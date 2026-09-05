@@ -1301,6 +1301,55 @@ TEST_CASE("rtti-shared: Instance and Variant checks hold across duplicated metad
     CHECK(v.Type()->id == TypeOf<i32>().id);
 }
 
+TEST_CASE("rtti-shared: TypeOf resolves every image's prototype to one process-single slot")
+{
+    struct SlotProbe
+    {
+        int a;
+    };
+    // What a SECOND image's TypeOf<SlotProbe>() does on its first use: same signature id,
+    // its own prototype - and it must land on the very TypeInfo this image already holds.
+    const TypeId signature = detail::SignatureTypeId<SlotProbe>();
+    TypeInfo prototype = detail::ValuePrototype<SlotProbe>();
+    TypeInfo& other = detail::TypeInfoSlot(signature, prototype);
+    CHECK(&other == &TypeOf<SlotProbe>());
+    CHECK(other.id == signature);
+
+    // A patch made through one image's view is what the other image reads.
+    const_cast<TypeInfo&>(TypeOf<SlotProbe>()).dataVersion = 7;
+    CHECK(detail::TypeInfoSlot(signature, prototype).dataVersion == 7u);
+
+    // Layout facts refresh from the prototype (a rebuilt module after hot reload);
+    // registrar patches survive the refresh.
+    prototype.size = 64;
+    prototype.align = 16;
+    TypeInfo& refreshed = detail::TypeInfoSlot(signature, prototype);
+    CHECK(&refreshed == &other);
+    CHECK(refreshed.size == 64u);
+    CHECK(refreshed.align == 16u);
+    CHECK(refreshed.dataVersion == 7u);
+
+    // Distinct signatures get distinct slots.
+    struct OtherProbe
+    {
+        int b;
+    };
+    CHECK(&TypeOf<OtherProbe>() != &other);
+}
+
+TEST_CASE("rtti-shared: REFLECT_VALUE patches made in one image are read by another")
+{
+    // The W1 finding: Core registers Float3 inside its own image; a consumer image's
+    // TypeOf<Float3>() must see the patched metadata (properties + authored id), not an
+    // unpatched per-image copy. Simulate the consumer's first use directly.
+    RegisterCoreTypes();
+    const TypeInfo& seen =
+        detail::TypeInfoSlot(detail::SignatureTypeId<Float3>(), detail::ValuePrototype<Float3>());
+    CHECK(&seen == &TypeOf<Float3>());
+    CHECK(seen.propertyCount == 3u);
+    CHECK(seen.id == ComputeTypeId("rtti::core", "Float3"));
+}
+
 TEST_CASE("rtti-shared: Canonical resolves a duplicated TypeInfo to the registered one")
 {
     GlobalTypeRegistry().Register(Animal::StaticType());

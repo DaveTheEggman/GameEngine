@@ -106,21 +106,47 @@ export namespace foundation::core
         }
     }
 
+    namespace detail
+    {
+        // The process-single storage behind TypeOf<T>(): ONE TypeInfo per signature id,
+        // owned by Core's implementation unit (RTTI/TypeInfoImpl.cpp) in static storage
+        // (usable from the first call in static init; nothing to tear down). A
+        // template's function-local static is one instance PER IMAGE (PE always; ELF
+        // once the template is hidden), so if the TypeInfo itself lived there the
+        // metadata REFLECT_VALUE / EnumBuilder / container registrars patch inside one
+        // library would be invisible to every other library - the W1 finding in
+        // shared-libraries.md. Routing every image's first use through here makes
+        // &TypeOf<T>() one address per process again. `prototype` supplies the layout
+        // facts on first sight and refreshes them for a rebuilt module (hot reload);
+        // patched metadata is never touched here (last registrar wins).
+        [[nodiscard]] TypeInfo& TypeInfoSlot(TypeId signatureId,
+                                             const TypeInfo& prototype) noexcept;
+
+        // What TypeOf<T>() hands the slot on first use in an image: the layout facts
+        // plus the signature id (the RUNTIME identity for unregistered value types).
+        template <typename T>
+        [[nodiscard]] TypeInfo ValuePrototype() noexcept
+        {
+            TypeInfo t = MakeTypeInfo<T>("<value>", "", nullptr);
+            t.id = SignatureTypeId<T>();
+            return t;
+        }
+    }
+
     // Lazily-created TypeInfo for any value type not covered by REFLECT_VALUE /
     // REFLECT_ENUM; used by Variant/Instance for type checks. Object-derived types
     // should prefer their StaticType() instead. The id is the compile-time signature
-    // hash above, so identity survives shared-library boundaries where the old
-    // address-derived id (and this static's address itself) do not. Registration
-    // (REFLECT_VALUE/EnumBuilder) still overwrites id + name with the authored ones.
+    // hash above, so identity survives shared-library boundaries. Registration
+    // (REFLECT_VALUE/EnumBuilder) still overwrites id + name with the authored ones -
+    // and because the TypeInfo is process-single (detail::TypeInfoSlot), that patch is
+    // what every library sees. Only the cached REFERENCE below is per image, which is
+    // why the template is COMPILER_ATTR_HIDDEN: duplicating it is the design, and
+    // hiding it makes the Linux shared lane prove the rendezvous the way PE does.
     template <typename T>
-    [[nodiscard]] const TypeInfo& TypeOf() noexcept
+    [[nodiscard]] COMPILER_ATTR_HIDDEN const TypeInfo& TypeOf() noexcept
     {
-        static TypeInfo info = []() noexcept
-        {
-            TypeInfo t = MakeTypeInfo<T>("<value>", "", nullptr);
-            t.id = detail::SignatureTypeId<T>();
-            return t;
-        }();
+        static TypeInfo& info =
+            detail::TypeInfoSlot(detail::SignatureTypeId<T>(), detail::ValuePrototype<T>());
         return info;
     }
 }

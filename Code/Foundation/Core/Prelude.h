@@ -123,19 +123,22 @@
 #define COMPILER_ATTR_FORCEINLINE __forceinline
 #define COMPILER_ATTR_NOINLINE __declspec(noinline)
 #define COMPILER_ATTR_RESTRICT __restrict
-#define CORE_EXPORT __declspec(dllexport)
-#define CORE_IMPORT __declspec(dllimport)
+// PE has no interposition: every image already gets its own copy of a template's
+// statics, so there is nothing to hide.
+#define COMPILER_ATTR_HIDDEN
 #else
 #define COMPILER_ATTR_FORCEINLINE inline __attribute__((always_inline))
 #define COMPILER_ATTR_NOINLINE __attribute__((noinline))
 #define COMPILER_ATTR_RESTRICT __restrict__
-#define CORE_EXPORT __attribute__((visibility("default")))
-#define CORE_IMPORT
+// COMPILER_ATTR_HIDDEN - makes a template (and its function-local statics) PER IMAGE
+// on ELF, the way PE already is. ELF's default visibility unifies vague-linkage
+// symbols across .so boundaries at load time, which silently gives one copy per
+// process and hides exactly the class of bug Windows surfaces (shared-libraries.md
+// P5/W1: TypeOf<T>()'s slot). Applied to the templates whose per-image duplication is
+// BY DESIGN because the process-wide state behind them lives in an impl unit; the
+// Linux shared lane then proves the rendezvous instead of papering over it.
+#define COMPILER_ATTR_HIDDEN __attribute__((visibility("hidden")))
 #endif
-
-// Core builds as a static library, so CORE_API is a no-op. The Library module's
-// plugin targets define it per target when building shared libraries.
-#define CORE_API
 
 // ENGINE_EXPORT_DATA - for STATIC DATA MEMBERS of types that cross a shared-library
 // boundary (Float3::Zero, Color::Red, Guid::Nil...). NOT the classic FOO_API dance and NOT

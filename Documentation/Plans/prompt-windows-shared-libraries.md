@@ -3,6 +3,14 @@
 Copy everything below the line into a Claude Code session running on the
 Windows machine, in the Raptor checkout (master at or after 533f79a9).
 
+STATUS 2026-09-05: W1 is DONE (commit 5d1af532, verdict in the spec's
+section 5) and its one open ruling - the per-image `TypeOf<T>()` slot that
+failed 18 core-reflection cases against a shared Core - is RESOLVED on the
+Linux side: the `TypeInfo` is now process-single (`detail::TypeInfoSlot`,
+Core impl unit) and the fix is proven in the Linux shared lane, which now
+reproduces PE's per-image behavior for that symbol. Pull master, then resume
+at W2: shared Core.Tests should be 284/284 with no further Windows change.
+
 ---
 
 You are continuing the shared-libraries + game-native-code work on WINDOWS.
@@ -75,8 +83,8 @@ the prototype by hand). Hypotheses, cheapest first:
    `dllimport` at all, and whether it works for classes with virtuals and
    for `static` member functions like `GlobalTypeRegistry()`,
    `Object::StaticType()`).
-3. A per-library API macro (`CORE_API` exists unused in `Core/Prelude.h`) only
-   if 1 and 2 both fail - that is a 954-interface-unit annotation sweep and
+3. A per-library API macro (the unused `CORE_API` placeholder, since deleted
+   from `Core/Prelude.h`) only if 1 and 2 both fail - that is a 954-interface-unit annotation sweep and
    must be justified by this prototype, not assumed.
 
 Deliverable: a written verdict in `shared-libraries.md` section 5 (P5) - which
@@ -86,6 +94,9 @@ so precisely (what symbol class fails and why); "Windows stays static, plugins
 are Linux-only for now" is an acceptable, honest verdict.
 
 ### W2 - The full shared build on Windows (if W1 holds)
+
+W1 held (see STATUS at the top). Start here: rebuild the W1 slice against
+master and confirm `core-reflection` is green as a DLL before widening.
 
 `cmake --preset msvc -DENGINE_SHARED_LIBS=ON` (add a `msvc-shared` preset +
 CI job mirroring `clang-shared`), all 179 targets as DLLs, full battery. Expect

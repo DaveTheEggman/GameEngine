@@ -9,6 +9,9 @@ Code/Foundation/Core/Memory/Allocator.cppm
 Code/Foundation/Core/RTTI/TypeRegistry.cppm
 Code/Foundation/Core/Reflection/ConstantRegistry.cppm
 Code/Foundation/Core/Serialization/SerializableRegistry.cppm
+# TypeOf<T>(): the function-local static is a per-image REFERENCE into the process-
+# single slot table (RTTI/TypeInfoImpl.cpp); duplicating the reference is the design.
+Code/Foundation/Core/RTTI/TypeInfo.cppm
 # Registration-co-located template statics: written and read only by the library
 # that runs the registrar (audited in shared-libraries.md section 2.5).
 Code/Foundation/Core/Reflection/EnumReflection.cppm
