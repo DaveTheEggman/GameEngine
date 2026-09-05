@@ -14,7 +14,21 @@
 
 #include <filesystem>
 
-#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+// ASAN detection, spelled so MSVC can parse it. `defined(__has_feature) && __has_feature(x)`
+// in ONE expression is not portable: MSVC has no __has_feature, and its preprocessor still has
+// to parse the call rather than short-circuiting past it, which it reports as
+// "C1012: unmatched parenthesis: missing ')'". Nesting the test means the inner line is only
+// ever lexed, never evaluated, on compilers without __has_feature.
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TESTMAIN_ASAN 1
+#endif
+#endif
+#if defined(__SANITIZE_ADDRESS__) && !defined(TESTMAIN_ASAN)
+#define TESTMAIN_ASAN 1
+#endif
+
+#if defined(TESTMAIN_ASAN)
 #include <dlfcn.h>
 // LeakSanitizer: suppress third-party leaks outside our control. libdbus caches a connection for
 // the process lifetime (reached via SDL), and GPU user-mode drivers retain per-instance state.
@@ -50,7 +64,7 @@ namespace testmain
 
 int main(int argc, char** argv)
 {
-#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+#if defined(TESTMAIN_ASAN)
     testmain::PinGpuDriverModules();
 #endif
     std::error_code ec;
