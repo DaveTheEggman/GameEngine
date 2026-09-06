@@ -701,6 +701,7 @@ namespace editor
 
     namespace
     {
+#if PLATFORM_WINDOWS
         // Windows hosts BOTH toolchains, and only one of them needs the developer environment
         // pre-set in this process. cl.exe finds its headers/libs ONLY through the vcvars
         // variables (INCLUDE/LIB/VCToolsInstallDir); clang and clang-cl locate an MSVC
@@ -731,6 +732,7 @@ namespace editor
             return path.Size() == 2 && (path.Data()[0] == 'c' || path.Data()[0] == 'C') &&
                    (path.Data()[1] == 'l' || path.Data()[1] == 'L');
         }
+#endif // PLATFORM_WINDOWS (both callers are Windows-only; unused elsewhere = -Werror)
 
         // Build Engine.GamePlayer for a native project (game-native-code.md N3): re-invoke
         // cmake over the engine checkout with the game's native dir wired in

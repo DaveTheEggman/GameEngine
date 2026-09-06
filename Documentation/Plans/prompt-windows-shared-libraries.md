@@ -150,6 +150,11 @@ catch un-annotated exported entities.
 - The Linux verification is done; do not re-derive it. If you change shared
   code (Core interfaces, PluginHost, the exporter), note it in the commit
   body so the Linux lanes get re-run (CI does it on push to master).
+- Anything only Windows calls must sit under `#if PLATFORM_WINDOWS` itself,
+  not just its callers: the Linux lanes build with `-Werror`, and an
+  anonymous-namespace helper that is unused there fails as
+  `-Wunused-function` (W3's `ShipCompilerIsMsvcCl` did exactly this - fixed
+  on the Linux side 2026-09-05).
 - When something about the design is wrong for Windows, say so in the spec
   and propose the alternative; do not silently fork behavior per platform
   unless the platform genuinely differs (the DLL-overwrite lock above is the
