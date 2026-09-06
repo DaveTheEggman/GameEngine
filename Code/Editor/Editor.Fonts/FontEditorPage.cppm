@@ -157,7 +157,7 @@ export namespace editor
         ui::toolkit::StringEditor* m_familyRow = nullptr;
         ui::toolkit::EnumEditor* m_modeRow = nullptr;
         ui::toolkit::StringEditor* m_sizesRow = nullptr;
-        ui::toolkit::FloatEditor* m_dfSizeRow = nullptr;
+        ui::toolkit::FloatEditor* m_distanceFieldSizeRow = nullptr;
         ui::toolkit::IntEditor* m_firstRow = nullptr;
         ui::toolkit::IntEditor* m_lastRow = nullptr;
         ui::toolkit::IntEditor* m_atlasWidthRow = nullptr;

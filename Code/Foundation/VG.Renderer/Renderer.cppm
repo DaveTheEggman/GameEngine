@@ -126,7 +126,7 @@ export namespace foundation::vg::renderer
         /// shader modules + the render-target format + frame count.
         Status Initialize(rhi::Device& device, rhi::ShaderModule& vertShader,
                           rhi::ShaderModule& fragShader, rhi::TextureFormat targetFormat,
-                          i32 frameCount, rhi::ShaderModule* dfFragShader = nullptr,
+                          i32 frameCount, rhi::ShaderModule* distanceFieldFragmentShader = nullptr,
                           rhi::ShaderModule* gradRadialFragShader = nullptr,
                           rhi::ShaderModule* gradConicFragShader = nullptr,
                           VGTargetConfig targetConfig = {})
@@ -140,7 +140,7 @@ export namespace foundation::vg::renderer
             // use). Borrowed - the shader system owns them and outlives this renderer.
             m_vsModule = &vertShader;
             m_fsModule = &fragShader;
-            m_dfModule = dfFragShader;
+            m_distanceFieldModule = distanceFieldFragmentShader;
             m_gradRadialModule = gradRadialFragShader;
             m_gradConicModule = gradConicFragShader;
 
@@ -151,8 +151,8 @@ export namespace foundation::vg::renderer
             if (!CreatePipelineInto(vertShader, fragShader, m_pipeline).IsOk())
                 return ErrorCode::Unknown;
             // Optional distance-field pipeline (same layout/vertex format, MSDF fragment shader).
-            if (dfFragShader != nullptr &&
-                !CreatePipelineInto(vertShader, *dfFragShader, m_dfPipeline).IsOk())
+            if (distanceFieldFragmentShader != nullptr &&
+                !CreatePipelineInto(vertShader, *distanceFieldFragmentShader, m_distanceFieldPipeline).IsOk())
                 return ErrorCode::Unknown;
             // Optional per-pixel radial/conic gradient pipelines (same layout; the fragment shader
             // derives the gradient parameter per pixel from the emitted gradient-space texcoord).
@@ -630,8 +630,8 @@ export namespace foundation::vg::renderer
             m_clipClearPipeline = nullptr;
             if (m_pipeline)
                 m_device->DestroyRenderPipeline(m_pipeline);
-            if (m_dfPipeline)
-                m_device->DestroyRenderPipeline(m_dfPipeline);
+            if (m_distanceFieldPipeline)
+                m_device->DestroyRenderPipeline(m_distanceFieldPipeline);
             if (m_gradRadialPipeline)
                 m_device->DestroyRenderPipeline(m_gradRadialPipeline);
             if (m_gradConicPipeline)
@@ -658,7 +658,7 @@ export namespace foundation::vg::renderer
                 m_device->DestroySampler(m_samplerMirror);
 
             m_pipeline = nullptr;
-            m_dfPipeline = nullptr;
+            m_distanceFieldPipeline = nullptr;
             m_stencilWriteNonZero = nullptr;
             m_stencilWriteEvenOdd = nullptr;
             m_coverPipeline = nullptr;
@@ -834,10 +834,10 @@ export namespace foundation::vg::renderer
             case foundation::vg::VGFillPhase::Direct:
                 break;
             }
-            if (cmd.drawMode == foundation::vg::VGDrawMode::DistanceField && m_dfPipeline != nullptr)
+            if (cmd.drawMode == foundation::vg::VGDrawMode::DistanceField && m_distanceFieldPipeline != nullptr)
                 return (blended || clipped)
                            ? Variant(PipelineKind::DistanceField, cmd.blendMode, clipped)
-                           : m_dfPipeline;
+                           : m_distanceFieldPipeline;
             if (cmd.drawMode == foundation::vg::VGDrawMode::GradientRadial &&
                 m_gradRadialPipeline != nullptr)
                 return (blended || clipped)
@@ -893,7 +893,7 @@ export namespace foundation::vg::renderer
                 frag = m_fsModule;
                 break;
             case PipelineKind::DistanceField:
-                frag = m_dfModule;
+                frag = m_distanceFieldModule;
                 break;
             case PipelineKind::GradRadial:
                 frag = m_gradRadialModule;
@@ -1382,7 +1382,7 @@ export namespace foundation::vg::renderer
         rhi::BindGroupLayout* m_bindGroupLayout = nullptr;
         rhi::PipelineLayout* m_pipelineLayout = nullptr;
         rhi::RenderPipeline* m_pipeline = nullptr;
-        rhi::RenderPipeline* m_dfPipeline = nullptr;         // MSDF fragment variant (null if unused)
+        rhi::RenderPipeline* m_distanceFieldPipeline = nullptr;         // MSDF fragment variant (null if unused)
         VGTargetConfig m_targetConfig{}; // host target: sample count + DS format
         rhi::RenderPipeline* m_stencilWriteNonZero = nullptr; // winding pass (nullable)
         rhi::RenderPipeline* m_stencilWriteEvenOdd = nullptr; // parity pass (nullable)
@@ -1393,7 +1393,7 @@ export namespace foundation::vg::renderer
         rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
         rhi::ShaderModule* m_vsModule = nullptr; // borrowed (lazy blend variants)
         rhi::ShaderModule* m_fsModule = nullptr;
-        rhi::ShaderModule* m_dfModule = nullptr;
+        rhi::ShaderModule* m_distanceFieldModule = nullptr;
         rhi::ShaderModule* m_gradRadialModule = nullptr;
         rhi::ShaderModule* m_gradConicModule = nullptr;
         rhi::RenderPipeline* m_blendPipelines[3][7] = {}; // [blend-1][PipelineKind] (unclipped)

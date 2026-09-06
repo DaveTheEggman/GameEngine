@@ -19,14 +19,14 @@ using namespace foundation::core;
 export namespace foundation::fonts
 {
 
-    class DFFonts
+    class DistanceFieldFonts
     {
     public:
         static void Initialize()
         {
             if (s_baker)
                 return;
-            s_baker = DefaultAllocator().New<DFFontAtlasBaker>();
+            s_baker = DefaultAllocator().New<DistanceFieldFontAtlasBaker>();
             FontAtlasBakerFactory::RegisterBaker(s_baker);
         }
 
@@ -42,7 +42,7 @@ export namespace foundation::fonts
         [[nodiscard]] static bool IsInitialized() { return s_baker != nullptr; }
 
     private:
-        static inline DFFontAtlasBaker* s_baker = nullptr;
+        static inline DistanceFieldFontAtlasBaker* s_baker = nullptr;
     };
 
 } // namespace foundation::fonts

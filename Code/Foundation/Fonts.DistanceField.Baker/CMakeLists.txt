@@ -10,10 +10,10 @@ target_link_libraries(Fonts.DistanceField.Baker
 # Suppress -Werror for this TU so msdfgen warnings don't break the build.
 target_sources(Fonts.DistanceField.Baker
     PUBLIC
-        FILE_SET fonts_df_baker_modules TYPE CXX_MODULES FILES
-            DFFontAtlasBaker.cppm
-            DFFonts.cppm
-            FontsDFBakerModule.cppm
+        FILE_SET fonts_distancefield_baker_modules TYPE CXX_MODULES FILES
+            DistanceFieldFontAtlasBaker.cppm
+            DistanceFieldFonts.cppm
+            FontsDistanceFieldBakerModule.cppm
     PRIVATE
         msdfgen_impl.cpp)
 

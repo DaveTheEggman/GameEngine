@@ -5,7 +5,7 @@
 //
 // Disk-backed IFontAtlasCache for the editor's MSDF UI fonts. The startup bake (msdfgen
 // over two full families) dominates the launch-to-first-frame gap; this caches the baked
-// DFFontAtlas keyed by the font's bytes + the bake options, so every launch after the
+// DistanceFieldFontAtlas keyed by the font's bytes + the bake options, so every launch after the
 // first loads the atlas in milliseconds. Coverage atlases and non-TTF fonts are declined
 // (they are cheap and/or have no stable byte identity here).
 
@@ -86,7 +86,7 @@ export namespace editor
                 return nullptr;
             }
 
-            auto* atlas = allocator.New<foundation::fonts::DFFontAtlas>();
+            auto* atlas = allocator.New<foundation::fonts::DistanceFieldFontAtlas>();
             atlas->SetPixelRange(header.pixelRange);
             atlas->SetWhitePixelUV(header.whiteU, header.whiteV);
             for (u32 i = 0; i < header.regionCount; ++i)
@@ -121,7 +121,7 @@ export namespace editor
             {
                 return;
             }
-            const auto& df = static_cast<const foundation::fonts::DFFontAtlas&>(atlas);
+            const auto& df = static_cast<const foundation::fonts::DistanceFieldFontAtlas&>(atlas);
             const Span<const u8> pixels = df.PixelData();
             if (pixels.IsEmpty())
             {

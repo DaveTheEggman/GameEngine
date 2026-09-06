@@ -19,10 +19,10 @@ using namespace foundation::core;
 
 export namespace foundation::fonts
 {
-    class DFFontAtlas final : public IFontAtlas
+    class DistanceFieldFontAtlas final : public IFontAtlas
     {
     public:
-        DFFontAtlas() = default;
+        DistanceFieldFontAtlas() = default;
 
         void SetPixels(u32 width, u32 height, Array<u8>&& pixels)
         {

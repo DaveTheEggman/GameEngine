@@ -5,7 +5,7 @@
 //
 // IFontAtlasBaker that generates MSDF atlases via msdfgen (core-only).
 // Extracts glyph outlines from TrueTypeFont raw data via stb_truetype,
-// generates per-glyph MSDF bitmaps, and packs them into a DFFontAtlas.
+// generates per-glyph MSDF bitmaps, and packs them into a DistanceFieldFontAtlas.
 
 module;
 #include "Core/Prelude.h"
@@ -64,7 +64,7 @@ namespace
 export namespace foundation::fonts
 {
 
-    class DFFontAtlasBaker final : public IFontAtlasBaker
+    class DistanceFieldFontAtlasBaker final : public IFontAtlasBaker
     {
     public:
         [[nodiscard]] Span<const StringView> SupportedExtensions() const override
@@ -119,7 +119,7 @@ export namespace foundation::fonts
             Array<u8> pixels(static_cast<usize>(atlasW) * atlasH * 4);
             MemSet(pixels.Data(), 0, pixels.Size());
 
-            DFFontAtlas* atlas = allocator.New<DFFontAtlas>();
+            DistanceFieldFontAtlas* atlas = allocator.New<DistanceFieldFontAtlas>();
             atlas->SetPixelRange(static_cast<f32>(pxRange));
 
             RowPacker packer;

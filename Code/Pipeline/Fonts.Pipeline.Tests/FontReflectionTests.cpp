@@ -41,7 +41,7 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
     const TypeInfo& type = pipeline::FontAsset::StaticType();
 
     CHECK(CEq(type.name, "FontAsset"));
-    // family + mode + dfSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes is unreflected).
+    // family + mode + distanceFieldSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes is unreflected).
     CHECK(PropertyCount(type) == 7u);
     for (const char* name : {"family", "mode", "dfSize", "firstCodepoint", "lastCodepoint",
                              "atlasWidth", "atlasHeight"})
@@ -50,10 +50,10 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
     }
     CHECK(FindProperty(type, "sizes") == nullptr); // Array<f32> not reflected
 
-    // dfSize is DistanceField-only (a visibleWhen the generic page evaluates).
-    const PropertyInfo* dfSize = FindProperty(type, "dfSize");
-    REQUIRE(dfSize != nullptr);
-    const Attribute* vis = FindAttribute(*dfSize, u8"visibleWhen");
+    // distanceFieldSize is DistanceField-only (a visibleWhen the generic page evaluates).
+    const PropertyInfo* distanceFieldSize = FindProperty(type, "dfSize");
+    REQUIRE(distanceFieldSize != nullptr);
+    const Attribute* vis = FindAttribute(*distanceFieldSize, u8"visibleWhen");
     REQUIRE(vis != nullptr);
     CHECK(vis->value.Get<String>().AsView() == StringView(u8"mode=1"));
 }

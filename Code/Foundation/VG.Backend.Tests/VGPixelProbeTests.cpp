@@ -52,7 +52,7 @@ namespace
                                                     shaders::ShaderFlags::None);
             rhi::ShaderModule* fs = host.GetVariant(u8"vg", shaders::ShaderStage::Fragment,
                                                     shaders::ShaderFlags::None);
-            rhi::ShaderModule* dfFs = host.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
+            rhi::ShaderModule* distanceFieldFragmentShader = host.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                                       shaders::ShaderFlags::None);
             rhi::ShaderModule* gradR = host.GetVariant(
                 u8"vg_grad_radial", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
@@ -67,7 +67,7 @@ namespace
 
             vg::renderer::VGRenderer renderer{DefaultAllocator()};
             REQUIRE(renderer
-                        .Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA8UnormSrgb, 2, dfFs,
+                        .Initialize(device, *vs, *fs, rhi::TextureFormat::RGBA8UnormSrgb, 2, distanceFieldFragmentShader,
                                     gradR, gradC, config)
                         .IsOk());
 

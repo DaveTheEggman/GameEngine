@@ -6,6 +6,6 @@ target_link_libraries(Fonts.DistanceField PUBLIC Foundation::Core Foundation::Fo
 
 target_sources(Fonts.DistanceField
     PUBLIC
-        FILE_SET fonts_df_modules TYPE CXX_MODULES FILES
-            DFFontAtlas.cppm
-            FontsDFModule.cppm)
+        FILE_SET fonts_distancefield_modules TYPE CXX_MODULES FILES
+            DistanceFieldFontAtlas.cppm
+            FontsDistanceFieldModule.cppm)

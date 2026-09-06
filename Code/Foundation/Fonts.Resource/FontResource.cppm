@@ -11,7 +11,7 @@
 //     pixel size (metrics + glyph/kerning/region tables + atlas metadata). The atlas pixel
 //     payloads live concatenated in the "data" stream, per-entry offset+size recorded.
 //   * Font (Object): the runtime product - owns, per entry, a rasterizer-free BakedFont,
-//     its IFontAtlas (BakedFontAtlas for coverage, DFFontAtlas for MSDF), and the atlas as
+//     its IFontAtlas (BakedFontAtlas for coverage, DistanceFieldFontAtlas for MSDF), and the atlas as
 //     an image::OwnedImageData ready for a renderer to upload (the same RGBA expansion the
 //     TTF service performs). A packaged game loads THIS and never touches stb_truetype.
 //   * FontFactory (IResourceFactory): cooked record + stream -> Font. DEVICE-FREE - the VG
@@ -143,7 +143,7 @@ export namespace foundation::fonts
         u32 atlasHeight = 0;
         f32 whitePixelU = 0.0f;
         f32 whitePixelV = 0.0f;
-        f32 dfPixelRange = 4.0f; // DistanceField mode only
+        f32 distanceFieldPixelRange = 4.0f; // DistanceField mode only (serialized as "dfPixelRange")
 
         // Pack-time oversampling (v1+): region spans are RAW atlas pixels at oversample times
         // the logical glyph size; the runtime atlas divides screen quads back down. v0 cooked
@@ -169,7 +169,7 @@ export namespace foundation::fonts
             foundation::core::Serialize(ar, "atlasHeight", atlasHeight);
             foundation::core::Serialize(ar, "whitePixelU", whitePixelU);
             foundation::core::Serialize(ar, "whitePixelV", whitePixelV);
-            foundation::core::Serialize(ar, "dfPixelRange", dfPixelRange);
+            foundation::core::Serialize(ar, "dfPixelRange", distanceFieldPixelRange);
             if (ar.Version() >= 1) // v1 added oversample (binary is positional - guard reads)
             {
                 foundation::core::Serialize(ar, "oversampleX", oversampleX);
@@ -214,7 +214,7 @@ export namespace foundation::fonts
         {
             f32 pixelHeight = 0.0f;
             UniquePtr<BakedFont> font;
-            UniquePtr<IFontAtlas> atlas;        // BakedFontAtlas or DFFontAtlas
+            UniquePtr<IFontAtlas> atlas;        // BakedFontAtlas or DistanceFieldFontAtlas
             UniquePtr<image::OwnedImageData> atlasImage; // RGBA8, renderer-uploadable
         };
 
@@ -349,8 +349,8 @@ export namespace foundation::fonts
 
                 if (res->pixels == FontResourcePixels::DistanceField)
                 {
-                    auto atlas = MakeUnique<DFFontAtlas>(*m_allocator);
-                    atlas->SetPixelRange(e.dfPixelRange);
+                    auto atlas = MakeUnique<DistanceFieldFontAtlas>(*m_allocator);
+                    atlas->SetPixelRange(e.distanceFieldPixelRange);
                     atlas->SetWhitePixelUV(e.whitePixelU, e.whitePixelV);
                     for (const FontResourceRegion& r : e.regions)
                     {
@@ -363,7 +363,7 @@ export namespace foundation::fonts
                         Span<const u8>(slice.Data(), slice.Size()),
                         image::ImageColorSpace::Linear);
                     atlas->SetPixels(e.atlasWidth, e.atlasHeight, Move(slice));
-                    entry.atlas = Move(atlas); // converting move: DFFontAtlas -> IFontAtlas
+                    entry.atlas = Move(atlas); // converting move: DistanceFieldFontAtlas -> IFontAtlas
                 }
                 else
                 {

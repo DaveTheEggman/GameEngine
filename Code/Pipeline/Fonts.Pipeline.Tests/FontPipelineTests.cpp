@@ -135,7 +135,7 @@ TEST_CASE("font.pipeline: MSDF bake cooks a DistanceField resource")
         FontAsset asset;
         asset.fileName = foundation::vfs::SourcePath(kSourceFont);
         asset.mode = FontBakeMode::DistanceField;
-        asset.dfSize = 32.0f;
+        asset.distanceFieldSize = 32.0f;
         asset.firstCodepoint = 'A';
         asset.lastCodepoint = 'Z'; // a small range keeps msdfgen quick
         asset.atlasWidth = 256;

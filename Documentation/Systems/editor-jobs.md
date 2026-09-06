@@ -48,7 +48,7 @@ user; texture/mesh thumbnails, preview decodes, search indexing fit):
    generation and drop stale ones. Do NOT submit every edit - the FIFO queue would replay stale work.
 3. **The work closure must be self-contained** - it may touch only the request data it captured and its
    own slot. No UI objects, no databases, no page members. Anything registry-like it needs (e.g.
-   `DFFonts::Initialize()`) must be initialized on the main thread BEFORE submitting.
+   `DistanceFieldFonts::Initialize()`) must be initialized on the main thread BEFORE submitting.
 4. **Headless fallback**: `EditorContext::Jobs()` can be null (tests construct pages without an app) -
    run the work synchronously then.
 

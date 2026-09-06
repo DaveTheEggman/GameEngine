@@ -106,7 +106,7 @@ private:
     shaders::ShaderSystemHost m_shaderHost{AppRoot()}; // owns the ShaderSystem + the VG modules
     rhi::ShaderModule* m_vs = nullptr;      // borrowed from m_shaderHost
     rhi::ShaderModule* m_fs = nullptr;
-    rhi::ShaderModule* m_dfFs = nullptr;         // MSDF distance-field fragment shader
+    rhi::ShaderModule* m_distanceFieldFragmentShader = nullptr;         // MSDF distance-field fragment shader
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
     rhi::ShaderModule* m_gradConicFs = nullptr;
     // VG quality targets: 4x MSAA color (resolved into the swapchain) + stencil
@@ -151,13 +151,13 @@ Status VGSandbox::OnInit()
     m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
     m_fs =
         m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
-    m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
+    m_distanceFieldFragmentShader = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                      shaders::ShaderFlags::None);
     m_gradRadialFs = m_shaderHost.GetVariant(u8"vg_grad_radial", shaders::ShaderStage::Fragment,
                                              shaders::ShaderFlags::None);
     m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic", shaders::ShaderStage::Fragment,
                                             shaders::ShaderFlags::None);
-    if (m_vs == nullptr || m_fs == nullptr || m_dfFs == nullptr || m_gradRadialFs == nullptr ||
+    if (m_vs == nullptr || m_fs == nullptr || m_distanceFieldFragmentShader == nullptr || m_gradRadialFs == nullptr ||
         m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
 
@@ -174,7 +174,7 @@ Status VGSandbox::OnInit()
 
     if (!m_renderer
              .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
-                         m_dfFs, m_gradRadialFs, m_gradConicFs, targetConfig)
+                         m_distanceFieldFragmentShader, m_gradRadialFs, m_gradConicFs, targetConfig)
              .IsOk())
         return ErrorCode::Unknown;
 
@@ -197,12 +197,12 @@ Status VGSandbox::OnInit()
         m_fontLarge = m_fontService->GetFont(u8"Roboto", 36.0f);
 
         // A distance-field (MSDF) atlas baked once at 48px, sampled crisp at any scale.
-        fonts::DFFonts::Initialize();
-        fonts::FontLoadOptions dfOpts = fonts::FontLoadOptions::DistanceField();
-        dfOpts.pixelHeight = 48.0f;
-        dfOpts.atlasWidth = 1024;
-        dfOpts.atlasHeight = 1024;
-        (void)m_fontService->LoadFont(u8"RobotoDF", fontPath, dfOpts);
+        fonts::DistanceFieldFonts::Initialize();
+        fonts::FontLoadOptions distanceFieldOptions = fonts::FontLoadOptions::DistanceField();
+        distanceFieldOptions.pixelHeight = 48.0f;
+        distanceFieldOptions.atlasWidth = 1024;
+        distanceFieldOptions.atlasHeight = 1024;
+        (void)m_fontService->LoadFont(u8"RobotoDF", fontPath, distanceFieldOptions);
         m_fontDF = m_fontService->GetFont(u8"RobotoDF", 48.0f);
     }
 
@@ -1111,13 +1111,13 @@ void VGSandbox::OnShutdown()
     m_renderer.Dispose();
     DestroyQualityTargets();
     m_vg.Reset();
-    fonts::DFFonts::Shutdown();
+    fonts::DistanceFieldFonts::Shutdown();
     m_fontService.Reset();
     if (m_fence)
         m_device->DestroyFence(m_fence);
     if (m_pool)
         m_device->DestroyCommandPool(m_pool);
-    // m_vs/m_fs/m_dfFs are borrowed from m_shaderHost's ShaderSystem, which frees them.
+    // m_vs/m_fs/m_distanceFieldFragmentShader are borrowed from m_shaderHost's ShaderSystem, which frees them.
     m_shaderHost.Shutdown();
 }
 

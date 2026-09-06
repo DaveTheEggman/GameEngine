@@ -172,7 +172,7 @@ namespace engine::ui
         rhi::ShaderModule* vertexShader = nullptr;       // borrowed from shaderHost
         rhi::ShaderModule* fragmentShader = nullptr;     // borrowed from shaderHost
         rhi::ShaderModule* gradRadialShader = nullptr;   // per-pixel radial gradient (borrowed)
-        rhi::ShaderModule* dfShader = nullptr;           // MSDF text fragment (borrowed)
+        rhi::ShaderModule* distanceFieldShader = nullptr;           // MSDF text fragment (borrowed)
         rhi::ShaderModule* gradConicShader = nullptr;    // per-pixel conic gradient (borrowed)
         vg::VGContext vgContext;
         struct FormatRenderer
@@ -454,7 +454,7 @@ namespace engine::ui
                 auto renderer = MakeUnique<vg::renderer::VGRenderer>(*allocator, *allocator);
                 if (!renderer
                          ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount,
-                                      dfShader, gradRadialShader, gradConicShader, targetConfig)
+                                      distanceFieldShader, gradRadialShader, gradConicShader, targetConfig)
                          .IsOk())
                 {
                     return nullptr;
@@ -1927,7 +1927,7 @@ namespace engine::ui
             m_render->shaderHost.GetVariant(u8"vg_grad_conic", foundation::shaders::ShaderStage::Fragment,
                                             foundation::shaders::ShaderFlags::None);
         // MSDF text fragment (the DistanceField draw-mode pipeline).
-        m_render->dfShader =
+        m_render->distanceFieldShader =
             m_render->shaderHost.GetVariant(u8"vg_df", foundation::shaders::ShaderStage::Fragment,
                                             foundation::shaders::ShaderFlags::None);
         // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack may

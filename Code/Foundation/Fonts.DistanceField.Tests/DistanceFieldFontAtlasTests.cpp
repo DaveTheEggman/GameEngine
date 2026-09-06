@@ -10,21 +10,21 @@ import foundation.fonts.distancefield;
 using namespace foundation::core;
 using namespace foundation::fonts;
 
-TEST_CASE("DFFontAtlas: mode returns DistanceField")
+TEST_CASE("DistanceFieldFontAtlas: mode returns DistanceField")
 {
-    DFFontAtlas atlas;
+    DistanceFieldFontAtlas atlas;
     CHECK(atlas.Mode() == AtlasMode::DistanceField);
 }
 
-TEST_CASE("DFFontAtlas: pixel range default")
+TEST_CASE("DistanceFieldFontAtlas: pixel range default")
 {
-    DFFontAtlas atlas;
+    DistanceFieldFontAtlas atlas;
     CHECK(atlas.DistanceFieldRange() == doctest::Approx(4.0f));
 }
 
-TEST_CASE("DFFontAtlas: set and retrieve region")
+TEST_CASE("DistanceFieldFontAtlas: set and retrieve region")
 {
-    DFFontAtlas atlas;
+    DistanceFieldFontAtlas atlas;
     Array<u8> pixels(16 * 16 * 4);
     atlas.SetPixels(16, 16, Move(pixels));
 
@@ -41,9 +41,9 @@ TEST_CASE("DFFontAtlas: set and retrieve region")
     CHECK(out.advanceX == doctest::Approx(9.0f));
 }
 
-TEST_CASE("DFFontAtlas: glyph quad generation")
+TEST_CASE("DistanceFieldFontAtlas: glyph quad generation")
 {
-    DFFontAtlas atlas;
+    DistanceFieldFontAtlas atlas;
     Array<u8> pixels(64 * 64 * 4);
     atlas.SetPixels(64, 64, Move(pixels));
 
@@ -58,9 +58,9 @@ TEST_CASE("DFFontAtlas: glyph quad generation")
     CHECK(quad.y0 == doctest::Approx(20.0f + (-10.0f)));
 }
 
-TEST_CASE("DFFontAtlas: advance-only region steps the cursor without emitting a quad")
+TEST_CASE("DistanceFieldFontAtlas: advance-only region steps the cursor without emitting a quad")
 {
-    DFFontAtlas atlas;
+    DistanceFieldFontAtlas atlas;
     Array<u8> pixels(64 * 64 * 4);
     atlas.SetPixels(64, 64, Move(pixels));
 

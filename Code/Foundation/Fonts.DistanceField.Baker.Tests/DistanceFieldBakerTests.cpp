@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// DFFontAtlasBaker diagnostics: bake real Roboto glyphs and inspect where the MSDF baker places
+// DistanceFieldFontAtlasBaker diagnostics: bake real Roboto glyphs and inspect where the MSDF baker places
 // them in their cell, versus the known-good coverage (stb pack) path. This CONFIRMS the reported
 // symptom (descenders like g/q clipped, glyphs mis-registered) by measuring the baked cell's ink
 // distribution instead of eyeballing it on screen. Also a regression guard once the baker is fixed.
@@ -121,8 +121,8 @@ TEST_CASE("df.baker: MSDF glyph orientation matches the coverage path (not verti
     FontLoadOptions df = FontLoadOptions::DistanceField();
     df.pixelHeight = 48.0f;
     df.atlasWidth = df.atlasHeight = 1024;
-    DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
+    DistanceFieldFontAtlasBaker distanceFieldBaker;
+    Result<IFontAtlas*, FontLoadResult> dfR = distanceFieldBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* msdf = dfR.Value();
 
@@ -156,8 +156,8 @@ TEST_CASE("df.baker: descender glyphs keep their tail (g/q not clipped like a)")
     FontLoadOptions df = FontLoadOptions::DistanceField();
     df.pixelHeight = 48.0f;
     df.atlasWidth = df.atlasHeight = 1024;
-    DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
+    DistanceFieldFontAtlasBaker distanceFieldBaker;
+    Result<IFontAtlas*, FontLoadResult> dfR = distanceFieldBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* msdf = dfR.Value();
 
@@ -192,8 +192,8 @@ TEST_CASE("df.baker: blank glyphs (space) get an advance-only region")
     df.firstCodepoint = 32; // include space
     df.lastCodepoint = 126;
     df.atlasWidth = df.atlasHeight = 1024;
-    DFFontAtlasBaker dfBaker;
-    Result<IFontAtlas*, FontLoadResult> dfR = dfBaker.Bake(*font, df, DefaultAllocator());
+    DistanceFieldFontAtlasBaker distanceFieldBaker;
+    Result<IFontAtlas*, FontLoadResult> dfR = distanceFieldBaker.Bake(*font, df, DefaultAllocator());
     REQUIRE(dfR.HasValue());
     IFontAtlas* atlas = dfR.Value();
 
@@ -234,7 +234,7 @@ TEST_CASE("df baker: baking is deterministic across runs (parallel-bake regressi
     df.lastCodepoint = 255;
     df.atlasWidth = df.atlasHeight = 1024;
 
-    DFFontAtlasBaker baker;
+    DistanceFieldFontAtlasBaker baker;
     Result<IFontAtlas*, FontLoadResult> first = baker.Bake(*font, df, DefaultAllocator());
     Result<IFontAtlas*, FontLoadResult> second = baker.Bake(*font, df, DefaultAllocator());
     REQUIRE(first.HasValue());

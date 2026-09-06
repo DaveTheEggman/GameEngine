@@ -69,7 +69,7 @@ namespace
             entry.atlasHeight = 2;
             entry.whitePixelU = 0.25f;
             entry.whitePixelV = 0.25f;
-            entry.dfPixelRange = 3.0f;
+            entry.distanceFieldPixelRange = 3.0f;
             entry.pixelOffset = static_cast<u64>(i) * 4u * bpp;
             entry.pixelBytes = 4u * bpp;
             res.entries.PushBack(Move(entry));

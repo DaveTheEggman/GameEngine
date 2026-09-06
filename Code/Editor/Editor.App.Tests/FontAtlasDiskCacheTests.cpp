@@ -78,7 +78,7 @@ TEST_CASE("font-atlas-cache: DF bakes round-trip byte-identically through the di
     REQUIRE(font != nullptr);
     const FontLoadOptions options = SmallDF();
 
-    DFFontAtlasBaker baker;
+    DistanceFieldFontAtlasBaker baker;
     Result<IFontAtlas*, FontLoadResult> baked = baker.Bake(*font, options, DefaultAllocator());
     REQUIRE(baked.HasValue());
     IFontAtlas* atlas = baked.Value();
@@ -131,7 +131,7 @@ TEST_CASE("font-atlas-cache: any option change misses; coverage bakes are declin
     REQUIRE(font != nullptr);
     const FontLoadOptions options = SmallDF();
 
-    DFFontAtlasBaker baker;
+    DistanceFieldFontAtlasBaker baker;
     Result<IFontAtlas*, FontLoadResult> baked = baker.Bake(*font, options, DefaultAllocator());
     REQUIRE(baked.HasValue());
 
@@ -164,7 +164,7 @@ TEST_CASE("font-atlas-cache: a truncated cache file fails closed (miss, no bad a
     REQUIRE(font != nullptr);
     const FontLoadOptions options = SmallDF();
 
-    DFFontAtlasBaker baker;
+    DistanceFieldFontAtlasBaker baker;
     Result<IFontAtlas*, FontLoadResult> baked = baker.Bake(*font, options, DefaultAllocator());
     REQUIRE(baked.HasValue());
 

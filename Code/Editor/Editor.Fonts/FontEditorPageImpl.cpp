@@ -187,7 +187,7 @@ namespace editor
             PathJoin(m_context->Project()->SourcesRoot().AsView(), m_asset->fileName.View());
         request.distanceField = m_asset->mode == pipeline::FontBakeMode::DistanceField;
         // Coverage previews at the ramp's LARGEST size (the most informative atlas).
-        request.size = m_asset->dfSize;
+        request.size = m_asset->distanceFieldSize;
         if (!request.distanceField)
         {
             request.size = 14.0f;
@@ -202,7 +202,7 @@ namespace editor
         request.atlasHeight = m_asset->atlasHeight;
         if (request.distanceField)
         {
-            fonts::DFFonts::Initialize(); // idempotent; registration happens on the UI thread
+            fonts::DistanceFieldFonts::Initialize(); // idempotent; registration happens on the UI thread
         }
         return request;
     }
@@ -424,7 +424,7 @@ namespace editor
         m_familyRow = nullptr;
         m_modeRow = nullptr;
         m_sizesRow = nullptr;
-        m_dfSizeRow = nullptr;
+        m_distanceFieldSizeRow = nullptr;
         m_firstRow = nullptr;
         m_lastRow = nullptr;
         m_atlasWidthRow = nullptr;
@@ -483,17 +483,17 @@ namespace editor
 
         if (m_asset->mode == pipeline::FontBakeMode::DistanceField)
         {
-        auto dfSize = MakeRef<ui::toolkit::FloatEditor>(
-            Allocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->dfSize), 8.0, 128.0,
+        auto distanceFieldSize = MakeRef<ui::toolkit::FloatEditor>(
+            Allocator(), u8"MSDF Size (px)", static_cast<f64>(m_asset->distanceFieldSize), 8.0, 128.0,
             1.0, 0,
             Function<void(f64)>{[self](f64 v)
                                 {
-                                    self->m_asset->dfSize = static_cast<f32>(v);
+                                    self->m_asset->distanceFieldSize = static_cast<f32>(v);
                                     self->CommitEdit(u8"df-size");
                                 }},
             u8"Distance Field");
-        m_dfSizeRow = dfSize.Get();
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(dfSize.Get()));
+        m_distanceFieldSizeRow = distanceFieldSize.Get();
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(distanceFieldSize.Get()));
         }
 
         auto first = MakeRef<ui::toolkit::IntEditor>(
@@ -657,9 +657,9 @@ namespace editor
         {
             m_sizesRow->SetValue(FormatSizes(m_asset->sizes).AsView());
         }
-        if (m_dfSizeRow != nullptr)
+        if (m_distanceFieldSizeRow != nullptr)
         {
-            m_dfSizeRow->SetValue(static_cast<f64>(m_asset->dfSize));
+            m_distanceFieldSizeRow->SetValue(static_cast<f64>(m_asset->distanceFieldSize));
         }
         if (m_firstRow != nullptr)
         {

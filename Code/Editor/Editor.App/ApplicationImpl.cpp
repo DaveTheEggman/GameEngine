@@ -24,7 +24,7 @@ import foundation.graphics;
 import foundation.fonts;
 import foundation.fonts.truetype;
 import foundation.fonts.resource;
-import foundation.fonts.distancefield.baker; // DFFonts (MSDF baker registration) for the DF font path
+import foundation.fonts.distancefield.baker; // DistanceFieldFonts (MSDF baker registration) for the DF font path
 import foundation.runtime;
 import foundation.runtime.client;
 import engine.defaultapp; // the embedded game application (v3)
@@ -224,16 +224,16 @@ namespace editor::app
             // MSDF path: ONE atlas per family, baked at 48px, sampled crisp at every size
             // the styles request (GetFont's closest-size fallback lands on it). The VG
             // renderer switches to the distance-field pipeline per glyph run automatically.
-            fonts::DFFonts::Initialize();
+            fonts::DistanceFieldFonts::Initialize();
             fonts::FontLoadOptions options = fonts::FontLoadOptions::DistanceField();
             options.firstCodepoint = 32;
             options.lastCodepoint = 255; // the ExtendedLatin range the raster path bakes
             options.atlasWidth = 1024;
             options.atlasHeight = 1024;
-            const f32 dfSize[] = {48.0f};
-            (void)loadFamily(u8"Roboto", fontPath.AsView(), Span<const f32>(dfSize, 1), options,
+            const f32 distanceFieldSize[] = {48.0f};
+            (void)loadFamily(u8"Roboto", fontPath.AsView(), Span<const f32>(distanceFieldSize, 1), options,
                              embedded);
-            (void)loadFamily(u8"Mono", monoFontPath.AsView(), Span<const f32>(dfSize, 1),
+            (void)loadFamily(u8"Mono", monoFontPath.AsView(), Span<const f32>(distanceFieldSize, 1),
                              options, Span<const u8>{}); // mono has no embedded twin
         }
         else
@@ -995,7 +995,7 @@ namespace editor::app
         EditorIcons::Get().Shutdown(); // release drawables deterministically
         if (kUseDistanceFieldFonts)
         {
-            fonts::DFFonts::Shutdown(); // unregister the MSDF baker (mirror of OnStartup)
+            fonts::DistanceFieldFonts::Shutdown(); // unregister the MSDF baker (mirror of OnStartup)
         }
     }
 

@@ -1,6 +1,6 @@
 # Foundation::Fonts.DistanceField unit tests (doctest).
 
-add_executable(Fonts.DistanceField.Tests TestsMain.cpp DFFontAtlasTests.cpp)
+add_executable(Fonts.DistanceField.Tests TestsMain.cpp DistanceFieldFontAtlasTests.cpp)
 target_link_libraries(Fonts.DistanceField.Tests PRIVATE Foundation::Fonts.DistanceField Foundation::Fonts doctest::doctest)
 target_compile_definitions(Fonts.DistanceField.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Fonts.DistanceField.Tests PRIVATE

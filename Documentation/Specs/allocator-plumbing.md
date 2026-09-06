@@ -104,7 +104,7 @@ tight cluster) per commit.
   same allocator - `CachedFont`/`BakedFontData` record it); FontManager /
   TrueTypeFontService / ResourceFontService / FontFactory take required
   allocators; `ExpandR8ToRGBA8` allocates from a passed allocator. The
-  global parser/baker slots (TrueTypeFonts / DFFonts / factory Shutdown)
+  global parser/baker slots (TrueTypeFonts / DistanceFieldFonts / factory Shutdown)
   stay process-root pairs by design. **P3c audio DONE**: AudioEngine takes a required
   allocator; its Impl threads it through every voice/bus/effect-node/scene-
   group/reverb allocation, miniaudio VFS bridge files record theirs, and the

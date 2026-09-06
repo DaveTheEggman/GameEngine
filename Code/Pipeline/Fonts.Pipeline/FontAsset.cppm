@@ -57,7 +57,7 @@ export namespace pipeline{
         String family;      // runtime family name ("" = the file's own family at cook)
         FontBakeMode mode = FontBakeMode::RasterRamp;
         Array<f32> sizes;   // RasterRamp: one cooked entry per size
-        f32 dfSize = 48.0f; // DistanceField: the single bake size
+        f32 distanceFieldSize = 48.0f; // DistanceField: the single bake size (serialized + reflected as "dfSize")
         i32 firstCodepoint = 32;
         i32 lastCodepoint = 255; // ExtendedLatin default (matches the runtime rasterizer)
         u32 atlasWidth = 1024;
@@ -85,7 +85,7 @@ export namespace pipeline{
             foundation::core::Serialize(ar, "mode", bakeMode);
             mode = static_cast<FontBakeMode>(bakeMode);
             foundation::core::Serialize(ar, "sizes", sizes);
-            foundation::core::Serialize(ar, "dfSize", dfSize);
+            foundation::core::Serialize(ar, "dfSize", distanceFieldSize);
             foundation::core::Serialize(ar, "firstCodepoint", firstCodepoint);
             foundation::core::Serialize(ar, "lastCodepoint", lastCodepoint);
             foundation::core::Serialize(ar, "atlasWidth", atlasWidth);
@@ -258,7 +258,7 @@ export namespace pipeline{
                                                Span<const u8> fontBytes,
                                                FontResource& resource, Array<u8>& pixels)
         {
-            DFFonts::Initialize(); // idempotent baker registration (msdfgen)
+            DistanceFieldFonts::Initialize(); // idempotent baker registration (msdfgen)
 
             Array<u8> bytesCopy;
             bytesCopy.Resize(fontBytes.Size());
@@ -266,7 +266,7 @@ export namespace pipeline{
             {
                 MemCopy(bytesCopy.Data(), fontBytes.Data(), fontBytes.Size());
             }
-            const FontLoadOptions options = OptionsFor(fa, fa.dfSize, /*distanceField*/ true);
+            const FontLoadOptions options = OptionsFor(fa, fa.distanceFieldSize, /*distanceField*/ true);
             TrueTypeFont font;
             if (font.Initialize(Move(bytesCopy), options.pixelHeight) != FontLoadResult::Success)
             {
@@ -281,7 +281,7 @@ export namespace pipeline{
             UniquePtr<IFontAtlas> atlas(baked.Value(), allocator);
 
             FontResourceEntry entry;
-            FillEntryHeader(font, fa.dfSize, entry);
+            FillEntryHeader(font, fa.distanceFieldSize, entry);
             if (resource.family.IsEmpty())
             {
                 resource.family = String(font.FamilyName());
@@ -332,7 +332,7 @@ export namespace pipeline{
             const Float2 white = atlas->WhitePixelUV();
             entry.whitePixelU = white.x;
             entry.whitePixelV = white.y;
-            entry.dfPixelRange = atlas->DistanceFieldRange();
+            entry.distanceFieldPixelRange = atlas->DistanceFieldRange();
 
             AppendPixels(atlas->PixelData(), entry, pixels);
             resource.entries.PushBack(Move(entry));

@@ -299,7 +299,7 @@ export namespace foundation::ui::runtime
                 targetConfig.depthStencilFormat = data->depthStencilFormat;
             }
             data->renderer.Initialize(*m_device->Raw(), *m_vs, *m_fs, window->Swap()->Format(),
-                                      static_cast<i32>(m_device->FramesInFlight()), m_dfFs,
+                                      static_cast<i32>(m_device->FramesInFlight()), m_distanceFieldFragmentShader,
                                       m_gradRadialFs, m_gradConicFs, targetConfig);
             data->vg->SetPerPixelGradients(perPixelGrad);
             data->vg->SetStencilFills(data->renderer.StencilFillsSupported());
@@ -1051,13 +1051,13 @@ export namespace foundation::ui::runtime
                                                     shaders::ShaderFlags::None);
             // MSDF text fragment (the DistanceField draw-mode pipeline); a pre-cooked pack
             // that predates it just means DF glyph runs fall back to the default sampler.
-            m_dfFs = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
+            m_distanceFieldFragmentShader = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                              shaders::ShaderFlags::None);
         }
         core::IAllocator* m_allocator;
 
         graphics::GraphicsDevice* m_device; // borrowed
-        rhi::ShaderModule* m_dfFs = nullptr; // MSDF text fragment (borrowed; null = no DF pipeline)
+        rhi::ShaderModule* m_distanceFieldFragmentShader = nullptr; // MSDF text fragment (borrowed; null = no DF pipeline)
         shell::IShell* m_shell;             // borrowed
         fonts::IFontService* m_fonts;       // borrowed
         shaders::ShaderSystemHost m_shaderHost; // owns the ShaderSystem + the VG modules (ctor allocator)
