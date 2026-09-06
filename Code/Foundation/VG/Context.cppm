@@ -884,9 +884,9 @@ export namespace foundation::vg
             if (isDF)
             {
                 SetDrawMode(VGDrawMode::DistanceField);
-                m_batch.dfPxRange = atlas->DistanceFieldRange();
-                m_batch.dfAtlasW = static_cast<f32>(atlas->Width());
-                m_batch.dfAtlasH = static_cast<f32>(atlas->Height());
+                m_batch.distanceFieldPixelRange = atlas->DistanceFieldRange();
+                m_batch.distanceFieldAtlasWidth = static_cast<f32>(atlas->Width());
+                m_batch.distanceFieldAtlasHeight = static_cast<f32>(atlas->Height());
             }
 
             SetupForTextureDraw(textureIndex);
@@ -1027,9 +1027,9 @@ export namespace foundation::vg
             if (isDF)
             {
                 SetDrawMode(VGDrawMode::DistanceField);
-                m_batch.dfPxRange = font->atlas->DistanceFieldRange();
-                m_batch.dfAtlasW = static_cast<f32>(font->atlas->Width());
-                m_batch.dfAtlasH = static_cast<f32>(font->atlas->Height());
+                m_batch.distanceFieldPixelRange = font->atlas->DistanceFieldRange();
+                m_batch.distanceFieldAtlasWidth = static_cast<f32>(font->atlas->Width());
+                m_batch.distanceFieldAtlasHeight = static_cast<f32>(font->atlas->Height());
             }
 
             SetupForTextureDraw(textureIndex);

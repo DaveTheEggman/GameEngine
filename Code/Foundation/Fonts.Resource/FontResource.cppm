@@ -143,7 +143,7 @@ export namespace foundation::fonts
         u32 atlasHeight = 0;
         f32 whitePixelU = 0.0f;
         f32 whitePixelV = 0.0f;
-        f32 distanceFieldPixelRange = 4.0f; // DistanceField mode only (serialized as "dfPixelRange")
+        f32 distanceFieldPixelRange = 4.0f; // DistanceField mode only
 
         // Pack-time oversampling (v1+): region spans are RAW atlas pixels at oversample times
         // the logical glyph size; the runtime atlas divides screen quads back down. v0 cooked
@@ -169,7 +169,7 @@ export namespace foundation::fonts
             foundation::core::Serialize(ar, "atlasHeight", atlasHeight);
             foundation::core::Serialize(ar, "whitePixelU", whitePixelU);
             foundation::core::Serialize(ar, "whitePixelV", whitePixelV);
-            foundation::core::Serialize(ar, "dfPixelRange", distanceFieldPixelRange);
+            foundation::core::Serialize(ar, "distanceFieldPixelRange", distanceFieldPixelRange);
             if (ar.Version() >= 1) // v1 added oversample (binary is positional - guard reads)
             {
                 foundation::core::Serialize(ar, "oversampleX", oversampleX);

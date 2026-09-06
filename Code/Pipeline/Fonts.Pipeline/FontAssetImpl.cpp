@@ -31,7 +31,10 @@ namespace pipeline{
 
     REFLECT_MEMBERS(FontAsset, "rtti::pipeline::fonts")
     {
-        builder.Attribute("displayName", String(u8"Font"))
+        // v1 (2026-09-06): the distance-field size key is "distanceFieldSize"; v0 payloads
+        // read the abbreviated "dfSize" in Serialize.
+        builder.DataVersion(1)
+            .Attribute("displayName", String(u8"Font"))
             .Attribute("category", String(u8"Fonts"))
             .Property<&FontAsset::family>("family")
             .PropAttribute("displayName", String(u8"Family"))
@@ -39,7 +42,7 @@ namespace pipeline{
                            String(u8"Runtime family name (empty = the file's own family)"))
             .Property<&FontAsset::mode>("mode")
             .PropAttribute("displayName", String(u8"Bake Mode"))
-            .Property<&FontAsset::distanceFieldSize>("dfSize")
+            .Property<&FontAsset::distanceFieldSize>("distanceFieldSize")
             .PropAttribute("displayName", String(u8"Distance-Field Size"))
             .PropAttribute("range", Float4{8.0f, 128.0f, 1.0f, 0.0f})
             .PropAttribute("visibleWhen", String(u8"mode=1")) // DistanceField only

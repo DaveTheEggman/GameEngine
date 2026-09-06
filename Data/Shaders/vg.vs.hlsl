@@ -13,7 +13,7 @@
 // authored bytes - matching the texture paths - and makes color interpolation across
 // triangles happen in linear space. Alpha is coverage, not color: it stays linear.
 #pragma pack_matrix(row_major)
-cbuffer VGUniforms : register(b0) { float4x4 Projection; float DFPxRange; float DFAtlasW; float DFAtlasH; float _pad; };
+cbuffer VGUniforms : register(b0) { float4x4 Projection; float DistanceFieldPixelRange; float DistanceFieldAtlasWidth; float DistanceFieldAtlasHeight; float _pad; };
 struct VSInput { float2 Position:TEXCOORD0; float2 TexCoord:TEXCOORD1; float4 Color:TEXCOORD2; float Coverage:TEXCOORD3; };
 struct VSOutput { float4 Position:SV_Position; float2 TexCoord:TEXCOORD0; float4 Color:COLOR0; float Coverage:COVERAGE; };
 float3 SrgbToLinear(float3 c) {

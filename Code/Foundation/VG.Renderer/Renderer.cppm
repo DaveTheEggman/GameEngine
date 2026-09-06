@@ -87,9 +87,9 @@ export namespace foundation::vg::renderer
     struct VGUniforms
     {
         Float4x4 projection = Float4x4::Identity();
-        f32 dfPxRange = 4.0f;
-        f32 dfAtlasW = 512.0f;
-        f32 dfAtlasH = 512.0f;
+        f32 distanceFieldPixelRange = 4.0f;
+        f32 distanceFieldAtlasWidth = 512.0f;
+        f32 distanceFieldAtlasHeight = 512.0f;
         f32 pad = 0.0f;
     };
 
@@ -323,9 +323,9 @@ export namespace foundation::vg::renderer
             // Write this slice's projection + distance-field metadata into its uniform slot.
             VGUniforms uniforms;
             uniforms.projection = OrthoOffCenter(static_cast<f32>(width), static_cast<f32>(height));
-            uniforms.dfPxRange = batch.dfPxRange;
-            uniforms.dfAtlasW = batch.dfAtlasW;
-            uniforms.dfAtlasH = batch.dfAtlasH;
+            uniforms.distanceFieldPixelRange = batch.distanceFieldPixelRange;
+            uniforms.distanceFieldAtlasWidth = batch.distanceFieldAtlasWidth;
+            uniforms.distanceFieldAtlasHeight = batch.distanceFieldAtlasHeight;
             WriteBuffer(m_uniformBuffers[static_cast<usize>(frameIndex)], sliceUniformOffset,
                         &uniforms, sizeof(VGUniforms));
 

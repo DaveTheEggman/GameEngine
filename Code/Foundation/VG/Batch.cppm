@@ -63,9 +63,9 @@ export namespace foundation::vg
         Array<const image::ImageData*> evictedTextures;
         // Distance-field parameters for DistanceField-mode commands: the MSDF spread (texels) and
         // the atlas dimensions the DF fragment shader needs for its screen-space AA.
-        f32 dfPxRange = 4.0f;
-        f32 dfAtlasW = 512.0f;
-        f32 dfAtlasH = 512.0f;
+        f32 distanceFieldPixelRange = 4.0f;
+        f32 distanceFieldAtlasWidth = 512.0f;
+        f32 distanceFieldAtlasHeight = 512.0f;
 
         /// Vertex data as a span for GPU upload.
         [[nodiscard]] Span<VGVertex> GetVertexData()

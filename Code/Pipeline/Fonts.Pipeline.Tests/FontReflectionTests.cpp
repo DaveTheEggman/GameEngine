@@ -43,7 +43,7 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
     CHECK(CEq(type.name, "FontAsset"));
     // family + mode + distanceFieldSize + first/lastCodepoint + atlasWidth/Height = 7 (sizes is unreflected).
     CHECK(PropertyCount(type) == 7u);
-    for (const char* name : {"family", "mode", "dfSize", "firstCodepoint", "lastCodepoint",
+    for (const char* name : {"family", "mode", "distanceFieldSize", "firstCodepoint", "lastCodepoint",
                              "atlasWidth", "atlasHeight"})
     {
         CHECK_MESSAGE(FindProperty(type, name) != nullptr, name);
@@ -51,7 +51,7 @@ TEST_CASE("reflection-p1: FontAsset exposes its flat authored fields with attrib
     CHECK(FindProperty(type, "sizes") == nullptr); // Array<f32> not reflected
 
     // distanceFieldSize is DistanceField-only (a visibleWhen the generic page evaluates).
-    const PropertyInfo* distanceFieldSize = FindProperty(type, "dfSize");
+    const PropertyInfo* distanceFieldSize = FindProperty(type, "distanceFieldSize");
     REQUIRE(distanceFieldSize != nullptr);
     const Attribute* vis = FindAttribute(*distanceFieldSize, u8"visibleWhen");
     REQUIRE(vis != nullptr);

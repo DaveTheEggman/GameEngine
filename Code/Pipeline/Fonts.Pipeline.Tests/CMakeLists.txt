@@ -1,7 +1,7 @@
 add_executable(Fonts.Pipeline.Tests TestsMain.cpp FontPipelineTests.cpp FontReflectionTests.cpp)
 target_link_libraries(Fonts.Pipeline.Tests PRIVATE
     Pipeline::Fonts Foundation::Fonts.Resource Foundation::Fonts Pipeline::Core
-    Editor::Core Foundation::Content Foundation::Resource Foundation::VFS Foundation::Image doctest::doctest)
+    Editor::Core Foundation::Content Foundation::Resource Foundation::VFS Foundation::Image Foundation::Xml.Serialization doctest::doctest)
 target_compile_definitions(Fonts.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
     TEST_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/dejavu/DejaVuSansMono.ttf")

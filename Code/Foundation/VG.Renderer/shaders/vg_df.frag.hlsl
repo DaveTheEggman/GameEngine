@@ -9,9 +9,9 @@
 cbuffer VGUniforms : register(b0)
 {
     float4x4 Projection;
-    float DFPxRange;
-    float DFAtlasW;
-    float DFAtlasH;
+    float DistanceFieldPixelRange;
+    float DistanceFieldAtlasWidth;
+    float DistanceFieldAtlasHeight;
     float _pad;
 };
 
@@ -38,7 +38,7 @@ float4 main(PSInput input) : SV_Target
 
     // Convert the atlas-space DF spread to screen pixels via the texcoord derivatives, so the
     // antialiased edge stays ~1px wide at any magnification.
-    float2 unitRange = float2(DFPxRange, DFPxRange) / float2(DFAtlasW, DFAtlasH);
+    float2 unitRange = float2(DistanceFieldPixelRange, DistanceFieldPixelRange) / float2(DistanceFieldAtlasWidth, DistanceFieldAtlasHeight);
     float2 screenTexSize = float2(1.0, 1.0) / max(fwidth(input.TexCoord), float2(1e-6, 1e-6));
     float screenPxRange = max(0.5 * dot(unitRange, screenTexSize), 1.0);
 

@@ -8,9 +8,9 @@ cbuffer VGUniforms : register(b0)
 {
     float4x4 Projection;
     // Distance-field metadata (used by vg_df.frag.hlsl; ignored by vg.frag.hlsl).
-    float DFPxRange;
-    float DFAtlasW;
-    float DFAtlasH;
+    float DistanceFieldPixelRange;
+    float DistanceFieldAtlasWidth;
+    float DistanceFieldAtlasHeight;
     float _pad;
 };
 
