@@ -17,8 +17,7 @@ export module editor.app:font_atlas_cache;
 import foundation.core;
 import foundation.vfs;
 import foundation.fonts;
-import foundation.fonts.io;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.fonts.distancefield;
 
 using namespace foundation::core;

@@ -12,7 +12,6 @@ export module foundation.fonts.distancefield.baker:init;
 
 import foundation.core;
 import foundation.fonts;
-import foundation.fonts.io;
 import :baker;
 
 using namespace foundation::core;

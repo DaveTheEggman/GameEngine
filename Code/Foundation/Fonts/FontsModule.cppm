@@ -16,3 +16,6 @@ export import :text_util;
 export import :atlas_texture;
 export import :null_service;
 export import :scaled_views;
+export import :backend_interfaces; // parser/baker/cache seam (was Fonts.IO)
+export import :factories;
+export import :font_manager;

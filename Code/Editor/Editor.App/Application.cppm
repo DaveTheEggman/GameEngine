@@ -22,7 +22,7 @@ import foundation.core;
 import foundation.shell;
 import foundation.graphics;
 import foundation.fonts;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.runtime;
 import foundation.runtime.client;
 import engine.defaultapp; // the embedded game application (v3)

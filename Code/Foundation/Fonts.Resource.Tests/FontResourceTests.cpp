@@ -77,7 +77,7 @@ namespace
     }
 }
 
-TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font product")
+TEST_CASE("font.factory: cooked Coverage FontResource -> rasterizer-free Font product")
 {
     RegisterFontResource();
     const StringView dir = u8"scratch_fontfac_a8_db";
@@ -91,7 +91,7 @@ TEST_CASE("font.factory: cooked Alpha8 FontResource -> rasterizer-free Font prod
         id = inst->Id();
 
         FontResource res;
-        AuthorFont(res, FontResourcePixels::Alpha8);
+        AuthorFont(res, FontResourcePixels::Coverage);
         REQUIRE(inst->WriteObject(res).IsOk());
 
         // Two entries x 2x2 alpha texels, concatenated.
@@ -156,7 +156,7 @@ TEST_CASE("font.factory: async load matches the sync product")
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
-        AuthorFont(res, FontResourcePixels::Alpha8);
+        AuthorFont(res, FontResourcePixels::Coverage);
         REQUIRE(inst->WriteObject(res).IsOk());
         u8 pixels[8];
         for (usize i = 0; i < sizeof(pixels); ++i)
@@ -215,7 +215,7 @@ TEST_CASE("font.factory: many concurrent async decodes run without a race")
                                static_cast<char8_t>(u8'0' + i % 10), 0};
             auto* inst = db.RootGroup()->CreateInstance(StringView(name), FontResource::StaticType());
             FontResource res;
-            AuthorFont(res, FontResourcePixels::Alpha8);
+            AuthorFont(res, FontResourcePixels::Coverage);
             REQUIRE(inst->WriteObject(res).IsOk());
             u8 pixels[8];
             for (usize j = 0; j < sizeof(pixels); ++j)
@@ -312,7 +312,7 @@ TEST_CASE("font.service: ResourceFontService resolves (family, size) over bound 
         auto* inst = db.RootGroup()->CreateInstance(u8"font", FontResource::StaticType());
         id = inst->Id();
         FontResource res;
-        AuthorFont(res, FontResourcePixels::Alpha8);
+        AuthorFont(res, FontResourcePixels::Coverage);
         REQUIRE(inst->WriteObject(res).IsOk());
         u8 pixels[8] = {1, 2, 3, 4, 5, 6, 7, 8};
         REQUIRE(inst->WriteData(u8"data", Span<const byte>(reinterpret_cast<const byte*>(pixels),

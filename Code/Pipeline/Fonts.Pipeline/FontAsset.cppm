@@ -9,7 +9,7 @@
 //     range, atlas dimensions, and the runtime family name.
 //   * FontAssetBuilder (DefaultAssetBuilder): cooks a FontAsset into a runtime
 //     FontResource - parse the font bytes once per size, bake coverage atlases through
-//     fonts::FontImporter (or the msdfgen MSDF baker for DistanceField mode), flatten the
+//     fonts::FontBaker (or the msdfgen MSDF baker for DistanceField mode), flatten the
 //     glyph/kerning/region tables into record entries, and concatenate the atlas pixel
 //     payloads into the "data" stream.
 //   * FontAssetImporter (IFileImporter): claims .ttf/.otf/.ttc - copies the file into
@@ -27,10 +27,9 @@ import foundation.core;
 import pipeline.core;
 import pipeline.importer;
 import foundation.fonts;
-import foundation.fonts.ttf;
-import foundation.fonts.io;
-import foundation.fonts.baked;
-import foundation.fonts.importer;
+import foundation.fonts.truetype;
+import foundation.fonts.coverage;
+import foundation.fonts.coverage.baker;
 import foundation.fonts.distancefield;
 import foundation.fonts.distancefield.baker;
 import foundation.fonts.resource;
@@ -133,7 +132,7 @@ export namespace pipeline{
             resource.family = fa.family; // explicit family wins; bakers fill "" from the file
             resource.pixels = (fa.mode == FontBakeMode::DistanceField)
                                   ? FontResourcePixels::DistanceField
-                                  : FontResourcePixels::Alpha8;
+                                  : FontResourcePixels::Coverage;
             Array<u8> pixels; // concatenated atlas payloads ("data" stream)
 
             if (fa.mode == FontBakeMode::DistanceField)
@@ -203,7 +202,7 @@ export namespace pipeline{
                                           FontResource& resource, Array<u8>& pixels)
         {
             Result<BakedFontData*, FontLoadResult> baked =
-                FontImporter::Bake(fontBytes, OptionsFor(fa, size, /*distanceField*/ false),
+                FontBaker::Bake(fontBytes, OptionsFor(fa, size, /*distanceField*/ false),
                                    allocator);
             if (!baked.HasValue())
             {

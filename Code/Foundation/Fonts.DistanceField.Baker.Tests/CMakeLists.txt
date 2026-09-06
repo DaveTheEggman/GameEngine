@@ -2,7 +2,7 @@
 
 add_executable(Fonts.DistanceField.Baker.Tests TestsMain.cpp DFBakerTests.cpp)
 target_link_libraries(Fonts.DistanceField.Baker.Tests PRIVATE
-    Foundation::Fonts.DistanceField.Baker Foundation::Fonts.DistanceField Foundation::Fonts Foundation::Fonts.IO Foundation::Fonts.TTF
+    Foundation::Fonts.DistanceField.Baker Foundation::Fonts.DistanceField Foundation::Fonts Foundation::Fonts.TrueType
     doctest::doctest)
 target_compile_definitions(Fonts.DistanceField.Baker.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS

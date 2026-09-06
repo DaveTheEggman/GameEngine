@@ -22,7 +22,7 @@ import foundation.core;
 import foundation.shell;
 import foundation.graphics;
 import foundation.fonts;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.fonts.resource;
 import foundation.fonts.distancefield.baker; // DFFonts (MSDF baker registration) for the DF font path
 import foundation.runtime;

@@ -4,7 +4,7 @@
 
 util_add_engine_library(Fonts.Resource ALIAS Foundation::Fonts.Resource)
 target_link_libraries(Fonts.Resource
-    PUBLIC Foundation::Core Foundation::Fonts Foundation::Fonts.Baked Foundation::Fonts.TTF Foundation::Fonts.DistanceField
+    PUBLIC Foundation::Core Foundation::Fonts Foundation::Fonts.Coverage Foundation::Fonts.TrueType Foundation::Fonts.DistanceField
            Foundation::Image Foundation::Content Foundation::Resource Foundation::Policy)
 
 target_sources(Fonts.Resource

@@ -4,7 +4,7 @@
 util_add_engine_library(Editor.Fonts ALIAS Editor::Fonts)
 target_link_libraries(Editor.Fonts
     PUBLIC Foundation::Core Foundation::Content Foundation::VFS Foundation::Image
-           Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.IO Foundation::Fonts.Importer
+           Foundation::Fonts Foundation::Fonts.TrueType Foundation::Fonts.Coverage.Baker
            Foundation::Fonts.DistanceField.Baker Pipeline::Fonts
            Foundation::UI Foundation::UI.Toolkit Editor::Core Editor::App
            Foundation::Policy)

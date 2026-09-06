@@ -18,9 +18,9 @@ Code/Foundation/Core/Reflection/EnumReflection.cppm
 Code/Foundation/Core/Reflection/Reflection.cppm
 # Single-library state (never crosses its own module).
 Code/Foundation/Fonts.DistanceField.Baker/DFFonts.cppm
-Code/Foundation/Fonts.TTF/TrueTypeFonts.cppm
+Code/Foundation/Fonts.TrueType/TrueTypeFonts.cppm
 # Module-linkage stores in a non-exported block (one definition); the inline
 # dispatchers over them are a P5 visibility concern, not duplication.
-Code/Foundation/Fonts.IO/Factories.cppm
+Code/Foundation/Fonts/Factories.cppm
 # Emscripten single-binary target: no shared-library split on wasm.
 Code/Foundation/Runtime.Web/WebRunner.cppm

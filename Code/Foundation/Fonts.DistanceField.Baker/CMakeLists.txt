@@ -3,7 +3,7 @@
 
 util_add_engine_library(Fonts.DistanceField.Baker ALIAS Foundation::Fonts.DistanceField.Baker)
 target_link_libraries(Fonts.DistanceField.Baker
-    PUBLIC  Foundation::Core Foundation::Fonts Foundation::Fonts.DistanceField Foundation::Fonts.IO Foundation::Fonts.TTF Foundation::Policy
+    PUBLIC  Foundation::Core Foundation::Fonts Foundation::Fonts.DistanceField Foundation::Fonts.TrueType Foundation::Policy
     PRIVATE ThirdParty::MsdfgenCore ThirdParty::Stb)
 
 # msdfgen_impl.cpp includes msdfgen headers which may use exceptions.

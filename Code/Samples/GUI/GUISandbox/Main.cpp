@@ -17,7 +17,7 @@ import samples.framework;
 import foundation.shell;
 import foundation.image;
 import foundation.fonts;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.vg;
 import foundation.vg.renderer;
 import experimental.gui;

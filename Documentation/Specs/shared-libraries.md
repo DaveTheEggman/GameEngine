@@ -119,7 +119,7 @@ de-inline (each is a one-line-per-site mechanical move):
   (RefCounted.cppm:49) - MakeRef in DLL A parks the control block, ctor in
   DLL B must see it. Accessor function in Core's impl unit.
 - Registries/singletons: Categories() (RenderData.cppm:141), Font
-  Parser/Baker factories + CacheSlot (Fonts.IO/Factories.cppm),
+  Parser/Baker factories + CacheSlot (Fonts/Factories.cppm - was Fonts.IO),
   ScriptBackendRegistry::Get (BackendRegistry.cppm:38),
   ScriptLanguageCookRegistry (ScriptAsset.cppm:569), g_currentContext +
   ScriptCallScope (IScriptContext.cppm:162), g_globalJobs + WorkerSlot

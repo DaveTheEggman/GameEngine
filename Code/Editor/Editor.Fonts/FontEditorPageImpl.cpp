@@ -14,9 +14,8 @@ import foundation.content;
 import foundation.vfs;
 import foundation.image;
 import foundation.fonts;
-import foundation.fonts.ttf;
-import foundation.fonts.io;
-import foundation.fonts.importer;
+import foundation.fonts.truetype;
+import foundation.fonts.coverage.baker;
 import foundation.fonts.distancefield.baker;
 import fonts.pipeline;
 import foundation.ui;
@@ -286,7 +285,7 @@ namespace editor
         else
         {
             Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
-                fonts::FontImporter::Bake(fontBytes, options, editor::EditorRootAllocator());
+                fonts::FontBaker::Bake(fontBytes, options, editor::EditorRootAllocator());
             if (!baked.HasValue())
             {
                 return;

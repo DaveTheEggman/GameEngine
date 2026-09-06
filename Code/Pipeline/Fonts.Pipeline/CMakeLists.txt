@@ -4,8 +4,8 @@
 util_add_engine_library(Fonts.Pipeline ALIAS Pipeline::Fonts)
 target_link_libraries(Fonts.Pipeline
     PUBLIC Foundation::Core Pipeline::Core Pipeline::Importer
-           Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.IO Foundation::Fonts.Baked
-           Foundation::Fonts.Importer Foundation::Fonts.DistanceField
+           Foundation::Fonts Foundation::Fonts.TrueType Foundation::Fonts.Coverage
+           Foundation::Fonts.Coverage.Baker Foundation::Fonts.DistanceField
            Foundation::Fonts.DistanceField.Baker Foundation::Fonts.Resource
            Foundation::Content Foundation::Policy)
 

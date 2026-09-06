@@ -13,7 +13,7 @@ import foundation.core;
 import foundation.fonts;
 import foundation.fonts.distancefield;
 import foundation.fonts.distancefield.baker;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 
 using namespace foundation::core;
 using namespace foundation::fonts;

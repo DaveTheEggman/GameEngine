@@ -21,9 +21,8 @@ export module foundation.fonts.distancefield.baker:baker;
 
 import foundation.core;
 import foundation.fonts;
-import foundation.fonts.io;
 import foundation.fonts.distancefield;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 
 using namespace foundation::core;
 

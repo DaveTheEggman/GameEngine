@@ -18,7 +18,7 @@ import foundation.shaders.system; // ShaderSystemHost
 import samples.framework;
 import foundation.image;
 import foundation.fonts;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.fonts.distancefield;
 import foundation.fonts.distancefield.baker;
 import foundation.vg;

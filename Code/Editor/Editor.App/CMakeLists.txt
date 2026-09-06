@@ -7,7 +7,7 @@ target_link_libraries(Editor.App
         Foundation::Core Foundation::VFS Foundation::Xml.Serialization Pipeline::Core Foundation::Resource
         Foundation::Shell Foundation::Graphics Foundation::Runtime Foundation::Runtime.Client Engine::DefaultApp
         Foundation::Render.Api
-        Foundation::Fonts Foundation::Fonts.TTF Foundation::Fonts.Resource Foundation::Fonts.DistanceField.Baker
+        Foundation::Fonts Foundation::Fonts.TrueType Foundation::Fonts.Resource Foundation::Fonts.DistanceField.Baker
         Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime Foundation::UI.Application
         Foundation::UI.Resource Engine::UI
         Foundation::Input Engine::Input Editor::Preview

@@ -5,7 +5,7 @@ target_link_libraries(UISandbox PRIVATE
     Foundation::Core Foundation::RHI Foundation::Shaders
     Foundation::Runtime Foundation::Runtime.Client Foundation::Runtime.Desktop Foundation::Shell.Desktop
     Foundation::Graphics Foundation::Graphics.Gpu Foundation::UI.Runtime Foundation::UI.Application
-    Foundation::Shell Foundation::Image Foundation::Fonts Foundation::Fonts.TTF
+    Foundation::Shell Foundation::Image Foundation::Fonts Foundation::Fonts.TrueType
     Foundation::VG Foundation::VG.Renderer Foundation::UI Foundation::UI.Toolkit Foundation::UI.Viewport Foundation::UI.Shell Foundation::UI.VFS Foundation::VFS)
 target_compile_definitions(UISandbox PRIVATE
     BUILTIN_UI_FONT_PATH="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf"

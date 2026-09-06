@@ -27,8 +27,8 @@ export module foundation.fonts.resource;
 
 import foundation.core;
 import foundation.fonts;
-import foundation.fonts.baked;
-import foundation.fonts.ttf;
+import foundation.fonts.coverage;
+import foundation.fonts.truetype;
 import foundation.fonts.distancefield;
 import foundation.image;
 import foundation.content;
@@ -44,7 +44,7 @@ export namespace foundation::fonts
     // How the cooked atlas payload is encoded (uniform across a resource's entries).
     enum class FontResourcePixels : u32
     {
-        Alpha8,        // single-channel coverage (expanded to RGBA8 at load, like the TTF path)
+        Coverage,      // single-channel Alpha8 coverage (expanded to RGBA8 at load, like the TTF path)
         DistanceField, // RGBA8 MSDF channels, linear (no sRGB decode - geometric data)
     };
 
@@ -192,7 +192,7 @@ export namespace foundation::fonts
         RTTI_OBJECT(FontResource, ISerializable)
     public:
         String family;
-        FontResourcePixels pixels = FontResourcePixels::Alpha8;
+        FontResourcePixels pixels = FontResourcePixels::Coverage;
         Array<FontResourceEntry> entries;
 
         void Serialize(ISerializer& ar) override

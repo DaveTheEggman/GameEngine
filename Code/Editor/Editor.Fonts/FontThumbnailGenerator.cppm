@@ -19,7 +19,7 @@ import foundation.content;
 import foundation.image;
 import foundation.vfs;
 import foundation.fonts;
-import foundation.fonts.importer;
+import foundation.fonts.coverage.baker;
 import editor.core;
 import fonts.pipeline;
 
@@ -77,7 +77,7 @@ export namespace editor
             options.oversampleX = 1;
             options.oversampleY = 1;
             Result<fonts::BakedFontData*, fonts::FontLoadResult> baked =
-                fonts::FontImporter::Bake(
+                fonts::FontBaker::Bake(
                     Span<const u8>(reinterpret_cast<const u8*>(payload.Data()), payload.Size()),
                     options, editor::EditorRootAllocator());
             if (!baked.HasValue())

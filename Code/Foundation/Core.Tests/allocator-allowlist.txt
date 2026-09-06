@@ -49,8 +49,8 @@ Code/Foundation/Core/Threading/JobSystem.cppm
 Code/Foundation/Core/Threading/JobSystemImpl.cpp
 Code/Foundation/Core/Threading/Thread.cppm
 Code/Foundation/Fonts.DistanceField.Baker/DFFonts.cppm
-Code/Foundation/Fonts.IO/Factories.cppm
-Code/Foundation/Fonts.TTF/TrueTypeFonts.cppm
+Code/Foundation/Fonts.TrueType/TrueTypeFonts.cppm
+Code/Foundation/Fonts/Factories.cppm
 Code/Foundation/Graphics/Graphics.cppm
 Code/Foundation/Graphics/GraphicsGpu.cpp
 Code/Foundation/Materials.Resource/MaterialResource.cppm

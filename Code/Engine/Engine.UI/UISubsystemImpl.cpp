@@ -26,7 +26,7 @@ import foundation.resource;
 import foundation.shell;
 import foundation.rhi;
 import foundation.fonts;
-import foundation.fonts.ttf;
+import foundation.fonts.truetype;
 import foundation.fonts.resource;
 import foundation.input;
 import engine.input;

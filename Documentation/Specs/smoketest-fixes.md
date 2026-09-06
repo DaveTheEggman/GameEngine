@@ -63,7 +63,7 @@ Fix:
   Default UI font"), instead of silently rendering nothing.
 - VERIFY the .ttf/.otf import path end-to-end in a real project (drop a
   .ttf into the asset browser -> FontAsset + cook). The importer exists
-  (Fonts.Importer); the user's note "no ttf/otf importer setup it seems"
+  (Fonts.Importer - since renamed Fonts.Coverage.Baker: it is a baker, not an IFileImporter); the user's note "no ttf/otf importer setup it seems"
   suggests the drop route may not be REGISTERED for those extensions -
   check the drop-import extension table and add if missing.
 - Test: settings round-trip for the new row; cook-level: a project with

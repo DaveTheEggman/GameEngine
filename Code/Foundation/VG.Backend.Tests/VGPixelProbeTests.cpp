@@ -430,9 +430,9 @@ TEST_CASE("vg.pixels: fills, clip, colors, spreads and blends on real backends")
 // ============================================================================================
 
 import foundation.fonts;
-import foundation.fonts.ttf;
-import foundation.fonts.importer;
-import foundation.fonts.baked;
+import foundation.fonts.truetype;
+import foundation.fonts.coverage.baker;
+import foundation.fonts.coverage;
 import foundation.fonts.resource;
 import foundation.image;
 import foundation.image.io;
@@ -570,10 +570,10 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
                                    });
 
     // Path B: the BAKED wrappers - the exact objects a cooked FontResource loads into
-    // (FontImporter::Bake is the same bake the cook runs; the wrap mirrors FontFactory).
+    // (FontBaker::Bake is the same bake the cook runs; the wrap mirrors FontFactory).
     fonts::FontLoadOptions options = fonts::FontLoadOptions::Default();
     options.pixelHeight = servedSize;
-    auto bakedResult = fonts::FontImporter::Bake(
+    auto bakedResult = fonts::FontBaker::Bake(
         Span<const u8>(reinterpret_cast<const u8*>(ttf.Data()), ttf.Size()), options,
         DefaultAllocator());
     REQUIRE(bakedResult.HasValue());
