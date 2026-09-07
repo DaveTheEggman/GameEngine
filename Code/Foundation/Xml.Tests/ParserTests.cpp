@@ -246,3 +246,38 @@ TEST_CASE("xml.parse: complex document")
     title->GetTextContent(titleText);
     CHECK(titleText == StringView(u8"XML Guide"));
 }
+
+TEST_CASE("xml.parse: a failed parse reports the line and column where it stopped")
+{
+    // Before 2026-09-07 ErrorLine/ErrorColumn were reset to 1 in Parse and never written
+    // again, so the editor's XML diagnostics (which subtract 1 for buffer lines) all
+    // pointed at line 0.
+    XmlDocument d(DefaultAllocator());
+
+    // A mismatched close tag on the third line.
+    REQUIRE(d.Parse(u8"<root>\n  <a/>\n  </other>") == XmlResult::TagMismatch);
+    CHECK(d.ErrorLine() == 3);
+    CHECK(d.ErrorColumn() > 1);
+
+    // First line stays line 1; the column is past the opening element.
+    REQUIRE(d.Parse(u8"<root></other>") == XmlResult::TagMismatch);
+    CHECK(d.ErrorLine() == 1);
+    CHECK(d.ErrorColumn() > 1);
+
+    // Columns count code points: a two-byte character before the error is one column.
+    REQUIRE(d.Parse(u8"<r\u00e9></x>") == XmlResult::TagMismatch);
+    CHECK(d.ErrorLine() == 1);
+    const i32 columnAfterMultibyte = d.ErrorColumn();
+    REQUIRE(d.Parse(u8"<re></x>") == XmlResult::TagMismatch);
+    CHECK(d.ErrorColumn() == columnAfterMultibyte);
+
+    // Truncated input: the position is the end of the text.
+    REQUIRE(d.Parse(u8"<root>\n<a>") != XmlResult::Ok);
+    CHECK(d.ErrorLine() == 2);
+
+    // A successful parse leaves the position at 1/1.
+    REQUIRE(d.Parse(u8"<root/>") == XmlResult::Ok);
+    CHECK(d.ErrorLine() == 1);
+    CHECK(d.ErrorColumn() == 1);
+}
+

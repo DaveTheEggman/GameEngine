@@ -75,7 +75,12 @@ export namespace foundation::xml
             m_parseSettings = settings;
 
             StringView remaining = text;
-            return ParseDocument(remaining);
+            const XmlResult result = ParseDocument(remaining);
+            if (result != XmlResult::Ok)
+            {
+                RecordErrorPosition(text, remaining);
+            }
+            return result;
         }
 
         // --- writing ---
@@ -756,6 +761,39 @@ export namespace foundation::xml
         XmlParseSettings m_parseSettings = XmlParseSettings::Default();
         i32 m_errorLine = 1;
         i32 m_errorColumn = 1;
+
+        // The parsers thread ONE `remaining` view by reference, so where it stands when a
+        // parse function fails is where the error is. Line/column are 1-based; a column
+        // counts code points, not bytes (UTF-8 continuation bytes do not advance it).
+        // Before 2026-09-07 these were set to 1 at the top of Parse and never touched,
+        // so every XML diagnostic in the editor pointed at line 0.
+        void RecordErrorPosition(StringView whole, StringView remaining) noexcept
+        {
+            const utf8char* begin = whole.Data();
+            const utf8char* end = whole.Data() + whole.Size();
+            const utf8char* at = remaining.Data();
+            if (at == nullptr || at < begin || at > end)
+            {
+                at = end;
+            }
+            i32 line = 1;
+            i32 column = 1;
+            for (const utf8char* c = begin; c < at; ++c)
+            {
+                const unsigned char b = static_cast<unsigned char>(*c);
+                if (b == '\n')
+                {
+                    ++line;
+                    column = 1;
+                }
+                else if ((b & 0xC0u) != 0x80u)
+                {
+                    ++column;
+                }
+            }
+            m_errorLine = line;
+            m_errorColumn = column;
+        }
     };
 
     // ToXml for a whole document.
