@@ -6,6 +6,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Debug/Assert.h"
 
 #include <algorithm>
 #include <cctype>
@@ -34,6 +35,49 @@ export namespace foundation::model::fbx
 
     using namespace foundation::core;
     using namespace foundation::model;
+
+    /// Vertex deduplication by CONTENT: the hash picks a bucket, the bytes decide. The
+    /// previous map was keyed on the hash alone, so two different vertices that collided
+    /// became one - rare, and it surfaced as a pulled seam nothing in the source file
+    /// explained (found by the Beef port, whose welder compares). Buckets are an intrusive
+    /// chain over vertex indices, so welding allocates nothing per vertex beyond the
+    /// vertex itself.
+    class VertexWelder
+    {
+    public:
+        explicit VertexWelder(i32 stride) : m_stride(stride) {}
+
+        /// Returns the index of the vertex whose bytes equal `vertex` (stride bytes), or
+        /// appends it to `vertexBytes` and returns the new index.
+        i32 Weld(size_t hash, const u8* vertex, Array<u8>& vertexBytes)
+        {
+            const i32* head = m_first.Find(hash);
+            const i32 first = (head != nullptr) ? *head : -1;
+            for (i32 i = first; i >= 0; i = m_next[static_cast<usize>(i)])
+            {
+                if (MemCompare(vertexBytes.Data() + static_cast<usize>(i) * m_stride, vertex,
+                               static_cast<usize>(m_stride)) == 0)
+                {
+                    return i;
+                }
+            }
+            const i32 newIndex = static_cast<i32>(vertexBytes.Size() / static_cast<usize>(m_stride));
+            const usize oldSize = vertexBytes.Size();
+            vertexBytes.Resize(oldSize + static_cast<usize>(m_stride), 0);
+            MemCopy(vertexBytes.Data() + oldSize, vertex, static_cast<usize>(m_stride));
+            m_next.PushBack(first);
+            m_first.InsertOrAssign(hash, newIndex);
+            return newIndex;
+        }
+
+        [[nodiscard]] i32 Count() const { return static_cast<i32>(m_next.Size()); }
+
+    private:
+        HashMap<size_t, i32> m_first; // hash -> first vertex index in the bucket
+        Array<i32> m_next;            // vertex index -> next index with the same hash (-1 ends)
+        i32 m_stride;
+    };
+
 
     // ufbx hands back char* (UTF-8); the engine String is UTF-8 too, so these just
     // wrap the bytes in an owned String - no transcoding.
@@ -105,6 +149,14 @@ export namespace foundation::model::fbx
             m_loadOpts.generate_missing_normals = true;
             m_loadOpts.clean_skin_weights = true;
             m_loadOpts.use_blender_pbr_material = true;
+            // OBJ materials live in a sidecar .mtl that ufbx reads ONLY when asked. Without
+            // this every OBJ arrived with its material NAMES and default colours, which looked
+            // like it worked (found by the Beef port's material test: `usemtl red` gave a
+            // material called "red" with a white base colour). A missing sidecar is not an
+            // error - the file still describes geometry.
+            m_loadOpts.load_external_files = true;
+            m_loadOpts.ignore_missing_external_files = true;
+            m_loadOpts.obj_search_mtl_by_filename = true;
 
             // Parse the file.
             ufbx_error error = {};
@@ -720,7 +772,7 @@ export namespace foundation::model::fbx
                 // Collect all triangulated vertices across all material parts.
                 Array<u8> allVertexBytes;
                 Array<u32> allIndices;
-                HashMap<size_t, i32> vertexMap; // vertex hash -> index
+                VertexWelder welder(stride); // content-compared dedup (hash = bucket only)
 
                 // Allocate triangle index buffer for triangulation.
                 size_t maxTriIndices = fbxMesh->max_face_triangles * 3;
@@ -761,13 +813,13 @@ export namespace foundation::model::fbx
                             {
                                 uint32_t idx = triIndices[ti];
 
-                                size_t hash = buildVertex(
+                                const i32 vertexIndex = buildVertex(
                                     fbxMesh, static_cast<int>(idx), skinDeformer, isSkinned, hasUV,
                                     hasTangent, hasColor, stride, positionOffset, normalOffset,
                                     texCoordOffset, colorOffset, tangentOffset, jointsOffset,
-                                    weightsOffset, allVertexBytes, vertexMap);
+                                    weightsOffset, allVertexBytes, welder);
 
-                                allIndices.PushBack(static_cast<u32>(*vertexMap.Find(hash)));
+                                allIndices.PushBack(static_cast<u32>(vertexIndex));
                                 indexCount++;
                             }
                         }
@@ -791,13 +843,13 @@ export namespace foundation::model::fbx
                         {
                             uint32_t idx = triIndices[ti];
 
-                            size_t hash = buildVertex(
+                            const i32 vertexIndex = buildVertex(
                                 fbxMesh, static_cast<int>(idx), skinDeformer, isSkinned, hasUV,
                                 hasTangent, hasColor, stride, positionOffset, normalOffset,
                                 texCoordOffset, colorOffset, tangentOffset, jointsOffset,
-                                weightsOffset, allVertexBytes, vertexMap);
+                                weightsOffset, allVertexBytes, welder);
 
-                            allIndices.PushBack(static_cast<u32>(*vertexMap.Find(hash)));
+                            allIndices.PushBack(static_cast<u32>(vertexIndex));
                             indexCount++;
                         }
                     }
@@ -843,13 +895,17 @@ export namespace foundation::model::fbx
             }
         }
 
-        /// Builds a vertex at the given face index and adds it to the vertex buffer.
-        /// Returns the hash for deduplication.
-        size_t buildVertex(ufbx_mesh* fbxMesh, int idx, ufbx_skin_deformer* skinDeformer,
-                           bool isSkinned, bool hasUV, bool hasTangent, bool hasColor, i32 stride,
-                           i32 positionOffset, i32 normalOffset, i32 texCoordOffset,
-                           i32 colorOffset, i32 tangentOffset, i32 jointsOffset, i32 weightsOffset,
-                           Array<u8>& vertexBytes, HashMap<size_t, i32>& vtxMap)
+        // Largest vertex the layout below can produce: position + normal + uv + color +
+        // tangent + joints + weights.
+        static constexpr i32 kMaxVertexStride = 12 + 12 + 8 + 4 + 16 + 8 + 16;
+
+        /// Builds the vertex at the given face index and welds it into the vertex buffer
+        /// (content-compared; see VertexWelder). Returns the vertex's index.
+        i32 buildVertex(ufbx_mesh* fbxMesh, int idx, ufbx_skin_deformer* skinDeformer,
+                        bool isSkinned, bool hasUV, bool hasTangent, bool hasColor, i32 stride,
+                        i32 positionOffset, i32 normalOffset, i32 texCoordOffset, i32 colorOffset,
+                        i32 tangentOffset, i32 jointsOffset, i32 weightsOffset,
+                        Array<u8>& vertexBytes, VertexWelder& welder)
         {
             // Read vertex attributes.
             ufbx_vec3 pos = readVec3(fbxMesh->vertex_position, idx);
@@ -912,16 +968,10 @@ export namespace foundation::model::fbx
             hash =
                 hash * 31 + (tangentW < 0.0f ? 1u : 0u); // handedness splits mirror-seam vertices
 
-            if (vtxMap.Find(hash) != nullptr)
-                return hash;
-
-            // Add new vertex.
-            i32 newIndex = static_cast<i32>(vertexBytes.Size() / stride);
-
-            // Extend buffer.
-            size_t oldCount = vertexBytes.Size();
-            vertexBytes.Resize(oldCount + stride, 0);
-            u8* vertex = &vertexBytes[oldCount];
+            // Assemble the vertex, then weld by content: the hash only picks the bucket.
+            DIAGNOSTIC_ASSERT_MSG(stride <= kMaxVertexStride, "vertex layout exceeds the scratch");
+            u8 scratch[kMaxVertexStride] = {};
+            u8* vertex = scratch;
 
             // Position.
             *reinterpret_cast<Float3*>(vertex + positionOffset) =
@@ -961,8 +1011,7 @@ export namespace foundation::model::fbx
                     Float4(weights[0], weights[1], weights[2], weights[3]);
             }
 
-            vtxMap.InsertOrAssign(hash, newIndex);
-            return hash;
+            return welder.Weld(hash, scratch, vertexBytes);
         }
 
         static ufbx_vec3 readVec3(ufbx_vertex_vec3 attrib, int idx)
