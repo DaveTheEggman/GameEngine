@@ -863,17 +863,22 @@ export namespace foundation::model::gltf
                 if (node->has_scale)
                     bone->scale = Float3(node->scale[0], node->scale[1], node->scale[2]);
 
-                // Matrix.
+                // Matrix. glTF stores it column-major for column vectors; reading the flat
+                // array straight into row-major storage is the transpose = our row-vector
+                // convention. The TRS FIELDS are what every consumer reads (the cook copies
+                // them into the resource's Transform), so a matrix-only node must populate
+                // them too - it used to leave them at identity, so such nodes cooked at the
+                // origin with no rotation or scale.
                 if (node->has_matrix)
                 {
-                    // GLTF stores column-major for column-vector convention.
-                    // Transpose to row-vector convention by reading flat array directly into row-major storage.
-                    std::memcpy(bone->localTransform.Data(), node->matrix, sizeof(float) * 16);
+                    Float4x4 nodeMatrix = Float4x4::Identity();
+                    std::memcpy(nodeMatrix.Data(), node->matrix, sizeof(float) * 16);
+                    const Transform trs = Transform::FromMatrix(nodeMatrix);
+                    bone->translation = trs.position;
+                    bone->rotation = trs.rotation;
+                    bone->scale = trs.scale;
                 }
-                else
-                {
-                    bone->updateLocalTransform();
-                }
+                bone->updateLocalTransform();
 
                 if (node->mesh)
                     bone->meshIndex = static_cast<i32>(cgltf_mesh_index(m_data, node->mesh));

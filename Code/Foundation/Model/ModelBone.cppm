@@ -46,46 +46,15 @@ export namespace foundation::model
             return Span<ModelBone*>(m_children.Data(), m_children.Size());
         }
 
-        /// Update localTransform from translation/rotation/scale (TRS).
-        /// Order: Scale -> Rotate -> Translate.
+        /// Update localTransform from translation/rotation/scale (TRS) - the same
+        /// composition as Transform::ToMatrix (row-vector convention: Scale * Rotation with
+        /// the translation in the LAST ROW), so it agrees with Float4x4::TransformPoint and
+        /// with a glTF node matrix read into row-major storage. The hand-built version this
+        /// replaced put the translation in the last column and composed T * (R * S) - the
+        /// column-vector convention - which TransformPoint never reads.
         void updateLocalTransform()
         {
-            // Build scale matrix.
-            Float4x4 s = Float4x4::Identity();
-            s.m[0][0] = scale.x;
-            s.m[1][1] = scale.y;
-            s.m[2][2] = scale.z;
-
-            // Build rotation matrix from quaternion.
-            f32 xx = rotation.x * rotation.x;
-            f32 yy = rotation.y * rotation.y;
-            f32 zz = rotation.z * rotation.z;
-            f32 xy = rotation.x * rotation.y;
-            f32 xz = rotation.x * rotation.z;
-            f32 yz = rotation.y * rotation.z;
-            f32 wx = rotation.w * rotation.x;
-            f32 wy = rotation.w * rotation.y;
-            f32 wz = rotation.w * rotation.z;
-
-            Float4x4 r = Float4x4::Identity();
-            r.m[0][0] = 1.0f - 2.0f * (yy + zz);
-            r.m[0][1] = 2.0f * (xy + wz);
-            r.m[0][2] = 2.0f * (xz - wy);
-            r.m[1][0] = 2.0f * (xy - wz);
-            r.m[1][1] = 1.0f - 2.0f * (xx + zz);
-            r.m[1][2] = 2.0f * (yz + wx);
-            r.m[2][0] = 2.0f * (xz + wy);
-            r.m[2][1] = 2.0f * (yz - wx);
-            r.m[2][2] = 1.0f - 2.0f * (xx + yy);
-
-            // Build translation matrix.
-            Float4x4 t = Float4x4::Identity();
-            t.m[0][3] = translation.x;
-            t.m[1][3] = translation.y;
-            t.m[2][3] = translation.z;
-
-            // TRS order: Scale -> Rotate -> Translate.
-            localTransform = t * (r * s);
+            localTransform = Transform{translation, rotation, scale}.ToMatrix();
         }
 
         // -- Public fields --

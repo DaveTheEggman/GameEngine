@@ -702,6 +702,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Materials.Resource.Tests        Foundation::Materials.Resource)
     util_test_suite(Code/Foundation/Materials.Tests                 Foundation::Materials)
     util_test_suite(Code/Foundation/Model.Tests                     Foundation::Model)
+    util_test_suite(Code/Foundation/Model.GLTF.Tests                Foundation::Model.GLTF)
     util_test_suite(Code/Foundation/Net.Manager.Tests Foundation::Net.Manager)  # its script facade test (as) is file-gated in the suite CMake
     util_test_suite(Code/Foundation/Net.Replication.Tests           Foundation::Net.Replication)
     util_test_suite(Code/Foundation/Net.Tests                       Foundation::Net)
