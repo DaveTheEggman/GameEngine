@@ -172,47 +172,68 @@ export namespace foundation::rhi
     }
 
     /// Returns bytes per pixel for uncompressed formats; 0 for compressed or unknown.
+    /// Bytes per texel of an UNCOMPRESSED format; 0 for block-compressed formats (size those
+    /// with BlockBytes / CompressedLevelBytes). Every uncompressed enumerator is listed - the
+    /// table used to omit sixteen ordinary ones (the Snorm/Uint/Sint variants of R8, RG8 and
+    /// RGBA8, RG16 integer, RGB10A2Uint, RGB9E5Float, RG32Sint, RGBA16Unorm/Snorm), so anything
+    /// sizing an upload from one of them got zero bytes (found by the Beef port, 2026-09-07).
+    /// Depth24Plus is opaque; 4 is the footprint every backend allocates for it.
     [[nodiscard]] constexpr u32 BytesPerPixel(TextureFormat f)
     {
         switch (f)
         {
         case TextureFormat::R8Unorm:
+        case TextureFormat::R8Snorm:
+        case TextureFormat::R8Uint:
+        case TextureFormat::R8Sint:
         case TextureFormat::Stencil8:
             return 1;
         case TextureFormat::R16Uint:
         case TextureFormat::R16Sint:
         case TextureFormat::R16Float:
         case TextureFormat::RG8Unorm:
+        case TextureFormat::RG8Snorm:
+        case TextureFormat::RG8Uint:
+        case TextureFormat::RG8Sint:
         case TextureFormat::Depth16Unorm:
             return 2;
-        case TextureFormat::RGBA8Unorm:
-        case TextureFormat::RGBA8UnormSrgb:
-        case TextureFormat::BGRA8Unorm:
-        case TextureFormat::BGRA8UnormSrgb:
-        case TextureFormat::RG16Float:
-        case TextureFormat::R32Float:
         case TextureFormat::R32Uint:
         case TextureFormat::R32Sint:
+        case TextureFormat::R32Float:
+        case TextureFormat::RG16Uint:
+        case TextureFormat::RG16Sint:
+        case TextureFormat::RG16Float:
+        case TextureFormat::RGBA8Unorm:
+        case TextureFormat::RGBA8UnormSrgb:
+        case TextureFormat::RGBA8Snorm:
+        case TextureFormat::RGBA8Uint:
+        case TextureFormat::RGBA8Sint:
+        case TextureFormat::BGRA8Unorm:
+        case TextureFormat::BGRA8UnormSrgb:
         case TextureFormat::RGB10A2Unorm:
+        case TextureFormat::RGB10A2Uint:
         case TextureFormat::RG11B10Float:
+        case TextureFormat::RGB9E5Float:
         case TextureFormat::Depth24Plus:
         case TextureFormat::Depth24PlusStencil8:
         case TextureFormat::Depth32Float:
             return 4;
-        case TextureFormat::Depth32FloatStencil8:
-            return 8;
-        case TextureFormat::RG32Float:
         case TextureFormat::RG32Uint:
-        case TextureFormat::RGBA16Float:
+        case TextureFormat::RG32Sint:
+        case TextureFormat::RG32Float:
         case TextureFormat::RGBA16Uint:
         case TextureFormat::RGBA16Sint:
+        case TextureFormat::RGBA16Float:
+        case TextureFormat::RGBA16Unorm:
+        case TextureFormat::RGBA16Snorm:
+        case TextureFormat::Depth32FloatStencil8:
             return 8;
-        case TextureFormat::RGBA32Float:
         case TextureFormat::RGBA32Uint:
         case TextureFormat::RGBA32Sint:
+        case TextureFormat::RGBA32Float:
             return 16;
         default:
-            return 0; // Compressed or unknown.
+            return 0; // block-compressed: BlockBytes / CompressedLevelBytes
         }
     }
 

@@ -47,6 +47,11 @@ TEST_CASE("textures.data: bytes per pixel")
     CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::RGBA16Float) == 8u);
     CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::RGBA32Float) == 16u);
     CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::Depth16Unorm) == 2u);
+    // Formerly its own table with a default of 4: wrong for these two.
+    CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::RGBA16Unorm) == 8u);
+    CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::Stencil8) == 1u);
+    // Block-compressed formats have no per-texel size; mips are sized by block.
+    CHECK(TextureData::GetBytesPerPixel(rhi::TextureFormat::BC7RGBAUnorm) == 0u);
 }
 
 TEST_CASE("textures.data: mip size halves")

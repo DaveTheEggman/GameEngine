@@ -100,3 +100,40 @@ TEST_CASE("rhi: texture views carry unique monotonic ids (address-reuse guard)")
     device->Destroy();
     backend->Destroy();
 }
+
+TEST_CASE("rhi.format: every uncompressed format has a byte size, every compressed one a block size")
+{
+    // The Beef port found BytesPerPixel returning 0 for sixteen ordinary uncompressed formats
+    // (the table simply did not list them), so anything sizing an upload from one got zero
+    // bytes. Walk the WHOLE enum: a format is either per-texel sized or block sized, never
+    // neither - a new enumerator missing from the table fails here.
+    const u32 first = static_cast<u32>(TextureFormat::R8Unorm);
+    const u32 last = static_cast<u32>(TextureFormat::ASTC8x8UnormSrgb);
+    for (u32 i = first; i <= last; ++i)
+    {
+        const TextureFormat f = static_cast<TextureFormat>(i);
+        INFO("format ", i);
+        if (IsCompressed(f))
+        {
+            CHECK(BytesPerPixel(f) == 0u);
+            CHECK((BlockBytes(f) == 8u || BlockBytes(f) == 16u));
+        }
+        else
+        {
+            const u32 bpp = BytesPerPixel(f);
+            CHECK((bpp == 1u || bpp == 2u || bpp == 4u || bpp == 8u || bpp == 16u));
+        }
+    }
+    // The ones that used to be missing.
+    CHECK(BytesPerPixel(TextureFormat::R8Uint) == 1u);
+    CHECK(BytesPerPixel(TextureFormat::R8Snorm) == 1u);
+    CHECK(BytesPerPixel(TextureFormat::RG8Sint) == 2u);
+    CHECK(BytesPerPixel(TextureFormat::RG16Uint) == 4u);
+    CHECK(BytesPerPixel(TextureFormat::RGBA8Snorm) == 4u);
+    CHECK(BytesPerPixel(TextureFormat::RGB10A2Uint) == 4u);
+    CHECK(BytesPerPixel(TextureFormat::RGB9E5Float) == 4u);
+    CHECK(BytesPerPixel(TextureFormat::RG32Sint) == 8u);
+    CHECK(BytesPerPixel(TextureFormat::RGBA16Unorm) == 8u);
+    CHECK(BytesPerPixel(TextureFormat::RGBA16Snorm) == 8u);
+}
+

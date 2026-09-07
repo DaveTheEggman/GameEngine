@@ -87,57 +87,13 @@ export namespace foundation::texture
         }
 
         // Bytes per pixel for an RHI format (uncompressed formats; default 4).
+        // ONE table: rhi::BytesPerPixel (this used to carry its own copy, which defaulted
+        // unknown formats to 4 - wrong for RGBA16Unorm and Stencil8 - while the RHI's omitted
+        // sixteen formats entirely). 0 for block-compressed formats; CalculateMipSize sizes
+        // those by block.
         [[nodiscard]] static u32 GetBytesPerPixel(rhi::TextureFormat format)
         {
-            switch (format)
-            {
-            case rhi::TextureFormat::R8Unorm:
-            case rhi::TextureFormat::R8Snorm:
-            case rhi::TextureFormat::R8Uint:
-            case rhi::TextureFormat::R8Sint:
-                return 1;
-            case rhi::TextureFormat::R16Uint:
-            case rhi::TextureFormat::R16Sint:
-            case rhi::TextureFormat::R16Float:
-            case rhi::TextureFormat::RG8Unorm:
-            case rhi::TextureFormat::RG8Snorm:
-            case rhi::TextureFormat::RG8Uint:
-            case rhi::TextureFormat::RG8Sint:
-            case rhi::TextureFormat::Depth16Unorm:
-                return 2;
-            case rhi::TextureFormat::R32Uint:
-            case rhi::TextureFormat::R32Sint:
-            case rhi::TextureFormat::R32Float:
-            case rhi::TextureFormat::RG16Uint:
-            case rhi::TextureFormat::RG16Sint:
-            case rhi::TextureFormat::RG16Float:
-            case rhi::TextureFormat::RGBA8Unorm:
-            case rhi::TextureFormat::RGBA8UnormSrgb:
-            case rhi::TextureFormat::RGBA8Snorm:
-            case rhi::TextureFormat::RGBA8Uint:
-            case rhi::TextureFormat::RGBA8Sint:
-            case rhi::TextureFormat::BGRA8Unorm:
-            case rhi::TextureFormat::BGRA8UnormSrgb:
-            case rhi::TextureFormat::Depth24Plus:
-            case rhi::TextureFormat::Depth24PlusStencil8:
-            case rhi::TextureFormat::Depth32Float:
-                return 4;
-            case rhi::TextureFormat::RG32Uint:
-            case rhi::TextureFormat::RG32Sint:
-            case rhi::TextureFormat::RG32Float:
-            case rhi::TextureFormat::RGBA16Uint:
-            case rhi::TextureFormat::RGBA16Sint:
-            case rhi::TextureFormat::RGBA16Float:
-                return 8;
-            case rhi::TextureFormat::RGBA32Uint:
-            case rhi::TextureFormat::RGBA32Sint:
-            case rhi::TextureFormat::RGBA32Float:
-                return 16;
-            case rhi::TextureFormat::Depth32FloatStencil8:
-                return 8;
-            default:
-                return 4;
-            }
+            return rhi::BytesPerPixel(format);
         }
 
         // Expected byte size of a mip level.
@@ -145,6 +101,11 @@ export namespace foundation::texture
         {
             const u32 mipWidth = Max(1u, width >> mipLevel);
             const u32 mipHeight = Max(1u, height >> mipLevel);
+            if (rhi::IsCompressed(format))
+            {
+                return static_cast<u64>(rhi::CompressedLevelBytes(format, mipWidth, mipHeight)) *
+                       depthOrArrayLayers;
+            }
             const u32 bpp = GetBytesPerPixel(format);
             return static_cast<u64>(mipWidth) * mipHeight * depthOrArrayLayers * bpp;
         }
