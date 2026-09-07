@@ -223,6 +223,12 @@ add_library(bc7enc STATIC
     bc7enc/rgbcx.cpp
     bc7enc/bc7decomp.cpp)
 add_library(ThirdParty::Bc7enc ALIAS bc7enc)
+
+# bcdec - vendored single-header BCn DECODER (github.com/iOrange/bcdec, MIT/Unlicense). Test-only:
+# the reference the engine's BC6H encoder is checked against. Header-only interface target.
+add_library(bcdec INTERFACE)
+add_library(ThirdParty::Bcdec ALIAS bcdec)
+target_include_directories(bcdec SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/bcdec)
 target_include_directories(bc7enc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/bc7enc)
 # Distinct archive name (case-insensitive-FS collision lesson, per imgui above).
 set_target_properties(bc7enc PROPERTIES POSITION_INDEPENDENT_CODE ON

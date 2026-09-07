@@ -64,8 +64,25 @@ namespace
             src[i * 4 + 2] = b;
             src[i * 4 + 3] = 255;
         }
-        const Array<byte> blocks =
-            texcomp::EncodeBlockCompressed(src.Data(), kTexSize, kTexSize, format, 255);
+        Array<byte> blocks;
+        if (format == rhi::TextureFormat::BC6HRGBUfloat)
+        {
+            // HDR leg: the same solid colour as linear radiance through the BC6H encoder.
+            Array<f32> hdr;
+            hdr.Resize(static_cast<usize>(kTexSize) * kTexSize * 4);
+            for (usize i = 0; i < static_cast<usize>(kTexSize) * kTexSize; ++i)
+            {
+                hdr[i * 4 + 0] = static_cast<f32>(r) / 255.0f;
+                hdr[i * 4 + 1] = static_cast<f32>(g) / 255.0f;
+                hdr[i * 4 + 2] = static_cast<f32>(b) / 255.0f;
+                hdr[i * 4 + 3] = 1.0f;
+            }
+            blocks = texcomp::EncodeBlockCompressedHdr(hdr.Data(), kTexSize, kTexSize, 255);
+        }
+        else
+        {
+            blocks = texcomp::EncodeBlockCompressed(src.Data(), kTexSize, kTexSize, format, 255);
+        }
         if (blocks.Size() != rhi::CompressedLevelBytes(format, kTexSize, kTexSize))
         {
             return nullptr;
@@ -256,6 +273,7 @@ namespace
             {"BC7-green", rhi::TextureFormat::BC7RGBAUnorm, 20, 220, 20, 1},
             {"BC5-normalRG", rhi::TextureFormat::BC5RGUnorm, 200, 40, 0, 0}, // BC5 keeps R,G; B=0
             {"ASTC-blue", rhi::TextureFormat::ASTC4x4Unorm, 20, 20, 225, 2}, // mobile-web family
+            {"BC6H-red", rhi::TextureFormat::BC6HRGBUfloat, 230, 20, 20, 0},  // HDR (unsigned half)
         };
         for (const Case& c : cases)
         {

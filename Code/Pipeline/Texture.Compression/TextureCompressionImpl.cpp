@@ -65,7 +65,7 @@ namespace texcomp
                                                rhi::TextureFormat uncompressed) noexcept
     {
         using F = rhi::TextureFormat;
-        // Escape hatches: authored None, small/UI/pixel-art, HDR (no BC6H yet).
+        // Escape hatches: authored None, small/UI/pixel-art; HDR has its own row (BC6H).
         if (choice == CompressionChoice::None)
         {
             return uncompressed;
@@ -76,7 +76,9 @@ namespace texcomp
         }
         if (usage == TextureUsage::HDR)
         {
-            return uncompressed; // TODO: BC6H not vendored - HDR stays uncompressed
+            // BC6H (unsigned) is part of the same BC feature we already require on desktop and
+            // desktop browsers; the mobile ASTC-HDR variant is the asset-variants follow-up.
+            return profile.bc ? F::BC6HRGBUfloat : uncompressed;
         }
 
         if (profile.bc) // desktop + desktop browsers - prefer BC (checked first if a profile had both)

@@ -10,6 +10,8 @@
 #include "rgbcx.h"
 #include "bc7decomp.h"
 #include "astcenc.h"
+#define BCDEC_IMPLEMENTATION
+#include "bcdec.h"
 #include <cmath>
 
 import foundation.core;
@@ -157,10 +159,12 @@ TEST_CASE("ResolveCompressedFormat - Decision 5 policy table (BC profile)")
     // Packed ORM/ARM authored as Mask: distinct channels -> BC7-linear, never channel-dropping BC4.
     CHECK(ResolveCompressedFormat(TextureUsage::Mask, false, false, true, CompressionChoice::Default, 256, 256, bc, uncompressed) == rhi::TextureFormat::BC7RGBAUnorm);
 
-    // Escape hatches -> uncompressed: authored None, small (<=64px), HDR (no BC6H yet).
+    // Escape hatches -> uncompressed: authored None, small (<=64px). HDR has its own row (BC6H).
     CHECK(ResolveCompressedFormat(TextureUsage::Color, true, true, false, CompressionChoice::None, 256, 256, bc, uncompressed) == uncompressed);
     CHECK(ResolveCompressedFormat(TextureUsage::Color, true, false, false, CompressionChoice::Default, 64, 64, bc, uncompressed) == uncompressed);
-    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default, 256, 256, bc, uncompressed) == uncompressed);
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false,
+                                  CompressionChoice::Default, 256, 256, bc, uncompressed) ==
+          rhi::TextureFormat::BC6HRGBUfloat); // HDR row: BC6H since 2026-09-07
 
     // No supported family -> uncompressed regardless of usage.
     const TargetProfile none{false, false, false};
@@ -250,3 +254,148 @@ TEST_CASE("EncodeBlockCompressed - rejects non-BC formats + null input")
     CHECK(EncodeBlockCompressed(img.Data(), w, h, rhi::TextureFormat::RGBA8Unorm, 128).Size() == 0);
     CHECK(EncodeBlockCompressed(nullptr, w, h, rhi::TextureFormat::BC1RGBAUnorm, 128).Size() == 0);
 }
+
+namespace
+{
+    // Decode BC6H (unsigned) blocks back to tightly-packed RGB floats through the vendored
+    // reference decoder - independent bit-packing code, so a packing mistake shows here.
+    Array<f32> DecodeBc6h(const Array<byte>& blocks, u32 w, u32 h)
+    {
+        Array<f32> out;
+        out.Resize(static_cast<usize>(w) * h * 3, 0.0f);
+        const u32 bx = (w + 3) / 4;
+        const u32 by = (h + 3) / 4;
+        usize off = 0;
+        for (u32 y = 0; y < by; ++y)
+        {
+            for (u32 x = 0; x < bx; ++x)
+            {
+                f32 tile[16 * 3];
+                bcdec_bc6h_float(blocks.Data() + off, tile, 4 * 3, 0);
+                off += 16;
+                for (u32 ty = 0; ty < 4; ++ty)
+                {
+                    for (u32 tx = 0; tx < 4; ++tx)
+                    {
+                        const u32 px = x * 4 + tx, py = y * 4 + ty;
+                        if (px >= w || py >= h) continue;
+                        const f32* s = tile + (ty * 4 + tx) * 3;
+                        f32* d = out.Data() + (static_cast<usize>(py) * w + px) * 3;
+                        d[0] = s[0]; d[1] = s[1]; d[2] = s[2];
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    f32 MaxRelativeError(const Array<f32>& rgba, const Array<f32>& rgb, u32 w, u32 h)
+    {
+        f32 worst = 0.0f;
+        for (usize i = 0; i < static_cast<usize>(w) * h; ++i)
+        {
+            for (u32 c = 0; c < 3; ++c)
+            {
+                const f32 a = rgba[i * 4 + c], b = rgb[i * 3 + c];
+                const f32 denom = a > 1.0e-3f ? a : 1.0e-3f;
+                const f32 rel = (a > b ? a - b : b - a) / denom;
+                worst = rel > worst ? rel : worst;
+            }
+        }
+        return worst;
+    }
+}
+
+TEST_CASE("EncodeBlockCompressedHdr - a flat HDR block round-trips within half precision")
+{
+    // Sky-like: one radiance value across the block, well above 1.0. The straddle path lets the
+    // 4-bit weights recover what 10-bit endpoints drop, so this lands near half precision.
+    const u32 w = 4, h = 4;
+    Array<f32> src;
+    src.Resize(w * h * 4, 0.0f);
+    for (usize i = 0; i < w * h; ++i)
+    {
+        src[i * 4 + 0] = 0.37f;
+        src[i * 4 + 1] = 2.5f;
+        src[i * 4 + 2] = 11.0f;
+        src[i * 4 + 3] = 1.0f;
+    }
+    const Array<byte> enc = EncodeBlockCompressedHdr(src.Data(), w, h, 255);
+    REQUIRE(enc.Size() == 16u);
+    CHECK(BlockCompressedSize(rhi::TextureFormat::BC6HRGBUfloat, w, h) == 16u);
+    const Array<f32> dec = DecodeBc6h(enc, w, h);
+    const f32 rel = MaxRelativeError(src, dec, w, h);
+    MESSAGE("flat block max relative error: ", rel);
+    CHECK(rel < 0.002f);
+}
+
+TEST_CASE("EncodeBlockCompressedHdr - a gradient reconstructs closely and edge blocks clamp")
+{
+    // 13x9: not a multiple of 4, so the right/bottom blocks replicate edge texels. A smooth
+    // radiance ramp across a wide dynamic range, per channel offset so the segment is not
+    // axis-aligned.
+    const u32 w = 13, h = 9;
+    Array<f32> src;
+    src.Resize(static_cast<usize>(w) * h * 4, 0.0f);
+    for (u32 y = 0; y < h; ++y)
+    {
+        for (u32 x = 0; x < w; ++x)
+        {
+            const f32 t = static_cast<f32>(x + y) / static_cast<f32>(w + h - 2);
+            f32* p = src.Data() + (static_cast<usize>(y) * w + x) * 4;
+            // A realistic sky gradient: no more than ~20% change across any one 4x4 block.
+            p[0] = 0.8f + 1.2f * t;
+            p[1] = 1.5f + 1.0f * t * t;
+            p[2] = 4.0f - 1.5f * t;
+            p[3] = 1.0f;
+        }
+    }
+    const Array<byte> enc = EncodeBlockCompressedHdr(src.Data(), w, h, 255);
+    REQUIRE(enc.Size() == BlockCompressedSize(rhi::TextureFormat::BC6HRGBUfloat, w, h));
+    CHECK(enc.Size() == 4u * 3u * 16u);
+    const Array<f32> dec = DecodeBc6h(enc, w, h);
+    const f32 rel = MaxRelativeError(src, dec, w, h);
+    MESSAGE("gradient max relative error: ", rel);
+    CHECK(rel < 0.03f); // single-region mode across a 4x4 ramp
+
+    // More effort never makes it worse.
+    const Array<byte> fast = EncodeBlockCompressedHdr(src.Data(), w, h, 0);
+    const f32 relFast = MaxRelativeError(src, DecodeBc6h(fast, w, h), w, h);
+    CHECK(rel <= relFast + 1.0e-6f);
+}
+
+TEST_CASE("EncodeBlockCompressedHdr - unsigned clamps negatives, NaN and beyond-half values")
+{
+    const u32 w = 4, h = 4;
+    Array<f32> src;
+    src.Resize(w * h * 4, 1.0f);
+    src[0] = -5.0f;                 // negative -> 0
+    src[4] = 0.0f / 0.0f;           // NaN -> 0 (guarded: never poisons the block)
+    src[8] = 1.0e9f;                // beyond half -> the largest finite half
+    const Array<byte> enc = EncodeBlockCompressedHdr(src.Data(), w, h, 128);
+    const Array<f32> dec = DecodeBc6h(enc, w, h);
+    CHECK(dec[0] >= 0.0f);
+    CHECK(dec[3] >= 0.0f);
+    CHECK(dec[3] == dec[3]); // not NaN
+    CHECK(dec[6] > 60000.0f);
+    CHECK(dec[6] <= 65504.0f);
+    // Empty/null input is an empty result, not a crash.
+    CHECK(EncodeBlockCompressedHdr(nullptr, 4, 4, 128).Size() == 0u);
+    CHECK(EncodeBlockCompressedHdr(src.Data(), 0, 4, 128).Size() == 0u);
+}
+
+TEST_CASE("ResolveCompressedFormat - the HDR row is BC6H on BC targets, uncompressed elsewhere")
+{
+    using F = rhi::TextureFormat;
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default,
+                                  512, 256, DesktopProfile(), F::RGBA32Float) == F::BC6HRGBUfloat);
+    // Mobile (ASTC) has no BC6H; the ASTC-HDR profile is the asset-variants follow-up.
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default,
+                                  512, 256, MobileProfile(), F::RGBA32Float) == F::RGBA32Float);
+    // The authored escape and the small-texture escape still apply.
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::None,
+                                  512, 256, DesktopProfile(), F::RGBA32Float) == F::RGBA32Float);
+    CHECK(ResolveCompressedFormat(TextureUsage::HDR, false, false, false, CompressionChoice::Default,
+                                  32, 32, DesktopProfile(), F::RGBA32Float) == F::RGBA32Float);
+}
+

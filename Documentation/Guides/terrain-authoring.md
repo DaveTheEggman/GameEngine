@@ -98,6 +98,11 @@ swatch in the paint panel to see the asset NAME and confirm.
 roughness as EXR - grab the PNG variants (or convert offline). Terrain layer maps cook to RGBA8
 regardless, so 8-bit PNG loses nothing here.
 
+**HDR skies cook to BC6H automatically** (2026-09-07): an imported `.hdr` (usage = HDR) cooks to
+BC6H on desktop and desktop-browser targets - 1 byte per texel, GPU-native, no runtime decode -
+so a 134 MB RGBA32F sky becomes ~9-11 MB. Compression = None on the asset keeps the raw float
+data; mobile-browser targets stay uncompressed until the ASTC-HDR variant lands.
+
 ## 3. Sculpt
 
 Sculpting happens in the **scene viewport** (never on the asset pages). Select the **Sculpt

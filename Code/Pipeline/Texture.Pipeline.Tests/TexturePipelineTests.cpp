@@ -8,6 +8,8 @@
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include <initializer_list>
+#include <cmath>
+#include <cstdio>
 #include "Core/Reflection/Reflect.h"
 import foundation.core;
 import foundation.vfs;
@@ -729,3 +731,90 @@ TEST_CASE("texture-import: DescribeImport lists one asset; a selection rename re
     FileDelete(u8"wall.png");
     cleanTree();
 }
+
+namespace
+{
+    // A flat (non-RLE) Radiance .hdr: header + one RGBE quad per pixel. stb_image reads the flat
+    // layout whenever the first pixel is not the RLE marker (2, 2, hi, lo), which a real radiance
+    // value never is.
+    void WriteFlatRadianceHdr(const char* path, u32 w, u32 h, f32 r, f32 g, f32 b)
+    {
+        std::FILE* f = std::fopen(path, "wb");
+        REQUIRE(f != nullptr);
+        std::fprintf(f, "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y %u +X %u\n", h, w);
+        const f32 v = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        u8 rgbe[4] = {0, 0, 0, 0};
+        if (v >= 1.0e-32f)
+        {
+            int e = 0;
+            const f32 m = std::frexp(v, &e);
+            const f32 scale = m * 256.0f / v;
+            rgbe[0] = static_cast<u8>(r * scale);
+            rgbe[1] = static_cast<u8>(g * scale);
+            rgbe[2] = static_cast<u8>(b * scale);
+            rgbe[3] = static_cast<u8>(e + 128);
+        }
+        for (u32 i = 0; i < w * h; ++i)
+        {
+            std::fwrite(rgbe, 1, 4, f);
+        }
+        std::fclose(f);
+    }
+}
+
+TEST_CASE("texture.pipeline: an HDR source cooks to BC6H on the desktop (BC) target")
+{
+    RegisterTextureResource();
+    RegisterTextureAsset();
+    const char* srcPath = "scratch_texpipe_sky.hdr";
+    WriteFlatRadianceHdr(srcPath, 72, 72, 2.0f, 0.5f, 0.25f); // > 64px: past the small escape
+    (void)RemoveDirectoryRecursive(u8"scratch_texpipe_hdr_db");
+    NativeFileSystem outMount(u8"scratch_texpipe_hdr_db", DefaultAllocator());
+
+    auto cook = [&](texcomp::CompressionChoice choice, Guid& id)
+    {
+        foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount,
+                                                   foundation::core::BinarySerializerFactory(),
+                                                   u8".rasset");
+        auto* inst = outDb.RootGroup()->CreateInstance(
+            choice == texcomp::CompressionChoice::None ? u8"skyRaw" : u8"sky",
+            TextureResource::StaticType());
+        id = inst->Id();
+        TextureAsset asset;
+        TextureImporter::ImportEquirectangular(
+            StringView(reinterpret_cast<const utf8char*>(srcPath)), asset); // usage = HDR
+        asset.compression = choice;
+        TextureAssetBuilder builder;
+        foundation::vfs::NativeFileSystem srcMount(u8".", foundation::core::DefaultAllocator());
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &srcMount;
+        ctx.output = inst;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    };
+    Guid compressedId, rawId;
+    cook(texcomp::CompressionChoice::Default, compressedId);
+    cook(texcomp::CompressionChoice::None, rawId);
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::content::ContentDatabase outDb(foundation::core::DefaultAllocator(), outMount,
+                                               foundation::core::BinarySerializerFactory(),
+                                               u8".rasset");
+    TextureFactory factory(DefaultAllocator(), device);
+    ResourceManager manager(DefaultAllocator(), outDb);
+    manager.AddFactory(&factory);
+
+    Proxy<Texture> sky = manager.Bind<Texture>(compressedId);
+    REQUIRE(sky);
+    CHECK(sky->Width() == 72u);
+    CHECK(sky->Height() == 72u);
+    CHECK(sky->Format() == rhi::TextureFormat::BC6HRGBUfloat); // the HDR policy row
+    CHECK(sky->GpuTexture() != nullptr);
+
+    Proxy<Texture> raw = manager.Bind<Texture>(rawId);
+    REQUIRE(raw);
+    CHECK(raw->Format() == rhi::TextureFormat::RGBA32Float); // Compression = None still escapes
+
+    std::remove(srcPath);
+    (void)RemoveDirectoryRecursive(u8"scratch_texpipe_hdr_db");
+}
+

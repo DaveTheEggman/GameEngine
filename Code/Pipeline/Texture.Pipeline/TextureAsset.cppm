@@ -338,7 +338,9 @@ export namespace pipeline{
         // v3 (2026-08-15): the "data" payload may be BLOCK-COMPRESSED (BCn) when the asset's
         // usage/compression + target profile select it; resource.format then
         // carries a BC format. Same-input output changed -> bump forces the re-cook.
-        [[nodiscard]] u32 Version() const override { return 4; } // v4: Normal->BC7-linear + the multichannel-Mask guard
+        // v5 (2026-09-07): HDR sources cook to BC6H on BC targets (previously always RGBA32F).
+        // v4: Normal->BC7-linear + the multichannel-Mask guard.
+        [[nodiscard]] u32 Version() const override { return 5; }
 
         // Textures are THE platform-variant producer: BC on desktop, ASTC on mobile-web from the same
         // source. The cook salts this builder's recipe by target + cooks per DB.
@@ -451,6 +453,13 @@ export namespace pipeline{
                                   ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage,
                                   ta.compression, ProfileFor(ctx), resource.format);
                 }
+                // HDR (RGBA32F, one level: skies carry no mip chain) -> BC6H when the policy says.
+                else if (ta.shape == TextureShape::Texture2D &&
+                         image.Format() == image::PixelFormat::RGBA32F)
+                {
+                    MaybeCompressHdr(mipPixels, image.Width(), image.Height(), ta.usage,
+                                     ta.compression, ProfileFor(ctx), resource.format);
+                }
             }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
@@ -487,6 +496,35 @@ export namespace pipeline{
                 return texcomp::DesktopProfile();
             }
             return texcomp::TargetProfile{ctx.target->bc, ctx.target->astc, ctx.target->etc2};
+        }
+
+        // The HDR counterpart: `pixels` holds ONE RGBA32F level (HDR sources cook without a mip
+        // chain). When the policy resolves to BC6H the level is encoded in place and `format`
+        // becomes BC6HRGBUfloat; otherwise both are left alone (None, small, no-BC target).
+        static void MaybeCompressHdr(Array<byte>& pixels, u32 width, u32 height,
+                                     texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
+                                     const texcomp::TargetProfile& profile, rhi::TextureFormat& format)
+        {
+            if (choice == texcomp::CompressionChoice::None)
+            {
+                return;
+            }
+            const rhi::TextureFormat chosen = texcomp::ResolveCompressedFormat(
+                usage, /*sRGB*/ false, /*hasAlpha*/ false, /*multiChannel*/ true, choice, width,
+                height, profile, format);
+            if (chosen != rhi::TextureFormat::BC6HRGBUfloat)
+            {
+                return; // policy declined (or picked an LDR format for a mis-tagged usage)
+            }
+            const u8 quality = (choice == texcomp::CompressionChoice::Quality) ? 255u : 128u;
+            Array<byte> out = texcomp::EncodeBlockCompressedHdr(
+                reinterpret_cast<const f32*>(pixels.Data()), width, height, quality);
+            if (out.Size() != rhi::CompressedLevelBytes(chosen, width, height))
+            {
+                return; // encoder refused (empty input) - keep the uncompressed level
+            }
+            pixels = Move(out);
+            format = chosen;
         }
 
         static void MaybeCompress(Array<byte>& pixels, u32 width, u32 height, u32 mipLevels, bool srgb,

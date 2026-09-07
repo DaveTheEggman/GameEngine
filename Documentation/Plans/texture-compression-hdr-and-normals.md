@@ -1,6 +1,6 @@
 # Texture Compression: BC6H for HDR + the Normal-Map Format Fix
 
-Status: READY for build (authored by Fable, 2026-08-26). SHIPS AFTER texture-page-ux.md (the
+Status: IMPLEMENTED (P0 2026-09-03; P1-P3 2026-09-07). Authored by Fable 2026-08-26. SHIPS AFTER texture-page-ux.md (the
 page's "Cooks to:" row will surface these policy changes automatically). Extends the
 asset-variants P1 block-compression work (Texture.Compression: bc7enc = BC7, rgbcx = BC1/3/4/5).
 
@@ -42,10 +42,10 @@ Change the policy's Normal row from BC5 to **BC7 (linear, non-sRGB)**.
 
 ### Encoder
 
-Vendor the BC6H encoder from the same family as our existing `bc7enc`/`rgbcx` (richgel999's
-bc6h_enc from the bc7enc_rdo repository - MIT, single .cpp/.h pair, matches the vendoring style).
-ThirdParty/bc7enc grows the pair; the Texture.Compression impl unit remains the ONLY includer
-(GCC module hygiene).
+(As authored, 2026-08-26 - superseded by the P1 status below: there is no such encoder to
+vendor.) Vendor the BC6H encoder from the same family as our existing `bc7enc`/`rgbcx`
+(richgel999's bc6h_enc from the bc7enc_rdo repository). ThirdParty/bc7enc grows the pair; the
+Texture.Compression impl unit remains the ONLY includer (GCC module hygiene).
 
 New entry point alongside `EncodeBlockCompressed` (which is RGBA8-only):
 
@@ -103,9 +103,28 @@ signed variant stays unplumbed. Alpha is dropped (BC6H is RGB) - sky/IBL sources
   cook's channel sniff, tolerance 8 for JPEG chroma noise on gray); builder Version 3 -> 4
   re-cooks existing products. Policy tests + cook tests cover BC7-linear normals, the
   ORM-shaped Mask -> BC7 guard, and gray Mask -> BC4.
-- P1 - Encoder: vendor bc6h_enc + EncodeBlockCompressedHdr + unit tests.
-- P2 - Policy + cook + runtime conversions + builder bump + cook tests + the GPU parity probe.
-- P3 - Docs (authoring guide: "HDR skies cook to BC6H automatically") -> IMPLEMENTED.
+- P1 - Encoder -> IMPLEMENTED 2026-09-07, IN-HOUSE, not vendored: the assumed `bc6h_enc`
+  pair does not exist in bc7enc_rdo (the repo is BC1-7), Basis carries BC6H only inside its
+  UASTC-HDR transcoder, and DirectXTex's is a DirectXMath-bound 3000 lines. What shipped is
+  `Bc6hEncoderImpl.cpp`: BC6H unsigned MODE 11 (one region, 10-bit endpoints, 4-bit
+  weights - the mode real-time encoders use), endpoints from the bounding box refined by
+  least squares against the assigned weights (`quality` buys passes), plus a flat-block
+  candidate that fixes every weight at the table's first step and gives each channel its
+  own second endpoint, recovering a 4-unit grid where the 10-bit endpoints alone reach a
+  64-unit one (skies are mostly flat blocks). Error is measured in the decoder's internal
+  domain, which is near-logarithmic - right for radiance. Measured: a flat HDR block
+  round-trips at 0.08% relative error, a sky-like gradient at 2%. Two-region partitioned
+  modes (hard edges) stay deferred. Tests decode through `ThirdParty/bcdec` (vendored
+  single-header reference decoder, test-only) so the packing is checked against code
+  that shares nothing with the encoder.
+- P2 -> IMPLEMENTED 2026-09-07: policy HDR row = BC6HRGBUfloat under `profile.bc`
+  (mobile stays uncompressed until the ASTC-HDR variant); the cook's RGBA32F branch
+  (`MaybeCompressHdr`, one level - skies carry no mip chain) encodes in place; the
+  runtime conversions (Vulkan BC6H_UFLOAT_BLOCK, WebGPU bc6h-rgb-ufloat) were already in;
+  TextureAssetBuilder Version 4 -> 5 re-cooks every HDR asset. Cook test: a flat Radiance
+  .hdr cooks to BC6H and Compression = None still escapes. GPU probe: the BC6H leg samples
+  (217,57,57) on BOTH Vulkan and WebGPU - identical to the BC1 leg of the same colour.
+- P3 - Docs -> IMPLEMENTED 2026-09-07 (this status + the texture guide note).
 
 ## Deferred
 

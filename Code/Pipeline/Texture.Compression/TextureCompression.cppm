@@ -32,7 +32,7 @@ export namespace texcomp
         Color,  // albedo / UI - sRGB (or linear) color
         Normal, // tangent-space normal map (linear RG)
         Mask,   // single-channel mask / height / roughness
-        HDR,    // RGBE / half-float (uncompressed; BC6H not yet supported)
+        HDR,    // RGBE / half-float radiance (linear) - BC6H unsigned on BC targets
     };
 
     // Authored compression choice on the asset.
@@ -96,6 +96,16 @@ export namespace texcomp
 
     // Bytes one mip level of a BC `format` occupies (4x4 block-ceil), for the exact-size cook assertion.
     [[nodiscard]] usize BlockCompressedSize(rhi::TextureFormat format, u32 width, u32 height) noexcept;
+
+    // Encode one level of tightly-packed RGBA32F pixels to BC6H (unsigned half float, the
+    // BC6HRGBUfloat format): 16 bytes per 4x4 block, edge blocks clamp-replicated. Alpha is
+    // dropped (BC6H is RGB); negative, NaN and out-of-half-range values clamp - radiance maps
+    // are non-negative by construction, so the signed variant stays unplumbed. `quality`
+    // 0..255 buys endpoint refinement passes. In-house encoder (Bc6hEncoderImpl.cpp): the
+    // single-region mode the real-time encoders use, least-squares refined - the plan's
+    // "vendor bc6h_enc from bc7enc_rdo" turned out not to exist upstream.
+    [[nodiscard]] Array<byte> EncodeBlockCompressedHdr(const f32* rgba, u32 width, u32 height,
+                                                       u8 quality);
 
     // Register TextureUsage + CompressionChoice enum reflection (by-name), so the generic asset page
     // renders them as dropdowns. Idempotent; call from the asset's registration. (Bodies live in the

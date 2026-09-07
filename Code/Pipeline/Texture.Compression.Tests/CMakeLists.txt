@@ -2,7 +2,7 @@
 # Links ThirdParty::Bc7enc directly for the decode side (the module only encodes; decoding is
 # test-only) - the one place outside Texture.Compression that touches the encoder headers.
 add_executable(Texture.Compression.Tests TestsMain.cpp CompressionTests.cpp)
-target_link_libraries(Texture.Compression.Tests PRIVATE
+target_link_libraries(Texture.Compression.Tests PRIVATE ThirdParty::Bcdec
     Pipeline::Texture.Compression Foundation::Core Foundation::RHI
     ThirdParty::Bc7enc ThirdParty::Astcenc doctest::doctest)
 target_compile_definitions(Texture.Compression.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
