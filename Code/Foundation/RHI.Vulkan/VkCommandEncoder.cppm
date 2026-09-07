@@ -162,26 +162,26 @@ export namespace foundation::rhi::vk
 
             for (usize i = 0; i < group.memoryBarriers.Size(); ++i)
             {
-                auto src = getStageAccess(group.memoryBarriers[i].oldState);
-                auto dst = getStageAccess(group.memoryBarriers[i].newState);
+                const auto src = maskForQueue(getStageAccess(group.memoryBarriers[i].oldState), m_pool->queueType());
+                const auto dst = maskForQueue(getStageAccess(group.memoryBarriers[i].newState), m_pool->queueType());
                 memBs[i] = {};
                 memBs[i].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-                memBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
+                memBs[i].srcStageMask = src.stageMask;
                 memBs[i].srcAccessMask = src.accessMask;
-                memBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
+                memBs[i].dstStageMask = dst.stageMask;
                 memBs[i].dstAccessMask = dst.accessMask;
             }
 
             for (usize i = 0; i < group.bufferBarriers.Size(); ++i)
             {
                 const auto& bb = group.bufferBarriers[i];
-                auto src = getStageAccess(bb.oldState);
-                auto dst = getStageAccess(bb.newState);
+                const auto src = maskForQueue(getStageAccess(bb.oldState), m_pool->queueType());
+                const auto dst = maskForQueue(getStageAccess(bb.newState), m_pool->queueType());
                 bufBs[i] = {};
                 bufBs[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-                bufBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
+                bufBs[i].srcStageMask = src.stageMask;
                 bufBs[i].srcAccessMask = src.accessMask;
-                bufBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
+                bufBs[i].dstStageMask = dst.stageMask;
                 bufBs[i].dstAccessMask = dst.accessMask;
                 bufBs[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
                 bufBs[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -194,8 +194,8 @@ export namespace foundation::rhi::vk
             for (usize i = 0; i < group.textureBarriers.Size(); ++i)
             {
                 const auto& tb = group.textureBarriers[i];
-                auto src = getStageAccess(tb.oldState);
-                auto dst = getStageAccess(tb.newState);
+                const auto src = maskForQueue(getStageAccess(tb.oldState), m_pool->queueType());
+                const auto dst = maskForQueue(getStageAccess(tb.newState), m_pool->queueType());
 
                 auto* vkTex = static_cast<VkTextureImpl*>(tb.texture);
                 TextureFormat format = vkTex ? vkTex->desc.format : TextureFormat::Undefined;
@@ -230,10 +230,10 @@ export namespace foundation::rhi::vk
                 }
                 else
                 {
-                    imgBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
+                    imgBs[i].srcStageMask = src.stageMask;
                     imgBs[i].srcAccessMask = src.accessMask;
                 }
-                imgBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
+                imgBs[i].dstStageMask = dst.stageMask;
                 imgBs[i].dstAccessMask = dst.accessMask;
                 imgBs[i].oldLayout = oldLayout;
                 imgBs[i].newLayout = newLayout;

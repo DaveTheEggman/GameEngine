@@ -51,6 +51,35 @@ export namespace foundation::rhi::vk
         return masked != 0 ? masked : static_cast<u64>(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
     }
 
+    /// The access half of the cut: an access mask is only valid together with a stage that can
+    /// perform it on the recording family. VERTEX_ATTRIBUTE_READ on a compute queue is invalid
+    /// even under ALL_COMMANDS, because ALL_COMMANDS expands per family and the compute
+    /// expansion has no vertex-input stage (VUID-VkBufferMemoryBarrier2-srcAccessMask-03902).
+    /// Found by the Beef port: cutting stages alone still produced 20 errors a frame on the
+    /// MultiQueue sample. An emptied access mask is valid - the barrier is execution-only.
+    inline u64 maskAccessForQueue(u64 access, QueueType queue) noexcept
+    {
+        if (queue == QueueType::Graphics || access == 0)
+            return access;
+        constexpr u64 kAnyFamily = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT |
+                                   VK_ACCESS_2_HOST_READ_BIT | VK_ACCESS_2_HOST_WRITE_BIT |
+                                   VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        constexpr u64 kCompute = kAnyFamily | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT |
+                                 VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT |
+                                 VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT | VK_ACCESS_2_UNIFORM_READ_BIT |
+                                 VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT |
+                                 VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR |
+                                 VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        return access & ((queue == QueueType::Compute) ? kCompute : kAnyFamily);
+    }
+
+    /// The whole cut, stage and access as ONE pair, so the two cannot drift apart.
+    inline StageAccess maskForQueue(StageAccess sa, QueueType queue) noexcept
+    {
+        return StageAccess{maskStagesForQueue(sa.stageMask, queue),
+                           maskAccessForQueue(sa.accessMask, queue)};
+    }
+
     inline StageAccess getStageAccess(ResourceState state)
     {
         StageAccess sa{};

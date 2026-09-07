@@ -39,6 +39,31 @@ TEST_CASE("vk.barrier: stage masks are cut to what the recording queue family ca
           VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR);
 }
 
+TEST_CASE("vk.barrier: the access half is cut with the stage half, as one pair")
+{
+    // The Beef port's second finding: cutting stages alone left VERTEX_ATTRIBUTE_READ on a
+    // compute queue under ALL_COMMANDS - invalid, because ALL_COMMANDS expands per family and
+    // the compute expansion has no vertex-input stage. Stage and access must move together.
+    using vk::maskForQueue;
+    using vk::getStageAccess;
+    const vk::StageAccess vertex = getStageAccess(ResourceState::VertexBuffer);
+    REQUIRE((vertex.accessMask & VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT) != 0);
+    const vk::StageAccess onCompute = maskForQueue(vertex, QueueType::Compute);
+    CHECK(onCompute.stageMask == VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+    CHECK(onCompute.accessMask == 0u); // execution-only: valid; a dangling graphics access is not
+    // Shader access on compute keeps its shader bits; on transfer it keeps none.
+    const vk::StageAccess write = getStageAccess(ResourceState::ShaderWrite);
+    CHECK((maskForQueue(write, QueueType::Compute).accessMask & VK_ACCESS_2_SHADER_WRITE_BIT) != 0);
+    CHECK((maskForQueue(write, QueueType::Transfer).accessMask & VK_ACCESS_2_SHADER_WRITE_BIT) == 0);
+    // Graphics is untouched on both halves.
+    const vk::StageAccess g = maskForQueue(vertex, QueueType::Graphics);
+    CHECK(g.stageMask == vertex.stageMask);
+    CHECK(g.accessMask == vertex.accessMask);
+    // Transfer access survives everywhere.
+    const vk::StageAccess copy = getStageAccess(ResourceState::CopyDst);
+    CHECK(maskForQueue(copy, QueueType::Transfer).accessMask == copy.accessMask);
+}
+
 namespace
 {
     // A device on the first adapter, with a compute queue requested; null when there is no
@@ -90,13 +115,27 @@ TEST_CASE("vk.queues: a requested compute queue is granted exactly when the adap
         MemoryBarrier mb{};
         mb.oldState = ResourceState::ShaderWrite;
         mb.newState = ResourceState::ShaderRead;
+        // The MultiQueue sample's exact hand-over: a vertex buffer handed to compute as
+        // storage - the barrier that carried VERTEX_ATTRIBUTE_READ onto the compute family.
+        BufferDesc bd{};
+        bd.size = 256;
+        bd.usage = BufferUsage::Vertex | BufferUsage::Storage;
+        bd.label = u8"vk.queues.vertex";
+        Buffer* buffer = nullptr;
+        REQUIRE(device->CreateBuffer(bd, buffer).IsOk());
+        BufferBarrier bb{};
+        bb.buffer = buffer;
+        bb.oldState = ResourceState::VertexBuffer;
+        bb.newState = ResourceState::ShaderWrite;
         BarrierGroup group{};
         group.memoryBarriers = Span<const MemoryBarrier>(&mb, 1);
+        group.bufferBarriers = Span<const BufferBarrier>(&bb, 1);
         enc->Barrier(group);
         CommandBuffer* cb = enc->Finish();
         CHECK(cb != nullptr);
         pool->DestroyEncoder(enc);
         device->DestroyCommandPool(pool);
+        device->DestroyBuffer(buffer);
     }
     device->Destroy();
     backend->Destroy();

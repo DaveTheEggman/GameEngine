@@ -1057,20 +1057,36 @@ export namespace foundation::rhi::vk
         for (usize i = 0; i < cmdBufs.Size(); ++i)
             bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
-        // 5-arg submit does NOT consume swap chain sync - matching Sedulous.
-        // The 2-arg submit (used by the first queue submit each frame) handles it.
-        Array<VkSemaphore> waitSems(waitFences.Size());
-        Array<VkPipelineStageFlags> waitStages(waitFences.Size());
+        // The swap-chain sync is the GRAPHICS queue's, whichever fenced overload it submits
+        // with. This overload used to decline it, which was harmless only while the other
+        // queue's submit consumed it by accident; once that was gated (the Beef port's
+        // finding) a frame whose graphics submit waits on a compute fence - the MultiQueue
+        // sample - left the acquire semaphore with nothing to signal it, three errors a frame.
+        VkSemaphore acquireSem = VK_NULL_HANDLE, presentSem = VK_NULL_HANDLE;
+        const bool hasSync = (queueType == QueueType::Graphics) &&
+                             m_device->consumePendingSwapChainSync(acquireSem, presentSem);
+
+        const usize waitCount = waitFences.Size() + (hasSync ? 1u : 0u);
+        Array<VkSemaphore> waitSems(waitCount);
+        Array<VkPipelineStageFlags> waitStages(waitCount);
+        Array<u64> waitValues(waitCount);
         for (usize i = 0; i < waitFences.Size(); ++i)
         {
             waitSems[i] = static_cast<VkFenceImpl*>(waitFences[i])->handle();
             waitStages[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+            waitValues[i] = i < waitVals.Size() ? waitVals[i] : 0u;
+        }
+        if (hasSync)
+        {
+            waitSems[waitFences.Size()] = acquireSem;
+            waitStages[waitFences.Size()] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            waitValues[waitFences.Size()] = 0; // binary semaphore: the value is ignored
         }
 
         VkTimelineSemaphoreSubmitInfo tsi{};
         tsi.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        tsi.waitSemaphoreValueCount = static_cast<u32>(waitVals.Size());
-        tsi.pWaitSemaphoreValues = waitVals.Data();
+        tsi.waitSemaphoreValueCount = static_cast<u32>(waitCount);
+        tsi.pWaitSemaphoreValues = waitValues.Data();
 
         VkSubmitInfo si{};
         si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1081,15 +1097,22 @@ export namespace foundation::rhi::vk
         si.pWaitSemaphores = waitSems.Data();
         si.pWaitDstStageMask = waitStages.Data();
 
-        VkSemaphore signalSem = VK_NULL_HANDLE;
+        VkSemaphore signalSems[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+        u64 signalValues[2] = {signalValue, 0};
+        u32 signalCount = 0;
         if (signalFence)
         {
-            signalSem = static_cast<VkFenceImpl*>(signalFence)->handle();
-            tsi.signalSemaphoreValueCount = 1;
-            tsi.pSignalSemaphoreValues = &signalValue;
-            si.signalSemaphoreCount = 1;
-            si.pSignalSemaphores = &signalSem;
+            signalSems[signalCount++] = static_cast<VkFenceImpl*>(signalFence)->handle();
         }
+        if (hasSync)
+        {
+            signalValues[signalCount] = 0;
+            signalSems[signalCount++] = presentSem;
+        }
+        tsi.signalSemaphoreValueCount = signalCount;
+        tsi.pSignalSemaphoreValues = signalValues;
+        si.signalSemaphoreCount = signalCount;
+        si.pSignalSemaphores = signalSems;
 
         if (vkQueueSubmit(m_queue, 1, &si, VK_NULL_HANDLE) == VK_ERROR_DEVICE_LOST)
             m_device->markLost();
