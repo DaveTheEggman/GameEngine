@@ -25,6 +25,32 @@ export namespace foundation::rhi::vk
         u64 accessMask = 0;
     };
 
+    /// Restricts a synchronization-2 stage mask to what `queue`'s family can execute. The state
+    /// mapping names ALL_GRAPHICS | COMPUTE_SHADER for shader access because it does not know the
+    /// queue; a barrier recorded on a compute-only or transfer-only family with a graphics stage
+    /// in it is invalid (VUID-vkCmdPipelineBarrier2-srcStageMask-03849 and friends). Graphics
+    /// families execute everything. A mask left empty by the cut (a render-target state on a
+    /// compute queue) becomes ALL_COMMANDS, which is valid on every family and merely stronger.
+    /// Found by the Beef port while running the MultiQueue sample on its compute queue.
+    inline u64 maskStagesForQueue(u64 stages, QueueType queue) noexcept
+    {
+        if (queue == QueueType::Graphics || stages == 0)
+            return stages;
+        constexpr u64 kAnyFamily = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT |
+                                   VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT |
+                                   VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_2_HOST_BIT |
+                                   VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT |
+                                   VK_PIPELINE_STAGE_2_CLEAR_BIT;
+        constexpr u64 kCompute = kAnyFamily | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
+                                 VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT |
+                                 VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR |
+                                 VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR |
+                                 VK_PIPELINE_STAGE_2_BLIT_BIT | VK_PIPELINE_STAGE_2_RESOLVE_BIT;
+        const u64 allowed = (queue == QueueType::Compute) ? kCompute : kAnyFamily;
+        const u64 masked = stages & allowed;
+        return masked != 0 ? masked : static_cast<u64>(VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+    }
+
     inline StageAccess getStageAccess(ResourceState state)
     {
         StageAccess sa{};

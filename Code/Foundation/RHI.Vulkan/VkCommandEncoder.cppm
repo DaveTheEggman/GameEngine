@@ -166,9 +166,9 @@ export namespace foundation::rhi::vk
                 auto dst = getStageAccess(group.memoryBarriers[i].newState);
                 memBs[i] = {};
                 memBs[i].sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2;
-                memBs[i].srcStageMask = src.stageMask;
+                memBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
                 memBs[i].srcAccessMask = src.accessMask;
-                memBs[i].dstStageMask = dst.stageMask;
+                memBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
                 memBs[i].dstAccessMask = dst.accessMask;
             }
 
@@ -179,9 +179,9 @@ export namespace foundation::rhi::vk
                 auto dst = getStageAccess(bb.newState);
                 bufBs[i] = {};
                 bufBs[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-                bufBs[i].srcStageMask = src.stageMask;
+                bufBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
                 bufBs[i].srcAccessMask = src.accessMask;
-                bufBs[i].dstStageMask = dst.stageMask;
+                bufBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
                 bufBs[i].dstAccessMask = dst.accessMask;
                 bufBs[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
                 bufBs[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -230,10 +230,10 @@ export namespace foundation::rhi::vk
                 }
                 else
                 {
-                    imgBs[i].srcStageMask = src.stageMask;
+                    imgBs[i].srcStageMask = maskStagesForQueue(src.stageMask, m_pool->queueType());
                     imgBs[i].srcAccessMask = src.accessMask;
                 }
-                imgBs[i].dstStageMask = dst.stageMask;
+                imgBs[i].dstStageMask = maskStagesForQueue(dst.stageMask, m_pool->queueType());
                 imgBs[i].dstAccessMask = dst.accessMask;
                 imgBs[i].oldLayout = oldLayout;
                 imgBs[i].newLayout = newLayout;

@@ -210,6 +210,11 @@ export namespace samples::framework
         }
 
         rhi::DeviceDesc dd{};
+        // Ask for a dedicated compute queue: the device clamps the request to what the adapter
+        // has (0 on hardware without a compute-only family), so samples that check
+        // GetQueueCount(Compute) - MultiQueue - see the real answer instead of the framework's
+        // silence. Found by the Beef port: the desc never asked, so Sample017 always fell back.
+        dd.computeQueueCount = 1;
         dd.graphicsQueueCount = 1;
         dd.requiredFeatures = RequiredFeatures();
         if (!adapter->CreateDevice(dd, m_device).IsOk())

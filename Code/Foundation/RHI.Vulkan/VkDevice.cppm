@@ -1006,8 +1006,14 @@ export namespace foundation::rhi::vk
         if (!vkFence)
             return;
 
+        // The swap chain's acquire/present semaphores are latched on the device by
+        // AcquireNextImage and belong to the submission that renders the swap-chain image -
+        // the GRAPHICS queue's. Before this gate whichever queue submitted first took them:
+        // in the MultiQueue sample the async-compute submit ran first, waited on acquire for
+        // nothing, and signalled "present" before the frame was drawn. Found by the Beef port.
         VkSemaphore acquireSem = VK_NULL_HANDLE, presentSem = VK_NULL_HANDLE;
-        bool hasSync = m_device->consumePendingSwapChainSync(acquireSem, presentSem);
+        const bool hasSync = (queueType == QueueType::Graphics) &&
+                             m_device->consumePendingSwapChainSync(acquireSem, presentSem);
 
         VkSemaphore waitSems[1] = {acquireSem};
         VkPipelineStageFlags waitStages[1] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};

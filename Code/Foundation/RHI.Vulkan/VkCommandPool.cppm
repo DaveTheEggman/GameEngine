@@ -37,6 +37,7 @@ export namespace foundation::rhi::vk
             if (familyIndex < 0)
                 return ErrorCode::Unknown;
             m_familyIndex = static_cast<u32>(familyIndex);
+            m_queueType = queueType;
 
             VkCommandPoolCreateInfo ci{};
             ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -111,11 +112,16 @@ export namespace foundation::rhi::vk
         // Stored so the encoder can access it.
         VkDeviceImpl* ownerDevice = nullptr;
 
+        /// The queue family this pool records for; barriers must not name stages the family
+        /// cannot execute (VkBarrierHelper::maskStagesForQueue).
+        [[nodiscard]] QueueType queueType() const noexcept { return m_queueType; }
+
     private:
         VkDevice m_device = VK_NULL_HANDLE;
         VkCommandPool m_pool = VK_NULL_HANDLE;
         IAllocator* m_allocator = nullptr;
         u32 m_familyIndex = 0;
+        QueueType m_queueType = QueueType::Graphics;
         Array<VkCommandBuffer> m_freeHandles;
         Array<VkCommandBufferImpl*> m_trackedBuffers;
         Array<VkCommandBuffer> m_freeSecondaries;            // recyclable secondary handles
