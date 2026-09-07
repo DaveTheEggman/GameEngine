@@ -230,6 +230,91 @@ namespace
 
     // The brightest textured pixel (the cube face most head-on): its channels should match the
     // decoded BC texel. Returns that pixel's RGB.
+    // An 8x8 RGBA8 texture uploaded with a PADDED row pitch: 32 bytes of red texels then 32
+    // bytes of blue padding per row. A backend that ignores TextureDataLayout::bytesPerRow reads
+    // the padding as the next row's texels and the texture comes out half blue.
+    rhi::TextureView* MakePaddedRgba8Texture(rhi::Device& device, rhi::Texture*& outTexture)
+    {
+        outTexture = nullptr;
+        constexpr u32 kSize = 8;
+        constexpr u32 kBytesPerRow = kSize * 4 + 32; // 32 bytes of padding per row
+        Array<u8> src;
+        src.Resize(static_cast<usize>(kBytesPerRow) * kSize);
+        for (u32 y = 0; y < kSize; ++y)
+        {
+            u8* row = src.Data() + static_cast<usize>(y) * kBytesPerRow;
+            for (u32 x = 0; x < kBytesPerRow / 4; ++x)
+            {
+                const bool padding = x >= kSize;
+                row[x * 4 + 0] = padding ? 20 : 230;
+                row[x * 4 + 1] = 20;
+                row[x * 4 + 2] = padding ? 230 : 20;
+                row[x * 4 + 3] = 255;
+            }
+        }
+        rhi::TextureDesc td{};
+        td.format = rhi::TextureFormat::RGBA8Unorm;
+        td.width = kSize;
+        td.height = kSize;
+        td.mipLevelCount = 1;
+        td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+        td.label = u8"padded.probe.source";
+        rhi::Texture* texture = nullptr;
+        if (!device.CreateTexture(td, texture).IsOk())
+        {
+            return nullptr;
+        }
+        rhi::Queue* queue = device.GetQueue(rhi::QueueType::Graphics, 0);
+        rhi::TransferBatch* batch = nullptr;
+        if (queue == nullptr || !queue->CreateTransferBatch(batch).IsOk() || batch == nullptr)
+        {
+            device.DestroyTexture(texture);
+            return nullptr;
+        }
+        rhi::TextureDataLayout layout{};
+        layout.bytesPerRow = kBytesPerRow;
+        layout.rowsPerImage = kSize;
+        batch->WriteTexture(texture, Span<const u8>(src.Data(), src.Size()), layout,
+                            rhi::Extent3D{kSize, kSize, 1}, /*mip*/ 0, /*layer*/ 0);
+        const Status submitted = batch->Submit();
+        queue->DestroyTransferBatch(batch);
+        if (!submitted.IsOk())
+        {
+            device.DestroyTexture(texture);
+            return nullptr;
+        }
+        rhi::TextureViewDesc vd{};
+        vd.format = rhi::TextureFormat::RGBA8Unorm;
+        rhi::TextureView* view = nullptr;
+        if (!device.CreateTextureView(texture, vd, view).IsOk())
+        {
+            device.DestroyTexture(texture);
+            return nullptr;
+        }
+        outTexture = texture;
+        return view;
+    }
+
+    // Lit pixels whose given channel is the clear maximum (the cube's faces show the texture;
+    // the background is black and never counts).
+    u32 CountDominant(const testsupport::CapturedImage& img, int channel)
+    {
+        u32 count = 0;
+        for (u32 y = 0; y < img.height; ++y)
+        {
+            for (u32 x = 0; x < img.width; ++x)
+            {
+                const u8* p = img.At(x, y);
+                const u32 r = p[0], g = p[1], b = p[2];
+                if (r + g + b < 90) continue; // background
+                const u32 v = channel == 0 ? r : (channel == 1 ? g : b);
+                const u32 other = channel == 0 ? Max(g, b) : (channel == 1 ? Max(r, b) : Max(r, g));
+                if (v > other + 40) ++count;
+            }
+        }
+        return count;
+    }
+
     void BrightestRgb(const testsupport::CapturedImage& img, u32& outR, u32& outG, u32& outB)
     {
         u32 best = 0;
@@ -308,6 +393,25 @@ namespace
         }
     }
 
+    void ProbePaddedUpload(rhi::Device& device, const char* backendName)
+    {
+        rhi::Texture* tex = nullptr;
+        rhi::TextureView* view = MakePaddedRgba8Texture(device, tex);
+        REQUIRE(view != nullptr);
+        const testsupport::CapturedImage img = RenderTexturedCube(device, view);
+        REQUIRE(img.valid);
+        const u32 red = CountDominant(img, 0);
+        const u32 blue = CountDominant(img, 2);
+        std::printf("[padded] %-8s red-dominant=%u blue-dominant=%u\n", backendName, red, blue);
+        INFO(backendName, " red=", red, " blue=", blue);
+        CHECK(red > 0);
+        // Padding never reaches the texture: no face pixel reads blue. (With the row pitch
+        // ignored, half the texels are padding and the cube shows blue columns.)
+        CHECK(blue == 0u);
+        device.DestroyTextureView(view);
+        device.DestroyTexture(tex);
+    }
+
     void ForEachBackend(void (*probe)(rhi::Device&, const char*))
     {
         bool any = false;
@@ -376,3 +480,11 @@ TEST_CASE("bc-texture: block-compressed textures upload + sample correctly on re
 {
     ForEachBackend(&ProbeBcSampling);
 }
+
+TEST_CASE("bc-texture: a padded row pitch uploads without its padding becoming pixels")
+{
+    // Found by the Beef port: the Vulkan transfer batch stored TextureDataLayout and never
+    // passed it to VkBufferImageCopy, so a padded upload copied its padding as texels.
+    ForEachBackend(&ProbePaddedUpload);
+}
+

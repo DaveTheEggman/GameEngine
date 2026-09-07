@@ -302,7 +302,16 @@ export namespace foundation::rhi::vk
                                      &pre);
 
                 VkBufferImageCopy r{};
-                r.bufferOffset = c.stagingOffset;
+                r.bufferOffset = c.stagingOffset + c.layout.offset;
+                // Honour the caller's row pitch (found by the Beef port: the layout was stored and
+                // never used, so a padded upload landed with its padding as pixels while DX12 and
+                // WebGPU honoured it). Vulkan wants TEXELS, not bytes; block-compressed data
+                // (bpp == 0) is uploaded tightly packed per level, so 0/0 = "tight" there - the
+                // same rule the command encoder's buffer->texture copy applies.
+                const u32 bpp = BytesPerPixel(dst->desc.format);
+                r.bufferRowLength =
+                    (bpp > 0 && c.layout.bytesPerRow > 0) ? c.layout.bytesPerRow / bpp : 0;
+                r.bufferImageHeight = bpp > 0 ? c.layout.rowsPerImage : 0;
                 r.imageSubresource = {aspect, c.mipLevel, c.arrayLayer, 1};
                 r.imageExtent = {c.extent.width, c.extent.height, c.extent.depth};
                 vkCmdCopyBufferToImage(cb, m_stagingBuf, dst->handle(),
