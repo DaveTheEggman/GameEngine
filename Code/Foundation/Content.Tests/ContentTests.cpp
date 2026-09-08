@@ -216,7 +216,7 @@ namespace
     }
 }
 
-TEST_CASE("content: text streams write .data sidecars; readers accept legacy .bin")
+TEST_CASE("content: text streams write .data sidecars; ReadData resolves a stream by name, not suffix")
 {
     GlobalTypeRegistry().Register(MaterialResource::StaticType());
     RegisterSerializable<MaterialResource>();
@@ -244,7 +244,8 @@ TEST_CASE("content: text streams write .data sidecars; readers accept legacy .bi
         CHECK(static_cast<usize>(stream->Size()) == xmlBytes.Size());
     }
 
-    // Legacy layout: the same stream stored under ".bin" (pre-".data" projects) still reads.
+    // The suffix is not part of a stream's identity: readers do not know the encoding, so the
+    // same stream stored under ".bin" resolves too (a stream never exists under both).
     REQUIRE(mount.AsWritable()->Delete(u8"level.scene.data").IsOk());
     REQUIRE(mount.AsWritable()->Save(u8"level.scene.bin", xmlBytes).IsOk());
     {
@@ -253,7 +254,7 @@ TEST_CASE("content: text streams write .data sidecars; readers accept legacy .bi
         CHECK(static_cast<usize>(stream->Size()) == xmlBytes.Size());
     }
 
-    // Re-saving as text migrates: writes ".data" and removes the stale ".bin" sibling.
+    // Re-saving as text writes ".data" and removes the ".bin" sibling (one suffix per stream).
     REQUIRE(inst->WriteData(u8"scene", xmlBytes, StreamEncoding::Text).IsOk());
     CHECK(mount.Exists(u8"level.scene.data"));
     CHECK_FALSE(mount.Exists(u8"level.scene.bin"));

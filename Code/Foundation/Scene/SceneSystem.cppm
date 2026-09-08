@@ -67,7 +67,7 @@ export namespace foundation::scene
         //   SettingsInstance():  the live struct (property edits write it directly)
         //   SettingsId():        stable on-disk id (like a manager's SerializationTypeId)
         //   SerializeSettings(): field serialization (the caller wraps it in the type's
-        //                        versioned payload, so bodies can gate on ar.Version())
+        //                        versioned payload; a stale version is refused, not migrated)
         [[nodiscard]] virtual const TypeInfo* SettingsType() const noexcept { return nullptr; }
         [[nodiscard]] virtual void* SettingsInstance() noexcept { return nullptr; }
         [[nodiscard]] virtual StringView SettingsId() const noexcept { return {}; }

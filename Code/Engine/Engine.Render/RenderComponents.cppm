@@ -302,44 +302,11 @@ export namespace engine::render
     inline void Serialize(ISerializer& ar, MeshComponent& c)
     {
         foundation::core::Serialize(ar, "mesh", c.mesh);
-        if (ar.Version() >= 3)
-        { // v3: ONE materials array (slot 0 = whole-mesh)
-            foundation::core::Serialize(ar, "materials", c.materials);
-            foundation::core::Serialize(ar, "color", c.color);
-            foundation::core::Serialize(ar, "visible", c.visible);
-        }
-        if (ar.Version() >= 4)
-        { // v4: LOD knobs; older payloads keep the auto defaults
-            foundation::core::Serialize(ar, "lodBias", c.lodBias);
-            foundation::core::Serialize(ar, "forceLod", c.forceLod);
-        }
-        else
-        {
-            // v1/v2 migration: singular `material` + optional v2 submesh array fold into the
-            // unified list (submesh array wins - it was the complete per-index set).
-            foundation::resource::Ref<materials::Material> single;
-            foundation::core::Serialize(ar, "material", single);
-            foundation::core::Serialize(ar, "color", c.color);
-            foundation::core::Serialize(ar, "visible", c.visible);
-            Array<foundation::resource::Ref<materials::Material>> submesh;
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "submeshMaterials", submesh);
-            }
-            if (ar.Mode() == SerializeMode::Read)
-            {
-                c.materials.Clear();
-                if (!submesh.IsEmpty())
-                {
-                    c.materials =
-                        static_cast<Array<foundation::resource::Ref<materials::Material>>&&>(submesh);
-                }
-                else if (!single.id.IsNil() || single.Get() != nullptr)
-                {
-                    c.materials.PushBack(single);
-                }
-            }
-        }
+        foundation::core::Serialize(ar, "materials", c.materials);
+        foundation::core::Serialize(ar, "color", c.color);
+        foundation::core::Serialize(ar, "visible", c.visible);
+        foundation::core::Serialize(ar, "lodBias", c.lodBias);
+        foundation::core::Serialize(ar, "forceLod", c.forceLod);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, MeshComponent& c)
@@ -550,7 +517,7 @@ export namespace engine::render
 
         // Scene-level settings seam: the editor's scene inspector edits m_env through the
         // reflected type; SerializeScene persists it (wrapped in the type's versioned payload -
-        // reflection registration stamps dataVersion 1, so future fields gate on ar.Version()).
+        // bump the reflected dataVersion whenever a field is added).
         [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
         {
             return &TypeOf<EnvironmentSettings>();
@@ -563,10 +530,7 @@ export namespace engine::render
         }
         void SerializeSettings(ISerializer& ar) override
         {
-            if (ar.Version() >= 2)
-            { // v2 added the sky texture reference
-                foundation::core::Serialize(ar, "skyTexture", m_env.skyTexture);
-            }
+            foundation::core::Serialize(ar, "skyTexture", m_env.skyTexture);
             foundation::core::Serialize(ar, "ambientColor", m_env.ambientColor);
             foundation::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
             u32 mode = static_cast<u32>(m_env.skyMode);
@@ -576,11 +540,8 @@ export namespace engine::render
                 m_env.skyMode = static_cast<SkyMode>(mode);
             }
             foundation::core::Serialize(ar, "skyIntensity", m_env.skyIntensity);
-            if (ar.Version() >= 3)
-            { // v3 split the visible-sky backdrop dimmer out of skyIntensity
-                foundation::core::Serialize(ar, "skyBackgroundIntensity",
-                                          m_env.skyBackgroundIntensity);
-            }
+            foundation::core::Serialize(ar, "skyBackgroundIntensity",
+                                      m_env.skyBackgroundIntensity);
             foundation::core::Serialize(ar, "skyRotation", m_env.skyRotation);
             foundation::core::Serialize(ar, "skyHorizon", m_env.skyHorizon);
             foundation::core::Serialize(ar, "skyZenith", m_env.skyZenith);
@@ -588,11 +549,8 @@ export namespace engine::render
             foundation::core::Serialize(ar, "sunIntensity", m_env.sunIntensity);
             foundation::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
             foundation::core::Serialize(ar, "turbidity", m_env.turbidity);
-            if (ar.Version() >= 4) // v4: IBL lighting dimmers (independent of the visible sky)
-            {
-                foundation::core::Serialize(ar, "iblDiffuseIntensity", m_env.iblDiffuseIntensity);
-                foundation::core::Serialize(ar, "iblSpecularIntensity", m_env.iblSpecularIntensity);
-            }
+            foundation::core::Serialize(ar, "iblDiffuseIntensity", m_env.iblDiffuseIntensity);
+            foundation::core::Serialize(ar, "iblSpecularIntensity", m_env.iblSpecularIntensity);
         }
 
     private:
@@ -674,8 +632,8 @@ export namespace engine::render
         [[nodiscard]] const PostProcessSettings& Post() const noexcept { return m_post; }
 
         // Scene-settings seam (same shape as EnvironmentSystem): the inspector edits m_post through
-        // the reflected type; SerializeScene persists it (versioned payload; future fields gate on
-        // ar.Version()).
+        // the reflected type; SerializeScene persists it (versioned payload; bump the dataVersion
+        // whenever a field is added).
         [[nodiscard]] const TypeInfo* SettingsType() const noexcept override
         {
             return &TypeOf<PostProcessSettings>();
@@ -700,21 +658,15 @@ export namespace engine::render
             foundation::core::Serialize(ar, "taaBlendFactor", m_post.taaBlendFactor);
             foundation::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
             foundation::core::Serialize(ar, "fxaaSubpixel", m_post.fxaaSubpixel);
-            if (ar.Version() >= 2) // v2: auto-exposure + grading LUT
-            {
-                foundation::core::Serialize(ar, "autoExposure", m_post.autoExposure);
-                foundation::core::Serialize(ar, "autoExposureKey", m_post.autoExposureKey);
-                foundation::core::Serialize(ar, "autoExposureSpeed", m_post.autoExposureSpeed);
-                foundation::core::Serialize(ar, "autoExposureMinEV", m_post.autoExposureMinEV);
-                foundation::core::Serialize(ar, "autoExposureMaxEV", m_post.autoExposureMaxEV);
-                foundation::core::Serialize(ar, "gradingLut", m_post.gradingLut);
-                foundation::core::Serialize(ar, "gradingIntensity", m_post.gradingIntensity);
-            }
-            if (ar.Version() >= 3) // v3: screen-space GI
-            {
-                foundation::core::Serialize(ar, "ssgiEnabled", m_post.ssgiEnabled);
-                foundation::core::Serialize(ar, "ssgiIntensity", m_post.ssgiIntensity);
-            }
+            foundation::core::Serialize(ar, "autoExposure", m_post.autoExposure);
+            foundation::core::Serialize(ar, "autoExposureKey", m_post.autoExposureKey);
+            foundation::core::Serialize(ar, "autoExposureSpeed", m_post.autoExposureSpeed);
+            foundation::core::Serialize(ar, "autoExposureMinEV", m_post.autoExposureMinEV);
+            foundation::core::Serialize(ar, "autoExposureMaxEV", m_post.autoExposureMaxEV);
+            foundation::core::Serialize(ar, "gradingLut", m_post.gradingLut);
+            foundation::core::Serialize(ar, "gradingIntensity", m_post.gradingIntensity);
+            foundation::core::Serialize(ar, "ssgiEnabled", m_post.ssgiEnabled);
+            foundation::core::Serialize(ar, "ssgiIntensity", m_post.ssgiIntensity);
         }
 
         void ResolveResources(foundation::resource::ResourceManager& manager) override

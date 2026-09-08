@@ -54,9 +54,8 @@ namespace editor
         {
             return Status{ErrorCode::NotFound};
         }
-        // Read the existing asset so a LINKED doc keeps its fileName (a fresh asset would wipe
-        // it). The text source differs by branch: linked docs live in Sources/, legacy assets
-        // carry the text inline.
+        // Read the existing asset so the LINKED doc keeps its fileName (a fresh asset would
+        // wipe it). The text lives in Sources/; an unlinked asset cannot be saved.
         RefPtr<ISerializable> object = instance->ReadObject();
         auto* asset = Cast<pipeline::UIDocumentAsset>(object.Get());
         if (asset == nullptr)
@@ -83,7 +82,8 @@ namespace editor
         }
         else
         {
-            asset->markup = String(m_markup.AsView()); // LEGACY inline text
+            LOG_ERROR(u8"Editor", u8"UI document has no linked source file - save refused");
+            return Status{ErrorCode::NotSupported};
         }
         // Re-write the asset instance (unchanged for a linked doc) so the validating recook
         // fires off the instance write, then nudge it.

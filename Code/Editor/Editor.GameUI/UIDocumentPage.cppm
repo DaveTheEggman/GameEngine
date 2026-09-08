@@ -80,7 +80,8 @@ export namespace editor
                 }
                 else
                 {
-                    m_markup = String(asset->markup.AsView()); // LEGACY inline text
+                    LOG_ERROR(u8"Editor", u8"UI document has no linked source file - the page "
+                                          u8"opens empty (re-import the .sml)");
                 }
             }
 

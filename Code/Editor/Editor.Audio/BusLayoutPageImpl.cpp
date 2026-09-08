@@ -701,8 +701,8 @@ namespace editor
         }
         MemoryStream stream;
         BinarySerializer ar(stream, SerializeMode::Write);
-        // The asset gates its custom-slot bank on ar.Version() >= 2, so the snapshot MUST ride
-        // a versioned payload (a raw serializer reports version 0 and silently drops the bank).
+        // The snapshot rides a versioned payload exactly like the envelope, so the same reader
+        // accepts it (a scope-less blob would be refused).
         foundation::core::BeginVersionedPayload(ar, pipeline::AudioBusLayoutAsset::StaticType());
         m_asset->Serialize(ar);
         foundation::core::EndVersionedPayload(ar);

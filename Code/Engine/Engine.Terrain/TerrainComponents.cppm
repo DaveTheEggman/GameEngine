@@ -58,10 +58,7 @@ export namespace engine::terrain
         foundation::core::Serialize(ar, "terrain", c.terrain);
         foundation::core::Serialize(ar, "castShadows", c.castShadows);
         foundation::core::Serialize(ar, "visible", c.visible);
-        if (ar.Version() >= 2) // DataVersion 2 added lodBias
-        {
-            foundation::core::Serialize(ar, "lodBias", c.lodBias);
-        }
+        foundation::core::Serialize(ar, "lodBias", c.lodBias);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, TerrainComponent& c)

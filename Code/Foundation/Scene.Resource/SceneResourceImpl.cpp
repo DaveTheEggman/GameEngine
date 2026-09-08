@@ -26,22 +26,34 @@ using namespace foundation::core;
 
 namespace foundation::scene
 {
-    void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe,
-                        ScenePrefabMode prefabMode, bool includeSettings,
-                        detail::SceneStreamEncoding encoding)
+    void SerializeScene(ISerializer& ar, Scene& scene, ScenePrefabMode prefabMode,
+                        bool includeSettings, detail::SceneStreamEncoding encoding)
     {
         const bool writing = ar.Mode() == SerializeMode::Write;
         const bool text = encoding == detail::SceneStreamEncoding::Text;
         (void)text;
 
-        // Stream version: writers emit the current header; readers sniff it THROUGH the serializer -
-        // a legacy stream has no header, so the first u32 is the scene NAME's length (always
-        // small, never the magic), whose characters are then consumed as a raw blob. Scene
-        // streams are binary-only by design, which is what makes the sniff well-defined.
-        u32 streamVersion = detail::kSceneStreamVersion;
+        // Stream header: writers emit the current one; readers REQUIRE it (magic + the current
+        // version) - any other stream fails here, before a single record is read.
         if (writing)
         {
             detail::WriteSceneStreamHeader(ar);
+        }
+        else
+        {
+            u32 magic = 0;
+            u32 version = 0;
+            foundation::core::Serialize(ar, "magic", magic);
+            foundation::core::Serialize(ar, "version", version);
+            if (magic != detail::kSceneStreamMagic || version != detail::kSceneStreamVersion)
+            {
+                LOG_ERROR(u8"Scene", u8"scene stream is not in the current format (version {} - "
+                                     u8"expected {}); re-save it with the build that wrote it",
+                          magic == detail::kSceneStreamMagic ? version : 0u,
+                          detail::kSceneStreamVersion);
+                ar.FailPayload(ErrorCode::NotSupported);
+                return;
+            }
         }
 
         // Referenced writes exclude prefab-instance members from the plain entity/component
@@ -59,33 +71,11 @@ namespace foundation::scene
                 });
         }
 
-        // --- name (read side doubles as the version sniff - see above) ---
+        // --- name ---
         String name = writing ? String(scene.Name()) : String{};
-        if (writing)
+        foundation::core::Serialize(ar, "name", name);
+        if (!writing)
         {
-            foundation::core::Serialize(ar, "name", name);
-        }
-        else
-        {
-            u32 first = 0;
-            foundation::core::Serialize(ar, "magic", first);
-            if (first == detail::kSceneStreamMagic)
-            {
-                foundation::core::Serialize(ar, "version", streamVersion);
-                foundation::core::Serialize(ar, "name", name);
-            }
-            else
-            {
-                streamVersion = 1;
-                Array<u8> chars;
-                chars.Resize(first);
-                if (first > 0)
-                {
-                    ar.Blob(chars.Data(), first);
-                }
-                name = String(StringView(reinterpret_cast<const utf8char*>(chars.Data()),
-                                         static_cast<usize>(first)));
-            }
             scene.SetName(name.AsView());
         }
 
@@ -158,11 +148,11 @@ namespace foundation::scene
                 u8 active = 0;
                 Guid parentId;
                 Transform t;
-                detail::SerializeGuid(ar, "id", id, streamVersion);
+                detail::SerializeGuid(ar, "id", id);
                 foundation::core::Serialize(ar, "name", ename);
                 foundation::core::Serialize(ar, "active", active);
-                detail::SerializeGuid(ar, "parent", parentId, streamVersion);
-                detail::SerializeTransform(ar, t, streamVersion);
+                detail::SerializeGuid(ar, "parent", parentId);
+                detail::SerializeTransform(ar, t);
                 // Corrupt-save recovery: a duplicate entity guid (the pre-fix RNG-collision bug)
                 // gets a FRESH id so every entity stays uniquely addressable. Records addressed
                 // to the shared guid (components, parent links) route to its FIRST holder.
@@ -300,7 +290,7 @@ namespace foundation::scene
                     ar.BeginObject();
                     Guid ownerId;
                     String typeId;
-                    detail::SerializeGuid(ar, "owner", ownerId, streamVersion);
+                    detail::SerializeGuid(ar, "owner", ownerId);
                     foundation::core::Serialize(ar, "type", typeId);
                     EntityHandle owner = scene.FindEntity(ownerId);
                     ComponentManagerBase* manager =
@@ -339,43 +329,32 @@ namespace foundation::scene
                 }
                 Guid ownerId;
                 String typeId;
-                detail::SerializeGuid(ar, "owner", ownerId, streamVersion);
+                detail::SerializeGuid(ar, "owner", ownerId);
                 foundation::core::Serialize(ar, "type", typeId);
                 EntityHandle owner = scene.FindEntity(ownerId);
                 ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
-                if (streamVersion >= 2)
+                Array<u8> blob;
+                foundation::core::Serialize(ar, "data", blob);
+                if (owner.IsAssigned() && manager != nullptr)
                 {
-                    Array<u8> blob;
-                    foundation::core::Serialize(ar, "data", blob);
-                    if (owner.IsAssigned() && manager != nullptr)
-                    {
-                        detail::ComponentFromBlob(*manager, owner,
-                                                  Span<const u8>{blob.Data(), blob.Size()});
-                    }
-                    else if (manager == nullptr)
-                    {
-                        Scene::UnresolvedComponent record; // preserved verbatim (S3)
-                        record.owner = ownerId;
-                        record.typeId = typeId;
-                        record.payload = Move(blob);
-                        record.text = false;
-                        scene.AddUnresolvedComponent(Move(record));
-                        if (warned.Find(typeId) == nullptr)
-                        {
-                            warned.InsertOrAssign(typeId, 1u);
-                            LOG_WARNING(u8"Scene",
-                                        u8"component type '{}' has no manager in this build - "
-                                        u8"records kept unresolved (preserved on save)",
-                                        typeId);
-                        }
-                    }
+                    detail::ComponentFromBlob(*manager, owner,
+                                              Span<const u8>{blob.Data(), blob.Size()});
                 }
-                else
+                else if (manager == nullptr)
                 {
-                    // Legacy inline records: not skippable - the manager must exist.
-                    if (owner.IsAssigned() && manager != nullptr)
+                    Scene::UnresolvedComponent record; // preserved verbatim (S3)
+                    record.owner = ownerId;
+                    record.typeId = typeId;
+                    record.payload = Move(blob);
+                    record.text = false;
+                    scene.AddUnresolvedComponent(Move(record));
+                    if (warned.Find(typeId) == nullptr)
                     {
-                        manager->ReadComponent(ar, owner);
+                        warned.InsertOrAssign(typeId, 1u);
+                        LOG_WARNING(u8"Scene",
+                                    u8"component type '{}' has no manager in this build - "
+                                    u8"records kept unresolved (preserved on save)",
+                                    typeId);
                     }
                 }
             }
@@ -383,13 +362,6 @@ namespace foundation::scene
         ar.EndArray();
 
         // --- scene-system settings (id, versioned payload) ---
-        // NOTE: like components, reading a record requires its system to be present on `scene`
-        // (systems are injected before load); an unknown id can't be skipped (length-prefixed
-        // records are the same future robustness item as components).
-        if (!writing && legacyProbe != nullptr && legacyProbe->Tell() >= legacyProbe->Size())
-        {
-            return; // pre-settings save: defaults stand, the next save upgrades the stream
-        }
         u32 settingsCount = 0;
         if (writing && includeSettings)
         {
@@ -552,74 +524,50 @@ namespace foundation::scene
                             target = &s;
                         }
                     });
-                if (streamVersion >= 2)
+                Array<u8> blob;
+                foundation::core::Serialize(ar, "data", blob);
+                if (target == nullptr)
                 {
-                    Array<u8> blob;
-                    foundation::core::Serialize(ar, "data", blob);
-                    if (target == nullptr)
-                    {
-                        Scene::UnresolvedSettings record; // preserved verbatim (S3)
-                        record.systemId = id;
-                        record.payload = Move(blob);
-                        record.text = false;
-                        scene.AddUnresolvedSettings(Move(record));
-                        LOG_WARNING(u8"Scene",
-                                    u8"settings of system '{}' kept unresolved (no such system in "
-                                    u8"this build; preserved on save)",
-                                    id);
-                        continue;
-                    }
-                    MemoryStream buffer;
-                    (void)buffer.Write(reinterpret_cast<const byte*>(blob.Data()), blob.Size());
-                    (void)buffer.Seek(0, SeekOrigin::Begin);
-                    BinarySerializer sub(buffer, SerializeMode::Read);
-                    foundation::core::BeginVersionedPayload(sub, *target->SettingsType());
-                    sub.Key("settings");
-                    sub.BeginObject();
-                    target->SerializeSettings(sub);
-                    sub.EndObject();
-                    foundation::core::EndVersionedPayload(sub);
+                    Scene::UnresolvedSettings record; // preserved verbatim (S3)
+                    record.systemId = id;
+                    record.payload = Move(blob);
+                    record.text = false;
+                    scene.AddUnresolvedSettings(Move(record));
+                    LOG_WARNING(u8"Scene",
+                                u8"settings of system '{}' kept unresolved (no such system in "
+                                u8"this build; preserved on save)",
+                                id);
+                    continue;
                 }
-                else
-                {
-                    if (target == nullptr)
-                    {
-                        LOG_WARNING(u8"Scene",
-                                             u8"scene save carries settings for unknown system "
-                                             u8"'{}' - rest of the section skipped",
-                                             id);
-                        break; // legacy records aren't skippable; drop the remainder
-                    }
-                    foundation::core::BeginVersionedPayload(ar, *target->SettingsType());
-                    ar.Key("settings");
-                    ar.BeginObject();
-                    target->SerializeSettings(ar);
-                    ar.EndObject();
-                    foundation::core::EndVersionedPayload(ar);
-                }
+                MemoryStream buffer;
+                (void)buffer.Write(reinterpret_cast<const byte*>(blob.Data()), blob.Size());
+                (void)buffer.Seek(0, SeekOrigin::Begin);
+                BinarySerializer sub(buffer, SerializeMode::Read);
+                foundation::core::BeginVersionedPayload(sub, *target->SettingsType());
+                sub.Key("settings");
+                sub.BeginObject();
+                target->SerializeSettings(sub);
+                sub.EndObject();
+                foundation::core::EndVersionedPayload(sub);
             }
         }
         ar.EndArray();
 
-        // --- prefab instances (appended after settings; older saves simply END here) ---
-        if (!writing && legacyProbe != nullptr && legacyProbe->Tell() >= legacyProbe->Size())
-        {
-            return; // pre-prefab save: no instances to restore
-        }
+        // --- prefab instances (appended after settings) ---
         u8 sectionMode = (prefabMode == ScenePrefabMode::Referenced)
                              ? detail::kPrefabWireReferenced3
                              : detail::kPrefabWireExpanded2;
         foundation::core::Serialize(ar, "prefabMode", sectionMode);
-        if (!writing && sectionMode == detail::kPrefabWireReferenced2)
+        if (!writing && sectionMode != detail::kPrefabWireReferenced3 &&
+            sectionMode != detail::kPrefabWireExpanded2)
         {
-            LOG_WARNING(u8"Scene",
-                                 u8"prefab section uses the retired nested layout - instances "
-                                 u8"skipped (re-save the scene's prefabs and re-place them)");
-            return; // the prefab section is the stream's tail: bailing loses only instances
+            LOG_ERROR(u8"Scene", u8"prefab section uses a retired layout ({}) - the scene fails "
+                                 u8"to load; re-save it with the build that wrote it",
+                      static_cast<u32>(sectionMode));
+            ar.FailPayload(ErrorCode::NotSupported);
+            return;
         }
-        const bool wireNested = sectionMode == detail::kPrefabWireReferenced3;
-        const bool wireReferenced = sectionMode == detail::kPrefabWireReferenced ||
-                                    sectionMode == detail::kPrefabWireReferenced3;
+        const bool wireReferenced = sectionMode == detail::kPrefabWireReferenced3;
 
         if (wireReferenced)
         {
@@ -655,7 +603,7 @@ namespace foundation::scene
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
                     auto pending = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
-                    detail::ReadPrefabRecord(ar, scene, *pending, wireNested, text, streamVersion);
+                    detail::ReadPrefabRecord(ar, scene, *pending, text);
                     scene.AddPendingPrefabInstance(
                         static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(pending));
                 }
@@ -706,14 +654,10 @@ namespace foundation::scene
             }
             else
             {
-                // The nesting links are gated by the EXPANDED section's own mode (the writer
-                // above emits them unconditionally = kPrefabWireExpanded2), NOT wireNested
-                // (a Referenced3-only flag, always false here). Gating on wireNested skipped
-                // 32 bytes the writer produced, misaligning every restore of a scene with a
-                // prefab instance: the next count read was mid-guid garbage in the billions
-                // and the member loop allocated until the OS killed the editor (the Simulate
-                // stop hang). Old kPrefabWireExpanded(1) streams still read the short form.
-                const bool expandedNested = sectionMode == detail::kPrefabWireExpanded2;
+                // The reader mirrors the writer above field for field (the Simulate-stop hang
+                // was a reader that skipped 32 bytes the writer produced: the next count read
+                // was mid-guid garbage and the member loop allocated until the OS killed the
+                // editor - wire symmetry is the rule).
                 if (instanceCount > detail::kMaxPrefabRecordEntries)
                 {
                     return;
@@ -721,14 +665,10 @@ namespace foundation::scene
                 for (u32 n = 0; n < instanceCount; ++n)
                 {
                     auto state = MakeUnique<Scene::PrefabInstanceState>(scene.Allocator());
-                    detail::SerializeGuid(ar, "prefab", state->prefabId, streamVersion);
-                    detail::SerializeGuid(ar, "root", state->rootEntityId, streamVersion);
-                    if (expandedNested)
-                    {
-                        detail::SerializeGuid(ar, "owner", state->ownerRootEntityId, streamVersion);
-                        detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId,
-                                              streamVersion);
-                    }
+                    detail::SerializeGuid(ar, "prefab", state->prefabId);
+                    detail::SerializeGuid(ar, "root", state->rootEntityId);
+                    detail::SerializeGuid(ar, "owner", state->ownerRootEntityId);
+                    detail::SerializeGuid(ar, "nestedSrcRoot", state->nestedRootSourceId);
                     u32 memberCount = 0;
                     ar.Key("members");
                     ar.BeginArray(memberCount);
@@ -740,9 +680,9 @@ namespace foundation::scene
                     {
                         Guid src, live;
                         Transform t;
-                        detail::SerializeGuid(ar, "src", src, streamVersion);
-                        detail::SerializeGuid(ar, "live", live, streamVersion);
-                        detail::SerializeTransform(ar, t, streamVersion);
+                        detail::SerializeGuid(ar, "src", src);
+                        detail::SerializeGuid(ar, "live", live);
+                        detail::SerializeTransform(ar, t);
                         state->sourceIds.PushBack(src);
                         state->liveIds.PushBack(live);
                         state->baselineTransforms.PushBack(t);
@@ -758,7 +698,7 @@ namespace foundation::scene
                     for (u32 i = 0; i < baselineCount; ++i)
                     {
                         Scene::PrefabComponentBaseline b;
-                        detail::SerializeGuid(ar, "src", b.sourceEntity, streamVersion);
+                        detail::SerializeGuid(ar, "src", b.sourceEntity);
                         foundation::core::Serialize(ar, "type", b.typeId);
                         foundation::core::Serialize(ar, "blob", b.blob);
                         state->componentBaselines.PushBack(
@@ -879,16 +819,23 @@ namespace foundation::scene
         }
         Serializer& ar = *opened;
         const bool text = reader.Encoding() == detail::SceneStreamEncoding::Text;
-        u32 streamVersion = detail::kSceneStreamVersion;
+        u32 magic = detail::kSceneStreamMagic;
+        u32 streamVersion = 0;
         if (text)
         {
-            u32 magic = 0;
             foundation::core::Serialize(ar, "magic", magic);
             foundation::core::Serialize(ar, "version", streamVersion);
         }
         else
         {
             streamVersion = detail::ReadSceneStreamVersion(payload);
+        }
+        if (magic != detail::kSceneStreamMagic || streamVersion != detail::kSceneStreamVersion)
+        {
+            LOG_ERROR(u8"Scene", u8"prefab payload is not in the current format (version {} - "
+                                 u8"expected {}); re-save the prefab with the build that wrote it",
+                      streamVersion, detail::kSceneStreamVersion);
+            return EntityHandle::Invalid();
         }
 
         String name;
@@ -910,11 +857,11 @@ namespace foundation::scene
             u8 active = 0;
             Guid sourceParent;
             Transform t;
-            detail::SerializeGuid(ar, "id", sourceId, streamVersion);
+            detail::SerializeGuid(ar, "id", sourceId);
             foundation::core::Serialize(ar, "name", ename);
             foundation::core::Serialize(ar, "active", active);
-            detail::SerializeGuid(ar, "parent", sourceParent, streamVersion);
-            detail::SerializeTransform(ar, t, streamVersion);
+            detail::SerializeGuid(ar, "parent", sourceParent);
+            detail::SerializeTransform(ar, t);
 
             EntityHandle live;
             const Guid* wanted = (preassigned != nullptr) ? preassigned->Find(sourceId) : nullptr;
@@ -946,10 +893,28 @@ namespace foundation::scene
             return EntityHandle::Invalid();
         }
 
-        // Relink: payload-internal parents through the map; the instance root under `parent`.
         // A prefab is SINGLE-rooted (capture, tinting, and apply-to-prefab all walk one root's
-        // subtree); a legacy multi-root payload normalizes by parenting extra roots under the
-        // first so nothing silently falls outside the instance.
+        // subtree). A payload with more than one root is not the current format: refuse it
+        // (the spawned entities are torn down) rather than guess where the extras belong.
+        for (usize i = 0; i < sourceParents.Size(); ++i)
+        {
+            if (sourceParents[i] == Guid{} && scene.FindEntity(state->liveIds[i]) != firstRoot)
+            {
+                LOG_ERROR(u8"Scene", u8"prefab payload has more than one root - not the current "
+                                     u8"single-root format; re-save the prefab");
+                for (const Guid& live : state->liveIds)
+                {
+                    EntityHandle stale = scene.FindEntity(live);
+                    if (stale.IsAssigned())
+                    {
+                        scene.DestroyEntity(stale); // immediate outside an update
+                    }
+                }
+                return EntityHandle::Invalid();
+            }
+        }
+
+        // Relink: payload-internal parents through the map; the instance root under `parent`.
         for (usize i = 0; i < state->sourceIds.Size(); ++i)
         {
             EntityHandle child = scene.FindEntity(state->liveIds[i]);
@@ -959,11 +924,7 @@ namespace foundation::scene
             }
             if (sourceParents[i] == Guid{})
             {
-                if (child != firstRoot)
-                {
-                    scene.SetParent(child, firstRoot);
-                }
-                else if (parent.IsAssigned())
+                if (parent.IsAssigned())
                 {
                     scene.SetParent(child, parent);
                 }
@@ -979,8 +940,8 @@ namespace foundation::scene
         }
 
         // Components: route to remapped owners, then capture each as a spawn-time baseline.
-        // v2 payloads carry BLOB records: the blob applies to the live component AND becomes
-        // the baseline directly (no re-serialize), and unknown types SKIP instead of failing.
+        // Binary payloads carry BLOB records: the blob applies to the live component and
+        // unknown types SKIP instead of failing.
         u32 componentCount = 0;
         ar.Key("components");
         ar.BeginArray(componentCount);
@@ -991,7 +952,7 @@ namespace foundation::scene
                 ar.BeginObject();
                 Guid sourceOwner;
                 String typeId;
-                detail::SerializeGuid(ar, "owner", sourceOwner, streamVersion);
+                detail::SerializeGuid(ar, "owner", sourceOwner);
                 foundation::core::Serialize(ar, "type", typeId);
                 const Guid* liveId = liveBySource.Find(sourceOwner);
                 EntityHandle owner =
@@ -1022,55 +983,33 @@ namespace foundation::scene
             }
             Guid sourceOwner;
             String typeId;
-            detail::SerializeGuid(ar, "owner", sourceOwner, streamVersion);
+            detail::SerializeGuid(ar, "owner", sourceOwner);
             foundation::core::Serialize(ar, "type", typeId);
             const Guid* liveId = liveBySource.Find(sourceOwner);
             EntityHandle owner =
                 (liveId != nullptr) ? scene.FindEntity(*liveId) : EntityHandle::Invalid();
             ComponentManagerBase* manager = scene.FindManagerBySerializationId(typeId.AsView());
-            if (streamVersion >= 2)
+            Array<u8> blob;
+            foundation::core::Serialize(ar, "data", blob);
+            if (!owner.IsAssigned() || manager == nullptr)
             {
-                Array<u8> blob;
-                foundation::core::Serialize(ar, "data", blob);
-                if (!owner.IsAssigned() || manager == nullptr)
-                {
-                    LOG_WARNING(
-                        u8"Scene", u8"prefab component record '{}' skipped (no owner/manager)",
-                        typeId);
-                    continue;
-                }
-                detail::ComponentFromBlob(*manager, owner,
-                                          Span<const u8>{blob.Data(), blob.Size()});
-                RemapPrefabEntityRefs(*manager, owner, liveBySource);
-                // Baseline = RE-serialized from the live component, NOT the payload bytes: a
-                // component data-version bump would otherwise read as a phantom override on
-                // every instance (old-version blob != current-version blob for equal state).
-                Scene::PrefabComponentBaseline baseline;
-                baseline.sourceEntity = sourceOwner;
-                baseline.typeId = typeId;
-                detail::ComponentToBlob(*manager, owner, baseline.blob);
-                state->componentBaselines.PushBack(
-                    static_cast<Scene::PrefabComponentBaseline&&>(baseline));
+                LOG_WARNING(
+                    u8"Scene", u8"prefab component record '{}' skipped (no owner/manager)",
+                    typeId);
+                continue;
             }
-            else
-            {
-                if (!owner.IsAssigned() || manager == nullptr)
-                {
-                    LOG_WARNING(
-                        u8"Scene",
-                        u8"prefab component record '{}' has no owner/manager - payload out of sync",
-                        typeId);
-                    return EntityHandle::Invalid(); // legacy records are not skippable
-                }
-                manager->ReadComponent(ar, owner);
-                RemapPrefabEntityRefs(*manager, owner, liveBySource);
-                Scene::PrefabComponentBaseline baseline;
-                baseline.sourceEntity = sourceOwner;
-                baseline.typeId = typeId;
-                detail::ComponentToBlob(*manager, owner, baseline.blob);
-                state->componentBaselines.PushBack(
-                    static_cast<Scene::PrefabComponentBaseline&&>(baseline));
-            }
+            detail::ComponentFromBlob(*manager, owner,
+                                      Span<const u8>{blob.Data(), blob.Size()});
+            RemapPrefabEntityRefs(*manager, owner, liveBySource);
+            // Baseline = RE-serialized from the live component, NOT the payload bytes: a
+            // component data-version bump would otherwise read as a phantom override on
+            // every instance (old-version blob != current-version blob for equal state).
+            Scene::PrefabComponentBaseline baseline;
+            baseline.sourceEntity = sourceOwner;
+            baseline.typeId = typeId;
+            detail::ComponentToBlob(*manager, owner, baseline.blob);
+            state->componentBaselines.PushBack(
+                static_cast<Scene::PrefabComponentBaseline&&>(baseline));
         }
         ar.EndArray();
         if (!ar.IsOk())
@@ -1085,9 +1024,10 @@ namespace foundation::scene
         scene.AddPrefabInstance(static_cast<UniquePtr<Scene::PrefabInstanceState>&&>(state));
 
         // ---- nested records ----
-        // Reach the trailing section: current payloads write an EMPTY settings section; a NON-empty
-        // one is a legacy Expanded save (members already spawned flat above), and
-        // a stream that simply ends here is a pre-nesting capture. Both skip cleanly.
+        // The trailing section: an EMPTY settings section (a prefab is a subtree template, not
+        // a world), the Referenced3 mode tag, then the nested-instance records. Anything else
+        // is not the current payload shape: the nested instances are skipped LOUDLY (the root
+        // subtree above is already live).
         if (!spawnNested)
         {
             return firstRoot;
@@ -1096,31 +1036,14 @@ namespace foundation::scene
         ar.Key("systemSettings");
         ar.BeginArray(settingsCount);
         ar.EndArray();
-        if (!ar.IsOk() || settingsCount != 0)
-        {
-            return firstRoot;
-        }
-        // Binary: a stream that ENDS here is a pre-nesting capture. Text payloads always carry
-        // the section (the format is new), so no probe applies.
-        if (!text && payload.Tell() >= payload.Size())
-        {
-            return firstRoot;
-        }
-
         u8 sectionMode = 0;
         foundation::core::Serialize(ar, "prefabMode", sectionMode);
-        if (sectionMode == detail::kPrefabWireReferenced2)
+        if (!ar.IsOk() || settingsCount != 0 || sectionMode != detail::kPrefabWireReferenced3)
         {
-            LOG_WARNING(u8"Scene", u8"prefab payload uses the retired nested layout - "
-                                            u8"nested instances skipped (re-save the prefab)");
+            LOG_ERROR(u8"Scene", u8"prefab payload's nested-instance section is not in the "
+                                 u8"current format - nested instances skipped; re-save the prefab");
             return firstRoot;
         }
-        if (sectionMode != detail::kPrefabWireReferenced3 &&
-            sectionMode != detail::kPrefabWireReferenced)
-        {
-            return firstRoot; // Expanded payload (legacy flatten): states already implicit
-        }
-        const bool wireNested = sectionMode == detail::kPrefabWireReferenced3;
 
         u32 recordCount = 0;
         ar.Key("prefabInstances");
@@ -1129,7 +1052,7 @@ namespace foundation::scene
         for (u32 n = 0; n < recordCount && ar.IsOk(); ++n)
         {
             auto record = MakeUnique<Scene::PendingPrefabInstance>(scene.Allocator());
-            detail::ReadPrefabRecord(ar, scene, *record, wireNested, text, streamVersion);
+            detail::ReadPrefabRecord(ar, scene, *record, text);
             records.PushBack(static_cast<UniquePtr<Scene::PendingPrefabInstance>&&>(record));
         }
         ar.EndArray();
@@ -1327,10 +1250,10 @@ namespace foundation::scene
         if (!text)
         {
             streamVersion = detail::ReadSceneStreamVersion(templatePayload);
-            if (streamVersion < 2)
+            if (streamVersion != detail::kSceneStreamVersion)
             {
-                LOG_WARNING(u8"Scene", u8"apply-to-prefab: legacy nested template - owner "
-                                                u8"customization may fold into the record");
+                LOG_ERROR(u8"Scene", u8"apply-to-prefab: the child template is not in the current "
+                                     u8"format - falling back to the baseline diff (re-save it)");
                 return detail::ComputeInstanceDeltas(scene, state);
             }
             (void)templatePayload.Seek(0, SeekOrigin::Begin); // reader re-consumes the header
@@ -1366,11 +1289,11 @@ namespace foundation::scene
             u8 active = 0;
             Guid parentId;
             Transform t;
-            detail::SerializeGuid(ar, "id", id, streamVersion);
+            detail::SerializeGuid(ar, "id", id);
             foundation::core::Serialize(ar, "name", ename);
             foundation::core::Serialize(ar, "active", active);
-            detail::SerializeGuid(ar, "parent", parentId, streamVersion);
-            detail::SerializeTransform(ar, t, streamVersion);
+            detail::SerializeGuid(ar, "parent", parentId);
+            detail::SerializeTransform(ar, t);
             templateTransforms.InsertOrAssign(id, t);
         }
         ar.EndArray();
@@ -1392,7 +1315,7 @@ namespace foundation::scene
             if (text)
             {
                 ar.BeginObject();
-                detail::SerializeGuid(ar, "owner", record.source, streamVersion);
+                detail::SerializeGuid(ar, "owner", record.source);
                 foundation::core::Serialize(ar, "type", record.typeId);
                 ComponentManagerBase* manager =
                     scene.FindManagerBySerializationId(record.typeId.AsView());
@@ -1413,7 +1336,7 @@ namespace foundation::scene
                 ar.EndObject();
                 continue;
             }
-            detail::SerializeGuid(ar, "owner", record.source, streamVersion);
+            detail::SerializeGuid(ar, "owner", record.source);
             foundation::core::Serialize(ar, "type", record.typeId);
             foundation::core::Serialize(ar, "data", record.blob);
             templateBlobs.PushBack(static_cast<TemplateBlob&&>(record));
@@ -2006,7 +1929,7 @@ namespace foundation::scene
         {
             return Err(ErrorCode::Internal);
         }
-        SerializeScene(*ar, scratch, nullptr, ScenePrefabMode::Referenced, true,
+        SerializeScene(*ar, scratch, ScenePrefabMode::Referenced, true,
                        detail::SceneStreamEncoding::Text);
         if (!ar->IsOk())
         {
@@ -2015,7 +1938,7 @@ namespace foundation::scene
 
         MemoryStream out;
         BinarySerializer writer(out, SerializeMode::Write);
-        SerializeScene(writer, scratch, nullptr, ScenePrefabMode::Referenced, includeSettings,
+        SerializeScene(writer, scratch, ScenePrefabMode::Referenced, includeSettings,
                        detail::SceneStreamEncoding::Binary);
         if (!writer.IsOk())
         {
@@ -2044,10 +1967,7 @@ namespace foundation::scene
         {
             return Status{ErrorCode::Internal};
         } // unparseable text stream
-        const bool text = reader.Encoding() == detail::SceneStreamEncoding::Text;
-        // Probe: pre-settings BINARY saves end at components; text streams are always complete.
-        SerializeScene(*ar, scene, text ? nullptr : stream.Get(), ScenePrefabMode::Referenced, true,
-                       reader.Encoding());
+        SerializeScene(*ar, scene, ScenePrefabMode::Referenced, true, reader.Encoding());
         return Status{};
     }
 

@@ -234,7 +234,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         REQUIRE(meshAsset != nullptr);
         pipeline::StaticMeshAsset asset;
         pipeline::MeshImporter::Import(*geometry::Primitives::Cube(DefaultAllocator(), 2.0f), asset);
-        REQUIRE(meshAsset->WriteObject(asset).IsOk());
+        REQUIRE(pipeline::WriteMeshAsset(*meshAsset, asset).IsOk());
         meshId = meshAsset->Id();
 
         // A scene whose entity references the mesh by guid.
@@ -455,7 +455,7 @@ namespace
         REQUIRE(inst != nullptr);
         pipeline::StaticMeshAsset asset;
         pipeline::MeshImporter::Import(*geometry::Primitives::Cube(DefaultAllocator(), 2.0f), asset);
-        REQUIRE(inst->WriteObject(asset).IsOk());
+        REQUIRE(pipeline::WriteMeshAsset(*inst, asset).IsOk());
         return inst->Id();
     }
 
@@ -526,15 +526,16 @@ TEST_CASE("export: template.xml round-trips + host synthesis reads its runtime-l
     NukeTree(dir.AsView());
 }
 
-TEST_CASE("export: a v1 template.xml without a config field reads as Release (back-compat)")
+TEST_CASE("export: a v1 template.xml (another data version) is REFUSED, not defaulted")
 {
-    const String dir = TempDir(u8"scratch_template_v1_backcompat");
+    const String dir = TempDir(u8"scratch_template_v1_refused");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
-    // A hand-written v1 manifest: the OLD schema (dataVersion 1, no config/compiler/symbols). This is
-    // exactly what a pre-config-axis editor wrote; it must still load, defaulting config -> Release.
+    // A hand-written v1 manifest: the OLD schema (dataVersion 1, no config/compiler/symbols).
+    // The reader accepts exactly the current data version - a stale template fails to load and
+    // has to be re-created by its build.
     const StringView v1 = u8"<root>"
                           u8"<array name=\"dataVersions\" count=\"1\">"
                           u8"<u64 name=\"type\">0</u64><u32 name=\"version\">1</u32>"
@@ -550,15 +551,7 @@ TEST_CASE("export: a v1 template.xml without a config field reads as Release (ba
     SaveText(root, u8"template.xml", v1);
 
     editor::ExportTemplate loaded;
-    REQUIRE(editor::LoadTemplateManifest(root, loaded).IsOk());
-    CHECK(loaded.id == u8"sample-legacy");
-    CHECK(loaded.platform == u8"Win64");
-    CHECK(loaded.config == u8"Release"); // absent config normalizes to Release
-    CHECK(loaded.EffectiveConfig() == u8"Release");
-    CHECK(loaded.compiler.IsEmpty());
-    REQUIRE(loaded.sidecars.Size() == 1u); // the old required sidecars still map through
-    CHECK(loaded.sidecars[0] == u8"SDL3.dll");
-    CHECK(loaded.symbols.IsEmpty());
+    CHECK_FALSE(editor::LoadTemplateManifest(root, loaded).IsOk());
 
     NukeTree(dir.AsView());
 }
@@ -1072,14 +1065,15 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
     NukeTree(outRoot.AsView());
 }
 
-TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as Release/false")
+TEST_CASE("export: a v1 export_presets.xml (another data version) is REFUSED, not defaulted")
 {
     const String dir = TempDir(u8"scratch_presets_v1");
     NukeTree(dir.AsView());
     REQUIRE(CreateDirectory(dir.AsView()));
     foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
 
-    // A hand-written v1 export_presets.xml (dataVersion 1, no config/stageSymbols on the preset).
+    // A hand-written v1 export_presets.xml (dataVersion 1, no config/stageSymbols on the preset):
+    // refused by the versioned-payload reader; the presets file is re-created from the editor.
     const StringView v1 = u8"<root>"
                           u8"<array name=\"dataVersions\" count=\"1\">"
                           u8"<u64 name=\"type\">0</u64><u32 name=\"version\">1</u32>"
@@ -1098,12 +1092,7 @@ TEST_CASE("export: a v1 export_presets.xml without config/stageSymbols reads as 
     SaveText(root, u8"export_presets.xml", v1);
 
     editor::ExportPresetSet loaded;
-    REQUIRE(editor::LoadExportPresets(root, loaded).IsOk());
-    REQUIRE(loaded.presets.Size() == 1u);
-    CHECK(loaded.presets[0].name == u8"Legacy");
-    CHECK(loaded.presets[0].config.IsEmpty());       // absent => resolves as Release
-    CHECK_FALSE(loaded.presets[0].stageSymbols);     // absent => stripped
-    CHECK_FALSE(loaded.presets[0].pruneToReachable); // absent => pack everything (back-compat)
+    CHECK_FALSE(editor::LoadExportPresets(root, loaded).IsOk());
 
     NukeTree(dir.AsView());
 }

@@ -169,9 +169,9 @@ TEST_CASE("material: CreatePBR packs EmissiveColor at the shader's cbuffer offse
     CHECK(rgb[2] == 0.0f);
 }
 
-TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/idempotent)")
+TEST_CASE("material: a forward source missing the forward properties is STALE (refused, never upgraded)")
 {
-    // Simulate an asset authored BEFORE EmissiveColor existed: the old CreatePBR property set.
+    // An asset authored BEFORE EmissiveColor existed: the old CreatePBR property set.
     RefPtr<Material> old = MaterialBuilder(u8"legacy")
                                .Shader(u8"forward")
                                .VertexLayout(VertexLayoutType::Mesh)
@@ -184,57 +184,18 @@ TEST_CASE("material: pre-emissive forward sources upgrade in memory (offset/pad/
     MaterialSource src;
     MaterialSource::FromMaterial(*old, Guid{}, src);
     src.shaderName = String(u8"forward");
-    REQUIRE(src.uniformDefaults.Size() == 32u); // the pre-emissive block, 16-byte rounded
+    CHECK_FALSE(ForwardMaterialSourceIsComplete(src));
+    CHECK(src.propNames.Size() == 5u); // nothing appended
 
-    UpgradeForwardMaterialSource(src);
-    REQUIRE(src.propNames.Size() ==
-            9u); // + EmissiveColor/OcclusionStrength/NormalScale/AlphaCutoff
-    // (appended AFTER the texture props - safe: the set-2 layout emits the uniform buffer
-    // first regardless of property order)
-    const auto find = [&](StringView name) -> usize
-    {
-        for (usize i = 0; i < src.propNames.Size(); ++i)
-        {
-            if (src.propNames[i].AsView() == name)
-            {
-                return i;
-            }
-        }
-        return src.propNames.Size();
-    };
-    const usize e = find(u8"EmissiveColor");
-    const usize occ = find(u8"OcclusionStrength");
-    const usize ns = find(u8"NormalScale");
-    const usize ac = find(u8"AlphaCutoff");
-    REQUIRE(e < src.propNames.Size());
-    CHECK(src.propOffsets[e] == 32u); // straight past the rounded pre-emissive block
-    CHECK(src.propSizes[e] == 16u);
-    REQUIRE(occ < src.propNames.Size());
-    CHECK(src.propOffsets[occ] == 48u); // matches the shader cbuffer row
-    CHECK(src.propOffsets[ns] == 52u);
-    CHECK(src.propOffsets[ac] == 56u);
-    REQUIRE(src.uniformDefaults.Size() == 60u);
-    // The original bytes are untouched; the appended defaults are the NEUTRALS, not zeros.
-    const auto readF32 = [&](u32 offset)
-    {
-        f32 v = 0.0f;
-        MemCopy(&v, src.uniformDefaults.Data() + offset, sizeof(v));
-        return v;
-    };
-    CHECK(readF32(0) == 0.5f);  // BaseColor.r preserved
-    CHECK(readF32(32) == 0.0f); // emissive black
-    CHECK(readF32(44) == 1.0f); // emissive alpha
-    CHECK(readF32(48) == 1.0f); // occlusion strength
-    CHECK(readF32(52) == 1.0f); // normal scale
-    CHECK(readF32(56) == 0.5f); // alpha cutoff
-
-    // Idempotent + non-forward untouched.
-    UpgradeForwardMaterialSource(src);
-    CHECK(src.propNames.Size() == 9u);
+    // A current CreatePBR source carries the full table; non-forward shaders are untouched.
+    RefPtr<Material> pbr = CreatePBR(u8"current");
+    MaterialSource current;
+    MaterialSource::FromMaterial(*pbr, Guid{}, current);
+    current.shaderName = String(u8"forward");
+    CHECK(ForwardMaterialSourceIsComplete(current));
     MaterialSource unlit;
     unlit.shaderName = String(u8"unlit");
-    UpgradeForwardMaterialSource(unlit);
-    CHECK(unlit.propNames.Size() == 0u);
+    CHECK(ForwardMaterialSourceIsComplete(unlit));
 }
 
 TEST_CASE("material source: sampler address modes round-trip (v2)")

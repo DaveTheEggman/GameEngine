@@ -5,7 +5,7 @@
 //
 // NavigationMeshBuilder: the Recast bake. Triangle soup (positions + triangle indices, in
 // whatever space the caller chose - the engine bakes in ZONE-LOCAL space) plus an agent
-// profile go in; a serialized single-tile navmesh blob comes out. Pure and DETERMINISTIC:
+// profile go in; a serialized tiled navmesh blob comes out. Pure and DETERMINISTIC:
 // identical input + params produce byte-identical output (Recast has no threading or RNG in
 // this path). Recast lives entirely in NavigationImpl.cpp; this interface is rc*-free.
 
@@ -76,6 +76,7 @@ export namespace foundation::navigation
         //   NotFound         - the bake produced zero walkable polygons (degenerate geometry
         //                      or an agent profile that fits nowhere) - outData is left empty
         // Deterministic: same input + params -> byte-identical outData.
+        // (= BuildTiled without stage capture: there is ONE blob format, the tiled one.)
         [[nodiscard]] static Status Build(Span<const Float3> vertices, Span<const u32> indices,
                                           const NavigationBakeParams& params, Array<byte>& outData);
 

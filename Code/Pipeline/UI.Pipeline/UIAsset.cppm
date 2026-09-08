@@ -9,10 +9,9 @@
 //     references it through Asset::fileName - exactly like a script asset - so by-hand
 //     edits touch the real .sml/.sss file, not a payload embedded in the asset. Dropping a
 //     .sml/.sss file stages it into Sources/ and links it (New Asset seeds a starter file
-//     the same way). LEGACY assets that still carry the text inline (empty fileName) are
-//     read from the inline field and cooked unchanged (backward compat).
-//   * Builders VALIDATE at cook - the text (read from the linked source file, or the
-//     legacy inline field) must parse (markup against the registered control set; SSS
+//     the same way). An asset with no linked file (empty fileName) fails the cook.
+//   * Builders VALIDATE at cook - the text (read from the linked source file) must parse
+//     (markup against the registered control set; SSS
 //     through the stylesheet loader) or the cook FAILS - then write the text through to the
 //     cooked record (v1 payload; a pre-parsed binary tree can slot in behind the same
 //     records later). The cooked PRODUCT still embeds the resolved text; only the SOURCE
@@ -58,40 +57,30 @@ export namespace pipeline{
         u8"/* Game theme overrides - selectors match control types and .classes. */\n"
         u8"Label { text-color: #E8E8E8; }\n";
 
+    // The markup lives ONLY in the linked Sources/ file (Asset::fileName) - nothing inline.
     class UIDocumentAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(UIDocumentAsset, pipeline::Asset)
     public:
-        String markup;
-
-        void Serialize(ISerializer& ar) override
-        {
-            pipeline::Asset::Serialize(ar);
-            foundation::core::Serialize(ar, "markup", markup);
-        }
+        void Serialize(ISerializer& ar) override { pipeline::Asset::Serialize(ar); }
     };
 
     class UIThemeAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(UIThemeAsset, pipeline::Asset)
     public:
-        String stylesheet;
+        // The stylesheet lives ONLY in the linked Sources/ file (Asset::fileName).
         // EDITOR-ONLY preview scaffolding (no-editor-data-in-runtime): the markup the theme editor
         // previews this stylesheet against, persisted so a theme's preview context survives across
         // sessions (incl. inline edits). NEVER read by UIThemeAssetBuilder -> it stays out of the
-        // cooked UIThemeSource / runtime UITheme. Serialized under DataVersion 2 (see UIAssetImpl).
+        // cooked UIThemeSource / runtime UITheme.
         String previewMarkup;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar);
-            foundation::core::Serialize(ar, "stylesheet", stylesheet);
-            // v2: editor-only preview markup. The XML serializer is STRICT (a missing key fails the
-            // whole payload), so pre-v2 theme envelopes MUST skip this read (they have no such key).
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "previewMarkup", previewMarkup);
-            }
+            // Editor-only preview markup (never read by the builder - see the field).
+            foundation::core::Serialize(ar, "previewMarkup", previewMarkup);
         }
     };
 
@@ -115,11 +104,14 @@ export namespace pipeline{
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            // The markup lives in a LINKED source file (fileName set) - read it back through
-            // the sources mount. A LEGACY asset with an empty fileName still carries the text
-            // inline (backward compat); use it directly.
+            // The markup lives in the LINKED source file (fileName) - read it back through the
+            // sources mount. No link = nothing to cook.
+            if (da.fileName.IsEmpty())
+            {
+                LOG_ERROR(u8"UI", u8"UI document has no linked source file - cook failed");
+                return Status{ErrorCode::InvalidArgument};
+            }
             String markup;
-            if (!da.fileName.IsEmpty())
             {
                 const Status read = ReadSourceText(ctx, da.fileName.View(), markup);
                 if (!read.IsOk())
@@ -128,10 +120,6 @@ export namespace pipeline{
                               da.fileName.View());
                     return read;
                 }
-            }
-            else
-            {
-                markup = da.markup;
             }
             if (markup.IsEmpty())
             {
@@ -182,11 +170,14 @@ export namespace pipeline{
             {
                 return Status{ErrorCode::InvalidArgument};
             }
-            // The stylesheet lives in a LINKED source file (fileName set) - read it back
-            // through the sources mount. A LEGACY asset with an empty fileName still carries
-            // the text inline (backward compat); use it directly.
+            // The stylesheet lives in the LINKED source file (fileName) - read it back through
+            // the sources mount. No link = nothing to cook.
+            if (ta.fileName.IsEmpty())
+            {
+                LOG_ERROR(u8"UI", u8"UI theme has no linked source file - cook failed");
+                return Status{ErrorCode::InvalidArgument};
+            }
             String stylesheet;
-            if (!ta.fileName.IsEmpty())
             {
                 const Status read = ReadSourceText(ctx, ta.fileName.View(), stylesheet);
                 if (!read.IsOk())
@@ -195,10 +186,6 @@ export namespace pipeline{
                               ta.fileName.View());
                     return read;
                 }
-            }
-            else
-            {
-                stylesheet = ta.stylesheet;
             }
             if (stylesheet.IsEmpty())
             {

@@ -111,14 +111,11 @@ export namespace engine::ui
         c.scalerMode = static_cast<CanvasScalerMode>(scaler);
         foundation::core::Serialize(ar, "referenceResolution", c.referenceResolution);
         foundation::core::Serialize(ar, "interactive", c.interactive);
-        if (ar.Version() >= 2) // v2 added the RenderTexture canvas mode
-        {
-            u8 render = static_cast<u8>(c.renderMode);
-            foundation::core::Serialize(ar, "renderMode", render);
-            c.renderMode = static_cast<CanvasRenderMode>(render);
-            foundation::core::Serialize(ar, "renderTextureWidth", c.renderTextureWidth);
-            foundation::core::Serialize(ar, "renderTextureHeight", c.renderTextureHeight);
-        }
+        u8 render = static_cast<u8>(c.renderMode);
+        foundation::core::Serialize(ar, "renderMode", render);
+        c.renderMode = static_cast<CanvasRenderMode>(render);
+        foundation::core::Serialize(ar, "renderTextureWidth", c.renderTextureWidth);
+        foundation::core::Serialize(ar, "renderTextureHeight", c.renderTextureHeight);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, UICanvasComponent& c)

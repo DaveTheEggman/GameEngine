@@ -33,9 +33,8 @@ namespace foundation::navigation
 {
     namespace
     {
-        // Serialized-blob header. The Detour tile data follows immediately after.
+        // Serialized-blob header. The tiled info block + tile records follow immediately after.
         constexpr u32 kBlobMagic = 0x564E4144u; // 'DANV' little-endian
-        constexpr u32 kBlobVersion = 1u;
 
         struct BlobHeader
         {
@@ -50,7 +49,8 @@ namespace foundation::navigation
         // filter (include 0xffff) accepts it.
         constexpr unsigned short kPolyFlagWalk = 0x01;
 
-        // v2 = TILED: the header's navDataSize covers this info block + the tile records.
+        // The blob format: TILED (version 2 - the retired single-tile v1 is refused). The
+        // header's navDataSize covers this info block + the tile records.
         constexpr u32 kBlobVersionTiled = 2u;
         struct TiledBlobInfo
         {
@@ -117,205 +117,7 @@ namespace foundation::navigation
     Status NavigationMeshBuilder::Build(Span<const Float3> vertices, Span<const u32> indices,
                                         const NavigationBakeParams& params, Array<byte>& outData)
     {
-        PROFILE_SCOPE("Navigation.Bake"); // measures the bake (the async-deferral trigger, >100ms)
-        outData.Clear();
-
-        if (vertices.IsEmpty() || indices.IsEmpty() || (indices.Size() % 3u) != 0u)
-        {
-            return Status{ErrorCode::InvalidArgument};
-        }
-        const int vertexCount = static_cast<int>(vertices.Size());
-        const int triangleCount = static_cast<int>(indices.Size() / 3u);
-
-        // u32 -> int triangle list (Recast wants int); bounds-check every index.
-        Array<int> tris;
-        tris.Resize(indices.Size());
-        for (usize i = 0; i < indices.Size(); ++i)
-        {
-            if (indices[i] >= vertices.Size())
-            {
-                return Status{ErrorCode::InvalidArgument};
-            }
-            tris[i] = static_cast<int>(indices[i]);
-        }
-        // Float3 is three contiguous f32s, so the span doubles as Recast's float* vertex array.
-        const float* verts = reinterpret_cast<const float*>(vertices.Data());
-
-        float bmin[3] = {verts[0], verts[1], verts[2]};
-        float bmax[3] = {verts[0], verts[1], verts[2]};
-        for (int i = 1; i < vertexCount; ++i)
-        {
-            for (int c = 0; c < 3; ++c)
-            {
-                bmin[c] = rcMin(bmin[c], verts[i * 3 + c]);
-                bmax[c] = rcMax(bmax[c], verts[i * 3 + c]);
-            }
-        }
-
-        rcConfig cfg;
-        std::memset(&cfg, 0, sizeof(cfg));
-        cfg.cs = params.cellSize;
-        cfg.ch = params.cellHeight;
-        cfg.walkableSlopeAngle = params.agentMaxSlopeDegrees;
-        cfg.walkableHeight = static_cast<int>(std::ceil(params.agentHeight / cfg.ch));
-        cfg.walkableClimb = static_cast<int>(std::floor(params.agentMaxClimb / cfg.ch));
-        cfg.walkableRadius = static_cast<int>(std::ceil(params.agentRadius / cfg.cs));
-        cfg.maxEdgeLen = static_cast<int>(12.0f / cfg.cs);
-        cfg.maxSimplificationError = 1.3f;
-        cfg.minRegionArea = static_cast<int>(rcSqr(8));   // rm small isolated regions
-        cfg.mergeRegionArea = static_cast<int>(rcSqr(20)); // merge small into neighbours
-        cfg.maxVertsPerPoly = DT_VERTS_PER_POLYGON;
-        cfg.detailSampleDist = cfg.cs * 6.0f;
-        cfg.detailSampleMaxError = cfg.ch * 1.0f;
-        rcVcopy(cfg.bmin, bmin);
-        rcVcopy(cfg.bmax, bmax);
-        rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
-
-        rcContext ctx(false); // no timers, no logging
-
-        rcHeightfield* solid = nullptr;
-        rcCompactHeightfield* chf = nullptr;
-        rcContourSet* cset = nullptr;
-        rcPolyMesh* pmesh = nullptr;
-        rcPolyMeshDetail* dmesh = nullptr;
-
-        // The build runs inside a lambda so a single cleanup block frees every Recast object on
-        // any exit. `outData` is filled before the cleanup.
-        auto run = [&]() -> Status
-        {
-            solid = rcAllocHeightfield();
-            if (solid == nullptr ||
-                !rcCreateHeightfield(&ctx, *solid, cfg.width, cfg.height, cfg.bmin, cfg.bmax,
-                                     cfg.cs, cfg.ch))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            Array<unsigned char> triAreas;
-            triAreas.Resize(static_cast<usize>(triangleCount));
-            std::memset(triAreas.Data(), 0, triAreas.Size());
-            rcMarkWalkableTriangles(&ctx, cfg.walkableSlopeAngle, verts, vertexCount, tris.Data(),
-                                    triangleCount, triAreas.Data());
-            if (!rcRasterizeTriangles(&ctx, verts, vertexCount, tris.Data(), triAreas.Data(),
-                                      triangleCount, *solid, cfg.walkableClimb))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            rcFilterLowHangingWalkableObstacles(&ctx, cfg.walkableClimb, *solid);
-            rcFilterLedgeSpans(&ctx, cfg.walkableHeight, cfg.walkableClimb, *solid);
-            rcFilterWalkableLowHeightSpans(&ctx, cfg.walkableHeight, *solid);
-
-            chf = rcAllocCompactHeightfield();
-            if (chf == nullptr || !rcBuildCompactHeightfield(&ctx, cfg.walkableHeight,
-                                                             cfg.walkableClimb, *solid, *chf))
-            {
-                return Status{ErrorCode::Internal};
-            }
-            if (!rcErodeWalkableArea(&ctx, cfg.walkableRadius, *chf))
-            {
-                return Status{ErrorCode::Internal};
-            }
-            // Watershed partitioning (deterministic; the default for good-quality solo meshes).
-            if (!rcBuildDistanceField(&ctx, *chf) ||
-                !rcBuildRegions(&ctx, *chf, 0, cfg.minRegionArea, cfg.mergeRegionArea))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            cset = rcAllocContourSet();
-            if (cset == nullptr ||
-                !rcBuildContours(&ctx, *chf, cfg.maxSimplificationError, cfg.maxEdgeLen, *cset))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            pmesh = rcAllocPolyMesh();
-            if (pmesh == nullptr || !rcBuildPolyMesh(&ctx, *cset, cfg.maxVertsPerPoly, *pmesh))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            dmesh = rcAllocPolyMeshDetail();
-            if (dmesh == nullptr || !rcBuildPolyMeshDetail(&ctx, *pmesh, *chf, cfg.detailSampleDist,
-                                                           cfg.detailSampleMaxError, *dmesh))
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            if (pmesh->npolys == 0)
-            {
-                return Status{ErrorCode::NotFound}; // nothing walkable came out
-            }
-
-            // Flag every walkable poly so the default Detour filter accepts it.
-            for (int i = 0; i < pmesh->npolys; ++i)
-            {
-                if (pmesh->areas[i] == RC_WALKABLE_AREA)
-                {
-                    pmesh->flags[i] = kPolyFlagWalk;
-                }
-            }
-
-            dtNavMeshCreateParams np;
-            std::memset(&np, 0, sizeof(np));
-            np.verts = pmesh->verts;
-            np.vertCount = pmesh->nverts;
-            np.polys = pmesh->polys;
-            np.polyAreas = pmesh->areas;
-            np.polyFlags = pmesh->flags;
-            np.polyCount = pmesh->npolys;
-            np.nvp = pmesh->nvp;
-            np.detailMeshes = dmesh->meshes;
-            np.detailVerts = dmesh->verts;
-            np.detailVertsCount = dmesh->nverts;
-            np.detailTris = dmesh->tris;
-            np.detailTriCount = dmesh->ntris;
-            np.walkableHeight = params.agentHeight;
-            np.walkableRadius = params.agentRadius;
-            np.walkableClimb = params.agentMaxClimb;
-            rcVcopy(np.bmin, pmesh->bmin);
-            rcVcopy(np.bmax, pmesh->bmax);
-            np.cs = cfg.cs;
-            np.ch = cfg.ch;
-            np.buildBvTree = true;
-
-            unsigned char* navData = nullptr;
-            int navDataSize = 0;
-            if (!dtCreateNavMeshData(&np, &navData, &navDataSize) || navData == nullptr ||
-                navDataSize <= 0)
-            {
-                return Status{ErrorCode::Internal};
-            }
-
-            BlobHeader header;
-            header.magic = kBlobMagic;
-            header.version = kBlobVersion;
-            header.agentRadius = params.agentRadius;
-            header.agentHeight = params.agentHeight;
-            header.navDataSize = static_cast<u32>(navDataSize);
-
-            outData.Resize(sizeof(BlobHeader) + static_cast<usize>(navDataSize));
-            std::memcpy(outData.Data(), &header, sizeof(BlobHeader));
-            std::memcpy(outData.Data() + sizeof(BlobHeader), navData,
-                        static_cast<usize>(navDataSize));
-            dtFree(navData);
-            return Status{};
-        };
-
-        const Status status = run();
-
-        rcFreePolyMeshDetail(dmesh);
-        rcFreePolyMesh(pmesh);
-        rcFreeContourSet(cset);
-        rcFreeCompactHeightfield(chf);
-        rcFreeHeightField(solid);
-
-        if (!status.IsOk())
-        {
-            outData.Clear();
-        }
-        return status;
+        return BuildTiled(vertices, indices, params, outData, nullptr); // ONE blob format: tiled
     }
 
     namespace
@@ -915,118 +717,86 @@ namespace foundation::navigation
         }
         BlobHeader header;
         std::memcpy(&header, data.Data(), sizeof(BlobHeader));
-        if (header.magic != kBlobMagic ||
-            (header.version != kBlobVersion && header.version != kBlobVersionTiled))
+        if (header.magic != kBlobMagic || header.version != kBlobVersionTiled)
         {
-            return Status{ErrorCode::InvalidArgument};
+            return Status{ErrorCode::InvalidArgument}; // one blob format: tiled (v2)
         }
         if (data.Size() != sizeof(BlobHeader) + static_cast<usize>(header.navDataSize))
         {
             return Status{ErrorCode::InvalidArgument};
         }
 
-        if (header.version == kBlobVersionTiled)
+        // Tiled blob: init a tiled dtNavMesh over the recorded grid, then add each tile
+        // (Detour places them by the x/y baked into the tile headers).
+        const byte* cursor = data.Data() + sizeof(BlobHeader);
+        const byte* end = data.Data() + data.Size();
+        if (end - cursor < static_cast<isize>(sizeof(TiledBlobInfo)))
         {
-            // Multi-tile blob: init a tiled dtNavMesh over the recorded grid, then add each
-            // tile (Detour places them by the x/y baked into the tile headers).
-            const byte* cursor = data.Data() + sizeof(BlobHeader);
-            const byte* end = data.Data() + data.Size();
-            if (end - cursor < static_cast<isize>(sizeof(TiledBlobInfo)))
-            {
-                return Status{ErrorCode::InvalidArgument};
-            }
-            TiledBlobInfo info;
-            std::memcpy(&info, cursor, sizeof(TiledBlobInfo));
-            cursor += sizeof(TiledBlobInfo);
-            if (info.tileCount == 0 || info.tileCountX <= 0 || info.tileCountY <= 0 ||
-                info.tileWorldSize <= 0.0f)
-            {
-                return Status{ErrorCode::InvalidArgument};
-            }
-
-            dtNavMesh* mesh = dtAllocNavMesh();
-            if (mesh == nullptr)
-            {
-                return Status{ErrorCode::OutOfMemory};
-            }
-            dtNavMeshParams meshParams;
-            std::memset(&meshParams, 0, sizeof(meshParams));
-            meshParams.orig[0] = info.origin[0];
-            meshParams.orig[1] = info.origin[1];
-            meshParams.orig[2] = info.origin[2];
-            meshParams.tileWidth = info.tileWorldSize;
-            meshParams.tileHeight = info.tileWorldSize;
-            meshParams.maxTiles = info.tileCountX * info.tileCountY;
-            meshParams.maxPolys = 1 << 14;
-            if (dtStatusFailed(mesh->init(&meshParams)))
-            {
-                dtFreeNavMesh(mesh);
-                return Status{ErrorCode::Internal};
-            }
-            for (u32 i = 0; i < info.tileCount; ++i)
-            {
-                if (end - cursor < static_cast<isize>(sizeof(TileRecord)))
-                {
-                    dtFreeNavMesh(mesh);
-                    return Status{ErrorCode::InvalidArgument};
-                }
-                TileRecord record;
-                std::memcpy(&record, cursor, sizeof(TileRecord));
-                cursor += sizeof(TileRecord);
-                if (record.dataSize == 0 ||
-                    end - cursor < static_cast<isize>(record.dataSize))
-                {
-                    dtFreeNavMesh(mesh);
-                    return Status{ErrorCode::InvalidArgument};
-                }
-                unsigned char* tileBytes =
-                    static_cast<unsigned char*>(dtAlloc(record.dataSize, DT_ALLOC_PERM));
-                if (tileBytes == nullptr)
-                {
-                    dtFreeNavMesh(mesh);
-                    return Status{ErrorCode::OutOfMemory};
-                }
-                std::memcpy(tileBytes, cursor, record.dataSize);
-                cursor += record.dataSize;
-                const dtStatus added =
-                    mesh->addTile(tileBytes, static_cast<int>(record.dataSize),
-                                  DT_TILE_FREE_DATA, 0, nullptr);
-                if (dtStatusFailed(added))
-                {
-                    dtFree(tileBytes);
-                    dtFreeNavMesh(mesh);
-                    return Status{ErrorCode::Internal};
-                }
-            }
-            impl.navMesh = mesh;
-            impl.agentRadius = header.agentRadius;
-            impl.agentHeight = header.agentHeight;
-            return Status{};
+            return Status{ErrorCode::InvalidArgument};
         }
-
-        // Detour needs the tile data in a dtAlloc'd buffer it can own+free (DT_TILE_FREE_DATA).
-        unsigned char* tile =
-            static_cast<unsigned char*>(dtAlloc(header.navDataSize, DT_ALLOC_PERM));
-        if (tile == nullptr)
+        TiledBlobInfo info;
+        std::memcpy(&info, cursor, sizeof(TiledBlobInfo));
+        cursor += sizeof(TiledBlobInfo);
+        if (info.tileCount == 0 || info.tileCountX <= 0 || info.tileCountY <= 0 ||
+            info.tileWorldSize <= 0.0f)
         {
-            return Status{ErrorCode::OutOfMemory};
+            return Status{ErrorCode::InvalidArgument};
         }
-        std::memcpy(tile, data.Data() + sizeof(BlobHeader), header.navDataSize);
 
         dtNavMesh* mesh = dtAllocNavMesh();
         if (mesh == nullptr)
         {
-            dtFree(tile);
             return Status{ErrorCode::OutOfMemory};
         }
-        const dtStatus st =
-            mesh->init(tile, static_cast<int>(header.navDataSize), DT_TILE_FREE_DATA);
-        if (dtStatusFailed(st))
+        dtNavMeshParams meshParams;
+        std::memset(&meshParams, 0, sizeof(meshParams));
+        meshParams.orig[0] = info.origin[0];
+        meshParams.orig[1] = info.origin[1];
+        meshParams.orig[2] = info.origin[2];
+        meshParams.tileWidth = info.tileWorldSize;
+        meshParams.tileHeight = info.tileWorldSize;
+        meshParams.maxTiles = info.tileCountX * info.tileCountY;
+        meshParams.maxPolys = 1 << 14;
+        if (dtStatusFailed(mesh->init(&meshParams)))
         {
-            dtFreeNavMesh(mesh); // frees `tile` (ownership was handed over)
+            dtFreeNavMesh(mesh);
             return Status{ErrorCode::Internal};
         }
-
+        for (u32 i = 0; i < info.tileCount; ++i)
+        {
+            if (end - cursor < static_cast<isize>(sizeof(TileRecord)))
+            {
+                dtFreeNavMesh(mesh);
+                return Status{ErrorCode::InvalidArgument};
+            }
+            TileRecord record;
+            std::memcpy(&record, cursor, sizeof(TileRecord));
+            cursor += sizeof(TileRecord);
+            if (record.dataSize == 0 ||
+                end - cursor < static_cast<isize>(record.dataSize))
+            {
+                dtFreeNavMesh(mesh);
+                return Status{ErrorCode::InvalidArgument};
+            }
+            unsigned char* tileBytes =
+                static_cast<unsigned char*>(dtAlloc(record.dataSize, DT_ALLOC_PERM));
+            if (tileBytes == nullptr)
+            {
+                dtFreeNavMesh(mesh);
+                return Status{ErrorCode::OutOfMemory};
+            }
+            std::memcpy(tileBytes, cursor, record.dataSize);
+            cursor += record.dataSize;
+            const dtStatus added =
+                mesh->addTile(tileBytes, static_cast<int>(record.dataSize),
+                              DT_TILE_FREE_DATA, 0, nullptr);
+            if (dtStatusFailed(added))
+            {
+                dtFree(tileBytes);
+                dtFreeNavMesh(mesh);
+                return Status{ErrorCode::Internal};
+            }
+        }
         impl.navMesh = mesh;
         impl.agentRadius = header.agentRadius;
         impl.agentHeight = header.agentHeight;
@@ -1040,7 +810,7 @@ namespace foundation::navigation
         {
             return Status{ErrorCode::InvalidArgument};
         }
-        // Only a multi-tile mesh (v2 blob) has a grid arbitrary tiles can land on.
+        // Only a mesh whose grid can place arbitrary tiles (a multi-tile grid).
         if (mesh->getParams()->maxTiles <= 1)
         {
             return Status{ErrorCode::NotSupported};

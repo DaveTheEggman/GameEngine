@@ -63,12 +63,13 @@ export namespace foundation::core
 
         [[nodiscard]] virtual SerializeMode Mode() const noexcept = 0;
 
-        // === Data-version scopes (serialization migration, Traktor-style) ===
+        // === Data-version scopes ===
         // A scope is pushed around each versioned payload (content envelopes, scene component
-        // records) with the version chain the data carries. Serialize bodies branch:
-        //     if (ar.Version() >= 2) { Serialize(ar, "newField", value); }
-        // Version() = the payload's concrete type; Version(typeId) = a base class in the chain
-        // (0 when absent - unversioned data reads as version 0).
+        // records) with the version chain the data carries. BeginVersionedPayload REFUSES a
+        // stored chain that differs from the type's current one, so inside a payload Version()
+        // always reports the current data version - Serialize bodies read one layout, never
+        // branch on it. Version() = the payload's concrete type; Version(typeId) = a base class
+        // in the chain (0 when absent - unversioned data reads as version 0).
         [[nodiscard]] virtual u32 Version() const noexcept = 0;
         [[nodiscard]] virtual u32 Version(u64 typeId) const noexcept = 0;
         virtual void PushVersionScope(const SerializedDataVersion* chain, usize count) = 0;

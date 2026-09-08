@@ -57,7 +57,7 @@ export namespace pipeline{
         String family;      // runtime family name ("" = the file's own family at cook)
         FontBakeMode mode = FontBakeMode::RasterRamp;
         Array<f32> sizes;   // RasterRamp: one cooked entry per size
-        f32 distanceFieldSize = 48.0f; // DistanceField: the single bake size (DataVersion 1 key; v0 wrote "dfSize")
+        f32 distanceFieldSize = 48.0f; // DistanceField: the single bake size
         i32 firstCodepoint = 32;
         i32 lastCodepoint = 255; // ExtendedLatin default (matches the runtime rasterizer)
         u32 atlasWidth = 1024;
@@ -85,16 +85,7 @@ export namespace pipeline{
             foundation::core::Serialize(ar, "mode", bakeMode);
             mode = static_cast<FontBakeMode>(bakeMode);
             foundation::core::Serialize(ar, "sizes", sizes);
-            if (ar.Version() >= 1)
-            {
-                foundation::core::Serialize(ar, "distanceFieldSize", distanceFieldSize);
-            }
-            else
-            {
-                // v0 payloads (every project saved before 2026-09-06) carry the abbreviated
-                // key; they upgrade on the next save, which writes DataVersion 1.
-                foundation::core::Serialize(ar, "dfSize", distanceFieldSize);
-            }
+            foundation::core::Serialize(ar, "distanceFieldSize", distanceFieldSize);
             foundation::core::Serialize(ar, "firstCodepoint", firstCodepoint);
             foundation::core::Serialize(ar, "lastCodepoint", lastCodepoint);
             foundation::core::Serialize(ar, "atlasWidth", atlasWidth);

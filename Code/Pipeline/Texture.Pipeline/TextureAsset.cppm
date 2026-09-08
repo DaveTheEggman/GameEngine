@@ -73,15 +73,8 @@ export namespace pipeline{
         {
             pipeline::Asset::Serialize(ar); // fileName
             foundation::core::Serialize(ar, "colorSpace", colorSpace);
-            // v2 (asset-variants): usage + compression. The XML serializer is STRICT (a
-            // missing key fails the whole payload), so pre-variants envelopes MUST skip
-            // these reads - unconditional reads broke every pre-variants texture asset
-            // (ReadObject null: pages and thumbnails alike). v<2 keeps the defaults.
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "usage", usage);
-                foundation::core::Serialize(ar, "compression", compression);
-            }
+            foundation::core::Serialize(ar, "usage", usage);
+            foundation::core::Serialize(ar, "compression", compression);
             foundation::core::Serialize(ar, "embeddedWidth", embeddedWidth);
             foundation::core::Serialize(ar, "embeddedHeight", embeddedHeight);
             foundation::core::Serialize(ar, "shape", shape);
@@ -92,10 +85,7 @@ export namespace pipeline{
             foundation::core::Serialize(ar, "wrapW", wrapW);
             foundation::core::Serialize(ar, "generateMipmaps", generateMipmaps);
             foundation::core::Serialize(ar, "anisotropy", anisotropy);
-            if (ar.Version() >= 3) // v3: display-only provenance for embedded fan-out textures
-            {
-                foundation::core::Serialize(ar, "sourceHint", sourceHint);
-            }
+            foundation::core::Serialize(ar, "sourceHint", sourceHint);
         }
 
         // Profiles (Sedulous-derived samplers + the usage/colorSpace pair): each configures the

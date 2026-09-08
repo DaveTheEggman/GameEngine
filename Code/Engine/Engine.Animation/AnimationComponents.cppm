@@ -69,10 +69,7 @@ export namespace engine::animation
         foundation::core::Serialize(ar, "speed", c.speed);
         foundation::core::Serialize(ar, "startTime", c.startTime);
         foundation::core::Serialize(ar, "autoPlay", c.autoPlay);
-        if (ar.Version() >= 1) // v1: meshEntities persist (EntityRef, prefab-remapped)
-        {
-            foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
-        }
+        foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
@@ -209,10 +206,7 @@ export namespace engine::animation
         foundation::core::Serialize(ar, "skeleton", c.skeleton);
         foundation::core::Serialize(ar, "graph", c.graph);
         foundation::core::Serialize(ar, "active", c.active);
-        if (ar.Version() >= 1) // v1: meshEntities persist (EntityRef, prefab-remapped)
-        {
-            foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
-        }
+        foundation::core::Serialize(ar, "meshEntities", c.meshEntities);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,

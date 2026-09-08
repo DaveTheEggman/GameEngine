@@ -7,7 +7,7 @@
 // weights, not color - channel k's MEANING depends on the per-texel palette indices - so the
 // tile maps the four slots to fixed distinct hues and blends by weight: the painted regions'
 // SHAPE is the recognizable identity, not the layer colors. Prepare reads the imported source
-// PNG (legacy fixed-layer weights) or the painted "pixels" sidecar; Generate colorizes and
+// PNG (a fixed-layer raster) or the painted "pixels" sidecar; Generate colorizes and
 // box-downscales.
 
 module;

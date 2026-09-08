@@ -1100,149 +1100,19 @@ TEST_CASE("rtti: type domains - default Runtime, open tags, widen-only")
     CHECK(registry.Count() == count);
 }
 
-TEST_CASE("rtti: legacy 'draconic::' namespaces resolve to the current 'rtti::' registrations")
+TEST_CASE("rtti: legacy namespace spellings do NOT resolve - current names only")
 {
-    // Registration namespaces use the "rtti::" prefix (Foundation
-    // "draconic::X" -> "rtti::X", Engine "draconic::X" -> "rtti::engine::X"), while
-    // serialized data (content envelopes, settings sections, scenes) still carries the
-    // old qualified "draconic::" names. FindByName's legacy fallback keeps that data loading.
+    // Serialized data stores qualified type names. Files written under the retired
+    // "draconic::" / "rtti::editor::<lib>" spellings are not remapped: FindByName is an exact
+    // lookup, so such a file fails to deserialize (re-import / re-save under the current
+    // build) instead of being silently upgraded.
     TypeRegistry registry;
-    registry.Register(Animal::StaticType()); // registered under its current rtti::* namespace
-
-    const TypeInfo& animal = Animal::StaticType();
-    // Current name resolves (the fast path is untouched).
-    CHECK(registry.FindByName(animal.namespaceName, animal.name) == &animal);
-
-    // A legacy Foundation spelling: swap the leading "rtti" for "draconic".
-    String legacy(u8"draconic");
-    legacy.Append(StringView(reinterpret_cast<const char8_t*>(animal.namespaceName + 4)));
-    CHECK(registry.FindByName(reinterpret_cast<const char*>(legacy.CStr()), animal.name) ==
-          &animal);
-
-    // A legacy ENGINE spelling: "draconic::rest" where the type now lives at
-    // "rtti::engine::rest" - exercised with a registry-local alias of the same info under
-    // the engine-shaped namespace.
-    static const TypeInfo engineShaped{ComputeTypeId("rtti::engine::zoo", "Animal"),
-                                       "Animal",
-                                       "rtti::engine::zoo",
-                                       animal.size,
-                                       animal.align,
-                                       animal.base};
-    registry.Register(engineShaped);
-    CHECK(registry.FindByName("draconic::zoo", "Animal") == &engineShaped);
-
-    // Non-legacy misses stay misses (no false positives).
-    CHECK(registry.FindByName("draconicish::zoo", "Animal") == nullptr);
-    CHECK(registry.FindByName("other::zoo", "Animal") == nullptr);
-}
-
-TEST_CASE("rtti: legacy 'editor::' asset-cook namespaces resolve to the current 'pipeline::'")
-{
-    // The asset-cook types live in the Pipeline collection, not the Editor collection, so a
-    // cooked type's identity is "rtti::pipeline::<lib>" where older data used
-    // "rtti::editor::<lib>" or the legacy "draconic::editor::<lib>". Cooked products on disk
-    // still carry the old names until re-cooked, so both legacy spellings must resolve.
-    TypeRegistry registry;
-    static const TypeInfo pipelineShaped{ComputeTypeId("rtti::pipeline::geometry", "CookWidget"),
-                                         "CookWidget",
-                                         "rtti::pipeline::geometry",
-                                         0,
-                                         0,
-                                         nullptr};
-    registry.Register(pipelineShaped);
-
-    // Current name resolves.
-    CHECK(registry.FindByName("rtti::pipeline::geometry", "CookWidget") == &pipelineShaped);
-    // The "rtti::editor::<lib>" spelling (before the move to pipeline).
-    CHECK(registry.FindByName("rtti::editor::geometry", "CookWidget") == &pipelineShaped);
-    // The legacy "draconic::editor::<lib>" spelling.
-    CHECK(registry.FindByName("draconic::editor::geometry", "CookWidget") == &pipelineShaped);
-
-    // A non-cook "editor::" that never moved stays a miss (no false positives).
-    CHECK(registry.FindByName("rtti::editor::somethingelse", "CookWidget") == nullptr);
-}
-
-TEST_CASE("rtti: legacy flat 'draconic::editor' resolves to the per-collection "
-          "'rtti::editor::editor' registration (still-editor types)")
-{
-    // Types in the Editor collection carry the per-collection prefix:
-    // "draconic::editor[::rest]" -> "rtti::editor::editor[::rest]". For example,
-    // ~/.local/share/draconic/editor.settings.xml carries
-    // 'draconic::editor'::RecentProjectsSettings; without the fallback the settings loader
-    // cannot resolve it and preserves the section as unknown instead of loading it.
-    TypeRegistry registry;
-    static const TypeInfo editorShaped{ComputeTypeId("rtti::editor::editor",
-                                                     "RecentProjectsSettings"),
-                                       "RecentProjectsSettings",
-                                       "rtti::editor::editor",
-                                       0,
-                                       0,
-                                       nullptr};
-    registry.Register(editorShaped);
-    static const TypeInfo appShaped{ComputeTypeId("rtti::editor::editor::app", "LayoutSettings"),
-                                    "LayoutSettings",
-                                    "rtti::editor::editor::app",
-                                    0,
-                                    0,
-                                    nullptr};
-    registry.Register(appShaped);
-
-    // Current names resolve (fast path untouched).
-    CHECK(registry.FindByName("rtti::editor::editor", "RecentProjectsSettings") == &editorShaped);
-    // The flat "draconic::editor" spelling - the settings file's exact identity.
-    CHECK(registry.FindByName("draconic::editor", "RecentProjectsSettings") == &editorShaped);
-    // Nested editor lib: "draconic::editor::app" -> "rtti::editor::editor::app".
-    CHECK(registry.FindByName("draconic::editor::app", "LayoutSettings") == &appShaped);
-    // The pre-per-collection-prefix window spelling ("rtti::editor" flat) also resolves.
-    CHECK(registry.FindByName("rtti::editor", "RecentProjectsSettings") == &editorShaped);
-    // The MOVED-to-pipeline retry still wins first for cook types (order: pipeline, then
-    // editor respelling) - and a miss on both stays a miss.
-    CHECK(registry.FindByName("draconic::editor", "NoSuchType") == nullptr);
-}
-
-TEST_CASE("rtti: legacy subsystem-flavored 'draconic::<lib>' asset identities resolve to "
-          "'rtti::pipeline::<lib>'")
-{
-    // Legacy ASSET identities use the subsystem-flavored spelling -
-    // 'draconic::physics'::CollisionShapeAsset, 'draconic::script'::ScriptClassAsset - rather
-    // than the editor-collection spelling. These types live under the Pipeline collection;
-    // without this mapping the cook reports "failed to deserialize (stale schema?)" and the
-    // editor shows "no editor registered for this asset type" for every such legacy source asset.
-    TypeRegistry registry;
-    static const TypeInfo collisionShaped{ComputeTypeId("rtti::pipeline::physics",
-                                                        "CollisionShapeAsset"),
-                                          "CollisionShapeAsset",
-                                          "rtti::pipeline::physics",
-                                          0,
-                                          0,
-                                          nullptr};
-    registry.Register(collisionShaped);
-    static const TypeInfo scriptShaped{ComputeTypeId("rtti::pipeline::script",
-                                                     "ScriptClassAsset"),
-                                       "ScriptClassAsset",
-                                       "rtti::pipeline::script",
-                                       0,
-                                       0,
-                                       nullptr};
-    registry.Register(scriptShaped);
-
-    // The two exact identities from the live envelopes.
-    CHECK(registry.FindByName("draconic::physics", "CollisionShapeAsset") == &collisionShaped);
-    CHECK(registry.FindByName("draconic::script", "ScriptClassAsset") == &scriptShaped);
-
-    // A FOUNDATION type at the same legacy spelling still wins the earlier retry (order:
-    // rtti::<lib> before rtti::pipeline::<lib>) - the pipeline retry only fires on a miss.
-    static const TypeInfo foundationShaped{ComputeTypeId("rtti::physics", "RigidBodySettings"),
-                                           "RigidBodySettings",
-                                           "rtti::physics",
-                                           0,
-                                           0,
-                                           nullptr};
-    registry.Register(foundationShaped);
-    CHECK(registry.FindByName("draconic::physics", "RigidBodySettings") == &foundationShaped);
-
-    // Misses stay misses.
-    CHECK(registry.FindByName("draconic::physics", "NoSuchAsset") == nullptr);
+    registry.Register(Dog::StaticType());
+    REQUIRE(registry.FindByName("rtti::test", "Dog") != nullptr);
+    CHECK(registry.FindByName("draconic::test", "Dog") == nullptr);
+    CHECK(registry.FindByName("draconic::engine::test", "Dog") == nullptr);
+    CHECK(registry.FindByName("rtti::editor::test", "Dog") == nullptr);
+    CHECK(registry.FindByName("rtti", "Dog") == nullptr);
 }
 
 // --- Shared-library identity (P1): TypeId is THE identity, pointers are a fast

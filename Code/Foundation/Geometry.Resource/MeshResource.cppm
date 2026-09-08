@@ -156,46 +156,16 @@ export namespace foundation::geometry
         {
             foundation::core::Serialize(ar, "name", name);
             foundation::core::Serialize(ar, "vertexBlob", vertexBlob);
-            // v1 blobs predate the Float4 tangent (48-byte stride, Float3 tangent at offset 36):
-            // expand each vertex in place with handedness +1 - identical look, no re-authoring.
-            if (ar.Mode() == SerializeMode::Read && ar.Version() < 2)
-            {
-                constexpr usize kOldStride = 48;
-                if (vertexBlob.Size() % kOldStride == 0 && !vertexBlob.IsEmpty())
-                {
-                    const usize count = vertexBlob.Size() / kOldStride;
-                    Array<u8> wide;
-                    wide.Resize(count * sizeof(StaticMeshVertex));
-                    for (usize i = 0; i < count; ++i)
-                    {
-                        const u8* src = vertexBlob.Data() + i * kOldStride;
-                        auto* dst = reinterpret_cast<StaticMeshVertex*>(
-                            wide.Data() + i * sizeof(StaticMeshVertex));
-                        *dst = StaticMeshVertex{};
-                        MemCopy(dst, src, 36); // pos/normal/uv/color
-                        Float3 t3{1, 0, 0};
-                        MemCopy(&t3, src + 36, sizeof(t3)); // old Float3 tangent
-                        dst->tangent = Float4{t3.x, t3.y, t3.z, 1.0f};
-                    }
-                    vertexBlob = Move(wide);
-                }
-            }
             foundation::core::Serialize(ar, "indexData", indexData);
             foundation::core::Serialize(ar, "subStart", subStart);
             foundation::core::Serialize(ar, "subCount", subCount);
             foundation::core::Serialize(ar, "subMaterial", subMaterial);
             foundation::core::Serialize(ar, "subPrim", subPrim);
-            // v4: the LOD chain. Older payloads (v3 = pre-LOD, and below) stay 1-LOD
-            // via the field defaults - strict versioning uses the gate, NOT optional keys. NOTE the
-            // gate is >= 4, not >= 3: v3 was already the geometry-sidecar version, so gating LOD on
-            // >= 3 wrongly required LOD keys from pre-LOD v3 sources and failed their deserialization.
-            if (ar.Version() >= 4)
-            {
-                foundation::core::Serialize(ar, "lodCount", lodCount);
-                foundation::core::Serialize(ar, "lodStart", lodStart);
-                foundation::core::Serialize(ar, "lodIndexCount", lodIndexCount);
-                foundation::core::Serialize(ar, "lodCoverage", lodCoverage);
-            }
+            // The LOD chain (lodCount 1 = no chain; the cook regenerates it).
+            foundation::core::Serialize(ar, "lodCount", lodCount);
+            foundation::core::Serialize(ar, "lodStart", lodStart);
+            foundation::core::Serialize(ar, "lodIndexCount", lodIndexCount);
+            foundation::core::Serialize(ar, "lodCoverage", lodCoverage);
         }
     };
 
@@ -212,12 +182,10 @@ export namespace foundation::geometry
             SerializeStatic(ar);
             foundation::core::Serialize(ar, "skinningBlob", skinningBlob);
             foundation::core::Serialize(ar, "skeletonIndex", skeletonIndex);
-            // v3 poison check: the buggy >= 3 LOD gate (2026-08-23..27) wrote LOD keys into
-            // v3-stamped payloads. Binary reads are positional, so on a skinned v3 payload the
-            // skinning fields above would consume the LOD bytes and yield a garbage skin stream
-            // with ar.IsOk() still true. The parallel-stream invariant (one 24B VertexSkinning per
-            // vertex) catches exactly that misalignment - fail LOUDLY so the asset re-imports
-            // instead of animating garbage.
+            // Binary reads are positional, so a misaligned payload can hand the skinning fields
+            // above someone else's bytes with ar.IsOk() still true. The parallel-stream invariant
+            // (one 24B VertexSkinning per vertex) catches exactly that - fail LOUDLY so the asset
+            // re-imports instead of animating garbage.
             if (ar.Mode() == SerializeMode::Read && ar.IsPayloadOk())
             {
                 const usize vcount = vertexBlob.Size() / sizeof(StaticMeshVertex);
@@ -359,12 +327,10 @@ export namespace foundation::geometry
         IAllocator* m_allocator;
     };
 
-    // v4 = LOD chain gated on version >= 4 (SerializeStatic). This is the authority for the COOKED
-    // stream (WriteObject(source)); the source .xasset side keys off the mesh-ASSET version, which is
-    // also bumped to 4 in lockstep, so the >= 4 gate means the same thing in both paths. (The LOD wire
-    // reused v3, which the geometry sidecar already occupied - see MeshAsset.cppm.) v3 = the source
-    // pre-LOD; v<2 = Float3 tangent (migrated in SerializeStatic).
-    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 4)
+    // The authority for the COOKED stream (WriteObject(source)); the source .xasset side keys off
+    // the mesh-ASSET version (MeshAsset.cppm), bumped in lockstep, so both paths stamp the same
+    // layout. 5 = Float4 tangent + LOD chain, geometry never inline.
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshSource, "rtti::geometry", 5)
     RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 4)
 
 } // namespace foundation::geometry

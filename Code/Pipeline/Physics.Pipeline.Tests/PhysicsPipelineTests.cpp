@@ -64,7 +64,7 @@ TEST_CASE("physics.pipeline: mesh -> CollisionShapeAsset cook -> CollisionShape 
         pipeline::StaticMeshAsset meshAsset;
         RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
         geometry::StaticMeshSource::FromMesh(*cube, meshAsset.source);
-        REQUIRE(meshInstance->WriteObject(meshAsset).IsOk());
+        REQUIRE(pipeline::WriteMeshAsset(*meshInstance, meshAsset).IsOk());
     }
 
     // Both cook kinds produce a loadable shape that simulates.

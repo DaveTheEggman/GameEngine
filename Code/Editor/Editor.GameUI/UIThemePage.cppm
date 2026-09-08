@@ -60,15 +60,16 @@ export namespace editor
             RefPtr<ISerializable> object = instance.ReadObject();
             if (auto* asset = Cast<pipeline::UIThemeAsset>(object.Get()))
             {
-                // The stylesheet lives in a LINKED Sources/ file (fileName set), like scripts / the
-                // document page; a legacy asset carries it inline. previewMarkup is editor-only, inline.
+                // The stylesheet lives in the LINKED Sources/ file (fileName), like scripts / the
+                // document page. previewMarkup is editor-only, inline.
                 if (!asset->fileName.IsEmpty())
                 {
                     m_stylesheet = ReadLinkedSource(asset->fileName.View());
                 }
                 else
                 {
-                    m_stylesheet = String(asset->stylesheet.AsView());
+                    LOG_ERROR(u8"Editor", u8"UI theme has no linked source file - the page "
+                                          u8"opens empty (re-import the .sss)");
                 }
                 m_previewMarkup = String(asset->previewMarkup.AsView());
             }

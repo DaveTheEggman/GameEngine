@@ -48,35 +48,22 @@ export namespace foundation::scene
 
     namespace detail
     {
-        // Scene-stream header (v2+): a magic sentinel no legacy stream can start with (a legacy
-        // stream begins with the scene NAME's u32 length - always small), then the format
-        // version. v2 adds length-prefixed component + system-settings records, so readers SKIP
-        // unknown types instead of aborting (and template payloads can be sliced without a
-        // live scene). v3 switches guids to the proper serializer form (canonical string in
-        // text; the binary raw-16-bytes are BIT-IDENTICAL to the old hi/lo u64 pair) and
-        // transform keys to their full names (position/rotation/scale, was pos/rot/scl).
+        // Scene-stream header: a magic sentinel, then the format version. ONE format is
+        // supported - the current one; a stream with another (or no) header fails to load
+        // (re-save it with the build that wrote it). Length-prefixed component + system-settings
+        // records let readers SKIP unknown types (and template payloads slice without a live
+        // scene); guids use the serializer's guid form; transform keys are position/rotation/
+        // scale.
         constexpr u32 kSceneStreamMagic = 0xD5C35CEEu;
         constexpr u32 kSceneStreamVersion = 3;
 
-        // Writers use the current version (default). READERS pass the stream's sniffed header
-        // version so v2 text saves (hi/lo guid fields, pos/rot/scl keys) still load; the next
-        // save upgrades them. Binary is unaffected either way (keys are no-ops and the guid
-        // bytes are identical), so the gate only ever matters on the XML path.
-        void SerializeGuid(ISerializer& ar, const char* key, Guid& g,
-                           u32 version = kSceneStreamVersion)
+        void SerializeGuid(ISerializer& ar, const char* key, Guid& g)
         {
-            if (version >= 3)
-            {
-                foundation::core::Serialize(ar, key, g); // ISerializer::GuidValue
-                return;
-            }
-            ar.Key(key);
-            foundation::core::Serialize(ar, "hi", g.high);
-            foundation::core::Serialize(ar, "lo", g.low);
+            foundation::core::Serialize(ar, key, g); // ISerializer::GuidValue
         }
 
-        // Peek the stream version. Leaves the stream positioned AFTER the header (v2+) or back
-        // at the start (legacy v1 - no header).
+        // Peek the stream version: 0 when the stream carries no header (positioned back at the
+        // start), else the version (positioned AFTER the header).
         u32 ReadSceneStreamVersion(IStream& stream)
         {
             const i64 start = stream.Tell();
@@ -84,12 +71,12 @@ export namespace foundation::scene
             if (stream.Read(&first, sizeof(first)) != sizeof(first) || first != kSceneStreamMagic)
             {
                 (void)stream.Seek(start, SeekOrigin::Begin);
-                return 1;
+                return 0;
             }
-            u32 version = 1;
+            u32 version = 0;
             if (stream.Read(&version, sizeof(version)) != sizeof(version))
             {
-                return 1;
+                return 0;
             }
             return version;
         }
@@ -177,18 +164,11 @@ export namespace foundation::scene
             foundation::core::Serialize(ar, "version", version);
         }
 
-        void SerializeTransform(ISerializer& ar, Transform& t, u32 version = kSceneStreamVersion)
+        void SerializeTransform(ISerializer& ar, Transform& t)
         {
-            if (version >= 3)
-            {
-                foundation::core::Serialize(ar, "position", t.position);
-                foundation::core::Serialize(ar, "rotation", t.rotation);
-                foundation::core::Serialize(ar, "scale", t.scale);
-                return;
-            }
-            foundation::core::Serialize(ar, "pos", t.position);
-            foundation::core::Serialize(ar, "rot", t.rotation);
-            foundation::core::Serialize(ar, "scl", t.scale);
+            foundation::core::Serialize(ar, "position", t.position);
+            foundation::core::Serialize(ar, "rotation", t.rotation);
+            foundation::core::Serialize(ar, "scale", t.scale);
         }
         // Pre-order subtree walk (parents before children, siblings in list order).
         void CollectSubtree(Scene& scene, EntityHandle root, Array<EntityHandle>& out)
@@ -519,8 +499,7 @@ export namespace foundation::scene
         }
 
         // One nested-instance record, serialized (the ref+delta shape shared by scene files'
-        // prefab sections and prefab payloads' trailing records). `wireNested` gates the
-        // nesting link fields for pre-nesting saves.
+        // prefab sections and prefab payloads' trailing records).
         // `scene` supplies the component managers the TEXT encoding needs: an op's blob
         // deserializes into a transient scratch entity so its FIELDS serialize inline
         // (diffable), then the scratch is removed. Binary keeps the blob wire. An op whose
@@ -626,21 +605,18 @@ export namespace foundation::scene
         constexpr u32 kMaxPrefabRecordEntries = 1u << 20;
 
         void ReadPrefabRecord(ISerializer& ar, Scene& scene, Scene::PendingPrefabInstance& pending,
-                              bool wireNested, bool text, u32 version = kSceneStreamVersion)
+                              bool text)
         {
-            SerializeGuid(ar, "prefab", pending.prefabId, version);
-            SerializeGuid(ar, "parent", pending.parentEntityId, version);
-            SerializeTransform(ar, pending.rootTransform, version);
-            if (wireNested)
-            {
-                SerializeGuid(ar, "rootLive", pending.rootLiveId, version);
-                SerializeGuid(ar, "owner", pending.ownerRootEntityId, version);
-                SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId, version);
-                SerializeGuid(ar, "nextSibling", pending.nextSiblingId, version);
-                u8 placement = 1;
-                foundation::core::Serialize(ar, "placement", placement);
-                pending.applyPlacement = placement != 0;
-            }
+            SerializeGuid(ar, "prefab", pending.prefabId);
+            SerializeGuid(ar, "parent", pending.parentEntityId);
+            SerializeTransform(ar, pending.rootTransform);
+            SerializeGuid(ar, "rootLive", pending.rootLiveId);
+            SerializeGuid(ar, "owner", pending.ownerRootEntityId);
+            SerializeGuid(ar, "nestedSrcRoot", pending.nestedRootSourceId);
+            SerializeGuid(ar, "nextSibling", pending.nextSiblingId);
+            u8 placement = 1;
+            foundation::core::Serialize(ar, "placement", placement);
+            pending.applyPlacement = placement != 0;
 
             u32 memberCount = 0;
             ar.Key("members");
@@ -652,8 +628,8 @@ export namespace foundation::scene
             for (u32 i = 0; i < memberCount; ++i)
             {
                 Guid src, live;
-                SerializeGuid(ar, "src", src, version);
-                SerializeGuid(ar, "live", live, version);
+                SerializeGuid(ar, "src", src);
+                SerializeGuid(ar, "live", live);
                 pending.sourceIds.PushBack(src);
                 pending.liveIds.PushBack(live);
             }
@@ -669,7 +645,7 @@ export namespace foundation::scene
             for (u32 i = 0; i < destroyedCount; ++i)
             {
                 Guid d;
-                SerializeGuid(ar, "src", d, version);
+                SerializeGuid(ar, "src", d);
                 pending.destroyedMembers.PushBack(d);
             }
             ar.EndArray();
@@ -685,8 +661,8 @@ export namespace foundation::scene
             {
                 Guid src;
                 Transform t;
-                SerializeGuid(ar, "src", src, version);
-                SerializeTransform(ar, t, version);
+                SerializeGuid(ar, "src", src);
+                SerializeTransform(ar, t);
                 pending.overrideTransformIds.PushBack(src);
                 pending.overrideTransforms.PushBack(t);
             }
@@ -706,7 +682,7 @@ export namespace foundation::scene
                 if (text)
                 {
                     ar.BeginObject();
-                    SerializeGuid(ar, "src", op.sourceEntity, version);
+                    SerializeGuid(ar, "src", op.sourceEntity);
                     foundation::core::Serialize(ar, "type", op.typeId);
                     foundation::core::Serialize(ar, "op", op.op);
                     bool keep = true;
@@ -754,7 +730,7 @@ export namespace foundation::scene
                     }
                     continue;
                 }
-                SerializeGuid(ar, "src", op.sourceEntity, version);
+                SerializeGuid(ar, "src", op.sourceEntity);
                 foundation::core::Serialize(ar, "type", op.typeId);
                 foundation::core::Serialize(ar, "op", op.op);
                 foundation::core::Serialize(ar, "blob", op.blob);
@@ -845,11 +821,6 @@ export namespace foundation::scene
     // `scene` should be freshly created with its component managers + systems already present
     // (so records route into their pools / settings blocks).
     //
-    // `legacyProbe`: the settings section was added to the format after the fact; streams saved
-    // before it simply END at the component array. Readers that have the underlying stream
-    // pass it here - at the settings boundary, exhausted stream = legacy save, settings keep
-    // their defaults (the next save upgrades). Null = the section is expected (fresh writes,
-    // snapshots). Write mode always writes it.
     // How prefab instances persist in a scene stream:
     //  - Referenced (scene files): instance members are EXCLUDED from the entity/component
     //    arrays; a trailing section stores ref + deltas per instance. Loading parks pending
@@ -863,24 +834,20 @@ export namespace foundation::scene
         Expanded = 1
     };
 
-    // Wire values of the prefab-section mode tag. 0/1 = the pre-nesting formats (no nesting links);
-    // 2/3 = the same sections plus per-record nesting links (rootLive/owner/nestedSrcRoot).
-    // Writers emit 2/3; readers accept all four (older saves upgrade on the next write).
+    // Wire values of the prefab-section mode tag: the two CURRENT layouts (ref + deltas with
+    // nesting links, sibling order and placement; expanded state verbatim). Any other value
+    // (the retired 0/1/2 layouts) fails the read - a misparse there turns array counts into
+    // garbage, so refusing is the only safe answer.
     namespace detail
     {
-        constexpr u8 kPrefabWireReferenced = 0; // pre-nesting (no nesting links) - still read
-        constexpr u8 kPrefabWireExpanded = 1;
-        constexpr u8 kPrefabWireReferenced2 = 2; // RETIRED layout: readers REFUSE it (a
-                                                 // misparse turns array counts into garbage
-                                                 // -> OOM); the section skips with a warning
         constexpr u8 kPrefabWireExpanded2 = 3;
-        constexpr u8 kPrefabWireReferenced3 = 4; // nesting links + sibling order + placement
+        constexpr u8 kPrefabWireReferenced3 = 4;
     }
 
     // `includeSettings`: prefab payloads write an EMPTY system-settings section (a prefab is a
     // subtree template, not a world - and SpawnPrefab must be able to walk PAST the section to
     // reach the nested-instance records without applying settings to the target scene).
-    void SerializeScene(ISerializer& ar, Scene& scene, IStream* legacyProbe = nullptr,
+    void SerializeScene(ISerializer& ar, Scene& scene,
                         ScenePrefabMode prefabMode = ScenePrefabMode::Referenced,
                         bool includeSettings = true,
                         detail::SceneStreamEncoding encoding = detail::SceneStreamEncoding::Binary);
@@ -1342,7 +1309,7 @@ export namespace foundation::scene
         // Sources are TEXT: diffable, mergeable, hand-editable.
         // Export staging transcodes to the binary wire for the player.
         foundation::xml::XmlSerializer ser(scene.Allocator());
-        SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, true,
+        SerializeScene(ser, scene, ScenePrefabMode::Referenced, true,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())
         {
@@ -1401,7 +1368,7 @@ export namespace foundation::scene
         // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
         // like scene saves (export transcodes).
         foundation::xml::XmlSerializer ser(scene.Allocator());
-        SerializeScene(ser, scene, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false,
+        SerializeScene(ser, scene, ScenePrefabMode::Referenced, /*includeSettings=*/false,
                        detail::SceneStreamEncoding::Text);
         if (!ser.IsOk())
         {
@@ -1429,7 +1396,7 @@ export namespace foundation::scene
             BinarySerializer ar(buffer, SerializeMode::Write);
             // Expanded: members serialize flat + instance state verbatim, so Restore needs no
             // prefab payload resolver (snapshots must be self-contained).
-            SerializeScene(ar, scene, nullptr, ScenePrefabMode::Expanded);
+            SerializeScene(ar, scene, ScenePrefabMode::Expanded);
             if (!ar.IsOk())
             {
                 return UniquePtr<SceneSnapshot>{};
@@ -1470,7 +1437,7 @@ export namespace foundation::scene
             (void)buffer.Write(m_blob.Data(), m_blob.Size());
             (void)buffer.Seek(0, SeekOrigin::Begin);
             BinarySerializer ar(buffer, SerializeMode::Read);
-            SerializeScene(ar, scene, nullptr, ScenePrefabMode::Expanded);
+            SerializeScene(ar, scene, ScenePrefabMode::Expanded);
             if (!ar.IsOk())
             {
                 return ar.GetStatus();

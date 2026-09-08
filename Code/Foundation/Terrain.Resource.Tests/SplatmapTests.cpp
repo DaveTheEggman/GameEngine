@@ -4,7 +4,7 @@
 // SplatWeights (top-K splat model): the pure brush cores + migration.
 // Headless (no RHI): PaintTopK convexity (sum + base == 1 within quantum), slot selection
 // (existing -> free -> evict-min), full-paint one-hot convergence, EraseTopK reveals base,
-// dirty-rect bounds, version bumps, and the legacy-splatmap converter (renormalized - R2).
+// dirty-rect bounds, version bumps, and the fixed-layer raster converter (renormalized - R2).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -158,10 +158,10 @@ TEST_CASE("splat weights: palette-remove remap frees the removed layer and shift
     CHECK(!RemapOnPaletteRemove(clean, 5));
 }
 
-TEST_CASE("splat weights: legacy migration renormalizes by the old sum (R2)")
+TEST_CASE("splat weights: the fixed-layer raster import renormalizes by the texel sum (R2)")
 {
-    // A legacy texel whose stored sum drifted from 255: (w0,w1,w2,w3) = (100, 60, 40, 0),
-    // sum 200. The OLD shader normalized: layer0 share = 0.5, layer1 = 0.3, layer2 = 0.2.
+    // An imported texel whose channel sum drifted from 255: (R,G,B,A) = (100, 60, 40, 0),
+    // sum 200. Shares: base = 0.5, palette 0 = 0.3, palette 1 = 0.2.
     Array<u8> legacy;
     legacy.Resize(4 * 4 * 4, u8{0});
     for (usize t = 0; t < 16; ++t)
@@ -172,23 +172,23 @@ TEST_CASE("splat weights: legacy migration renormalizes by the old sum (R2)")
         legacy[t * 4 + 3] = 0;
     }
     RefPtr<SplatWeights> sw =
-        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
-                              DefaultAllocator());
+        SplatWeightsFromFixedLayerRaster(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
+                                         DefaultAllocator());
     REQUIRE(sw.Get() != nullptr);
     REQUIRE(!sw->IsEmpty());
-    // Old layer 1 -> palette 0 at 0.3 of 255 = 77; old layer 2 -> palette 1 at 0.2 = 51.
+    // G -> palette 0 at 0.3 of 255 = 77; B -> palette 1 at 0.2 = 51.
     CHECK(sw->WeightOfLayer(1, 1, 0) == 77);
     CHECK(sw->WeightOfLayer(1, 1, 1) == 51);
     CHECK(sw->WeightOfLayer(1, 1, 2) == 0);
-    // Base = the old layer-0 NORMALIZED share: 0.5 -> 127/128 within quantum.
+    // Base = the NORMALIZED R share: 0.5 -> 127/128 within quantum.
     const u8 base = sw->BaseWeight(1, 1);
     CHECK(base >= 126);
     CHECK(base <= 128);
 }
 
-TEST_CASE("splat weights: legacy migration maps the SeedLayer0 raster to pure base")
+TEST_CASE("splat weights: the fixed-layer raster import maps a solid-R raster to pure base")
 {
-    // The old authoring seed (255,0,0,0) = full layer 0 = the de-facto base everywhere.
+    // (255,0,0,0) = the full base share everywhere.
     Array<u8> legacy;
     legacy.Resize(4 * 4 * 4, u8{0});
     for (usize t = 0; t < 16; ++t)
@@ -196,8 +196,8 @@ TEST_CASE("splat weights: legacy migration maps the SeedLayer0 raster to pure ba
         legacy[t * 4 + 0] = 255;
     }
     RefPtr<SplatWeights> sw =
-        MigrateLegacySplatmap(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
-                              DefaultAllocator());
+        SplatWeightsFromFixedLayerRaster(Span<const u8>{legacy.Data(), legacy.Size()}, 4, 4,
+                                         DefaultAllocator());
     REQUIRE(sw.Get() != nullptr);
     CHECK(sw->BaseWeight(2, 2) == 255);
     CHECK(SlotSum(*sw, 2, 2) == 0);

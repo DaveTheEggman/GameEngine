@@ -226,36 +226,46 @@ export namespace foundation::core
     }
 }
 
-// === Versioned payloads (serialization migration, Traktor-style) =========================
+// === Versioned payloads (one supported layout per type: the CURRENT one) ================
 //
-// Wrap a payload whose layout may evolve:
+// Wrap a payload whose layout is stamped with the type's data version:
 //     BeginVersionedPayload(ar, TypeOf<T>());   // or object->GetType()
-//     ... Serialize fields (branch on ar.Version() for old data) ...
+//     ... Serialize fields (the current layout, unconditionally) ...
 //     EndVersionedPayload(ar);
-// Write: emits the type's CURRENT data-version chain (concrete first, then every versioned
-// base) and pushes it as the active scope. Read: parses the stored chain and pushes THAT -
-// so the Serialize body sees the version the data was written with.
+// Write: emits the type's data-version chain (concrete first, then every versioned base).
+// Read: parses the stored chain and REQUIRES it to equal the current chain - a payload written
+// under any other version fails (ErrorCode::NotSupported). There is no migration: bump
+// dataVersion whenever the wire changes and re-save / re-import / re-cook the data.
 export namespace foundation::core
 {
     inline void BeginVersionedPayload(ISerializer& ar, const TypeInfo& type)
     {
         // Chain: concrete type always; bases only when versioned (compact + stable).
+        SerializedDataVersion current[16];
+        u32 currentCount = 0;
+        current[currentCount++] = SerializedDataVersion{type.id, type.dataVersion};
+        for (const TypeInfo* base = type.base; base != nullptr && currentCount < 16;
+             base = base->base)
+        {
+            if (base->dataVersion > 0)
+            {
+                current[currentCount++] = SerializedDataVersion{base->id, base->dataVersion};
+            }
+        }
+
         SerializedDataVersion chain[16];
-        u32 count = 0;
+        u32 count = currentCount;
         if (ar.Mode() == SerializeMode::Write)
         {
-            chain[count++] = SerializedDataVersion{type.id, type.dataVersion};
-            for (const TypeInfo* base = type.base; base != nullptr && count < 16; base = base->base)
+            for (u32 i = 0; i < count; ++i)
             {
-                if (base->dataVersion > 0)
-                {
-                    chain[count++] = SerializedDataVersion{base->id, base->dataVersion};
-                }
+                chain[i] = current[i];
             }
         }
         ar.Key("dataVersions");
-        ar.BeginArray(count);
-        for (u32 i = 0; i < count && i < 16; ++i)
+        ar.BeginArray(count); // read: filled with the STORED count
+        const u32 read = count < 16 ? count : 16;
+        for (u32 i = 0; i < read; ++i)
         {
             ar.Key("type");
             ar.Scalar(&chain[i].typeId, ScalarKind::UInt64);
@@ -263,7 +273,20 @@ export namespace foundation::core
             ar.Scalar(&chain[i].version, ScalarKind::UInt32);
         }
         ar.EndArray();
-        ar.PushVersionScope(chain, count < 16 ? count : 16);
+        if (ar.Mode() == SerializeMode::Read)
+        {
+            bool matches = count == currentCount;
+            for (u32 i = 0; matches && i < read; ++i)
+            {
+                matches = chain[i].typeId == current[i].typeId &&
+                          chain[i].version == current[i].version;
+            }
+            if (!matches)
+            {
+                ar.FailPayload(ErrorCode::NotSupported); // stale (or foreign) data version
+            }
+        }
+        ar.PushVersionScope(chain, read);
     }
 
     inline void EndVersionedPayload(ISerializer& ar) { ar.PopVersionScope(); }

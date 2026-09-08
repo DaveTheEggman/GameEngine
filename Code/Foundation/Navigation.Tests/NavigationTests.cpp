@@ -400,20 +400,28 @@ TEST_CASE("tiled bake: BuildTileAt regenerates a tile byte-identical to the full
     CHECK_FALSE(NavigationMeshBuilder::BuildTileAt(vspan, ispan, params, 99, 0, bogus).IsOk());
 }
 
-TEST_CASE("tiled bake: v1 single-tile blobs still load (the reader sniffs the version)")
+TEST_CASE("tiled bake: Build emits the tiled blob; a retired single-tile (v1) header is REFUSED")
 {
     Array<Float3> verts;
     Array<u32> indices;
     AddGround(verts, indices, -5.0f, 5.0f, -5.0f, 5.0f);
     NavigationBakeParams params;
-    Array<byte> v1;
+    Array<byte> blob;
     REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
                                          Span<const u32>{indices.Data(), indices.Size()},
-                                         params, v1)
+                                         params, blob)
                 .IsOk());
     NavigationMesh mesh(DefaultAllocator());
-    REQUIRE(mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
+    REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
     CHECK(mesh.IsValid());
+
+    // Same bytes, header version rewritten to the retired 1: refused, not sniffed.
+    Array<byte> stale = blob;
+    u32 version = 1;
+    MemCopy(stale.Data() + sizeof(u32), &version, sizeof(version));
+    NavigationMesh refused(DefaultAllocator());
+    CHECK_FALSE(refused.Load(Span<const byte>{stale.Data(), stale.Size()}).IsOk());
+    CHECK_FALSE(refused.IsValid());
 }
 
 TEST_CASE("tiled bake: stage capture yields contours + walkable span samples in-bounds")
@@ -597,15 +605,9 @@ TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh 
         CHECK(detour > 1.5f); // routed around the freshly patched-in box
     }
 
-    // v1 meshes refuse ReplaceTile (no grid for arbitrary tiles).
-    Array<byte> v1;
-    REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{baseVerts.Data(), baseVerts.Size()},
-                                         Span<const u32>{baseIndices.Data(), baseIndices.Size()},
-                                         params, v1)
-                .IsOk());
-    NavigationMesh v1Mesh(DefaultAllocator());
-    REQUIRE(v1Mesh.Load(Span<const byte>{v1.Data(), v1.Size()}).IsOk());
+    // An unloaded mesh refuses ReplaceTile (nothing to patch).
+    NavigationMesh unloaded(DefaultAllocator());
     Array<byte> dummy;
-    const Status refused = v1Mesh.ReplaceTile(0, 0, Span<const byte>{dummy.Data(), 0});
+    const Status refused = unloaded.ReplaceTile(0, 0, Span<const byte>{dummy.Data(), 0});
     CHECK_FALSE(refused.IsOk());
 }

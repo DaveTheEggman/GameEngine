@@ -13,8 +13,8 @@
 // SERIALIZE-DRIVEN: a scanning serializer runs the object's own Serialize in write mode and
 // records every named value (scalars, strings, guids, blobs, array counts) as an ordinal field
 // list; edits replay Serialize in read mode feeding the recorded values back with ONE field
-// patched. The version scope is pushed manually with the type's CURRENT data-version chain, so
-// `ar.Version() >= N` gated fields appear in the form (the bus-layout lesson). A patch that
+// patched. The version scope is pushed manually with the type's CURRENT data-version chain
+// (the same scope a real envelope carries). A patch that
 // changes Serialize's control flow (a conditional branch) desyncs the replay fail-safe (the
 // object keeps its live values from that point) and triggers a full re-scan + grid rebuild.
 
@@ -69,8 +69,8 @@ export namespace editor
         }
     };
 
-    // Run `object`'s Serialize (write mode) into a field list. The type's CURRENT data-version
-    // chain is pushed so version-gated fields are included.
+    // Run `object`'s Serialize (write mode) into a field list under the type's data-version
+    // scope.
     [[nodiscard]] Status ScanAssetForm(ISerializable& object, Array<AssetFormField>& outFields);
 
     // Replay `fields` back through Serialize (read mode) with fields[index] replaced by

@@ -91,11 +91,8 @@ export namespace foundation::materials
             foundation::core::Serialize(ar, "uniformDefaults", uniformDefaults);
             foundation::core::Serialize(ar, "textureSlots", textureSlots);
             foundation::core::Serialize(ar, "textureIds", textureIds);
-            if (ar.Version() >= 2)
-            { // v2: sampler address modes (older sources read Repeat)
-                foundation::core::Serialize(ar, "samplerU", samplerU);
-                foundation::core::Serialize(ar, "samplerV", samplerV);
-            }
+            foundation::core::Serialize(ar, "samplerU", samplerU);
+            foundation::core::Serialize(ar, "samplerV", samplerV);
         }
 
         // Captures a built Material's declared layout + defaults into an authorable source
@@ -139,80 +136,36 @@ export namespace foundation::materials
 
     // Builds a MaterialSource into a runtime Material, binding the referenced shader
     // resource (which records the dependency edge) to resolve its name.
-    // Upgrade an older "forward" material source IN MEMORY (never persisted): the forward
-    // shader's set-2 cbuffer grew (EmissiveColor @32, then OcclusionStrength/NormalScale/
-    // AlphaCutoff @48/52/56), but existing assets carry their creation-time property tables
-    // forever - without the fields their uniform buffer is short and the shader would read
-    // past it. Appends every missing property with its NEUTRAL default (black emissive,
-    // strength/scale 1, cutoff 0.5 - identical look). New CreatePBR sources already carry
-    // them; unlit and custom shaders are untouched. Idempotent.
-    inline void UpgradeForwardMaterialSource(MaterialSource& src)
+    // A "forward" material source must carry the forward shader's full set-2 property table
+    // (EmissiveColor @32, OcclusionStrength/NormalScale/AlphaCutoff @48/52/56): without them the
+    // uniform buffer is short and the shader reads past it. Sources are never upgraded in
+    // memory - a source missing one is stale and is refused (re-create the material). New
+    // CreatePBR sources carry them; unlit and custom shaders are untouched.
+    [[nodiscard]] inline bool ForwardMaterialSourceIsComplete(const MaterialSource& src)
     {
         if (src.shaderName != u8"forward")
         {
-            return;
+            return true;
         }
-        struct ForwardProp
-        {
-            StringView name;
-            MaterialPropertyType type;
-            u32 size;
-            Float4 value;
-        };
-        static const ForwardProp kUpgrades[] = {
-            {u8"EmissiveColor", MaterialPropertyType::Float4, 16, Float4{0, 0, 0, 1}},
-            {u8"OcclusionStrength", MaterialPropertyType::Float, 4, Float4{1, 0, 0, 0}},
-            {u8"NormalScale", MaterialPropertyType::Float, 4, Float4{1, 0, 0, 0}},
-            {u8"AlphaCutoff", MaterialPropertyType::Float, 4, Float4{0.5f, 0, 0, 0}},
-        };
-        for (const ForwardProp& p : kUpgrades)
+        static constexpr StringView kRequired[] = {u8"EmissiveColor", u8"OcclusionStrength",
+                                                   u8"NormalScale", u8"AlphaCutoff"};
+        for (StringView required : kRequired)
         {
             bool present = false;
             for (const String& n : src.propNames)
             {
-                if (n.AsView() == p.name)
+                if (n.AsView() == required)
                 {
                     present = true;
                     break;
                 }
             }
-            if (present)
+            if (!present)
             {
-                continue;
+                return false;
             }
-            // Next offset past the current uniform block: float4 aligns to 16; scalars pack
-            // sequentially (they never straddle a 16-byte row at 4-byte size).
-            u32 end = 0;
-            for (usize i = 0; i < src.propNames.Size(); ++i)
-            {
-                const auto type = static_cast<MaterialPropertyType>(src.propTypes[i]);
-                if (type == MaterialPropertyType::Texture2D ||
-                    type == MaterialPropertyType::TextureCube ||
-                    type == MaterialPropertyType::Sampler)
-                {
-                    continue;
-                }
-                const u32 propEnd = ((i < src.propOffsets.Size()) ? src.propOffsets[i] : 0u) +
-                                    ((i < src.propSizes.Size()) ? src.propSizes[i] : 0u);
-                if (propEnd > end)
-                {
-                    end = propEnd;
-                }
-            }
-            const u32 offset = (p.type == MaterialPropertyType::Float4) ? ((end + 15u) & ~15u)
-                                                                        : ((end + 3u) & ~3u);
-            src.propNames.PushBack(String(p.name));
-            src.propTypes.PushBack(static_cast<u8>(p.type));
-            src.propBindings.PushBack(0u);
-            src.propOffsets.PushBack(offset);
-            src.propSizes.PushBack(p.size);
-            while (src.uniformDefaults.Size() < offset + p.size)
-            {
-                src.uniformDefaults.PushBack(0u);
-            }
-            MemCopy(src.uniformDefaults.Data() + offset, &p.value,
-                    p.size); // the REAL default, not zeros
         }
+        return true;
     }
 
     class MaterialFactory final : public IResourceFactory
@@ -232,7 +185,14 @@ export namespace foundation::materials
             {
                 return RefPtr<Object>{};
             }
-            UpgradeForwardMaterialSource(*src); // pre-emissive assets: append the factor (black)
+            if (!ForwardMaterialSourceIsComplete(*src))
+            {
+                LOG_ERROR(u8"Materials",
+                          u8"material '{}' is missing forward shader properties (a stale source) "
+                          u8"- re-create the material",
+                          src->name);
+                return RefPtr<Object>{};
+            }
 
             // Resolve the shader: a cooked ShaderResource (by id, recording the material->shader edge)
             // or a builtin shader named directly (shaderName) when no resource id is given.

@@ -177,9 +177,8 @@ export namespace foundation::audio
     // ---- bus layout: cooked mixer data ----
 
     // Wire shape stays GENERIC (per-bus effect arrays) even though the editor asset is
-    // flat v1 - a richer chain editor later needs no wire change. Data v2 appends the
-    // NAMED custom-bus array (name/parent/settings); v0/v1 cooks simply have none -
-    // the ar.Version() gate keeps old cooks loading.
+    // flat - a richer chain editor later needs no wire change - plus the NAMED custom-bus
+    // array (name/parent/settings).
     class AudioBusLayoutSource : public ISerializable
     {
         RTTI_OBJECT(AudioBusLayoutSource, ISerializable)
@@ -221,21 +220,18 @@ export namespace foundation::audio
                 serializeSettings(layout.buses[bus]);
             }
 
-            if (ar.Version() >= 2) // v2: named custom buses (generic, growable)
+            u32 customCount = static_cast<u32>(layout.customBuses.Size());
+            foundation::core::Serialize(ar, "customBusCount", customCount);
+            if (ar.Mode() == SerializeMode::Read)
             {
-                u32 customCount = static_cast<u32>(layout.customBuses.Size());
-                foundation::core::Serialize(ar, "customBusCount", customCount);
-                if (ar.Mode() == SerializeMode::Read)
-                {
-                    layout.customBuses.Resize(customCount);
-                }
-                for (u32 i = 0; i < customCount; ++i)
-                {
-                    AudioNamedBus& named = layout.customBuses[i];
-                    foundation::core::Serialize(ar, "name", named.name);
-                    foundation::core::Serialize(ar, "parent", named.parent);
-                    serializeSettings(named.settings);
-                }
+                layout.customBuses.Resize(customCount);
+            }
+            for (u32 i = 0; i < customCount; ++i)
+            {
+                AudioNamedBus& named = layout.customBuses[i];
+                foundation::core::Serialize(ar, "name", named.name);
+                foundation::core::Serialize(ar, "parent", named.parent);
+                serializeSettings(named.settings);
             }
         }
     };
@@ -378,7 +374,7 @@ export namespace foundation::audio
     }
 
     RTTI_DEFINE_OBJECT(AudioClipSource, "rtti::audio")
-    // v2: the named custom-bus section (see Serialize) - old cooks read as version 0.
+    // 2: the named custom-bus section (see Serialize).
     RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutSource, "rtti::audio", 2)
     RTTI_DEFINE_OBJECT(AudioBusLayoutResource, "rtti::audio")
     RTTI_DEFINE_OBJECT(SoundCueSource, "rtti::audio")

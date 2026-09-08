@@ -1280,12 +1280,8 @@ export namespace engine::script
     {
         foundation::core::Serialize(ar, "script", s.script);
         foundation::core::Serialize(ar, "enabled", s.enabled);
-        // v2 added the Level property overrides. A v1 payload has no such key: skip the read so
-        // the strict reader does not fail (overrides stays empty -> class defaults apply).
-        if (ar.Version() >= 2)
-        {
-            foundation::core::Serialize(ar, "overrides", s.overrides); // count-prefixed array scope
-        }
+        // Level property overrides (empty -> class defaults apply).
+        foundation::core::Serialize(ar, "overrides", s.overrides); // count-prefixed array scope
     }
 
     /// The scene-root script tier (Unreal Level Blueprint / Godot scene script). One `Level` object

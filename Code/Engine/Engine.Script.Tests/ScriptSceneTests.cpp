@@ -964,7 +964,7 @@ TEST_CASE("script.scene: a prefab-instance override on a behavior property round
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        scene::SerializeScene(r, loaded, &saved);
+        scene::SerializeScene(r, loaded);
         REQUIRE(r.IsOk());
     }
     const Span<const byte> payloadBytes = payload.Bytes();

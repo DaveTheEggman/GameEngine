@@ -32,38 +32,26 @@ using namespace foundation::geometry;
 
 export namespace pipeline{
 
-    // The mesh bulk sidecar (v3): geometry lives in a BINARY data stream beside the envelope,
+    // The mesh bulk sidecar: geometry lives in a BINARY data stream beside the envelope,
     // not inline in the XML. Incident 2026-08-11: a Sponza import produced a 170 MB XML
     // envelope (vertex arrays as text), and every project open DOM-parsed it to read three
     // header fields - a 25-second freeze and ~5 GB of DOM peak that the allocator never
     // returns. Sources-are-text is for AUTHORED data; machine-generated bulk follows the
-    // texture-pixels precedent (binary sidecar), through the BinarySerializer with the
-    // asset's version scope so source.Serialize migration branches keep working.
+    // texture-pixels precedent (binary sidecar), through the BinarySerializer under the
+    // mesh SOURCE type's version scope (the sidecar is stamped and checked like an envelope).
     inline constexpr StringView kMeshGeometryStreamName = u8"geometry";
 
     class StaticMeshAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(StaticMeshAsset, pipeline::Asset)
     public:
+        // `source` ALWAYS travels in the kMeshGeometryStreamName sidecar; the envelope holds
+        // only fileName. Readers call EnsureMeshSourceLoaded after ReadObject.
         StaticMeshSource source;
-
-        // v3: true = `source` travels in the kMeshGeometryStreamName sidecar; the envelope
-        // holds only fileName + this flag. False (and every v<3 file) = legacy inline.
-        bool geometryInSidecar = false;
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName (source model note)
-            if (ar.Version() >= 3)
-            {
-                u8 sidecar = geometryInSidecar ? u8{1} : u8{0};
-                foundation::core::Serialize(ar, "geometryInSidecar", sidecar);
-                geometryInSidecar = sidecar != 0;
-            }
-            if (!geometryInSidecar)
-            {
-                source.Serialize(ar);
-            }
         }
     };
 
@@ -71,38 +59,24 @@ export namespace pipeline{
     {
         RTTI_OBJECT(SkinnedMeshAsset, pipeline::Asset)
     public:
-        SkinnedMeshSource source;
+        SkinnedMeshSource source; // sidecar-only, see StaticMeshAsset
 
-        bool geometryInSidecar = false; // see StaticMeshAsset
-
-        void Serialize(ISerializer& ar) override
-        {
-            pipeline::Asset::Serialize(ar);
-            if (ar.Version() >= 3)
-            {
-                u8 sidecar = geometryInSidecar ? u8{1} : u8{0};
-                foundation::core::Serialize(ar, "geometryInSidecar", sidecar);
-                geometryInSidecar = sidecar != 0;
-            }
-            if (!geometryInSidecar)
-            {
-                source.Serialize(ar);
-            }
-        }
+        void Serialize(ISerializer& ar) override { pipeline::Asset::Serialize(ar); }
     };
 
     // === Sidecar plumbing (shared by the importer, the builders, and every source reader) ===
 
     namespace detail
     {
-        // Serialize `source` into sidecar BYTES under the asset type's version scope (so the
-        // same migration branches source.Serialize uses for envelopes apply on read).
+        // Serialize `source` into sidecar BYTES under the SOURCE type's version scope - the
+        // same scope MeshSourceFromStream reads under (a sidecar stamped with another version
+        // is refused, like an envelope).
         template <typename Source>
-        inline void MeshSourceToBytes(Source& source, const TypeInfo& assetType, Array<byte>& out)
+        inline void MeshSourceToBytes(Source& source, Array<byte>& out)
         {
             MemoryStream buffer;
             BinarySerializer ar(buffer, SerializeMode::Write);
-            BeginVersionedPayload(ar, assetType);
+            BeginVersionedPayload(ar, Source::StaticType()); // the SOURCE type stamps its layout
             source.Serialize(ar);
             EndVersionedPayload(ar);
             const Span<const byte> bytes = buffer.Bytes();
@@ -130,28 +104,22 @@ export namespace pipeline{
     [[nodiscard]] inline Status WriteMeshAsset(foundation::content::Instance& instance,
                                                Asset& asset)
     {
-        asset.geometryInSidecar = true;
         const Status envelope = instance.WriteObject(asset);
         if (!envelope.IsOk())
         {
             return envelope;
         }
         Array<byte> bytes;
-        detail::MeshSourceToBytes(asset.source, *asset.GetType(), bytes);
+        detail::MeshSourceToBytes(asset.source, bytes);
         return instance.WriteData(kMeshGeometryStreamName,
                                   Span<const byte>(bytes.Data(), bytes.Size()));
     }
 
-    /// After ReadObject: pull the sidecar into `asset.source` when the envelope says so.
-    /// Legacy inline envelopes (v<3 or flag false) are already populated - this no-ops.
+    /// After ReadObject: pull the sidecar into `asset.source` (the envelope never carries it).
     template <typename Asset>
     [[nodiscard]] inline Status EnsureMeshSourceLoaded(const foundation::content::Instance& instance,
                                                        Asset& asset)
     {
-        if (!asset.geometryInSidecar)
-        {
-            return Status{};
-        }
         UniquePtr<IStream> stream = instance.ReadData(kMeshGeometryStreamName);
         if (!stream)
         {
@@ -208,11 +176,9 @@ export namespace pipeline{
                               pipeline::AssetDependencies& out) override
         {
             // The geometry sidecar is a build input: declare it so the recipe hash covers it
-            // (a geometry-only change must dirty the cook - the envelope no longer carries it).
-            if (static_cast<const StaticMeshAsset&>(asset).geometryInSidecar)
-            {
-                out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
-            }
+            // (a geometry-only change must dirty the cook - the envelope does not carry it).
+            (void)asset;
+            out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
         }
 
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -255,10 +221,8 @@ export namespace pipeline{
                               pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
         {
-            if (static_cast<const SkinnedMeshAsset&>(asset).geometryInSidecar)
-            {
-                out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
-            }
+            (void)asset;
+            out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
         }
 
         [[nodiscard]] const TypeInfo* AssetType() const override
@@ -315,13 +279,10 @@ export namespace pipeline{
         RegisterSerializable<SkinnedMeshAsset>();
     }
 
-    // v4 = LOD chain - the LOD keys are gated on version >= 4 in
-    //      StaticMeshSource::SerializeStatic. v3 is already taken by the geometry sidecar, so
-    //      reusing v3 for the LOD wire would make a pre-LOD v3 source (no LOD keys) fail strict
-    //      deserialization. Bumping to 4 makes v3 unambiguously "pre-LOD, no keys": it loads as a
-    //      1-LOD chain and the cook regenerates the chain. v3 = geometry sidecar; v2 = Float4
-    //      tangent blobs.
-    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry", 4)
-    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry", 4)
+    // 5 = geometry ALWAYS in the sidecar (the inline-geometry flag left the envelope); the
+    // number moves in lockstep with StaticMeshSource (MeshResource.cppm), whose layout the
+    // sidecar carries under this asset's version scope.
+    RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry", 5)
+    RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry", 5)
 
 } // namespace foundation::geometry

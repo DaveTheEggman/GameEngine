@@ -420,7 +420,7 @@ namespace
     };
 }
 
-TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves still load")
+TEST_CASE("scene-serialize: scene-system settings round-trip; short or stale streams are refused")
 {
     // --- round-trip ---
     Scene a(DefaultAllocator(), u8"level");
@@ -440,57 +440,51 @@ TEST_CASE("scene-serialize: scene-system settings round-trip; pre-settings saves
         Scene b{DefaultAllocator()};
         FogSystem* fogB = b.AddSystem<FogSystem>();
         BinarySerializer reader(stream, SerializeMode::Read);
-        SerializeScene(reader, b, &stream);
+        SerializeScene(reader, b);
         REQUIRE(reader.IsOk());
         CHECK(Near(fogB->settings.density, 2.25f));
         CHECK(Near(fogB->settings.tint.g, 0.4f));
     }
 
-    // --- legacy stream (saved BEFORE the settings section existed) ---
-    // Simulate by serializing a scene with NO settings systems and chopping the trailing
-    // settings-count u32 - byte-identical to a pre-settings save. The legacyProbe stream
-    // check must leave defaults standing with the serializer still OK.
-    Scene legacy(DefaultAllocator(), u8"old");
-    (void)legacy.CreateEntity(u8"e");
-    MemoryStream legacyFull;
+    // --- a stream cut short (the shape of a save from before the settings / prefab sections
+    // existed) FAILS the read: sections are required, never probed for ---
+    Scene old(DefaultAllocator(), u8"old");
+    (void)old.CreateEntity(u8"e");
+    MemoryStream full;
     {
-        BinarySerializer writer(legacyFull, SerializeMode::Write);
-        SerializeScene(writer, legacy);
+        BinarySerializer writer(full, SerializeMode::Write);
+        SerializeScene(writer, old);
         REQUIRE(writer.IsOk());
     }
-    // A pre-settings save ends after components: chop the settings count PLUS the prefab
-    // section (mode tag u8 + instance count u32) that a current write appends after it.
-    const usize legacyChop = sizeof(u32) + sizeof(u8) + sizeof(u32);
-    MemoryStream legacyStream;
-    REQUIRE(legacyFull.Bytes().Size() > legacyChop);
-    (void)legacyStream.Write(legacyFull.Bytes().Data(), legacyFull.Bytes().Size() - legacyChop);
-    (void)legacyStream.Seek(0, SeekOrigin::Begin);
+    const usize chop = sizeof(u32) + sizeof(u8) + sizeof(u32); // settings count + prefab tail
+    MemoryStream truncated;
+    REQUIRE(full.Bytes().Size() > chop);
+    (void)truncated.Write(full.Bytes().Data(), full.Bytes().Size() - chop);
+    (void)truncated.Seek(0, SeekOrigin::Begin);
     {
         Scene c{DefaultAllocator()};
-        FogSystem* fogC = c.AddSystem<FogSystem>();
-        BinarySerializer reader(legacyStream, SerializeMode::Read);
-        SerializeScene(reader, c, &legacyStream);
-        REQUIRE(reader.IsOk());
-        CHECK(Near(fogC->settings.density, 0.5f)); // defaults stand
+        (void)c.AddSystem<FogSystem>();
+        BinarySerializer reader(truncated, SerializeMode::Read);
+        SerializeScene(reader, c);
+        CHECK_FALSE(reader.IsOk());
     }
 
-    // A settings-era save from BEFORE the prefab section: chop just that section - the
-    // probe guard must end the read cleanly with no pending instances.
-    MemoryStream prePrefabStream;
-    (void)prePrefabStream.Write(legacyFull.Bytes().Data(),
-                                legacyFull.Bytes().Size() - (sizeof(u8) + sizeof(u32)));
-    (void)prePrefabStream.Seek(0, SeekOrigin::Begin);
+    // --- a stream stamped with another format version is REFUSED at the header ---
+    MemoryStream stale;
+    (void)stale.Write(full.Bytes().Data(), full.Bytes().Size());
     {
+        const u32 version = 2; // the retired v2 header
+        (void)stale.Seek(sizeof(u32), SeekOrigin::Begin);
+        (void)stale.Write(reinterpret_cast<const byte*>(&version), sizeof(version));
+        (void)stale.Seek(0, SeekOrigin::Begin);
         Scene c{DefaultAllocator()};
-        FogSystem* fogC = c.AddSystem<FogSystem>();
-        BinarySerializer reader(prePrefabStream, SerializeMode::Read);
-        SerializeScene(reader, c, &prePrefabStream);
-        REQUIRE(reader.IsOk());
-        CHECK(Near(fogC->settings.density, 0.5f));
-        CHECK(c.PendingPrefabInstanceCount() == 0u);
+        BinarySerializer reader(stale, SerializeMode::Read);
+        SerializeScene(reader, c);
+        CHECK_FALSE(reader.IsOk());
+        CHECK(!c.GetFirstRoot().IsAssigned()); // nothing was read past the header
     }
 
-    // Without the probe (a snapshot restore), the section is expected and reads normally.
+    // A snapshot restore reads the full stream normally.
     (void)stream.Seek(0, SeekOrigin::Begin);
     {
         Scene d{DefaultAllocator()};
@@ -664,7 +658,7 @@ TEST_CASE("prefab: scenes save instances as ref+deltas and restore them (overrid
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        SerializeScene(r, loaded, &saved);
+        SerializeScene(r, loaded);
         REQUIRE(r.IsOk());
     }
     CHECK(loaded.EntityCount() == 1u); // only the plain entity so far
@@ -735,7 +729,7 @@ TEST_CASE("prefab: destroyed members stay destroyed across save/load")
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        SerializeScene(r, loaded, &saved);
+        SerializeScene(r, loaded);
     }
     const Span<const byte> payloadBytes = payload.Bytes();
     ResolveScenePrefabs(loaded,
@@ -926,41 +920,26 @@ TEST_CASE("prefab: apply-as-template keeps source ids; revert discards deltas")
     // with the instance they live under.
 }
 
-TEST_CASE("prefab: legacy multi-root payload normalizes to one root on spawn")
+TEST_CASE("prefab: a multi-root payload is REFUSED on spawn (nothing left behind)")
 {
-    // Author TWO root entities and serialize the whole scene (the shape an old prefab-page
-    // save produced before single-root enforcement).
+    // Author TWO root entities and serialize the whole scene: not a prefab payload (a prefab is
+    // one root's subtree). Spawn refuses it instead of guessing where the extra root belongs,
+    // and tears down what it had created.
     Scene author(DefaultAllocator(), u8"author");
     (void)author.CreateEntity(u8"Ball");
     (void)author.CreateEntity(u8"Box");
     MemoryStream payload;
     {
         BinarySerializer ser(payload, SerializeMode::Write);
-        SerializeScene(ser, author, nullptr, ScenePrefabMode::Expanded);
+        SerializeScene(ser, author, ScenePrefabMode::Expanded);
     }
     (void)payload.Seek(0, SeekOrigin::Begin);
 
     Scene level(DefaultAllocator(), u8"level");
     EntityHandle root = SpawnPrefab(level, payload, Guid{0xAB, 0x12});
-    REQUIRE(root.IsAssigned());
-    CHECK(level.GetEntityName(root) == StringView(u8"Ball"));
-
-    // The extra root became a CHILD of the instance root - nothing is a loose sibling.
-    EntityHandle child = level.GetFirstChild(root);
-    REQUIRE(child.IsAssigned());
-    CHECK(level.GetEntityName(child) == StringView(u8"Box"));
-    CHECK(!level.GetNextSibling(root).IsAssigned());
-
-    // Apply-as-template walks the root subtree, so BOTH members survive a round-trip.
-    Scene::PrefabInstanceState* state = level.FindPrefabInstanceByRoot(level.GetEntityId(root));
-    REQUIRE(state != nullptr);
-    MemoryStream captured;
-    REQUIRE(CaptureInstanceAsTemplate(level, *state, captured).IsOk());
-    (void)captured.Seek(0, SeekOrigin::Begin);
-    Scene other(DefaultAllocator(), u8"other");
-    EntityHandle respawned = SpawnPrefab(other, captured, Guid{0xAB, 0x12});
-    REQUIRE(respawned.IsAssigned());
-    CHECK(other.GetFirstChild(respawned).IsAssigned());
+    CHECK_FALSE(root.IsAssigned());
+    CHECK(!level.GetFirstRoot().IsAssigned());
+    CHECK(level.FindPrefabInstanceByRoot(Guid{0xAB, 0x12}) == nullptr);
 }
 
 TEST_CASE("prefab: SavePrefab refuses a multi-root scene")
@@ -1064,7 +1043,7 @@ namespace
 
         MemoryStream out;
         BinarySerializer ser(out, SerializeMode::Write);
-        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, /*includeSettings=*/false);
+        SerializeScene(ser, edit, ScenePrefabMode::Referenced, /*includeSettings=*/false);
         REQUIRE(ser.IsOk());
         OuterAuthoring result;
         for (byte b : out.Bytes())
@@ -1197,7 +1176,7 @@ TEST_CASE("prefab: scene round-trip preserves nesting links, guids, and scene ov
     HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        SerializeScene(r, loaded, &saved);
+        SerializeScene(r, loaded);
         REQUIRE(r.IsOk());
     }
     ResolveScenePrefabs(loaded, resolver);
@@ -1464,7 +1443,7 @@ TEST_CASE("prefab: nested instances keep their captured sibling order")
         edit.SetParent(cone, body);
         MemoryStream out;
         BinarySerializer ser(out, SerializeMode::Write);
-        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
+        SerializeScene(ser, edit, ScenePrefabMode::Referenced, false);
         REQUIRE(ser.IsOk());
         for (byte b : out.Bytes())
         {
@@ -1531,7 +1510,7 @@ TEST_CASE("prefab: un-overridden nested placement follows the outer template")
         edit.SetLocalTransform(wheel, wheelPlacement);
         MemoryStream out;
         BinarySerializer ser(out, SerializeMode::Write);
-        SerializeScene(ser, edit, nullptr, ScenePrefabMode::Referenced, false);
+        SerializeScene(ser, edit, ScenePrefabMode::Referenced, false);
         REQUIRE(ser.IsOk());
         Array<byte> bytes;
         for (byte b : out.Bytes())
@@ -1596,10 +1575,10 @@ TEST_CASE("prefab: un-overridden nested placement follows the outer template")
     CHECK(level.GetLocalTransform(wheel).position.z == doctest::Approx(9.0f));
 }
 
-TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
+TEST_CASE("prefab wire: a retired section layout FAILS the read, never misparses")
 {
     // A mode-2 (pre-order/placement) prefab section misreads as garbage array counts
-    // under the current record layout - the reader must bail at the mode byte instead of
+    // under the current record layout - the reader must fail at the mode byte instead of
     // looping on a bogus count (the old behavior was an effective OOM/hang on project
     // open). Forge one: serialize a scene, then stamp the retired mode over the section
     // byte and garbage over the instance count.
@@ -1608,7 +1587,7 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     (void)author.CreateEntity(u8"Plain");
     MemoryStream out;
     BinarySerializer ser(out, SerializeMode::Write);
-    SerializeScene(ser, author, nullptr, ScenePrefabMode::Referenced, true);
+    SerializeScene(ser, author, ScenePrefabMode::Referenced, true);
     REQUIRE(ser.IsOk());
 
     Array<byte> bytes;
@@ -1631,7 +1610,8 @@ TEST_CASE("prefab wire: the retired nested layout is REFUSED, not misparsed")
     Scene loaded(DefaultAllocator(), u8"loaded");
     loaded.AddSystem<HealthManager>();
     BinarySerializer read(in, SerializeMode::Read);
-    SerializeScene(read, loaded, &in); // must return promptly: entities in, section out
+    SerializeScene(read, loaded); // must return promptly: entities in, the payload FAILED
+    CHECK_FALSE(read.IsOk());
 
     bool foundPlain = false;
     for (EntityHandle r = loaded.GetFirstRoot(); r.IsAssigned(); r = loaded.GetNextSibling(r))
@@ -1667,7 +1647,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
 
     // Hop 1: XML text.
     foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
-    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+    SerializeScene(xmlOut, scene, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     REQUIRE(xmlOut.IsOk());
     String text1;
@@ -1705,7 +1685,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
         Serializer* ar = reader.Open(textStream);
         REQUIRE(ar != nullptr);
         REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Text);
-        SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+        SerializeScene(*ar, loaded, ScenePrefabMode::Referenced, true, reader.Encoding());
         REQUIRE(ar->IsOk());
     }
     ResolveScenePrefabs(loaded, resolver);
@@ -1714,7 +1694,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     MemoryStream binary;
     {
         BinarySerializer ar(binary, SerializeMode::Write);
-        SerializeScene(ar, loaded, nullptr, ScenePrefabMode::Referenced, true,
+        SerializeScene(ar, loaded, ScenePrefabMode::Referenced, true,
                        foundation::scene::detail::SceneStreamEncoding::Binary);
         REQUIRE(ar.IsOk());
     }
@@ -1726,7 +1706,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
         Serializer* ar = reader.Open(binary);
         REQUIRE(ar != nullptr);
         REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Binary);
-        SerializeScene(*ar, last, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+        SerializeScene(*ar, last, ScenePrefabMode::Referenced, true, reader.Encoding());
     }
     ResolveScenePrefabs(last, resolver);
 
@@ -1746,7 +1726,7 @@ TEST_CASE("text scenes: XML save -> load -> binary -> load is EQUIVALENT and sta
     // Stability: re-saving the loaded scene as XML reproduces the SAME text - saves can
     // never generate noise diffs.
     foundation::xml::XmlSerializer xmlAgain(foundation::core::DefaultAllocator());
-    SerializeScene(xmlAgain, loaded, nullptr, ScenePrefabMode::Referenced, true,
+    SerializeScene(xmlAgain, loaded, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text2;
     xmlAgain.GetOutput(text2);
@@ -1763,7 +1743,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     health->Add(b).value = 2.0f;
 
     foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
-    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+    SerializeScene(xmlOut, scene, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
     xmlOut.GetOutput(text);
@@ -1794,7 +1774,7 @@ TEST_CASE("text scenes: unknown component types SKIP; later records still load")
     foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(stream);
     REQUIRE(ar != nullptr);
-    SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+    SerializeScene(*ar, loaded, ScenePrefabMode::Referenced, true, reader.Encoding());
 
     // A's record was the bogus one - skipped; B's still loads.
     EntityHandle loadedA = loaded.FindEntity(scene.GetEntityId(a));
@@ -1821,7 +1801,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     REQUIRE(wheel.IsAssigned());
     health->Get(wheel)->value = 55.0f;
     foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
-    SerializeScene(xmlOut, scene, nullptr, ScenePrefabMode::Referenced, true,
+    SerializeScene(xmlOut, scene, ScenePrefabMode::Referenced, true,
                    foundation::scene::detail::SceneStreamEncoding::Text);
     String text;
     xmlOut.GetOutput(text);
@@ -1847,7 +1827,7 @@ TEST_CASE("text scenes: transcode to binary preserves parked prefab pendings")
     foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(binStream);
     REQUIRE(ar != nullptr);
-    SerializeScene(*ar, player, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
+    SerializeScene(*ar, player, ScenePrefabMode::Referenced, true, reader.Encoding());
     ResolveScenePrefabs(player, resolver);
 
     EntityHandle playerWheel = player.FindEntity(scene.GetEntityId(wheel));
@@ -1876,7 +1856,7 @@ TEST_CASE("scene v2: unknown component and settings records SKIP instead of abor
     Scene b(DefaultAllocator(), u8"loaded"); // NO HealthManager
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        SerializeScene(r, b, &saved);
+        SerializeScene(r, b);
         REQUIRE(r.IsOk());
     }
     CHECK(b.EntityCount() == 1u);
@@ -1934,7 +1914,7 @@ TEST_CASE("scene-snapshot: a scene WITH a prefab instance restores aligned (Simu
     REQUIRE(second->Restore(scene).IsOk());
 }
 
-TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still load")
+TEST_CASE("text scenes: proper guid + full transform names; a v2 save is refused")
 {
     // Reference scene: hierarchy + transform + a component.
     Scene author(DefaultAllocator(), u8"legacy");
@@ -1967,7 +1947,7 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
     // --- 1) a fresh save uses the proper forms: full transform names + canonical guids ---
     {
         foundation::xml::XmlSerializer xmlOut(foundation::core::DefaultAllocator());
-        SerializeScene(xmlOut, author, nullptr, ScenePrefabMode::Referenced, true,
+        SerializeScene(xmlOut, author, ScenePrefabMode::Referenced, true,
                        foundation::scene::detail::SceneStreamEncoding::Text);
         REQUIRE(xmlOut.IsOk());
         String text;
@@ -1984,97 +1964,55 @@ TEST_CASE("text scenes v3: proper guid + full transform names; v2 saves still lo
         CHECK(contains(text, StringView{guidChars, 36}));
     }
 
-    // --- 2) a legacy v2 XML stream (hi/lo guid fields, pos/rot/scl keys) still loads ---
-    // Replicates the exact wire shapes the v2 writer produced.
-    foundation::xml::XmlSerializer legacyOut(foundation::core::DefaultAllocator());
-    auto legacyGuid = [](ISerializer& ar, const char* key, Guid g)
-    {
-        ar.Key(key);
-        foundation::core::Serialize(ar, "hi", g.high);
-        foundation::core::Serialize(ar, "lo", g.low);
-    };
+    // --- 2) a v2 XML stream (the retired hi/lo guid + pos/rot/scl shape) is REFUSED at the
+    // header: nothing is read past it, no entity appears ---
+    foundation::xml::XmlSerializer staleOut(foundation::core::DefaultAllocator());
     u32 magic = foundation::scene::detail::kSceneStreamMagic;
     u32 version = 2;
-    foundation::core::Serialize(legacyOut, "magic", magic);
-    foundation::core::Serialize(legacyOut, "version", version);
-    String sceneName(u8"legacy");
-    foundation::core::Serialize(legacyOut, "name", sceneName);
-    legacyOut.Key("entities");
-    u32 entityCount = 2;
-    legacyOut.BeginArray(entityCount);
-    EntityHandle order[2] = {hero, child};
-    for (EntityHandle e : order)
+    foundation::core::Serialize(staleOut, "magic", magic);
+    foundation::core::Serialize(staleOut, "version", version);
+    String sceneName(u8"stale");
+    foundation::core::Serialize(staleOut, "name", sceneName);
+    staleOut.Key("entities");
+    u32 entityCount = 1;
+    staleOut.BeginArray(entityCount);
     {
-        Guid id = author.GetEntityId(e);
-        String ename = String(author.GetEntityName(e));
+        Guid id = author.GetEntityId(hero);
+        String ename = String(author.GetEntityName(hero));
         u8 active = 1;
-        EntityHandle p = author.GetParent(e);
-        Guid parentId = p.IsAssigned() ? author.GetEntityId(p) : Guid{};
-        Transform lt = author.GetLocalTransform(e);
-        legacyGuid(legacyOut, "id", id);
-        foundation::core::Serialize(legacyOut, "name", ename);
-        foundation::core::Serialize(legacyOut, "active", active);
-        legacyGuid(legacyOut, "parent", parentId);
-        foundation::core::Serialize(legacyOut, "pos", lt.position);
-        foundation::core::Serialize(legacyOut, "rot", lt.rotation);
-        foundation::core::Serialize(legacyOut, "scl", lt.scale);
+        Guid parentId;
+        Transform lt = author.GetLocalTransform(hero);
+        staleOut.Key("id");
+        foundation::core::Serialize(staleOut, "hi", id.high);
+        foundation::core::Serialize(staleOut, "lo", id.low);
+        foundation::core::Serialize(staleOut, "name", ename);
+        foundation::core::Serialize(staleOut, "active", active);
+        staleOut.Key("parent");
+        foundation::core::Serialize(staleOut, "hi", parentId.high);
+        foundation::core::Serialize(staleOut, "lo", parentId.low);
+        foundation::core::Serialize(staleOut, "pos", lt.position);
+        foundation::core::Serialize(staleOut, "rot", lt.rotation);
+        foundation::core::Serialize(staleOut, "scl", lt.scale);
     }
-    legacyOut.EndArray();
-    legacyOut.Key("components");
-    u32 componentCount = 1;
-    legacyOut.BeginArray(componentCount);
-    {
-        legacyOut.BeginObject();
-        Guid ownerId = author.GetEntityId(hero);
-        legacyGuid(legacyOut, "owner", ownerId);
-        String typeId(u8"demo.Health");
-        foundation::core::Serialize(legacyOut, "type", typeId);
-        legacyOut.Key("data");
-        legacyOut.BeginObject();
-        health->WriteComponent(legacyOut, hero);
-        legacyOut.EndObject();
-        legacyOut.EndObject();
-    }
-    legacyOut.EndArray();
-    legacyOut.Key("systemSettings");
-    u32 settingsCount = 0;
-    legacyOut.BeginArray(settingsCount);
-    legacyOut.EndArray();
-    u8 mode = foundation::scene::detail::kPrefabWireReferenced3;
-    foundation::core::Serialize(legacyOut, "prefabMode", mode);
-    legacyOut.Key("prefabInstances");
-    u32 instanceCount = 0;
-    legacyOut.BeginArray(instanceCount);
-    legacyOut.EndArray();
-    REQUIRE(legacyOut.IsOk());
+    staleOut.EndArray();
+    REQUIRE(staleOut.IsOk());
 
-    String legacyText;
-    legacyOut.GetOutput(legacyText);
+    String staleText;
+    staleOut.GetOutput(staleText);
     MemoryStream stream;
-    (void)stream.Write(reinterpret_cast<const byte*>(legacyText.CStr()), legacyText.Size());
+    (void)stream.Write(reinterpret_cast<const byte*>(staleText.CStr()), staleText.Size());
     (void)stream.Seek(0, SeekOrigin::Begin);
 
     Scene loaded(DefaultAllocator(), u8"loaded");
-    HealthManager* loadedHealth = loaded.AddSystem<HealthManager>();
+    loaded.AddSystem<HealthManager>();
     foundation::scene::detail::SceneStreamReader reader;
     Serializer* ar = reader.Open(stream);
     REQUIRE(ar != nullptr);
     REQUIRE(reader.Encoding() == foundation::scene::detail::SceneStreamEncoding::Text);
-    SerializeScene(*ar, loaded, nullptr, ScenePrefabMode::Referenced, true, reader.Encoding());
-    REQUIRE(ar->IsOk());
-
-    EntityHandle loadedHero = loaded.FindEntity(author.GetEntityId(hero));
-    REQUIRE(loadedHero.IsAssigned());
-    const Transform lt = loaded.GetLocalTransform(loadedHero);
-    CHECK(lt.position.x == t.position.x); // exact floats through the legacy keys
-    CHECK(lt.position.y == t.position.y);
-    CHECK(lt.position.z == t.position.z);
-    CHECK(lt.scale.x == t.scale.x);
-    EntityHandle loadedChild = loaded.FindEntity(author.GetEntityId(child));
-    REQUIRE(loadedChild.IsAssigned());
-    CHECK(loaded.GetParent(loadedChild) == loadedHero); // hi/lo parent guid resolved
-    REQUIRE(loadedHealth->Get(loadedHero) != nullptr);
-    CHECK(loadedHealth->Get(loadedHero)->value == 41.5f);
+    SerializeScene(*ar, loaded, ScenePrefabMode::Referenced, true, reader.Encoding());
+    CHECK_FALSE(ar->IsOk());
+    CHECK(!loaded.FindEntity(author.GetEntityId(hero)).IsAssigned());
+    CHECK(loaded.EntityCount() == 0u);
 }
 
 // --- Unresolved records (game-native-code.md S3): a plugin's components + settings survive a
@@ -2107,7 +2045,7 @@ namespace
         if (text)
         {
             foundation::xml::XmlSerializer writer(DefaultAllocator());
-            SerializeScene(writer, scene, nullptr, ScenePrefabMode::Referenced, true,
+            SerializeScene(writer, scene, ScenePrefabMode::Referenced, true,
                            foundation::scene::detail::SceneStreamEncoding::Text);
             String xml;
             writer.GetOutput(xml);
@@ -2116,7 +2054,7 @@ namespace
         else
         {
             BinarySerializer writer(stream, SerializeMode::Write);
-            SerializeScene(writer, scene, nullptr, ScenePrefabMode::Referenced, true,
+            SerializeScene(writer, scene, ScenePrefabMode::Referenced, true,
                            foundation::scene::detail::SceneStreamEncoding::Binary);
         }
         (void)stream.Seek(0, SeekOrigin::Begin);
@@ -2143,13 +2081,13 @@ namespace
             foundation::xml::XmlDocument doc(DefaultAllocator());
             REQUIRE(doc.Parse(xml) == foundation::xml::XmlResult::Ok);
             foundation::xml::XmlSerializer reader(doc);
-            SerializeScene(reader, scene, nullptr, ScenePrefabMode::Referenced, true,
+            SerializeScene(reader, scene, ScenePrefabMode::Referenced, true,
                            foundation::scene::detail::SceneStreamEncoding::Text);
         }
         else
         {
             BinarySerializer reader(stream, SerializeMode::Read);
-            SerializeScene(reader, scene, nullptr, ScenePrefabMode::Referenced, true,
+            SerializeScene(reader, scene, ScenePrefabMode::Referenced, true,
                            foundation::scene::detail::SceneStreamEncoding::Binary);
         }
     }
@@ -2260,7 +2198,7 @@ TEST_CASE("unresolved: prefab-instance overrides of an absent plugin type surviv
     (void)saved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(saved, SerializeMode::Read);
-        SerializeScene(r, bare, &saved);
+        SerializeScene(r, bare);
     }
     ResolveScenePrefabs(bare, resolver);
     REQUIRE(bare.PrefabInstanceCount() == 1u);
@@ -2280,7 +2218,7 @@ TEST_CASE("unresolved: prefab-instance overrides of an absent plugin type surviv
     (void)resaved.Seek(0, SeekOrigin::Begin);
     {
         BinarySerializer r(resaved, SerializeMode::Read);
-        SerializeScene(r, full, &resaved);
+        SerializeScene(r, full);
     }
     ResolveScenePrefabs(full, resolver);
     EntityHandle fTop = full.FindEntity(instTopId);

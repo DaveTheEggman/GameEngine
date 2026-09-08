@@ -40,14 +40,8 @@ export namespace editor
             ar.Key("scene");
             ar.GuidValue(scene);
             foundation::core::Serialize(ar, "showGrid", showGrid);
-            if (ar.Version() >= 2) // showLodOverlay added in SceneViewSettings v2
-            {
-                foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
-            }
-            if (ar.Version() >= 3) // showColliders added in v3
-            {
-                foundation::core::Serialize(ar, "showColliders", showColliders);
-            }
+            foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
+            foundation::core::Serialize(ar, "showColliders", showColliders);
         }
     };
     inline void Serialize(ISerializer& ar, SceneViewPref& p)

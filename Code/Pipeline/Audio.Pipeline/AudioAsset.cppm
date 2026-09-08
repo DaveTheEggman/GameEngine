@@ -500,17 +500,14 @@ export namespace pipeline{
             serializeBus(effects);
             serializeBus(music);
             serializeBus(ui);
-            if (ar.Version() >= 2) // v2: the custom-bus slot bank
+            u32 slots = kAudioCustomBusSlotCount;
+            foundation::core::Serialize(ar, "customSlots", slots);
+            const u32 count = Min<u32>(slots, kAudioCustomBusSlotCount);
+            for (u32 i = 0; i < count; ++i)
             {
-                u32 slots = kAudioCustomBusSlotCount;
-                foundation::core::Serialize(ar, "customSlots", slots);
-                const u32 count = Min<u32>(slots, kAudioCustomBusSlotCount);
-                for (u32 i = 0; i < count; ++i)
-                {
-                    foundation::core::Serialize(ar, "name", custom[i].name);
-                    foundation::core::Serialize(ar, "parent", custom[i].parent);
-                    serializeBus(custom[i].bus);
-                }
+                foundation::core::Serialize(ar, "name", custom[i].name);
+                foundation::core::Serialize(ar, "parent", custom[i].parent);
+                serializeBus(custom[i].bus);
             }
         }
     };
@@ -789,7 +786,7 @@ export namespace pipeline{
     // The remaining audio assets stay identity-only (bus layout / sound cue carry nested
     // structure that a flat property pass doesn't cover).
     RTTI_DEFINE_OBJECT(AudioImportOptions, "rtti::pipeline::audio")
-    // v2: the custom-bus slot bank (see Serialize) - v0/v1 sources read cleanly.
+    // 2: the custom-bus slot bank (see Serialize).
     RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)
     RTTI_DEFINE_OBJECT(SoundCueAsset, "rtti::pipeline::audio")
 }

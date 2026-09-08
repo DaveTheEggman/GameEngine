@@ -60,20 +60,12 @@ export namespace editor
             foundation::core::Serialize(ar, "playerName", playerName);
             foundation::core::Serialize(ar, "outputSubdir", outputSubdir);
             foundation::core::Serialize(ar, "additionalFiles", additionalFiles);
-            // v2 added the config axis: a preset selects (platform, config) and opts symbols in/out.
-            // A v1 export_presets.xml lacks these, so gate them on the stored ExportPresetSet version -
-            // an old file reads config="" (=> Release at resolution) and stageSymbols=false (stripped).
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "config", config);
-                foundation::core::Serialize(ar, "stageSymbols", stageSymbols);
-            }
-            // v3 added closure pruning. Absent (v1/v2) => false = today's "pack everything", so a
-            // preset written before this axis keeps shipping the whole cooked dir (back-compat).
-            if (ar.Version() >= 3)
-            {
-                foundation::core::Serialize(ar, "pruneToReachable", pruneToReachable);
-            }
+            // The config axis: a preset selects (platform, config) and opts symbols in/out
+            // (config "" resolves to Release).
+            foundation::core::Serialize(ar, "config", config);
+            foundation::core::Serialize(ar, "stageSymbols", stageSymbols);
+            // Closure pruning (false = pack the whole cooked dir).
+            foundation::core::Serialize(ar, "pruneToReachable", pruneToReachable);
         }
     };
 

@@ -724,34 +724,34 @@ TEST_CASE("audio.pipeline: a custom-bus parent CYCLE fails the cook")
     RemoveDbTree(u8"scratch_audiopipe_cycle");
 }
 
-TEST_CASE("audio.pipeline: bus layout wire is version-tolerant - v0 payloads (no named "
-          "section) still load, v2 round-trips the custom buses")
+TEST_CASE("audio.pipeline: a bus layout cooked under another data version is REFUSED; the "
+          "current version round-trips the custom buses")
 {
-    // Simulate an OLD cook: write the source under an explicit version-0 scope (the
-    // Serialize body then writes the pre-named wire exactly) and read it back.
-    AudioBusLayoutSource oldSource;
-    oldSource.layout.buses[static_cast<usize>(AudioBus::Music)].volume = 0.4f;
+    // A cook stamped with another data version (0 = the layout before the named section) is
+    // refused by the versioned-payload reader before a field is read - no migration; the
+    // asset re-cooks.
     MemoryStream oldStream;
     {
         BinarySerializer ar(oldStream, SerializeMode::Write);
-        SerializedDataVersion v0{AudioBusLayoutSource::StaticType().id, 0u};
-        ar.PushVersionScope(&v0, 1);
+        u32 count = 1;
+        u64 typeId = AudioBusLayoutSource::StaticType().id;
+        u32 version = 0;
+        ar.Key("dataVersions");
+        ar.BeginArray(count);
+        ar.Key("type");
+        ar.Scalar(&typeId, ScalarKind::UInt64);
+        ar.Key("version");
+        ar.Scalar(&version, ScalarKind::UInt32);
+        ar.EndArray();
+        AudioBusLayoutSource oldSource;
         oldSource.Serialize(ar);
-        ar.PopVersionScope();
         REQUIRE(ar.IsOk());
     }
     REQUIRE(oldStream.Seek(0, SeekOrigin::Begin) == 0);
     {
         BinarySerializer ar(oldStream, SerializeMode::Read);
-        SerializedDataVersion v0{AudioBusLayoutSource::StaticType().id, 0u};
-        ar.PushVersionScope(&v0, 1);
-        AudioBusLayoutSource loaded;
-        loaded.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-        CHECK(loaded.layout.buses[static_cast<usize>(AudioBus::Music)].volume ==
-              doctest::Approx(0.4f));
-        CHECK(loaded.layout.customBuses.IsEmpty());
+        foundation::core::BeginVersionedPayload(ar, AudioBusLayoutSource::StaticType());
+        CHECK_FALSE(ar.IsOk());
     }
 
     // Current-version write/read carries the named section whole.

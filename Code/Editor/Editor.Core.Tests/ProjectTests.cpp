@@ -265,7 +265,7 @@ TEST_CASE("project: manifest round-trips the startup-script asset guid under a v
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
 }
 
-TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migrates")
+TEST_CASE("project: manifests carry the engine version stamp; a stale-version manifest is refused")
 {
     const StringView dir = u8"scratch_project_engine_ver_test";
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
@@ -283,14 +283,14 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         CHECK(engine::project::kEngineVersionString != StringView(u8"0.0.0-dev"));
     }
 
-    // MIGRATION IN ANGER: a manifest written by the v1 ProjectSettings layout (no
-    // engineVersion key) still opens - Serialize's `ar.Version() >= 2` branch skips the
-    // missing field; the next save upgrades the file to v2 with the stamp.
+    // A manifest stamped with another ProjectSettings data version (here 1, which had no
+    // engineVersion key) is REFUSED - Open fails instead of guessing a layout. The project
+    // has to be re-saved by the build that wrote it (or recreated).
     {
         foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
-        engine::project::ProjectSettings v1;
-        v1.name = String(u8"P");
-        v1.defaultScene = String(u8"Scenes/S");
+        engine::project::ProjectSettings stale;
+        stale.name = String(u8"P");
+        stale.defaultScene = String(u8"Scenes/S");
         MemoryStream buffer;
         SerializerFactory factory = foundation::xml::XmlSerializerFactory();
         UniquePtr<SerializerContext> ctx = factory(buffer, SerializeMode::Write);
@@ -307,24 +307,15 @@ TEST_CASE("project: manifests carry the engine version stamp; a v1 manifest migr
         ctx->serializer->Scalar(&version, ScalarKind::UInt32);
         ctx->serializer->EndArray();
         ctx->serializer->PushVersionScope(chain, 1);
-        v1.Serialize(*ctx->serializer); // v1 branch: engineVersion NOT written
+        stale.Serialize(*ctx->serializer);
         ctx->serializer->PopVersionScope();
         REQUIRE(ctx->serializer->IsOk());
         ctx->Flush(buffer);
         REQUIRE(root.AsWritable()->Save(u8"Project.xml", buffer.Bytes()).IsOk());
 
         UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
-        REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().defaultScene == u8"Scenes/S");
-        CHECK(project->Settings().engineVersion.IsEmpty()); // v1 data had no stamp
-        CHECK(project->Settings().defaultSceneId.IsNil());  // ...and no scene guid (v3)
-        REQUIRE(project->SaveSettings().IsOk());
+        CHECK_FALSE(static_cast<bool>(project));
     }
-    {
-        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
-        REQUIRE(static_cast<bool>(project));
-        CHECK(project->Settings().engineVersion == engine::project::kEngineVersionString);
-    }
-
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
 }

@@ -9,8 +9,8 @@
 //     scene/prefab component Refs + prefab instances via the full-manager scan; the
 //     ProjectSettings guid fields) whose target no longer exists in the source database -
 //     the reflection-through-managers walk neither surveyed engine can do;
-//   - broken sources: buildable assets whose envelope no longer deserializes (stale schema /
-//     unmapped legacy type) and scenes/prefabs whose stored stream does not load;
+//   - broken sources: buildable assets whose envelope no longer deserializes (a stale data
+//     version / unknown type) and scenes/prefabs whose stored stream does not load;
 //   - cook state: the incremental plan's dirty/up-to-date split, orphaned products, sources
 //     with no registered builder, and cook records whose last build FAILED.
 // `sound` is the verdict: true only when nothing is broken (dirty is normal workflow state and

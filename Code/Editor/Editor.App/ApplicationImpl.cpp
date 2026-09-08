@@ -514,11 +514,11 @@ namespace editor::app
         if (page == nullptr)
         {
             // The toast stays short; the LOG carries the identifying details (user ask
-            // 2026-08-12) - an unresolvable type here is usually a legacy identity the
-            // FindByName fallback does not map yet, and the stored spelling is the clue.
+            // 2026-08-12) - an unresolvable type here is a retired or unregistered identity,
+            // and the stored spelling is the clue.
             LOG_WARNING(u8"Editor",
                         u8"no editor page for asset '{}' - stored type '{}'::'{}', guid {} "
-                        u8"(unresolved legacy type name, or no page factory registered)",
+                        u8"(unknown type name, or no page factory registered)",
                         instance.Name(), instance.TypeNamespace(), instance.TypeName(),
                         instance.Id());
             m_context.Notify(editor::NoticeKind::Warning,

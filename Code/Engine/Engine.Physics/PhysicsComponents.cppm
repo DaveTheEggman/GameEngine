@@ -113,15 +113,9 @@ export namespace engine::physics
         foundation::core::Serialize(ar, "collisionGroup", c.collisionGroup);
         foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
         foundation::core::Serialize(ar, "material", c.material);
-        if (ar.Version() >= 2) // v2: ShapeKind::Heightfield reference
-        {
-            foundation::core::Serialize(ar, "heightfield", c.heightfield);
-        }
-        if (ar.Version() >= 3) // v3: continuous collision + explicit mass
-        {
-            foundation::core::Serialize(ar, "continuousCollision", c.continuousCollision);
-            foundation::core::Serialize(ar, "mass", c.mass);
-        }
+        foundation::core::Serialize(ar, "heightfield", c.heightfield);
+        foundation::core::Serialize(ar, "continuousCollision", c.continuousCollision);
+        foundation::core::Serialize(ar, "mass", c.mass);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
@@ -142,10 +136,7 @@ export namespace engine::physics
         foundation::core::Serialize(ar, "halfHeight", c.halfHeight);
         foundation::core::Serialize(ar, "planeHalfExtent", c.planeHalfExtent);
         foundation::core::Serialize(ar, "collisionShape", c.collisionShape);
-        if (ar.Version() >= 2) // v2: ShapeKind::Heightfield reference
-        {
-            foundation::core::Serialize(ar, "heightfield", c.heightfield);
-        }
+        foundation::core::Serialize(ar, "heightfield", c.heightfield);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager, ColliderComponent& c)

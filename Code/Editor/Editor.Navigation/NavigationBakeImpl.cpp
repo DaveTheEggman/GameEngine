@@ -23,7 +23,7 @@ import engine.render;
 import engine.terrain;
 import engine.navigation;
 import foundation.navigation;
-import foundation.navigation.resource; // kNavigationZoneFrameRigid (the bake stamp)
+import foundation.navigation.resource;
 import navigation.pipeline;
 import editor.core;
 import foundation.settings;
@@ -285,7 +285,6 @@ namespace editor::navigation
             {
                 asset.navMeshBlob.Resize(blob.Size());
                 MemCopy(asset.navMeshBlob.Data(), blob.Data(), blob.Size());
-                asset.bakedFrame = nav::kNavigationZoneFrameRigid;
                 result.baked = true;
             }
         }
@@ -408,7 +407,6 @@ namespace editor::navigation
 
         asset.navMeshBlob.Resize(blob.Size());
         MemCopy(asset.navMeshBlob.Data(), blob.Data(), blob.Size());
-        asset.bakedFrame = nav::kNavigationZoneFrameRigid;
         if (!pipeline::WriteNavigationZoneAsset(targetAsset, asset).IsOk())
         {
             return result;

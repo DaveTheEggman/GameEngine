@@ -600,7 +600,7 @@ namespace editor
         {
             MemoryStream buffer;
             BinarySerializer writer(buffer, SerializeMode::Write);
-            // Version-wrapped to match SetSceneSettingsBlockCommand's read (Version()-gated fields).
+            // Version-wrapped to match SetSceneSettingsBlockCommand's read.
             foundation::core::BeginVersionedPayload(writer, *type);
             engine::physics::SerializePhysicsSceneSettings(writer, copy);
             foundation::core::EndVersionedPayload(writer);

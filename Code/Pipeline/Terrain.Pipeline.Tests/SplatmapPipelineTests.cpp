@@ -5,7 +5,7 @@
 // through SplatmapAssetBuilder -> SplatWeightsFactory with PRODUCT guid == SOURCE guid (the
 // ref-id parity the terrain resolution rests on), the LEGACY single-raster migration
 // (renormalized - ruling R2), the no-sidecar cook (all-zero = pure base, no seeding), the PNG
-// import (legacy channel semantics -> migrated), and the cook-stamp ProductType contract.
+// import (fixed-layer raster -> top-K), and the cook-stamp ProductType contract.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -136,35 +136,25 @@ TEST_CASE("terrain.pipeline: no sidecars cook an all-zero raster (pure base - no
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (renormalized, R2)")
+TEST_CASE("terrain.pipeline: a pixels-only sidecar (no indices) FAILS the cook - no migration")
 {
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
     RemoveTree();
     NativeFileSystem outMount(u8"scratch_splatpipe_db", DefaultAllocator());
 
-    // A legacy 4-fixed-layer texel whose sum drifted: (100, 60, 40, 0), sum 200. The old shader
-    // normalized, so the true shares are 0.5 / 0.3 / 0.2.
-    Array<u8> legacy;
-    legacy.Resize(8 * 8 * 4, u8{0});
-    for (usize t = 0; t < 64; ++t)
-    {
-        legacy[t * 4 + 0] = 100;
-        legacy[t * 4 + 1] = 60;
-        legacy[t * 4 + 2] = 40;
-    }
-
-    Guid splatId;
+    // A source carrying only the weight raster is a broken (or pre-top-K) source: the cook
+    // refuses it instead of guessing a layout. Re-seed / re-paint the splatmap.
+    Array<u8> weights;
+    weights.Resize(8 * 8 * 4, u8{100});
     {
         foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
                                                 foundation::core::BinarySerializerFactory(),
                                                 u8".rasset");
         auto* inst = db.RootGroup()->CreateInstance(u8"splat", SplatWeightsSource::StaticType());
-        splatId = inst->Id();
-        // ONLY the legacy "pixels" stream - no "indices": the migration channel.
         REQUIRE(inst->WriteData(kSplatStream,
-                                Span<const byte>{reinterpret_cast<const byte*>(legacy.Data()),
-                                                 legacy.Size()})
+                                Span<const byte>{reinterpret_cast<const byte*>(weights.Data()),
+                                                 weights.Size()})
                     .IsOk());
 
         SplatmapAsset sa;
@@ -176,29 +166,13 @@ TEST_CASE("terrain.pipeline: a LEGACY pixels-only sidecar migrates at cook (reno
         ctx.sources = &srcMount;
         ctx.source = inst;
         ctx.output = inst;
-        REQUIRE(builder.Build(sa, ctx).IsOk());
+        CHECK_FALSE(builder.Build(sa, ctx).IsOk());
     }
-
-    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), outMount,
-                                            foundation::core::BinarySerializerFactory(),
-                                            u8".rasset");
-    SplatWeightsFactory factory(DefaultAllocator());
-    ResourceManager manager(DefaultAllocator(), db);
-    manager.AddFactory(&factory);
-    Proxy<SplatWeights> loaded = manager.Bind<SplatWeights>(splatId);
-    REQUIRE(loaded);
-    // Old layer 1 (0.3) -> palette 0 = 77; old layer 2 (0.2) -> palette 1 = 51; base = the old
-    // layer-0 normalized share (0.5) within quantum.
-    CHECK(loaded->WeightOfLayer(4, 4, 0) == 77);
-    CHECK(loaded->WeightOfLayer(4, 4, 1) == 51);
-    const u8 base = loaded->BaseWeight(4, 4);
-    CHECK(base >= 126);
-    CHECK(base <= 128);
 
     RemoveTree();
 }
 
-TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics and migrates")
+TEST_CASE("terrain.pipeline: PNG import decodes as a fixed-layer raster (R = base, G/B/A = palette)")
 {
     RegisterSplatmapAsset();
     RegisterSplatmapResourceTypes();
@@ -210,8 +184,8 @@ TEST_CASE("terrain.pipeline: PNG import decodes with LEGACY channel semantics an
     RemoveDirectory(u8"scratch_splatimg_db");
     REQUIRE(CreateDirectory(u8"scratch_splatimg"));
 
-    // Imported PNGs keep the OLD channel meaning (R = old layer 0 = base share, G/B/A = old
-    // layers 1..3): a solid (128, 127, 0, 0) image = half base + half palette-0 after migration.
+    // Imported PNGs are fixed-layer rasters (R = the base share, G/B/A = palette 0..2): a
+    // solid (128, 127, 0, 0) image = half base + half palette-0 after conversion.
     image::Image authored(4, 2, image::PixelFormat::RGBA8);
     Span<u8> ap = authored.PixelDataMut();
     for (usize t = 0; t < 8; ++t)

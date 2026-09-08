@@ -38,18 +38,13 @@ export namespace pipeline
     {
         RTTI_OBJECT(NavigationZoneAsset, pipeline::Asset)
     public:
-        Array<u8> navMeshBlob; // baked navmesh (header + Detour tile); travels via the sidecar
-        u32 bakedFrame = 0;    // frame convention of the bake (0 = legacy pre-rigid; see resource)
+        Array<u8> navMeshBlob; // baked navmesh (header + Detour tiles); travels via the sidecar
 
         void Serialize(ISerializer& ar) override
         {
             pipeline::Asset::Serialize(ar); // fileName (unused; zones are in-scene authored)
             // navMeshBlob is intentionally NOT serialized here - it is bulk, so it lives in the
             // `navmesh` sidecar stream, never inline in this (possibly text) envelope.
-            if (ar.Version() >= 1) // v1: the rigid-frame stamp (legacy envelopes read as 0)
-            {
-                foundation::core::Serialize(ar, "bakedFrame", bakedFrame);
-            }
         }
     };
 
@@ -106,8 +101,8 @@ export namespace pipeline
         {
             return &foundation::navigation::NavigationZoneSource::StaticType();
         }
-        // v2: the product carries the bake's frame-convention stamp (bakedFrame).
-        [[nodiscard]] u32 Version() const override { return 2; }
+        // 3: the product lost the frame-convention stamp (every bake is rigid-frame).
+        [[nodiscard]] u32 Version() const override { return 3; }
 
         void ScanDependencies(const pipeline::Asset&, pipeline::AssetBuildContext&,
                               pipeline::AssetDependencies& out) override
@@ -136,7 +131,6 @@ export namespace pipeline
             }
             foundation::navigation::NavigationZoneSource product;
             product.navMeshBlob = na.navMeshBlob;
-            product.bakedFrame = na.bakedFrame;
             return ctx.output->WriteObject(product);
         }
     };
@@ -148,5 +142,5 @@ export namespace pipeline
         RegisterSerializable<NavigationZoneAsset>();
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(NavigationZoneAsset, "rtti::pipeline::navigation", 1) // v1: bakedFrame
+    RTTI_DEFINE_OBJECT_VERSIONED(NavigationZoneAsset, "rtti::pipeline::navigation", 2) // 2: frame stamp left
 }

@@ -27,6 +27,31 @@ namespace content = foundation::content;
 
 namespace
 {
+    // Write a loose file at `path` with `text` (creating parents assumed to exist).
+    void WriteText(StringView path, StringView text)
+    {
+        REQUIRE(WriteFile(path, Span<const byte>(reinterpret_cast<const byte*>(text.Data()),
+                                                 text.Size()))
+                    .IsOk());
+    }
+
+    // Recursive scratch-dir cleanup (instances persist as .rasset files with varying names).
+    void RemoveAll(StringView dir)
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(
+            std::filesystem::path(reinterpret_cast<const char*>(String(dir).CStr())), ec);
+    }
+
+    // A fresh Sources/ tree holding one file: the text an asset LINKS through fileName (there
+    // is no inline text - the linked file is the document / stylesheet).
+    void StageSource(StringView sourcesRoot, StringView fileName, StringView text)
+    {
+        RemoveAll(sourcesRoot);
+        REQUIRE(CreateDirectories(sourcesRoot));
+        WriteText(PathJoin(sourcesRoot, fileName).AsView(), text);
+    }
+
     void RemoveTree(StringView dir)
     {
         for (const utf8char* f : {u8"menu.rasset", u8"theme.rasset"})
@@ -48,13 +73,20 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_db", foundation::core::DefaultAllocator());
     content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
 
+    // The linked sources (the only place the text lives).
+    const StringView sourcesRoot = u8"scratch_uipipe_src";
+    StageSource(sourcesRoot, u8"menu.sml", kUIDocumentStarter);
+    WriteText(PathJoin(sourcesRoot, u8"theme.sss").AsView(), kUIThemeStarter);
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, foundation::core::DefaultAllocator());
+
     // Document round-trip.
     auto* docInstance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
     {
         UIDocumentAsset asset;
-        asset.markup = String(kUIDocumentStarter);
+        asset.fileName = foundation::vfs::SourcePath(u8"menu.sml");
         UIDocumentAssetBuilder builder;
         pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
         ctx.output = docInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -62,9 +94,10 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     auto* themeInstance = outDb.RootGroup()->CreateInstance(u8"theme", UIThemeSource::StaticType());
     {
         UIThemeAsset asset;
-        asset.stylesheet = String(kUIThemeStarter);
+        asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
         UIThemeAssetBuilder builder;
         pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
         ctx.output = themeInstance;
         REQUIRE(builder.Build(asset, ctx).IsOk());
     }
@@ -89,6 +122,7 @@ TEST_CASE("ui.pipeline: document + theme cook (validated) and load as products")
     REQUIRE(group != nullptr);
     CHECK(group->FindByName(u8"ok-btn") != nullptr);
 
+    RemoveAll(sourcesRoot);
     RemoveTree(u8"scratch_uipipe_db");
 }
 
@@ -101,23 +135,37 @@ TEST_CASE("ui.pipeline: malformed payloads FAIL the cook")
     content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"menu", UIDocumentSource::StaticType());
 
+    const StringView sourcesRoot = u8"scratch_uipipe_bad_src";
+    StageSource(sourcesRoot, u8"bad.sml", u8"<FlexLayout><Label text=\"unclosed\"</FlexLayout>");
+    WriteText(PathJoin(sourcesRoot, u8"unknown.sml").AsView(), u8"<NotARealControl />");
+    WriteText(PathJoin(sourcesRoot, u8"empty.sml").AsView(), u8"");
+    WriteText(PathJoin(sourcesRoot, u8"empty.sss").AsView(), u8"");
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, foundation::core::DefaultAllocator());
     pipeline::AssetBuildContext ctx{DefaultAllocator()};
+    ctx.sources = &sourcesMount;
     ctx.output = instance;
 
     UIDocumentAssetBuilder documents;
     UIDocumentAsset badXml;
-    badXml.markup = String(u8"<FlexLayout><Label text=\"unclosed\"</FlexLayout>");
+    badXml.fileName = foundation::vfs::SourcePath(u8"bad.sml");
     CHECK_FALSE(documents.Build(badXml, ctx).IsOk());
     UIDocumentAsset unknownControl;
-    unknownControl.markup = String(u8"<NotARealControl />");
+    unknownControl.fileName = foundation::vfs::SourcePath(u8"unknown.sml");
     CHECK_FALSE(documents.Build(unknownControl, ctx).IsOk());
     UIDocumentAsset empty;
+    empty.fileName = foundation::vfs::SourcePath(u8"empty.sml");
     CHECK_FALSE(documents.Build(empty, ctx).IsOk());
+    UIDocumentAsset unlinked; // no fileName: nothing to cook
+    CHECK_FALSE(documents.Build(unlinked, ctx).IsOk());
 
     UIThemeAssetBuilder themes;
     UIThemeAsset emptyTheme;
+    emptyTheme.fileName = foundation::vfs::SourcePath(u8"empty.sss");
     CHECK_FALSE(themes.Build(emptyTheme, ctx).IsOk());
+    UIThemeAsset unlinkedTheme;
+    CHECK_FALSE(themes.Build(unlinkedTheme, ctx).IsOk());
 
+    RemoveAll(sourcesRoot);
     RemoveTree(u8"scratch_uipipe_bad_db");
 }
 
@@ -133,14 +181,19 @@ TEST_CASE("ui.pipeline: a gamekit <screen> document validates at cook")
     content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
     auto* instance = outDb.RootGroup()->CreateInstance(u8"hud", UIDocumentSource::StaticType());
 
+    const StringView sourcesRoot = u8"scratch_uipipe_screen_src";
+    StageSource(sourcesRoot, u8"hud.sml",
+                u8"<screen mode=\"overlay\"><Label id=\"hud-timer\" text=\"90\"/></screen>");
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, foundation::core::DefaultAllocator());
     UIDocumentAsset asset;
-    asset.markup =
-        String(u8"<screen mode=\"overlay\"><Label id=\"hud-timer\" text=\"90\"/></screen>");
+    asset.fileName = foundation::vfs::SourcePath(u8"hud.sml");
     UIDocumentAssetBuilder builder;
     pipeline::AssetBuildContext ctx{DefaultAllocator()};
+    ctx.sources = &sourcesMount;
     ctx.output = instance;
     CHECK(builder.Build(asset, ctx).IsOk());
 
+    RemoveAll(sourcesRoot);
     RemoveTree(u8"scratch_uipipe_screen_db");
 }
 
@@ -188,25 +241,6 @@ TEST_CASE("ui.pipeline: silent markup drops surface as cook warnings")
     CHECK(warnings.IsEmpty());
 }
 
-namespace
-{
-    // Write a loose file at `path` with `text` (creating parents assumed to exist).
-    void WriteText(StringView path, StringView text)
-    {
-        REQUIRE(WriteFile(path, Span<const byte>(reinterpret_cast<const byte*>(text.Data()),
-                                                 text.Size()))
-                    .IsOk());
-    }
-
-    // Recursive scratch-dir cleanup (instances persist as .rasset files with varying names).
-    void RemoveAll(StringView dir)
-    {
-        std::error_code ec;
-        std::filesystem::remove_all(
-            std::filesystem::path(reinterpret_cast<const char*>(String(dir).CStr())), ec);
-    }
-}
-
 // The importer stages the dropped .sml/.sss into Sources/ and LINKS it through fileName -
 // it does NOT embed the text into the asset (mirrors ScriptFileImporter).
 TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline text)")
@@ -230,7 +264,7 @@ TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline 
     UIFileImporter importer;
     pipeline::ImportContext importCtx{DefaultAllocator(), sourcesRoot.AsView()};
 
-    // Document: fileName SET, inline markup EMPTY, source present under Sources/.
+    // Document: fileName SET, source present under Sources/.
     Result<content::Instance*> docInst =
         importer.Import(looseDoc.AsView(), importCtx, *outDb.RootGroup(), nullptr, nullptr, nullptr);
     REQUIRE(docInst.HasValue());
@@ -240,11 +274,10 @@ TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline 
         auto* asset = Cast<UIDocumentAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->fileName.View() == StringView(u8"panel.sml"));
-        CHECK(asset->markup.IsEmpty());
     }
     CHECK(FileExists(PathJoin(sourcesRoot.AsView(), u8"panel.sml").AsView()));
 
-    // Theme: fileName SET, inline stylesheet EMPTY, source present under Sources/.
+    // Theme: fileName SET, source present under Sources/.
     Result<content::Instance*> themeInst = importer.Import(looseTheme.AsView(), importCtx,
                                                           *outDb.RootGroup(), nullptr, nullptr,
                                                           nullptr);
@@ -255,7 +288,6 @@ TEST_CASE("ui.pipeline: importer links the dropped file into Sources (no inline 
         auto* asset = Cast<UIThemeAsset>(object.Get());
         REQUIRE(asset != nullptr);
         CHECK(asset->fileName.View() == StringView(u8"skin.sss"));
-        CHECK(asset->stylesheet.IsEmpty());
     }
     CHECK(FileExists(PathJoin(sourcesRoot.AsView(), u8"skin.sss").AsView()));
 
@@ -325,60 +357,25 @@ TEST_CASE("ui.pipeline: cook of a linked source reads the Sources file into the 
     RemoveAll(u8"scratch_uipipe_linked_db");
 }
 
-// LEGACY: an asset that still carries the text INLINE (empty fileName) cooks unchanged.
-TEST_CASE("ui.pipeline: legacy inline assets (empty fileName) still cook")
-{
-    RegisterUIAssets();
-    RemoveAll(u8"scratch_uipipe_legacy_db");
-    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_legacy_db", foundation::core::DefaultAllocator());
-    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
-
-    auto* docInst = outDb.RootGroup()->CreateInstance(u8"doc", UIDocumentSource::StaticType());
-    {
-        UIDocumentAsset asset;
-        asset.markup = String(kUIDocumentStarter); // inline, fileName left empty
-        UIDocumentAssetBuilder builder;
-        pipeline::AssetBuildContext ctx{DefaultAllocator()}; // no sources mount needed for the inline path
-        ctx.output = docInst;
-        REQUIRE(builder.Build(asset, ctx).IsOk());
-        RefPtr<ISerializable> object = docInst->ReadObject();
-        auto* cooked = Cast<UIDocumentSource>(object.Get());
-        REQUIRE(cooked != nullptr);
-        CHECK(cooked->markup.AsView() == kUIDocumentStarter);
-    }
-    auto* themeInst = outDb.RootGroup()->CreateInstance(u8"theme", UIThemeSource::StaticType());
-    {
-        UIThemeAsset asset;
-        asset.stylesheet = String(kUIThemeStarter); // inline, fileName left empty
-        UIThemeAssetBuilder builder;
-        pipeline::AssetBuildContext ctx{DefaultAllocator()};
-        ctx.output = themeInst;
-        REQUIRE(builder.Build(asset, ctx).IsOk());
-        RefPtr<ISerializable> object = themeInst->ReadObject();
-        auto* cooked = Cast<UIThemeSource>(object.Get());
-        REQUIRE(cooked != nullptr);
-        CHECK(cooked->stylesheet.AsView() == kUIThemeStarter);
-    }
-
-    RemoveAll(u8"scratch_uipipe_legacy_db");
-}
-
 TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but never reaches the cook")
 {
     // messaging: the sss editor stores its preview markup on the theme (cross-session), but that is
-    // EDITOR-ONLY (no-editor-data-in-runtime): it persists in the source asset's Serialize (DataVersion
-    // 2) and is DELIBERATELY excluded from the cooked UIThemeSource (structurally - no such field).
+    // EDITOR-ONLY (no-editor-data-in-runtime): it persists in the source asset's Serialize and is
+    // DELIBERATELY excluded from the cooked UIThemeSource (structurally - no such field).
     RegisterUIResource();
     RegisterUIAssets();
     RemoveDirectory(u8"scratch_uipipe_preview_db");
     foundation::vfs::NativeFileSystem mount(u8"scratch_uipipe_preview_db", foundation::core::DefaultAllocator());
     content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    const StringView sourcesRoot = u8"scratch_uipipe_preview_src";
+    StageSource(sourcesRoot, u8"theme.sss", kUIThemeStarter);
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, foundation::core::DefaultAllocator());
 
-    // SOURCE round-trip: previewMarkup survives WriteObject -> ReadObject (v2).
+    // SOURCE round-trip: previewMarkup survives WriteObject -> ReadObject.
     auto* src = db.RootGroup()->CreateInstance(u8"theme_src", UIThemeAsset::StaticType());
     {
         UIThemeAsset asset;
-        asset.stylesheet = String(kUIThemeStarter);
+        asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
         asset.previewMarkup = String(u8"<Panel><Button text=\"Preview\"/></Panel>");
         REQUIRE(src->WriteObject(asset).IsOk());
     }
@@ -387,7 +384,7 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
         auto* loaded = Cast<UIThemeAsset>(object.Get());
         REQUIRE(loaded != nullptr);
         CHECK(loaded->previewMarkup.AsView() == u8"<Panel><Button text=\"Preview\"/></Panel>");
-        CHECK(loaded->stylesheet.AsView() == kUIThemeStarter); // the theme itself is unaffected
+        CHECK(loaded->fileName.View() == StringView(u8"theme.sss")); // the link is unaffected
     }
 
     // COOK: the product is a UIThemeSource carrying ONLY the stylesheet - previewMarkup cannot leak
@@ -395,10 +392,11 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
     auto* product = db.RootGroup()->CreateInstance(u8"theme_cooked", UIThemeSource::StaticType());
     {
         UIThemeAsset asset;
-        asset.stylesheet = String(kUIThemeStarter);
+        asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
         asset.previewMarkup = String(u8"<Panel/>");
         UIThemeAssetBuilder builder;
         pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
         ctx.output = product;
         REQUIRE(builder.Build(asset, ctx).IsOk());
         RefPtr<ISerializable> object = product->ReadObject();
@@ -407,5 +405,6 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
         CHECK(cooked->stylesheet.AsView() == kUIThemeStarter);
     }
 
+    RemoveAll(sourcesRoot);
     RemoveDirectory(u8"scratch_uipipe_preview_db");
 }

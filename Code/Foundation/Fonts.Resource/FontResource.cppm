@@ -170,11 +170,8 @@ export namespace foundation::fonts
             foundation::core::Serialize(ar, "whitePixelU", whitePixelU);
             foundation::core::Serialize(ar, "whitePixelV", whitePixelV);
             foundation::core::Serialize(ar, "distanceFieldPixelRange", distanceFieldPixelRange);
-            if (ar.Version() >= 1) // v1 added oversample (binary is positional - guard reads)
-            {
-                foundation::core::Serialize(ar, "oversampleX", oversampleX);
-                foundation::core::Serialize(ar, "oversampleY", oversampleY);
-            }
+            foundation::core::Serialize(ar, "oversampleX", oversampleX);
+            foundation::core::Serialize(ar, "oversampleY", oversampleY);
             foundation::core::Serialize(ar, "pixelOffset", pixelOffset);
             foundation::core::Serialize(ar, "pixelBytes", pixelBytes);
         }

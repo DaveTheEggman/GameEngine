@@ -315,8 +315,8 @@ namespace foundation::content
             return RefPtr<ISerializable>{};
         }
 
-        // Deserialize the payload under the STORED data-version scope (migration branches in
-        // Serialize see the version the envelope was written with).
+        // Deserialize the payload under its data-version scope (a version other than the
+        // type's current one fails the read here - no migration).
         BeginVersionedPayload(ar, *type);
         ar.Key("payload");
         ar.BeginObject();
@@ -354,8 +354,7 @@ namespace foundation::content
         }
         Serializer& ar = *ctx->serializer;
 
-        // Write header + payload (payload wrapped in the object's data-version scope, so
-        // Serialize bodies can branch on ar.Version() for migration).
+        // Write header + payload (payload wrapped in the object's data-version scope).
         String ns(m_typeNamespace);
         String nm(m_typeName);
         ar.Key("guid");
@@ -388,8 +387,8 @@ namespace foundation::content
         const Status saved = writable->Save(DataPath(streamName, encoding).AsView(), data);
         if (saved.IsOk())
         {
-            // One suffix per stream: drop the other-encoding sibling (this migrates
-            // pre-".data" text sidecars on their next save).
+            // One suffix per stream: drop the other-encoding sibling so a stream never
+            // exists under both suffixes at once.
             const String other = DataPath(streamName, encoding == StreamEncoding::Text
                                                           ? StreamEncoding::Binary
                                                           : StreamEncoding::Text);

@@ -611,9 +611,8 @@ namespace editor
         }
         MemoryStream stream;
         BinarySerializer ar(stream, SerializeMode::Write);
-        // Versioned scope: TextureAsset gates v2 fields on ar.Version() - a scope-less
-        // serialize reads/writes as v0 and silently drops them (the strict-serializer
-        // migration fix). Snapshot blobs are transient, so current-version is right.
+        // Versioned scope: snapshot blobs carry the asset's data-version chain exactly like
+        // the envelope, so the read side accepts them (a scope-less blob would be refused).
         BeginVersionedPayload(ar, pipeline::TextureAsset::StaticType());
         m_asset->Serialize(ar);
         EndVersionedPayload(ar);

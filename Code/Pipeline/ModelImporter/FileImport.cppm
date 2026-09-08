@@ -76,10 +76,7 @@ export namespace pipeline
         {
             pipeline::Asset::Serialize(ar); // fileName = the imported model file (re-import seed)
             manifest.Serialize(ar);
-            if (ar.Version() >= 1) // v1: importSelection (see RegisterModelManifestAsset)
-            {
-                foundation::core::Serialize(ar, "importSelection", importSelection);
-            }
+            foundation::core::Serialize(ar, "importSelection", importSelection);
         }
     };
 
@@ -1134,10 +1131,9 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        // Sidecar split (v3): tiny envelope + binary geometry stream, both
+                        // Sidecar split: tiny envelope + binary geometry stream, both
                         // deferred. The binary serialize is cheap (the XML rendering was the
                         // cost this defers); bytes are owned by the deferred write.
-                        asset->geometryInSidecar = true;
                         pipeline::DeferredImportWrite envelope;
                         envelope.instance = inst;
                         envelope.object = RefPtr<ISerializable>(asset.Get());
@@ -1146,8 +1142,7 @@ export namespace pipeline
                         pipeline::DeferredImportWrite geometry;
                         geometry.instance = inst;
                         geometry.streamName = String(pipeline::kMeshGeometryStreamName);
-                        pipeline::detail::MeshSourceToBytes(
-                            asset->source, *asset->GetType(), geometry.owned);
+                        pipeline::detail::MeshSourceToBytes(asset->source, geometry.owned);
                         deferredWrites->PushBack(
                             static_cast<pipeline::DeferredImportWrite&&>(geometry));
                     }
@@ -1192,7 +1187,7 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        asset->geometryInSidecar = true; // sidecar split (v3) - see skinned branch
+                        // Sidecar split - see the skinned branch.
                         pipeline::DeferredImportWrite envelope;
                         envelope.instance = inst;
                         envelope.object = RefPtr<ISerializable>(asset.Get());
@@ -1201,8 +1196,7 @@ export namespace pipeline
                         pipeline::DeferredImportWrite geometry;
                         geometry.instance = inst;
                         geometry.streamName = String(pipeline::kMeshGeometryStreamName);
-                        pipeline::detail::MeshSourceToBytes(
-                            asset->source, *asset->GetType(), geometry.owned);
+                        pipeline::detail::MeshSourceToBytes(asset->source, geometry.owned);
                         deferredWrites->PushBack(
                             static_cast<pipeline::DeferredImportWrite&&>(geometry));
                     }
@@ -1311,9 +1305,8 @@ export namespace pipeline
     // Registers the manifest asset type for content-DB construction + deserialization.
     inline void RegisterModelManifestAsset()
     {
-        // v1 = importSelection (re-import memory). No REFLECT block owns this type, so the
-        // data version is patched directly on the registered TypeInfo - pre-v1 envelopes
-        // skip the gated read (the strict-versioning rule).
+        // Data version 1 (importSelection = re-import memory). No REFLECT block owns this
+        // type, so the data version is patched directly on the registered TypeInfo.
         const_cast<TypeInfo&>(ModelManifestAsset::StaticType()).dataVersion = 1;
         GlobalTypeRegistry().Register(ModelManifestAsset::StaticType());
         RegisterSerializable<ModelManifestAsset>();

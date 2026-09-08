@@ -194,50 +194,6 @@ TEST_CASE("TerrainAsset snapshot with no maps round-trips empty normal/ORM array
     CHECK(b.paletteOrmIds.IsEmpty());
 }
 
-TEST_CASE("TerrainAsset reads a v1 (fixed-layer) payload: layer 0 -> base, layers 1.. -> palette")
-{
-    // A legacy envelope written WITHOUT a version scope (v1 payloads predate the gate).
-    MemoryStream out;
-    {
-        BinarySerializer wr(out, SerializeMode::Write);
-        pipeline::Asset envelope; // fileName header the asset serialize starts with
-        envelope.Serialize(wr);
-        Guid heightfieldId{1, 2};
-        Guid splatmapId{3, 4};
-        Array<Guid> layerAlbedoIds;
-        layerAlbedoIds.PushBack(Guid{5, 6});
-        layerAlbedoIds.PushBack(Guid{7, 8});
-        Array<f32> layerTileScales;
-        layerTileScales.PushBack(16.0f);
-        layerTileScales.PushBack(4.0f);
-        bool castShadows = false;
-        Serialize(wr, "heightfieldId", heightfieldId);
-        Serialize(wr, "splatmapId", splatmapId);
-        Serialize(wr, "layerAlbedoIds", layerAlbedoIds);
-        Serialize(wr, "layerTileScales", layerTileScales);
-        Serialize(wr, "castShadows", castShadows);
-        REQUIRE(wr.IsOk());
-    }
-
-    MemoryStream in;
-    (void)in.Write(out.Bytes().Data(), out.Bytes().Size());
-    (void)in.Seek(0, SeekOrigin::Begin);
-    pipeline::TerrainAsset b;
-    {
-        BinarySerializer rd(in, SerializeMode::Read); // no version scope = legacy read
-        b.Serialize(rd);
-        REQUIRE(rd.IsOk());
-    }
-    CHECK(b.heightfieldId == Guid{1, 2});
-    CHECK(b.weightsId == Guid{3, 4});    // splatmapId -> weightsId
-    CHECK(b.baseAlbedoId == Guid{5, 6}); // layer 0 -> base
-    CHECK(b.baseTileScale == doctest::Approx(16.0f));
-    REQUIRE(b.paletteAlbedoIds.Size() == 1u); // layer 1 -> palette 0
-    CHECK(b.paletteAlbedoIds[0] == Guid{7, 8});
-    CHECK(b.paletteTileScales[0] == doctest::Approx(4.0f));
-    CHECK(b.castShadows == false);
-}
-
 TEST_CASE("TerrainAsset v4 snapshot round-trips per-layer height ids + contrast (the undo path)")
 {
     pipeline::RegisterTerrainAsset();

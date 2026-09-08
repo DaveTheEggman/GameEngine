@@ -139,10 +139,7 @@ export namespace engine::navigation
     {
         foundation::core::Serialize(ar, "debugDraw", settings.debugDraw);
         foundation::core::Serialize(ar, "debugDrawPaths", settings.debugDrawPaths);
-        if (ar.Version() >= 2) // v2: the bake-stage overlay toggle
-        {
-            foundation::core::Serialize(ar, "debugDrawBakeStages", settings.debugDrawBakeStages);
-        }
+        foundation::core::Serialize(ar, "debugDrawBakeStages", settings.debugDrawBakeStages);
     }
 
     inline void Serialize(ISerializer& ar, NavMeshZoneComponent& c)
@@ -170,10 +167,7 @@ export namespace engine::navigation
         foundation::core::Serialize(ar, "maxSpeed", c.maxSpeed);
         foundation::core::Serialize(ar, "maxAcceleration", c.maxAcceleration);
         foundation::core::Serialize(ar, "moveEntity", c.moveEntity);
-        if (ar.Version() >= 2) // v2: arrival radius (stopDistance)
-        {
-            foundation::core::Serialize(ar, "stopDistance", c.stopDistance);
-        }
+        foundation::core::Serialize(ar, "stopDistance", c.stopDistance);
     }
 
     class NavMeshZoneComponentManager final

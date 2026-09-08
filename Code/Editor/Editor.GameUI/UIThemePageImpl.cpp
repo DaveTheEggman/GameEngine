@@ -87,7 +87,8 @@ namespace editor
         }
         else
         {
-            asset->stylesheet = String(m_stylesheet.AsView()); // LEGACY inline
+            LOG_ERROR(u8"Editor", u8"UI theme has no linked source file - save refused");
+            return Status{ErrorCode::NotSupported};
         }
         // The preview markup is EDITOR-ONLY, persisted inline on the asset (never cooked).
         asset->previewMarkup = String(m_previewMarkup.AsView());
@@ -263,13 +264,11 @@ namespace editor
             }
             RefPtr<ISerializable> obj = inst->ReadObject();
             auto* doc = Cast<pipeline::UIDocumentAsset>(obj.Get());
-            if (doc == nullptr)
+            if (doc == nullptr || doc->fileName.IsEmpty())
             {
-                return;
+                return; // an unlinked document has no text to preview against
             }
-            const String markup = doc->fileName.IsEmpty()
-                                      ? String(doc->markup.AsView())
-                                      : self->ReadLinkedSource(doc->fileName.View());
+            const String markup = self->ReadLinkedSource(doc->fileName.View());
             self->m_previewMarkup = markup;
             self->m_previewEditor->SetText(markup.AsView()); // copy-once; now the user's to tweak
             self->MarkDirty();                               // persisted on the theme asset

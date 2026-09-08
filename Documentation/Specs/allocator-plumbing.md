@@ -128,7 +128,7 @@ tight cluster) per commit.
   SplatWeights/Heightfield/Texture factories take required allocators;
   DefaultApp creates them all from the runtime Context's allocator; the
   cooked-record Build helpers (Heightfield::Build, SplatWeightsSource::
-  Build, MigrateLegacySplatmap) allocate their products from a passed
+  Build, SplatWeightsFromFixedLayerRaster) allocate their products from a passed
   allocator. **P3g mop-up DONE**: SDL3 shell (CreateShell +
   window/gamepad/dialog managers thread the entry point's allocator; dialog
   contexts record theirs for the SDL C callback), PhysicsWorld (Jolt system/

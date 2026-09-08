@@ -41,18 +41,13 @@ namespace editor
         foundation::core::Serialize(ar, "playerBinary", playerBinary);
         foundation::core::Serialize(ar, "sidecars", sidecars);
         foundation::core::Serialize(ar, "notes", notes);
-        // v2 added the (platform, config) axis: config + compiler metadata + a parallel symbols
-        // group. A v1 template.xml lacks these fields, so gate them on the stored data version -
-        // reading an old manifest leaves config empty (normalized to Release below) and works.
-        if (ar.Version() >= 2)
-        {
-            foundation::core::Serialize(ar, "config", config);
-            foundation::core::Serialize(ar, "compiler", compiler);
-            foundation::core::Serialize(ar, "symbols", symbols);
-        }
+        // The (platform, config) axis: config + compiler metadata + a parallel symbols group.
+        foundation::core::Serialize(ar, "config", config);
+        foundation::core::Serialize(ar, "compiler", compiler);
+        foundation::core::Serialize(ar, "symbols", symbols);
         if (ar.Mode() == SerializeMode::Read && config.IsEmpty())
         {
-            config = String(u8"Release"); // back-compat: absent config => Release
+            config = String(u8"Release"); // an empty config resolves to Release
         }
     }
     const ExportTemplate* TemplateRegistry::FindBy(StringView platform, StringView config) const

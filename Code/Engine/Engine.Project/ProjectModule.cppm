@@ -82,55 +82,30 @@ export namespace engine::project
                                    // play-in-editor apply it, capability-clamped at runtime (v9).
                                    // Default 1 keeps existing projects byte-identical.
 
-        // Migration branches on ar.Version() - the type's data version is written/read by
-        // the manifest helpers below (RTTI_DEFINE_OBJECT_VERSIONED sets the current one).
+        // One layout: the current data version (RTTI_DEFINE_OBJECT_VERSIONED). A manifest
+        // written under another version is refused by the versioned-payload reader.
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "name", name);
-            if (ar.Version() >= 2) // v2 added the engine stamp
-            {
-                foundation::core::Serialize(ar, "engineVersion", engineVersion);
-            }
-            if (ar.Version() >= 3) // v3 made the default scene guid-authoritative
-            {
-                ar.Key("defaultSceneId");
-                ar.GuidValue(defaultSceneId);
-            }
+            foundation::core::Serialize(ar, "engineVersion", engineVersion);
+            ar.Key("defaultSceneId");
+            ar.GuidValue(defaultSceneId);
             foundation::core::Serialize(ar, "defaultScene", defaultScene);
             foundation::core::Serialize(ar, "startupScript", startupScript);
             foundation::core::Serialize(ar, "nativeModule", nativeModule);
-            if (ar.Version() >= 4) // v4 added the default input map
-            {
-                ar.Key("defaultInputMapId");
-                ar.GuidValue(defaultInputMapId);
-            }
-            if (ar.Version() >= 5) // v5 added the default audio bus layout + UI theme
-            {
-                ar.Key("defaultBusLayoutId");
-                ar.GuidValue(defaultBusLayoutId);
-                ar.Key("defaultUiThemeId");
-                ar.GuidValue(defaultUiThemeId);
-            }
-            if (ar.Version() >=
-                6) // v6 made the startup script guid-authoritative (a ScriptClass asset)
-            {
-                ar.Key("startupScriptId");
-                ar.GuidValue(startupScriptId);
-            }
-            if (ar.Version() >= 7) // v7 added the default UI font (fonts triad)
-            {
-                ar.Key("defaultUiFontId");
-                ar.GuidValue(defaultUiFontId);
-            }
-            if (ar.Version() >= 8) // v8 added the boot-splash loading document (task #123)
-            {
-                ar.Key("loadingDocumentId");
-                ar.GuidValue(loadingDocumentId);
-            }
-            if (ar.Version() >= 9) // v9 added the scene-pass MSAA sample count
-            {
-                foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
-            }
+            ar.Key("defaultInputMapId");
+            ar.GuidValue(defaultInputMapId);
+            ar.Key("defaultBusLayoutId");
+            ar.GuidValue(defaultBusLayoutId);
+            ar.Key("defaultUiThemeId");
+            ar.GuidValue(defaultUiThemeId);
+            ar.Key("startupScriptId");
+            ar.GuidValue(startupScriptId);
+            ar.Key("defaultUiFontId");
+            ar.GuidValue(defaultUiFontId);
+            ar.Key("loadingDocumentId");
+            ar.GuidValue(loadingDocumentId);
+            foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
         }
     };
 

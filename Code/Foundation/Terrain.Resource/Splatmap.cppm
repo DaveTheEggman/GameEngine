@@ -14,9 +14,9 @@
 ///
 /// SplatWeightsSource is the cooked metadata (width/height); the two pixel blobs ride the
 /// `kSplatStream` ("pixels" = weights) and `kSplatIndexStream` ("indices") sidecars (bulk-data
-/// rule). SplatWeightsFactory builds the runtime SplatWeights. Legacy single-raster splatmaps
-/// (the 4-fixed-layer model) migrate through MigrateLegacySplatmap - renormalized by the old
-/// in-shader-normalized sum so visuals match exactly (ruling R2).
+/// rule). SplatWeightsFactory builds the runtime SplatWeights. An IMPORTED flat RGBA8 raster
+/// (R = base share, G/B/A = palette 0..2) converts through SplatWeightsFromFixedLayerRaster -
+/// renormalized by the texel sum so the shares are exact (ruling R2).
 
 module;
 #include "Core/Prelude.h"
@@ -613,18 +613,15 @@ export namespace foundation::terrain
         return changed;
     }
 
-    /// Migrate a LEGACY single-raster splatmap (RGBA8, channels = fixed layers 0..3, layer 0 =
-    /// the de-facto base, blended by an IN-SHADER-NORMALIZING blend) to the top-K model:
-    /// base = old layer 0's normalized share; palette 0,1,2 = old layers 1,2,3. Ruling R2: the
-    /// weights are RENORMALIZED by the old sum so the new deficit-derived base equals the old
-    /// normalized layer-0 share exactly - visual parity wherever the old sum drifted from 255.
-    /// A zero-sum texel (the old zero-sum guard rendered layer 0) becomes pure base - same look.
-    [[nodiscard]] inline RefPtr<SplatWeights> MigrateLegacySplatmap(Span<const u8> legacyRgba,
-                                                                    i32 width, i32 height,
-                                                                    IAllocator& allocator)
+    /// Convert an IMPORTED flat raster (RGBA8, four fixed layers: R = the base share, G/B/A =
+    /// palette 0,1,2) to the top-K model. Ruling R2: the channels are RENORMALIZED by the texel
+    /// sum, so a raster whose sums drift from 255 still yields the exact shares (the base is the
+    /// deficit, 255 - the palette slots). A zero-sum texel becomes pure base.
+    [[nodiscard]] inline RefPtr<SplatWeights> SplatWeightsFromFixedLayerRaster(
+        Span<const u8> rgba, i32 width, i32 height, IAllocator& allocator)
     {
         if (width <= 0 || height <= 0 ||
-            legacyRgba.Size() != static_cast<usize>(width) * static_cast<usize>(height) * 4u)
+            rgba.Size() != static_cast<usize>(width) * static_cast<usize>(height) * 4u)
         {
             return MakeRef<SplatWeights>(allocator);
         }
@@ -635,16 +632,16 @@ export namespace foundation::terrain
         for (usize i = 0; i < texels; ++i)
         {
             const usize at = i * 4u;
-            const f32 w0 = static_cast<f32>(legacyRgba[at + 0]);
-            const f32 w1 = static_cast<f32>(legacyRgba[at + 1]);
-            const f32 w2 = static_cast<f32>(legacyRgba[at + 2]);
-            const f32 w3 = static_cast<f32>(legacyRgba[at + 3]);
+            const f32 w0 = static_cast<f32>(rgba[at + 0]);
+            const f32 w1 = static_cast<f32>(rgba[at + 1]);
+            const f32 w2 = static_cast<f32>(rgba[at + 2]);
+            const f32 w3 = static_cast<f32>(rgba[at + 3]);
             const f32 sum = w0 + w1 + w2 + w3;
             if (sum <= 0.0f)
             {
-                continue; // zero-sum guard rendered layer 0 = base -> all-zero slots = pure base
+                continue; // all-zero slots = pure base
             }
-            // Old palette layers 1..3 -> palette indices 0..2, renormalized by the old sum.
+            // Channels G/B/A -> palette indices 0..2, renormalized by the texel sum.
             const f32 scale = 255.0f / sum;
             idx[at + 0] = 0;
             idx[at + 1] = 1;
@@ -721,15 +718,13 @@ export namespace foundation::terrain
         }
     };
 
-    /// Sidecar stream names: `kSplatStream` carries the WEIGHT raster (the name predates the
-    /// top-K split - keeping it lets a legacy single-raster "pixels" sidecar be detected and
-    /// migrated in place); `kSplatIndexStream` carries the palette-index raster.
+    /// Sidecar stream names: `kSplatStream` carries the WEIGHT raster, `kSplatIndexStream` the
+    /// palette-index raster. Both are required; a cooked instance missing either fails to load.
     inline constexpr StringView kSplatStream = u8"pixels";
     inline constexpr StringView kSplatIndexStream = u8"indices";
 
-    /// Builds cooked splat weights (metadata + two streams) into a runtime SplatWeights. A cooked
-    /// instance with NO index stream but a matching legacy weight blob is a pre-top-K splatmap:
-    /// it migrates through MigrateLegacySplatmap (renormalized - ruling R2). Pure-CPU, async-safe.
+    /// Builds cooked splat weights (metadata + two streams) into a runtime SplatWeights.
+    /// Pure-CPU, async-safe.
     class SplatWeightsFactory final : public IResourceFactory
     {
     public:
@@ -786,14 +781,6 @@ export namespace foundation::terrain
             }
             const Array<u8> weights = ReadBlob(instance, kSplatStream);
             const Array<u8> indices = ReadBlob(instance, kSplatIndexStream);
-            const usize expected = static_cast<usize>(src->width) *
-                                   static_cast<usize>(src->height) * kSplatSlotCount;
-            if (indices.IsEmpty() && weights.Size() == expected)
-            {
-                // Legacy cooked splatmap (single raster, fixed-layer semantics): migrate.
-                return MigrateLegacySplatmap(Span<const u8>{weights.Data(), weights.Size()},
-                                             src->width, src->height, *m_allocator);
-            }
             return src->Build(
                 Span<const byte>{reinterpret_cast<const byte*>(indices.Data()), indices.Size()},
                 Span<const byte>{reinterpret_cast<const byte*>(weights.Data()), weights.Size()},

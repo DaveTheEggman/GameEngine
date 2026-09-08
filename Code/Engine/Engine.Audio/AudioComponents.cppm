@@ -102,26 +102,11 @@ export namespace engine::audio
         foundation::core::Serialize(ar, "coneInnerAngleDegrees", c.coneInnerAngleDegrees);
         foundation::core::Serialize(ar, "coneOuterAngleDegrees", c.coneOuterAngleDegrees);
         foundation::core::Serialize(ar, "coneOuterGain", c.coneOuterGain);
-        if (ar.Version() >= 2) // v2: named custom-bus routing
-        {
-            foundation::core::Serialize(ar, "busName", c.busName);
-        }
-        if (ar.Version() >= 3) // v3: per-voice reverb send
-        {
-            foundation::core::Serialize(ar, "reverbSend", c.reverbSend);
-        }
-        if (ar.Version() >= 4) // v4: explicit clip/cue discriminant
-        {
-            u8 sourceType = static_cast<u8>(c.sourceType);
-            foundation::core::Serialize(ar, "sourceType", sourceType);
-            c.sourceType = static_cast<AudioSourceType>(sourceType);
-        }
-        else
-        {
-            // Migrate pre-v4: the old model was "cue wins if set" - infer the discriminant so
-            // existing sources keep playing the same thing (cue assigned -> Cue, else Clip).
-            c.sourceType = c.cue.id.IsNil() ? AudioSourceType::Clip : AudioSourceType::Cue;
-        }
+        foundation::core::Serialize(ar, "busName", c.busName);
+        foundation::core::Serialize(ar, "reverbSend", c.reverbSend);
+        u8 sourceType = static_cast<u8>(c.sourceType);
+        foundation::core::Serialize(ar, "sourceType", sourceType);
+        c.sourceType = static_cast<AudioSourceType>(sourceType);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,

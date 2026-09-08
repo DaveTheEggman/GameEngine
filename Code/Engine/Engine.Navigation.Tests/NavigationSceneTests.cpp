@@ -150,7 +150,7 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
 {
     // The bake and the runtime both use the scale-free RigidPart frame, so a zone on a
     // scaled entity behaves exactly like the unscaled one - the navmesh's world-unit geometry is
-    // PLACED, never warped. The rigid-baked stamp (bakedFrame) marks the artifact.
+    // PLACED, never warped.
     RegisterNavigationResource();
     RegisterNavigationComponentReflection();
     RemoveTree(u8"scratch_navscene_scaled_db");
@@ -166,7 +166,6 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
         NavigationZoneSource src;
         src.navMeshBlob.Resize(blob.Size());
         MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
-        src.bakedFrame = kNavigationZoneFrameRigid; // what NavigationBakeImpl stamps
         REQUIRE(zoneInstance->WriteObject(src).IsOk());
     }
     NavigationZoneFactory factory(DefaultAllocator());
@@ -188,7 +187,6 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
     zoneComp.zone.Bind(manager);
     REQUIRE(zoneComp.zone.Get() != nullptr);
     REQUIRE(zoneComp.zone.Get()->IsValid());
-    CHECK(zoneComp.zone.Get()->bakedFrame == kNavigationZoneFrameRigid);
 
     scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
     scene.SetLocalPosition(agentEntity, Float3{-5, 0, 0});
@@ -212,80 +210,6 @@ TEST_CASE("navigation.scene: a SCALED zone entity places the navmesh rigidly (no
     scene.SetSimulationEnabled(false);
     scene.Stop();
     RemoveTree(u8"scratch_navscene_scaled_db");
-}
-
-TEST_CASE("navigation.scene: a LEGACY bake on a scaled zone entity is skipped, on unit scale loads")
-{
-    // A pre-rigid-frame bake (bakedFrame 0) on a SCALED entity would desync silently
-    // (agents path off the floor); the subsystem now refuses it with a warning. On a unit-scale
-    // entity the two conventions agree exactly, so legacy zones keep working.
-    RegisterNavigationResource();
-    RegisterNavigationComponentReflection();
-    RemoveTree(u8"scratch_navscene_legacy_db");
-
-    foundation::vfs::NativeFileSystem mount(u8"scratch_navscene_legacy_db", foundation::core::DefaultAllocator());
-    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
-    Array<byte> blob;
-    BakeGroundZone(blob);
-    auto* zoneInstance =
-        db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
-    REQUIRE(zoneInstance != nullptr);
-    {
-        NavigationZoneSource src; // bakedFrame stays 0 = legacy
-        src.navMeshBlob.Resize(blob.Size());
-        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
-        REQUIRE(zoneInstance->WriteObject(src).IsOk());
-    }
-    NavigationZoneFactory factory(DefaultAllocator());
-    ResourceManager manager(DefaultAllocator(), db);
-    manager.AddFactory(&factory);
-
-    // Scaled entity + legacy bake -> the zone is refused (agent gets no slot).
-    {
-        scene::Scene scene(DefaultAllocator(), u8"nav-legacy-scaled");
-        AddNavigationSceneManagers(scene);
-        scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
-        Transform t;
-        t.scale = Float3{2.0f, 2.0f, 2.0f};
-        scene.SetLocalTransform(zoneEntity, t);
-        NavMeshZoneComponent& zc = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
-        zc.extents = Float3{15, 10, 15};
-        zc.zone.SetId(zoneInstance->Id());
-        zc.zone.Bind(manager);
-        REQUIRE(zc.zone.Get() != nullptr);
-        scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
-        scene.SetLocalPosition(agentEntity, Float3{-5, 0, 0});
-        NavAgentComponent* agent = &scene.GetSystem<NavAgentComponentManager>()->Add(agentEntity);
-        scene.UpdateTransforms();
-        scene.Start();
-        scene.SetSimulationEnabled(true);
-        CHECK(agent->zoneIndex < 0); // refused, not silently desynced
-        scene.SetSimulationEnabled(false);
-        scene.Stop();
-    }
-
-    // Unit-scale entity + legacy bake -> loads and navigates (backwards compatible).
-    {
-        scene::Scene scene(DefaultAllocator(), u8"nav-legacy-unit");
-        AddNavigationSceneManagers(scene);
-        scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
-        NavMeshZoneComponent& zc = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
-        zc.extents = Float3{15, 10, 15};
-        zc.zone.SetId(zoneInstance->Id());
-        zc.zone.Bind(manager);
-        REQUIRE(zc.zone.Get() != nullptr);
-        scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
-        scene.SetLocalPosition(agentEntity, Float3{-5, 0, 0});
-        NavAgentComponent* agent = &scene.GetSystem<NavAgentComponentManager>()->Add(agentEntity);
-        scene.UpdateTransforms();
-        scene.Start();
-        scene.SetSimulationEnabled(true);
-        CHECK(agent->zoneIndex >= 0); // legacy + unit scale = fine
-        scene.SetSimulationEnabled(false);
-        scene.Stop();
-    }
-
-    RemoveTree(u8"scratch_navscene_legacy_db");
 }
 
 TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arrives short")

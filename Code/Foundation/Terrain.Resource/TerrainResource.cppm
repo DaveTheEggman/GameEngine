@@ -33,16 +33,9 @@ export namespace foundation::terrain
 {
     /// The cooked terrain (serialized): the referenced resources by guid + per-layer tiling +
     /// cast-shadows. The factory resolves the guids; nothing here is bulk data.
-    /// DataVersion 5 = per-layer COVERAGE/opacity maps (palette-only, nil ->
-    /// fully opaque, so v4 payloads are visually unchanged).
-    /// DataVersion 4 = per-layer HEIGHT (displacement) maps + heightBlendContrast (all new ids
-    /// default nil + contrast 0.25 -> the OFF path, so v3 payloads are visually unchanged).
-    /// DataVersion 3 = per-layer normal + ORM maps (all new ids default nil ->
-    /// flat normal / default ORM, so v2 payloads are visually unchanged). DataVersion 2 = the top-K
-    /// model (base + palette + weightsId). Version 1 (the fixed-4-layer model: splatmapId +
-    /// layerAlbedoIds, where layer 0 was the de-facto base) upgrades on read: base = old layer 0,
-    /// palette = old layers 1.., weightsId = old splatmapId (the weights product itself migrates in
-    /// SplatWeightsFactory).
+    /// The top-K model: base + palette + weightsId, per-layer normal/ORM/height/coverage maps
+    /// (nil = the OFF path for that feature) + heightBlendContrast. One layout: the current
+    /// data version (a cooked terrain stamped otherwise is refused and re-cooks).
     class TerrainSource final : public ISerializable
     {
         RTTI_OBJECT(TerrainSource, ISerializable)
@@ -68,51 +61,19 @@ export namespace foundation::terrain
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "heightfieldId", heightfieldId);
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "weightsId", weightsId);
-                foundation::core::Serialize(ar, "baseAlbedoId", baseAlbedoId);
-                foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
-                foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
-                foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
-                if (ar.Version() >= 3) // per-layer normal + ORM maps
-                {
-                    foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
-                    foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
-                    foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
-                    foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
-                }
-                if (ar.Version() >= 4) // per-layer height maps + contrast
-                {
-                    foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
-                    foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
-                    foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
-                }
-                if (ar.Version() >= 5) // per-layer coverage/opacity maps
-                {
-                    foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
-                }
-            }
-            else
-            {
-                // v1 (fixed-4-layer): splatmapId + layer arrays, layer 0 = the de-facto base.
-                // Map on read; writes always run at the CURRENT version (>= 2 above).
-                Array<Guid> layerAlbedoIds;
-                Array<f32> layerTileScales;
-                foundation::core::Serialize(ar, "splatmapId", weightsId);
-                foundation::core::Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
-                foundation::core::Serialize(ar, "layerTileScales", layerTileScales);
-                baseAlbedoId = layerAlbedoIds.Size() > 0 ? layerAlbedoIds[0] : Guid{};
-                baseTileScale = layerTileScales.Size() > 0 ? layerTileScales[0] : 1.0f;
-                paletteAlbedoIds.Clear();
-                paletteTileScales.Clear();
-                for (usize i = 1; i < layerAlbedoIds.Size(); ++i)
-                {
-                    paletteAlbedoIds.PushBack(layerAlbedoIds[i]);
-                    paletteTileScales.PushBack(i < layerTileScales.Size() ? layerTileScales[i]
-                                                                          : 1.0f);
-                }
-            }
+            foundation::core::Serialize(ar, "weightsId", weightsId);
+            foundation::core::Serialize(ar, "baseAlbedoId", baseAlbedoId);
+            foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
+            foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
+            foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
+            foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
+            foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
+            foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
+            foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
+            foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
+            foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
+            foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
+            foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
             foundation::core::Serialize(ar, "castShadows", castShadows);
         }
     };

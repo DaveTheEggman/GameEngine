@@ -72,50 +72,6 @@ TEST_CASE("terrain resource: TerrainSource v2 round-trips base + palette + weigh
     CHECK(b.castShadows == false);
 }
 
-TEST_CASE("terrain resource: a v1 payload upgrades (layer 0 -> base, layers 1.. -> palette)")
-{
-    // Write the LEGACY shape by hand (splatmapId + layerAlbedoIds/layerTileScales) at an
-    // UNVERSIONED scope (v1 payloads predate the version gate: ar.Version() == 0 there).
-    MemoryStream stream;
-    {
-        BinarySerializer ar(stream, SerializeMode::Write);
-        Guid heightfieldId(1, 2);
-        Guid splatmapId(3, 4);
-        Array<Guid> layerAlbedoIds;
-        layerAlbedoIds.PushBack(Guid(5, 6));  // old layer 0: the de-facto base
-        layerAlbedoIds.PushBack(Guid(7, 8));  // old layer 1 -> palette 0
-        layerAlbedoIds.PushBack(Guid(9, 10)); // old layer 2 -> palette 1
-        Array<f32> layerTileScales;
-        layerTileScales.PushBack(16.0f);
-        layerTileScales.PushBack(4.0f);
-        layerTileScales.PushBack(8.0f);
-        bool castShadows = false;
-        Serialize(ar, "heightfieldId", heightfieldId);
-        Serialize(ar, "splatmapId", splatmapId);
-        Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
-        Serialize(ar, "layerTileScales", layerTileScales);
-        Serialize(ar, "castShadows", castShadows);
-        REQUIRE(ar.IsOk());
-    }
-    (void)stream.Seek(0, SeekOrigin::Begin);
-    TerrainSource b;
-    {
-        BinarySerializer ar(stream, SerializeMode::Read); // no version scope = v0/v1 legacy read
-        b.Serialize(ar);
-        REQUIRE(ar.IsOk());
-    }
-    CHECK(b.heightfieldId == Guid(1, 2));
-    CHECK(b.weightsId == Guid(3, 4));           // splatmapId -> weightsId
-    CHECK(b.baseAlbedoId == Guid(5, 6));        // layer 0 -> base
-    CHECK(b.baseTileScale == doctest::Approx(16.0f));
-    REQUIRE(b.paletteAlbedoIds.Size() == 2u);   // layers 1..2 -> palette 0..1
-    CHECK(b.paletteAlbedoIds[0] == Guid(7, 8));
-    CHECK(b.paletteAlbedoIds[1] == Guid(9, 10));
-    CHECK(b.paletteTileScales[0] == doctest::Approx(4.0f));
-    CHECK(b.paletteTileScales[1] == doctest::Approx(8.0f));
-    CHECK(b.castShadows == false);
-}
-
 TEST_CASE("terrain resource: builds through the manager and resolves the shared heightfield")
 {
     hf::RegisterHeightfieldResourceTypes();

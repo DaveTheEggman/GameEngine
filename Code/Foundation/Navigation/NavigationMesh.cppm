@@ -87,7 +87,7 @@ export namespace foundation::navigation
 
         // PARTIAL REBAKE: swap one tile of a LOADED TILED navmesh (remove + add) with fresh
         // Detour tile data (BuildTileInGrid output). Empty data = remove the tile. Fails for
-        // v1 single-tile meshes (their grid cannot place arbitrary tiles) and invalid data.
+        // a single-tile grid (it cannot place arbitrary tiles) and invalid data.
         // Queries/crowds over this mesh see the change immediately.
         [[nodiscard]] Status ReplaceTile(i32 tileX, i32 tileY, Span<const byte> tileData);
 

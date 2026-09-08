@@ -73,11 +73,13 @@ namespace editor
         // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::MaterialAsset>(Cast<pipeline::MaterialAsset>(object.Get()));
-        if (m_asset.Get() != nullptr)
+        if (m_asset.Get() != nullptr &&
+            !materials::ForwardMaterialSourceIsComplete(m_asset->source))
         {
-            // Pre-emissive assets gain the factor in memory (black default); saving the
-            // page persists the upgraded table (the load-time upgrade covers unsaved ones).
-            materials::UpgradeForwardMaterialSource(m_asset->source);
+            LOG_ERROR(u8"Editor",
+                      u8"material '{}' is missing forward shader properties (a stale source) - "
+                      u8"re-create it; the runtime refuses to build it",
+                      m_title);
         }
         if (m_asset.Get() == nullptr)
         {

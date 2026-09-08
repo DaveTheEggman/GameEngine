@@ -168,7 +168,6 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
         RefPtr<ISerializable> object = inst->ReadObject();
         auto* asset = Cast<StaticMeshAsset>(object.Get());
         REQUIRE(asset != nullptr);
-        CHECK(asset->geometryInSidecar);
         CHECK(asset->source.vertexBlob.IsEmpty()); // envelope carries NO bulk
         REQUIRE(EnsureMeshSourceLoaded(*inst, *asset).IsOk());
         CHECK(asset->source.vertexBlob.Size() == originalVertexCount);
@@ -189,40 +188,3 @@ TEST_CASE("mesh editor: sidecar round-trip - tiny XML envelope, binary geometry 
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_sidecar_db");
 }
 
-TEST_CASE("mesh editor: legacy inline envelopes (v<3) still load")
-{
-    GlobalTypeRegistry().Register(StaticMeshSource::StaticType());
-    RegisterSerializable<StaticMeshSource>();
-    RegisterMeshAssets();
-
-    (void)RemoveDirectoryRecursive(u8"scratch_mesh_inline_db");
-    NativeFileSystem mount(u8"scratch_mesh_inline_db", DefaultAllocator());
-    Guid id;
-
-    {
-        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
-            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
-        auto* inst = db.RootGroup()->CreateInstance(u8"cube", StaticMeshAsset::StaticType());
-        id = inst->Id();
-        RefPtr<StaticMesh> cube = Primitives::Cube(DefaultAllocator(), 1.0f);
-        StaticMeshAsset asset;
-        MeshImporter::Import(*cube, asset);
-        // The LEGACY write path: flag false -> geometry inline in the envelope (what every
-        // pre-v3 project on disk contains).
-        REQUIRE(inst->WriteObject(asset).IsOk());
-    }
-    {
-        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), 
-            mount, foundation::xml::XmlSerializerFactory(), u8".xasset");
-        foundation::content::Instance* inst = db.GetInstance(id);
-        REQUIRE(inst != nullptr);
-        RefPtr<ISerializable> object = inst->ReadObject();
-        auto* asset = Cast<StaticMeshAsset>(object.Get());
-        REQUIRE(asset != nullptr);
-        CHECK(!asset->geometryInSidecar);
-        CHECK(!asset->source.vertexBlob.IsEmpty()); // inline read populated it
-        REQUIRE(EnsureMeshSourceLoaded(*inst, *asset).IsOk()); // no-op on legacy
-        CHECK(!asset->source.vertexBlob.IsEmpty());
-    }
-    (void)RemoveDirectoryRecursive(u8"scratch_mesh_inline_db");
-}

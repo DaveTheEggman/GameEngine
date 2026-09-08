@@ -1329,8 +1329,8 @@ export namespace editor
 
         private:
             // Settings blobs carry the type's data-version chain (like the scene-file settings
-            // path), so a SerializeSettings body that gates a field on ar.Version() round-trips
-            // through undo/redo. A settings-less system (no SettingsType) falls back to raw.
+            // path), so the same reader accepts them. A settings-less system (no SettingsType)
+            // falls back to raw.
             static void WriteSettings(scene::SceneSystem& system, ISerializer& ar)
             {
                 const TypeInfo* type = system.SettingsType();

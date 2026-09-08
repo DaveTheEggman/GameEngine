@@ -465,7 +465,7 @@ TEST_CASE("PostProcessSettings: defaults match today's look, and round-trip thro
     PostProcessSystem* postB = b.AddSystem<PostProcessSystem>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
-        SerializeScene(reader, b, &stream);
+        SerializeScene(reader, b);
         REQUIRE(reader.IsOk());
     }
     const PostProcessSettings& r = postB->Post();
@@ -879,7 +879,7 @@ TEST_CASE("EnvironmentSettings: the IBL lighting dimmers serialize with the scen
     auto* envB = b.AddSystem<engine::render::EnvironmentSystem>();
     {
         BinarySerializer reader(stream, SerializeMode::Read);
-        SerializeScene(reader, b, &stream);
+        SerializeScene(reader, b);
         REQUIRE(reader.IsOk());
     }
     CHECK(envB->Environment().iblDiffuseIntensity == doctest::Approx(0.35f));

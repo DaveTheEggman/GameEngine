@@ -54,8 +54,8 @@ export namespace foundation::core
         u32 constantCount = 0;
         const ConstructorInfo* constructors = nullptr; // reflected constructors (overloads)
         u32 constructorCount = 0;
-        // DATA version for serialization migration (Traktor-style): bump when the type's
-        // serialized layout changes; Serialize bodies branch on ar.Version() for old data.
+        // DATA version of the serialized layout: bump when it changes. The reader accepts
+        // exactly the current version (BeginVersionedPayload) - there is no migration.
         // 0 = never versioned. Set via RTTI_DEFINE_OBJECT_VERSIONED or
         // TypeBuilder::DataVersion.
         u32 dataVersion = 0;

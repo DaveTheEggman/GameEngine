@@ -60,7 +60,7 @@ namespace
     }
 }
 
-TEST_CASE("mesh lod wire: v4 sidecar round-trip carries the chain; FillStatic slices it")
+TEST_CASE("mesh lod wire: the sidecar round-trip carries the chain; FillStatic slices it")
 {
     RegisterMeshAssets();
     (void)RemoveDirectoryRecursive(u8"scratch_mesh_lod_db");
@@ -150,146 +150,15 @@ TEST_CASE("mesh lod wire: malformed chains collapse to 1 LOD (render at LOD 0, n
     CHECK(mesh3.SubMeshesForLod(1).Size() == 1); // LOD 0 view
 }
 
-// The v3-with-LOD migration shape for a SKINNED source is NOT harmless -
-// binary reads are positional, so the skinning fields (which follow the static section) consume the
-// unread LOD bytes: an empty/garbage skin stream with ar.IsOk() still true. The Serialize body now
-// validates the parallel-stream invariant (one 24B VertexSkinning per vertex) and FAILS the payload,
-// so the asset re-imports instead of animating garbage.
-TEST_CASE("mesh lod wire: a v3 skinned payload that HAS LOD keys fails LOUDLY (no silent garbage)")
-{
-    SkinnedMeshSource authored;
-    BuildTwoLodSource(authored); // fills the static half (slicing works on the base class)
-    const usize vcount = authored.vertexBlob.Size() / sizeof(StaticMeshVertex);
-    authored.skinningBlob.Resize(vcount * sizeof(VertexSkinning), u8{0});
-    authored.skeletonIndex = 0;
-
-    // Write WITH the LOD keys (version 4 = the buggy writer's actual output shape when it stamped
-    // v3), then read as version 3: SerializeStatic skips the LOD section, so skinningBlob's array
-    // header reads out of the LOD bytes - the misalignment the invariant catches.
-    MemoryStream buffer;
-    const SerializedDataVersion v4[] = {{TypeOf<SkinnedMeshSource>().id, 4}};
-    const SerializedDataVersion v3[] = {{TypeOf<SkinnedMeshSource>().id, 3}};
-    {
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        ar.PushVersionScope(v4, 1);
-        authored.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    (void)buffer.Seek(0, SeekOrigin::Begin);
-    SkinnedMeshSource poisoned;
-    {
-        BinarySerializer ar(buffer, SerializeMode::Read);
-        ar.PushVersionScope(v3, 1);
-        poisoned.Serialize(ar);
-        ar.PopVersionScope();
-        CHECK_FALSE(ar.IsOk()); // loud failure, never a silent desync
-    }
-
-    // The clean v3 shape (written v3 = no LOD keys) still round-trips with the skin stream intact.
-    MemoryStream clean;
-    {
-        BinarySerializer ar(clean, SerializeMode::Write);
-        ar.PushVersionScope(v3, 1);
-        authored.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    (void)clean.Seek(0, SeekOrigin::Begin);
-    SkinnedMeshSource loaded;
-    {
-        BinarySerializer ar(clean, SerializeMode::Read);
-        ar.PushVersionScope(v3, 1);
-        loaded.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    CHECK(loaded.skinningBlob.Size() == authored.skinningBlob.Size());
-    CHECK(loaded.skeletonIndex == 0);
-}
-
-// Regression: a PRE-LOD payload (version 3, no LOD keys) must deserialize cleanly as a 1-LOD chain,
-// never a strict-versioning failure. This is the bug behind the "failed to deserialize - stale schema"
-// cook warnings on meshes seeded before the LOD wire: the LOD keys were gated on version >= 3, but v3
-// was already the geometry-sidecar version, so pre-LOD v3 sources (which have no LOD keys) were wrongly
-// required to carry them. The gate is now >= 4; a v3 payload skips the LOD section and defaults.
-TEST_CASE("mesh lod wire: a pre-LOD version-3 payload loads as 1-LOD, not a deserialize failure")
-{
-    StaticMeshSource authored;
-    BuildTwoLodSource(authored); // a real 2-LOD chain
-
-    // Serialize under a forced VERSION-3 scope: the >= 4 LOD gate drops the keys, producing exactly
-    // the on-disk shape of a pre-LOD mesh (base geometry, no LOD section).
-    MemoryStream buffer;
-    const SerializedDataVersion v3[] = {{TypeOf<StaticMeshSource>().id, 3}};
-    {
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        ar.PushVersionScope(v3, 1);
-        authored.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    (void)buffer.Seek(0, SeekOrigin::Begin);
-
-    StaticMeshSource loaded;
-    {
-        BinarySerializer ar(buffer, SerializeMode::Read);
-        ar.PushVersionScope(v3, 1);
-        loaded.Serialize(ar);
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk()); // the missing LOD keys are NOT a failure at v3
-    }
-
-    // Base geometry survived; the chain defaulted to a single LOD.
-    CHECK(loaded.indexData.Size() == authored.indexData.Size());
-    CHECK(loaded.vertexBlob.Size() == authored.vertexBlob.Size());
-    CHECK(loaded.lodCount == 1);
-    CHECK(loaded.lodStart.IsEmpty());
-    CHECK(loaded.lodCoverage.IsEmpty());
-}
-
-// The migration case for a STATIC mesh written WITH LOD keys but stamped version 3 (the shape of a
-// sidecar written by the pre-fix code that gated LOD on >= 3 while the asset was already v3): reading
-// it as v3 skips the trailing LOD section without error and recovers the base geometry (the cook then
-// regenerates the chain). LOD is the last field of a static source, so the unread bytes are harmless.
-TEST_CASE("mesh lod wire: a v3 static payload that HAS LOD keys still loads (LOD skipped, geometry kept)")
-{
-    StaticMeshSource authored;
-    BuildTwoLodSource(authored);
-
-    // Write WITH the LOD keys (force version 4), then read as version 3.
-    MemoryStream buffer;
-    const SerializedDataVersion v4[] = {{TypeOf<StaticMeshSource>().id, 4}};
-    const SerializedDataVersion v3[] = {{TypeOf<StaticMeshSource>().id, 3}};
-    {
-        BinarySerializer ar(buffer, SerializeMode::Write);
-        ar.PushVersionScope(v4, 1);
-        authored.Serialize(ar); // emits the LOD section
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    (void)buffer.Seek(0, SeekOrigin::Begin);
-    StaticMeshSource loaded;
-    {
-        BinarySerializer ar(buffer, SerializeMode::Read);
-        ar.PushVersionScope(v3, 1);
-        loaded.Serialize(ar);   // stops before the LOD section; trailing bytes are harmless
-        ar.PopVersionScope();
-        REQUIRE(ar.IsOk());
-    }
-    CHECK(loaded.indexData.Size() == authored.indexData.Size());
-    CHECK(loaded.vertexBlob.Size() == authored.vertexBlob.Size());
-    CHECK(loaded.lodCount == 1); // LOD section was skipped
-}
-
-// The forward case: at version 4 (the LOD version) the chain round-trips intact - the gate is on.
-TEST_CASE("mesh lod wire: version 4 round-trips the full LOD chain")
+// The current version round-trips the chain intact (the only layout the reader accepts).
+TEST_CASE("mesh lod wire: the current version round-trips the full LOD chain")
 {
     StaticMeshSource authored;
     BuildTwoLodSource(authored);
 
     MemoryStream buffer;
-    const SerializedDataVersion v4[] = {{TypeOf<StaticMeshSource>().id, 4}};
+    const SerializedDataVersion v4[] = {
+        {TypeOf<StaticMeshSource>().id, TypeOf<StaticMeshSource>().dataVersion}};
     {
         BinarySerializer ar(buffer, SerializeMode::Write);
         ar.PushVersionScope(v4, 1);

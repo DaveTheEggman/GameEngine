@@ -10,8 +10,7 @@
 // reference pass-through (asset ids == cooked product ids). Never linked by the runtime.
 //
 // Splat model = top-K: SplatmapAsset carries TWO sidecars - "pixels"
-// (the 4 x u8 slot weights) + "indices" (the 4 x u8 palette indices). A legacy asset with only a
-// "pixels" sidecar (the fixed-4-layer model) migrates through MigrateLegacySplatmap at cook.
+// (the 4 x u8 slot weights) + "indices" (the 4 x u8 palette indices); both or neither.
 
 module;
 #include "Core/Prelude.h"
@@ -39,9 +38,7 @@ export namespace pipeline
 
     // Source asset: references a heightfield + the splat weights + the BASE layer + the paint
     // palette (by asset guid, which equal their cooked product guids) + tiling + cast-shadows.
-    // DataVersion 2 = the top-K model; v1 (splatmapId + layerAlbedoIds, layer 0 = de-facto base)
-    // maps on read exactly as TerrainSource does: base = layer 0, palette = layers 1..,
-    // weightsId = splatmapId.
+    // The top-K model (base + palette + weightsId), one layout per data version.
     class TerrainAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(TerrainAsset, pipeline::Asset)
@@ -67,50 +64,20 @@ export namespace pipeline
         {
             pipeline::Asset::Serialize(ar); // fileName (unused; terrain references sub-assets)
             foundation::core::Serialize(ar, "heightfieldId", heightfieldId);
-            if (ar.Version() >= 2)
-            {
-                foundation::core::Serialize(ar, "weightsId", weightsId);
-                foundation::core::Serialize(ar, "baseAlbedoId", baseAlbedoId);
-                foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
-                foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
-                foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
-                foundation::core::Serialize(ar, "paletteTextureSize", paletteTextureSize);
-                if (ar.Version() >= 3) // per-layer normal + ORM maps
-                {
-                    foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
-                    foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
-                    foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
-                    foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
-                }
-                if (ar.Version() >= 4) // per-layer height maps + contrast
-                {
-                    foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
-                    foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
-                    foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
-                }
-                if (ar.Version() >= 5) // per-layer coverage/opacity maps
-                {
-                    foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
-                }
-            }
-            else
-            {
-                Array<Guid> layerAlbedoIds;
-                Array<f32> layerTileScales;
-                foundation::core::Serialize(ar, "splatmapId", weightsId);
-                foundation::core::Serialize(ar, "layerAlbedoIds", layerAlbedoIds);
-                foundation::core::Serialize(ar, "layerTileScales", layerTileScales);
-                baseAlbedoId = layerAlbedoIds.Size() > 0 ? layerAlbedoIds[0] : Guid{};
-                baseTileScale = layerTileScales.Size() > 0 ? layerTileScales[0] : 1.0f;
-                paletteAlbedoIds.Clear();
-                paletteTileScales.Clear();
-                for (usize i = 1; i < layerAlbedoIds.Size(); ++i)
-                {
-                    paletteAlbedoIds.PushBack(layerAlbedoIds[i]);
-                    paletteTileScales.PushBack(i < layerTileScales.Size() ? layerTileScales[i]
-                                                                          : 1.0f);
-                }
-            }
+            foundation::core::Serialize(ar, "weightsId", weightsId);
+            foundation::core::Serialize(ar, "baseAlbedoId", baseAlbedoId);
+            foundation::core::Serialize(ar, "baseTileScale", baseTileScale);
+            foundation::core::Serialize(ar, "paletteAlbedoIds", paletteAlbedoIds);
+            foundation::core::Serialize(ar, "paletteTileScales", paletteTileScales);
+            foundation::core::Serialize(ar, "paletteTextureSize", paletteTextureSize);
+            foundation::core::Serialize(ar, "baseNormalId", baseNormalId);
+            foundation::core::Serialize(ar, "baseOrmId", baseOrmId);
+            foundation::core::Serialize(ar, "paletteNormalIds", paletteNormalIds);
+            foundation::core::Serialize(ar, "paletteOrmIds", paletteOrmIds);
+            foundation::core::Serialize(ar, "baseHeightId", baseHeightId);
+            foundation::core::Serialize(ar, "paletteHeightIds", paletteHeightIds);
+            foundation::core::Serialize(ar, "heightBlendContrast", heightBlendContrast);
+            foundation::core::Serialize(ar, "paletteMaskIds", paletteMaskIds);
             foundation::core::Serialize(ar, "castShadows", castShadows);
         }
     };
@@ -581,10 +548,9 @@ export namespace pipeline
     // Source asset: the editable top-K splat weights of a given size. Authoring is CREATE + PAINT
     // (the TerrainPage seeds one, the Splat Paint tool writes it): the two rasters live in the
     // source instance's "pixels" (weights) + "indices" sidecars - the editable-source convention
-    // (fileName empty = the sidecars are truth). A legacy asset carrying only a "pixels" sidecar
-    // (the fixed-4-layer raster) migrates at cook. fileName set = an IMPORTED image, decoded with
-    // the LEGACY channel semantics (R/G/B/A = old layers 0..3, layer 0 = base) and migrated the
-    // same way - re-import explicitly resets any painted sidecars.
+    // (fileName empty = the sidecars are truth; both must exist once painted). fileName set = an
+    // IMPORTED image, decoded as a fixed-layer raster (R = base share, G/B/A = palette 0..2) -
+    // re-import explicitly resets any painted sidecars.
     class SplatmapAsset final : public pipeline::Asset
     {
         RTTI_OBJECT(SplatmapAsset, pipeline::Asset)
@@ -643,9 +609,9 @@ export namespace pipeline
             RefPtr<SplatWeights> sw;
             if (!sa.fileName.View().IsEmpty())
             {
-                // IMPORTED: decode the image as RGBA8 at native size and migrate it through the
-                // LEGACY channel semantics (R/G/B/A = old fixed layers, R = the de-facto base) -
-                // the only meaningful interpretation of a flat image in the top-K model.
+                // IMPORTED: decode the image as RGBA8 at native size and convert it as a
+                // fixed-layer raster (R = the base share, G/B/A = palette 0..2) - the only
+                // meaningful interpretation of a flat image in the top-K model.
                 Result<Array<byte>> bytes = ReadSourceBytes(ctx, sa.fileName.View());
                 if (!bytes.HasValue())
                 {
@@ -664,15 +630,15 @@ export namespace pipeline
                 {
                     return Status{ErrorCode::NotSupported}; // HDR/other - weights are RGBA8
                 }
-                sw = foundation::terrain::MigrateLegacySplatmap(
+                sw = foundation::terrain::SplatWeightsFromFixedLayerRaster(
                     img.PixelData(), static_cast<i32>(img.Width()),
                     static_cast<i32>(img.Height()), *ctx.allocator);
             }
             else
             {
                 // EMBEDDED (create + paint): the rasters ride the source sidecars. Both present =
-                // the top-K pair; only a matching legacy "pixels" = a pre-top-K raster (migrate);
-                // neither = never painted (all-zero = pure base by construction, no seeding).
+                // the top-K pair; neither = never painted (all-zero = pure base by construction,
+                // no seeding). One without the other is a broken source - the cook fails.
                 const i32 w = sa.width > 0 ? sa.width : 1;
                 const i32 h = sa.height > 0 ? sa.height : 1;
                 const usize expected = static_cast<usize>(w) * static_cast<usize>(h) *
@@ -690,15 +656,13 @@ export namespace pipeline
                     MemCopy(sw->Weights().Data(), weights.Data(), expected);
                     MemCopy(sw->Indices().Data(), indices.Data(), expected);
                 }
-                else if (weights.Size() == expected && indices.IsEmpty())
+                else if (weights.IsEmpty() && indices.IsEmpty())
                 {
-                    sw = foundation::terrain::MigrateLegacySplatmap(
-                        Span<const u8>{weights.Data(), weights.Size()}, w, h,
-                        *ctx.allocator);
+                    sw = MakeRef<SplatWeights>(*ctx.allocator, w, h); // all base
                 }
                 else
                 {
-                    sw = MakeRef<SplatWeights>(*ctx.allocator, w, h); // all base
+                    return Status{ErrorCode::NotSupported}; // one raster, or a size mismatch
                 }
             }
             if (sw.Get() == nullptr || sw->IsEmpty())
@@ -745,8 +709,8 @@ export namespace pipeline
     };
 
     // OS-file importer (editor drag-drop): imports a PNG (or any stb-decodable image) as a
-    // SplatmapAsset with fileName set - the builder decodes it with the LEGACY channel semantics
-    // (R/G/B/A = old fixed layers 0..3, R = base) and migrates to the top-K model.
+    // SplatmapAsset with fileName set - the builder decodes it as a fixed-layer raster (R = base
+    // share, G/B/A = palette 0..2) into the top-K model.
     class SplatmapFileImporter final : public pipeline::IFileImporter
     {
     public:
