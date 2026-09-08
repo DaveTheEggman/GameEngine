@@ -4,7 +4,10 @@
 // The render-side PSO cache: build a pipeline from a PipelineConfig pulling variants
 // from the ShaderSystem, verify it caches, and verify the version-polling hot-reload
 // path - invalidating the shader makes GetPipeline rebuild and retire the stale PSO.
-// Real DXC + Null RHI.
+// Nothing here is about COMPILING: the cache needs a shader module to point at and a
+// version to poll, so the ShaderSystem runs compiler-less over a cooked pack of placeholder
+// bytes (the Null device accepts any bytecode). That makes these run on every machine -
+// the old DXC-gated shape skipped the cache's own behaviour wherever DXC was absent.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -23,24 +26,32 @@ namespace shaders = foundation::shaders;
 
 namespace
 {
-    constexpr const char8_t* kVtx =
-        u8"float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
-    constexpr const char8_t* kFrag = u8"float4 main() : SV_Target { return float4(1,0,0,1); }\n";
+    // One placeholder variant per stage, under every cooked format so the pack answers
+    // whatever format the device reports.
+    void AddPlaceholder(shaders::CookedShaderPack& pack, StringView name,
+                        shaders::ShaderStage stage)
+    {
+        static constexpr byte kBlob[4] = {byte{1}, byte{2}, byte{3}, byte{4}};
+        static constexpr shaders::CookedShaderFormat kFormats[] = {
+            shaders::CookedShaderFormat::SpirV, shaders::CookedShaderFormat::Dxil,
+            shaders::CookedShaderFormat::Wgsl};
+        for (const shaders::CookedShaderFormat format : kFormats)
+        {
+            pack.Add(name, stage, shaders::ShaderFlags::None, format, Span<const byte>(kBlob, 4));
+        }
+    }
 }
 
 TEST_CASE("pso cache: builds + caches a pipeline; shader reload rebuilds via version poll")
 {
-    shaders::Compiler* compiler = nullptr;
-    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk())
-    {
-        MESSAGE("DXC unavailable; skipping");
-        return;
-    }
-
     rhi::null::NullDevice device{DefaultAllocator()};
-    shaders::ShaderSystem shaderSystem(*compiler, device);
-    shaderSystem.RegisterSource(u8"forward", shaders::ShaderStage::Vertex, kVtx);
-    shaderSystem.RegisterSource(u8"forward", shaders::ShaderStage::Fragment, kFrag);
+    shaders::CookedShaderPack pack;
+    AddPlaceholder(pack, u8"forward", shaders::ShaderStage::Vertex);
+    AddPlaceholder(pack, u8"forward", shaders::ShaderStage::Fragment);
+    AddPlaceholder(pack, u8"other", shaders::ShaderStage::Vertex);
+    AddPlaceholder(pack, u8"other", shaders::ShaderStage::Fragment);
+    shaders::ShaderSystem shaderSystem(device);
+    shaderSystem.SetCookedPack(&pack);
 
     rhi::PipelineLayout* layout = nullptr;
     REQUIRE(device.CreatePipelineLayout(rhi::PipelineLayoutDesc{}, layout).IsOk());
@@ -69,32 +80,35 @@ TEST_CASE("pso cache: builds + caches a pipeline; shader reload rebuilds via ver
     cache.ReleaseRetired();
     CHECK(cache.RetiredCount() == 0);
 
+    // versions are per SHADER: invalidating another shader rebuilds nothing here
+    rhi::RenderPipeline* pOther =
+        cache.GetPipeline(PipelineConfig::ForOpaqueMesh(u8"other"), layout);
+    REQUIRE(pOther != nullptr);
+    shaderSystem.InvalidateShader(u8"other");
+    CHECK(cache.GetPipeline(config, layout) == p2);
+    CHECK(cache.GetPipeline(PipelineConfig::ForOpaqueMesh(u8"other"), layout) != pOther);
+    cache.ReleaseRetired();
+
     // a distinct render state is a distinct cache entry
     rhi::RenderPipeline* pT =
         cache.GetPipeline(PipelineConfig::ForTransparentMesh(u8"forward"), layout);
     REQUIRE(pT != nullptr);
-    CHECK(cache.Size() == 2);
+    CHECK(cache.Size() == 3);
 
     cache.Clear();
     CHECK(cache.Size() == 0);
 
     device.DestroyPipelineLayout(layout);
-    compiler->Destroy();
 }
 
 TEST_CASE("pso cache: depth-only config builds without a fragment shader")
 {
-    shaders::Compiler* compiler = nullptr;
-    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk())
-    {
-        MESSAGE("DXC unavailable; skipping");
-        return;
-    }
-
     rhi::null::NullDevice device{DefaultAllocator()};
-    shaders::ShaderSystem shaderSystem(*compiler, device);
-    shaderSystem.RegisterSource(u8"shadow", shaders::ShaderStage::Vertex, kVtx);
-    // deliberately no fragment source registered
+    shaders::CookedShaderPack pack;
+    AddPlaceholder(pack, u8"shadow", shaders::ShaderStage::Vertex);
+    // deliberately no fragment variant in the pack
+    shaders::ShaderSystem shaderSystem(device);
+    shaderSystem.SetCookedPack(&pack);
 
     rhi::PipelineLayout* layout = nullptr;
     REQUIRE(device.CreatePipelineLayout(rhi::PipelineLayoutDesc{}, layout).IsOk());
@@ -109,5 +123,4 @@ TEST_CASE("pso cache: depth-only config builds without a fragment shader")
 
     cache.Clear();
     device.DestroyPipelineLayout(layout);
-    compiler->Destroy();
 }
