@@ -71,3 +71,41 @@ TEST_CASE("stroketess: polyline multiple segments")
     CHECK(vertices.Size() >= 8u);
     CHECK(indices.Size() >= 18u);
 }
+
+TEST_CASE("stroketess: a hairpin's miter is bounded by the limit (no vertex escapes)")
+{
+    // As the corner sharpens the miter length goes to infinity; the miter limit must bevel it.
+    // A 100-unit line that turns back on itself: nothing may land past 200 units.
+    Float2 hairpin[3] = {{0, 0}, {100, 0}, {0, 0.5f}};
+    Array<VGVertex> vertices;
+    Array<u32> indices;
+    StrokeTessellator::Tessellate(Span<const Float2>(hairpin, 3), false,
+                                  StrokeStyle(4.0f, VGLineCap::Butt, VGLineJoin::Miter),
+                                  Span<const f32>{}, false, Color::White, vertices, indices);
+    REQUIRE(!vertices.IsEmpty());
+    for (const VGVertex& v : vertices)
+    {
+        CHECK(Abs(v.position.x) < 200.0f);
+        CHECK(Abs(v.position.y) < 200.0f);
+    }
+}
+
+TEST_CASE("stroketess: a zero-length edge has no direction and produces no NaN")
+{
+    Float2 points[4] = {{0, 0}, {10, 0}, {10, 0}, {20, 5}};
+    Array<VGVertex> vertices;
+    Array<u32> indices;
+    StrokeTessellator::Tessellate(Span<const Float2>(points, 4), false,
+                                  StrokeStyle(2.0f, VGLineCap::Round, VGLineJoin::Round),
+                                  Span<const f32>{}, false, Color::White, vertices, indices);
+    REQUIRE(!vertices.IsEmpty());
+    for (const VGVertex& v : vertices)
+    {
+        CHECK(v.position.x == v.position.x); // a NaN is the one value unequal to itself
+        CHECK(v.position.y == v.position.y);
+    }
+    for (const u32 index : indices)
+    {
+        CHECK(index < vertices.Size());
+    }
+}
