@@ -61,10 +61,10 @@ export namespace foundation::fonts
             foundation::core::Serialize(ar, "glyphIndex", info.glyphIndex);
             foundation::core::Serialize(ar, "advanceWidth", info.advanceWidth);
             foundation::core::Serialize(ar, "leftSideBearing", info.leftSideBearing);
-            foundation::core::Serialize(ar, "bbX", info.boundingBox.x);
-            foundation::core::Serialize(ar, "bbY", info.boundingBox.y);
-            foundation::core::Serialize(ar, "bbW", info.boundingBox.width);
-            foundation::core::Serialize(ar, "bbH", info.boundingBox.height);
+            foundation::core::Serialize(ar, "boundsX", info.boundingBox.x);
+            foundation::core::Serialize(ar, "boundsY", info.boundingBox.y);
+            foundation::core::Serialize(ar, "boundsWidth", info.boundingBox.width);
+            foundation::core::Serialize(ar, "boundsHeight", info.boundingBox.height);
             foundation::core::Serialize(ar, "hasBitmap", info.hasBitmap);
             if (ar.Mode() == SerializeMode::Read)
             {
@@ -613,6 +613,6 @@ export namespace foundation::fonts
         RegisterSerializable<FontResource>();
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(FontResource, "rtti::fonts", 1) // v1: entry oversample fields
+    RTTI_DEFINE_OBJECT_VERSIONED(FontResource, "rtti::fonts", 2) // 2: glyph bounds keys use full names
     RTTI_DEFINE_OBJECT(Font, "rtti::fonts")
 }

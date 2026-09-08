@@ -112,7 +112,8 @@ export namespace pipeline{
         // fix - baked screen quads must divide the pack-time oversampling back out). RULE: a
         // product schema change bumps the builder Version() in the SAME commit - the bump IS
         // the migration; it forces every stale cooked font to re-cook.
-        [[nodiscard]] u32 Version() const override { return 3; }
+        // 4 (2026-09-08): FontResource 2 - the glyph bounds keys use full names.
+        [[nodiscard]] u32 Version() const override { return 4; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override

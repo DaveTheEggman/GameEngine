@@ -181,6 +181,10 @@ export namespace pipeline{
             out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
         }
 
+        // Cook version 2 (2026-09-08): StaticMeshSource 5 - Float4 tangent + LOD chain, geometry never inline; a product cooked under the older record
+        // version is refused by the reader, so the recipe hash must change to re-cook it.
+        [[nodiscard]] u32 Version() const override { return 2; }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &StaticMeshAsset::StaticType();
@@ -224,6 +228,10 @@ export namespace pipeline{
             (void)asset;
             out.sourceStreams.PushBack(String(kMeshGeometryStreamName));
         }
+
+        // Cook version 2 (2026-09-08): the mesh source layout, in lockstep with the static builder; a product cooked under the older record
+        // version is refused by the reader, so the recipe hash must change to re-cook it.
+        [[nodiscard]] u32 Version() const override { return 2; }
 
         [[nodiscard]] const TypeInfo* AssetType() const override
         {

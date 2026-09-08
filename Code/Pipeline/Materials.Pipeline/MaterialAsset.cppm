@@ -51,6 +51,10 @@ export namespace pipeline{
     class MaterialAssetBuilder final : public pipeline::DefaultAssetBuilder
     {
     public:
+        // Cook version 2 (2026-09-08): MaterialSource 3 - the property arrays use full names; a product cooked under the older record
+        // version is refused by the reader, so the recipe hash must change to re-cook it.
+        [[nodiscard]] u32 Version() const override { return 2; }
+
         [[nodiscard]] const TypeInfo* AssetType() const override
         {
             return &MaterialAsset::StaticType();
