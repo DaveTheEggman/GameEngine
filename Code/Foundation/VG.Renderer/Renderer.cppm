@@ -118,6 +118,17 @@ export namespace foundation::vg::renderer
 
         [[nodiscard]] bool IsInitialized() const { return m_initialized; }
 
+        /// What the last Render DID with its commands: dispatched, or SKIPPED because the
+        /// pipeline the command needs was never built (a stale batch must not draw winding
+        /// fans as visible colour). Observable headlessly, so the dispatch decisions are
+        /// testable on the Null backend without a pixel probe.
+        struct RenderStats
+        {
+            i32 drawn = 0;
+            i32 skipped = 0;
+        };
+        [[nodiscard]] RenderStats LastRenderStats() const { return m_lastRenderStats; }
+
         /// True when Initialize was given a stencil-capable target (hosts gate
         /// VGContext::SetStencilFills on this).
         [[nodiscard]] bool StencilFillsSupported() const { return m_coverPipeline != nullptr; }
@@ -390,6 +401,7 @@ export namespace foundation::vg::renderer
         void Render(rhi::RenderPassEncoder& renderPass, i32 viewportX, i32 viewportY, u32 width,
                     u32 height, i32 frameIndex, const VGRenderSlice& slice)
         {
+            m_lastRenderStats = RenderStats{};
             if (!slice.isValid || slice.drawCommandCount == 0)
                 return;
 
@@ -426,7 +438,10 @@ export namespace foundation::vg::renderer
                 // forces a bind-group rebind.
                 rhi::RenderPipeline* pipeline = PipelineFor(cmd);
                 if (pipeline == nullptr)
+                {
+                    ++m_lastRenderStats.skipped;
                     continue;
+                }
                 if (pipeline != currentPipeline)
                 {
                     renderPass.SetPipeline(pipeline);
@@ -480,6 +495,7 @@ export namespace foundation::vg::renderer
 
                 renderPass.DrawIndexed(static_cast<u32>(cmd.indexCount), 1,
                                        static_cast<u32>(cmd.startIndex), 0, 0);
+                ++m_lastRenderStats.drawn;
             }
         }
 
@@ -1436,5 +1452,7 @@ export namespace foundation::vg::renderer
         Array<u32> m_frameUniformSlotCount;
 
         bool m_initialized = false;
+
+        RenderStats m_lastRenderStats;
     };
 }

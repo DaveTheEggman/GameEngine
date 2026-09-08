@@ -385,3 +385,200 @@ TEST_CASE("vg.renderer: stencil target config builds the stencil-then-cover pipe
     device.DestroyShaderModule(vs);
     device.DestroyShaderModule(fs);
 }
+
+namespace
+{
+    // A headless render pass on the Null device: a colour target + an encoder.
+    struct NullPass
+    {
+        rhi::Texture* texture = nullptr;
+        rhi::TextureView* view = nullptr;
+        rhi::CommandPool* pool = nullptr;
+        rhi::CommandEncoder* encoder = nullptr;
+        rhi::RenderPassEncoder* pass = nullptr;
+
+        bool Begin(rhi::Device& device)
+        {
+            rhi::TextureDesc td{};
+            td.width = 64;
+            td.height = 64;
+            td.format = rhi::TextureFormat::BGRA8UnormSrgb;
+            td.usage = rhi::TextureUsage::RenderTarget;
+            if (!device.CreateTexture(td, texture).IsOk() || texture == nullptr)
+                return false;
+            if (!device.CreateTextureView(texture, rhi::TextureViewDesc{}, view).IsOk())
+                return false;
+            if (!device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk())
+                return false;
+            if (!pool->CreateEncoder(encoder).IsOk())
+                return false;
+            rhi::RenderPassDesc desc;
+            rhi::ColorAttachment color;
+            color.view = view;
+            desc.colorAttachments.Add(color);
+            pass = encoder->BeginRenderPass(desc);
+            return pass != nullptr;
+        }
+        void End(rhi::Device& device)
+        {
+            if (pass != nullptr)
+                pass->End();
+            if (encoder != nullptr)
+                pool->DestroyEncoder(encoder);
+            if (pool != nullptr)
+                device.DestroyCommandPool(pool);
+            if (view != nullptr)
+                device.DestroyTextureView(view);
+            if (texture != nullptr)
+                device.DestroyTexture(texture);
+        }
+    };
+
+    // Every dispatch decision the renderer makes, in one batch: each blend mode x (a plain
+    // fill, a per-pixel radial, a per-pixel conic), a stencil fill under both rules, the same
+    // inside a clip path, and every gradient spread.
+    Path CirclePath(Float2 center, f32 radius)
+    {
+        PathBuilder b;
+        ShapeBuilder::BuildCircle(center, radius, b);
+        return b.ToPath();
+    }
+    void BuildDispatchBatch(VGContext& ctx)
+    {
+        ctx.SetStencilFills(true);
+        ctx.SetPerPixelGradients(true);
+        PathBuilder clipBuilder;
+        clipBuilder.MoveTo(0, 0);
+        clipBuilder.LineTo(60, 0);
+        clipBuilder.LineTo(60, 60);
+        clipBuilder.Close();
+        const Path clip = clipBuilder.ToPath();
+        const VGBlendMode blends[] = {VGBlendMode::Normal, VGBlendMode::Additive,
+                                      VGBlendMode::Multiply, VGBlendMode::Screen};
+        for (const VGBlendMode blend : blends)
+        {
+            ctx.SetBlendMode(blend);
+            ctx.FillRect(Rectangle{1, 1, 20, 20}, Color::Red);
+            VGRadialGradientFill radial(Float2{30, 30}, 10.0f);
+            radial.AddStop(0.0f, Color::Red);
+            radial.AddStop(1.0f, Color::Blue);
+            ctx.FillPath(CirclePath(Float2{30, 30}, 10.0f), radial, FillRule::NonZero, false);
+            VGConicGradientFill conic(Float2{30, 30});
+            conic.AddStop(0.0f, Color::Green);
+            conic.AddStop(1.0f, Color::White);
+            ctx.FillPath(CirclePath(Float2{30, 30}, 8.0f), conic, FillRule::NonZero, false);
+            const FillRule rules[] = {FillRule::NonZero, FillRule::EvenOdd};
+            for (const FillRule rule : rules)
+            {
+                ctx.FillStar(Float2{30, 30}, 25.0f, 10.0f, 5, Color::White); // convex, direct
+                PathBuilder star;
+                star.MoveTo(30, 5);
+                star.LineTo(45, 55);
+                star.LineTo(5, 20);
+                star.LineTo(55, 20);
+                star.LineTo(15, 55);
+                star.Close();
+                ctx.FillPath(star.ToPath(), VGSolidFill(Color::Blue), rule, true); // stencil
+                ctx.PushClipPath(clip);
+                ctx.FillPath(star.ToPath(), VGSolidFill(Color::Blue), rule, true); // clipped
+                ctx.PopClipPath();
+            }
+        }
+        ctx.SetBlendMode(VGBlendMode::Normal);
+        const VGGradientSpread spreads[] = {VGGradientSpread::Pad, VGGradientSpread::Repeat,
+                                            VGGradientSpread::Reflect};
+        for (const VGGradientSpread spread : spreads)
+        {
+            VGLinearGradientFill linear(Float2{0, 0}, Float2{20, 0});
+            linear.spread = spread;
+            linear.AddStop(0.0f, Color::Red);
+            linear.AddStop(1.0f, Color::Blue);
+            ctx.SetGradientSpread(spread);
+            PathBuilder rect;
+            rect.MoveTo(0, 0);
+            rect.LineTo(40, 0);
+            rect.LineTo(40, 10);
+            rect.LineTo(0, 10);
+            rect.Close();
+            ctx.FillPath(rect.ToPath(), linear, FillRule::NonZero, false);
+        }
+    }
+}
+
+TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, and spread dispatch headlessly")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    rhi::ShaderModule* vs = MakeModule(device);
+    rhi::ShaderModule* fs = MakeModule(device);
+    rhi::ShaderModule* df = MakeModule(device);
+    rhi::ShaderModule* radial = MakeModule(device);
+    rhi::ShaderModule* conic = MakeModule(device);
+    REQUIRE(vs != nullptr);
+
+    VGContext ctx;
+    BuildDispatchBatch(ctx);
+    VGBatch& batch = ctx.GetBatch();
+    i32 live = 0;
+    i32 stencilPhase = 0;
+    for (usize i = 0; i < batch.CommandCount(); ++i)
+    {
+        const VGCommand cmd = batch.GetCommand(i);
+        if (cmd.indexCount == 0)
+            continue;
+        ++live;
+        if (cmd.fillPhase != VGFillPhase::Direct)
+            ++stencilPhase;
+    }
+    REQUIRE(live > 8);
+    REQUIRE(stencilPhase > 0);
+
+    // With stencil pipelines + gradient shaders: NOTHING is skipped - every variant is built
+    // (the blend variants lazily, on first use) and every command dispatches.
+    {
+        VGRenderer renderer{DefaultAllocator()};
+        VGTargetConfig config;
+        config.sampleCount = 4;
+        config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
+        REQUIRE(renderer
+                    .Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1, df, radial,
+                                conic, config)
+                    .IsOk());
+        REQUIRE(renderer.StencilFillsSupported());
+        renderer.BeginFrame(0);
+        const VGRenderSlice slice = renderer.Prepare(batch, 0, 64, 64);
+        REQUIRE(slice.isValid);
+        NullPass pass;
+        REQUIRE(pass.Begin(device));
+        renderer.Render(*pass.pass, 64, 64, 0, slice);
+        pass.End(device);
+        CHECK(renderer.LastRenderStats().skipped == 0);
+        CHECK(renderer.LastRenderStats().drawn == live);
+        renderer.Dispose();
+    }
+
+    // Without stencil pipelines: the stencil-phase commands are SKIPPED, never drawn with a
+    // substitute (winding fans would show as colour); everything else still dispatches.
+    {
+        VGRenderer renderer{DefaultAllocator()};
+        REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1)
+                    .IsOk());
+        REQUIRE_FALSE(renderer.StencilFillsSupported());
+        renderer.BeginFrame(0);
+        const VGRenderSlice slice = renderer.Prepare(batch, 0, 64, 64);
+        REQUIRE(slice.isValid);
+        NullPass pass;
+        REQUIRE(pass.Begin(device));
+        renderer.Render(*pass.pass, 64, 64, 0, slice);
+        pass.End(device);
+        CHECK(renderer.LastRenderStats().skipped == stencilPhase);
+        CHECK(renderer.LastRenderStats().drawn == live - stencilPhase);
+        renderer.Dispose();
+    }
+
+    device.DestroyShaderModule(conic);
+    device.DestroyShaderModule(radial);
+    device.DestroyShaderModule(df);
+    device.DestroyShaderModule(fs);
+    device.DestroyShaderModule(vs);
+}
+
