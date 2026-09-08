@@ -449,6 +449,15 @@ TEST_CASE("vg.context: over-budget LUT cache eviction is announced through the b
     ctx.Clear();
     VGBatch& batch = ctx.GetBatch();
     CHECK(batch.evictedTextures.Size() == distinct);
+    // The evicted ramps SURVIVE their announcing frame: the images are held one more frame so
+    // the keys the renderer releases are not dangling while its frame is in flight.
+    for (const image::ImageData* evicted : batch.evictedTextures)
+    {
+        REQUIRE(evicted != nullptr);
+        CHECK(evicted->Width() == 256u);
+        CHECK(evicted->Height() == 1u);
+        CHECK(evicted->PixelData().Size() == 256u * 4u);
+    }
 
     VGLinearGradientFill grad(Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f});
     grad.AddStop(0.0f, Color::Red);
@@ -621,3 +630,33 @@ TEST_CASE("vg.context: DrawImageSnapped lands on the device pixel grid")
     rotated.PopState();
     CHECK(rotated.GetBatch().VertexCount() >= 4u);
 }
+
+TEST_CASE("vg.context: a plain draw after a gradient is back on the white passthrough + default mode")
+{
+    // A gradient binds its ramp LUT and (per-pixel) a gradient draw mode; the NEXT plain draw
+    // must not stay on either - it is back on texture 0 (the white passthrough) and Default.
+    VGContext ctx;
+    ctx.SetPerPixelGradients(true);
+    PathBuilder pb;
+    pb.MoveTo(0, 0);
+    pb.LineTo(10, 0);
+    pb.LineTo(10, 10);
+    pb.Close();
+    const Path path = pb.ToPath();
+
+    VGRadialGradientFill grad(Float2{5.0f, 5.0f}, 5.0f);
+    grad.AddStop(0.0f, Color::Red);
+    grad.AddStop(1.0f, Color::Blue);
+    ctx.FillPath(path, grad, FillRule::NonZero, false);
+    // Commands close lazily on a state change or on GetBatch(): read through GetBatch each time.
+    const usize gradientCommand = ctx.GetBatch().CommandCount() - 1;
+    CHECK(ctx.GetBatch().GetCommand(gradientCommand).textureIndex >= 1);
+    CHECK(ctx.GetBatch().GetCommand(gradientCommand).drawMode != VGDrawMode::Default);
+
+    ctx.FillPath(path, VGSolidFill(Color::Green), FillRule::NonZero, false);
+    REQUIRE(ctx.GetBatch().CommandCount() > gradientCommand + 1);
+    const VGCommand plain = ctx.GetBatch().GetCommand(ctx.GetBatch().CommandCount() - 1);
+    CHECK(plain.textureIndex == 0);
+    CHECK(plain.drawMode == VGDrawMode::Default);
+}
+
