@@ -7,6 +7,7 @@
 // Sedulous checks (R==0, R in (100,155), etc.) identical in spirit.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include <initializer_list>
 import foundation.core;
 import foundation.vg;
 
@@ -95,4 +96,39 @@ TEST_CASE("style: ColorUtils interpolate stops boundary clamp")
         ToColor32(ColorUtils::InterpolateStops(Span<const GradientStop>(stops, 2), 1.0f));
     CHECK(before == Color32::Red);
     CHECK(after == Color32::Blue);
+}
+
+TEST_CASE("style: the coordinate handed to the shader agrees with the CPU parameter")
+{
+    // The GPU gradient path hands the shader fill.GradientCoord per vertex and derives t per
+    // pixel: radial takes length(coord), conic takes frac(atan2(coord.y, coord.x) / 2pi)
+    // (vg_grad_radial.ps.hlsl / vg_grad_conic.ps.hlsl). GetParameterAt is the CPU truth. If
+    // either side drifts the GPU draws something the CPU never described, and nothing else
+    // catches it - so the shader math is replayed here at several points.
+    const Rectangle bounds{0.0f, 0.0f, 100.0f, 100.0f};
+    const Float2 points[] = {Float2{60.0f, 50.0f}, Float2{50.0f, 20.0f}, Float2{35.0f, 35.0f},
+                             Float2{80.0f, 90.0f}, Float2{10.0f, 55.0f}};
+
+    VGRadialGradientFill radial(Float2{50.0f, 50.0f}, 25.0f);
+    for (const Float2 p : points)
+    {
+        const Float2 coord = radial.GradientCoord(p, bounds);
+        CHECK(Length(coord) == doctest::Approx(radial.GetParameterAt(p, bounds)).epsilon(1e-4));
+    }
+
+    for (const f32 startAngle : {0.0f, 0.7f, kPi, -2.0f})
+    {
+        VGConicGradientFill conic(Float2{50.0f, 50.0f}, startAngle);
+        for (const Float2 p : points)
+        {
+            const Float2 coord = conic.GradientCoord(p, bounds);
+            f32 a = Atan2(coord.y, coord.x) / kTwoPi; // (-0.5, 0.5], what the shader computes
+            a -= Floor(a);                             // frac -> [0, 1)
+            const f32 cpu = conic.GetParameterAt(p, bounds);
+            // Both live on a circle: compare modulo 1 so a value at the wrap (0 vs 1) matches.
+            f32 diff = Abs(a - cpu);
+            diff = diff > 0.5f ? 1.0f - diff : diff;
+            CHECK(diff < 1e-4f);
+        }
+    }
 }
