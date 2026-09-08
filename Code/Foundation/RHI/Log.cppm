@@ -19,8 +19,20 @@ using namespace foundation::core;
 
 export namespace foundation::rhi
 {
+    /// Optional sink every RHI log line passes through before the console: the validation
+    /// layer's diagnostics are observable in tests this way (its Submit reports return void).
+    /// Return true to swallow the line. Process-wide state, so the slot lives in an impl unit
+    /// (LogImpl.cpp), never inline here (shared-libraries.md rendezvous rule).
+    using LogSink = bool (*)(void* context, bool error, const char* utf8);
+    void SetLogSink(LogSink sink, void* context) noexcept;
+    [[nodiscard]] bool DispatchToLogSink(bool error, const char* utf8) noexcept;
+
     inline void LogWrite(bool error, const char* utf8)
     {
+        if (DispatchToLogSink(error, utf8))
+        {
+            return;
+        }
         const StringView view(reinterpret_cast<const utf8char*>(utf8));
         if (error)
         {

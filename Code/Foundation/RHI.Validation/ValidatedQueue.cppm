@@ -56,6 +56,11 @@ export namespace foundation::rhi::validation
         {
             if (waitFences.Size() != waitValues.Size())
                 LogError("[Validation] Queue::submit: waitFences and waitValues count mismatch");
+            // Same contract as the fenced overload above: the signal fence is required (the
+            // plain overload is the unsignalled path). The Vulkan backend rejects the submit;
+            // this used to be reported on one overload and not the other (Beef-port finding).
+            if (!signalFence)
+                LogError("[Validation] Queue::submit: signalFence is null");
             // Unwrap validated fences for both wait and signal.
             Array<Fence*> innerWait(waitFences.Size());
             for (usize i = 0; i < waitFences.Size(); ++i)

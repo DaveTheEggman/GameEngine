@@ -1057,6 +1057,14 @@ export namespace foundation::rhi::vk
         for (usize i = 0; i < cmdBufs.Size(); ++i)
             bufs[i] = static_cast<VkCommandBufferImpl*>(cmdBufs[i])->handle();
 
+        // A fenced overload without a fence is a contract violation (the validation layer
+        // reports it; the 2-arg overload is the fire-and-forget path). Reject it here exactly
+        // as the 3-arg overload does - and BEFORE consuming the swap-chain sync, so a rejected
+        // submit leaves the pair latched for the graphics submit that will honour it. Found by
+        // the Beef port, whose backend already rejected while this one submitted unsignalled.
+        if (signalFence == nullptr)
+            return;
+
         // The swap-chain sync is the GRAPHICS queue's, whichever fenced overload it submits
         // with. This overload used to decline it, which was harmless only while the other
         // queue's submit consumed it by accident; once that was gated (the Beef port's
@@ -1097,13 +1105,9 @@ export namespace foundation::rhi::vk
         si.pWaitSemaphores = waitSems.Data();
         si.pWaitDstStageMask = waitStages.Data();
 
-        VkSemaphore signalSems[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+        VkSemaphore signalSems[2] = {static_cast<VkFenceImpl*>(signalFence)->handle(), VK_NULL_HANDLE};
         u64 signalValues[2] = {signalValue, 0};
-        u32 signalCount = 0;
-        if (signalFence)
-        {
-            signalSems[signalCount++] = static_cast<VkFenceImpl*>(signalFence)->handle();
-        }
+        u32 signalCount = 1;
         if (hasSync)
         {
             signalValues[signalCount] = 0;

@@ -9,7 +9,8 @@ target_link_libraries(RHI PUBLIC Foundation::Core Foundation::Policy)
 # Implementation units (headers they need stay OUT of the interface gcm - GCC hygiene).
 # Listed as regular sources, NOT in the CXX_MODULES file set.
 target_sources(RHI PRIVATE
-    ResourcesImpl.cpp)
+    ResourcesImpl.cpp
+    LogImpl.cpp)                   # the process-wide log-sink slot (one per process)
 
 target_sources(RHI
     PUBLIC

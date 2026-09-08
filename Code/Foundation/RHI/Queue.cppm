@@ -28,11 +28,14 @@ export namespace foundation::rhi
         /// Submit command buffers for execution.
         virtual void Submit(Span<CommandBuffer* const> commandBuffers) = 0;
 
-        /// Submit with fence signaling.
+        /// Submit with fence signaling. `signalFence` is REQUIRED: a fenced overload with a null
+        /// fence is rejected (nothing is submitted; the validation layer reports it) - use the
+        /// plain overload to submit without signalling.
         virtual void Submit(Span<CommandBuffer* const> commandBuffers, Fence* signalFence,
                             u64 signalValue) = 0;
 
-        /// Submit with full synchronization: wait on fences, then signal.
+        /// Submit with full synchronization: wait on fences, then signal. `signalFence` is
+        /// REQUIRED here as well; same rule as the fenced overload above.
         virtual void Submit(Span<CommandBuffer* const> commandBuffers,
                             Span<Fence* const> waitFences, Span<const u64> waitValues,
                             Fence* signalFence, u64 signalValue) = 0;

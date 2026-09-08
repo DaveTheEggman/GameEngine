@@ -2,6 +2,7 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 #include <doctest/doctest.h>
+#include <cstring>
 
 #include "Core/Prelude.h"
 
@@ -59,3 +60,68 @@ TEST_CASE("rhi.validation: catches invalid usage (null texture)")
     device->Destroy();
     vb->Destroy();
 }
+
+namespace
+{
+    // Captures RHI error lines so a void-returning validation report can be asserted on.
+    struct ErrorCapture
+    {
+        int errors = 0;
+        int matching = 0;
+        const char* needle = "";
+        static bool Sink(void* context, bool error, const char* utf8)
+        {
+            auto* self = static_cast<ErrorCapture*>(context);
+            if (error)
+            {
+                ++self->errors;
+                if (std::strstr(utf8, self->needle) != nullptr)
+                    ++self->matching;
+            }
+            return true; // swallow: the test decides what to print
+        }
+    };
+}
+
+TEST_CASE("rhi.validation: a fenced submit without a fence is reported on BOTH fenced overloads")
+{
+    // The contract: the fenced overloads require a signal fence; the plain overload is the
+    // unsignalled path. This was reported on the 3-arg overload only - the Beef port's layer
+    // reported both, and its Vulkan backend rejected the submit while ours submitted
+    // unsignalled (and, on a graphics queue, consumed the swap-chain sync doing so).
+    Backend* inner = nullptr;
+    REQUIRE(null::CreateNullBackend(inner).IsOk());
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
+    Device* device = nullptr;
+    REQUIRE(vb->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics, 0);
+    REQUIRE(queue != nullptr);
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* enc = nullptr;
+    REQUIRE(pool->CreateEncoder(enc).IsOk());
+    CommandBuffer* cb = enc->Finish();
+    REQUIRE(cb != nullptr);
+    CommandBuffer* cbs[1] = {cb};
+
+    ErrorCapture capture;
+    capture.needle = "signalFence is null";
+    SetLogSink(&ErrorCapture::Sink, &capture);
+
+    queue->Submit(Span<CommandBuffer* const>(cbs, 1), nullptr, 1);
+    CHECK(capture.matching == 1);
+    queue->Submit(Span<CommandBuffer* const>(cbs, 1), Span<Fence* const>{}, Span<const u64>{},
+                  nullptr, 1);
+    CHECK(capture.matching == 2);
+    // The plain overload is the unsignalled path: no fence, no report.
+    queue->Submit(Span<CommandBuffer* const>(cbs, 1));
+    CHECK(capture.matching == 2);
+
+    SetLogSink(nullptr, nullptr);
+    pool->DestroyEncoder(enc);
+    device->DestroyCommandPool(pool);
+    device->Destroy();
+    vb->Destroy();
+}
+
