@@ -34,19 +34,39 @@ export namespace foundation::vg
         [[nodiscard]] bool IsFillValid() const { return m_fillValid; }
         [[nodiscard]] bool IsStrokeValid() const { return m_strokeValid; }
 
-        /// Whether the cached fill matches the requested style.
-        [[nodiscard]] bool FillMatches(Color color, FillRule fillRule, bool antiAlias) const
+        /// Whether the cached fill matches EVERY input of the fill tessellation.
+        [[nodiscard]] bool FillMatches(Color color, FillRule fillRule, bool antiAlias,
+                                       f32 tolerance) const
         {
             return m_fillValid && m_fillColor == color && m_fillRule == fillRule &&
-                   m_fillAA == antiAlias;
+                   m_fillAA == antiAlias && m_fillTolerance == tolerance;
         }
 
-        /// Whether the cached stroke matches the requested style.
-        [[nodiscard]] bool StrokeMatches(Color color, StrokeStyle style, bool antiAlias) const
+        /// Whether the cached stroke matches EVERY input of the stroke tessellation: the whole
+        /// style (miter limit and dash offset included), the dash pattern and the tolerance.
+        /// Matching on width/cap/join alone served the previous dashing to an animated dash
+        /// offset until something else invalidated the entry.
+        [[nodiscard]] bool StrokeMatches(Color color, StrokeStyle style,
+                                         Span<const f32> dashPattern, bool antiAlias,
+                                         f32 tolerance) const
         {
-            return m_strokeValid && m_strokeColor == color && m_strokeStyle.width == style.width &&
-                   m_strokeStyle.cap == style.cap && m_strokeStyle.join == style.join &&
-                   m_strokeAA == antiAlias;
+            if (!m_strokeValid || m_strokeColor != color || m_strokeAA != antiAlias ||
+                m_strokeTolerance != tolerance || m_strokeStyle.width != style.width ||
+                m_strokeStyle.cap != style.cap || m_strokeStyle.join != style.join ||
+                m_strokeStyle.miterLimit != style.miterLimit ||
+                m_strokeStyle.dashOffset != style.dashOffset ||
+                m_strokeDash.Size() != dashPattern.Size())
+            {
+                return false;
+            }
+            for (usize i = 0; i < dashPattern.Size(); ++i)
+            {
+                if (m_strokeDash[i] != dashPattern[i])
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// Cached fill mesh data (empty spans if not valid).
@@ -80,7 +100,7 @@ export namespace foundation::vg
         }
 
         /// Store fill tessellation data.
-        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices,
+        void SetFillData(const Array<VGVertex>& vertices, const Array<u32>& fillIndices, f32 tolerance,
                          Color color, FillRule fillRule, bool antiAlias)
         {
             m_fillVertices = vertices;
@@ -88,11 +108,13 @@ export namespace foundation::vg
             m_fillColor = color;
             m_fillRule = fillRule;
             m_fillAA = antiAlias;
+            m_fillTolerance = tolerance;
             m_fillValid = true;
         }
 
         /// Store stroke tessellation data.
         void SetStrokeData(const Array<VGVertex>& vertices, const Array<u32>& strokeIndices,
+                           Span<const f32> dashPattern, f32 tolerance,
                            Color color, StrokeStyle style, bool antiAlias)
         {
             m_strokeVertices = vertices;
@@ -100,6 +122,10 @@ export namespace foundation::vg
             m_strokeColor = color;
             m_strokeStyle = style;
             m_strokeAA = antiAlias;
+            m_strokeTolerance = tolerance;
+            m_strokeDash.Clear();
+            for (usize i = 0; i < dashPattern.Size(); ++i)
+                m_strokeDash.PushBack(dashPattern[i]);
             m_strokeValid = true;
         }
 
@@ -117,6 +143,7 @@ export namespace foundation::vg
         Color m_fillColor;
         FillRule m_fillRule = FillRule::NonZero;
         bool m_fillAA = false;
+        f32 m_fillTolerance = 0.0f;
 
         Array<VGVertex> m_strokeVertices;
         Array<u32> m_strokeIndices;
@@ -124,6 +151,8 @@ export namespace foundation::vg
         StrokeStyle m_strokeStyle;
         Color m_strokeColor;
         bool m_strokeAA = false;
+        f32 m_strokeTolerance = 0.0f;
+        Array<f32> m_strokeDash;
     };
 
     /// Caches pre-tessellated path data for reuse across frames (LRU eviction).
@@ -140,7 +169,7 @@ export namespace foundation::vg
             CachedPath& cached = GetOrCreate(path);
             cached.lastAccessTime = m_accessCounter++;
 
-            if (cached.FillMatches(color, fillRule, antiAlias))
+            if (cached.FillMatches(color, fillRule, antiAlias, tolerance))
             {
                 Span<const VGVertex> verts;
                 Span<const u32> idx;
@@ -153,7 +182,7 @@ export namespace foundation::vg
             Array<u32> tempIndices;
             FillTessellator::Tessellate(path, fillRule, color, antiAlias, tempVerts, tempIndices,
                                         tolerance);
-            cached.SetFillData(tempVerts, tempIndices, color, fillRule, antiAlias);
+            cached.SetFillData(tempVerts, tempIndices, tolerance, color, fillRule, antiAlias);
             Append(outVertices, outIndices,
                    Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
                    Span<const u32>(tempIndices.Data(), tempIndices.Size()));
@@ -168,7 +197,7 @@ export namespace foundation::vg
             CachedPath& cached = GetOrCreate(path);
             cached.lastAccessTime = m_accessCounter++;
 
-            if (cached.StrokeMatches(color, style, antiAlias))
+            if (cached.StrokeMatches(color, style, dashPattern, antiAlias, tolerance))
             {
                 Span<const VGVertex> verts;
                 Span<const u32> idx;
@@ -194,7 +223,8 @@ export namespace foundation::vg
                 }
             }
 
-            cached.SetStrokeData(tempVerts, tempIndices, color, style, antiAlias);
+            cached.SetStrokeData(tempVerts, tempIndices, dashPattern, tolerance, color, style,
+                                 antiAlias);
             Append(outVertices, outIndices,
                    Span<const VGVertex>(tempVerts.Data(), tempVerts.Size()),
                    Span<const u32>(tempIndices.Data(), tempIndices.Size()));
@@ -203,9 +233,12 @@ export namespace foundation::vg
         /// Invalidate cached data for a specific path.
         void Invalidate(const Path& path)
         {
-            if (CachedPath* cached = m_cache.Find(&path))
+            if (CachedPath* cached = m_cache.Find(path.InstanceId()))
                 cached->Invalidate();
         }
+
+        /// Live entries (one per path instance ever tessellated and not yet evicted).
+        [[nodiscard]] usize Count() const noexcept { return m_cache.Size(); }
 
         /// Clear all cached data.
         void Clear()
@@ -214,11 +247,11 @@ export namespace foundation::vg
             m_accessCounter = 0;
         }
 
-        /// Set the maximum number of cached paths.
+        /// Set the maximum number of cached paths; a fuller cache trims to exactly `capacity`.
         void SetCapacity(i32 capacity)
         {
             m_capacity = capacity;
-            EvictIfNeeded();
+            EvictDownTo(m_capacity);
         }
 
     private:
@@ -232,39 +265,39 @@ export namespace foundation::vg
                 outIndices.PushBack(baseIndex + idx[i]);
         }
 
+        // Keyed by the path's INSTANCE id, never its address: a freed path's entry simply goes
+        // stale and ages out by LRU instead of being served to whatever lands at its address.
         CachedPath& GetOrCreate(const Path& path)
         {
-            if (CachedPath* existing = m_cache.Find(&path))
+            if (CachedPath* existing = m_cache.Find(path.InstanceId()))
                 return *existing;
 
-            EvictIfNeeded();
-            return m_cache.InsertOrAssign(&path, CachedPath());
+            EvictDownTo(m_capacity - 1); // room for this one: a full cache settles AT capacity
+            return m_cache.InsertOrAssign(path.InstanceId(), CachedPath());
         }
 
-        void EvictIfNeeded()
+        /// Evict least-recently-used entries until at most `count` remain.
+        void EvictDownTo(i32 count)
         {
-            while (static_cast<i32>(m_cache.Size()) >= m_capacity)
+            while (static_cast<i32>(m_cache.Size()) > count && !m_cache.IsEmpty())
             {
-                // Find least recently used.
-                const Path* oldestPath = nullptr;
+                u64 oldestId = 0;
                 i64 oldestTime = 9223372036854775807LL; // i64 max
+                bool found = false;
                 for (auto& entry : m_cache)
                 {
-                    if (entry.value.lastAccessTime < oldestTime)
+                    if (!found || entry.value.lastAccessTime < oldestTime)
                     {
                         oldestTime = entry.value.lastAccessTime;
-                        oldestPath = entry.key;
+                        oldestId = entry.key;
+                        found = true;
                     }
                 }
-
-                if (oldestPath != nullptr)
-                    m_cache.Remove(oldestPath);
-                else
-                    break;
+                m_cache.Remove(oldestId);
             }
         }
 
-        HashMap<const Path*, CachedPath> m_cache;
+        HashMap<u64, CachedPath> m_cache;
         i32 m_capacity = 256;
         i64 m_accessCounter = 0;
     };

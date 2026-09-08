@@ -115,18 +115,65 @@ export namespace foundation::vg
         explicit FlattenedSubPath(bool inIsClosed) : isClosed(inIsClosed) {}
     };
 
+    namespace detail
+    {
+        /// Process-wide monotonic path instance ids (VGImpl.cpp - ONE counter per process, never a
+        /// per-module-interface static that every shared library would duplicate).
+        u64 NextPathInstanceId() noexcept;
+    }
+
     /// An immutable vector path consisting of commands and points.
     /// Created via PathBuilder::ToPath().
     class Path
     {
     public:
-        Path() = default;
+        Path() : m_instanceId(detail::NextPathInstanceId()) {}
 
         /// Create a path from pre-built command and point lists (takes ownership).
         Path(Array<PathCommand> commands, Array<Float2> points)
-            : m_commands(Move(commands)), m_points(Move(points))
+            : m_commands(Move(commands)), m_points(Move(points)),
+              m_instanceId(detail::NextPathInstanceId())
         {
         }
+        // A copy is a NEW instance (its own id); a move carries the identity with the data and
+        // the moved-from path gets a fresh id so no two live paths ever share one.
+        Path(const Path& other)
+            : m_commands(other.m_commands), m_points(other.m_points),
+              m_instanceId(detail::NextPathInstanceId())
+        {
+        }
+        Path& operator=(const Path& other)
+        {
+            if (this != &other)
+            {
+                m_commands = other.m_commands;
+                m_points = other.m_points;
+                m_instanceId = detail::NextPathInstanceId();
+            }
+            return *this;
+        }
+        Path(Path&& other) noexcept
+            : m_commands(Move(other.m_commands)), m_points(Move(other.m_points)),
+              m_instanceId(other.m_instanceId)
+        {
+            other.m_instanceId = detail::NextPathInstanceId();
+        }
+        Path& operator=(Path&& other) noexcept
+        {
+            if (this != &other)
+            {
+                m_commands = Move(other.m_commands);
+                m_points = Move(other.m_points);
+                m_instanceId = other.m_instanceId;
+                other.m_instanceId = detail::NextPathInstanceId();
+            }
+            return *this;
+        }
+
+        /// Unique per live INSTANCE. Caches key on this, never on the Path* - after a delete the
+        /// allocator can hand a new path the same address, and a pointer key would serve the dead
+        /// path's mesh (the ImageData rule, and the PathCache lesson from the Beef port).
+        [[nodiscard]] u64 InstanceId() const noexcept { return m_instanceId; }
 
         /// The commands that define this path.
         [[nodiscard]] Span<const PathCommand> Commands() const
@@ -414,6 +461,7 @@ export namespace foundation::vg
 
         Array<PathCommand> m_commands;
         Array<Float2> m_points;
+        u64 m_instanceId = 0;
     };
 
     /// Mutable builder for constructing Path objects.

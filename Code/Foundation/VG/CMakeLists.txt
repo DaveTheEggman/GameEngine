@@ -20,4 +20,5 @@ target_sources(VG
             Cache.cppm
             Context.cppm
             VGModule.cppm)
+target_sources(VG PRIVATE VGImpl.cpp)
 

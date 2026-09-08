@@ -62,11 +62,9 @@ export namespace foundation::image
         [[nodiscard]] u64 InstanceId() const { return m_instanceId; }
 
     private:
-        static u64 NextInstanceId()
-        {
-            static std::atomic<u64> counter{1};
-            return counter.fetch_add(1, std::memory_order_relaxed);
-        }
+        // ONE counter per process (ImageDataImpl.cpp): a static in this interface unit is
+        // instantiated per shared library, and two libraries would mint the same id.
+        static u64 NextInstanceId();
         u64 m_instanceId = 0;
     };
 

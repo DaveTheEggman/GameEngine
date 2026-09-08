@@ -4,6 +4,7 @@ target_link_libraries(Image PUBLIC Foundation::Core Foundation::Policy)
 target_sources(Image
     PRIVATE
         ImageReflectionImpl.cpp
+        ImageDataImpl.cpp
     PUBLIC FILE_SET image_modules TYPE CXX_MODULES FILES
         PixelFormat.cppm
         ImageData.cppm
