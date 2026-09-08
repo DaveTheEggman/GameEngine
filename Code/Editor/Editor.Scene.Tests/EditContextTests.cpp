@@ -724,7 +724,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"forward");
         bool hasMetallic = false;
-        for (const String& n : asset->source.propNames)
+        for (const String& n : asset->source.propertyNames)
         {
             if (n.AsView() == u8"Metallic")
             {
@@ -744,7 +744,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
         REQUIRE(asset != nullptr);
         CHECK(asset->source.shaderName == u8"unlit");
         bool hasMetallic = false, hasBase = false;
-        for (const String& n : asset->source.propNames)
+        for (const String& n : asset->source.propertyNames)
         {
             if (n.AsView() == u8"Metallic")
             {

@@ -73,13 +73,14 @@ namespace editor
         // The edited object: the instance's MaterialAsset (kept live; Save writes it back).
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::MaterialAsset>(Cast<pipeline::MaterialAsset>(object.Get()));
+        StringView missing;
         if (m_asset.Get() != nullptr &&
-            !materials::ForwardMaterialSourceIsComplete(m_asset->source))
+            !materials::ForwardMaterialSourceIsComplete(m_asset->source, &missing))
         {
             LOG_ERROR(u8"Editor",
-                      u8"material '{}' is missing forward shader properties (a stale source) - "
-                      u8"re-create it; the runtime refuses to build it",
-                      m_title);
+                      u8"material '{}' is missing the forward shader property '{}' (a stale "
+                      u8"source) - re-create it; the runtime refuses to build it",
+                      m_title, missing);
         }
         if (m_asset.Get() == nullptr)
         {
@@ -284,14 +285,14 @@ namespace editor
         material->name = String(src.name.AsView());
         material->shaderName = String(src.shaderName.AsView());
         material->shaderFlags = static_cast<foundation::shaders::ShaderFlags>(src.shaderFlags);
-        for (usize i = 0; i < src.propNames.Size(); ++i)
+        for (usize i = 0; i < src.propertyNames.Size(); ++i)
         {
             materials::MaterialPropertyDef d{};
-            d.name = src.propNames[i].AsView();
-            d.type = static_cast<materials::MaterialPropertyType>(src.propTypes[i]);
-            d.binding = (i < src.propBindings.Size()) ? src.propBindings[i] : 0u;
-            d.offset = (i < src.propOffsets.Size()) ? src.propOffsets[i] : 0u;
-            d.size = (i < src.propSizes.Size()) ? src.propSizes[i] : 0u;
+            d.name = src.propertyNames[i].AsView();
+            d.type = static_cast<materials::MaterialPropertyType>(src.propertyTypes[i]);
+            d.binding = (i < src.propertyBindings.Size()) ? src.propertyBindings[i] : 0u;
+            d.offset = (i < src.propertyOffsets.Size()) ? src.propertyOffsets[i] : 0u;
+            d.size = (i < src.propertySizes.Size()) ? src.propertySizes[i] : 0u;
             material->AddProperty(d);
         }
         material->AllocateDefaultUniformData();
@@ -563,10 +564,10 @@ namespace editor
                            });
 
         // --- Properties: the source's uniform table (Float / Float4-as-color today) ---
-        for (usize i = 0; i < src.propNames.Size(); ++i)
+        for (usize i = 0; i < src.propertyNames.Size(); ++i)
         {
-            const auto type = static_cast<materials::MaterialPropertyType>(src.propTypes[i]);
-            const String name = src.propNames[i]; // copy: the grid outlives rebuilds of src arrays
+            const auto type = static_cast<materials::MaterialPropertyType>(src.propertyTypes[i]);
+            const String name = src.propertyNames[i]; // copy: the grid outlives rebuilds of src arrays
             if (type == materials::MaterialPropertyType::Float)
             {
                 auto value = [self, name]() -> f64
@@ -770,13 +771,13 @@ namespace editor
     void MaterialEditorPage::ReadUniform(StringView name, void* out, usize bytes) const
     {
         const materials::MaterialSource& s = m_asset->source;
-        for (usize i = 0; i < s.propNames.Size(); ++i)
+        for (usize i = 0; i < s.propertyNames.Size(); ++i)
         {
-            if (s.propNames[i].AsView() != name)
+            if (s.propertyNames[i].AsView() != name)
             {
                 continue;
             }
-            const u32 offset = (i < s.propOffsets.Size()) ? s.propOffsets[i] : 0u;
+            const u32 offset = (i < s.propertyOffsets.Size()) ? s.propertyOffsets[i] : 0u;
             if (offset + bytes <= s.uniformDefaults.Size())
             {
                 MemCopy(out, s.uniformDefaults.Data() + offset, bytes);
@@ -788,13 +789,13 @@ namespace editor
     void MaterialEditorPage::WriteUniform(StringView name, const void* value, usize bytes)
     {
         materials::MaterialSource& s = m_asset->source;
-        for (usize i = 0; i < s.propNames.Size(); ++i)
+        for (usize i = 0; i < s.propertyNames.Size(); ++i)
         {
-            if (s.propNames[i].AsView() != name)
+            if (s.propertyNames[i].AsView() != name)
             {
                 continue;
             }
-            const u32 offset = (i < s.propOffsets.Size()) ? s.propOffsets[i] : 0u;
+            const u32 offset = (i < s.propertyOffsets.Size()) ? s.propertyOffsets[i] : 0u;
             if (offset + bytes <= s.uniformDefaults.Size())
             {
                 MemCopy(s.uniformDefaults.Data() + offset, value, bytes);

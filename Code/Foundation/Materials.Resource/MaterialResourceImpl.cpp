@@ -8,7 +8,7 @@
 // in the interface; this unit defines MaterialSource::StaticType() WITH properties + the data
 // version, so tooling that recurses into it (a MaterialAsset's nested `source`) sees the authored
 // scalar surface. The render-state fields are u8 (not yet retyped to named enums); the parallel
-// cooked arrays (propNames/... , textureSlots/...) are internal cook output, not per-field
+// cooked arrays (propertyNames/... , textureSlots/...) are internal cook output, not per-field
 // authored, so they are intentionally not reflected.
 
 module;
@@ -25,7 +25,7 @@ namespace foundation::materials
 {
     REFLECT_MEMBERS(MaterialSource, "rtti::materials")
     {
-        builder.DataVersion(2) // matches the prior RTTI_DEFINE_OBJECT_VERSIONED(2)
+        builder.DataVersion(3) // 3: the property arrays use full names (propertyNames...)
             .Property<&MaterialSource::name>("name")
             .PropAttribute("displayName", String(u8"Name"))
             .Property<&MaterialSource::shaderId>("shaderId")

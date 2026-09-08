@@ -79,11 +79,11 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
         CHECK(cooked->shaderId == shaderId);
         CHECK(cooked->blendMode == BlendMode::AlphaBlend); // .Transparent()
         CHECK(cooked->depthMode == DepthMode::ReadOnly);
-        REQUIRE(cooked->propNames.Size() == 3);
-        CHECK(cooked->propNames[0] == u8"tint");
-        CHECK(cooked->propNames[1] == u8"metallic");
-        CHECK(cooked->propNames[2] == u8"albedoMap");
-        CHECK(cooked->propTypes[2] == static_cast<u8>(MaterialPropertyType::Texture2D));
+        REQUIRE(cooked->propertyNames.Size() == 3);
+        CHECK(cooked->propertyNames[0] == u8"tint");
+        CHECK(cooked->propertyNames[1] == u8"metallic");
+        CHECK(cooked->propertyNames[2] == u8"albedoMap");
+        CHECK(cooked->propertyTypes[2] == static_cast<u8>(MaterialPropertyType::Texture2D));
         REQUIRE(cooked->uniformDefaults.Size() == 32); // float4 + float, 16-byte rounded
         CHECK(*reinterpret_cast<const f32*>(cooked->uniformDefaults.Data() + 16) ==
               doctest::Approx(0.7f));

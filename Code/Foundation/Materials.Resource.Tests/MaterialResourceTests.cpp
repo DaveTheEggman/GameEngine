@@ -184,8 +184,10 @@ TEST_CASE("material: a forward source missing the forward properties is STALE (r
     MaterialSource src;
     MaterialSource::FromMaterial(*old, Guid{}, src);
     src.shaderName = String(u8"forward");
-    CHECK_FALSE(ForwardMaterialSourceIsComplete(src));
-    CHECK(src.propNames.Size() == 5u); // nothing appended
+    StringView missing;
+    CHECK_FALSE(ForwardMaterialSourceIsComplete(src, &missing));
+    CHECK(missing == StringView(u8"EmissiveColor")); // the refusal names what to fix
+    CHECK(src.propertyNames.Size() == 5u);            // nothing appended
 
     // A current CreatePBR source carries the full table; non-forward shaders are untouched.
     RefPtr<Material> pbr = CreatePBR(u8"current");
@@ -198,7 +200,7 @@ TEST_CASE("material: a forward source missing the forward properties is STALE (r
     CHECK(ForwardMaterialSourceIsComplete(unlit));
 }
 
-TEST_CASE("material source: sampler address modes round-trip (v2)")
+TEST_CASE("material source: sampler address modes round-trip")
 {
     using namespace foundation::materials;
     NativeFileSystem mount(u8"scratch_mat_sampler_db", DefaultAllocator());

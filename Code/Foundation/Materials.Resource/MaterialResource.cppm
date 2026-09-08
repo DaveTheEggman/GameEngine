@@ -58,11 +58,11 @@ export namespace foundation::materials
         u8 samplerU = 0;
         u8 samplerV = 0;
 
-        Array<String> propNames;
-        Array<u8> propTypes; // MaterialPropertyType
-        Array<u32> propBindings;
-        Array<u32> propOffsets;
-        Array<u32> propSizes;
+        Array<String> propertyNames;
+        Array<u8> propertyTypes; // MaterialPropertyType
+        Array<u32> propertyBindings;
+        Array<u32> propertyOffsets;
+        Array<u32> propertySizes;
         Array<u8> uniformDefaults;
 
         // Default texture bindings: slot name -> texture product guid (parallel arrays). The
@@ -83,11 +83,11 @@ export namespace foundation::materials
             foundation::core::Serialize(ar, "depthMode", depthMode);
             foundation::core::Serialize(ar, "cullMode", cullMode);
             foundation::core::Serialize(ar, "vertexLayout", vertexLayout);
-            foundation::core::Serialize(ar, "propNames", propNames);
-            foundation::core::Serialize(ar, "propTypes", propTypes);
-            foundation::core::Serialize(ar, "propBindings", propBindings);
-            foundation::core::Serialize(ar, "propOffsets", propOffsets);
-            foundation::core::Serialize(ar, "propSizes", propSizes);
+            foundation::core::Serialize(ar, "propertyNames", propertyNames);
+            foundation::core::Serialize(ar, "propertyTypes", propertyTypes);
+            foundation::core::Serialize(ar, "propertyBindings", propertyBindings);
+            foundation::core::Serialize(ar, "propertyOffsets", propertyOffsets);
+            foundation::core::Serialize(ar, "propertySizes", propertySizes);
             foundation::core::Serialize(ar, "uniformDefaults", uniformDefaults);
             foundation::core::Serialize(ar, "textureSlots", textureSlots);
             foundation::core::Serialize(ar, "textureIds", textureIds);
@@ -111,18 +111,18 @@ export namespace foundation::materials
             out.samplerU = static_cast<u8>(material.samplerU);
             out.samplerV = static_cast<u8>(material.samplerV);
 
-            out.propNames.Clear();
-            out.propTypes.Clear();
-            out.propBindings.Clear();
-            out.propOffsets.Clear();
-            out.propSizes.Clear();
+            out.propertyNames.Clear();
+            out.propertyTypes.Clear();
+            out.propertyBindings.Clear();
+            out.propertyOffsets.Clear();
+            out.propertySizes.Clear();
             for (const MaterialPropertyDef& d : material.Properties())
             {
-                out.propNames.PushBack(String(d.name));
-                out.propTypes.PushBack(static_cast<u8>(d.type));
-                out.propBindings.PushBack(d.binding);
-                out.propOffsets.PushBack(d.offset);
-                out.propSizes.PushBack(d.size);
+                out.propertyNames.PushBack(String(d.name));
+                out.propertyTypes.PushBack(static_cast<u8>(d.type));
+                out.propertyBindings.PushBack(d.binding);
+                out.propertyOffsets.PushBack(d.offset);
+                out.propertySizes.PushBack(d.size);
             }
             const Span<const u8> defaults = material.DefaultUniformData();
             out.uniformDefaults.Clear();
@@ -141,7 +141,8 @@ export namespace foundation::materials
     // uniform buffer is short and the shader reads past it. Sources are never upgraded in
     // memory - a source missing one is stale and is refused (re-create the material). New
     // CreatePBR sources carry them; unlit and custom shaders are untouched.
-    [[nodiscard]] inline bool ForwardMaterialSourceIsComplete(const MaterialSource& src)
+    [[nodiscard]] inline bool ForwardMaterialSourceIsComplete(const MaterialSource& src,
+                                                              StringView* outMissing = nullptr)
     {
         if (src.shaderName != u8"forward")
         {
@@ -152,7 +153,7 @@ export namespace foundation::materials
         for (StringView required : kRequired)
         {
             bool present = false;
-            for (const String& n : src.propNames)
+            for (const String& n : src.propertyNames)
             {
                 if (n.AsView() == required)
                 {
@@ -162,6 +163,10 @@ export namespace foundation::materials
             }
             if (!present)
             {
+                if (outMissing != nullptr)
+                {
+                    *outMissing = required;
+                }
                 return false;
             }
         }
@@ -185,12 +190,13 @@ export namespace foundation::materials
             {
                 return RefPtr<Object>{};
             }
-            if (!ForwardMaterialSourceIsComplete(*src))
+            StringView missing;
+            if (!ForwardMaterialSourceIsComplete(*src, &missing))
             {
                 LOG_ERROR(u8"Materials",
-                          u8"material '{}' is missing forward shader properties (a stale source) "
-                          u8"- re-create the material",
-                          src->name);
+                          u8"material '{}' is missing the forward shader property '{}' (a stale "
+                          u8"source) - re-create the material",
+                          src->name, missing);
                 return RefPtr<Object>{};
             }
 
@@ -216,15 +222,15 @@ export namespace foundation::materials
             material->shaderName = Move(shaderName);
             material->shaderFlags = static_cast<shaders::ShaderFlags>(src->shaderFlags);
 
-            const usize count = src->propNames.Size();
+            const usize count = src->propertyNames.Size();
             for (usize i = 0; i < count; ++i)
             {
                 MaterialPropertyDef d{};
-                d.name = src->propNames[i].AsView();
-                d.type = static_cast<MaterialPropertyType>(src->propTypes[i]);
-                d.binding = (i < src->propBindings.Size()) ? src->propBindings[i] : 0u;
-                d.offset = (i < src->propOffsets.Size()) ? src->propOffsets[i] : 0u;
-                d.size = (i < src->propSizes.Size()) ? src->propSizes[i] : 0u;
+                d.name = src->propertyNames[i].AsView();
+                d.type = static_cast<MaterialPropertyType>(src->propertyTypes[i]);
+                d.binding = (i < src->propertyBindings.Size()) ? src->propertyBindings[i] : 0u;
+                d.offset = (i < src->propertyOffsets.Size()) ? src->propertyOffsets[i] : 0u;
+                d.size = (i < src->propertySizes.Size()) ? src->propertySizes[i] : 0u;
                 material->AddProperty(d);
             }
             material->AllocateDefaultUniformData();
