@@ -64,3 +64,26 @@ TEST_CASE("svg.transform: matrix")
     CHECK(Abs(m.m[3][0] - 10.0f) < 0.01f);
     CHECK(Abs(m.m[3][1] - 20.0f) < 0.01f);
 }
+
+TEST_CASE("svg.transform: rotate(angle, cx, cy) leaves the centre fixed")
+{
+    // rotate(90, 50, 50): the centre stays put and a point 10 to its right swings to 10 below
+    // it (SVG's y-down frame). Three successive pre-multiplications ran the translate-rotate-
+    // translate group BACKWARDS and put the centre at (-150, 50) - found by the Beef port.
+    const Result<Float4x4> r = SVGTransformParser::Parse(u8"rotate(90, 50, 50)");
+    REQUIRE(r.HasValue());
+    const Float4x4 m = r.Value();
+    const Float2 centre = TransformPoint2D(Float2{50.0f, 50.0f}, m);
+    CHECK(centre.x == doctest::Approx(50.0f).epsilon(1e-3));
+    CHECK(centre.y == doctest::Approx(50.0f).epsilon(1e-3));
+    const Float2 right = TransformPoint2D(Float2{60.0f, 50.0f}, m);
+    CHECK(right.x == doctest::Approx(50.0f).epsilon(1e-3));
+    CHECK(right.y == doctest::Approx(60.0f).epsilon(1e-3));
+    // The centred form composes with its neighbours like any other function.
+    const Result<Float4x4> combined = SVGTransformParser::Parse(u8"translate(5, 0) rotate(90, 50, 50)");
+    REQUIRE(combined.HasValue());
+    const Float2 c2 = TransformPoint2D(Float2{50.0f, 50.0f}, combined.Value());
+    CHECK(c2.x == doctest::Approx(55.0f).epsilon(1e-3));
+    CHECK(c2.y == doctest::Approx(50.0f).epsilon(1e-3));
+}
+

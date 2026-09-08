@@ -338,9 +338,15 @@ export namespace foundation::vg::svg
 
                     if (cx != 0.0f || cy != 0.0f)
                     {
-                        result = Float4x4::Translation(Float3{-cx, -cy, 0.0f}) * result;
-                        result = Float4x4::RotationZ(angle) * result;
-                        result = Float4x4::Translation(Float3{cx, cy, 0.0f}) * result;
+                        // rotate(a, cx, cy) = translate(cx, cy) rotate(a) translate(-cx, -cy):
+                        // applied to a point as T(-c), then R, then T(+c). Row-vector matrices
+                        // apply the LEFT operand first, so that group is ONE factor
+                        // T(-c) * R * T(+c) - three successive pre-multiplications ran it
+                        // backwards and moved the centre (found by the Beef port).
+                        const Float4x4 aboutCentre = Float4x4::Translation(Float3{-cx, -cy, 0.0f}) *
+                                                     Float4x4::RotationZ(angle) *
+                                                     Float4x4::Translation(Float3{cx, cy, 0.0f});
+                        result = aboutCentre * result;
                     }
                     else
                     {

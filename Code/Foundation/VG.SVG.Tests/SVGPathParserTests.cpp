@@ -133,3 +133,17 @@ TEST_CASE("svg.path: real-world icon path")
     REQUIRE(r.IsOk());
     CHECK(builder.ToPath().CommandCount() > 5u);
 }
+
+TEST_CASE("svg.path: arc flags are single digits that may run together with what follows")
+{
+    // "A 10 10 0 0110 10" is legal SVG: large-arc 0, sweep 1, then x=10 y=10. Read as
+    // numbers the flags would swallow "0110" and the arc would be malformed.
+    PathBuilder builder;
+    REQUIRE(SVGPathParser::Parse(u8"M 0 0 A 10 10 0 0110 10", builder).IsOk());
+    const Path path = builder.ToPath();
+    REQUIRE(path.CommandCount() >= 2u);
+    const Float2 end = path.Points()[path.Points().Size() - 1];
+    CHECK(end.x == doctest::Approx(10.0f));
+    CHECK(end.y == doctest::Approx(10.0f));
+}
+

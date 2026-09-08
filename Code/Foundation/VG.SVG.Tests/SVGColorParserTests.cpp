@@ -70,3 +70,16 @@ TEST_CASE("svg.color: none is transparent")
     REQUIRE(r.HasValue());
     CHECK(ToColor32(r.Value()).a == 0);
 }
+
+TEST_CASE("svg.color: the keyword green is the dark one; lime is full green")
+{
+    const Result<Color> green = SVGColorParser::Parse(u8"green");
+    REQUIRE(green.HasValue());
+    CHECK(ToColor32(green.Value()).g == 128);
+    CHECK(ToColor32(green.Value()).r == 0);
+    const Result<Color> lime = SVGColorParser::Parse(u8"lime");
+    REQUIRE(lime.HasValue());
+    CHECK(ToColor32(lime.Value()).g == 255);
+    CHECK(ToColor32(lime.Value()).r == 0);
+}
+
