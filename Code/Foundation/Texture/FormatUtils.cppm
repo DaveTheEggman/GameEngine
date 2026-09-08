@@ -29,7 +29,11 @@ export namespace foundation::texture
         // format has an sRGB variant (8-bit RGB/RGBA/BGR/BGRA), the sRGB GPU
         // format is returned so hardware decodes sRGB->linear on sample. Float
         // and 1/2-channel formats pass through. 3-channel maps to RGBA (GPUs
-        // don't support 3-channel).
+        // don't support 3-channel). R16 (heightmap loads) has no unorm GPU format
+        // on our backends (WebGPU core lacks it): it maps to the R16Uint INTEGER
+        // container, the same one the terrain height upload uses - shaders read
+        // it as uint, not through a float sampler. The switch is exhaustive: a
+        // new PixelFormat is a compile error here, never a silent RGBA8 guess.
         [[nodiscard]] static rhi::TextureFormat Convert(image::PixelFormat format,
                                                         image::ImageColorSpace colorSpace)
         {
@@ -78,9 +82,10 @@ export namespace foundation::texture
                 return rhi::TextureFormat::RGBA32Float;
             case image::PixelFormat::RGBA32F:
                 return rhi::TextureFormat::RGBA32Float;
-            default:
-                return rhi::TextureFormat::RGBA8Unorm;
+            case image::PixelFormat::R16:
+                return rhi::TextureFormat::R16Uint; // integer container, see above
             }
+            return rhi::TextureFormat::Undefined; // unreachable: the switch is exhaustive
         }
     };
 }

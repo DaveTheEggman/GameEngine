@@ -86,6 +86,13 @@ TEST_CASE("textures.format: PixelFormat -> TextureFormat with color space")
           rhi::TextureFormat::RGBA16Float);
     CHECK(TextureFormatUtils::Convert(PixelFormat::R32F, ImageColorSpace::Linear) ==
           rhi::TextureFormat::R32Float);
+    // R16 (heightmap loads) has no unorm GPU format on our backends: it maps to the
+    // R16Uint integer container the terrain height upload uses - never to RGBA8, which
+    // is what the old catch-all default answered (wrong channel count AND depth).
+    CHECK(TextureFormatUtils::Convert(PixelFormat::R16, ImageColorSpace::Linear) ==
+          rhi::TextureFormat::R16Uint);
+    CHECK(TextureFormatUtils::Convert(PixelFormat::R16, ImageColorSpace::Srgb) ==
+          rhi::TextureFormat::R16Uint); // no sRGB variant either
 }
 
 TEST_CASE("textures.data: FromImage")
