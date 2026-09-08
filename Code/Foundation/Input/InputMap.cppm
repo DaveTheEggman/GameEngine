@@ -146,9 +146,9 @@ export namespace foundation::input
 
     // ---- serialization (shared by the source asset and the cooked resource) ----
 
-    inline constexpr u32 kInputMapVersion = 2; // v2: touch sources + region fields
+    inline constexpr u32 kInputMapVersion = 2; // the ONE supported map layout (readers refuse others)
 
-    inline void SerializeBinding(ISerializer& ar, Binding& b, u32 version = kInputMapVersion)
+    inline void SerializeBinding(ISerializer& ar, Binding& b)
     {
         u8 source = static_cast<u8>(b.source);
         foundation::core::Serialize(ar, "source", source);
@@ -164,14 +164,11 @@ export namespace foundation::input
         foundation::core::Serialize(ar, "posX", b.posX);
         foundation::core::Serialize(ar, "negY", b.negY);
         foundation::core::Serialize(ar, "posY", b.posY);
-        if (version >= 2)
-        {
-            foundation::core::Serialize(ar, "regionX", b.regionX);
-            foundation::core::Serialize(ar, "regionY", b.regionY);
-            foundation::core::Serialize(ar, "regionW", b.regionW);
-            foundation::core::Serialize(ar, "regionH", b.regionH);
-            foundation::core::Serialize(ar, "stickRadius", b.stickRadius);
-        }
+        foundation::core::Serialize(ar, "regionX", b.regionX);
+        foundation::core::Serialize(ar, "regionY", b.regionY);
+        foundation::core::Serialize(ar, "regionW", b.regionW);
+        foundation::core::Serialize(ar, "regionH", b.regionH);
+        foundation::core::Serialize(ar, "stickRadius", b.stickRadius);
     }
 
     inline void SerializeInputMap(ISerializer& ar, InputMap& map)
@@ -179,6 +176,13 @@ export namespace foundation::input
         const bool writing = ar.Mode() == SerializeMode::Write;
         u32 version = kInputMapVersion;
         foundation::core::Serialize(ar, "version", version);
+        if (!writing && version != kInputMapVersion)
+        {
+            // ONE layout: the field list differs between versions, so reading on would decode
+            // the wrong fields into plausible-looking bindings. Refuse; re-save the map.
+            ar.FailPayload(ErrorCode::NotSupported);
+            return;
+        }
 
         u32 setCount = writing ? static_cast<u32>(map.sets.Size()) : 0;
         ar.Key("sets");
@@ -226,7 +230,7 @@ export namespace foundation::input
                 }
                 for (u32 b = 0; b < bindingCount; ++b)
                 {
-                    SerializeBinding(ar, action.bindings[b], version);
+                    SerializeBinding(ar, action.bindings[b]);
                 }
                 ar.EndArray();
             }
@@ -278,7 +282,7 @@ export namespace foundation::input
                 for (u32 b = 0; b < bindingCount; ++b)
                 {
                     SerializeBinding(ar, o.bindings[b]);
-                } // current version
+                }
                 ar.EndArray();
             }
             ar.EndArray();

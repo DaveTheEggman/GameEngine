@@ -21,6 +21,28 @@ namespace shell = foundation::shell;
 
 #include "InputTestSupport.h"
 
+TEST_CASE("input: a map stamped with another wire version is REFUSED, not decoded")
+{
+    // The map carries its own inline version. A stream written under another one would
+    // decode the wrong field list into plausible-looking bindings - the reader fails instead.
+    MemoryStream buffer;
+    {
+        BinarySerializer ar(buffer, SerializeMode::Write);
+        InputMap map = MakeGameplayMap();
+        SerializeInputMap(ar, map);
+        REQUIRE(ar.IsOk());
+    }
+    const u32 stale = kInputMapVersion + 1;
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    (void)buffer.Write(reinterpret_cast<const byte*>(&stale), sizeof(stale));
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    BinarySerializer ar(buffer, SerializeMode::Read);
+    InputMap loaded;
+    SerializeInputMap(ar, loaded);
+    CHECK_FALSE(ar.IsOk());
+    CHECK(loaded.sets.IsEmpty());
+}
+
 TEST_CASE("input: map round-trips through binary AND xml serializers")
 {
     InputMap map = MakeGameplayMap();
