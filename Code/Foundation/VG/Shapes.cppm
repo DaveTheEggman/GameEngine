@@ -177,16 +177,23 @@ export namespace foundation::vg
     public:
         /// Generate dashed segments from a polyline. Pattern alternates
         /// [dash, gap, dash, gap, ...]. Output is a list of polyline segments.
+        /// An ODD-length pattern repeats to even length, the SVG/CSS stroke-dasharray rule:
+        /// [10] is ten on, ten off. (Deciding dash-vs-gap by the raw index made a one-element
+        /// pattern "index 0 forever" = a solid line in ten-unit pieces - found by the Beef port.)
         static void GenerateDashes(Span<const Float2> points, bool closed, Span<const f32> pattern,
                                    f32 offset, Array<Array<Float2>>& output)
         {
             if (points.Size() < 2 || pattern.Size() == 0)
                 return;
 
-            // Calculate total pattern length.
+            // The walked cycle: the pattern itself, or the pattern twice when its length is odd.
+            const usize cycle = (pattern.Size() % 2 == 0) ? pattern.Size() : pattern.Size() * 2;
+            const auto elementAt = [&](usize k) { return pattern[k % pattern.Size()]; };
+
+            // Calculate total cycle length.
             f32 patternLength = 0.0f;
-            for (usize i = 0; i < pattern.Size(); ++i)
-                patternLength += pattern[i];
+            for (usize i = 0; i < cycle; ++i)
+                patternLength += elementAt(i);
             if (patternLength <= 0.0f)
                 return;
 
@@ -197,20 +204,20 @@ export namespace foundation::vg
             while (dashOffset >= patternLength)
                 dashOffset -= patternLength;
 
-            // Find starting position in pattern.
+            // Find starting position in the cycle.
             usize patternIdx = 0;
             f32 patternRemaining = 0.0f;
             {
                 f32 acc = 0.0f;
-                for (usize i = 0; i < pattern.Size(); ++i)
+                for (usize i = 0; i < cycle; ++i)
                 {
-                    if (acc + pattern[i] > dashOffset)
+                    if (acc + elementAt(i) > dashOffset)
                     {
                         patternIdx = i;
-                        patternRemaining = pattern[i] - (dashOffset - acc);
+                        patternRemaining = elementAt(i) - (dashOffset - acc);
                         break;
                     }
-                    acc += pattern[i];
+                    acc += elementAt(i);
                 }
             }
 
@@ -263,9 +270,9 @@ export namespace foundation::vg
 
                     if (patternRemaining <= 0.0001f)
                     {
-                        // Advance to next pattern element.
-                        patternIdx = (patternIdx + 1) % pattern.Size();
-                        patternRemaining = pattern[patternIdx];
+                        // Advance to the next cycle element.
+                        patternIdx = (patternIdx + 1) % cycle;
+                        patternRemaining = elementAt(patternIdx);
                         isDash = (patternIdx % 2) == 0;
                         currentIdx = -1; // A new dash will start a fresh segment.
                     }

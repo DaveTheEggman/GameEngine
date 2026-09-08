@@ -45,3 +45,33 @@ TEST_CASE("dash: closed path wraps")
                                   0, output);
     CHECK(output.Size() >= 2u);
 }
+
+TEST_CASE("dash: an odd-length pattern repeats to even (SVG rule) - [10] is ten on, ten off")
+{
+    // A 40-unit line under [10]: dashes at 0-10 and 20-30, gaps between. The old
+    // index-parity rule made a one-element pattern index 0 forever = a solid line in pieces.
+    const Float2 points[2] = {Float2{0.0f, 0.0f}, Float2{40.0f, 0.0f}};
+    const f32 pattern[1] = {10.0f};
+    Array<Array<Float2>> dashes;
+    DashGenerator::GenerateDashes(Span<const Float2>(points, 2), false,
+                                  Span<const f32>(pattern, 1), 0.0f, dashes);
+    REQUIRE(dashes.Size() == 2u);
+    CHECK(dashes[0].Front().x == doctest::Approx(0.0f));
+    CHECK(dashes[0].Back().x == doctest::Approx(10.0f));
+    CHECK(dashes[1].Front().x == doctest::Approx(20.0f));
+    CHECK(dashes[1].Back().x == doctest::Approx(30.0f));
+
+    // Three elements repeat as six: [5, 3, 2] = 5 on, 3 off, 2 on, 5 off, 3 on, 2 off (20).
+    const Float2 line[2] = {Float2{0.0f, 0.0f}, Float2{20.0f, 0.0f}};
+    const f32 three[3] = {5.0f, 3.0f, 2.0f};
+    dashes.Clear();
+    DashGenerator::GenerateDashes(Span<const Float2>(line, 2), false, Span<const f32>(three, 3),
+                                  0.0f, dashes);
+    REQUIRE(dashes.Size() == 3u);
+    CHECK(dashes[0].Back().x == doctest::Approx(5.0f));
+    CHECK(dashes[1].Front().x == doctest::Approx(8.0f));
+    CHECK(dashes[1].Back().x == doctest::Approx(10.0f));
+    CHECK(dashes[2].Front().x == doctest::Approx(15.0f));
+    CHECK(dashes[2].Back().x == doctest::Approx(18.0f));
+}
+
