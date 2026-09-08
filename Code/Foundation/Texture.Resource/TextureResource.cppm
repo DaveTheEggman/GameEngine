@@ -159,6 +159,90 @@ export namespace foundation::texture
     };
 
     // Cooked TextureResource -> live GPU Texture (model A). Device-backed.
+    /// One WriteTexture call of a cooked payload: the payload slice plus its layout, extent
+    /// and target subresource.
+    struct TextureWrite
+    {
+        usize offset = 0;
+        usize size = 0;
+        rhi::TextureDataLayout layout{};
+        rhi::Extent3D extent{};
+        u32 mipLevel = 0;
+        u32 arrayLayer = 0;
+    };
+
+    /// Which slice of the payload goes to which mip level or cube face - the arithmetic that
+    /// decides how far into a buffer to read, kept PURE so it is testable without a device.
+    /// Cubemaps: six level-0 faces concatenated +X,-X,+Y,-Y,+Z,-Z (one layer write each).
+    /// Otherwise: the concatenated mip chain, level sizes derived from the dims progression.
+    /// Block-compressed formats measure by 4x4 block footprint, never per texel (there is no
+    /// per-texel size; a per-texel face of 0 bytes silently uploaded nothing - the bug this
+    /// fixes). A truncated payload yields only the writes that fit, never an overread.
+    inline void EnumerateTextureWrites(const TextureResource& res, usize payloadBytes,
+                                       Array<TextureWrite>& out)
+    {
+        out.Clear();
+        const bool compressed = rhi::IsCompressed(res.format);
+        const u32 bpp = TextureData::GetBytesPerPixel(res.format);
+        const u32 blockH = rhi::BlockHeight(res.format);
+        const auto layoutFor = [&](u32 w, u32 h)
+        {
+            rhi::TextureDataLayout layout{};
+            layout.bytesPerRow = compressed ? rhi::CompressedRowPitch(res.format, w) : w * bpp;
+            layout.rowsPerImage = compressed ? (h + blockH - 1) / blockH : h;
+            return layout;
+        };
+        const auto bytesFor = [&](u32 w, u32 h) -> usize
+        {
+            return compressed ? rhi::CompressedLevelBytes(res.format, w, h)
+                              : static_cast<usize>(w) * h * bpp;
+        };
+
+        if (res.shape == TextureShape::Cubemap)
+        {
+            const usize faceBytes = bytesFor(res.width, res.height);
+            if (faceBytes == 0)
+            {
+                return;
+            }
+            for (u32 face = 0; face < 6 && (face + 1) * faceBytes <= payloadBytes; ++face)
+            {
+                TextureWrite w;
+                w.offset = face * faceBytes;
+                w.size = faceBytes;
+                w.layout = layoutFor(res.width, res.height);
+                w.extent = rhi::Extent3D{res.width, res.height, 1};
+                w.mipLevel = 0;
+                w.arrayLayer = face;
+                out.PushBack(w);
+            }
+            return;
+        }
+
+        usize offset = 0;
+        u32 levelW = res.width;
+        u32 levelH = res.height;
+        for (u32 level = 0; level < res.mipLevels; ++level)
+        {
+            const usize levelBytes = bytesFor(levelW, levelH);
+            if (levelBytes == 0 || offset + levelBytes > payloadBytes)
+            {
+                break; // truncated payload: upload what exists, never overread
+            }
+            TextureWrite w;
+            w.offset = offset;
+            w.size = levelBytes;
+            w.layout = layoutFor(levelW, levelH);
+            w.extent = rhi::Extent3D{levelW, levelH, 1};
+            w.mipLevel = level;
+            w.arrayLayer = 0;
+            out.PushBack(w);
+            offset += levelBytes;
+            levelW = levelW > 1 ? levelW / 2 : 1;
+            levelH = levelH > 1 ? levelH / 2 : 1;
+        }
+    }
+
     class TextureFactory final : public IResourceFactory
     {
     public:
@@ -289,58 +373,12 @@ export namespace foundation::texture
                 if (queue != nullptr && queue->CreateTransferBatch(batch).IsOk() &&
                     batch != nullptr)
                 {
-                    rhi::TextureDataLayout layout{};
-                    layout.bytesPerRow = res->width * TextureData::GetBytesPerPixel(res->format);
-                    layout.rowsPerImage = res->height;
-                    if (isCube)
+                    Array<TextureWrite> writes;
+                    EnumerateTextureWrites(*res, pixels.Size(), writes);
+                    for (const TextureWrite& w : writes)
                     {
-                        const usize faceBytes =
-                            static_cast<usize>(layout.bytesPerRow) * res->height;
-                        for (u32 face = 0; face < 6 && (face + 1) * faceBytes <= pixels.Size();
-                             ++face)
-                        {
-                            batch->WriteTexture(
-                                texture,
-                                Span<const u8>(pixels.Data() + face * faceBytes, faceBytes), layout,
-                                rhi::Extent3D{res->width, res->height, 1},
-                                /*mipLevel*/ 0, /*arrayLayer*/ face);
-                        }
-                    }
-                    else
-                    {
-                        // Walk the concatenated chain (cook v2): level sizes derive from the
-                        // dims progression; a payload holding only level 0 uploads only it. Block-
-                        // compressed formats (cook v3) measure by 4x4 block footprint, not per-pixel:
-                        // bytesPerRow = one block-row, rowsPerImage = block rows.
-                        const bool compressed = rhi::IsCompressed(res->format);
-                        const u32 bpp = TextureData::GetBytesPerPixel(res->format);
-                        const u32 blockH = rhi::BlockHeight(res->format);
-                        usize offset = 0;
-                        u32 levelW = res->width;
-                        u32 levelH = res->height;
-                        for (u32 level = 0; level < res->mipLevels; ++level)
-                        {
-                            const usize levelBytes =
-                                compressed ? rhi::CompressedLevelBytes(res->format, levelW, levelH)
-                                            : static_cast<usize>(levelW) * levelH * bpp;
-                            if (offset + levelBytes > pixels.Size())
-                            {
-                                break; // truncated payload: upload what exists, never overread
-                            }
-                            rhi::TextureDataLayout levelLayout{};
-                            levelLayout.bytesPerRow =
-                                compressed ? rhi::CompressedRowPitch(res->format, levelW)
-                                           : levelW * bpp;
-                            levelLayout.rowsPerImage =
-                                compressed ? (levelH + blockH - 1) / blockH : levelH;
-                            batch->WriteTexture(
-                                texture, Span<const u8>(pixels.Data() + offset, levelBytes),
-                                levelLayout, rhi::Extent3D{levelW, levelH, 1},
-                                /*mipLevel*/ level, /*arrayLayer*/ 0);
-                            offset += levelBytes;
-                            levelW = levelW > 1 ? levelW / 2 : 1;
-                            levelH = levelH > 1 ? levelH / 2 : 1;
-                        }
+                        batch->WriteTexture(texture, Span<const u8>(pixels.Data() + w.offset, w.size),
+                                            w.layout, w.extent, w.mipLevel, w.arrayLayer);
                     }
                     (void)batch->Submit();
                     queue->DestroyTransferBatch(batch);

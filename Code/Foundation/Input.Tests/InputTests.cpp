@@ -172,6 +172,47 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
     CHECK(modRuntime.IsDown(quickSave));
     devices.keyboard.Set(shell::KeyCode::S, false);
     devices.keyboard.mods = shell::KeyModifiers::None;
+
+    // A binding that names a modifier GROUP (Shift = both bits) fires on EITHER side; one
+    // that names a specific side still needs that side. Requiring every bit made a Shift
+    // binding unreachable (nobody holds both shifts) - found by the Beef port.
+    InputMap groupMap;
+    ActionSet groupSet;
+    groupSet.name = String(u8"Gameplay");
+    Action sprint;
+    sprint.name = String(u8"Sprint");
+    sprint.kind = ActionKind::Button;
+    Binding shiftW;
+    shiftW.source = BindingSource::Key;
+    shiftW.code = static_cast<u32>(shell::KeyCode::W);
+    shiftW.modifiers = static_cast<u32>(shell::KeyModifiers::Shift);
+    sprint.bindings.PushBack(shiftW);
+    groupSet.actions.PushBack(static_cast<Action&&>(sprint));
+    Action leftOnly;
+    leftOnly.name = String(u8"LeftOnly");
+    leftOnly.kind = ActionKind::Button;
+    Binding lshiftW = shiftW;
+    lshiftW.modifiers = static_cast<u32>(shell::KeyModifiers::LeftShift);
+    leftOnly.bindings.PushBack(lshiftW);
+    groupSet.actions.PushBack(static_cast<Action&&>(leftOnly));
+    groupMap.sets.PushBack(static_cast<ActionSet&&>(groupSet));
+    ActionRuntime groupRuntime;
+    groupRuntime.SetMap(groupMap);
+    const ActionRef sprintRef = groupRuntime.Resolve(u8"Sprint");
+    const ActionRef leftRef = groupRuntime.Resolve(u8"LeftOnly");
+    devices.keyboard.Set(shell::KeyCode::W, true);
+    groupRuntime.Update(devices, 1.0f / 60.0f);
+    CHECK_FALSE(groupRuntime.IsDown(sprintRef)); // no shift at all
+    devices.keyboard.mods = shell::KeyModifiers::LeftShift;
+    groupRuntime.Update(devices, 1.0f / 60.0f);
+    CHECK(groupRuntime.IsDown(sprintRef)); // the left one is a shift
+    CHECK(groupRuntime.IsDown(leftRef));
+    devices.keyboard.mods = shell::KeyModifiers::RightShift;
+    groupRuntime.Update(devices, 1.0f / 60.0f);
+    CHECK(groupRuntime.IsDown(sprintRef)); // so is the right one
+    CHECK_FALSE(groupRuntime.IsDown(leftRef)); // a specific side stays specific
+    devices.keyboard.Set(shell::KeyCode::W, false);
+    devices.keyboard.mods = shell::KeyModifiers::None;
 }
 
 TEST_CASE("input: axes - composite, stick dead zone, and folding by magnitude")

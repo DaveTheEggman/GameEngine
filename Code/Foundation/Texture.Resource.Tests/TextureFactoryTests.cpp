@@ -226,3 +226,83 @@ TEST_CASE("texture.factory: many concurrent async loads decode on workers withou
 
     RemoveDirectory(u8"scratch_texfac_concurrent");
 }
+
+TEST_CASE("texture.upload: a compressed cube sizes its faces by block, never per texel")
+{
+    // BC7 8x8 = 2x2 blocks x 16 bytes = 64 bytes per face. The per-texel size of a compressed
+    // format is 0, which used to make faceBytes 0: six zero-byte writes and nothing on the GPU.
+    TextureResource res;
+    res.shape = TextureShape::Cubemap;
+    res.width = 8;
+    res.height = 8;
+    res.mipLevels = 1;
+    res.format = rhi::TextureFormat::BC7RGBAUnorm;
+    Array<TextureWrite> writes;
+    EnumerateTextureWrites(res, 6u * 64u, writes);
+    REQUIRE(writes.Size() == 6u);
+    for (u32 face = 0; face < 6; ++face)
+    {
+        CHECK(writes[face].offset == face * 64u);
+        CHECK(writes[face].size == 64u);
+        CHECK(writes[face].layout.bytesPerRow == 32u); // one block row: 2 blocks x 16
+        CHECK(writes[face].layout.rowsPerImage == 2u); // block rows
+        CHECK(writes[face].arrayLayer == face);
+        CHECK(writes[face].mipLevel == 0u);
+    }
+    // A payload holding five faces uploads five; a 1x1 face still pays for a whole block.
+    EnumerateTextureWrites(res, 5u * 64u, writes);
+    CHECK(writes.Size() == 5u);
+    res.width = 1;
+    res.height = 1;
+    EnumerateTextureWrites(res, 6u * 16u, writes);
+    REQUIRE(writes.Size() == 6u);
+    CHECK(writes[5].offset == 5u * 16u);
+    CHECK(writes[5].size == 16u);
+}
+
+TEST_CASE("texture.upload: an uncompressed cube is six per-texel faces; a chain walks level sizes")
+{
+    TextureResource cube;
+    cube.shape = TextureShape::Cubemap;
+    cube.width = 4;
+    cube.height = 2;
+    cube.mipLevels = 1;
+    cube.format = rhi::TextureFormat::RGBA8Unorm;
+    Array<TextureWrite> writes;
+    EnumerateTextureWrites(cube, 6u * 32u, writes);
+    REQUIRE(writes.Size() == 6u);
+    CHECK(writes[3].offset == 96u);
+    CHECK(writes[3].size == 32u);
+    CHECK(writes[3].layout.bytesPerRow == 16u);
+    CHECK(writes[3].layout.rowsPerImage == 2u);
+    CHECK(writes[3].extent.width == 4u);
+
+    // 4x4 RGBA8 with a 3-level chain: 64 + 16 + 4 bytes, each level its own write.
+    TextureResource chain;
+    chain.shape = TextureShape::Texture2D;
+    chain.width = 4;
+    chain.height = 4;
+    chain.mipLevels = 3;
+    chain.format = rhi::TextureFormat::RGBA8Unorm;
+    EnumerateTextureWrites(chain, 64u + 16u + 4u, writes);
+    REQUIRE(writes.Size() == 3u);
+    CHECK(writes[1].offset == 64u);
+    CHECK(writes[1].size == 16u);
+    CHECK(writes[1].extent.width == 2u);
+    CHECK(writes[2].offset == 80u);
+    CHECK(writes[2].mipLevel == 2u);
+    // Truncated to level 0 only: one write, no overread.
+    EnumerateTextureWrites(chain, 64u, writes);
+    CHECK(writes.Size() == 1u);
+    // A compressed chain: BC7 8x8 (64) + 4x4 (16) + 2x2 (still one block, 16).
+    chain.width = 8;
+    chain.height = 8;
+    chain.format = rhi::TextureFormat::BC7RGBAUnorm;
+    EnumerateTextureWrites(chain, 64u + 16u + 16u, writes);
+    REQUIRE(writes.Size() == 3u);
+    CHECK(writes[2].offset == 80u);
+    CHECK(writes[2].size == 16u);
+    CHECK(writes[2].layout.bytesPerRow == 16u);
+    CHECK(writes[2].layout.rowsPerImage == 1u);
+}
+

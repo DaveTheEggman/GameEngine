@@ -531,12 +531,29 @@ export namespace foundation::input
             {
                 return false;
             }
-            if (modifiers != 0u &&
-                (static_cast<u32>(keyboard->Modifiers()) & modifiers) != modifiers)
+            // Modifier semantics per GROUP (shift / ctrl / alt / gui): a binding that names the
+            // group (KeyModifiers::Shift = both bits) is satisfied by EITHER side held; one
+            // that names a specific side needs that side. Requiring every bit of the mask made
+            // a plain Shift binding unreachable (nobody holds both shifts). Found by the Beef port.
+            const u32 held = static_cast<u32>(keyboard->Modifiers());
+            static constexpr u32 kGroups[] = {
+                static_cast<u32>(shell::KeyModifiers::Shift),
+                static_cast<u32>(shell::KeyModifiers::Ctrl),
+                static_cast<u32>(shell::KeyModifiers::Alt),
+                static_cast<u32>(shell::KeyModifiers::Gui),
+            };
+            u32 grouped = 0u;
+            for (const u32 group : kGroups)
             {
-                return false;
+                const u32 wanted = modifiers & group;
+                grouped |= group;
+                if (wanted != 0u && (held & wanted) == 0u)
+                {
+                    return false;
+                }
             }
-            return true;
+            const u32 locks = modifiers & ~grouped; // NumLock / CapsLock / ScrollLock: exact
+            return (held & locks) == locks;
         }
 
         [[nodiscard]] static Contribution EvaluateBinding(const Binding& b,
