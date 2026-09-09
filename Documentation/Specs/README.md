@@ -29,6 +29,7 @@ implementing agent's work).
 | [asset-variants.md](asset-variants.md) | #133 | L (variants axis + texture compression) |
 | [mesh-lod.md](mesh-lod.md) | - | M (spec prepared, not scheduled) |
 | [ui-theme-migration.md](ui-theme-migration.md) | #135 | L (P0 shipped; P1-P4 phased) |
+| [ui-layout-and-style-model.md](ui-layout-and-style-model.md) | - | XL (PROPOSED: uniform LayoutStyle, real cascade, box model, transitions; P0-P4) |
 | [paperkid.md](paperkid.md) | - | game plan |
 | [documentation-system.md](documentation-system.md) | - | process |
 | [scene-prefab-unification.md](scene-prefab-unification.md) | - | WIP design question (needs Fable) |
