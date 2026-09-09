@@ -75,6 +75,12 @@ export namespace foundation::ui
         /// `transition: <property|all> <duration> [<easing>] [<delay>], ...` | `none`.
         Transition,
 
+        // === P4 wrap / gap / ellipsis ===
+        /// Length feeding LayoutStyle::FlexBasis.
+        FlexBasis,
+        /// `clip` | `ellipsis` (single-line text views truncate with the font's ellipsis).
+        TextOverflow,
+
         /// Number of known properties (for array sizing).
         COUNT
     };
@@ -105,6 +111,7 @@ export namespace foundation::ui
         case StyleProperty::ZIndex:
         case StyleProperty::Overflow:
         case StyleProperty::Transition:
+        case StyleProperty::TextOverflow:
             return true;
         default:
             return false;
@@ -148,6 +155,7 @@ export namespace foundation::ui
         case StyleProperty::Left:
         case StyleProperty::FlexGrow:
         case StyleProperty::FlexShrink:
+        case StyleProperty::FlexBasis:
             return true;
         default:
             return false;

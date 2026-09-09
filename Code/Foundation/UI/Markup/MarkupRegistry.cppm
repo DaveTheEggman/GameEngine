@@ -119,7 +119,7 @@ export namespace foundation::ui
                 u8"flex-shrink", u8"align-self", u8"gravity",  u8"dock",
                 u8"left",     u8"top",      u8"right",         u8"bottom",
                 u8"position", u8"z-index",  u8"min-width",     u8"min-height",
-                u8"max-width", u8"max-height", u8"grid-row",   u8"grid-column",
+                u8"max-width", u8"max-height", u8"flex-basis", u8"grid-row",   u8"grid-column",
                 u8"grid-row-span", u8"grid-column-span"};
             return Span<const StringView>{kNames, sizeof(kNames) / sizeof(kNames[0])};
         }
@@ -163,6 +163,14 @@ export namespace foundation::ui
             if (name == u8"align-self")
             {
                 layout.AlignSelf = ParseAlign(value);
+                return true;
+            }
+            if (name == u8"flex-basis")
+            {
+                if (Optional<Unit> length = StyleValueParser::ParseLengthText(value); length.HasValue())
+                {
+                    layout.FlexBasis = length.Value();
+                }
                 return true;
             }
             if (name == u8"gravity")
@@ -639,6 +647,75 @@ export namespace foundation::ui
             }
         };
 
+        auto flexWrap = [](View* v, StringView val)
+        {
+            if (FlexLayout* c = Cast<FlexLayout>(v))
+            {
+                c->Wrap = val == u8"wrap" || val == u8"true";
+            }
+        };
+        auto flexAlignContent = [](View* v, StringView val)
+        {
+            if (FlexLayout* c = Cast<FlexLayout>(v))
+            {
+                if (val == u8"start")
+                    c->AlignContent = AlignContent::Start;
+                else if (val == u8"end")
+                    c->AlignContent = AlignContent::End;
+                else if (val == u8"center")
+                    c->AlignContent = AlignContent::Center;
+                else if (val == u8"space-between")
+                    c->AlignContent = AlignContent::SpaceBetween;
+                else if (val == u8"space-around")
+                    c->AlignContent = AlignContent::SpaceAround;
+                else if (val == u8"stretch")
+                    c->AlignContent = AlignContent::Stretch;
+            }
+        };
+        // CSS `gap: <row-gap> [<column-gap>]` (one value = both); row/column are AXES, not
+        // directions - the layout maps them onto its main/cross gaps by Direction.
+        auto flexGap = [](View* v, StringView val)
+        {
+            if (FlexLayout* c = Cast<FlexLayout>(v))
+            {
+                usize split = 0;
+                while (split < val.Size() && val[split] != u8' ')
+                {
+                    ++split;
+                }
+                const Optional<f32> first = PF(val.SubStr(0, split));
+                if (!first.HasValue())
+                {
+                    return;
+                }
+                c->RowGap = static_cast<f32>(first.Value());
+                c->ColumnGap = static_cast<f32>(first.Value());
+                if (split < val.Size())
+                {
+                    if (const Optional<f32> second = PF(val.SubStr(split + 1, val.Size() - split - 1)); second.HasValue())
+                    {
+                        c->ColumnGap = static_cast<f32>(second.Value());
+                    }
+                }
+            }
+        };
+        auto flexRowGap = [](View* v, StringView val)
+        {
+            if (FlexLayout* c = Cast<FlexLayout>(v))
+            {
+                if (auto f = PF(val); f.HasValue())
+                    c->RowGap = static_cast<f32>(f.Value());
+            }
+        };
+        auto flexColumnGap = [](View* v, StringView val)
+        {
+            if (FlexLayout* c = Cast<FlexLayout>(v))
+            {
+                if (auto f = PF(val); f.HasValue())
+                    c->ColumnGap = static_cast<f32>(f.Value());
+            }
+        };
+
         RegisterView(u8"Flex",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlexLayout>(allocator); });
         RegisterView(u8"FlexLayout",
@@ -651,6 +728,15 @@ export namespace foundation::ui
         RegisterProperty(u8"FlexLayout", u8"justify", flexJustify);
         RegisterProperty(u8"FlexLayout", u8"align", flexAlign);
         RegisterProperty(u8"FlexLayout", u8"spacing", flexSpacing);
+        static constexpr const char8_t* kFlexElements[] = {u8"Flex", u8"FlexLayout"};
+        for (const char8_t* element : kFlexElements)
+        {
+            RegisterProperty(element, u8"wrap", flexWrap);
+            RegisterProperty(element, u8"align-content", flexAlignContent);
+            RegisterProperty(element, u8"gap", flexGap);
+            RegisterProperty(element, u8"row-gap", flexRowGap);
+            RegisterProperty(element, u8"column-gap", flexColumnGap);
+        }
 
         RegisterView(u8"Frame",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FrameLayout>(allocator); });

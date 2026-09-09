@@ -128,6 +128,9 @@ export namespace foundation::ui
         Declared<f32> FlexGrow{};
         /// How much this child shrinks when space is insufficient.
         Declared<f32> FlexShrink{};
+        /// Main-axis starting size before grow (a zero unit = auto: the content size, or 0 for
+        /// a growing child - the `flex: <grow>` shorthand). %, em and calc resolve like a size.
+        Declared<Unit> FlexBasis{};
         /// Cross-axis override (empty = the parent's AlignItems, or the sheet's align-self).
         Optional<Align> AlignSelf;
 
@@ -161,6 +164,7 @@ export namespace foundation::ui
                    MaxWidth == other.MaxWidth && MaxHeight == other.MaxHeight &&
                    Position == other.Position && ZIndex == other.ZIndex &&
                    FlexGrow == other.FlexGrow && FlexShrink == other.FlexShrink &&
+                   FlexBasis == other.FlexBasis &&
                    AlignSelf == other.AlignSelf && Gravity == other.Gravity &&
                    Dock == other.Dock && Left == other.Left && Top == other.Top &&
                    Right == other.Right && Bottom == other.Bottom &&

@@ -1139,6 +1139,12 @@ export namespace foundation::ui
             if (name == StringView(u8"transition"))
                 return StyleProperty::Transition;
 
+            // P4 wrap / gap / ellipsis
+            if (name == StringView(u8"flex-basis"))
+                return StyleProperty::FlexBasis;
+            if (name == StringView(u8"text-overflow"))
+                return StyleProperty::TextOverflow;
+
             return {};
         }
 
@@ -1198,7 +1204,8 @@ export namespace foundation::ui
         [[nodiscard]] static bool IsStringProperty(StyleProperty prop)
         {
             return prop == StyleProperty::FontFamily || prop == StyleProperty::Position ||
-                   prop == StyleProperty::Overflow || prop == StyleProperty::AlignSelf;
+                   prop == StyleProperty::Overflow || prop == StyleProperty::AlignSelf ||
+                   prop == StyleProperty::TextOverflow;
         }
         /// width/height accept the SizeSpec keywords (`match`, `wrap`) as well as a length.
         [[nodiscard]] static bool IsSizeSpecProperty(StyleProperty prop)

@@ -840,6 +840,7 @@ namespace foundation::ui
         number(StyleProperty::Left, e.Left);
         number(StyleProperty::FlexGrow, e.FlexGrow);
         number(StyleProperty::FlexShrink, e.FlexShrink);
+        unit(StyleProperty::FlexBasis, e.FlexBasis);
         if (!e.ZIndex.IsDeclared() && set(StyleProperty::ZIndex))
         {
             e.ZIndex = static_cast<i32>(ResolveStyleFloat(StyleProperty::ZIndex, 0.0f));

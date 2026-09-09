@@ -1,6 +1,6 @@
 # Foundation::Fonts unit tests (doctest).
 
-add_executable(Fonts.Tests TestsMain.cpp FontsTypesTests.cpp FontBackendTests.cpp)
+add_executable(Fonts.Tests TestsMain.cpp FontsTypesTests.cpp FontBackendTests.cpp TextUtilTests.cpp)
 # Fonts.Coverage: the backend tests drive the factories with the coverage atlas types.
 target_link_libraries(Fonts.Tests PRIVATE Foundation::Fonts Foundation::Fonts.Coverage doctest::doctest)
 target_compile_definitions(Fonts.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

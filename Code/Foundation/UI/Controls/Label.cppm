@@ -77,6 +77,18 @@ export namespace foundation::ui
             return -1.0f;
         }
 
+        /// Single-line truncation is on: the Ellipsis property, or `text-overflow: ellipsis`
+        /// from the cascade (the property wins when set).
+        [[nodiscard]] bool EffectiveEllipsis()
+        {
+            if (Ellipsis.Value())
+            {
+                return true;
+            }
+            const String overflow = ResolveStyleString(StyleProperty::TextOverflow);
+            return overflow == StringView(u8"ellipsis");
+        }
+
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -237,7 +249,7 @@ export namespace foundation::ui
                     yy += lineHeight;
                 }
             }
-            else if (Ellipsis.Value())
+            else if (EffectiveEllipsis())
             {
                 if (!m_drawCache.Matches(text, family, fontSize, Width(), false))
                 {

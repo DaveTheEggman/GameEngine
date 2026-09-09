@@ -8,7 +8,37 @@
 > min/max, sheet-driven LayoutStyle, Float consumers read Length values). P3 BUILT 2026-09-09
 > (transitions: `transition` lists, per-view retargeting transitions overlaying ResolveStyle,
 > the state cross-fade through Drawable::Draw, UA defaults on the interactive controls).
-> P4 PROPOSED.
+> P4 BUILT 2026-09-09 (Flex line wrapping + align-content, gaps on both axes, flex-basis,
+> `text-overflow: ellipsis`). The spec's phases are COMPLETE; the visual iteration at the desk
+> is next.
+> P4 as built (deviations from section 5, all deliberate):
+> - FlexLayout is restructured around a LINE model (both passes collect in-flow children into
+>   items, break them into lines - one line when `Wrap` is off - and work per line). `Wrap`
+>   (bool; markup `wrap="wrap|nowrap"`), `AlignContent` (Start/End/Center/SpaceBetween/
+>   SpaceAround/Stretch; default Stretch = CSS `normal`, lines share the free cross space);
+>   a single line without wrap ignores align-content and IS the container (today's stretch
+>   behaviour kept). Growing children take their share per line; a line's cross size is its
+>   tallest item, Match-cross children re-measure at their line's size. Layout re-breaks
+>   against the ARRANGED main size with the measured (grown) sizes, half-pixel tolerant; if a
+>   parent arranges the container at a size other than it measured, grow shares are stale
+>   for that frame (the pre-P4 limitation, unchanged).
+> - Gaps: `Spacing` (main axis) and `LineSpacing` (between lines) stay the code-side names;
+>   the CSS AXIS names `RowGap`/`ColumnGap` (Optional overrides, mapped by Direction:
+>   `MainGap()`/`CrossGap()`) are what markup `gap="<row> [<column>]"`, `row-gap`,
+>   `column-gap` write. `gap` is container data, not a sheet property.
+> - `flex-basis` (`LayoutStyle::FlexBasis`, a Unit; zero = auto): the main-axis starting size.
+>   Auto = the content size, or 0 for a GROWING child (the Sedulous/`flex: <grow>` shorthand
+>   semantics every existing grow test encodes - CSS `flex-basis: auto` with grow would be
+>   content + share). A basis without grow IS the main size. % resolves against the available
+>   main size (0 when unbounded), em against the child's font; from the sheet through the P2
+>   effective-layout refresh; markup `flex-basis="..."`.
+> - `flex-shrink` is still not read (nowrap overflow runs past the edge, as before).
+> - `text-overflow: ellipsis | clip` (String keyword) reaches Label through
+>   `Label::EffectiveEllipsis()` (the Ellipsis property wins when set); the truncation itself
+>   is the existing `fonts::TruncateToWidth` (measured by the font, codepoint-aligned, never
+>   wider than the box beyond the 1px snug tolerance) - now pinned by Fonts.Tests.
+> - NOT built: `flex-flow`/`flex` shorthands, `wrap-reverse`, `order`, `align-content: space-
+>   evenly`, ellipsis on multi-line/wrapped text (word-wrap keeps today's behaviour).
 > P3 as built (deviations from section 4, all deliberate):
 > - `transition: none | <property|all> <duration> [<easing>] [<delay>] {, ...}`; times in
 >   `ms` / `s` (a bare number is ms); easings linear / ease / ease-in / ease-out /
