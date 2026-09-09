@@ -1,4 +1,4 @@
-add_executable(Particles.Resource.Tests TestsMain.cpp ParticleEffectFactoryTests.cpp)
+add_executable(Particles.Resource.Tests TestsMain.cpp ParticleEffectFactoryTests.cpp ParticleEffectSerializerTests.cpp)
 target_link_libraries(Particles.Resource.Tests PRIVATE
     Foundation::Particles.Resource Foundation::Particles
     Foundation::Content Foundation::Resource Foundation::VFS doctest::doctest)

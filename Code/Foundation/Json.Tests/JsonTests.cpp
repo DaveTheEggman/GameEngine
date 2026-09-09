@@ -111,6 +111,20 @@ TEST_CASE("json.parse: errors return a clean null + position")
     }
 }
 
+TEST_CASE("json.parse: a leading zero is not a number (RFC 8259)")
+{
+    CHECK_FALSE(Parse(u8"01").ok);
+    CHECK_FALSE(Parse(u8"-01").ok);
+    CHECK_FALSE(Parse(u8"[1, 007]").ok);
+    CHECK_FALSE(Parse(u8"{\"a\": 00}").ok);
+    // The legitimate zero forms still parse.
+    CHECK(Parse(u8"0").ok);
+    CHECK(Parse(u8"-0").ok);
+    CHECK(Parse(u8"0.5").value.AsNumber() == doctest::Approx(0.5));
+    CHECK(Parse(u8"0e2").ok);
+    CHECK(Parse(u8"[0, 10, 100]").ok);
+}
+
 TEST_CASE("json.parse: nesting-depth guard rejects hostile input")
 {
     String deep;

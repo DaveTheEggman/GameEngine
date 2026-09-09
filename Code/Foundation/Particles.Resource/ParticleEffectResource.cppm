@@ -55,16 +55,19 @@ export namespace foundation::particles
             if (reading)
             {
                 RefPtr<ISerializable> obj = GlobalSerializableRegistry().Create(typeId);
-                if (obj)
+                created = obj ? RefPtr<ParticleInitializer>{Cast<ParticleInitializer>(obj.Get())} : RefPtr<ParticleInitializer>{};
+                if (!created)
                 {
-                    created = RefPtr<ParticleInitializer>{Cast<ParticleInitializer>(obj.Get())};
-                    mod = created.Get();
+                    // A module this build cannot construct is NOT skippable: its parameters stay
+                    // in the positional stream and everything after shifts (a garbage particle
+                    // budget, a runaway allocation). Refuse the payload, like a stale data
+                    // version; the factory binds nothing.
+                    ar.FailPayload(ErrorCode::NotSupported);
+                    return;
                 }
+                mod = created.Get();
             }
-            if (mod != nullptr)
-            {
-                mod->Serialize(ar);
-            }
+            mod->Serialize(ar);
             ar.EndObject();
             if (reading && created)
             {
@@ -90,16 +93,19 @@ export namespace foundation::particles
             if (reading)
             {
                 RefPtr<ISerializable> obj = GlobalSerializableRegistry().Create(typeId);
-                if (obj)
+                created = obj ? RefPtr<ParticleBehavior>{Cast<ParticleBehavior>(obj.Get())} : RefPtr<ParticleBehavior>{};
+                if (!created)
                 {
-                    created = RefPtr<ParticleBehavior>{Cast<ParticleBehavior>(obj.Get())};
-                    mod = created.Get();
+                    // A module this build cannot construct is NOT skippable: its parameters stay
+                    // in the positional stream and everything after shifts (a garbage particle
+                    // budget, a runaway allocation). Refuse the payload, like a stale data
+                    // version; the factory binds nothing.
+                    ar.FailPayload(ErrorCode::NotSupported);
+                    return;
                 }
+                mod = created.Get();
             }
-            if (mod != nullptr)
-            {
-                mod->Serialize(ar);
-            }
+            mod->Serialize(ar);
             ar.EndObject();
             if (reading && created)
             {
@@ -152,6 +158,10 @@ export namespace foundation::particles
         ar.EndObject();
 
         SerializeInitializers(ar, *sys);
+        if (!ar.IsPayloadOk())
+        {
+            return;
+        }
         SerializeBehaviors(ar, *sys);
     }
 
@@ -167,6 +177,10 @@ export namespace foundation::particles
         {
             ar.BeginObject();
             SerializeSystem(ar, fx, static_cast<i32>(i));
+            if (!ar.IsPayloadOk())
+            {
+                return; // refused above: do not read the next system's budget from a shifted stream
+            }
             ar.EndObject();
         }
         ar.EndArray();
