@@ -62,7 +62,9 @@ export namespace foundation::physics
         Float3 halfExtents{0.5f, 0.5f, 0.5f};   // Box
         f32 radius = 0.5f;                      // Sphere / Capsule
         f32 halfHeight = 0.5f;                  // Capsule (cylinder half-length)
-        Float3 localPosition{0.0f, 0.0f, 0.0f}; // compound child placement
+        /// Placement within the body: honoured for a lone shape too (a lone shape with an
+        /// offset or a rotation is built as a one-child compound).
+        Float3 localPosition{0.0f, 0.0f, 0.0f};
         Quaternion localRotation = Quaternion::Identity;
         /// ShapeKind::Cooked: a blob from CookConvexHull/CookTriangleMesh (self-describing;
         /// convex hulls may be dynamic, triangle meshes MUST be static/kinematic). The span
@@ -330,7 +332,8 @@ export namespace foundation::physics
         /// `groupMask`: bit g = consider bodies in group g (default: all groups).
         [[nodiscard]] bool RayCast(Float3 from, Float3 direction, f32 maxDistance, RayHit& out,
                                    u32 groupMask = 0xFFFFFFFFu) const;
-        /// Bodies whose shapes contain `point` (triggers included).
+        /// Bodies whose shapes contain `point` (triggers included). `out` is FILLED (cleared
+        /// first), like ShapeOverlap, so a reused array never mixes results across queries.
         void QueryPoint(Float3 point, Array<BodyId>& out, u32 groupMask = 0xFFFFFFFFu) const;
         /// Sweep `shape` (at `rotation`) from `from` along `direction` up to `maxDistance`; reports the
         /// CLOSEST hit (like RayCast, but with a volume). `out.fraction` is the sweep fraction.

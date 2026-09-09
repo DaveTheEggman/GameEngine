@@ -280,9 +280,37 @@ TEST_CASE("physics: point query finds containing bodies")
     world.QueryPoint(Float3{0.0f, 0.0f, 0.0f}, hits);
     REQUIRE(hits.Size() == 1);
     CHECK(hits[0] == body);
-    hits.Clear();
+    // FILL semantics: the reused array is cleared by the query, never appended to.
     world.QueryPoint(Float3{10.0f, 0.0f, 0.0f}, hits);
     CHECK(hits.IsEmpty());
+    world.QueryPoint(Float3{0.0f, 0.0f, 0.0f}, hits);
+    world.QueryPoint(Float3{0.0f, 0.0f, 0.0f}, hits);
+    CHECK(hits.Size() == 1);
+}
+
+TEST_CASE("physics: a lone shape keeps its local rotation (built as a one-child compound)")
+{
+    PhysicsWorld world(DefaultAllocator());
+
+    // A 2x0.2x0.2 STATIC bar stood on end by a 90-degree local rotation about Z. A ray from
+    // above must meet its LONG half extent (top at y = 1.0); dropping the rotation would lay
+    // it flat and the ray would land on y = 0.1.
+    BodyDesc bar;
+    bar.motion = MotionKind::Static;
+    bar.layer = PhysicsLayer::Static;
+    ShapeDesc box;
+    box.halfExtents = Float3{1.0f, 0.1f, 0.1f};
+    box.localRotation = Quaternion::FromAxisAngle(Float3{0.0f, 0.0f, 1.0f}, 1.5707963f);
+    bar.shapes.PushBack(box);
+    const BodyId body = world.CreateBody(bar);
+    REQUIRE(body.IsValid());
+
+    RayHit hit;
+    REQUIRE(world.RayCast(Float3{0.0f, 5.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, 10.0f, hit));
+    CHECK(hit.body == body);
+    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.01));
+    // And nothing where the flat bar would have been.
+    CHECK_FALSE(world.RayCast(Float3{0.8f, 5.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, 10.0f, hit));
 }
 
 TEST_CASE("physics: sphere overlap finds intersecting bodies (deduped) + honors the group mask")
@@ -612,6 +640,36 @@ TEST_CASE("physics: a motorized hinge spins its body at the target velocity")
         world.Step(1.0f / 60.0f);
     }
     CHECK(true); // exercised the runtime motor path without asserts
+}
+
+TEST_CASE("physics: a live motor sync survives its connected body being destroyed first")
+{
+    // The subsystem calls SetJointMotor EVERY fixed step for every joint component; a body
+    // destroyed ahead of its joint (entity-active reconcile) must not be dereferenced through
+    // the constraint's stale Body pointers (heap-use-after-free under ASAN).
+    PhysicsWorld world(DefaultAllocator());
+    world.SetGravity(Float3{0.0f, 0.0f, 0.0f});
+    const BodyId a = world.CreateBody(BoxAt(2.0f));
+    BodyDesc other = BoxAt(2.0f);
+    other.position = Float3{3.0f, 2.0f, 0.0f};
+    const BodyId b = world.CreateBody(other);
+
+    JointDesc joint;
+    joint.kind = JointKind::Hinge;
+    joint.bodyA = a;
+    joint.bodyB = b;
+    joint.anchor = Float3{1.5f, 2.0f, 0.0f};
+    joint.axis = Float3{0.0f, 1.0f, 0.0f};
+    const JointId id = world.CreateJoint(joint);
+    REQUIRE(id.IsValid());
+    world.Step(1.0f / 60.0f);
+
+    world.DestroyBody(b);
+    world.SetJointMotor(id, true, 2.0f); // would read the corpse via GetBody2()
+    world.SetJointMotor(id, false, 0.0f);
+    world.DestroyJoint(id);
+    world.Step(1.0f / 60.0f);
+    CHECK(world.BodyCount() == 1u);
 }
 
 TEST_CASE("physics: a distance joint to a world anchor makes a pendulum rope")

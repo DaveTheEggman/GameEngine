@@ -375,8 +375,13 @@ namespace foundation::physics
             {
                 return nullptr;
             }
+            // One shape at the origin with no local rotation is used AS IS; any placement (offset
+            // OR rotation) goes through a compound, which is the only thing that applies it.
+            const Quaternion& lone = desc.shapes[0].localRotation;
+            const bool loneRotated = lone.x != 0.0f || lone.y != 0.0f || lone.z != 0.0f;
             if (desc.shapes.Size() == 1 && desc.shapes[0].localPosition.x == 0.0f &&
-                desc.shapes[0].localPosition.y == 0.0f && desc.shapes[0].localPosition.z == 0.0f)
+                desc.shapes[0].localPosition.y == 0.0f && desc.shapes[0].localPosition.z == 0.0f &&
+                !loneRotated)
             {
                 return BuildOne(desc.shapes[0], desc.density);
             }
@@ -791,6 +796,7 @@ namespace foundation::physics
 
     void PhysicsWorld::QueryPoint(Float3 point, Array<BodyId>& out, u32 groupMask) const
     {
+        out.Clear(); // fill semantics, like ShapeOverlap: a reused array never mixes queries
         JPH::AllHitCollisionCollector<JPH::CollidePointCollector> collector;
         const GroupMaskFilter filter(groupMask);
         m_impl->system->GetNarrowPhaseQuery().CollidePoint(ToJph(point), collector, {}, filter);
@@ -1190,15 +1196,20 @@ namespace foundation::physics
         // (or before the motor was enabled) would otherwise ignore the constraint, so a live edit to
         // motorTargetVelocity does nothing. Only force-wake when actually driving, so a settled/zero
         // motor can still sleep. (Hinge/Slider are TwoBodyConstraints; no RTTI - cast off GetSubType.)
+        // BY ID through the body manager (the slot's IDs), never via the constraint's Body
+        // pointers: the subsystem syncs motors EVERY fixed step, and those pointers dangle once a
+        // connected body was destroyed before the joint (the same use-after-free DestroyJoint
+        // guards against).
         if (enabled && targetVelocity != 0.0f)
         {
-            auto* twoBody = static_cast<JPH::TwoBodyConstraint*>(joint);
+            const Impl::JointSlot& slot = m_impl->joints[id.value];
             JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
-            for (JPH::Body* body : {twoBody->GetBody1(), twoBody->GetBody2()})
+            for (const JPH::BodyID bodyId : {slot.bodyA, slot.bodyB})
             {
-                if (body != nullptr && !body->IsStatic())
+                if (!bodyId.IsInvalid() && bodies.IsAdded(bodyId) &&
+                    bodies.GetMotionType(bodyId) != JPH::EMotionType::Static)
                 {
-                    bodies.ActivateBody(body->GetID());
+                    bodies.ActivateBody(bodyId);
                 }
             }
         }
