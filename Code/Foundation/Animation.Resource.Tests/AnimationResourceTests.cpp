@@ -148,6 +148,64 @@ TEST_CASE("animation clip resource: round-trips tracks + events")
     RemoveTree();
 }
 
+TEST_CASE("animation clip resource: a run past the keyframe pool refuses to build")
+{
+    GlobalTypeRegistry().Register(AnimationClipSource::StaticType());
+    RegisterSerializable<AnimationClipSource>();
+    GlobalTypeRegistry().Register(AnimationClip::StaticType());
+
+    // A record whose track table claims more keys than the pool holds must fail closed
+    // (it used to index the pool unbounded).
+    AnimationClipSource overrun;
+    overrun.trackBone.PushBack(0);
+    overrun.trackKind.PushBack(0);
+    overrun.trackInterp.PushBack(1);
+    overrun.trackStart.PushBack(0);
+    overrun.trackCount.PushBack(3); // the pool below holds 2
+    overrun.keyTimes.PushBack(0.0f);
+    overrun.keyTimes.PushBack(1.0f);
+    overrun.keyValues.PushBack(Float4{0, 0, 0, 0});
+    overrun.keyValues.PushBack(Float4{0, 1, 0, 0});
+    AnimationClip clip;
+    CHECK_FALSE(overrun.FillClip(clip));
+    CHECK(clip.PositionTracks().IsEmpty());
+
+    // A track table shorter than its bone list is the same refusal.
+    AnimationClipSource shortTable;
+    shortTable.trackBone.PushBack(0);
+    shortTable.trackBone.PushBack(1);
+    shortTable.trackStart.PushBack(0);
+    shortTable.trackCount.PushBack(0);
+    CHECK_FALSE(shortTable.FillClip(clip));
+
+    // A well-formed record still fills; a run ending exactly at the pool is fine.
+    overrun.trackCount[0] = 2;
+    CHECK(overrun.FillClip(clip));
+    CHECK(clip.PositionTracks().Size() == 1);
+    CHECK(clip.PositionTracks()[0]->Keyframes().Size() == 2);
+
+    // And through the manager the malformed record binds NOTHING rather than a corrupt clip.
+    RemoveTree();
+    NativeFileSystem mount(u8"scratch_anim_res_db", DefaultAllocator());
+    Guid id;
+    {
+        foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount,
+                                              foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"clip", AnimationClipSource::StaticType());
+        id = inst->Id();
+        overrun.trackCount[0] = 3;
+        REQUIRE(inst->WriteObject(overrun).IsOk());
+    }
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount,
+                                          foundation::core::BinarySerializerFactory(), u8".rasset");
+    AnimationClipFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+    Proxy<AnimationClip> bound = manager.Bind<AnimationClip>(id);
+    CHECK_FALSE(bound);
+    RemoveTree();
+}
+
 TEST_CASE("animation graph resource: composite - resolves clip refs through the manager")
 {
     GlobalTypeRegistry().Register(AnimationClipSource::StaticType());

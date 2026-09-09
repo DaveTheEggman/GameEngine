@@ -209,13 +209,32 @@ export namespace foundation::animation
             }
         }
 
-        void FillClip(AnimationClip& clip) const
+        /// Rebuilds `clip` in place. False - and the clip left EMPTY - when the record is
+        /// malformed: a track table shorter than its bone list, or a keyframe run past the
+        /// pool. Cooked data is ours, but a truncated or corrupt record must refuse, not read
+        /// past the end of an array.
+        [[nodiscard]] bool FillClip(AnimationClip& clip) const
         {
             clip.ClearForReload();
+            const usize trackTotal = trackBone.Size();
+            if (trackStart.Size() < trackTotal || trackCount.Size() < trackTotal)
+            {
+                return false;
+            }
+            const usize pool = Min(keyTimes.Size(), keyValues.Size());
+            for (usize i = 0; i < trackTotal; ++i)
+            {
+                const usize start = trackStart[i];
+                const usize count = trackCount[i];
+                if (start > pool || count > pool - start)
+                {
+                    return false;
+                }
+            }
             clip.Name() = String(name.AsView());
             clip.duration = duration;
             clip.isLooping = isLooping;
-            for (usize i = 0; i < trackBone.Size(); ++i)
+            for (usize i = 0; i < trackTotal; ++i)
             {
                 const TrackKind kind =
                     static_cast<TrackKind>(i < trackKind.Size() ? trackKind[i] : 0);
@@ -251,6 +270,7 @@ export namespace foundation::animation
                 clip.AddEvent(eventTimes[i],
                               (i < eventNames.Size()) ? eventNames[i].AsView() : StringView{});
             }
+            return true;
         }
 
     private:
@@ -306,7 +326,10 @@ export namespace foundation::animation
                 return RefPtr<Object>{};
             }
             RefPtr<AnimationClip> clip = MakeRef<AnimationClip>((*m_allocator));
-            src->FillClip(*clip);
+            if (!src->FillClip(*clip))
+            {
+                return RefPtr<Object>{}; // a malformed record binds nothing, loudly
+            }
             return clip;
         }
     
