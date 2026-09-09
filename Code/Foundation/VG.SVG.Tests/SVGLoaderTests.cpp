@@ -167,3 +167,33 @@ TEST_CASE("svg.renderer: a gradient fill bakes a LUT and spreads ride the comman
     CHECK(ctx2.GetBatch().textures.Size() == 1u); // white only - solid fallback
     CHECK(ctx2.GetBatch().VertexCount() > 0u);
 }
+
+TEST_CASE("svg.loader: an unrecognised container is skipped WHOLE - the siblings after it survive")
+{
+    // Editor exports lead with <metadata>, <desc>, <style> and comments. Skipping only the
+    // opening tag parsed the container's children at the current level and let its closing
+    // tag end that level, dropping every shape after it. Nested unknowns, a comment holding
+    // '>' and a style block with a CSS child combinator must all be stepped over as units.
+    const StringView svg =
+        u8"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\">"
+        u8"<metadata><rdf:RDF><cc:Work><dc:title>x</dc:title></cc:Work></rdf:RDF></metadata>"
+        u8"<desc>a description</desc>"
+        u8"<!-- a comment with a > in it and a <fake> tag -->"
+        u8"<style>rect > circle { fill: red; }</style>"
+        u8"<unknown attr=\"a > b\"><child/><child><grandchild/></child></unknown>"
+        u8"<rect x=\"0\" y=\"0\" width=\"10\" height=\"10\"/>"
+        u8"<circle cx=\"5\" cy=\"5\" r=\"2\"/>"
+        u8"<g><rect x=\"1\" y=\"1\" width=\"1\" height=\"1\"/></g>"
+        u8"</svg>";
+    const Result<SVGDocument> loaded = SVGLoader::Load(svg);
+    REQUIRE(loaded.HasValue());
+    const SVGDocument& doc = loaded.Value();
+    // rect, circle, g (with its own rect) - and nothing from the skipped containers.
+    REQUIRE(doc.elements.Size() == 3u);
+    CHECK(doc.elements[0].type == SVGElementType::Rectangle);
+    CHECK(doc.elements[1].type == SVGElementType::Circle);
+    CHECK(doc.elements[2].type == SVGElementType::Group);
+    REQUIRE(doc.elements[2].children.Size() == 1u);
+    CHECK(doc.elements[2].children[0].type == SVGElementType::Rectangle);
+}
+

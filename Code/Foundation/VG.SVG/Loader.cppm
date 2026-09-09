@@ -565,12 +565,117 @@ export namespace foundation::vg::svg
             }
         }
 
+        // Step over a comment / CDATA / processing instruction as ONE unit when `pos` sits on
+        // one; returns false when it does not. A '<' or '>' inside one must not touch the
+        // depth count below.
+        static bool SkipMarkupUnit(StringView content, usize& pos)
+        {
+            const auto startsWith = [&](StringView prefix)
+            {
+                return pos + prefix.Size() <= content.Size() &&
+                       content.SubStr(pos, prefix.Size()) == prefix;
+            };
+            const auto skipPast = [&](StringView terminator)
+            {
+                while (pos < content.Size())
+                {
+                    if (pos + terminator.Size() <= content.Size() &&
+                        content.SubStr(pos, terminator.Size()) == terminator)
+                    {
+                        pos += terminator.Size();
+                        return;
+                    }
+                    ++pos;
+                }
+            };
+            if (startsWith(u8"<!--"))
+            {
+                skipPast(u8"-->");
+                return true;
+            }
+            if (startsWith(u8"<![CDATA["))
+            {
+                skipPast(u8"]]>");
+                return true;
+            }
+            if (startsWith(u8"<?"))
+            {
+                skipPast(u8"?>");
+                return true;
+            }
+            return false;
+        }
+
+        // Advance past the '>' that closes the tag starting at `pos`; quotes are honoured so a
+        // '>' inside an attribute value cannot end it. Returns true for a self-closing tag.
+        static bool SkipOneTag(StringView content, usize& pos)
+        {
+            bool selfClosing = false;
+            utf8char quote = 0;
+            while (pos < content.Size())
+            {
+                const utf8char c = content[pos];
+                if (quote != 0)
+                {
+                    if (c == quote)
+                        quote = 0;
+                }
+                else if (c == u8'"' || c == u8'\'')
+                {
+                    quote = c;
+                }
+                else if (c == u8'>')
+                {
+                    selfClosing = pos > 0 && content[pos - 1] == u8'/';
+                    ++pos;
+                    return selfClosing;
+                }
+                ++pos;
+            }
+            return selfClosing;
+        }
+
+        // Skip an unrecognised element WHOLE: its opening tag, every nested child (by depth, so
+        // an inner element cannot end it early), and its closing tag; a self-closing tag ends at
+        // once. Skipping only the opening tag left an unrecognised container's children at the
+        // CURRENT level and its closing tag ended that level - dropping every sibling after a
+        // <metadata>, <style> or <desc>, which is most of an editor-exported file (found by the
+        // Beef port).
         static void SkipTag(StringView content, usize& pos)
         {
-            while (pos < content.Size() && content[pos] != u8'>')
+            if (SkipMarkupUnit(content, pos))
+                return;
+            if (pos >= content.Size() || content[pos] != u8'<')
+            {
                 ++pos;
-            if (pos < content.Size())
-                ++pos;
+                return;
+            }
+            if (pos + 1 < content.Size() && content[pos + 1] == u8'/')
+            {
+                (void)SkipOneTag(content, pos); // a stray closing tag: step over it alone
+                return;
+            }
+            if (SkipOneTag(content, pos))
+                return; // self-closing
+            usize depth = 1;
+            while (pos < content.Size() && depth > 0)
+            {
+                if (content[pos] != u8'<')
+                {
+                    ++pos;
+                    continue;
+                }
+                if (SkipMarkupUnit(content, pos))
+                    continue;
+                if (pos + 1 < content.Size() && content[pos + 1] == u8'/')
+                {
+                    (void)SkipOneTag(content, pos);
+                    --depth;
+                    continue;
+                }
+                if (!SkipOneTag(content, pos))
+                    ++depth; // an opening tag with children of its own
+            }
         }
 
         static void SkipClosingTag(StringView content, usize& pos, StringView /*tagName*/)
