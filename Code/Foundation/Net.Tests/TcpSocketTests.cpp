@@ -78,3 +78,30 @@ TEST_CASE("tcp: connect + accept + bidirectional stream over localhost")
     }
     CHECK(afterClose == -1); // peer closed
 }
+
+TEST_CASE("tcp: Connect takes a host NAME (localhost) and reaches the listener")
+{
+    net::TcpListener listener(0);
+    REQUIRE(listener.IsOpen());
+    net::TcpSocket client = net::TcpSocket::Connect(u8"localhost", listener.BoundPort());
+    REQUIRE(client.IsOpen());
+    net::TcpSocket server;
+    for (int i = 0; i < 300 && !(server.IsOpen() && client.ConnectStatus() == 1); ++i)
+    {
+        if (!server.IsOpen())
+        {
+            net::TcpSocket s = listener.Accept();
+            if (s.IsOpen())
+            {
+                server = static_cast<net::TcpSocket&&>(s);
+            }
+        }
+        SleepMilliseconds(1);
+    }
+    REQUIRE(server.IsOpen());
+    CHECK(client.ConnectStatus() == 1);
+
+    // An unresolvable name yields a closed socket, not a hang.
+    net::TcpSocket none = net::TcpSocket::Connect(u8"no-such-host.invalid", 80);
+    CHECK_FALSE(none.IsOpen());
+}

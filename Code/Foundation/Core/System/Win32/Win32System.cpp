@@ -662,6 +662,47 @@ namespace foundation::core::sys
         return true;
     }
 
+    bool ResolveHostIPv4(const char* host, std::uint32_t* outIp) noexcept
+    {
+        if (host == nullptr || host[0] == '\0')
+        {
+            return false;
+        }
+        if (ParseIPv4(host, outIp))
+        {
+            return true; // a literal never touches the resolver
+        }
+        // getaddrinfo needs Winsock up; a caller resolving before it opened a socket is fine.
+        if (!InitializeNetworking())
+        {
+            return false;
+        }
+        ADDRINFOA hints{};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        ADDRINFOA* results = nullptr;
+        bool found = false;
+        if (::getaddrinfo(host, nullptr, &hints, &results) == 0 && results != nullptr)
+        {
+            for (const ADDRINFOA* it = results; it != nullptr; it = it->ai_next)
+            {
+                if (it->ai_family == AF_INET && it->ai_addr != nullptr)
+                {
+                    const auto* addr = reinterpret_cast<const sockaddr_in*>(it->ai_addr);
+                    if (outIp != nullptr)
+                    {
+                        *outIp = ntohl(addr->sin_addr.S_un.S_addr);
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            ::freeaddrinfo(results);
+        }
+        ShutdownNetworking();
+        return found;
+    }
+
     std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,
                            const void* data, std::size_t size) noexcept
     {

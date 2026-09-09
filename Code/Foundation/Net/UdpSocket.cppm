@@ -37,10 +37,13 @@ export namespace foundation::net
     }
 
     // Parse "a.b.c.d" + port into an endpoint; an invalid (value 0) endpoint on parse failure.
-    [[nodiscard]] inline DatagramEndpoint ResolveEndpoint(StringView dottedQuad, u16 port)
+    /// The endpoint for `host` (a dotted-quad literal or a DNS name; a name resolves through
+    /// the platform resolver and blocks for that lookup - call at the connect edge) and
+    /// `port`. Invalid (IsValid() false) when the host does not resolve to an IPv4 address.
+    [[nodiscard]] inline DatagramEndpoint ResolveEndpoint(StringView host, u16 port)
     {
         u32 ip = 0;
-        if (!core::ParseIPv4(dottedQuad, ip))
+        if (!core::ResolveHostIPv4(host, ip))
         {
             return DatagramEndpoint{};
         }

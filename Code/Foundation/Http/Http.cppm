@@ -13,8 +13,8 @@
 //   - The ONE deliberate exception to one-shot: a handler may answer with an EVENT STREAM
 //     (Server-Sent Events) - the connection then stays open and the consumer writes events
 //     through a ref-counted SseStream for as long as the peer listens.
-//   - The client is BLOCKING with a timeout, localhost-focused (dotted-quad address, no
-//     DNS): tests, local tooling, and the MCP acceptance loop - not a game-facing fetch API.
+//   - The client is BLOCKING with a timeout, localhost-focused (a host name or dotted quad;
+//     no TLS): tests, local tooling, and the MCP acceptance loop - not a game-facing fetch API.
 //
 // Threading: HttpServer is single-threaded - Start/Pump/Stop from ONE thread (pump it from a
 // dedicated thread or a frame loop). SseStream::WriteEvent is safe from any ONE writer thread
@@ -240,8 +240,8 @@ export namespace foundation::http
 
     // ---- client --------------------------------------------------------------------------
 
-    /// BLOCKING one-shot HTTP request against a dotted-quad address (no DNS - localhost
-    /// tooling). Connects, sends, reads the full response (Content-Length or until close),
+    /// BLOCKING one-shot HTTP request against `address` (a host name or a dotted quad; no
+    /// TLS - localhost tooling). Connects, sends, reads the full response (Content-Length or until close),
     /// enforcing `timeoutMilliseconds` across the whole exchange. Error = a human-readable
     /// reason (connect failed / timeout / malformed response).
     [[nodiscard]] Result<HttpResponse, String>

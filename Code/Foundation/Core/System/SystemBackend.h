@@ -177,6 +177,11 @@ namespace foundation::core::sys
 
     // Parse "a.b.c.d" into a HOST-order IPv4 address. false on malformed input.
     bool ParseIPv4(const char* dottedQuad, std::uint32_t* outIp) noexcept;
+    // Resolve a host to a HOST-order IPv4 address: a dotted-quad literal parses directly (no
+    // lookup); anything else goes through the resolver (getaddrinfo, first A record). BLOCKING
+    // for the lookup's duration - a connect is a one-time action, so callers make it at that
+    // edge, never per frame. false when the name does not resolve (or resolves to no IPv4).
+    bool ResolveHostIPv4(const char* host, std::uint32_t* outIp) noexcept;
 
     // Send `size` bytes to (ip host-order, port host-order). Returns bytes sent (>=0), or -1 on a
     // real error (a would-block on a full send buffer returns 0 - the caller may retry).

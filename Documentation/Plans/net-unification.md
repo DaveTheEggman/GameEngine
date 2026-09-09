@@ -1,6 +1,11 @@
 # Net unification: Raptor's stack vs legacy Sedulous.Net (assessment)
 
-> Status: PROPOSED 2026-09-09 (awaiting the user's ruling before the Beef port touches Net)
+> Status: RULED 2026-09-09 - Raptor's stack IS the foundation; the new Sedulous ports Net
+> DIRECTLY from Raptor (the legacy Beef toolkit is reference material for the socket-line
+> substrate, not a source to lift wholesale). Raptor's own gap is closed the same day:
+> `Core::ResolveHostIPv4` (dotted-quad fast path, else getaddrinfo) behind `ResolveEndpoint`,
+> `TcpSocket::Connect`, `Net.connect` and `HttpFetch`, on both backends. IPv6 and TLS stay
+> deferred in both engines.
 > Track: [[networking-track]] / the Beef port
 
 The question: the Beef port is about to reach networking. Raptor has `foundation.net` +

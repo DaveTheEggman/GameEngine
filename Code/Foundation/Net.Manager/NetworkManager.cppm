@@ -422,7 +422,7 @@ export namespace foundation::net
     };
 
     // Declarative startup config an app presets before it configures its subsystems (mirrors the
-    // audio-engine-settings preset). IPv4 for v1: serverHost is a dotted-quad (no DNS yet).
+    // audio-engine-settings preset). IPv4 for v1: serverHost is a dotted-quad or a DNS name.
     struct NetworkStartup
     {
         NetworkRole role = NetworkRole::None;

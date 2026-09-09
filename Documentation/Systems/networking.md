@@ -14,7 +14,11 @@ late-join - no hand-written per-component net code. First target is real-time st
 
 - **`foundation.net`** - transport: reliable-UDP + TCP + loopback/sim + the wire codec. Raw
   sockets live in `Core/System` (the platform backend pattern - `System.cppm` + per-OS dirs),
-  not here; `foundation.net` is the reliability/session layer above them.
+  not here; `foundation.net` is the reliability/session layer above them. Hosts are a
+  dotted-quad literal OR a DNS name everywhere a host is taken (`ResolveEndpoint`,
+  `TcpSocket::Connect`, `Net.connect`, `HttpFetch`): `Core::ResolveHostIPv4` parses a literal
+  without a lookup and otherwise blocks on the platform resolver (getaddrinfo, first A
+  record) - resolve at the connect edge, never per frame. IPv4 only; IPv6 and TLS deferred.
 - **`foundation.http`** - the sibling HTTP/1.1 layer over the TCP wrappers: incremental message
   parser, a pump-model `HttpServer` (one request per connection, `Connection: close`) with
   Server-Sent Events streams (`SseStream`, ref-counted, held past the response), and a blocking
@@ -88,9 +92,9 @@ built - it is P3 slice 1 (see the commands plan).
   `Documentation/Plans/networking-commands.md`.
 - Backlog (web WebSocket client, replication refinements, transport/deployment, matchmaking/
   services hooks): `Documentation/Backlog/networking-followups.md`.
-- **Beef port / unification with the legacy Sedulous.Net** (which stack is the foundation, what
-  the port lifts from the legacy toolkit, the DNS gap on our side): ASSESSED, awaiting a
-  ruling - `Documentation/Plans/net-unification.md`.
+- **Beef port / unification with the legacy Sedulous.Net**: RULED 2026-09-09 - Raptor's stack is
+  the foundation and the new Sedulous ports it directly; the DNS gap on our side is closed
+  (above). `Documentation/Plans/net-unification.md`.
 
 ---
 

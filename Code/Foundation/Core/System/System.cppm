@@ -459,6 +459,13 @@ export namespace foundation::core
     {
         return sys::ParseIPv4(detail::NullTerminated(dottedQuad).CStr(), &outIp);
     }
+    /// A host name OR a dotted-quad literal to a host-order IPv4 address (the literal parses
+    /// without a lookup; a name goes through the platform resolver and BLOCKS for its
+    /// duration - resolve at the connect edge, never per frame). False when it does not resolve.
+    [[nodiscard]] inline bool ResolveHostIPv4(StringView host, u32& outIp) noexcept
+    {
+        return sys::ResolveHostIPv4(detail::NullTerminated(host).CStr(), &outIp);
+    }
 
     [[nodiscard]] inline i64 UdpSendTo(SocketHandle socket, u32 ip, u16 port, const void* data,
                                        usize size) noexcept

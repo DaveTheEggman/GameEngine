@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h> // getaddrinfo
 #include <poll.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -643,6 +644,42 @@ namespace foundation::core::sys
             *outIp = ntohl(a.s_addr);
         }
         return true;
+    }
+
+    bool ResolveHostIPv4(const char* host, std::uint32_t* outIp) noexcept
+    {
+        if (host == nullptr || host[0] == '\0')
+        {
+            return false;
+        }
+        if (ParseIPv4(host, outIp))
+        {
+            return true; // a literal never touches the resolver
+        }
+        addrinfo hints{};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM; // one entry per address, not one per socket type
+        addrinfo* results = nullptr;
+        if (::getaddrinfo(host, nullptr, &hints, &results) != 0 || results == nullptr)
+        {
+            return false;
+        }
+        bool found = false;
+        for (const addrinfo* it = results; it != nullptr; it = it->ai_next)
+        {
+            if (it->ai_family == AF_INET && it->ai_addr != nullptr)
+            {
+                const auto* addr = reinterpret_cast<const sockaddr_in*>(it->ai_addr);
+                if (outIp != nullptr)
+                {
+                    *outIp = ntohl(addr->sin_addr.s_addr);
+                }
+                found = true;
+                break;
+            }
+        }
+        ::freeaddrinfo(results);
+        return found;
     }
 
     std::int64_t UdpSendTo(SocketHandle socket, std::uint32_t ip, std::uint16_t port,

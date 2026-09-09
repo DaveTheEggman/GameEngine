@@ -22,6 +22,21 @@ TEST_CASE("udp: endpoint pack/unpack and IPv4 parsing round-trip")
     CHECK_FALSE(net::ResolveEndpoint(u8"not.an.ip", 80).IsValid());
 }
 
+TEST_CASE("udp: a host NAME resolves through the platform resolver (localhost -> loopback)")
+{
+    // "localhost" is in every hosts file, so this exercises the DNS path without the network.
+    const net::DatagramEndpoint e = net::ResolveEndpoint(u8"localhost", 4242);
+    REQUIRE(e.IsValid());
+    CHECK(net::EndpointPort(e) == 4242u);
+    CHECK(net::EndpointIp(e) == 0x7F000001u); // 127.0.0.1
+
+    u32 ip = 0;
+    CHECK(ResolveHostIPv4(u8"127.0.0.1", ip)); // a literal never touches the resolver
+    CHECK(ip == 0x7F000001u);
+    CHECK_FALSE(ResolveHostIPv4(u8"", ip));
+    CHECK_FALSE(ResolveHostIPv4(u8"no-such-host.invalid", ip)); // .invalid is reserved (RFC 2606)
+}
+
 TEST_CASE("udp: two sockets bind distinct OS ports and exchange a raw datagram over localhost")
 {
     net::UdpSocket a(0);

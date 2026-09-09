@@ -51,13 +51,14 @@ export namespace foundation::net
         TcpSocket(const TcpSocket&) = delete;
         TcpSocket& operator=(const TcpSocket&) = delete;
 
-        // Begin a NON-BLOCKING connect to (dottedQuad, port). Poll ConnectStatus() until 1 (connected)
+        // Begin a NON-BLOCKING connect to (host, port) - a dotted-quad literal or a DNS name (the
+        // name lookup itself blocks; the connect does not). Poll ConnectStatus() until 1 (connected)
         // or -1 (failed). !IsOpen() if the address was unparseable.
-        [[nodiscard]] static TcpSocket Connect(StringView dottedQuad, u16 port)
+        [[nodiscard]] static TcpSocket Connect(StringView host, u16 port)
         {
             core::InitializeNetworking();
             u32 ip = 0;
-            if (!core::ParseIPv4(dottedQuad, ip))
+            if (!core::ResolveHostIPv4(host, ip))
             {
                 core::ShutdownNetworking();
                 return TcpSocket{};
