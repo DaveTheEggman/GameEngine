@@ -872,17 +872,15 @@ export namespace foundation::ui
         /// The cascade's value with keywords/inheritance resolved and NO transition overlay:
         /// what ResolveStyle returns once every transition on `prop` has finished.
         [[nodiscard]] StyleValue ComputeStyle(StyleProperty prop);
-        /// After a cache rebuild: start (or retarget) a transition for every listed property
-        /// whose value moved, from `snapshot` (the value BEFORE the rebuild, mid-flight
-        /// included) to the new computed value; and the state cross-fade when the control
-        /// state moved. Impl unit.
-        void BeginTransitions(const Array<StyleValue>& snapshot, ControlState oldState,
+        /// After a cache rebuild: for every listed animatable property whose WINNING RULE
+        /// changed (`oldWinners` vs the new cache), start or retarget a transition from the
+        /// value before the rebuild (a running entry's current value, mid-flight included) to
+        /// the new computed value; and the state cross-fade when the control state moved.
+        /// Impl unit.
+        void BeginTransitions(const StyleRule* const* oldWinners, ControlState oldState,
                               ControlState newState);
         friend class UIContext; // detach de-lists transitions
         StyleCache m_styleCache;
-        /// Set while EnsureStyleCache snapshots the OLD cache (the reads must not re-enter the
-        /// rebuild).
-        bool m_styleCacheSnapshotting = false;
 
         struct StyleTransition
         {
@@ -1527,9 +1525,8 @@ export namespace foundation::ui
         [[nodiscard]] bool WantsTextInput() const;
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
-        /// Install the context sheet (the theme). Prepends the user-agent defaults once per
-        /// sheet (`transition: all 120ms ease-out` on the interactive controls; a theme rule
-        /// on the same type wins by source order) and moves the sheet epoch. Impl unit.
+        /// Install the context sheet (the theme; its motion included - see the shipped
+        /// themes' `View { transition }` rule) and move the sheet epoch. Impl unit.
         void SetStyleSheet(RefPtr<StyleSheet> sheet);
         /// Bumped whenever rule OBJECTS may have been replaced (context or local sheet swap):
         /// a View's style cache from another epoch is rebuilt without reading it.

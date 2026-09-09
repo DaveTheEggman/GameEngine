@@ -25,6 +25,12 @@ View {
     warning-color: $warning;
     error-color: $error;
     font-size: 16;
+    /* Motion: visual state changes (hover, press, focus, class toggles) ease over 120ms;
+     * geometry never animates. A control opts out with `transition: none`. */
+    transition: background 120ms ease-out, text-color 120ms ease-out,
+                text-dim-color 120ms ease-out, border-color 120ms ease-out,
+                accent-color 120ms ease-out, box-shadow 120ms ease-out,
+                opacity 120ms ease-out;
 }
 
 /* === Button === */

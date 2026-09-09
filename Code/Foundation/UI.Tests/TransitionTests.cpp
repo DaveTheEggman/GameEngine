@@ -332,27 +332,81 @@ TEST_CASE("transition: a layout-kind property marks layout damage per frame, a v
     CHECK(f.ctx.NeedsLayout());
 }
 
-// === user-agent defaults ===
+// === motion is theme data ===
 
-TEST_CASE("transition: the context sheet carries the user-agent defaults for interactive controls")
+TEST_CASE("transition: motion comes from the theme's View rule; the engine adds no defaults")
 {
+    // A sheet with no transition rule: nothing transitions, controls included.
     Fixture f(LoadSSS(u8"TestView { text-color: #000; }\n"));
     auto button = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Go"));
     f.root->AddView(button.Get());
     auto leaf = f.Leaf();
-    const StyleValue spec = button->ResolveStyle(StyleProperty::Transition);
-    REQUIRE(spec.AsTransitions() != nullptr);
-    const TransitionSpec* all = spec.AsTransitions()->Find(StyleProperty::TextColor);
+    CHECK(button->ResolveStyle(StyleProperty::Transition).AsTransitions() == nullptr);
+    CHECK(leaf->ResolveStyle(StyleProperty::Transition).AsTransitions() == nullptr);
+
+    // The shipped themes declare it on View, so every view - a Button, a plain leaf - gets it;
+    // a later rule on a type opts that type out.
+    f.ctx.SetStyleSheet(LoadSSS(u8"View { transition: all 120ms ease-out; }\n"
+                                u8"ButtonBase { transition: none; }\n"));
+    const StyleValue onLeaf = leaf->ResolveStyle(StyleProperty::Transition);
+    REQUIRE(onLeaf.AsTransitions() != nullptr);
+    const TransitionSpec* all = onLeaf.AsTransitions()->Find(StyleProperty::TextColor);
     REQUIRE(all != nullptr);
     CHECK(all->Duration == doctest::Approx(0.12f));
     CHECK(all->Easing == TransitionEasing::EaseOut);
-    CHECK(leaf->ResolveStyle(StyleProperty::Transition).AsTransitions() == nullptr); // not interactive
+    const StyleValue onButton = button->ResolveStyle(StyleProperty::Transition);
+    REQUIRE(onButton.AsTransitions() != nullptr);
+    CHECK(onButton.AsTransitions()->Find(StyleProperty::TextColor) == nullptr);
+}
 
-    // A theme rule on the same type wins over the prepended defaults.
-    f.ctx.SetStyleSheet(LoadSSS(u8"ButtonBase { transition: none; }\n"));
-    const StyleValue overridden = button->ResolveStyle(StyleProperty::Transition);
-    REQUIRE(overridden.AsTransitions() != nullptr);
-    CHECK(overridden.AsTransitions()->Find(StyleProperty::TextColor) == nullptr);
+TEST_CASE("transition: the shipped themes carry a motion rule on View")
+{
+    EnsureGlobals();
+    core::RefPtr<StyleSheet> dark = DarkTheme::Create(DefaultAllocator());
+    REQUIRE(dark);
+    UIContext ctx{DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
+    ctx.SetStyleSheet(dark);
+    auto button = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Go"));
+    root->AddView(button.Get());
+    const StyleValue spec = button->ResolveStyle(StyleProperty::Transition);
+    REQUIRE(spec.AsTransitions() != nullptr);
+    CHECK(spec.AsTransitions()->Find(StyleProperty::Background) != nullptr);
+    CHECK(spec.AsTransitions()->Find(StyleProperty::TextColor) != nullptr);
+    CHECK(spec.AsTransitions()->Find(StyleProperty::FontSize) == nullptr); // geometry never animates
+}
+
+TEST_CASE("transition: a child with no rule of its own inherits the parent's mid-flight value")
+{
+    Fixture f(LoadSSS(u8"TestGroup { transition: text-color 100ms linear; text-color: #000000; }\n"
+                      u8"TestGroup.light { text-color: #ffffff; }\n"));
+    auto group = core::MakeRef<TestGroup>(core::DefaultAllocator());
+    f.root->AddView(group.Get());
+    auto child = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
+    group->AddView(child.Get());
+    CHECK(Red(*child) == doctest::Approx(0.0f));
+    group->AddClass(u8"light");
+    CHECK(Red(*group) == doctest::Approx(0.0f)); // starts on the parent
+    f.ctx.BeginFrame(0.05f);
+    CHECK(Red(*group) == doctest::Approx(0.5f));
+    CHECK(Red(*child) == doctest::Approx(0.5f)); // inherited through the overlay, no entry of its own
+    CHECK(child->ActiveTransitionCount() == 0);
+}
+
+TEST_CASE("transition: only a changed winner starts an entry (a theme-wide rule stays cheap)")
+{
+    Fixture f(LoadSSS(u8"View { transition: all 100ms linear; }\n"
+                      u8"TestView { text-color: #000000; font-size: 10; }\n"
+                      u8".tag { border-color: #ff0000; }\n"));
+    auto v = f.Leaf();
+    CHECK(Red(*v) == doctest::Approx(0.0f));
+    v->AddClass(u8"tag"); // border-color gains a winner; text-color / font-size keep theirs
+    (void)Red(*v);
+    CHECK(v->ActiveTransitionCount() == 0); // border-color had no old value to start from
+    v->RemoveClass(u8"tag");
+    (void)Red(*v);
+    CHECK(v->ActiveTransitionCount() == 0); // and losing it goes to None: nothing to run to
 }
 
 // === edges ===

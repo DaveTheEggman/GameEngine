@@ -70,13 +70,16 @@
 >   `View::CurrentDrawBlend`) once and dispatches to the new protected virtual `DrawState`;
 >   a `background:` drawable change cross-fades the same way (old drawable under new).
 >   Opacity, not compositing: overlapping translucent layers double-blend mid-fade.
-> - UA defaults: `UIContext::SetStyleSheet` prepends `transition: all 120ms ease-out` rules for
->   ButtonBase, CheckBox, RadioButton, ToggleSwitch, Slider, ScrollBar, ComboBox, TabView,
->   EditText, ListView, TreeView, GridView, Expander (once per sheet, types the registry knows);
->   a theme rule on the same type wins by source order (`ButtonBase { transition: none }`).
->   Layout-kind properties are in `all` too (the spec said visual only): the interactive
->   controls' theme rules only move visual properties by state today, so nothing relayouts
->   per frame; revisit if a theme animates padding.
+> - Motion is THEME DATA (user ruling 2026-09-09: the engine never hard-codes a list of
+>   control types). There is no user-agent sheet and `UIContext::SetStyleSheet` prepends
+>   nothing. Each shipped theme (dark, light, rounded-dark, breeze) declares in its `View`
+>   defaults block `transition: background | text-color | text-dim-color | border-color |
+>   accent-color | box-shadow | opacity 120ms ease-out` - visual kinds only, geometry never
+>   animates; a control opts out with a later `transition: none`. A theme-wide rule is
+>   affordable because the trigger compares WINNING-RULE POINTERS per property after a
+>   rebuild (the same rule under the same sheets is the same value) and resolves only the
+>   properties whose winner changed; a child with no rule of its own inherits the parent's
+>   mid-flight value through the overlay without an entry.
 > - NOT built: `transition-property/-duration/...` longhands, `cubic-bezier()`, `steps()`,
 >   transition events, a per-transition Storyboard object (nothing needed one).
 > P2 as built (deviations from section 2, all deliberate):
