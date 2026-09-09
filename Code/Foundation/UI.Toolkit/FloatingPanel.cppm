@@ -13,7 +13,7 @@
 // read-back), so there is no jitter. Content fills the body, so resizing resizes the content.
 //
 // Positioning: the panel must be hosted in an AbsoluteLayout; a header drag moves it by setting its
-// AbsoluteLayoutParams X/Y (NOT a render transform - ScreenToLocal ignores transforms, which would
+// LayoutStyle Left/Top (NOT a render transform - ScreenToLocal ignores transforms, which would
 // offset every later hit-test; and NOT a margin - a margin box inflates the parent's measure).
 // Clamped to the parent so it can't leave it (a sibling pane would draw over it and steal input).
 
@@ -111,16 +111,7 @@ export namespace foundation::ui::toolkit
             // Re-clamp against the CURRENT parent size (available here). If the viewport shrank - the
             // bottom dock expanded upward - pull the panel back inside; a changed X/Y needs another
             // layout pass to reposition it.
-            if (AbsoluteLayoutParams* pp = PosParams())
-            {
-                const f32 beforeX = pp->X;
-                const f32 beforeY = pp->Y;
-                ClampToParent();
-                if (pp->X != beforeX || pp->Y != beforeY)
-                {
-                    Invalidate();
-                }
-            }
+            ClampToParent(); // SetLayout marks layout damage when the position changed
             if (m_content && !m_collapsed)
             {
                 m_content->Layout(kContentInset, kHeaderHeight, Max(0.0f, width - 2.0f * kContentInset),
@@ -303,13 +294,12 @@ export namespace foundation::ui::toolkit
                 // Absolute mapping keeps the grabbed point under the cursor: new X = (mouse-in-parent)
                 // - grab = (e.X + Bounds.x) - grabLocal. Using X/Y (not a margin or a render transform)
                 // keeps Bounds - and thus every later hit-test coordinate - exact.
-                if (AbsoluteLayoutParams* pp = PosParams())
-                {
-                    pp->X = e.X + Bounds.x - m_grabLocalX;
-                    pp->Y = e.Y + Bounds.y - m_grabLocalY;
-                    ClampToParent();
-                    Invalidate();
-                }
+                LayoutStyle placement = Layout();
+                placement.Left = e.X + Bounds.x - m_grabLocalX;
+                placement.Top = e.Y + Bounds.y - m_grabLocalY;
+                SetLayout(placement);
+                ClampToParent();
+                Invalidate();
                 e.Handled = true;
                 return;
             }
@@ -365,13 +355,10 @@ export namespace foundation::ui::toolkit
             }
         }
 
-        // The panel positions itself via AbsoluteLayout X/Y (it must be hosted in an AbsoluteLayout).
-        // AbsoluteLayout places the child at exactly (X, Y) with its measured size, so Bounds.x/y == X/Y
-        // and there is no margin box to inflate the parent's measure or shift the hit-test coordinates.
-        [[nodiscard]] AbsoluteLayoutParams* PosParams() const
-        {
-            return Cast<AbsoluteLayoutParams>(LayoutParams.Get());
-        }
+        // The panel positions itself via its LayoutStyle Left/Top (it must be hosted in an
+        // AbsoluteLayout). AbsoluteLayout places the child at exactly (Left, Top) with its measured
+        // size, so Bounds.x/y == Left/Top and there is no margin box to inflate the parent's measure
+        // or shift the hit-test coordinates.
 
         void DrawChevron(UIDrawContext& ctx, Color color)
         {
@@ -422,7 +409,7 @@ export namespace foundation::ui::toolkit
         }
 
         // Resize can't push the panel past the parent's right/bottom edge (Bounds.x/y track the
-        // AbsoluteLayoutParams X/Y).
+        // LayoutStyle Left/Top).
         [[nodiscard]] f32 MaxWidthInParent() const
         {
             if (Parent == nullptr)
@@ -440,22 +427,23 @@ export namespace foundation::ui::toolkit
             return Max(kMinHeight, Parent->Bounds.height - Bounds.y);
         }
 
-        // Keep the WHOLE panel inside its parent by clamping its AbsoluteLayoutParams X/Y
+        // Keep the WHOLE panel inside its parent by clamping its LayoutStyle Left/Top
         // (Bounds.x/y track them). Clamp against the INTENDED size (not the laid-out
         // Height()/Width(), which lags a frame). AbsoluteLayout does not clamp an overflowing
         // child, so this is the only guard; run it on every layout so the panel follows a
         // shrinking viewport (e.g. the bottom dock expanding upward) instead of sliding behind it.
         void ClampToParent()
         {
-            AbsoluteLayoutParams* pp = PosParams();
-            if (Parent == nullptr || pp == nullptr)
+            if (Parent == nullptr)
             {
                 return;
             }
             const f32 intendedW = Max(kMinWidth, m_userW);
             const f32 intendedH = m_collapsed ? kHeaderHeight : Max(kMinHeight, m_userH);
-            pp->X = Clamp(pp->X, 0.0f, Max(0.0f, Parent->Bounds.width - intendedW));
-            pp->Y = Clamp(pp->Y, 0.0f, Max(0.0f, Parent->Bounds.height - intendedH));
+            LayoutStyle placement = Layout();
+            placement.Left = Clamp(placement.Left, 0.0f, Max(0.0f, Parent->Bounds.width - intendedW));
+            placement.Top = Clamp(placement.Top, 0.0f, Max(0.0f, Parent->Bounds.height - intendedH));
+            SetLayout(placement);
         }
 
         String m_title;

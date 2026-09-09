@@ -116,8 +116,8 @@ namespace editor
         gridColumn->Direction = foundation::ui::Orientation::Vertical;
         gridColumn->Padding = foundation::ui::Thickness{8, 6};
         {
-            auto grow = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
+            foundation::ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
             gridColumn->AddView(m_grid.Get(), grow);
         }
 

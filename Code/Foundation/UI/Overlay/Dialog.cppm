@@ -88,9 +88,9 @@ export namespace foundation::ui
             RefPtr<Label> titleLabel = MakeRef<Label>(MemoryAllocator(), title);
             m_titleLabel = titleLabel.Get();
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Dp(24));
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Match();
+                lp.Height = SizeSpec::Fixed(Unit::Dp(24));
                 m_layout->AddView(titleLabel.Get(), lp);
             }
 
@@ -100,9 +100,9 @@ export namespace foundation::ui
             m_buttonRow->Spacing = 8;
             m_buttonRow->JustifyContent = Justify::End;
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Dp(36));
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Match();
+                lp.Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
             }
         }
@@ -118,15 +118,15 @@ export namespace foundation::ui
             m_content = content;
             m_layout->RemoveView(m_buttonRow.Get(), false);
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Match();
-                lp->Grow = 1;
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Match();
+                lp.FlexGrow = 1;
                 m_layout->AddView(content, lp);
             }
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Fixed(Unit::Dp(36));
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Match();
+                lp.Height = SizeSpec::Fixed(Unit::Dp(36));
                 m_layout->AddView(m_buttonRow.Get(), lp);
             }
         }

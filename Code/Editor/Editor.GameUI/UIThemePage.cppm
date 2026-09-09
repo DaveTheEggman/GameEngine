@@ -98,9 +98,9 @@ export namespace editor
                     self->m_previewDelay = 0.35f;
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(m_editor.Get(), lp);
             }
 
@@ -115,19 +115,18 @@ export namespace editor
             m_pickButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Preview Document..."));
             m_pickButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewDocument(); });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                bar->AddView(m_pickButton.Get(), lp);
+                bar->AddView(m_pickButton.Get());
             }
             m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 bar->AddView(m_status.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 right->AddView(bar.Get(), lp);
             }
 
@@ -147,9 +146,9 @@ export namespace editor
                     self->m_previewDelay = 0.35f;
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 right->AddView(m_previewEditor.Get(), lp);
             }
 
@@ -157,15 +156,15 @@ export namespace editor
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.08f, 0.09f, 0.11f, 1.0f};
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 2.0f; // the render gets the lion's share of the right column
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 2.0f; // the render gets the lion's share of the right column
                 right->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(right.Get(), lp);
             }
             m_content = row;

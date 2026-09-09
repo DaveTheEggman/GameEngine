@@ -48,17 +48,17 @@ export namespace foundation::ui::toolkit
             BottomDock* self = this;
             button->OnClick.Add([self, index](::foundation::ui::ButtonBase*) { self->OnTabClicked(index); });
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(96.0f));
-                lp->Height = ::foundation::ui::SizeSpec::Match();
+                ::foundation::ui::LayoutStyle lp;
+                lp.Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(96.0f));
+                lp.Height = ::foundation::ui::SizeSpec::Match();
                 m_tabBar->AddView(button.Get(), lp);
             }
             if (content != nullptr)
             {
                 content->Visibility = ::foundation::ui::Visibility::Gone; // shown only when active+expanded
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ::foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ::foundation::ui::LayoutStyle lp;
+                lp.Width = ::foundation::ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 m_contentHost->AddView(content, lp);
             }
 
@@ -149,9 +149,9 @@ export namespace foundation::ui::toolkit
             m_contentHost->Direction = ::foundation::ui::Orientation::Vertical;
             m_contentHost->Visibility = ::foundation::ui::Visibility::Gone; // default collapsed
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ::foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ::foundation::ui::LayoutStyle lp;
+                lp.Width = ::foundation::ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 AddView(m_contentHost.Get(), lp);
             }
 
@@ -160,9 +160,9 @@ export namespace foundation::ui::toolkit
             m_tabBar->Spacing = 2.0f;
             m_tabBar->Padding = ::foundation::ui::Thickness{4, 2};
             {
-                auto lp = MakeRef<::foundation::ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ::foundation::ui::SizeSpec::Match();
-                lp->Height = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(kBarHeight));
+                ::foundation::ui::LayoutStyle lp;
+                lp.Width = ::foundation::ui::SizeSpec::Match();
+                lp.Height = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(kBarHeight));
                 AddView(m_tabBar.Get(), lp);
             }
         }

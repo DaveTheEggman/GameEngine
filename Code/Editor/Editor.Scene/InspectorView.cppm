@@ -322,15 +322,15 @@ export namespace editor
             m_emptyLabel->FontSize.SetValue(12.0f);
             m_emptyLabel->Visibility = ui::Visibility::Gone; // shown only when nothing is selected
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 entityColumn->AddView(m_emptyLabel.Get(), lp);
             }
 
             m_entityGrid = MakeRef<ui::toolkit::PropertyGrid>(MemoryAllocator());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 entityColumn->AddView(m_entityGrid.Get(), grow);
             }
 
@@ -338,8 +338,8 @@ export namespace editor
             {
                 SceneInspectorView* self = this;
                 m_addButton->OnClick.Add([self](ui::ButtonBase*) { self->ShowAddComponentMenu(); });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 entityColumn->AddView(m_addButton.Get(), lp);
             }
 
@@ -351,9 +351,9 @@ export namespace editor
                 SceneInspectorView* self = this;
                 m_pasteButton->OnClick.Add([self](ui::ButtonBase*) { self->PasteSelectedComponent(); });
                 m_pasteButton->Visibility = ui::Visibility::Gone;
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Margin = ui::Thickness{0.0f, 6.0f, 0.0f, 0.0f}; // gap below Add Component
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Margin = ui::Thickness{0.0f, 6.0f, 0.0f, 0.0f}; // gap below Add Component
                 entityColumn->AddView(m_pasteButton.Get(), lp);
             }
 
@@ -363,8 +363,8 @@ export namespace editor
             sceneColumn->Padding = ui::Thickness{8, 6};
             m_sceneGrid = MakeRef<ui::toolkit::PropertyGrid>(MemoryAllocator());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 sceneColumn->AddView(m_sceneGrid.Get(), grow);
             }
 

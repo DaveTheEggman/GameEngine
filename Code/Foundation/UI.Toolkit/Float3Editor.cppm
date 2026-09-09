@@ -105,7 +105,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(x.Get(), GrowParams(MemoryAllocator()));
+            row->AddView(x.Get(), GrowParams());
 
             RefPtr<VectorNumericField> y =
                 MakeField(1, StringView(u8"Y"), AxisColors::Y, m_value.y);
@@ -125,7 +125,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(y.Get(), GrowParams(MemoryAllocator()));
+            row->AddView(y.Get(), GrowParams());
 
             RefPtr<VectorNumericField> z =
                 MakeField(2, StringView(u8"Z"), AxisColors::Z, m_value.z);
@@ -145,7 +145,7 @@ export namespace foundation::ui::toolkit
                         self->m_syncing = false;
                     }
                 });
-            row->AddView(z.Get(), GrowParams(MemoryAllocator()));
+            row->AddView(z.Get(), GrowParams());
 
             return row;
         }
@@ -168,10 +168,10 @@ export namespace foundation::ui::toolkit
             return f;
         }
 
-        static RefPtr<FlexLayoutParams> GrowParams(IAllocator& allocator)
+        static LayoutStyle GrowParams()
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(allocator);
-            lp->Grow = 1.0f;
+            LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             return lp;
         }
 

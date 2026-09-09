@@ -127,10 +127,10 @@ namespace editor
         constexpr f32 kHeaderH = 88.0f;           // room for the rotated names
         constexpr f32 kQuarterTurn = -1.5707963f; // -90 deg: header names read bottom-to-top
 
-        auto fixedCell = [self](f32 width)
+        auto fixedCell = [](f32 width)
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(self->MemoryAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
             return lp;
         };
         auto centeredSlot = [self]()
@@ -157,12 +157,12 @@ namespace editor
                 head->TooltipText = names[j];
                 head->Transform.Rotation = kQuarterTurn; // vertical
                 head->Transform.Origin = Float2{0.5f, 0.5f};
-                slot->AddView(head.Get(), MakeRef<ui::FlexLayoutParams>(MemoryAllocator()));
+                slot->AddView(head.Get());
                 header->AddView(slot.Get(), fixedCell(kCellW));
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kHeaderH));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kHeaderH));
             column.AddView(header.Get(), lp);
         }
 
@@ -220,7 +220,7 @@ namespace editor
                             self->OnToggle(i, j);
                         }
                     });
-                slot->AddView(box.Get(), MakeRef<ui::FlexLayoutParams>(MemoryAllocator()));
+                slot->AddView(box.Get());
                 row->AddView(slot.Get(), fixedCell(kCellW));
             }
 
@@ -243,9 +243,9 @@ namespace editor
                 row->AddView(del.Get(), fixedCell(20.0f));
             }
 
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(row.Get(), lp);
         }
 
@@ -261,9 +261,9 @@ namespace editor
                         self->OnAddGroup();
                     }
                 });
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(add.Get(), lp);
         }
     }

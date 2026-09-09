@@ -4,7 +4,7 @@
 // UI - module implementation unit for UIDebugOverlay::DrawOverlays.
 //
 // Holds the body (it reaches into the full View/ViewGroup cluster: Cast<ViewGroup>, view.Width()/
-// IsHovered()/IsFocused()/LayoutParams), so :ui_debug_overlay stays a thin declaration :view can call.
+// IsHovered()/IsFocused()/Layout()), so :ui_debug_overlay stays a thin declaration :view can call.
 // Ported from Sedulous.UI/src/Debug/UIDebugOverlay.bf; Beef `Color(r,g,b,a)` byte literals -> the local
 // C() helper; `view as ViewGroup` -> Cast<ViewGroup>.
 
@@ -60,9 +60,9 @@ namespace foundation::ui
         // Margin (orange exterior bands).
         if (settings.ShowMargin)
         {
-            if (LayoutParams* lp = view.LayoutParams.Get(); lp != nullptr && !lp->Margin.IsZero())
+            if (!view.Layout().Margin.IsZero())
             {
-                const Thickness m = lp->Margin;
+                const Thickness m = view.Layout().Margin;
                 ctx.VG().FillRect(Rectangle{-m.Left, -m.Top, w + m.TotalHorizontal(), m.Top},
                                   sMarginColor);
                 ctx.VG().FillRect(Rectangle{-m.Left, h, w + m.TotalHorizontal(), m.Bottom},

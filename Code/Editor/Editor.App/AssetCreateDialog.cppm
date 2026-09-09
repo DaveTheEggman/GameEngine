@@ -67,9 +67,9 @@ export namespace editor::app
                             self->Validate();
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(m_tree.Get(), lp);
             }
 
@@ -78,8 +78,8 @@ export namespace editor::app
             {
                 AssetCreateDialog* self = this;
                 m_nameEdit->OnTextChanged.Add([self](ui::EditText*) { self->Validate(); });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_nameEdit.Get(), lp);
             }
 
@@ -88,8 +88,8 @@ export namespace editor::app
             m_validationLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
             m_validationLabel->FontSize.SetValue(11.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_validationLabel.Get(), lp);
             }
             SetContent(column.Get());
@@ -172,8 +172,8 @@ export namespace editor::app
                 auto row = MakeRef<ui::FlexLayout>(m_owner->MemoryAllocator());
                 auto label = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
-                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());
             }

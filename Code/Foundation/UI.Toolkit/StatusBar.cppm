@@ -43,10 +43,10 @@ export namespace foundation::ui::toolkit
                 RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
                 label->FontSize.SetValue(12.0f);
                 m_defaultLabel = label.Get();
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Match();
-                lp->Height = SizeSpec::Match();
-                lp->Grow = 1.0f;
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Match();
+                lp.Height = SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 InsertView(label.Get(), 0, lp);
             }
             m_defaultLabel->SetText(text);
@@ -58,8 +58,8 @@ export namespace foundation::ui::toolkit
             RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
             label->FontSize.SetValue(12.0f);
             label->SetText(text);
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-            lp->Height = SizeSpec::Match();
+            LayoutStyle lp;
+            lp.Height = SizeSpec::Match();
             Label* raw = label.Get();
             AddView(label.Get(), lp);
             return raw;

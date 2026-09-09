@@ -136,14 +136,14 @@ namespace editor
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.FlexGrow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
@@ -160,13 +160,13 @@ namespace editor
             profileRow->Direction = ui::Orientation::Horizontal;
             profileRow->Spacing = 4.0f;
             BuildProfileRow(*profileRow);
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             gridColumn->AddView(profileRow.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 
@@ -179,12 +179,12 @@ namespace editor
         auto pageColumn = MakeRef<ui::FlexLayout>(Allocator());
         pageColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             pageColumn->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             pageColumn->AddView(split.Get(), grow);
         }
         m_content = pageColumn;
@@ -575,8 +575,8 @@ namespace editor
                                                       StringView(u8"Apply profile:"));
         caption->FontSize.SetValue(12.0f);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-            lp->AlignSelf = foundation::ui::Align::Center;
+            foundation::ui::LayoutStyle lp;
+            lp.AlignSelf = foundation::ui::Align::Center;
             row.AddView(caption.Get(), lp);
         }
         profile(u8"UI", &pipeline::TextureAsset::SetupForUI);

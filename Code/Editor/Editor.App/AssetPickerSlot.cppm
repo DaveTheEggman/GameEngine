@@ -73,9 +73,9 @@ export namespace editor::app
                     }
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
-                AddView(body.Get(), Move(lp));
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                AddView(body.Get(), lp);
             }
 
             // Preview/reveal = a clickable drawable host: the asset TYPE glyph now, swapped

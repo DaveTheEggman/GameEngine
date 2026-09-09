@@ -36,8 +36,8 @@ namespace editor::app
             header->Direction = ui::Orientation::Horizontal;
             auto spacer = MakeRef<ui::FlexLayout>(MemoryAllocator());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 header->AddView(spacer.Get(), lp);
             }
             auto add = MakeRef<ui::IconButton>(MemoryAllocator(), icons.add.Get());
@@ -49,9 +49,9 @@ namespace editor::app
                                  }
                              });
             header->AddView(add.Get());
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(header.Get(), lp);
         }
 
@@ -72,8 +72,8 @@ namespace editor::app
                 }
             };
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 row->AddView(slot.Get(), lp);
             }
             auto up = MakeRef<ui::IconButton>(MemoryAllocator(), icons.moveUp.Get());
@@ -106,9 +106,9 @@ namespace editor::app
                                 });
             row->AddView(remove.Get());
 
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             column->AddView(row.Get(), lp);
         }
         return column;

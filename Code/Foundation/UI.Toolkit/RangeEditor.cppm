@@ -6,7 +6,7 @@
 // Range/slider property editor - a Slider + NumericField side by side (both synced). Ported from
 // Sedulous.UI.Toolkit/src/PropertyGrid/RangeEditor.bf. Beef `float` -> f32; `delegate void(float) Setter`
 // -> Function<void(f32)>; Slider Min/Max/Step/Value `.Value =` -> `.SetValue(...)`; `new
-// FlexLayout.LayoutParams()` -> RefPtr<FlexLayoutParams>; `.Fixed(.Px(w))` -> SizeSpec::Fixed(Unit::Dp(w));
+// FlexLayout.LayoutParams()` -> LayoutStyle; `.Fixed(.Px(w))` -> SizeSpec::Fixed(Unit::Dp(w));
 // `Math.Log10` -> std::log10. The private inner `RangeNumericField : NumericField` becomes a PUBLIC nested
 // class (own RTTI_OBJECT identity) whose focus overrides are defined out-of-line after RangeEditor is
 // complete.
@@ -120,10 +120,10 @@ export namespace foundation::ui::toolkit
                 });
             m_slider->OnDragEnded.Add([self](Slider*) { self->EndEdit(); });
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Wrap();
-                lp->Height = SizeSpec::Match();
-                lp->Grow = 1.0f;
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Wrap();
+                lp.Height = SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 row->AddView(slider.Get(), lp);
             }
 
@@ -156,9 +156,9 @@ export namespace foundation::ui::toolkit
                     }
                 });
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Width = SizeSpec::Fixed(Unit::Dp(ComputeNumericFieldWidth()));
-                lp->Height = SizeSpec::Match();
+                LayoutStyle lp;
+                lp.Width = SizeSpec::Fixed(Unit::Dp(ComputeNumericFieldWidth()));
+                lp.Height = SizeSpec::Match();
                 row->AddView(field.Get(), lp);
             }
 

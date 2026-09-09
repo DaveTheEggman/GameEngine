@@ -43,6 +43,8 @@ export namespace foundation::ui
         {
         }
 
+        [[nodiscard]] constexpr bool operator==(const Thickness&) const noexcept = default;
+
         [[nodiscard]] constexpr f32 TotalHorizontal() const noexcept { return Left + Right; }
         [[nodiscard]] constexpr f32 TotalVertical() const noexcept { return Top + Bottom; }
         [[nodiscard]] constexpr bool IsZero() const noexcept

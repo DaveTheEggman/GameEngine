@@ -60,8 +60,8 @@ export namespace editor::app
             m_dock = MakeRef<ui::toolkit::DockManager>(editor::EditorRootAllocator());
             m_dock->DockableWindowHost = dockHost;
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 column->AddView(m_dock.Get(), grow);
             }
 

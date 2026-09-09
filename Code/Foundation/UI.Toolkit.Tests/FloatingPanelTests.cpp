@@ -76,7 +76,7 @@ TEST_CASE("FloatingPanel: OnClose notifies subscribers")
 namespace
 {
     // Runs the measure/layout pass TWICE: the first pass lays the panel out at the requested
-    // AbsoluteLayoutParams X/Y and runs the clamp (which corrects X/Y and invalidates); the
+    // LayoutStyle Left/Top and runs the clamp (which corrects them and invalidates); the
     // second pass applies the corrected position to Bounds - exactly the in-app flow, where the
     // clamp's Invalidate() schedules the next frame's layout.
     void RunLayout(UIContext& ctx, RootView* root, core::f32 w, core::f32 h)
@@ -100,9 +100,9 @@ TEST_CASE("FloatingPanel: layout clamps X/Y so the whole panel stays inside the 
     root->AddView(host.Get());
 
     auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Tools"));
-    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
-    pos->X = 1000.0f; // far past the right edge
-    pos->Y = 900.0f;  // far past the bottom edge
+    LayoutStyle pos;
+    pos.Left = 1000.0f; // far past the right edge
+    pos.Top = 900.0f;  // far past the bottom edge
     host->AddView(panel.Get(), pos);
 
     RunLayout(ctx, root.Get(), 800, 600);
@@ -126,9 +126,9 @@ TEST_CASE("FloatingPanel: the panel follows a shrinking parent back inside")
     root->AddView(host.Get());
 
     auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"Brush"));
-    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
-    pos->X = 500.0f;
-    pos->Y = 350.0f;
+    LayoutStyle pos;
+    pos.Left = 500.0f;
+    pos.Top = 350.0f;
     host->AddView(panel.Get(), pos);
 
     RunLayout(ctx, root.Get(), 800, 600);
@@ -155,15 +155,16 @@ TEST_CASE("FloatingPanel: a collapsed panel clamps against its header height")
     root->AddView(host.Get());
 
     auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"P"));
-    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
-    pos->Y = 900.0f; // past the bottom either way
+    LayoutStyle pos;
+    pos.Top = 900.0f; // past the bottom either way
     host->AddView(panel.Get(), pos);
 
     RunLayout(ctx, root.Get(), 800, 600);
     const core::f32 expandedY = panel->Bounds.y; // clamped against the full panel height
 
     panel->SetCollapsed(true);
-    pos->Y = 900.0f; // push past the bottom again
+    pos.Top = 900.0f; // push past the bottom again
+    panel->SetLayout(pos);
     RunLayout(ctx, root.Get(), 800, 600);
 
     // Collapsed the panel is only its header tall, so it clamps flush to the bottom edge at a
@@ -182,9 +183,9 @@ TEST_CASE("FloatingPanel: negative X/Y clamps to the parent origin")
     root->AddView(host.Get());
 
     auto panel = core::MakeRef<FloatingPanel>(core::DefaultAllocator(), StringView(u8"P"));
-    auto pos = core::MakeRef<AbsoluteLayoutParams>(core::DefaultAllocator());
-    pos->X = -120.0f;
-    pos->Y = -45.0f;
+    LayoutStyle pos;
+    pos.Left = -120.0f;
+    pos.Top = -45.0f;
     host->AddView(panel.Get(), pos);
 
     RunLayout(ctx, root.Get(), 800, 600);

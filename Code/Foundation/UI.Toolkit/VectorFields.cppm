@@ -90,11 +90,11 @@ export namespace foundation::ui::toolkit
         Event<void(AggregatingVectorField*)> OnEditEnded;
 
     protected:
-        static RefPtr<FlexLayoutParams> GrowMatchParams(IAllocator& allocator)
+        static LayoutStyle GrowMatchParams()
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(allocator);
-            lp->Grow = 1.0f;
-            lp->Height = SizeSpec::Match();
+            LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.Height = SizeSpec::Match();
             return lp;
         }
 
@@ -205,8 +205,8 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_x);
             WireChildEditEvents(m_y);
 
-            AddView(m_x, GrowMatchParams(MemoryAllocator()));
-            AddView(m_y, GrowMatchParams(MemoryAllocator()));
+            AddView(m_x, GrowMatchParams());
+            AddView(m_y, GrowMatchParams());
         }
 
         void SetRange(f64 min, f64 max)
@@ -313,9 +313,9 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_y);
             WireChildEditEvents(m_z);
 
-            AddView(m_x, GrowMatchParams(MemoryAllocator()));
-            AddView(m_y, GrowMatchParams(MemoryAllocator()));
-            AddView(m_z, GrowMatchParams(MemoryAllocator()));
+            AddView(m_x, GrowMatchParams());
+            AddView(m_y, GrowMatchParams());
+            AddView(m_z, GrowMatchParams());
         }
 
         void SetRange(f64 min, f64 max)
@@ -441,10 +441,10 @@ export namespace foundation::ui::toolkit
             WireChildEditEvents(m_z);
             WireChildEditEvents(m_w);
 
-            AddView(m_x, GrowMatchParams(MemoryAllocator()));
-            AddView(m_y, GrowMatchParams(MemoryAllocator()));
-            AddView(m_z, GrowMatchParams(MemoryAllocator()));
-            AddView(m_w, GrowMatchParams(MemoryAllocator()));
+            AddView(m_x, GrowMatchParams());
+            AddView(m_y, GrowMatchParams());
+            AddView(m_z, GrowMatchParams());
+            AddView(m_w, GrowMatchParams());
         }
 
         void SetRange(f64 min, f64 max)
@@ -570,9 +570,9 @@ export namespace foundation::ui::toolkit
 
             SyncToFields();
 
-            AddView(m_x, GrowMatchParams(MemoryAllocator()));
-            AddView(m_y, GrowMatchParams(MemoryAllocator()));
-            AddView(m_z, GrowMatchParams(MemoryAllocator()));
+            AddView(m_x, GrowMatchParams());
+            AddView(m_y, GrowMatchParams());
+            AddView(m_z, GrowMatchParams());
         }
 
         void SetRange(f64 min, f64 max)

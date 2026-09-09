@@ -229,9 +229,9 @@ namespace editor
             auto button = MakeRef<ui::Button>(self->MemoryAllocator(), label);
             button->FontSize.SetValue(Optional<f32>{11.0f});
             button->OnClick.Add([fn = Move(onClick)](ui::ButtonBase*) { if (fn) fn(); });
-            auto lp = MakeRef<ui::FlexLayoutParams>(self->MemoryAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
-            lp->Height = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+            lp.Height = ui::SizeSpec::Match();
             row.AddView(button.Get(), lp);
             return button;
         };
@@ -250,9 +250,9 @@ namespace editor
         m_clipLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
         m_clipLabel->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Grow = 1.0f;
-            lp->Height = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.Height = ui::SizeSpec::Match();
             m_header->AddView(m_clipLabel.Get(), lp);
         }
         // The bound-entity slot: preview/keying/seeding target THIS entity, never the live
@@ -261,9 +261,9 @@ namespace editor
         m_entityLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8""));
         m_entityLabel->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(170));
-            lp->Height = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(170));
+            lp.Height = ui::SizeSpec::Match();
             m_header->AddView(m_entityLabel.Get(), lp);
         }
         addButton(*m_header, u8"Bind...", 58.0f,
@@ -284,9 +284,9 @@ namespace editor
                   });
         addButton(*m_header, u8"Use Selected", 96.0f, [self]() { self->BindSelectedEntity(); });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             AddView(m_header.Get(), lp);
         }
 
@@ -300,8 +300,8 @@ namespace editor
             auto message = MakeRef<ui::Label>(MemoryAllocator(),
                                               StringView(u8"No animation clip selected for editing."));
             message->FontSize.SetValue(12.0f);
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             m_emptyState->AddView(message.Get(), lp);
         }
         {
@@ -310,14 +310,14 @@ namespace editor
             row->Spacing = 6.0f;
             addButton(*row, u8"Create Clip...", 104.0f, [self]() { self->OnCreateClip(); });
             addButton(*row, u8"Open Clip...", 96.0f, [self]() { self->OnOpenClip(); });
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_emptyState->AddView(row.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             AddView(m_emptyState.Get(), lp);
         }
 
@@ -336,9 +336,9 @@ namespace editor
         m_loopButton =
             addButton(*transport, u8"Loop: on", 76.0f, [self]() { self->SetLooping(!self->m_loop); });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
             m_body->AddView(transport.Get(), lp);
         }
 
@@ -387,23 +387,23 @@ namespace editor
                 }
             });
         {
-            m_timelineParams = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            m_timelineParams->Width = ui::SizeSpec::Match();
-            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kTimelineMinHeight));
+            m_timelineParams = ui::LayoutStyle{};
+            m_timelineParams.Width = ui::SizeSpec::Match();
+            m_timelineParams.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kTimelineMinHeight));
             m_body->AddView(m_timeline.Get(), m_timelineParams);
         }
 
         m_view = MakeUnique<ClipEditorView>(MemoryAllocator(), MemoryAllocator(), *this);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.FlexGrow = 1.0f;
             m_body->AddView(m_view->Root(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.FlexGrow = 1.0f;
             AddView(m_body.Get(), lp);
         }
     }
@@ -1161,9 +1161,10 @@ namespace editor
         // Size the timeline pane to the ruler + lanes (capped; no row virtualization/scroll).
         const f32 h = Clamp(kRulerBand + static_cast<f32>(m_clip.tracks.Size()) * kLaneHeight,
                             kTimelineMinHeight, kTimelineMaxHeight);
-        if (m_timelineParams.Get() != nullptr)
+        if (m_timeline.Get() != nullptr)
         {
-            m_timelineParams->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(h));
+            m_timelineParams.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(h));
+            m_timeline->SetLayout(m_timelineParams);
         }
         if (m_body.Get() != nullptr)
         {

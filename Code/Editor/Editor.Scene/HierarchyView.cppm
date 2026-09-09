@@ -73,8 +73,8 @@ export namespace editor
             m_filterEdit = MakeRef<ui::EditText>(MemoryAllocator());
             m_filterEdit->SetPlaceholder(u8"Filter...");
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 header->AddView(m_filterEdit.Get(), grow);
             }
             column->AddView(header.Get());
@@ -84,8 +84,8 @@ export namespace editor
             m_tree->SetItemHeight(22.0f);
             m_tree->SetAdapter(m_adapter.Get());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 column->AddView(m_tree.Get(), grow);
             }
 

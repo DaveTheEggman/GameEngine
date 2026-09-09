@@ -243,7 +243,7 @@ export namespace editor
         RefPtr<ui::Button> m_pauseButton;
         RefPtr<ui::Button> m_loopButton;
         RefPtr<ui::toolkit::Timeline> m_timeline;
-        RefPtr<ui::FlexLayoutParams> m_timelineParams; // updated to size the timeline pane to its lanes
+        ui::LayoutStyle m_timelineParams; // updated to size the timeline pane to its lanes
         RefPtr<ui::FlexLayout> m_header;     // clip/entity chrome (collapsed while empty)
         RefPtr<ui::FlexLayout> m_emptyState; // "no clip" message + Create/Open (exclusive)
         RefPtr<ui::Label> m_entityLabel;     // the bound-entity slot's name readout

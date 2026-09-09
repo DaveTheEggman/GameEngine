@@ -1356,21 +1356,21 @@ namespace editor::app
         row->Spacing = 8;
         {
             auto text = MakeRef<ui::Label>(m_editorAllocator, label);
-            auto lp = MakeRef<ui::FlexLayoutParams>(m_editorAllocator);
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(120));
-            lp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(120));
+            lp.AlignSelf = ui::Align::Center;
             row->AddView(text.Get(), lp);
         }
         if (field != nullptr)
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(m_editorAllocator);
-            lp->Grow = 1.0f;
-            lp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.AlignSelf = ui::Align::Center;
             row->AddView(field, lp);
         }
         ui::FlexLayout* raw = row.Get();
-        auto lp = MakeRef<ui::FlexLayoutParams>(m_editorAllocator);
-        lp->Width = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
         column.AddView(row.Get(), lp);
         return raw;
     }
@@ -1611,9 +1611,9 @@ namespace editor::app
             row->Spacing = 8;
             {
                 auto label = MakeRef<ui::Label>(m_editorAllocator, text.AsView());
-                auto lp = MakeRef<ui::FlexLayoutParams>(m_editorAllocator);
-                lp->Grow = 1.0f;
-                lp->AlignSelf = ui::Align::Center;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.AlignSelf = ui::Align::Center;
                 row->AddView(label.Get(), lp);
             }
             if (!t->isHost) // the host template is synthesized, never on disk => not removable
@@ -1700,9 +1700,9 @@ namespace editor::app
             row->Spacing = 6;
             {
                 auto label = MakeRef<ui::Label>(m_editorAllocator, text.AsView());
-                auto lp = MakeRef<ui::FlexLayoutParams>(m_editorAllocator);
-                lp->Grow = 1.0f;
-                lp->AlignSelf = ui::Align::Center;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.AlignSelf = ui::Align::Center;
                 row->AddView(label.Get(), lp);
             }
             const String name(p.name.AsView());
@@ -1987,15 +1987,15 @@ namespace editor::app
             MakeRef<foundation::ui::Label>(m_editorAllocator, prompt.AsView());
         label->WordWrap.SetValue(true);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_editorAllocator);
-            lp->Width = foundation::ui::SizeSpec::Match();
+            foundation::ui::LayoutStyle lp;
+            lp.Width = foundation::ui::SizeSpec::Match();
             column->AddView(label.Get(), lp);
         }
         auto nameEdit = MakeRef<foundation::ui::EditText>(m_editorAllocator);
         nameEdit->SetText(suggested.AsView());
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_editorAllocator);
-            lp->Width = foundation::ui::SizeSpec::Match();
+            foundation::ui::LayoutStyle lp;
+            lp.Width = foundation::ui::SizeSpec::Match();
             column->AddView(nameEdit.Get(), lp);
         }
         // Inline validation line: empty until a rejected attempt; the dialog stays up.
@@ -2003,8 +2003,8 @@ namespace editor::app
         errorLabel->WordWrap.SetValue(true);
         errorLabel->TextColor.SetValue(Color{0.90f, 0.35f, 0.35f, 1.0f});
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(m_editorAllocator);
-            lp->Width = foundation::ui::SizeSpec::Match();
+            foundation::ui::LayoutStyle lp;
+            lp.Width = foundation::ui::SizeSpec::Match();
             column->AddView(errorLabel.Get(), lp);
         }
         dialog->SetContent(column.Get());

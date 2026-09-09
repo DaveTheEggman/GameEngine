@@ -117,9 +117,9 @@ export namespace foundation::ui::toolkit
             message->FontSize.SetValue(12.0f);
             message->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
-                lp->Height = SizeSpec::Match();
+                LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = SizeSpec::Match();
                 card->AddView(message.Get(), lp);
             }
 

@@ -4,8 +4,7 @@
 // UI - :absolute_layout partition
 //
 // Positions children at explicit X/Y coordinates. Ported from Sedulous.UI/src/Layout/AbsoluteLayout.bf.
-// (Beef nested `AbsoluteLayout.LayoutParams` -> top-level `AbsoluteLayoutParams`; the class's own
-// child-constraint helper is renamed to avoid hiding ViewGroup::MakeChildConstraints.)
+// The offset comes from the child's LayoutStyle::Left/Top.
 
 module;
 #include "Core/Prelude.h"
@@ -15,7 +14,7 @@ export module foundation.ui:absolute_layout;
 
 import foundation.core; // Max, RefPtr, kFloatMax
 import :view;
-import :layout_params;
+import :layout_style;
 import :box_constraints;
 import :size_spec;
 import :thickness;
@@ -24,16 +23,6 @@ using namespace foundation::core;
 
 export namespace foundation::ui
 {
-    /// LayoutParams for an AbsoluteLayout child: explicit X/Y.
-    class AbsoluteLayoutParams : public LayoutParams
-    {
-        RTTI_OBJECT(AbsoluteLayoutParams, LayoutParams)
-    public:
-        f32 X = 0.0f;
-        f32 Y = 0.0f;
-        AbsoluteLayoutParams() = default;
-    };
-
     class AbsoluteLayout : public ViewGroup
     {
         RTTI_OBJECT(AbsoluteLayout, ViewGroup)
@@ -41,11 +30,6 @@ export namespace foundation::ui
         AbsoluteLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override
-        {
-            return MakeRef<AbsoluteLayoutParams>(MemoryAllocator());
-        }
-
         void OnMeasure(BoxConstraints constraints) override
         {
             f32 maxR = 0, maxB = 0;
@@ -61,15 +45,14 @@ export namespace foundation::ui
                 // placement has no natural box), Match fills the content area.
                 const f32 availW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal());
                 const f32 availH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical());
-                const LayoutParamsPtr& lp = child->LayoutParams;
-                const bool fillW = lp && lp->Width.kind == SizeSpec::Kind::Match;
-                const bool fillH = lp && lp->Height.kind == SizeSpec::Kind::Match;
+                const LayoutStyle& ls = child->Layout();
+                const bool fillW = ls.Width.kind == SizeSpec::Kind::Match;
+                const bool fillH = ls.Height.kind == SizeSpec::Kind::Match;
                 child->Measure(BoxConstraints{fillW ? availW : 0.0f, fillW ? availW : kFloatMax,
                                               fillH ? availH : 0.0f, fillH ? availH : kFloatMax});
 
-                AbsoluteLayoutParams* alp = Cast<AbsoluteLayoutParams>(child->LayoutParams.Get());
-                const f32 x = alp != nullptr ? alp->X : 0.0f;
-                const f32 y = alp != nullptr ? alp->Y : 0.0f;
+                const f32 x = ls.Left;
+                const f32 y = ls.Top;
                 const Float2 mb = child->MarginBoxSize();
                 maxR = Max(maxR, x + mb.x);
                 maxB = Max(maxB, y + mb.y);
@@ -90,10 +73,9 @@ export namespace foundation::ui
                     continue;
                 }
 
-                const LayoutParamsPtr& lp = child->LayoutParams;
-                AbsoluteLayoutParams* alp = Cast<AbsoluteLayoutParams>(lp.Get());
-                const f32 ax = alp != nullptr ? alp->X : 0.0f;
-                const f32 ay = alp != nullptr ? alp->Y : 0.0f;
+                const LayoutStyle& ls = child->Layout();
+                const f32 ax = ls.Left;
+                const f32 ay = ls.Top;
                 const f32 x = Padding.Left + ax;
                 const f32 y = Padding.Top + ay;
 
@@ -101,12 +83,13 @@ export namespace foundation::ui
                 const Float2 mb = child->MarginBoxSize();
                 f32 w = mb.x;
                 f32 h = mb.y;
-                if (lp)
+                if (ls.Width.kind == SizeSpec::Kind::Match)
                 {
-                    if (lp->Width.kind == SizeSpec::Kind::Match)
-                        w = Max(0.0f, width - Padding.TotalHorizontal() - ax);
-                    if (lp->Height.kind == SizeSpec::Kind::Match)
-                        h = Max(0.0f, height - Padding.TotalVertical() - ay);
+                    w = Max(0.0f, width - Padding.TotalHorizontal() - ax);
+                }
+                if (ls.Height.kind == SizeSpec::Kind::Match)
+                {
+                    h = Max(0.0f, height - Padding.TotalVertical() - ay);
                 }
                 child->Layout(x, y, w, h);
             }
@@ -114,6 +97,5 @@ export namespace foundation::ui
 
     };
 
-    RTTI_DEFINE_OBJECT(AbsoluteLayoutParams, "rtti::ui")
     RTTI_DEFINE_OBJECT(AbsoluteLayout, "rtti::ui")
 }

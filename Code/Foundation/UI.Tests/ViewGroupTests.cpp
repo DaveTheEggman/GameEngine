@@ -2,7 +2,7 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 // Ported from Sedulous.UI.Tests/src/ViewGroupTests.bf (faithful; RefPtr views, `===` -> pointer ==,
-// Vector2 -> Float2, LayoutParams -> RefPtr<LayoutParams>).
+// Vector2 -> Float2, LayoutParams -> the LayoutStyle value on View).
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 import foundation.core;
@@ -108,7 +108,7 @@ TEST_CASE("viewgroup: AddView_ReparentsFromOldParent")
     CHECK(child->Parent == groupB.Get());
 }
 
-TEST_CASE("viewgroup: AddView_CreatesDefaultLayoutParams")
+TEST_CASE("viewgroup: AddView_KeepsChildLayoutStyle")
 {
     UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
@@ -118,12 +118,16 @@ TEST_CASE("viewgroup: AddView_CreatesDefaultLayoutParams")
     root->AddView(group.Get());
 
     core::RefPtr<TestView> child = MakeTestView();
-    CHECK(!child->LayoutParams);
+    LayoutStyle intent;
+    intent.Width = SizeSpec::Match();
+    intent.FlexGrow = 2.0f;
+    intent.Margin = Thickness{4, 4, 4, 4};
+    child->SetLayout(intent);
     group->AddView(child.Get());
-    CHECK(child->LayoutParams);
+    CHECK(child->Layout() == intent);
 }
 
-TEST_CASE("viewgroup: AddView_ReplacesOldLayoutParams")
+TEST_CASE("viewgroup: AddView_WithLayoutStyle_SetsIt")
 {
     UIContext ctx{DefaultAllocator()};
     core::RefPtr<RootView> root = MakeRoot();
@@ -133,12 +137,69 @@ TEST_CASE("viewgroup: AddView_ReplacesOldLayoutParams")
     root->AddView(group.Get());
 
     core::RefPtr<TestView> child = MakeTestView();
-    core::RefPtr<LayoutParams> oldLp = core::MakeRef<LayoutParams>(core::DefaultAllocator());
-    child->LayoutParams = oldLp;
+    LayoutStyle oldLp;
+    oldLp.FlexGrow = 1.0f;
+    child->SetLayout(oldLp);
 
-    core::RefPtr<LayoutParams> newLp = core::MakeRef<LayoutParams>(core::DefaultAllocator());
+    LayoutStyle newLp;
+    newLp.Height = SizeSpec::Fixed(Unit::Dp(12.0f));
     group->AddView(child.Get(), newLp);
-    CHECK(child->LayoutParams.Get() == newLp.Get());
+    CHECK(child->Layout() == newLp);
+    CHECK(child->Layout().FlexGrow == 0.0f);
+}
+
+TEST_CASE("viewgroup: Reparent_KeepsLayoutIntent")
+{
+    // The placement record travels WITH the view: moving it from a Flex to a Grid (or to a
+    // plain group) keeps every field, so a container reads what it understands and the rest
+    // waits for the next container.
+    UIContext ctx{DefaultAllocator()};
+    core::RefPtr<RootView> root = MakeRoot();
+    Init(ctx, root.Get());
+
+    auto flex = core::MakeRef<FlexLayout>(core::DefaultAllocator());
+    auto grid = core::MakeRef<GridLayout>(core::DefaultAllocator());
+    root->AddView(flex.Get());
+    root->AddView(grid.Get());
+
+    core::RefPtr<TestView> child = MakeTestView();
+    LayoutStyle intent;
+    intent.FlexGrow = 3.0f;
+    intent.GridRow = 1;
+    intent.GridColumn = 2;
+    intent.Dock = Dock::Bottom;
+    flex->AddView(child.Get(), intent);
+    CHECK(child->Layout() == intent);
+
+    grid->AddView(child.Get());
+    CHECK(child->Parent == grid.Get());
+    CHECK(child->Layout() == intent);
+
+    core::RefPtr<TestGroup> group = MakeTestGroup();
+    root->AddView(group.Get());
+    group->InsertView(child.Get(), 0);
+    CHECK(child->Layout() == intent);
+}
+
+TEST_CASE("viewgroup: SetLayout_MarksLayoutDamage")
+{
+    UIContext ctx{DefaultAllocator()};
+    core::RefPtr<RootView> root = MakeRoot();
+    Init(ctx, root.Get());
+    core::RefPtr<TestView> child = MakeTestView();
+    root->AddView(child.Get());
+    LayoutPass(ctx, root.Get());
+    ctx.ClearLayoutDamage();
+    CHECK(!ctx.NeedsLayout());
+
+    LayoutStyle same = child->Layout();
+    child->SetLayout(same); // identical value: no damage
+    CHECK(!ctx.NeedsLayout());
+
+    LayoutStyle changed = same;
+    changed.Margin = Thickness{1, 2, 3, 4};
+    child->SetLayout(changed);
+    CHECK(ctx.NeedsLayout());
 }
 
 TEST_CASE("viewgroup: RemoveView_ClearsParentAndContext")

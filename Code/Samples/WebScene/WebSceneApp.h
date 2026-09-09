@@ -641,9 +641,9 @@ namespace samples
                 m_badge = gameUi->PushScreenOverlay(*m_badgeDocument);
                 if (m_badge.Get() != nullptr)
                 {
-                    auto lp = core::MakeRef<ui::FrameLayoutParams>(AppRoot());
-                    lp->Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
-                    m_badge->LayoutParams = lp;
+                    ui::LayoutStyle lp;
+                    lp.Gravity = ui::Gravity::Right | ui::Gravity::Bottom;
+                    m_badge->SetLayout(lp);
                     // Passive watermark: a hit-testable screen overlay makes the global
                     // layer MODAL (by design, for menus) - which would shield the scene
                     // HUD from every click.

@@ -16,7 +16,7 @@ export module foundation.ui:markup_loader;
 import foundation.core;
 import foundation.xml;
 import :view;
-import :layout_params;
+import :layout_style;
 import :size_spec;
 import :thickness;
 import :enums;
@@ -54,7 +54,7 @@ export namespace foundation::ui
                 return {};
             }
 
-            return BuildView(allocator, rootElem, nullptr, StringView{}, context, warnings);
+            return BuildView(allocator, rootElem, context, warnings);
         }
 
         /// Initialize the markup system. Call once at startup.
@@ -63,11 +63,9 @@ export namespace foundation::ui
     private:
         /// Build a View from an XML element, recursing into children.
         [[nodiscard]] static RefPtr<View> BuildView(IAllocator& allocator,
-                                                    xml::XmlElement* element, ViewGroup* parent,
-                                                    StringView parentTagName, UIContext* context,
+                                                    xml::XmlElement* element, UIContext* context,
                                                     Array<String>* warnings = nullptr)
         {
-            (void)parent;
             const StringView tagName = element->TagName();
 
             // <Include> directive is not implemented (requires IResourceProvider).
@@ -82,21 +80,7 @@ export namespace foundation::ui
                 return {};
             }
 
-            // Create LayoutParams if the parent is a registered layout container.
-            RefPtr<LayoutParams> lp;
-            if (parentTagName.Size() > 0 && MarkupRegistry::IsLayoutRegistered(parentTagName))
-            {
-                lp = MarkupRegistry::CreateLayoutParams(parentTagName, allocator);
-            }
-
-            ApplyAttributes(element, tagName, view.Get(), parentTagName, lp.Get(), context,
-                            warnings);
-
-            // If LayoutParams were created, assign them to the view.
-            if (lp)
-            {
-                view->LayoutParams = lp;
-            }
+            ApplyAttributes(element, tagName, view.Get(), context, warnings);
 
             // Recurse into children.
             if (ViewGroup* viewGroup = Cast<ViewGroup>(view.Get()))
@@ -107,7 +91,7 @@ export namespace foundation::ui
                     {
                         xml::XmlElement* childElem = static_cast<xml::XmlElement*>(childNode);
                         RefPtr<View> childView =
-                            BuildView(allocator, childElem, viewGroup, tagName, context, warnings);
+                            BuildView(allocator, childElem, context, warnings);
                         if (childView)
                         {
                             viewGroup->AddView(childView.Get());
@@ -136,12 +120,13 @@ export namespace foundation::ui
             return view;
         }
 
-        /// Apply XML attributes, routing to special attributes, properties, or layout params.
+        /// Apply XML attributes, routing to special attributes, the LayoutStyle vocabulary
+        /// (the same on every element, whatever the parent), or registered properties.
         static void ApplyAttributes(xml::XmlElement* element, StringView tagName, View* view,
-                                    StringView parentTagName, LayoutParams* lp, UIContext* context,
-                                    Array<String>* warnings = nullptr)
+                                    UIContext* context, Array<String>* warnings = nullptr)
         {
             (void)context;
+            LayoutStyle layout = view->Layout();
             for (xml::XmlAttribute* attr : element->Attributes())
             {
                 const StringView name = attr->Name();
@@ -273,30 +258,11 @@ export namespace foundation::ui
                     continue;
                 }
 
-                // === Layout params (width/height/margin + container-specific) ===
+                // === LayoutStyle (width/height/margin/flex-grow/dock/grid-row/...) ===
 
-                if (name == u8"width" && lp != nullptr)
+                if (MarkupRegistry::ApplyLayoutAttribute(layout, name, value))
                 {
-                    lp->Width = MarkupRegistry::ParseSizeSpec(value);
                     continue;
-                }
-                if (name == u8"height" && lp != nullptr)
-                {
-                    lp->Height = MarkupRegistry::ParseSizeSpec(value);
-                    continue;
-                }
-                if (name == u8"margin" && lp != nullptr)
-                {
-                    lp->Margin = MarkupRegistry::ParseThickness(value);
-                    continue;
-                }
-
-                if (lp != nullptr && parentTagName.Size() > 0)
-                {
-                    if (MarkupRegistry::SetLayoutParam(parentTagName, lp, name, value))
-                    {
-                        continue;
-                    }
                 }
 
                 // === Control-specific properties via registry ===
@@ -317,6 +283,7 @@ export namespace foundation::ui
                     warnings->PushBack(Move(w));
                 }
             }
+            view->SetLayout(layout);
         }
 
         /// Extract direct text content from an element (not child elements).

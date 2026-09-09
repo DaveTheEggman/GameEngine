@@ -186,8 +186,8 @@ namespace editor
             auto row = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             auto label = MakeRef<ui::Label>(editor::EditorRootAllocator());
             label->FontSize.SetValue(12.0f);
-            auto grow = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-            grow->Grow = 1.0f;
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
             row->AddView(label.Get(), grow);
             return RefPtr<ui::View>(row.Get());
         }
@@ -228,8 +228,8 @@ namespace editor
         ScriptApiBrowserView* self = this;
         m_filter->OnTextChanged.Add([self](ui::EditText*) { self->m_dirty = true; });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(m_filter.Get(), lp);
         }
 
@@ -249,9 +249,9 @@ namespace editor
                 }
             });
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-            lp->Grow = 1.0f;
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(m_treeView.Get(), lp);
         }
 

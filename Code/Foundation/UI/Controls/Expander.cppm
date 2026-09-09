@@ -49,8 +49,17 @@ export namespace foundation::ui
     public:
         explicit ExpanderHeader(Expander* owner) : m_owner(owner) { Cursor = CursorType::Hand; }
 
-        /// Replace the right-aligned actions view (null clears).
-        void SetActions(View* actions, LayoutParamsPtr lp = {})
+        /// Replace the right-aligned actions view (null clears). The overload with a
+        /// LayoutStyle sets the child's placement; the other keeps what the child carries.
+        void SetActions(View* actions, const LayoutStyle& layout)
+        {
+            if (actions != nullptr)
+            {
+                actions->SetLayout(layout);
+            }
+            SetActions(actions);
+        }
+        void SetActions(View* actions)
         {
             if (m_actions != nullptr)
             {
@@ -59,7 +68,7 @@ export namespace foundation::ui
             m_actions = actions;
             if (actions != nullptr)
             {
-                AddView(actions, Move(lp));
+                AddView(actions);
             }
         }
 
@@ -139,8 +148,17 @@ export namespace foundation::ui
             OnExpandedChanged.Invoke(this, m_isExpanded);
         }
 
-        /// Set the expandable body content.
-        void SetContent(View* content, LayoutParamsPtr lp = {})
+        /// Set the expandable body content. The overload with a LayoutStyle sets the child's
+        /// placement; the other keeps what the child carries.
+        void SetContent(View* content, const LayoutStyle& layout)
+        {
+            if (content != nullptr)
+            {
+                content->SetLayout(layout);
+            }
+            SetContent(content);
+        }
+        void SetContent(View* content)
         {
             if (m_content != nullptr)
             {
@@ -150,17 +168,18 @@ export namespace foundation::ui
             if (content != nullptr)
             {
                 content->Visibility = m_isExpanded ? Visibility::Visible : Visibility::Gone;
-                AddView(content, Move(lp));
+                AddView(content);
             }
         }
 
         /// Right-aligned action widgets in the header band (e.g. copy / remove icon buttons). A
         /// click an action handles never reaches the band's toggle; clicking elsewhere on the
         /// band toggles. The band grows to fit the actions when they exceed HeaderHeight.
-        void SetHeaderActions(View* actions, LayoutParamsPtr lp = {})
+        void SetHeaderActions(View* actions, const LayoutStyle& layout)
         {
-            m_header->SetActions(actions, Move(lp));
+            m_header->SetActions(actions, layout);
         }
+        void SetHeaderActions(View* actions) { m_header->SetActions(actions); }
 
         void Toggle() { SetIsExpanded(!m_isExpanded); }
         void Expand() { SetIsExpanded(true); }
@@ -216,8 +235,7 @@ export namespace foundation::ui
             if (m_content != nullptr && m_content->Visibility != Visibility::Gone)
             {
                 const BoxConstraints inner = constraints.Deflate(Padding).Loosen();
-                const Thickness margin =
-                    m_content->LayoutParams ? m_content->LayoutParams->Margin : Thickness{};
+                const Thickness margin = m_content->Layout().Margin;
                 m_content->Measure(inner.Deflate(margin));
                 contentH =
                     ContentSpacing.Value() + m_content->MeasuredSize.y + margin.TotalVertical();
@@ -235,8 +253,7 @@ export namespace foundation::ui
             m_header->Layout(0, 0, width, bandH);
             if (m_content != nullptr && m_content->Visibility != Visibility::Gone)
             {
-                const Thickness margin =
-                    m_content->LayoutParams ? m_content->LayoutParams->Margin : Thickness{};
+                const Thickness margin = m_content->Layout().Margin;
                 const f32 contentTop = bandH + ContentSpacing.Value();
                 m_content->Layout(margin.Left, contentTop + margin.Top,
                                   Max(0.0f, width - margin.TotalHorizontal()),

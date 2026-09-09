@@ -72,16 +72,16 @@ export namespace editor
             m_info = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_info->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_info.Get(), lp);
             }
 
             m_waveform = MakeRef<WaveformView>(Allocator());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(160));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(160));
                 column->AddView(m_waveform.Get(), lp);
             }
 
@@ -111,9 +111,9 @@ export namespace editor
             m_volumeSlider->OnValueChanged.Add(ui::Event<void(ui::Slider*, f32)>::Handler{
                 [self](ui::Slider*, f32 v) { self->SetAuditionVolume(v); }});
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
-                lp->AlignSelf = ui::Align::Center;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
+                lp.AlignSelf = ui::Align::Center;
                 controls->AddView(m_volumeSlider.Get(), lp);
             }
 
@@ -121,8 +121,8 @@ export namespace editor
             m_status->FontSize.SetValue(12.0f);
             controls->AddView(m_status.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(controls.Get(), lp);
             }
 

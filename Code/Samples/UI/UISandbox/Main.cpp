@@ -922,17 +922,17 @@ private:
     {
         return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH)).IsEmpty();
     }
-    [[nodiscard]] static RefPtr<ui::FlexLayoutParams> LP(ui::SizeSpec w, ui::SizeSpec h)
+    [[nodiscard]] static ui::LayoutStyle LP(ui::SizeSpec w, ui::SizeSpec h)
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(AppRoot());
-        p->Width = w;
-        p->Height = h;
+        ui::LayoutStyle p;
+        p.Width = w;
+        p.Height = h;
         return p;
     }
-    [[nodiscard]] static RefPtr<ui::FlexLayoutParams> Grow(f32 g)
+    [[nodiscard]] static ui::LayoutStyle Grow(f32 g)
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(AppRoot());
-        p->Grow = g;
+        ui::LayoutStyle p;
+        p.FlexGrow = g;
         return p;
     }
     [[nodiscard]] static RefPtr<ui::FlexLayout> VFlex(f32 spacing = 0.0f)
@@ -1799,10 +1799,10 @@ void UISandbox::BuildToolkitTab(ui::TabView* tabView)
     // Center row: SplitView | DraggableTreeView | ColorPicker.
     auto centerRow = HFlex(4.0f);
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(AppRoot());
-        p->Width = SizeSpec::Match();
-        p->Grow = 1.0f;
-        demo->AddView(centerRow.Get(), Move(p));
+        ui::LayoutStyle p;
+        p.Width = SizeSpec::Match();
+        p.FlexGrow = 1.0f;
+        demo->AddView(centerRow.Get(), p);
     }
 
     // SplitView with two labeled panes.
@@ -1917,10 +1917,10 @@ void UISandbox::BuildCurveEditorTab(ui::TabView* tabView)
     };
     curve->SetKeys(0, Span<const ui::toolkit::CurveCanvas::Key>(seedKeys, 3));
     {
-        auto p = MakeRef<ui::FlexLayoutParams>(AppRoot());
-        p->Width = SizeSpec::Match();
-        p->Grow = 1.0f;
-        demo->AddView(curve.Get(), Move(p));
+        ui::LayoutStyle p;
+        p.Width = SizeSpec::Match();
+        p.FlexGrow = 1.0f;
+        demo->AddView(curve.Get(), p);
     }
 
     auto status = MakeRef<ui::Label>(AppRoot(), StringView(u8"Selected key: (none)"));
@@ -2135,7 +2135,7 @@ void UISandbox::BuildDragDropTab(ui::TabView* tabView)
 
     {
         auto p = Grow(1);
-        p->Height = SizeSpec::Fixed(Unit::Px(30));
+        p.Height = SizeSpec::Fixed(Unit::Px(30));
         row->AddView(MakeRef<ColorDropBox>(AppRoot()).Get(), p);
     }
     demo->AddView(row.Get());
@@ -2425,8 +2425,8 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
     auto demo = VFlex(16.0f);
     demo->Padding = ui::Thickness{12};
     {
-        auto lp = MakeRef<ui::LayoutParams>(AppRoot());
-        lp->Width = SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = SizeSpec::Match();
         layoutScroll->AddView(demo.Get(), lp);
     }
 
@@ -2451,7 +2451,7 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
             [&]
             {
                 auto p = Grow(1);
-                p->Height = SizeSpec::Fixed(Unit::Px(50));
+                p.Height = SizeSpec::Fixed(Unit::Px(50));
                 return p;
             }());
         flexH->AddView(
@@ -2459,7 +2459,7 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
             [&]
             {
                 auto p = Grow(2);
-                p->Height = SizeSpec::Fixed(Unit::Px(50));
+                p.Height = SizeSpec::Fixed(Unit::Px(50));
                 return p;
             }());
         demo->AddView(flexH.Get(), LP(SizeSpec::Match(), SizeSpec::Wrap()));
@@ -2474,7 +2474,7 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
             [&]
             {
                 auto p = Grow(1);
-                p->Width = SizeSpec::Match();
+                p.Width = SizeSpec::Match();
                 return p;
             }());
         flexV->AddView(
@@ -2492,9 +2492,10 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         dock->LastChildFill = true;
         auto dockLp = [](ui::Dock d, SizeSpec w, SizeSpec h)
         {
-            auto p = MakeRef<ui::DockLayoutParams>(AppRoot(), d);
-            p->Width = w;
-            p->Height = h;
+            ui::LayoutStyle p;
+            p.Dock = d;
+            p.Width = w;
+            p.Height = h;
             return p;
         };
         dock->AddView(
@@ -2530,10 +2531,10 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         grid->RowSpacing = 4;
         auto cell = [](i32 row, i32 col, i32 span)
         {
-            auto p = MakeRef<ui::GridLayoutParams>(AppRoot());
-            p->Row = row;
-            p->Column = col;
-            p->ColumnSpan = span;
+            ui::LayoutStyle p;
+            p.GridRow = row;
+            p.GridColumn = col;
+            p.GridColumnSpan = span;
             return p;
         };
         grid->AddView(
@@ -2567,8 +2568,8 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         auto frame = MakeRef<ui::FrameLayout>(AppRoot());
         auto grav = [](ui::Gravity g)
         {
-            auto p = MakeRef<ui::FrameLayoutParams>(AppRoot());
-            p->Gravity = g;
+            ui::LayoutStyle p;
+            p.Gravity = g;
             return p;
         };
         frame->AddView(MakeBox(Color{40.0f / 255.0f, 40.0f / 255.0f, 40.0f / 255.0f, 1.0f},
@@ -2638,9 +2639,9 @@ void UISandbox::BuildLayoutsTab(ui::TabView* tabView)
         auto abs = MakeRef<ui::AbsoluteLayout>(AppRoot());
         auto at = [](f32 x, f32 y)
         {
-            auto p = MakeRef<ui::AbsoluteLayoutParams>(AppRoot());
-            p->X = x;
-            p->Y = y;
+            ui::LayoutStyle p;
+            p.Left = x;
+            p.Top = y;
             return p;
         };
         abs->AddView(
@@ -2676,9 +2677,9 @@ void UISandbox::BuildTabPlacementTab(ui::TabView* tabView)
 
     auto cell = [](i32 row, i32 col)
     {
-        auto p = MakeRef<ui::GridLayoutParams>(AppRoot());
-        p->Row = row;
-        p->Column = col;
+        ui::LayoutStyle p;
+        p.GridRow = row;
+        p.GridColumn = col;
         return p;
     };
     // Each mini TabView is packed with more tabs than its grid cell can show, so the strip overflows:

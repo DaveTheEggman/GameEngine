@@ -116,10 +116,9 @@ export namespace foundation::ui::gamekit
             message->FontSize.SetValue(12.0f);
             message->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             {
-                RefPtr<foundation::ui::FlexLayoutParams> lp =
-                    MakeRef<foundation::ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
-                lp->Height = foundation::ui::SizeSpec::Match();
+                foundation::ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = foundation::ui::SizeSpec::Match();
                 card->AddView(message.Get(), lp);
             }
 

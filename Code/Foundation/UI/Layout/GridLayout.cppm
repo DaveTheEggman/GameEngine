@@ -4,8 +4,9 @@
 // UI - :grid_layout partition
 //
 // Row/column grid with Auto/Fixed/Flex track sizing and auto-flow placement. Ported from
-// Sedulous.UI/src/Layout/GridLayout.bf. (Beef nested LayoutParams -> GridLayoutParams; scope float[]
-// -> Array<f32>; Math.Clamp -> local clamp helpers.)
+// Sedulous.UI/src/Layout/GridLayout.bf. Per-child placement comes from the child's LayoutStyle
+// (GridRow/GridColumn/spans); auto-flow cells are resolved per pass, never written back. (Beef
+// scope float[] -> Array<f32>; Math.Clamp -> local clamp helpers.)
 
 module;
 #include "Core/Prelude.h"
@@ -15,7 +16,7 @@ export module foundation.ui:grid_layout;
 
 import foundation.core; // Max, Min, Array
 import :view;
-import :layout_params;
+import :layout_style;
 import :box_constraints;
 
 using namespace foundation::core;
@@ -52,18 +53,6 @@ export namespace foundation::ui
         }
     };
 
-    /// LayoutParams for a GridLayout child (row/column placement + spans).
-    class GridLayoutParams : public LayoutParams
-    {
-        RTTI_OBJECT(GridLayoutParams, LayoutParams)
-    public:
-        i32 Row = -1;    ///< -1 = auto-flow.
-        i32 Column = -1; ///< -1 = auto-flow.
-        i32 RowSpan = 1;
-        i32 ColumnSpan = 1;
-        GridLayoutParams() = default;
-    };
-
     class GridLayout : public ViewGroup
     {
         RTTI_OBJECT(GridLayout, ViewGroup)
@@ -77,19 +66,11 @@ export namespace foundation::ui
         GridLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override
-        {
-            return MakeRef<GridLayoutParams>(MemoryAllocator());
-        }
-
         void OnMeasure(BoxConstraints constraints) override
         {
             const i32 cols = ColCount();
             const i32 rows = RowCount();
-            if (AutoFlow)
-            {
-                AssignAutoFlow(cols, rows);
-            }
+            ResolvePlacements(cols, rows);
 
             Array<f32> colWidths;
             colWidths.Resize(static_cast<usize>(cols), 0.0f);
@@ -105,9 +86,9 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
-                const i32 col = detail::ClampI(glp != nullptr ? glp->Column : 0, 0, cols - 1);
-                const i32 row = detail::ClampI(glp != nullptr ? glp->Row : 0, 0, rows - 1);
+                const Cell cell = m_cells[i];
+                const i32 col = cell.Column;
+                const i32 row = cell.Row;
                 // BOUNDED loose constraints (unbounded fill-style leaves measured to
                 // kFloatMax would explode auto tracks); tracks aggregate MARGIN boxes so cell
                 // placement + the base margin inset compose.
@@ -163,6 +144,10 @@ export namespace foundation::ui
             (void)top;
             const i32 cols = ColCount();
             const i32 rows = RowCount();
+            if (m_cells.Size() != ChildCount())
+            {
+                ResolvePlacements(cols, rows); // layout without a preceding measure
+            }
 
             Array<f32> colWidths;
             colWidths.Resize(static_cast<usize>(cols), 0.0f);
@@ -178,9 +163,9 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
-                const i32 col = detail::ClampI(glp != nullptr ? glp->Column : 0, 0, cols - 1);
-                const i32 row = detail::ClampI(glp != nullptr ? glp->Row : 0, 0, rows - 1);
+                const Cell cell = m_cells[i];
+                const i32 col = cell.Column;
+                const i32 row = cell.Row;
                 const TrackSize colDef = static_cast<usize>(col) < Columns.Size()
                                              ? Columns[static_cast<usize>(col)]
                                              : TrackSize::Auto();
@@ -231,13 +216,11 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
-                const i32 col = detail::ClampI(glp != nullptr ? glp->Column : 0, 0, cols - 1);
-                const i32 row = detail::ClampI(glp != nullptr ? glp->Row : 0, 0, rows - 1);
-                const i32 colSpan =
-                    detail::ClampI(glp != nullptr ? glp->ColumnSpan : 1, 1, cols - col);
-                const i32 rowSpan =
-                    detail::ClampI(glp != nullptr ? glp->RowSpan : 1, 1, rows - row);
+                const Cell cell = m_cells[i];
+                const i32 col = cell.Column;
+                const i32 row = cell.Row;
+                const i32 colSpan = cell.ColumnSpan;
+                const i32 rowSpan = cell.RowSpan;
 
                 f32 cellW = 0;
                 for (i32 c = col; c < col + colSpan; ++c)
@@ -270,9 +253,22 @@ export namespace foundation::ui
         }
         [[nodiscard]] i32 RowCount() const { return static_cast<i32>(Max<usize>(1, Rows.Size())); }
 
-        void AssignAutoFlow(i32 cols, i32 rows)
+        /// A child's resolved cell for THIS pass. Auto-flow children (GridRow/GridColumn < 0)
+        /// take the next free cursor cell; the child's LayoutStyle keeps its -1 intent, so
+        /// reordering or reparenting re-flows instead of pinning the first placement.
+        struct Cell
         {
-            (void)rows;
+            i32 Row = 0;
+            i32 Column = 0;
+            i32 RowSpan = 1;
+            i32 ColumnSpan = 1;
+        };
+        Array<Cell> m_cells; ///< Index-aligned with the children; rebuilt each OnMeasure.
+
+        void ResolvePlacements(i32 cols, i32 rows)
+        {
+            m_cells.Clear();
+            m_cells.Resize(ChildCount(), Cell{});
             i32 nextRow = 0, nextCol = 0;
             for (usize i = 0; i < ChildCount(); ++i)
             {
@@ -281,15 +277,12 @@ export namespace foundation::ui
                 {
                     continue;
                 }
-                GridLayoutParams* glp = Cast<GridLayoutParams>(child->LayoutParams.Get());
-                if (glp == nullptr)
+                const LayoutStyle& ls = child->Layout();
+                Cell cell;
+                if (AutoFlow && (ls.GridRow < 0 || ls.GridColumn < 0))
                 {
-                    continue;
-                }
-                if (glp->Row < 0 || glp->Column < 0)
-                {
-                    glp->Row = nextRow;
-                    glp->Column = nextCol;
+                    cell.Row = nextRow;
+                    cell.Column = nextCol;
                     ++nextCol;
                     if (nextCol >= cols)
                     {
@@ -297,6 +290,16 @@ export namespace foundation::ui
                         ++nextRow;
                     }
                 }
+                else
+                {
+                    cell.Row = ls.GridRow;
+                    cell.Column = ls.GridColumn;
+                }
+                cell.Column = detail::ClampI(cell.Column, 0, cols - 1);
+                cell.Row = detail::ClampI(cell.Row, 0, rows - 1);
+                cell.ColumnSpan = detail::ClampI(ls.GridColumnSpan, 1, cols - cell.Column);
+                cell.RowSpan = detail::ClampI(ls.GridRowSpan, 1, rows - cell.Row);
+                m_cells[i] = cell;
             }
         }
 
@@ -349,6 +352,5 @@ export namespace foundation::ui
         }
     };
 
-    RTTI_DEFINE_OBJECT(GridLayoutParams, "rtti::ui")
     RTTI_DEFINE_OBJECT(GridLayout, "rtti::ui")
 }

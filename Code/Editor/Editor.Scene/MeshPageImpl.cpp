@@ -99,8 +99,8 @@ namespace editor
         scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             scroll->AddView(m_statsColumn.Get(), lp);
         }
 
@@ -108,8 +108,8 @@ namespace editor
         statsColumnOuter->Direction = ui::Orientation::Vertical;
         statsColumnOuter->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             statsColumnOuter->AddView(scroll.Get(), lp);
         }
 
@@ -248,8 +248,8 @@ namespace editor
             MeshEditorPage* self = this;
             m_materialButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMaterial(); });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 row->AddView(m_materialButton.Get(), lp);
             }
             auto reset = MakeRef<ui::Button>(Allocator(), StringView(u8"Default"));
@@ -264,13 +264,13 @@ namespace editor
                     self->SavePreviewPref();
                 });
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f));
                 row->AddView(reset.Get(), lp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_statsColumn->AddView(row.Get(), lp);
         }
 
@@ -305,8 +305,8 @@ namespace editor
                         self->ApplyPreviewLod();
                         self->RefreshStats();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 row->AddView(button.Get(), lp);
             };
             addLodButton(u8"Auto", -1);
@@ -314,9 +314,9 @@ namespace editor
             {
                 addLodButton(Format(u8"LOD {}", l).AsView(), static_cast<i32>(l));
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_statsColumn->AddView(row.Get(), lp);
         }
 
@@ -372,8 +372,8 @@ namespace editor
     {
         auto label = MakeRef<ui::Label>(Allocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-        lp->Width = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
         m_statsColumn->AddView(label.Get(), lp);
     }
 

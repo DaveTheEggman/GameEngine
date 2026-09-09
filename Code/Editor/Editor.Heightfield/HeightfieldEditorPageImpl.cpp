@@ -56,14 +56,14 @@ namespace editor
         previewColumn->Spacing = 6.0f;
         previewColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.FlexGrow = 1.0f;
             previewColumn->AddView(m_image.Get(), lp);
         }
 
@@ -74,8 +74,8 @@ namespace editor
         gridColumn->Direction = ui::Orientation::Vertical;
         gridColumn->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             gridColumn->AddView(m_grid.Get(), lp);
         }
 

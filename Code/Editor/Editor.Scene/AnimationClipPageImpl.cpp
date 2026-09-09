@@ -174,27 +174,27 @@ namespace editor
                         self->m_playButton->SetText(u8"Play");
                     }
                 });
-            auto slp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            slp->Grow = 1.0f;
+            ui::LayoutStyle slp;
+            slp.FlexGrow = 1.0f;
             transport->AddView(m_timeSlider.Get(), slp);
 
             m_timeLabel = MakeRef<ui::Label>(Allocator());
             m_timeLabel->FontSize.SetValue(Optional<f32>{12.0f});
             m_timeLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
-            auto tlp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            tlp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
+            ui::LayoutStyle tlp;
+            tlp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
             transport->AddView(m_timeLabel.Get(), tlp);
         }
 
         auto previewColumn = MakeRef<ui::FlexLayout>(Allocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             previewColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_preview->View(), grow);
         }
 

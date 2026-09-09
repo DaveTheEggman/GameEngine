@@ -103,8 +103,8 @@ export namespace editor
             // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar.
             m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_toolbar.Get(), lp);
             }
 
@@ -118,9 +118,9 @@ export namespace editor
                 m_slotLabels[i] = MakeRef<ui::Label>(Allocator(), StringView(u8"(empty)"));
                 m_slotLabels[i]->FontSize.SetValue(13.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_slotLabels[i].Get(), lp);
                 }
                 SoundCueEditorPage* self = this;
@@ -141,8 +141,8 @@ export namespace editor
                 auto weightLabel = MakeRef<ui::Label>(Allocator(), StringView(u8"weight"));
                 weightLabel->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(weightLabel.Get(), lp);
                 }
                 m_weightFields[i] = MakeRef<ui::NumericField>(Allocator());
@@ -161,8 +161,8 @@ export namespace editor
                 row->AddView(m_weightFields[i].Get());
 
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->Width = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
@@ -187,8 +187,8 @@ export namespace editor
                 AddJitterField(*row, u8"vol min", m_asset.volumeMin);
                 AddJitterField(*row, u8"vol max", m_asset.volumeMax);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->Width = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
@@ -211,13 +211,13 @@ export namespace editor
                 m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_status.Get(), lp);
                 }
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->Width = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
                     column->AddView(row.Get(), lp);
                 }
             }
@@ -228,8 +228,8 @@ export namespace editor
             m_emptyHint->FontSize.SetValue(12.0f);
             m_emptyHint->TextColor.SetValue(Optional<Color>(Color{0.9f, 0.75f, 0.35f, 1.0f}));
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_emptyHint.Get(), lp);
             }
 

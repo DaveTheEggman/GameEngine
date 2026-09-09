@@ -204,8 +204,8 @@ namespace
                 auto bar = core::MakeRef<gamekit::Bar>(AppRoot());
                 bar->SetFill(1.0f);
                 m_health = bar.Get();
-                auto lp = core::MakeRef<ui::FlexLayoutParams>(AppRoot());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Px(220));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Px(220));
                 row->AddView(bar.Get(), lp);
                 column->AddView(row.Get());
             }

@@ -219,9 +219,9 @@ export namespace editor
             auto viewportPane = MakeRef<foundation::ui::FlexLayout>(Allocator());
             viewportPane->Direction = foundation::ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
+                foundation::ui::LayoutStyle lp;
+                lp.Width = foundation::ui::SizeSpec::Match();
+                lp.Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
                 viewportPane->AddView(m_toolbar.Get(), lp);
             }
             {
@@ -230,16 +230,16 @@ export namespace editor
                 BuildCameraPreview();
                 auto viewportFrame = MakeRef<foundation::ui::FrameLayout>(Allocator());
                 {
-                    auto vfp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
-                    vfp->Gravity = foundation::ui::Gravity::Fill;
+                    foundation::ui::LayoutStyle vfp;
+                    vfp.Gravity = foundation::ui::Gravity::Fill;
                     viewportFrame->AddView(m_viewport.Get(), vfp);
                 }
                 {
-                    auto pfp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
-                    pfp->Gravity = static_cast<foundation::ui::Gravity>(
+                    foundation::ui::LayoutStyle pfp;
+                    pfp.Gravity = static_cast<foundation::ui::Gravity>(
                         static_cast<u32>(foundation::ui::Gravity::Bottom) |
                         static_cast<u32>(foundation::ui::Gravity::Right));
-                    pfp->Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
+                    pfp.Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
                     viewportFrame->AddView(m_previewContainer.Get(), pfp);
                 }
                 {
@@ -249,14 +249,14 @@ export namespace editor
                     m_toolOverlay->AddClass(u8"panel"); // resolve the theme's panel background
                     m_toolOverlay->Visibility = foundation::ui::Visibility::Gone;
                     m_toolOverlay->Padding = foundation::ui::Thickness{8.0f, 8.0f, 8.0f, 8.0f};
-                    auto ofp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
-                    ofp->Gravity = static_cast<foundation::ui::Gravity>(
+                    foundation::ui::LayoutStyle ofp;
+                    ofp.Gravity = static_cast<foundation::ui::Gravity>(
                         static_cast<u32>(foundation::ui::Gravity::Top) |
                         static_cast<u32>(foundation::ui::Gravity::Right));
-                    ofp->Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
+                    ofp.Margin = foundation::ui::Thickness{12.0f, 12.0f, 12.0f, 12.0f};
                     // Constrain the width so the HUD does NOT stretch to fill the viewport (the panel
                     // content sizes to Match otherwise). Height wraps to the controls.
-                    ofp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(260.0f));
+                    ofp.Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(260.0f));
                     viewportFrame->AddView(m_toolOverlay.Get(), ofp);
                 }
                 {
@@ -267,20 +267,20 @@ export namespace editor
                     BuildToolFloat();
                     m_toolFloatLayer = MakeRef<foundation::ui::AbsoluteLayout>(Allocator());
                     m_toolFloatLayer->IsHitTestVisible = false;
-                    auto layerLp = MakeRef<foundation::ui::FrameLayoutParams>(Allocator());
-                    layerLp->Gravity = foundation::ui::Gravity::Fill;
-                    layerLp->Width = foundation::ui::SizeSpec::Match();
-                    layerLp->Height = foundation::ui::SizeSpec::Match();
+                    foundation::ui::LayoutStyle layerLp;
+                    layerLp.Gravity = foundation::ui::Gravity::Fill;
+                    layerLp.Width = foundation::ui::SizeSpec::Match();
+                    layerLp.Height = foundation::ui::SizeSpec::Match();
                     viewportFrame->AddView(m_toolFloatLayer.Get(), layerLp);
 
-                    auto alp = MakeRef<foundation::ui::AbsoluteLayoutParams>(Allocator());
-                    alp->X = 16.0f;
-                    alp->Y = 16.0f;
+                    foundation::ui::LayoutStyle alp;
+                    alp.Left = 16.0f;
+                    alp.Top = 16.0f;
                     m_toolFloatLayer->AddView(m_toolFloat.Get(), alp);
                 }
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                foundation::ui::LayoutStyle lp;
+                lp.Width = foundation::ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 viewportPane->AddView(viewportFrame.Get(), lp);
             }
 

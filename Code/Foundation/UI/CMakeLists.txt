@@ -124,7 +124,7 @@ target_sources(UI
             Layout/BoxConstraints.cppm
             Layout/Gravity.cppm
             Layout/GravityHelper.cppm
-            Layout/LayoutParams.cppm
+            Layout/LayoutStyle.cppm
             Controls/ButtonBase.cppm
             Controls/Button.cppm
             Controls/RepeatButton.cppm

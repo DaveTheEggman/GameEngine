@@ -111,8 +111,8 @@ namespace editor
         scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             scroll->AddView(m_fields.Get(), lp);
         }
 
@@ -237,14 +237,14 @@ namespace editor
         {
             auto lbl = MakeRef<ui::Label>(Allocator(), text);
             lbl->FontSize.SetValue(Optional<f32>{fontSize});
-            m_fields->AddView(lbl.Get(), MakeRef<ui::LayoutParams>(Allocator()));
+            m_fields->AddView(lbl.Get());
         };
         const auto addButton = [&](StringView text, core::Function<void()> onClick)
         {
             auto btn = MakeRef<ui::Button>(Allocator(), text);
             btn->FontSize.SetValue(Optional<f32>{12.0f});
             btn->OnClick.Add([cb = Move(onClick)](ui::ButtonBase*) { cb(); });
-            m_fields->AddView(btn.Get(), MakeRef<ui::LayoutParams>(Allocator()));
+            m_fields->AddView(btn.Get());
         };
 
         // References
@@ -459,7 +459,7 @@ namespace editor
                 StringView(u8"Paint layers"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
         }
-        m_fields->AddView(grid.Get(), MakeRef<ui::LayoutParams>(Allocator()));
+        m_fields->AddView(grid.Get());
 
         // Stats (from the cooked product, if resolved)
         addLabel(u8"Stats", 13.0f);

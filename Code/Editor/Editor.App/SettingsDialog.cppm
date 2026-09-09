@@ -69,9 +69,9 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Default scene");
                 m_sceneLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_sceneLabel.Get(), lp);
                 }
                 m_pickButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -103,9 +103,9 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Startup script");
                 m_scriptLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_scriptLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -143,9 +143,9 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Default input map");
                 m_inputMapLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_inputMapLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -184,9 +184,9 @@ export namespace editor::app
                 m_busLayoutLabel =
                     MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_busLayoutLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -224,9 +224,9 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Default UI theme");
                 m_uiThemeLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_uiThemeLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -265,9 +265,9 @@ export namespace editor::app
                 m_loadingDocLabel =
                     MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_loadingDocLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -306,9 +306,9 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Default UI font");
                 m_uiFontLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(m_uiFontLabel.Get(), lp);
                 }
                 auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
@@ -352,8 +352,8 @@ export namespace editor::app
                 }
                 const u32 samples = (project != nullptr) ? project->Settings().renderMsaaSamples : 1u;
                 m_msaaCombo->SetSelectedIndex(engine::render::MsaaIndexForSamples(samples));
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 row->AddView(m_msaaCombo.Get(), lp);
             }
 
@@ -362,8 +362,8 @@ export namespace editor::app
                 ui::FlexLayout* row = AddRow(*column, u8"Engine version");
                 auto value =
                     MakeRef<ui::Label>(MemoryAllocator(), editor::kEngineVersionString);
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->AlignSelf = ui::Align::Center;
+                ui::LayoutStyle lp;
+                lp.AlignSelf = ui::Align::Center;
                 row->AddView(value.Get(), lp);
             }
 
@@ -374,8 +374,8 @@ export namespace editor::app
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 scroll->AddView(column.Get(), lp);
             }
             SetContent(scroll.Get());

@@ -202,8 +202,17 @@ export namespace foundation::ui::toolkit
 
         [[nodiscard]] View* ContentView() const { return m_content; }
 
-        /// Set the content view (replaces existing).
-        void SetContent(View* content, LayoutParamsPtr lp = {})
+        /// Set the content view (replaces existing). The overload with a LayoutStyle sets the
+        /// child's placement; the other keeps what the child carries.
+        void SetContent(View* content, const LayoutStyle& layout)
+        {
+            if (content != nullptr)
+            {
+                content->SetLayout(layout);
+            }
+            SetContent(content);
+        }
+        void SetContent(View* content)
         {
             if (m_content != nullptr)
             {
@@ -212,7 +221,7 @@ export namespace foundation::ui::toolkit
             m_content = content;
             if (content != nullptr)
             {
-                AddView(content, Move(lp));
+                AddView(content);
             }
             Invalidate();
         }

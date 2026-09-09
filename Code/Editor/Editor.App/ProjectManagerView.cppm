@@ -83,19 +83,19 @@ export namespace editor::app
             column->Spacing = 12;
             column->Padding = ui::Thickness{0, 28};
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 outer->AddView(leftSpacer.Get(), grow);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(720.0f));
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(720.0f));
+                lp.Height = ui::SizeSpec::Match();
                 outer->AddView(column.Get(), lp);
             }
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 outer->AddView(rightSpacer.Get(), grow);
             }
 
@@ -151,14 +151,14 @@ export namespace editor::app
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 scroll->AddView(m_listColumn.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(scroll.Get(), lp);
             }
 
@@ -263,8 +263,8 @@ export namespace editor::app
                 text->AddView(pathLabel.Get());
             }
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 row->AddView(text.Get(), grow);
             }
 
@@ -293,12 +293,12 @@ export namespace editor::app
             auto card = MakeRef<ui::Panel>(Allocator());
             card->AddClass(u8"panel");
             {
-                auto rowLp = MakeRef<ui::LayoutParams>(Allocator());
-                rowLp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle rowLp;
+                rowLp.Width = ui::SizeSpec::Match();
                 card->AddView(row.Get(), rowLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             m_listColumn->AddView(card.Get(), lp);
         }
 
@@ -359,8 +359,8 @@ export namespace editor::app
             auto nameEdit = MakeRef<ui::EditText>(Allocator());
             nameEdit->SetPlaceholder(u8"Project name");
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(nameEdit.Get(), lp);
             }
 
@@ -370,8 +370,8 @@ export namespace editor::app
             auto dirEdit = MakeRef<ui::EditText>(Allocator());
             dirEdit->SetPlaceholder(u8"Parent directory (the project is created inside it)");
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
                 dirRow->AddView(dirEdit.Get(), lp);
             }
             auto browse = MakeRef<ui::Button>(Allocator(), StringView(u8"Browse..."));
@@ -397,8 +397,8 @@ export namespace editor::app
             }
             dirRow->AddView(browse.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(dirRow.Get(), lp);
             }
             dialog->SetContent(column.Get());

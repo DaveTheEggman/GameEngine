@@ -165,8 +165,8 @@ namespace editor
         auto text = MakeRef<ui::Label>(Allocator(), label);
         text->FontSize.SetValue(12.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle lp;
+            lp.AlignSelf = ui::Align::Center;
             row.AddView(text.Get(), lp);
         }
         auto field = MakeRef<ui::NumericField>(Allocator());

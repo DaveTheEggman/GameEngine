@@ -52,8 +52,8 @@ TEST_CASE("frame: Gravity_Center")
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
     auto child = TV(100, 50);
-    auto lp = New<FrameLayoutParams>();
-    lp->Gravity = Gravity::Center;
+    LayoutStyle lp;
+    lp.Gravity = Gravity::Center;
     frame->AddView(child.Get(), lp);
     root->AddView(frame.Get());
     LayoutPass(ctx, root.Get());
@@ -68,8 +68,8 @@ TEST_CASE("frame: Gravity_BottomRight")
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
     auto child = TV(80, 40);
-    auto lp = New<FrameLayoutParams>();
-    lp->Gravity = Gravity::Bottom | Gravity::Right;
+    LayoutStyle lp;
+    lp.Gravity = Gravity::Bottom | Gravity::Right;
     frame->AddView(child.Get(), lp);
     root->AddView(frame.Get());
     LayoutPass(ctx, root.Get());
@@ -84,8 +84,8 @@ TEST_CASE("frame: Gravity_Fill")
     Init(ctx, root.Get(), 400, 300);
     auto frame = New<FrameLayout>();
     auto child = TV(50, 30);
-    auto lp = New<FrameLayoutParams>();
-    lp->Gravity = Gravity::Fill;
+    LayoutStyle lp;
+    lp.Gravity = Gravity::Fill;
     frame->AddView(child.Get(), lp);
     root->AddView(frame.Get());
     LayoutPass(ctx, root.Get());
@@ -116,10 +116,10 @@ TEST_CASE("frame: MultipleChildren_Stacked")
     auto frame = New<FrameLayout>();
     auto a = TV(100, 50);
     auto b = TV(80, 40);
-    auto lpA = New<FrameLayoutParams>();
-    lpA->Gravity = Gravity::None;
-    auto lpB = New<FrameLayoutParams>();
-    lpB->Gravity = Gravity::Center;
+    LayoutStyle lpA;
+    lpA.Gravity = Gravity::None;
+    LayoutStyle lpB;
+    lpB.Gravity = Gravity::Center;
     frame->AddView(a.Get(), lpA);
     frame->AddView(b.Get(), lpB);
     root->AddView(frame.Get());
@@ -144,30 +144,30 @@ TEST_CASE("frame: nested Fill child inside a grow FlexLayout keeps its screen or
 
     auto toolbar = TV(0, 0);
     {
-        auto lp = New<FlexLayoutParams>();
-        lp->Width = SizeSpec::Match();
-        lp->Height = SizeSpec::Fixed(Unit::Px(30));
+        LayoutStyle lp;
+        lp.Width = SizeSpec::Match();
+        lp.Height = SizeSpec::Fixed(Unit::Px(30));
         pane->AddView(toolbar.Get(), lp);
     }
 
     auto frame = New<FrameLayout>();
     auto viewport = TV(256, 256); // measures small like ViewportView; Fill overrides it
     {
-        auto vfp = New<FrameLayoutParams>();
-        vfp->Gravity = Gravity::Fill;
+        LayoutStyle vfp;
+        vfp.Gravity = Gravity::Fill;
         frame->AddView(viewport.Get(), vfp);
     }
     auto preview = TV(320, 204);
     {
-        auto pfp = New<FrameLayoutParams>();
-        pfp->Gravity = Gravity::Bottom | Gravity::Right;
-        pfp->Margin = Thickness{12, 12, 12, 12};
+        LayoutStyle pfp;
+        pfp.Gravity = Gravity::Bottom | Gravity::Right;
+        pfp.Margin = Thickness{12, 12, 12, 12};
         frame->AddView(preview.Get(), pfp);
     }
     {
-        auto lp = New<FlexLayoutParams>();
-        lp->Width = SizeSpec::Match();
-        lp->Grow = 1.0f;
+        LayoutStyle lp;
+        lp.Width = SizeSpec::Match();
+        lp.FlexGrow = 1.0f;
         pane->AddView(frame.Get(), lp);
     }
     root->AddView(pane.Get());
@@ -199,9 +199,9 @@ TEST_CASE("absolute: ChildAtExplicitPosition")
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
     auto child = TV(50, 30);
-    auto lp = New<AbsoluteLayoutParams>();
-    lp->X = 100;
-    lp->Y = 50;
+    LayoutStyle lp;
+    lp.Left = 100;
+    lp.Top = 50;
     abs->AddView(child.Get(), lp);
     root->AddView(abs.Get());
     LayoutPass(ctx, root.Get());
@@ -231,9 +231,9 @@ TEST_CASE("absolute: Padding_OffsetsAll")
     auto abs = New<AbsoluteLayout>();
     abs->Padding = Thickness{10, 20, 10, 20};
     auto child = TV(50, 30);
-    auto lp = New<AbsoluteLayoutParams>();
-    lp->X = 5;
-    lp->Y = 5;
+    LayoutStyle lp;
+    lp.Left = 5;
+    lp.Top = 5;
     abs->AddView(child.Get(), lp);
     root->AddView(abs.Get());
     LayoutPass(ctx, root.Get());
@@ -248,9 +248,9 @@ TEST_CASE("absolute: ChildRetainsMeasuredSize")
     Init(ctx, root.Get(), 400, 300);
     auto abs = New<AbsoluteLayout>();
     auto child = TV(80, 45);
-    auto lp = New<AbsoluteLayoutParams>();
-    lp->X = 50;
-    lp->Y = 50;
+    LayoutStyle lp;
+    lp.Left = 50;
+    lp.Top = 50;
     abs->AddView(child.Get(), lp);
     root->AddView(abs.Get());
     LayoutPass(ctx, root.Get());
@@ -386,6 +386,13 @@ TEST_CASE("flow: Padding_OffsetsContent")
 
 // === DockLayout ===
 
+static LayoutStyle Docked(Dock dock)
+{
+    LayoutStyle lp;
+    lp.Dock = dock;
+    return lp;
+}
+
 TEST_CASE("dock: Top_TakesFullWidthMeasuredHeight")
 {
     UIContext ctx{DefaultAllocator()};
@@ -393,7 +400,7 @@ TEST_CASE("dock: Top_TakesFullWidthMeasuredHeight")
     Init(ctx, root.Get(), 400, 300);
     auto dock = New<DockLayout>();
     auto top = TV(400, 50);
-    dock->AddView(top.Get(), core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Top));
+    dock->AddView(top.Get(), Docked(Dock::Top));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(top->Bounds.x == doctest::Approx(0));
@@ -410,7 +417,7 @@ TEST_CASE("dock: Bottom_DocksToBottom")
     auto dock = New<DockLayout>();
     auto bottom = TV(400, 40);
     dock->AddView(bottom.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Bottom));
+                  Docked(Dock::Bottom));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(bottom->Bounds.y == doctest::Approx(260).epsilon(0.01));
@@ -425,7 +432,7 @@ TEST_CASE("dock: Left_TakesFullHeightMeasuredWidth")
     auto dock = New<DockLayout>();
     auto left = TV(80, 300);
     dock->AddView(left.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Left));
+                  Docked(Dock::Left));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(left->Bounds.x == doctest::Approx(0));
@@ -441,7 +448,7 @@ TEST_CASE("dock: Right_DocksToRight")
     auto dock = New<DockLayout>();
     auto right = TV(60, 300);
     dock->AddView(right.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Right));
+                  Docked(Dock::Right));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(right->Bounds.x == doctest::Approx(340).epsilon(0.01));
@@ -456,9 +463,9 @@ TEST_CASE("dock: Fill_TakesRemainingSpace")
     auto dock = New<DockLayout>();
     auto top = TV(400, 50);
     auto fill = TV(50, 30);
-    dock->AddView(top.Get(), core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Top));
+    dock->AddView(top.Get(), Docked(Dock::Top));
     dock->AddView(fill.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Fill));
+                  Docked(Dock::Fill));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(fill->Bounds.y == doctest::Approx(50).epsilon(0.01));
@@ -475,9 +482,9 @@ TEST_CASE("dock: LastChildFill_False_DoesNotFill")
     dock->LastChildFill = false;
     auto top = TV(400, 50);
     auto last = TV(100, 40);
-    dock->AddView(top.Get(), core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Top));
+    dock->AddView(top.Get(), Docked(Dock::Top));
     dock->AddView(last.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Left));
+                  Docked(Dock::Left));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(last->Width() == doctest::Approx(100).epsilon(0.01));
@@ -492,9 +499,9 @@ TEST_CASE("dock: LastChildFill_True_FillsRemaining")
     dock->LastChildFill = true;
     auto top = TV(400, 50);
     auto last = TV(100, 40);
-    dock->AddView(top.Get(), core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Top));
+    dock->AddView(top.Get(), Docked(Dock::Top));
     dock->AddView(last.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Left));
+                  Docked(Dock::Left));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(last->Width() == doctest::Approx(400).epsilon(0.01));
@@ -510,11 +517,11 @@ TEST_CASE("dock: MultipleEdges_ShrinkRemaining")
     auto top = TV(400, 40);
     auto left = TV(60, 260);
     auto fill = TV(50, 30);
-    dock->AddView(top.Get(), core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Top));
+    dock->AddView(top.Get(), Docked(Dock::Top));
     dock->AddView(left.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Left));
+                  Docked(Dock::Left));
     dock->AddView(fill.Get(),
-                  core::MakeRef<DockLayoutParams>(core::DefaultAllocator(), Dock::Fill));
+                  Docked(Dock::Fill));
     root->AddView(dock.Get());
     LayoutPass(ctx, root.Get());
     CHECK(fill->Bounds.x == doctest::Approx(60).epsilon(0.01));
@@ -525,13 +532,13 @@ TEST_CASE("dock: MultipleEdges_ShrinkRemaining")
 
 // === GridLayout ===
 
-static core::RefPtr<GridLayoutParams> Cell(i32 row, i32 col, i32 rowSpan = 1, i32 colSpan = 1)
+static LayoutStyle Cell(i32 row, i32 col, i32 rowSpan = 1, i32 colSpan = 1)
 {
-    auto lp = New<GridLayoutParams>();
-    lp->Row = row;
-    lp->Column = col;
-    lp->RowSpan = rowSpan;
-    lp->ColumnSpan = colSpan;
+    LayoutStyle lp;
+    lp.GridRow = row;
+    lp.GridColumn = col;
+    lp.GridRowSpan = rowSpan;
+    lp.GridColumnSpan = colSpan;
     return lp;
 }
 
@@ -700,10 +707,10 @@ TEST_CASE("grid: MixedTracks_FixedAutoFlex")
 
 // === FlexLayout ===
 
-static core::RefPtr<FlexLayoutParams> Growth(f32 grow)
+static LayoutStyle Growth(f32 grow)
 {
-    auto lp = New<FlexLayoutParams>();
-    lp->Grow = grow;
+    LayoutStyle lp;
+    lp.FlexGrow = grow;
     return lp;
 }
 
@@ -997,12 +1004,12 @@ TEST_CASE("absolute: MultipleChildren_IndependentPositions")
     auto abs = New<AbsoluteLayout>();
     auto a = TV(50, 30);
     auto b = TV(60, 40);
-    auto lpa = New<AbsoluteLayoutParams>();
-    lpa->X = 10;
-    lpa->Y = 10;
-    auto lpb = New<AbsoluteLayoutParams>();
-    lpb->X = 200;
-    lpb->Y = 150;
+    LayoutStyle lpa;
+    lpa.Left = 10;
+    lpa.Top = 10;
+    LayoutStyle lpb;
+    lpb.Left = 200;
+    lpb.Top = 150;
     abs->AddView(a.Get(), lpa);
     abs->AddView(b.Get(), lpb);
     root->AddView(abs.Get());
@@ -1028,4 +1035,108 @@ TEST_CASE("flow: Horizontal_Spacing")
     root->AddView(flow.Get());
     LayoutPass(ctx, root.Get());
     CHECK(b->Bounds.x == doctest::Approx(60)); // a width 50 + HSpacing 10
+}
+
+// === Custom container (spec P0: a ViewGroup subclass reads child.Layout() directly) ===
+
+namespace
+{
+    /// Stacks children top-to-bottom; each child's LayoutStyle::Left offsets it horizontally and
+    /// LayoutStyle::Gravity Right pins it to the right edge. No parameter subclass, no registry.
+    class StaircaseLayout : public ViewGroup
+    {
+        RTTI_OBJECT(StaircaseLayout, ViewGroup)
+    protected:
+        void OnMeasure(BoxConstraints constraints) override
+        {
+            f32 h = 0, w = 0;
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                View* child = GetChildAt(i);
+                child->Measure(constraints.Loosen());
+                const Float2 mb = child->MarginBoxSize();
+                h += mb.y;
+                w = Max(w, child->Layout().Left + mb.x);
+            }
+            MeasuredSize = Float2{constraints.ConstrainWidth(w), constraints.ConstrainHeight(h)};
+        }
+        void OnLayout(f32, f32, f32 width, f32) override
+        {
+            f32 y = 0;
+            for (usize i = 0; i < ChildCount(); ++i)
+            {
+                View* child = GetChildAt(i);
+                const Float2 mb = child->MarginBoxSize();
+                const LayoutStyle& ls = child->Layout();
+                const f32 x = (ls.Gravity & Gravity::Right) == Gravity::Right ? width - mb.x : ls.Left;
+                child->Layout(x, y, mb.x, mb.y);
+                y += mb.y;
+            }
+        }
+    };
+    RTTI_DEFINE_OBJECT(StaircaseLayout, "rtti::ui::tests")
+}
+
+TEST_CASE("custom: Container_PositionsChildrenFromLayoutStyle")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto stairs = New<StaircaseLayout>();
+    auto a = TV(50, 20);
+    auto b = TV(50, 20);
+    auto c = TV(50, 20);
+    LayoutStyle la;
+    la.Left = 10;
+    LayoutStyle lb;
+    lb.Left = 30;
+    lb.Margin = Thickness{0, 5, 0, 5};
+    LayoutStyle lc;
+    lc.Gravity = Gravity::Right;
+    stairs->AddView(a.Get(), la);
+    stairs->AddView(b.Get(), lb);
+    stairs->AddView(c.Get(), lc);
+    LayoutStyle fill;
+    fill.Width = SizeSpec::Match();
+    root->AddView(stairs.Get(), fill);
+    LayoutPass(ctx, root.Get());
+
+    CHECK(a->Bounds.x == doctest::Approx(10));
+    CHECK(a->Bounds.y == doctest::Approx(0));
+    CHECK(b->Bounds.x == doctest::Approx(30));
+    CHECK(b->Bounds.y == doctest::Approx(25)); // 20 + top margin 5
+    CHECK(c->Bounds.x == doctest::Approx(350)); // pinned right: 400 - 50
+    CHECK(c->Bounds.y == doctest::Approx(50));  // 20 + (5 + 20 + 5)
+}
+
+TEST_CASE("grid: AutoFlow_KeepsChildIntent")
+{
+    // Auto-flow assigns cells per pass and never writes the placement back into the
+    // child's LayoutStyle (GridRow/GridColumn stay -1), so reordering re-flows.
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto grid = New<GridLayout>();
+    grid->Columns.PushBack(TrackSize::Fixed(100));
+    grid->Columns.PushBack(TrackSize::Fixed(100));
+    grid->Rows.PushBack(TrackSize::Fixed(50));
+    grid->Rows.PushBack(TrackSize::Fixed(50));
+    grid->AutoFlow = true;
+    auto a = TV(10, 10);
+    auto b = TV(10, 10);
+    auto c = TV(10, 10);
+    grid->AddView(a.Get());
+    grid->AddView(b.Get());
+    grid->AddView(c.Get());
+    root->AddView(grid.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(c->Bounds.x == doctest::Approx(0));
+    CHECK(c->Bounds.y == doctest::Approx(50));
+    CHECK(c->Layout().GridRow == -1);
+    CHECK(c->Layout().GridColumn == -1);
+
+    grid->RemoveView(a.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(c->Bounds.x == doctest::Approx(100)); // re-flowed into the second cell
+    CHECK(c->Bounds.y == doctest::Approx(0));
 }

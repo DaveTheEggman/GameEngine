@@ -2113,8 +2113,8 @@ export namespace foundation::ui::toolkit
                     }
                 });
             {
-                auto params = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                params->Width = SizeSpec::Fixed(Unit::Dp(170));
+                LayoutStyle params;
+                params.Width = SizeSpec::Fixed(Unit::Dp(170));
                 m_findRow->AddView(m_findField.Get(), params);
             }
 
@@ -2160,8 +2160,8 @@ export namespace foundation::ui::toolkit
             m_replaceField = MakeRef<EditText>(MemoryAllocator());
             m_replaceField->SetPlaceholder(u8"Replace");
             {
-                auto params = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                params->Width = SizeSpec::Fixed(Unit::Dp(170));
+                LayoutStyle params;
+                params.Width = SizeSpec::Fixed(Unit::Dp(170));
                 m_replaceRow->AddView(m_replaceField.Get(), params);
             }
             addButton(*m_replaceRow, m_replaceButton, u8"Replace",

@@ -9,7 +9,8 @@
 // nothing; a captureless lambda converts to a fn-ptr); Beef nested `Dictionary<String, Registration>`
 // with an inner Dictionary -> flat HashMaps keyed by "element\x1fname" (avoids nested-container copies);
 // the static tables -> function-local statics (no static-init-order issues); Beef `as X` -> Cast<X>;
-// FlexLayout.LayoutParams -> FlexLayoutParams; float.Parse -> core::ParseFloat.
+// float.Parse -> core::ParseFloat. Layout attributes write the view's LayoutStyle (one vocabulary,
+// every element; see LayoutAttributeNames) - no per-parent param factories.
 
 module;
 #include "Core/Prelude.h"
@@ -18,7 +19,7 @@ export module foundation.ui:markup_registry;
 
 import foundation.core;
 import :view;
-import :layout_params;
+import :layout_style;
 import :size_spec;
 import :unit;
 import :gravity;
@@ -69,8 +70,6 @@ export namespace foundation::ui
     {
         using ViewFactory = RefPtr<View> (*)(IAllocator&);
         using PropertySetter = void (*)(View*, StringView);
-        using LayoutParamsFactory = RefPtr<LayoutParams> (*)(IAllocator&);
-        using LayoutParamSetter = void (*)(LayoutParams*, StringView);
 
         // === Registration ===
 
@@ -82,15 +81,6 @@ export namespace foundation::ui
                                      PropertySetter setter)
         {
             ViewProps().InsertOrAssign(Key(elementName, propertyName), setter);
-        }
-        static void RegisterLayout(StringView elementName, LayoutParamsFactory createParams)
-        {
-            LayoutFactories().InsertOrAssign(String(elementName), createParams);
-        }
-        static void RegisterLayoutParam(StringView elementName, StringView paramName,
-                                        LayoutParamSetter setter)
-        {
-            LayoutParams_().InsertOrAssign(Key(elementName, paramName), setter);
         }
 
         // === Lookup ===
@@ -118,24 +108,120 @@ export namespace foundation::ui
             return false;
         }
 
-        /// Create default LayoutParams for a container. Null if not a registered layout.
-        [[nodiscard]] static RefPtr<LayoutParams> CreateLayoutParams(StringView containerName,
-                                                                     IAllocator& allocator)
+        // === Layout attributes (the LayoutStyle vocabulary; the same on EVERY element) ===
+
+        /// The attribute names that write a view's LayoutStyle. One table feeds the loader,
+        /// the completion vocabulary and the tests, so they cannot drift.
+        [[nodiscard]] static Span<const StringView> LayoutAttributeNames()
         {
-            if (LayoutParamsFactory* f = LayoutFactories().Find(String(containerName)))
-            {
-                return (*f)(allocator);
-            }
-            return {};
+            static constexpr StringView kNames[] = {
+                u8"width",    u8"height",   u8"margin",        u8"flex-grow",
+                u8"flex-shrink", u8"align-self", u8"gravity",  u8"dock",
+                u8"left",     u8"top",      u8"grid-row",      u8"grid-column",
+                u8"grid-row-span", u8"grid-column-span"};
+            return Span<const StringView>{kNames, sizeof(kNames) / sizeof(kNames[0])};
         }
 
-        /// Try to set a layout param from a string value. Returns true if found and set.
-        static bool SetLayoutParam(StringView containerName, LayoutParams* lp, StringView paramName,
-                                   StringView value)
+        /// Apply one layout attribute to `layout`. Returns false when `name` is not a layout
+        /// attribute (the caller then tries the element's registered properties). An
+        /// unparseable value leaves the field untouched.
+        static bool ApplyLayoutAttribute(LayoutStyle& layout, StringView name, StringView value)
         {
-            if (LayoutParamSetter* s = LayoutParams_().Find(Key(containerName, paramName)))
+            if (name == u8"width")
             {
-                (*s)(lp, value);
+                layout.Width = ParseSizeSpec(value);
+                return true;
+            }
+            if (name == u8"height")
+            {
+                layout.Height = ParseSizeSpec(value);
+                return true;
+            }
+            if (name == u8"margin")
+            {
+                layout.Margin = ParseThickness(value);
+                return true;
+            }
+            if (name == u8"flex-grow")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.FlexGrow = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"flex-shrink")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.FlexShrink = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"align-self")
+            {
+                layout.AlignSelf = ParseAlign(value);
+                return true;
+            }
+            if (name == u8"gravity")
+            {
+                layout.Gravity = ParseGravity(value);
+                return true;
+            }
+            if (name == u8"dock")
+            {
+                if (Optional<Dock> d = ParseDock(value); d.HasValue())
+                {
+                    layout.Dock = d.Value();
+                }
+                return true;
+            }
+            if (name == u8"left")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.Left = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"top")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.Top = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"grid-row")
+            {
+                if (Optional<i64> i = ParseInt(value); i.HasValue())
+                {
+                    layout.GridRow = static_cast<i32>(i.Value());
+                }
+                return true;
+            }
+            if (name == u8"grid-column")
+            {
+                if (Optional<i64> i = ParseInt(value); i.HasValue())
+                {
+                    layout.GridColumn = static_cast<i32>(i.Value());
+                }
+                return true;
+            }
+            if (name == u8"grid-row-span")
+            {
+                if (Optional<i64> i = ParseInt(value); i.HasValue())
+                {
+                    layout.GridRowSpan = static_cast<i32>(i.Value());
+                }
+                return true;
+            }
+            if (name == u8"grid-column-span")
+            {
+                if (Optional<i64> i = ParseInt(value); i.HasValue())
+                {
+                    layout.GridColumnSpan = static_cast<i32>(i.Value());
+                }
                 return true;
             }
             return false;
@@ -151,9 +237,8 @@ export namespace foundation::ui
             }
         }
 
-        /// Attribute names usable on `elementName`: its registered properties plus the union
-        /// of every layout-param name (which of those apply depends on the PARENT container -
-        /// the registry cannot know it from the element alone).
+        /// Attribute names usable on `elementName`: its registered properties plus the
+        /// LayoutStyle vocabulary (the same on every element).
         static void CollectAttributeNames(StringView elementName, Array<String>& out)
         {
             out.Clear();
@@ -190,14 +275,9 @@ export namespace foundation::ui
                     pushUnique(name);
                 }
             }
-            for (const auto& entry : LayoutParams_())
+            for (const StringView& name : LayoutAttributeNames())
             {
-                StringView element;
-                StringView name;
-                if (splitKey(entry.key.AsView(), element, name))
-                {
-                    pushUnique(name);
-                }
+                pushUnique(name);
             }
         }
 
@@ -205,11 +285,6 @@ export namespace foundation::ui
         {
             return ViewFactories().Find(String(elementName)) != nullptr;
         }
-        [[nodiscard]] static bool IsLayoutRegistered(StringView elementName)
-        {
-            return LayoutFactories().Find(String(elementName)) != nullptr;
-        }
-
         // === Value parsing helpers ===
 
         /// Parse a SizeSpec from markup: "wrap", "match", "240", "240px", "16dp".
@@ -250,6 +325,58 @@ export namespace foundation::ui
                 return SizeSpec::Fixed(Unit::Dp(static_cast<f32>(v.Value())));
             }
             return SizeSpec::Wrap();
+        }
+
+        /// Parse an Align value: "start", "end", "center", "stretch", "baseline". Empty otherwise.
+        [[nodiscard]] static Optional<Align> ParseAlign(StringView value)
+        {
+            if (value == u8"start")
+            {
+                return Align::Start;
+            }
+            if (value == u8"end")
+            {
+                return Align::End;
+            }
+            if (value == u8"center")
+            {
+                return Align::Center;
+            }
+            if (value == u8"stretch")
+            {
+                return Align::Stretch;
+            }
+            if (value == u8"baseline")
+            {
+                return Align::Baseline;
+            }
+            return {};
+        }
+
+        /// Parse a Dock side: "left", "top", "right", "bottom", "fill". Empty otherwise.
+        [[nodiscard]] static Optional<Dock> ParseDock(StringView value)
+        {
+            if (value == u8"left")
+            {
+                return Dock::Left;
+            }
+            if (value == u8"top")
+            {
+                return Dock::Top;
+            }
+            if (value == u8"right")
+            {
+                return Dock::Right;
+            }
+            if (value == u8"bottom")
+            {
+                return Dock::Bottom;
+            }
+            if (value == u8"fill")
+            {
+                return Dock::Fill;
+            }
+            return {};
         }
 
         /// Parse a Gravity value: "Center", "Fill", "TopLeft", "Bottom|Right", etc.
@@ -362,8 +489,6 @@ export namespace foundation::ui
         // (shared-libraries.md rendezvous rule).
         [[nodiscard]] static HashMap<String, ViewFactory>& ViewFactories();
         [[nodiscard]] static HashMap<String, PropertySetter>& ViewProps();
-        [[nodiscard]] static HashMap<String, LayoutParamsFactory>& LayoutFactories();
-        [[nodiscard]] static HashMap<String, LayoutParamSetter>& LayoutParams_();
 
         [[nodiscard]] static String Key(StringView elem, StringView name)
         {
@@ -494,52 +619,10 @@ export namespace foundation::ui
         RegisterProperty(u8"FlexLayout", u8"align", flexAlign);
         RegisterProperty(u8"FlexLayout", u8"spacing", flexSpacing);
 
-        auto flexGrow = [](LayoutParams* lp, StringView val)
-        {
-            if (FlexLayoutParams* flp = Cast<FlexLayoutParams>(lp))
-            {
-                if (auto f = PF(val); f.HasValue())
-                {
-                    flp->Grow = f.Value();
-                }
-            }
-        };
-        auto flexShrink = [](LayoutParams* lp, StringView val)
-        {
-            if (FlexLayoutParams* flp = Cast<FlexLayoutParams>(lp))
-            {
-                if (auto f = PF(val); f.HasValue())
-                {
-                    flp->Shrink = f.Value();
-                }
-            }
-        };
-        RegisterLayout(u8"Flex", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<FlexLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"Flex", u8"grow", flexGrow);
-        RegisterLayoutParam(u8"Flex", u8"shrink", flexShrink);
-        RegisterLayout(u8"FlexLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<FlexLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"FlexLayout", u8"grow", flexGrow);
-        RegisterLayoutParam(u8"FlexLayout", u8"shrink", flexShrink);
-
-        auto frameGravity = [](LayoutParams* lp, StringView val)
-        {
-            if (FrameLayoutParams* flp = Cast<FrameLayoutParams>(lp))
-            {
-                flp->Gravity = ParseGravity(val);
-            }
-        };
         RegisterView(u8"Frame",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FrameLayout>(allocator); });
         RegisterView(u8"FrameLayout",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FrameLayout>(allocator); });
-        RegisterLayout(u8"Frame", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<FrameLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"Frame", u8"gravity", frameGravity);
-        RegisterLayout(u8"FrameLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<FrameLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"FrameLayout", u8"gravity", frameGravity);
 
         auto dockLastFill = [](View* v, StringView val)
         {
@@ -548,44 +631,12 @@ export namespace foundation::ui
                 c->LastChildFill = PB(val);
             }
         };
-        auto dockParam = [](LayoutParams* lp, StringView val)
-        {
-            if (DockLayoutParams* dlp = Cast<DockLayoutParams>(lp))
-            {
-                if (val == u8"left")
-                {
-                    dlp->Dock = Dock::Left;
-                }
-                else if (val == u8"top")
-                {
-                    dlp->Dock = Dock::Top;
-                }
-                else if (val == u8"right")
-                {
-                    dlp->Dock = Dock::Right;
-                }
-                else if (val == u8"bottom")
-                {
-                    dlp->Dock = Dock::Bottom;
-                }
-                else if (val == u8"fill")
-                {
-                    dlp->Dock = Dock::Fill;
-                }
-            }
-        };
         RegisterView(u8"Dock",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DockLayout>(allocator); });
         RegisterView(u8"DockLayout",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DockLayout>(allocator); });
         RegisterProperty(u8"Dock", u8"last-child-fill", dockLastFill);
         RegisterProperty(u8"DockLayout", u8"last-child-fill", dockLastFill);
-        RegisterLayout(u8"Dock", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<DockLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"Dock", u8"dock", dockParam);
-        RegisterLayout(u8"DockLayout", [](IAllocator& allocator) -> RefPtr<LayoutParams>
-                       { return MakeRef<DockLayoutParams>(allocator); });
-        RegisterLayoutParam(u8"DockLayout", u8"dock", dockParam);
 
         RegisterView(u8"Flow",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<FlowLayout>(allocator); });

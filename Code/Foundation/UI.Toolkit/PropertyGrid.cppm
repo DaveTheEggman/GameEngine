@@ -9,8 +9,8 @@
 //
 // Beef owned `List<PropertyEditor> mEditors` (deletes each) -> Array<RefPtr<PropertyEditor>>. The Beef
 // Dictionary<String,List> category grouping -> parallel Arrays (categoryOrder + per-category editor lists),
-// preserving first-seen order like the original. `new FlexLayout.LayoutParams()` -> RefPtr<FlexLayoutParams>
-// / RefPtr<LayoutParams>; `.Value =` on properties -> SetValue(...); `.Match` -> SizeSpec::Match().
+// preserving first-seen order like the original. `new FlexLayout.LayoutParams()` -> LayoutStyle
+// / LayoutStyle; `.Value =` on properties -> SetValue(...); `.Match` -> SizeSpec::Match().
 
 module;
 #include "Core/Prelude.h"
@@ -56,9 +56,8 @@ export namespace foundation::ui::toolkit
             content->Direction = Orientation::Vertical;
             m_content = content.Get();
             // `LayoutParams` names View's shadowing member here, so the type is spelled foundation::ui::LayoutParams.
-            RefPtr<foundation::ui::LayoutParams> lp =
-                MakeRef<foundation::ui::LayoutParams>(MemoryAllocator());
-            lp->Width = SizeSpec::Match();
+            foundation::ui::LayoutStyle lp;
+            lp.Width = SizeSpec::Match();
             m_scrollView->AddView(content.Get(), lp);
         }
 
@@ -279,8 +278,8 @@ export namespace foundation::ui::toolkit
                     AddEditorRowTo(catContent.Get(), categoryLists[c][e]);
                 }
 
-                RefPtr<FlexLayoutParams> contentLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                contentLp->Width = SizeSpec::Match();
+                LayoutStyle contentLp;
+                contentLp.Width = SizeSpec::Match();
                 expander->SetContent(catContent.Get(), contentLp);
 
                 bool remembered = false;
@@ -302,8 +301,8 @@ export namespace foundation::ui::toolkit
                     }
                 }
 
-                RefPtr<FlexLayoutParams> expLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                expLp->Width = SizeSpec::Match();
+                LayoutStyle expLp;
+                expLp.Width = SizeSpec::Match();
                 m_content->AddView(expander.Get(), expLp);
             }
         }
@@ -333,8 +332,8 @@ export namespace foundation::ui::toolkit
                     });
                 editor->BindDisplayNameSink([raw = editableLabel.Get()](StringView text)
                                             { raw->SetText(text); });
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = LabelWidthRatio;
+                LayoutStyle lp;
+                lp.FlexGrow = LabelWidthRatio;
                 row->AddView(editableLabel.Get(), lp);
             }
             else
@@ -347,8 +346,8 @@ export namespace foundation::ui::toolkit
                     true); // truncate instead of overflowing into the value when narrow
                 editor->BindDisplayNameSink([raw = label.Get()](StringView text)
                                             { raw->SetText(text); });
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = LabelWidthRatio;
+                LayoutStyle lp;
+                lp.FlexGrow = LabelWidthRatio;
                 row->AddView(label.Get(), lp);
             }
 
@@ -356,8 +355,8 @@ export namespace foundation::ui::toolkit
             View* editorView = editor->EditorView();
             if (editorView != nullptr)
             {
-                RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f - LabelWidthRatio;
+                LayoutStyle lp;
+                lp.FlexGrow = 1.0f - LabelWidthRatio;
                 row->AddView(editorView, lp);
             }
 
@@ -368,8 +367,8 @@ export namespace foundation::ui::toolkit
             }
             editor->SetRowView(row.Get());
 
-            RefPtr<FlexLayoutParams> rowLp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-            rowLp->Width = SizeSpec::Match();
+            LayoutStyle rowLp;
+            rowLp.Width = SizeSpec::Match();
             container->AddView(row.Get(), rowLp);
         }
 

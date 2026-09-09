@@ -44,7 +44,7 @@ export import :size_spec;
 export import :box_constraints;
 export import :gravity;
 export import :gravity_helper;
-export import :layout_params;
+export import :layout_style;
 export import :input_enums;
 export import :event_args;
 export import :iaccelerator_handler;

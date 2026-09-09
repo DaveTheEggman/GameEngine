@@ -1,6 +1,29 @@
 # UI layout and style model v2 - uniform layout style, a real cascade, transitions
 
-> STATUS: PROPOSED 2026-09-09 (user asked for the spec after the direction evaluation).
+> STATUS: P0 BUILT 2026-09-09 (LayoutStyle on View; LayoutParams classes, CreateDefaultLayoutParams,
+> RegisterLayoutParam deleted; four lanes green). P1-P4 PROPOSED.
+> P0 as built (deviations from the sketch below, all deliberate):
+> - Field names follow the house PascalCase: `Width/Height/Margin/FlexGrow/FlexShrink/AlignSelf/
+>   Gravity/Dock/Left/Top/GridRow/GridColumn/GridRowSpan/GridColumnSpan`. `FlexShrink` keeps the
+>   old default 0 (FlexLayout does not read it yet); min/max/flexBasis/position/insets/zIndex
+>   arrive with P1/P2 when their consumers land.
+> - `View::Layout()` (const ref) + `View::SetLayout(style)` (marks layout damage only when the
+>   value changed); `AddView(child)` KEEPS the child's style, `AddView(child, style)` sets it.
+>   Same pair on `InsertView`, `Expander::SetContent/SetActions/SetHeaderActions`, `Docking
+>   SetContent`. No mutable accessor: read, copy, change, `SetLayout`.
+> - Grid auto-flow resolves cells per pass (`GridLayout::ResolvePlacements`) and never writes
+>   the placement back; a child's `GridRow/GridColumn` stay -1 so reordering re-flows.
+> - `Dock` and `Align` enums moved to `:layout_style` (the style needs them before the layouts).
+> - Markup: `MarkupRegistry::LayoutAttributeNames()` + `ApplyLayoutAttribute` are the one
+>   vocabulary (loader, completion, tests); every element accepts every layout attribute
+>   whatever its parent, so `width/height/margin` on a ROOT element now take effect (they
+>   were silently dropped before - screen overlays and badges sized by markup changed).
+> - Unknown attributes stay cook WARNINGS (the tree still builds) rather than the hard load
+>   error in section 3: the editor's live preview and the pipeline's warning contract depend
+>   on partial loads while typing. The old `grow=`/`shrink=`/`dock=`/`gravity=` spellings are
+>   unknown attributes (no aliases). Promoting unknown attributes to a load error is P1's call.
+> - Hit-test visibility stays self-only (ToastHost/tool-float layers rely on children staying
+>   hittable); the passive-badge test now probes outside the badge.
 > Existing-implementation check (per the CONVENTIONS spec rule), everything cited
 > was read on 2026-09-09:
 > - Layout: `UI/Layout/LayoutParams.cppm` (base: Width/Height SizeSpec + Margin) and

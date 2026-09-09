@@ -120,10 +120,10 @@ namespace editor
         return was;
     }
 
-    RefPtr<ui::FlexLayoutParams> DebuggerPanel::MatchWidth()
+    ui::LayoutStyle DebuggerPanel::MatchWidth()
     {
-        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-        lp->Width = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
         return lp;
     }
 
@@ -131,9 +131,9 @@ namespace editor
     {
         auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-        lp->Width = ui::SizeSpec::Match();
-        lp->Margin = ui::Thickness{indent, 0, 0, 0};
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
+        lp.Margin = ui::Thickness{indent, 0, 0, 0};
         list.AddView(label.Get(), lp);
     }
 
@@ -162,13 +162,13 @@ namespace editor
             DebuggerPanel* self = this;
             const u64 ref = variable.objectRef;
             toggle->OnClick.Add([self, ref](ui::ButtonBase*) { self->ToggleExpand(ref); });
-            row->AddView(toggle.Get(), RefPtr<ui::FlexLayoutParams>{});
+            row->AddView(toggle.Get());
             auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text.AsView());
             label->FontSize.SetValue(12.0f);
-            row->AddView(label.Get(), RefPtr<ui::FlexLayoutParams>{});
-            auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Margin = ui::Thickness{indent, 0, 0, 0};
+            row->AddView(label.Get());
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Margin = ui::Thickness{indent, 0, 0, 0};
             m_localsList->AddView(row.Get(), lp);
             if (expanded && m_debugger != nullptr)
             {

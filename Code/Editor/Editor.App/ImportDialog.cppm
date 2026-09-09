@@ -68,9 +68,9 @@ export namespace editor::app
                     MemoryAllocator(), pipeline::ImportResourceKindLabel(kind), true);
                 header->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
                     AddView(header.Get(), lp);
                 }
                 for (const usize i : indices)
@@ -83,24 +83,24 @@ export namespace editor::app
                     check->OnCheckedChanged.Add([entry](ui::CheckBox*, bool checked)
                                                 { entry->enabled = checked; });
                     {
-                        auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(38.0f));
-                        lp->Height = ui::SizeSpec::Match();
+                        ui::LayoutStyle lp;
+                        lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(38.0f));
+                        lp.Height = ui::SizeSpec::Match();
                         row->AddView(check.Get(), lp);
                     }
                     rowChecks.PushBack(check);
                     auto name = MakeRef<ui::EditText>(MemoryAllocator());
                     name->SetText(entry->targetName.AsView());
                     {
-                        auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                        lp->Grow = 1.0f;
-                        lp->Height = ui::SizeSpec::Match();
+                        ui::LayoutStyle lp;
+                        lp.FlexGrow = 1.0f;
+                        lp.Height = ui::SizeSpec::Match();
                         row->AddView(name.Get(), lp);
                     }
                     m_nameEditors[i] = name;
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
                     AddView(row.Get(), lp);
                 }
                 pipeline::ImportPlan* planRef = m_plan;
@@ -184,18 +184,18 @@ export namespace editor::app
                 auto name = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Into:"));
                 name->FontSize.SetValue(11.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
                 m_destinationText = MakeRef<ui::Label>(MemoryAllocator(), destination);
                 m_destinationText->FontSize.SetValue(11.0f);
                 m_destinationText->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(m_destinationText.Get(), lp);
                 }
                 auto change = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Change..."));
@@ -204,14 +204,14 @@ export namespace editor::app
                 change->OnClick.Add([self](ui::ButtonBase*)
                                     { if (self->OnChangeDestination) self->OnChangeDestination(); });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(change.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 column->AddView(row.Get(), lp);
             }
 
@@ -238,9 +238,9 @@ export namespace editor::app
                     bool* value = toggle.value;
                     check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked)
                                                 { *value = checked; });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     column->AddView(check.Get(), lp);
                 }
             }
@@ -285,13 +285,13 @@ export namespace editor::app
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
-                contentLp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle contentLp;
+                contentLp.Width = ui::SizeSpec::Match();
                 scroll->AddView(m_planView.Get(), contentLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.FlexGrow = 1.0f;
             column.AddView(scroll.Get(), lp);
         }
 
@@ -304,23 +304,23 @@ export namespace editor::app
             auto name = MakeRef<ui::Label>(MemoryAllocator(), label);
             name->FontSize.SetValue(11.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(name.Get(), lp);
             }
             auto text = MakeRef<ui::Label>(MemoryAllocator(), value);
             text->FontSize.SetValue(11.0f);
             text->Ellipsis.SetValue(true);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(text.Get(), lp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18.0f));
             column.AddView(row.Get(), lp);
         }
 
@@ -432,18 +432,18 @@ export namespace editor::app
                 auto name = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Into:"));
                 name->FontSize.SetValue(11.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(52.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
                 m_destinationText = MakeRef<ui::Label>(MemoryAllocator(), destination);
                 m_destinationText->FontSize.SetValue(11.0f);
                 m_destinationText->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(m_destinationText.Get(), lp);
                 }
                 auto change = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Change..."));
@@ -452,14 +452,14 @@ export namespace editor::app
                 change->OnClick.Add([self](ui::ButtonBase*)
                                     { if (self->OnChangeDestination) self->OnChangeDestination(); });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(72.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(change.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 column->AddView(row.Get(), lp);
             }
 
@@ -476,19 +476,19 @@ export namespace editor::app
                 scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
                 scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
                 {
-                    auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
-                    contentLp->Width = ui::SizeSpec::Match();
+                    ui::LayoutStyle contentLp;
+                    contentLp.Width = ui::SizeSpec::Match();
                     scroll->AddView(m_detail.Get(), contentLp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = ui::SizeSpec::Match();
                 split->AddView(scroll.Get(), lp);
             }
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(split.Get(), lp);
             }
             SetContent(column.Get());
@@ -554,9 +554,9 @@ export namespace editor::app
                         self->SyncImportEnabled();
                     });
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(30.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(30.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(check.Get(), lp);
                 }
                 auto name = MakeRef<ui::Label>(MemoryAllocator(),
@@ -564,9 +564,9 @@ export namespace editor::app
                 name->FontSize.SetValue(12.0f);
                 name->Ellipsis.SetValue(true);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(name.Get(), lp);
                 }
                 if (entry->candidates.Size() > 1)
@@ -582,27 +582,27 @@ export namespace editor::app
                     combo->OnSelectionChanged.Add(
                         [self, i](ui::ComboBox*, i32 index)
                         { self->ChangeImporter(i, static_cast<usize>(Max(0, index))); });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
-                    lp->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
+                    lp.Height = ui::SizeSpec::Match();
                     row->AddView(combo.Get(), lp);
                 }
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
                 list->AddView(row.Get(), lp);
             }
             auto scroll = MakeRef<ui::ScrollView>(MemoryAllocator());
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto contentLp = MakeRef<ui::LayoutParams>(MemoryAllocator());
-                contentLp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle contentLp;
+                contentLp.Width = ui::SizeSpec::Match();
                 scroll->AddView(list.Get(), contentLp);
             }
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300.0f));
-            lp->Height = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300.0f));
+            lp.Height = ui::SizeSpec::Match();
             split.AddView(scroll.Get(), lp);
         }
 
@@ -684,9 +684,9 @@ export namespace editor::app
                                             pipeline::FileNameOf(entry.path.AsView()));
             title->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 m_detail->AddView(title.Get(), lp);
             }
 
@@ -695,9 +695,9 @@ export namespace editor::app
                 auto reading =
                     MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Reading file..."));
                 reading->FontSize.SetValue(12.0f);
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                 m_detail->AddView(reading.Get(), lp);
                 return;
             }
@@ -705,8 +705,8 @@ export namespace editor::app
             if (!entry.plan.IsEmpty())
             {
                 m_planView = MakeRef<ImportPlanView>(MemoryAllocator(), &entry.plan);
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 m_detail->AddView(m_planView.Get(), lp);
             }
             if (entry.options.Get() != nullptr)
@@ -727,9 +727,9 @@ export namespace editor::app
                     bool* value = toggle.value;
                     check->OnCheckedChanged.Add([value](ui::CheckBox*, bool checked)
                                                 { *value = checked; });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     m_detail->AddView(check.Get(), lp);
                 }
             }

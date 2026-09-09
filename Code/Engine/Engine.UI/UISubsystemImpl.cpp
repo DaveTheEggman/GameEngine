@@ -787,8 +787,8 @@ namespace engine::ui
                                 MarkupLoader::LoadFromString(m_context.Allocator(), document->markup.AsView(), &m_context);
                             if (c.root.Get() != nullptr)
                             {
-                                auto lp = MakeRef<AbsoluteLayoutParams>(m_allocator);
-                                c.root->LayoutParams = lp;
+                                // The root keeps its markup LayoutStyle; the billboard
+                                // layer (AbsoluteLayout) reads Left/Top set per frame below.
                                 sceneUI.billboardLayer->AddView(c.root.Get());
                             }
                         }
@@ -1360,15 +1360,11 @@ namespace engine::ui
                     }
                     const Float4 clip =
                         Float4{worldPos.x, worldPos.y, worldPos.z, 1.0f} * view.viewProjection;
-                    auto* lp = Cast<AbsoluteLayoutParams>(c.root->LayoutParams.Get());
-                    if (lp == nullptr)
-                    {
-                        return;
-                    }
+                    foundation::ui::LayoutStyle lp = c.root->Layout();
                     if (clip.w <= 0.0f)
                     {
-                        lp->X = -10000.0f; // behind the camera: clipped + unhit, no tree churn
-                        lp->Y = -10000.0f;
+                        lp.Left = -10000.0f; // behind the camera: clipped + unhit, no tree churn
+                        lp.Top = -10000.0f;
                     }
                     else
                     {
@@ -1383,9 +1379,10 @@ namespace engine::ui
                         const f32 px = (ndcX * 0.5f + 0.5f) * static_cast<f32>(view.viewportWidth);
                         const f32 py =
                             (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<f32>(view.viewportHeight);
-                        lp->X = px - c.root->Width() * 0.5f;
-                        lp->Y = py - c.root->Height();
+                        lp.Left = px - c.root->Width() * 0.5f;
+                        lp.Top = py - c.root->Height();
                     }
+                    c.root->SetLayout(lp);
                     f32 scale = 1.0f;
                     if (c.scaleMode == BillboardScale::Distance)
                     {

@@ -12,7 +12,7 @@
 //
 // OWNERSHIP: the view tree is RefPtr-owned (RAII). A ViewGroup keeps a RefPtr to each child;
 // AddView adds a ref, RemoveView drops it. This replaces Beef's raw-pointer-owned tree + manual
-// `delete`. LayoutParams (Object) is likewise RefPtr-held.
+// `delete`. Per-child placement is a LayoutStyle VALUE on the view (View::Layout / SetLayout).
 //
 // UNWIRED SEAMS (need not-yet-ported subsystems; documented seams, not bugs):
 //  - Input/Focus/DragDrop/Animation/Shortcut/Tooltip managers on UIContext (Input/Overlay/Animation
@@ -39,7 +39,7 @@ import :thickness;
 import :box_constraints;
 import :size_spec;
 import :unit;
-import :layout_params;
+import :layout_style;
 import :draw_context;     // UIDrawContext
 import :ui_debug_overlay; // UIDebugOverlay::DrawOverlays (debug draw after each child)
 import :drawable;
@@ -75,8 +75,7 @@ export namespace foundation::ui
     class
         PopupLayer; // defined in :popup_layer; RootView holds one (created lazily in the impl unit).
 
-    using LayoutParamsPtr = RefPtr<LayoutParams>;
-    // Aliases so the faithful field names `LayoutParams`/`Visibility` (which shadow their own types
+    // Aliases so faithful field names such as `Visibility` (which shadow their own types
     // inside the class) can still name those types elsewhere in the cluster.
     using VisibilityValue = Visibility;
     using TooltipPlacementValue = TooltipPlacement;
@@ -153,7 +152,20 @@ export namespace foundation::ui
         Rectangle Bounds{};
         [[nodiscard]] f32 Width() const noexcept { return Bounds.width; }
         [[nodiscard]] f32 Height() const noexcept { return Bounds.height; }
-        LayoutParamsPtr LayoutParams;
+
+        /// This view's placement intent (size specs, margin, and the per-container fields).
+        /// Read by whichever container holds the view; survives reparenting unchanged.
+        [[nodiscard]] const LayoutStyle& Layout() const noexcept { return m_layout; }
+        /// Replace the placement intent. Marks layout damage (geometry may change).
+        void SetLayout(const LayoutStyle& layout)
+        {
+            if (m_layout == layout)
+            {
+                return;
+            }
+            m_layout = layout;
+            Invalidate();
+        }
 
         // === Visibility & interaction ===
         VisibilityValue Visibility = VisibilityValue::Visible;
@@ -307,7 +319,7 @@ export namespace foundation::ui
         /// hand Layout the MARGIN box; the base insets to the border box).
         [[nodiscard]] Float2 MarginBoxSize() const
         {
-            const Thickness m = LayoutParams ? LayoutParams->Margin : Thickness{};
+            const Thickness m = m_layout.Margin;
             return Float2{MeasuredSize.x + m.TotalHorizontal(),
                           MeasuredSize.y + m.TotalVertical()};
         }
@@ -628,7 +640,7 @@ export namespace foundation::ui
             return ResolveStyle(prop).AsDrawable();
         }
 
-        /// Resolve this view's chrome ONCE: margin from LayoutParams; padding
+        /// Resolve this view's chrome ONCE: margin from the LayoutStyle; padding
         /// = max of the ViewGroup Padding field (via OwnPaddingField), the styled padding (or
         /// the control's DefaultStylePadding when no style sets one), and the background
         /// drawable's DrawablePadding; border from StyleProperty::BorderWidth. The single
@@ -636,7 +648,7 @@ export namespace foundation::ui
         [[nodiscard]] BoxMetrics ResolveBoxMetrics()
         {
             BoxMetrics m;
-            m.Margin = LayoutParams ? LayoutParams->Margin : Thickness{};
+            m.Margin = m_layout.Margin;
             const Optional<Thickness> styled = ResolveStyle(StyleProperty::Padding).AsThickness();
             const Thickness stylePad = styled.HasValue() ? styled.Value() : DefaultStylePadding();
             Thickness drawablePad{};
@@ -756,6 +768,7 @@ export namespace foundation::ui
         }
 
         bool m_needsRedraw = true;
+        LayoutStyle m_layout;
         RefPtr<StyleSheet> m_inlineSheet;
         RefPtr<StyleSheet> m_localStyleSheet;
         HashMap<String, void*> m_userData;
@@ -790,12 +803,29 @@ export namespace foundation::ui
             return (index < m_children.Size()) ? m_children[index].Get() : nullptr;
         }
 
-        /// Adds a child with optional layout params. Defined below (uses UIContext::AttachView).
-        virtual ViewGroup* AddView(View* child, LayoutParamsPtr lp = {});
+        /// Adds a child, keeping its current LayoutStyle. Defined below (uses UIContext::AttachView).
+        virtual ViewGroup* AddView(View* child);
+        /// Adds a child and sets its LayoutStyle in one step.
+        ViewGroup* AddView(View* child, const LayoutStyle& layout)
+        {
+            if (child != nullptr)
+            {
+                child->SetLayout(layout);
+            }
+            return AddView(child);
+        }
         /// Removes a child (dropping the tree's ref). Defined below (uses UIContext::DetachView).
         void RemoveView(View* child, bool deleteChild = false);
         void RemoveAllViews(bool deleteChildren = false);
-        void InsertView(View* child, usize index, LayoutParamsPtr lp = {});
+        void InsertView(View* child, usize index);
+        void InsertView(View* child, usize index, const LayoutStyle& layout)
+        {
+            if (child != nullptr)
+            {
+                child->SetLayout(layout);
+            }
+            InsertView(child, index);
+        }
         /// Moves an EXISTING child to `index` (clamped) - a pure reorder with NO
         /// Detach/Attach round-trip, so focus/hover/registration survive. For z-order
         /// maintenance (e.g. canvas order-stacking). Defined in the impl unit.
@@ -900,20 +930,15 @@ export namespace foundation::ui
         void OnDraw(UIDrawContext& ctx) override { DrawChildren(ctx); }
 
     protected:
-        virtual LayoutParamsPtr CreateDefaultLayoutParams()
-        {
-            return MakeRef<::foundation::ui::LayoutParams>(MemoryAllocator());
-        }
-
-        /// Build child constraints from parent constraints and the child's LayoutParams SizeSpec.
+        /// Build child constraints from parent constraints and the child's LayoutStyle SizeSpec.
         /// Loose-vs-fill child availability: Fixed and margin are handled
         /// by the base Measure; the parent's only spec decision left is whether a Match
         /// child fills the available box.
         [[nodiscard]] static BoxConstraints AvailForChild(f32 availW, f32 availH, View* child)
         {
-            const LayoutParamsPtr& lp = child->LayoutParams;
-            const bool fillW = lp && lp->Width.kind == SizeSpec::Kind::Match;
-            const bool fillH = lp && lp->Height.kind == SizeSpec::Kind::Match;
+            const LayoutStyle& ls = child->Layout();
+            const bool fillW = ls.Width.kind == SizeSpec::Kind::Match;
+            const bool fillH = ls.Height.kind == SizeSpec::Kind::Match;
             return BoxConstraints{fillW ? availW : 0.0f, availW, fillH ? availH : 0.0f, availH};
         }
 
@@ -1070,7 +1095,8 @@ export namespace foundation::ui
         [[nodiscard]] ViewGroup* PeekPopupLayer() const noexcept { return m_popupLayer.Get(); }
 
         /// Adds a child, keeping the PopupLayer as the last child for z-order.
-        ViewGroup* AddView(View* child, LayoutParamsPtr lp = {}) override
+        using ViewGroup::AddView; // keep the (child, LayoutStyle) overload visible
+        ViewGroup* AddView(View* child) override
         {
             if (child == nullptr)
             {
@@ -1078,14 +1104,14 @@ export namespace foundation::ui
             }
             if (child == m_popupLayer.Get())
             {
-                return ViewGroup::AddView(child, Move(lp));
+                return ViewGroup::AddView(child);
             } // the popup layer itself
             usize insertIndex = ChildCount();
             if (ChildCount() > 0 && GetChildAt(ChildCount() - 1) == m_popupLayer.Get())
             {
                 insertIndex = ChildCount() - 1;
             }
-            InsertView(child, insertIndex, Move(lp));
+            InsertView(child, insertIndex);
             return this;
         }
 

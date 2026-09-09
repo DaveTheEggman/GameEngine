@@ -315,13 +315,13 @@ namespace editor
         leftColumn->Spacing = 4.0f;
         leftColumn->Padding = ui::Thickness{6, 4};
         {
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             leftColumn->AddView(m_tree.Get(), grow);
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
             leftColumn->AddView(addBus.Get(), lp);
         }
 
@@ -334,12 +334,12 @@ namespace editor
         rightColumn->Spacing = 4.0f;
         rightColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             rightColumn->AddView(m_inspectorTitle.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             rightColumn->AddView(m_grid.Get(), grow);
         }
 
@@ -352,12 +352,12 @@ namespace editor
         auto column = MakeRef<ui::FlexLayout>(Allocator());
         column->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             column->AddView(split.Get(), grow);
         }
         m_content = column;

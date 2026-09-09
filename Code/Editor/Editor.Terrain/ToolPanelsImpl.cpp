@@ -211,7 +211,7 @@ namespace editor
                     SegmentedToggle* self = this;
                     btn->OnCheckedChanged.Add(
                         [self, i](ui::ToggleButton*, bool) { self->Choose(i); });
-                    AddView(btn.Get(), MakeRef<ui::LayoutParams>(MemoryAllocator()));
+                    AddView(btn.Get());
                 }
                 Refresh();
             }
@@ -255,9 +255,9 @@ namespace editor
         // The property grid fills the panel body so it resizes with the FloatingPanel.
         void AddGrid(ui::FlexLayout& root, RefPtr<ui::toolkit::PropertyGrid> grid)
         {
-            auto glp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-            glp->Width = ui::SizeSpec::Match();
-            glp->Grow = 1.0f;
+            ui::LayoutStyle glp;
+            glp.Width = ui::SizeSpec::Match();
+            glp.FlexGrow = 1.0f;
             root.AddView(grid.Get(), glp);
         }
 
@@ -280,8 +280,7 @@ namespace editor
                                                  icons.brushSmooth.Get(), icons.brushFlatten.Get()};
 
                 auto root = MakePanelRoot();
-                root->AddView(MakeRow(u8"Sculpt mode", 12.0f).Get(),
-                              MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                root->AddView(MakeRow(u8"Sculpt mode", 12.0f).Get());
 
                 auto modes = MakeRef<SegmentedToggle>(editor::EditorRootAllocator());
                 modes->Build(
@@ -297,7 +296,7 @@ namespace editor
                                                                  u8"Flatten"};
                         return kNames[i];
                     });
-                root->AddView(modes.Get(), MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                root->AddView(modes.Get());
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =
@@ -349,16 +348,13 @@ namespace editor
                 auto root = MakePanelRoot();
                 if (thumbs != nullptr && ls.count > 0)
                 {
-                    root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get(),
-                                  MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                    root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get());
                     auto baseSwatch = MakeRef<LayerSwatch>(editor::EditorRootAllocator(), thumbs, ls.baseId,
                                                            fallbackIcon, 24.0f);
                     baseSwatch->TooltipText = SwatchAssetName(ectx, ls.baseId);
-                    root->AddView(baseSwatch.Get(),
-                                  MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                    root->AddView(baseSwatch.Get());
                 }
-                root->AddView(MakeRow(u8"Paint layer", 12.0f).Get(),
-                              MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                root->AddView(MakeRow(u8"Paint layer", 12.0f).Get());
 
                 // Slots 0..N-1 = palette layers; slot N = the eraser; slot N+1 = smooth (blur).
                 // The palette is UNBOUNDED: the resolved terrain's real count always wins
@@ -422,7 +418,7 @@ namespace editor
                                    ? names[static_cast<usize>(i)].AsView()
                                    : StringView(u8"Paint layer");
                     });
-                root->AddView(layers.Get(), MakeRef<ui::LayoutParams>(editor::EditorRootAllocator()));
+                root->AddView(layers.Get());
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =

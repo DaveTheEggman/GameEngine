@@ -427,14 +427,14 @@ namespace editor
         column->Spacing = 6.0f;
         column->Padding = ui::Thickness{8, 6};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(m_info.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(m_grid.Get(), lp);
         }
         m_content = column;

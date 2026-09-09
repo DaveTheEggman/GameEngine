@@ -326,9 +326,9 @@ namespace editor
                 // via a wrapper with a Px LayoutParams - the same idiom InputMapPage uses.
                 auto wrap = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 wrap->Direction = ui::Orientation::Vertical;
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
                 wrap->AddView(canvas.Get(), lp);
                 return wrap;
             }
@@ -457,9 +457,9 @@ namespace editor
 
                 auto wrap = MakeRef<ui::FlexLayout>(MemoryAllocator());
                 wrap->Direction = ui::Orientation::Vertical;
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(40.0f));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(40.0f));
                 wrap->AddView(grad.Get(), lp);
                 return wrap;
             }
@@ -723,28 +723,28 @@ namespace editor
                     self->m_simSpeed = v;
                     self->m_preview->SetTimeScale(v);
                 });
-            auto slp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            slp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
+            ui::LayoutStyle slp;
+            slp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
             transport->AddView(speed.Get(), slp);
 
             m_statsLabel = MakeRef<ui::Label>(Allocator());
             m_statsLabel->FontSize.SetValue(12.0f);
             m_statsLabel->VAlign.SetValue(fonts::VerticalAlignment::Middle);
             m_statsLabel->SetText(u8"");
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
             transport->AddView(m_statsLabel.Get(), grow);
         }
 
         auto centerColumn = MakeRef<ui::FlexLayout>(Allocator());
         centerColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             centerColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             centerColumn->AddView(m_preview->View(), grow);
         }
 
@@ -783,12 +783,12 @@ namespace editor
         inspectorColumn->Spacing = 4.0f;
         inspectorColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_titleLabel.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_grid.Get(), grow);
         }
 

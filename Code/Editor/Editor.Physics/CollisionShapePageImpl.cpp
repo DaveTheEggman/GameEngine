@@ -58,13 +58,13 @@ namespace editor
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 6.0f;
         auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), labelText);
-        auto llp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-        llp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
-        llp->AlignSelf = ui::Align::Center;
+        ui::LayoutStyle llp;
+        llp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90.0f));
+        llp.AlignSelf = ui::Align::Center;
         row->AddView(label.Get(), llp);
         ui::FlexLayout* raw = row.Get();
-        auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-        lp->Width = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
         column.AddView(row.Get(), lp);
         return raw;
     }
@@ -97,9 +97,9 @@ namespace editor
         {
             ui::FlexLayout* row = AddLabeledRow(*column, u8"Source mesh");
             m_meshLabel = MakeRef<ui::Label>(Allocator(), StringView(u8""));
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
-            lp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.AlignSelf = ui::Align::Center;
             row->AddView(m_meshLabel.Get(), lp);
             auto pick = MakeRef<ui::Button>(Allocator(), StringView(u8"Pick..."));
             pick->OnClick.Add([self](ui::ButtonBase*) { self->PickMesh(); });
@@ -139,12 +139,12 @@ namespace editor
             row->AddView(cook.Get());
             m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
-            auto slp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            slp->Grow = 1.0f;
-            slp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle slp;
+            slp.FlexGrow = 1.0f;
+            slp.AlignSelf = ui::Align::Center;
             row->AddView(m_status.Get(), slp);
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             column->AddView(row.Get(), lp);
         }
 
@@ -163,12 +163,12 @@ namespace editor
         auto pageColumn = MakeRef<ui::FlexLayout>(Allocator());
         pageColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             pageColumn->AddView(m_toolbar.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             pageColumn->AddView(split.Get(), grow);
         }
         m_content = pageColumn;

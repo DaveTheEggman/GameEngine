@@ -142,9 +142,9 @@ export namespace editor::app
                         [self](ui::toolkit::BreadcrumbBar*, i32 segment)
                         { self->NavigateToBreadcrumb(segment); }});
                 {
-                    auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    grow->Grow = 1.0f;
-                    grow->Height = ui::SizeSpec::Match();
+                    ui::LayoutStyle grow;
+                    grow.FlexGrow = 1.0f;
+                    grow.Height = ui::SizeSpec::Match();
                     header->AddView(m_breadcrumb.Get(), grow);
                 }
                 m_listToggle = MakeRef<ui::ToggleButton>(MemoryAllocator(), StringView(u8"List"));
@@ -155,9 +155,9 @@ export namespace editor::app
                 header->AddView(m_listToggle.Get());
                 header->AddView(m_gridToggle.Get());
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26));
                     right->AddView(header.Get(), lp);
                 }
             }
@@ -171,8 +171,8 @@ export namespace editor::app
                         self->m_filter = String(edit->Text());
                         self->RebuildList();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 right->AddView(m_filterEdit.Get(), lp);
             }
             m_listAdapter = MakeUnique<ListAdapter>(MemoryAllocator(), *this);
@@ -215,13 +215,13 @@ export namespace editor::app
                 m_grid->OnItemKeyDown.Add(
                     [self](i32 position, ui::KeyEventArgs& e)
                     { self->OnRowKeyDown(&self->m_grid->Selection, position, e); });
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
-                grow->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
+                grow.Width = ui::SizeSpec::Match();
                 right->AddView(m_list.Get(), grow);
-                auto grow2 = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow2->Grow = 1.0f;
-                grow2->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle grow2;
+                grow2.FlexGrow = 1.0f;
+                grow2.Width = ui::SizeSpec::Match();
                 right->AddView(m_grid.Get(), grow2);
             }
 
@@ -492,8 +492,8 @@ export namespace editor::app
                 auto name = MakeRef<NameLabel>(m_owner->MemoryAllocator());
                 name->FontSize.SetValue(13.0f);
                 ConfigureNameLabel(*name, *m_owner);
-                auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 row->AddView(name.Get(), grow);
                 auto meta = MakeRef<ui::Label>(m_owner->MemoryAllocator());
                 meta->FontSize.SetValue(13.0f);
@@ -575,15 +575,15 @@ export namespace editor::app
                     true); // long asset names truncate with "..." instead of overflowing the tile
                 ConfigureNameLabel(*name, *m_owner);
                 {
-                    auto grow = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
-                    grow->Grow = 1.0f;
-                    grow->Width = ui::SizeSpec::Match();
+                    ui::LayoutStyle grow;
+                    grow.FlexGrow = 1.0f;
+                    grow.Width = ui::SizeSpec::Match();
                     tile->AddView(iconRow.Get(), grow);
                 }
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(m_owner->MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(18));
                     tile->AddView(name.Get(), lp);
                 }
                 return RefPtr<ui::View>(tile.Get());

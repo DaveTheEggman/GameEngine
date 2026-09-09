@@ -33,6 +33,8 @@ export namespace foundation::ui
         constexpr Unit() noexcept = default;
         constexpr Unit(Kind k, f32 v) noexcept : kind(k), value(v) {}
 
+        [[nodiscard]] constexpr bool operator==(const Unit&) const noexcept = default;
+
         /// Density-independent pixels - the LOGICAL layout unit (1dp = 1 device px at 96dpi).
         [[nodiscard]] static constexpr Unit Dp(f32 v) noexcept { return {Kind::Dp, v}; }
         /// Points (1/72 inch); used for font sizes.

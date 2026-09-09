@@ -446,8 +446,8 @@ namespace editor
         leftScroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
         leftScroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
         {
-            auto lp = MakeRef<ui::LayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             leftScroll->AddView(m_leftRows.Get(), lp);
         }
 
@@ -460,12 +460,12 @@ namespace editor
         inspectorColumn->Spacing = 4.0f;
         inspectorColumn->Padding = ui::Thickness{6, 4};
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_inspectorTitle.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             inspectorColumn->AddView(m_grid.Get(), grow);
         }
 
@@ -519,19 +519,19 @@ namespace editor
             m_previewStatus = MakeRef<ui::Label>(Allocator());
             m_previewStatus->FontSize.SetValue(Optional<f32>{12.0f});
             m_previewStatus->VAlign.SetValue(fonts::VerticalAlignment::Middle);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
             transport->AddView(m_previewStatus.Get(), grow);
         }
         auto previewColumn = MakeRef<ui::FlexLayout>(Allocator());
         previewColumn->Direction = ui::Orientation::Vertical;
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             previewColumn->AddView(transport.Get(), lp);
-            auto grow = MakeRef<ui::FlexLayoutParams>(Allocator());
-            grow->Grow = 1.0f;
-            grow->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
             previewColumn->AddView(m_preview->View(), grow);
         }
         auto centerSplit = MakeRef<ui::toolkit::SplitView>(Allocator());
@@ -763,9 +763,9 @@ namespace editor
                         onClick();
                     }
                 });
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_leftRows->AddView(button.Get(), lp);
         };
         auto addHeader = [&](StringView text)
@@ -773,9 +773,9 @@ namespace editor
             auto label = MakeRef<ui::Label>(Allocator());
             label->FontSize.SetValue(Optional<f32>{12.0f});
             label->SetText(text);
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
             m_leftRows->AddView(label.Get(), lp);
         };
 

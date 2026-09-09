@@ -229,8 +229,8 @@ namespace foundation::ui
         const BoxMetrics metrics = ResolveBoxMetrics();
         BoxConstraints box = c.Deflate(metrics.Margin);
 
-        const SizeSpec widthSpec = LayoutParams ? LayoutParams->Width : SizeSpec::Wrap();
-        const SizeSpec heightSpec = LayoutParams ? LayoutParams->Height : SizeSpec::Wrap();
+        const SizeSpec widthSpec = m_layout.Width;
+        const SizeSpec heightSpec = m_layout.Height;
         if (widthSpec.kind == SizeSpec::Kind::Fixed || heightSpec.kind == SizeSpec::Kind::Fixed)
         {
             RootView* root = Root();
@@ -267,7 +267,7 @@ namespace foundation::ui
     // of 1/dpi stay multiples).
     void View::Layout(f32 x, f32 y, f32 width, f32 height)
     {
-        const Thickness margin = LayoutParams ? LayoutParams->Margin : Thickness{};
+        const Thickness margin = m_layout.Margin;
         f32 bx = x + margin.Left;
         f32 by = y + margin.Top;
         f32 bw = Max(0.0f, width - margin.TotalHorizontal());
@@ -299,7 +299,7 @@ namespace foundation::ui
         return Cast<PopupLayer>(m_popupLayer.Get());
     }
 
-    ViewGroup* ViewGroup::AddView(View* child, LayoutParamsPtr lp)
+    ViewGroup* ViewGroup::AddView(View* child)
     {
         // Mutating the tree while it is being DRAWN corrupts the in-progress child walk (layout-
         // phase mutation is legitimate - virtualization realizes rows there). Defer draw-phase
@@ -323,15 +323,6 @@ namespace foundation::ui
             {
                 oldParent->RemoveView(child, false);
             }
-        }
-
-        if (lp)
-        {
-            child->LayoutParams = Move(lp);
-        }
-        else if (!child->LayoutParams)
-        {
-            child->LayoutParams = CreateDefaultLayoutParams();
         }
 
         child->Parent = this;
@@ -419,7 +410,7 @@ namespace foundation::ui
         Invalidate();
     }
 
-    void ViewGroup::InsertView(View* child, usize index, LayoutParamsPtr lp)
+    void ViewGroup::InsertView(View* child, usize index)
     {
         DIAGNOSTIC_ASSERT(Context == nullptr ||
                           Context->CurrentPhase() != UIContext::Phase::Drawing); // defer via MutationQueue
@@ -441,15 +432,6 @@ namespace foundation::ui
             {
                 oldParent->RemoveView(child, false);
             }
-        }
-
-        if (lp)
-        {
-            child->LayoutParams = Move(lp);
-        }
-        else if (!child->LayoutParams)
-        {
-            child->LayoutParams = CreateDefaultLayoutParams();
         }
 
         child->Parent = this;

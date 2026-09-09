@@ -141,9 +141,9 @@ namespace editor
         row->Direction = ui::Orientation::Horizontal;
         row->Spacing = 4.0f;
         row->Padding = ui::Thickness{indent, 0};
-        auto lp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
-        lp->Width = ui::SizeSpec::Match();
-        lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(height));
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
+        lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(height));
         m_rows->AddView(row.Get(), lp);
         return row;
     }
@@ -161,9 +161,9 @@ namespace editor
                     fn();
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
-        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
-        lp->Height = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+        lp.Height = ui::SizeSpec::Match();
         row.AddView(button.Get(), lp);
         return button.Get();
     }
@@ -172,16 +172,16 @@ namespace editor
     {
         auto label = MakeRef<ui::Label>((*m_allocator), text);
         label->FontSize.SetValue(12.0f);
-        auto lp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
+        ui::LayoutStyle lp;
         if (grow > 0.0f)
         {
-            lp->Grow = grow;
+            lp.FlexGrow = grow;
         }
         else if (width > 0.0f)
         {
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
         }
-        lp->Height = ui::SizeSpec::Match();
+        lp.Height = ui::SizeSpec::Match();
         row.AddView(label.Get(), lp);
     }
 
@@ -199,9 +199,9 @@ namespace editor
                     fn(committed);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
-        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
-        lp->Height = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+        lp.Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
     }
 
@@ -228,9 +228,9 @@ namespace editor
                     fn(parsed);
                 }
             });
-        auto lp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
-        lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
-        lp->Height = ui::SizeSpec::Match();
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(width));
+        lp.Height = ui::SizeSpec::Match();
         row.AddView(field.Get(), lp);
     }
 
@@ -255,9 +255,9 @@ namespace editor
         m_preview = MakeRef<ui::Label>((*self->m_allocator), StringView(u8""));
         m_preview->FontSize.SetValue(11.0f);
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>((*self->m_allocator));
-            lp->Grow = 1.0f;
-            lp->Height = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
+            lp.Height = ui::SizeSpec::Match();
             row->AddView(m_preview.Get(), lp);
         }
         RefreshPreview();
@@ -1096,13 +1096,13 @@ namespace editor
         // Inset the canvas by the dopesheet's label-column gutter so t=0 sits at the same screen x as
         // the lanes above - the curve lines up under the dopesheet (D1). No right inset (fills the rest).
         wrap->Padding = ui::Thickness{axis.labelColumnWidth, 0.0f, 0.0f, 0.0f};
-        auto lp = MakeRef<ui::FlexLayoutParams>((*self->m_allocator));
-        lp->Width = ui::SizeSpec::Match();
-        lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
+        ui::LayoutStyle lp;
+        lp.Width = ui::SizeSpec::Match();
+        lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(120.0f));
         wrap->AddView(canvas.Get(), lp);
-        auto wlp = MakeRef<ui::FlexLayoutParams>((*m_allocator));
-        wlp->Width = ui::SizeSpec::Match();
-        wlp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(122.0f));
+        ui::LayoutStyle wlp;
+        wlp.Width = ui::SizeSpec::Match();
+        wlp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(122.0f));
         m_rows->AddView(wrap.Get(), wlp);
     }
 

@@ -87,8 +87,8 @@ export namespace editor::app
             m_list->ItemHeight.SetValue(20.0f);
             m_list->SetAdapter(m_adapter.Get());
             {
-                auto grow = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 column->AddView(m_list.Get(), grow);
             }
 

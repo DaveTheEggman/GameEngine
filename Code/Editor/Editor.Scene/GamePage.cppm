@@ -132,9 +132,9 @@ export namespace editor
             m_localsList = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
             m_localsList->Direction = ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(editor::EditorRootAllocator());
-                lp->Grow = 1.0f;
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_localsList.Get(), lp);
             }
             m_root = column;
@@ -158,7 +158,7 @@ export namespace editor
         [[nodiscard]] bool ConsumeDirty() noexcept;
 
     private:
-        [[nodiscard]] static RefPtr<ui::FlexLayoutParams> MatchWidth();
+        [[nodiscard]] static ui::LayoutStyle MatchWidth();
 
         template <typename Fn>
         void AddToolButton(ui::FlexLayout& bar, StringView label, Fn onClick)
@@ -166,7 +166,7 @@ export namespace editor
             auto button = MakeRef<ui::Button>(editor::EditorRootAllocator(), label);
             button->FontSize.SetValue(12.0f);
             button->OnClick.Add([onClick](ui::ButtonBase*) { onClick(); });
-            bar.AddView(button.Get(), RefPtr<ui::FlexLayoutParams>{});
+            bar.AddView(button.Get());
         }
 
         void AddRow(ui::FlexLayout& list, StringView text, f32 indent);
@@ -281,38 +281,38 @@ export namespace editor
             m_statusLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Height = foundation::ui::SizeSpec::Match();
+                foundation::ui::LayoutStyle lp;
+                lp.Height = foundation::ui::SizeSpec::Match();
                 m_toolbar->AddView(m_statusLabel.Get(), lp);
             }
 
             auto column = MakeRef<foundation::ui::FlexLayout>(Allocator());
             column->Direction = foundation::ui::Orientation::Vertical;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
+                foundation::ui::LayoutStyle lp;
+                lp.Width = foundation::ui::SizeSpec::Match();
+                lp.Height = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(30));
                 column->AddView(m_toolbar.Get(), lp);
             }
             // The play stage: the game viewport (grows) beside the debugger panel (fixed).
             auto stage = MakeRef<ui::FlexLayout>(Allocator());
             stage->Direction = ui::Orientation::Horizontal;
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
-                lp->Height = foundation::ui::SizeSpec::Match();
+                foundation::ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_viewport.Get(), lp);
             }
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(300));
-                lp->Height = foundation::ui::SizeSpec::Match();
+                foundation::ui::LayoutStyle lp;
+                lp.Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(300));
+                lp.Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_debuggerPanel.RootView(), lp);
             }
             {
-                auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-                lp->Width = foundation::ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                foundation::ui::LayoutStyle lp;
+                lp.Width = foundation::ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(stage.Get(), lp);
             }
             m_content = column;

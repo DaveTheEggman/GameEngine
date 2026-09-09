@@ -6,10 +6,7 @@
 // Stacks children on top of each other, each positioned independently by Gravity. Simplest ViewGroup.
 // Ported from Sedulous.UI/src/Layout/FrameLayout.bf.
 //
-// Divergence (language): Beef's nested `FrameLayout.LayoutParams` becomes a distinct top-level
-// `FrameLayoutParams` (a nested `LayoutParams` would shadow View's inherited `LayoutParams` field).
-// The `Gravity` field's type is referenced via the `GravityValue` alias inside the class (the field
-// name shadows the enum type).
+// The child's anchor comes from its LayoutStyle::Gravity.
 
 module;
 #include "Core/Prelude.h"
@@ -18,8 +15,8 @@ module;
 export module foundation.ui:frame_layout;
 
 import foundation.core; // Max, RefPtr, Rectangle
-import :view;         // View, ViewGroup, LayoutParamsPtr
-import :layout_params;
+import :view;         // View, ViewGroup
+import :layout_style;
 import :box_constraints;
 import :thickness;
 import :gravity;
@@ -31,15 +28,6 @@ export namespace foundation::ui
 {
     using GravityValue = Gravity;
 
-    /// LayoutParams for a FrameLayout child: a Gravity anchor.
-    class FrameLayoutParams : public LayoutParams
-    {
-        RTTI_OBJECT(FrameLayoutParams, LayoutParams)
-    public:
-        GravityValue Gravity = GravityValue::None;
-        FrameLayoutParams() = default;
-    };
-
     class FrameLayout : public ViewGroup
     {
         RTTI_OBJECT(FrameLayout, ViewGroup)
@@ -47,11 +35,6 @@ export namespace foundation::ui
         FrameLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override
-        {
-            return MakeRef<FrameLayoutParams>(MemoryAllocator());
-        }
-
         void OnMeasure(BoxConstraints constraints) override
         {
             // Margin + Fixed live in the base Measure; the parent's
@@ -92,8 +75,7 @@ export namespace foundation::ui
                     continue;
                 }
 
-                FrameLayoutParams* flp = Cast<FrameLayoutParams>(child->LayoutParams.Get());
-                const GravityValue gravity = flp != nullptr ? flp->Gravity : GravityValue::None;
+                const GravityValue gravity = child->Layout().Gravity;
 
                 // Gravity positions the MARGIN box; the base Layout insets to the border box.
                 const Float2 mb = child->MarginBoxSize();
@@ -105,6 +87,5 @@ export namespace foundation::ui
         }
     };
 
-    RTTI_DEFINE_OBJECT(FrameLayoutParams, "rtti::ui")
     RTTI_DEFINE_OBJECT(FrameLayout, "rtti::ui")
 }

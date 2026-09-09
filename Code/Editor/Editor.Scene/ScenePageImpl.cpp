@@ -764,7 +764,7 @@ namespace editor
             }
             if (view != nullptr)
             {
-                overlay->AddView(view, MakeRef<foundation::ui::LayoutParams>(Allocator()));
+                overlay->AddView(view);
                 overlay->Visibility = foundation::ui::Visibility::Visible;
             }
             else
@@ -810,7 +810,7 @@ namespace editor
             }
             if (view != nullptr)
             {
-                slot->AddView(view, MakeRef<foundation::ui::LayoutParams>(Allocator()));
+                slot->AddView(view);
                 m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
             }
             break;
@@ -1169,8 +1169,8 @@ namespace editor
         // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
         {
             auto spacer = MakeRef<foundation::ui::Panel>(Allocator());
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-            lp->Grow = 1.0f;
+            foundation::ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             m_toolbar->AddView(spacer.Get(), lp);
         }
 
@@ -1187,8 +1187,8 @@ namespace editor
         m_simLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
         m_simLabel->FontSize.SetValue(13.0f);
         {
-            auto lp = MakeRef<foundation::ui::FlexLayoutParams>(Allocator());
-            lp->Height = foundation::ui::SizeSpec::Match();
+            foundation::ui::LayoutStyle lp;
+            lp.Height = foundation::ui::SizeSpec::Match();
             m_toolbar->AddView(m_simLabel.Get(), lp);
         }
         RefreshSimToolbar();
@@ -1455,15 +1455,15 @@ namespace editor
         container->Direction = ui::Orientation::Vertical;
         container->Visibility = ui::Visibility::Gone; // idle until a camera is previewed
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Match();
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             container->AddView(m_previewPin.Get(), lp);
         }
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(320.0f));
-            lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(static_cast<f32>(m_previewHeight)));
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(320.0f));
+            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(static_cast<f32>(m_previewHeight)));
             container->AddView(m_previewViewport.Get(), lp);
         }
         m_previewContainer = container;

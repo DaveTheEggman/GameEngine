@@ -80,18 +80,18 @@ export namespace editor::app
                 slider->Value.SetValue(uiScale);
                 m_uiScaleSlider = slider.Get();
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Grow = 1.0f;
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(slider.Get(), lp);
                 }
                 auto valueLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"1.00x"));
                 valueLabel->FontSize.SetValue(11.0f);
                 m_uiScaleLabel = valueLabel.Get();
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(44));
-                    lp->AlignSelf = ui::Align::Center;
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(44));
+                    lp.AlignSelf = ui::Align::Center;
                     row->AddView(valueLabel.Get(), lp);
                 }
                 UpdateScaleLabel(uiScale);
@@ -142,9 +142,9 @@ export namespace editor::app
                                 fieldPtr->set(checked);
                             }
                         });
-                    auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                    lp->Width = ui::SizeSpec::Match();
-                    lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
                     column->AddView(check.Get(), lp);
                 }
             }
@@ -155,8 +155,8 @@ export namespace editor::app
             scroll->VScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Auto);
             scroll->HScrollBarPolicy.SetValue(ui::ScrollBarPolicy::Never);
             {
-                auto lp = MakeRef<ui::LayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 scroll->AddView(column.Get(), lp);
             }
             SetContent(scroll.Get());
@@ -192,15 +192,15 @@ export namespace editor::app
             row->Spacing = 8;
             {
                 auto text = MakeRef<ui::Label>(MemoryAllocator(), label);
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
-                lp->AlignSelf = ui::Align::Center;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
+                lp.AlignSelf = ui::Align::Center;
                 row->AddView(text.Get(), lp);
             }
             ui::FlexLayout* raw = row.Get();
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column.AddView(row.Get(), lp);
             }
             return raw;
@@ -212,8 +212,8 @@ export namespace editor::app
             auto edit = MakeRef<ui::EditText>(MemoryAllocator());
             edit->SetText(value);
             ui::EditText* raw = edit.Get();
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Grow = 1.0f;
+            ui::LayoutStyle lp;
+            lp.FlexGrow = 1.0f;
             row->AddView(edit.Get(), lp);
             return raw;
         }

@@ -40,15 +40,15 @@ namespace editor::app
         row->Spacing = 8;
         {
             auto text = MakeRef<ui::Label>(MemoryAllocator(), label);
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
-            lp->AlignSelf = ui::Align::Center;
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110));
+            lp.AlignSelf = ui::Align::Center;
             row->AddView(text.Get(), lp);
         }
         ui::FlexLayout* raw = row.Get();
         {
-            auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-            lp->Width = ui::SizeSpec::Match();
+            ui::LayoutStyle lp;
+            lp.Width = ui::SizeSpec::Match();
             column.AddView(row.Get(), lp);
         }
         return raw;
@@ -61,8 +61,8 @@ namespace editor::app
         auto edit = MakeRef<ui::EditText>(MemoryAllocator());
         edit->SetText(value);
         ui::EditText* raw = edit.Get();
-        auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-        lp->Grow = 1.0f;
+        ui::LayoutStyle lp;
+        lp.FlexGrow = 1.0f;
         row->AddView(edit.Get(), lp);
         return raw;
     }

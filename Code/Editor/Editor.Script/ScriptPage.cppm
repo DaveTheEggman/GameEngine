@@ -219,9 +219,9 @@ export namespace editor
             };
 
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_editor.Get(), lp);
             }
 
@@ -235,8 +235,8 @@ export namespace editor
                 m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
                 m_status->FontSize.SetValue(12.0f);
                 {
-                    auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                    lp->Grow = 1.0f;
+                    ui::LayoutStyle lp;
+                    lp.FlexGrow = 1.0f;
                     statusRow->AddView(m_status.Get(), lp);
                 }
 
@@ -253,8 +253,8 @@ export namespace editor
                     });
                 statusRow->AddView(apiToggle.Get());
 
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(statusRow.Get(), lp);
             }
 
@@ -266,9 +266,9 @@ export namespace editor
             m_errorView->Multiline.SetValue(true);
             m_errorView->IsReadOnly.SetValue(true);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(96));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(96));
                 column->AddView(m_errorView.Get(), lp);
             }
 
@@ -277,9 +277,9 @@ export namespace editor
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Grow = 1.0f;
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(column.Get(), lp);
             }
             m_apiBrowser.SetSurface(&m_apiSurface);
@@ -287,9 +287,9 @@ export namespace editor
             { self->m_editor->InsertAtCursor(text); };
             m_apiBrowser.Root()->Visibility = ui::Visibility::Gone;
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300));
-                lp->Height = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(300));
+                lp.Height = ui::SizeSpec::Match();
                 row->AddView(m_apiBrowser.Root(), lp);
             }
 

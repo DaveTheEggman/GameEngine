@@ -114,10 +114,10 @@ TEST_CASE("box-model: Fixed(100) child is 100 in Dock, Flow, Grid, and Panel (wa
     auto makeFixedChild = []
     {
         auto v = core::MakeRef<TestView>(core::DefaultAllocator(), 10.0f, 10.0f);
-        auto lp = core::MakeRef<LayoutParams>(core::DefaultAllocator());
-        lp->Width = SizeSpec::Fixed(Unit::Dp(100.0f));
-        lp->Height = SizeSpec::Fixed(Unit::Dp(40.0f));
-        v->LayoutParams = LayoutParamsPtr(lp.Get());
+        LayoutStyle lp;
+        lp.Width = SizeSpec::Fixed(Unit::Dp(100.0f));
+        lp.Height = SizeSpec::Fixed(Unit::Dp(40.0f));
+        v->SetLayout(lp);
         return v;
     };
 
@@ -156,9 +156,9 @@ TEST_CASE("box-model: margins are honored in FlowLayout (rows advance by the mar
     root->AddView(flow.Get());
 
     auto a = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 20.0f);
-    auto lpA = core::MakeRef<LayoutParams>(core::DefaultAllocator());
-    lpA->Margin = Thickness{5, 5, 5, 5};
-    a->LayoutParams = LayoutParamsPtr(lpA.Get());
+    LayoutStyle lpA;
+    lpA.Margin = Thickness{5, 5, 5, 5};
+    a->SetLayout(lpA);
     auto b = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 20.0f);
     flow->AddView(a.Get());
     flow->AddView(b.Get());

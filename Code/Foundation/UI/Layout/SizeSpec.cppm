@@ -63,5 +63,7 @@ export namespace foundation::ui
 
         /// Whether this is a fixed size (not Match or Wrap).
         [[nodiscard]] constexpr bool IsFixed() const noexcept { return kind == Kind::Fixed; }
+
+        [[nodiscard]] constexpr bool operator==(const SizeSpec&) const noexcept = default;
     };
 }

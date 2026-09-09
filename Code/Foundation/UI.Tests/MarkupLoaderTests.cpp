@@ -170,7 +170,7 @@ TEST_CASE("markup: PaddingAttribute")
 
 // === Layout params ===
 
-TEST_CASE("markup: WidthHeight_LayoutParams")
+TEST_CASE("markup: WidthHeight_LayoutStyle")
 {
     EnsureInit();
     auto view =
@@ -180,12 +180,11 @@ TEST_CASE("markup: WidthHeight_LayoutParams")
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     REQUIRE(flex != nullptr);
     View* child = flex->GetChildAt(0);
-    REQUIRE(child->LayoutParams);
-    CHECK(child->LayoutParams->Width.kind == SizeSpec::Kind::Fixed);
-    CHECK(child->LayoutParams->Height.kind == SizeSpec::Kind::Fixed);
+    CHECK(child->Layout().Width.kind == SizeSpec::Kind::Fixed);
+    CHECK(child->Layout().Height.kind == SizeSpec::Kind::Fixed);
 }
 
-TEST_CASE("markup: MatchWrap_LayoutParams")
+TEST_CASE("markup: MatchWrap_LayoutStyle")
 {
     EnsureInit();
     auto view =
@@ -194,39 +193,41 @@ TEST_CASE("markup: MatchWrap_LayoutParams")
                                      u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
-    CHECK(child->LayoutParams->Width.kind == SizeSpec::Kind::Match);
-    CHECK(child->LayoutParams->Height.kind == SizeSpec::Kind::Wrap);
+    CHECK(child->Layout().Width.kind == SizeSpec::Kind::Match);
+    CHECK(child->Layout().Height.kind == SizeSpec::Kind::Wrap);
 }
 
-TEST_CASE("markup: FlexGrow_LayoutParam")
+TEST_CASE("markup: FlexGrow_LayoutStyle")
 {
     EnsureInit();
-    auto view = MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Flex direction=\"horizontal\">\n"
-                                             u8"  <Button text=\"A\" grow=\"1\"/>\n"
-                                             u8"  <Button text=\"B\" grow=\"2\"/>\n"
-                                             u8"</Flex>");
+    auto view = MarkupLoader::LoadFromString(
+        DefaultAllocator(),
+        u8"<Flex direction=\"horizontal\">\n"
+        u8"  <Button text=\"A\" flex-grow=\"1\"/>\n"
+        u8"  <Button text=\"B\" flex-grow=\"2\" flex-shrink=\"0.5\" align-self=\"center\"/>\n"
+        u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
-    FlexLayoutParams* alpA = Cast<FlexLayoutParams>(flex->GetChildAt(0)->LayoutParams.Get());
-    FlexLayoutParams* alpB = Cast<FlexLayoutParams>(flex->GetChildAt(1)->LayoutParams.Get());
-    REQUIRE(alpA != nullptr);
-    CHECK(alpA->Grow == 1);
-    REQUIRE(alpB != nullptr);
-    CHECK(alpB->Grow == 2);
+    REQUIRE(flex != nullptr);
+    CHECK(flex->GetChildAt(0)->Layout().FlexGrow == 1);
+    CHECK(flex->GetChildAt(1)->Layout().FlexGrow == 2);
+    CHECK(flex->GetChildAt(1)->Layout().FlexShrink == doctest::Approx(0.5f));
+    REQUIRE(flex->GetChildAt(1)->Layout().AlignSelf.HasValue());
+    CHECK(flex->GetChildAt(1)->Layout().AlignSelf.Value() == Align::Center);
+    CHECK(!flex->GetChildAt(0)->Layout().AlignSelf.HasValue());
 }
 
-TEST_CASE("markup: FrameGravity_LayoutParam")
+TEST_CASE("markup: FrameGravity_LayoutStyle")
 {
     EnsureInit();
     auto view = MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Frame>\n"
                                              u8"  <Label text=\"Centered\" gravity=\"Center\"/>\n"
                                              u8"</Frame>");
     FrameLayout* frame = Cast<FrameLayout>(view.Get());
-    FrameLayoutParams* flp = Cast<FrameLayoutParams>(frame->GetChildAt(0)->LayoutParams.Get());
-    REQUIRE(flp != nullptr);
-    CHECK(flp->Gravity == Gravity::Center);
+    REQUIRE(frame != nullptr);
+    CHECK(frame->GetChildAt(0)->Layout().Gravity == Gravity::Center);
 }
 
-TEST_CASE("markup: DockLayout_Param")
+TEST_CASE("markup: Dock_LayoutStyle")
 {
     EnsureInit();
     auto view = MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Dock>\n"
@@ -234,10 +235,80 @@ TEST_CASE("markup: DockLayout_Param")
                                              u8"  <Label text=\"Fill\" dock=\"fill\"/>\n"
                                              u8"</Dock>");
     DockLayout* dock = Cast<DockLayout>(view.Get());
+    REQUIRE(dock != nullptr);
     CHECK(dock->ChildCount() == 2);
-    DockLayoutParams* dlp = Cast<DockLayoutParams>(dock->GetChildAt(0)->LayoutParams.Get());
-    REQUIRE(dlp != nullptr);
-    CHECK(dlp->Dock == Dock::Top);
+    CHECK(dock->GetChildAt(0)->Layout().Dock == Dock::Top);
+    CHECK(dock->GetChildAt(1)->Layout().Dock == Dock::Fill);
+}
+
+TEST_CASE("markup: Grid_And_Absolute_LayoutStyle")
+{
+    EnsureInit();
+    auto view = MarkupLoader::LoadFromString(
+        DefaultAllocator(),
+        u8"<Grid>\n"
+        u8"  <Label text=\"Cell\" grid-row=\"1\" grid-column=\"2\" grid-row-span=\"3\""
+        u8" grid-column-span=\"4\" left=\"7\" top=\"9\"/>\n"
+        u8"</Grid>");
+    GridLayout* grid = Cast<GridLayout>(view.Get());
+    REQUIRE(grid != nullptr);
+    const LayoutStyle& ls = grid->GetChildAt(0)->Layout();
+    CHECK(ls.GridRow == 1);
+    CHECK(ls.GridColumn == 2);
+    CHECK(ls.GridRowSpan == 3);
+    CHECK(ls.GridColumnSpan == 4);
+    CHECK(ls.Left == 7);
+    CHECK(ls.Top == 9);
+}
+
+TEST_CASE("markup: LayoutAttributes_ApplyRegardlessOfParent")
+{
+    // The vocabulary is the same on every element: a Frame child may carry flex-grow and
+    // dock (they wait for a Flex/Dock parent), and width/height/margin apply even at the root.
+    EnsureInit();
+    auto view = MarkupLoader::LoadFromString(
+        DefaultAllocator(), u8"<Frame width=\"300\" margin=\"4\">\n"
+                            u8"  <Label text=\"X\" flex-grow=\"1\" dock=\"right\" gravity=\"Bottom\"/>\n"
+                            u8"</Frame>");
+    REQUIRE(view.Get() != nullptr);
+    CHECK(view->Layout().Width.kind == SizeSpec::Kind::Fixed);
+    CHECK(view->Layout().Margin.Left == 4);
+    FrameLayout* frame = Cast<FrameLayout>(view.Get());
+    REQUIRE(frame != nullptr);
+    const LayoutStyle& ls = frame->GetChildAt(0)->Layout();
+    CHECK(ls.FlexGrow == 1);
+    CHECK(ls.Dock == Dock::Right);
+    CHECK(ls.Gravity == Gravity::Bottom);
+}
+
+TEST_CASE("markup: OldParentTypedAttributes_AreUnknown")
+{
+    // No aliases: the pre-LayoutStyle `grow=` spelling is an unknown attribute (surfaced as
+    // a diagnostic), not silently mapped.
+    EnsureInit();
+    Array<String> warnings;
+    auto view = MarkupLoader::LoadFromString(DefaultAllocator(),
+                                             u8"<Flex><Button text=\"A\" grow=\"1\"/></Flex>",
+                                             nullptr, &warnings);
+    REQUIRE(view.Get() != nullptr);
+    REQUIRE(warnings.Size() == 1);
+    CHECK(warnings[0].AsView().StartsWith(u8"unknown attribute 'grow'"));
+    CHECK(Cast<FlexLayout>(view.Get())->GetChildAt(0)->Layout().FlexGrow == 0);
+}
+
+TEST_CASE("markup: LayoutAttributeNames_CoverTheVocabulary")
+{
+    Array<String> names;
+    MarkupRegistry::CollectAttributeNames(u8"Label", names);
+    for (const StringView& expected : MarkupRegistry::LayoutAttributeNames())
+    {
+        bool found = false;
+        for (const String& n : names)
+        {
+            found = found || n.AsView() == expected;
+        }
+        CHECK_MESSAGE(found, "missing layout attribute in completion vocabulary");
+    }
 }
 
 // === Control properties ===
@@ -448,8 +519,8 @@ TEST_CASE("markup: Margin_LayoutParam")
                                              u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
-    CHECK(child->LayoutParams->Margin.Top == 4);
-    CHECK(child->LayoutParams->Margin.Left == 8);
+    CHECK(child->Layout().Margin.Top == 4);
+    CHECK(child->Layout().Margin.Left == 8);
 }
 
 // === Style resolution with markup (theme) ===

@@ -5,7 +5,7 @@
 //
 // Docks children to edges (Left/Top/Right/Bottom/Fill); each docked child claims space from its edge,
 // shrinking the remaining area for subsequent children. Ported from Sedulous.UI/src/Layout/DockLayout.bf.
-// (Beef nested `DockLayout.LayoutParams` -> top-level `DockLayoutParams`.)
+// The child's side comes from its LayoutStyle::Dock.
 
 module;
 #include "Core/Prelude.h"
@@ -15,7 +15,7 @@ export module foundation.ui:dock_layout;
 
 import foundation.core; // Max
 import :view;
-import :layout_params;
+import :layout_style; // Dock, LayoutStyle
 import :box_constraints;
 import :thickness;
 
@@ -23,26 +23,6 @@ using namespace foundation::core;
 
 export namespace foundation::ui
 {
-    /// Dock position for a DockLayout child.
-    enum class Dock
-    {
-        Left,
-        Top,
-        Right,
-        Bottom,
-        Fill
-    };
-
-    /// LayoutParams for a DockLayout child.
-    class DockLayoutParams : public LayoutParams
-    {
-        RTTI_OBJECT(DockLayoutParams, LayoutParams)
-    public:
-        ::foundation::ui::Dock Dock = ::foundation::ui::Dock::Left;
-        DockLayoutParams() = default;
-        explicit DockLayoutParams(::foundation::ui::Dock dock) : Dock(dock) {}
-    };
-
     class DockLayout : public ViewGroup
     {
         RTTI_OBJECT(DockLayout, ViewGroup)
@@ -53,11 +33,6 @@ export namespace foundation::ui
         DockLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override
-        {
-            return MakeRef<DockLayoutParams>(MemoryAllocator());
-        }
-
         void OnMeasure(BoxConstraints constraints) override
         {
             const Thickness chrome = ResolveBoxMetrics().Chrome();
@@ -72,8 +47,7 @@ export namespace foundation::ui
                     continue;
                 }
 
-                DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
-                const foundation::ui::Dock dock = lp != nullptr ? lp->Dock : foundation::ui::Dock::Left;
+                const foundation::ui::Dock dock = child->Layout().Dock;
 
                 // Margin is base-handled: pass the remaining space as the
                 // child's margin-box availability; aggregate margin-box sizes.
@@ -132,8 +106,7 @@ export namespace foundation::ui
                     continue;
                 }
 
-                DockLayoutParams* lp = Cast<DockLayoutParams>(child->LayoutParams.Get());
-                const foundation::ui::Dock dock = lp != nullptr ? lp->Dock : foundation::ui::Dock::Left;
+                const foundation::ui::Dock dock = child->Layout().Dock;
                 const bool isFill =
                     (LastChildFill && i == count - 1) || dock == foundation::ui::Dock::Fill;
 
@@ -173,6 +146,5 @@ export namespace foundation::ui
         }
     };
 
-    RTTI_DEFINE_OBJECT(DockLayoutParams, "rtti::ui")
     RTTI_DEFINE_OBJECT(DockLayout, "rtti::ui")
 }

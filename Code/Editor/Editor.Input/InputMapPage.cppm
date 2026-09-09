@@ -73,9 +73,9 @@ export namespace editor
             m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
             m_status->FontSize.SetValue(12.0f);
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Height = ui::SizeSpec::Fixed(ui::Unit::Dp(20));
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(20));
                 column->AddView(m_status.Get(), lp);
             }
 
@@ -85,9 +85,9 @@ export namespace editor
             m_rows->Spacing = 2.0f;
             m_scroll->AddView(m_rows.Get());
             {
-                auto lp = MakeRef<ui::FlexLayoutParams>(Allocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(m_scroll.Get(), lp);
             }
             m_content = column;

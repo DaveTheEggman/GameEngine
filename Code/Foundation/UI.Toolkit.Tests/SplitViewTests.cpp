@@ -60,9 +60,9 @@ TEST_CASE("toolkit-splitview: pane collapse shrinks to content, hides divider, p
     second->Direction = Orientation::Vertical;
     auto bar = core::MakeRef<Panel>(core::DefaultAllocator());
     {
-        auto lp = core::MakeRef<FlexLayoutParams>(core::DefaultAllocator());
-        lp->Width = SizeSpec::Match();
-        lp->Height = SizeSpec::Fixed(Unit::Px(26.0f));
+        LayoutStyle lp;
+        lp.Width = SizeSpec::Match();
+        lp.Height = SizeSpec::Fixed(Unit::Px(26.0f));
         second->AddView(bar.Get(), lp);
     }
     split->SetPanes(first.Get(), second.Get());

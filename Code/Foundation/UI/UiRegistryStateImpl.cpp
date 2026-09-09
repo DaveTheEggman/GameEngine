@@ -25,16 +25,6 @@ namespace foundation::ui
         static HashMap<String, PropertySetter> v;
         return v;
     }
-    HashMap<String, MarkupRegistry::LayoutParamsFactory>& MarkupRegistry::LayoutFactories()
-    {
-        static HashMap<String, LayoutParamsFactory> v;
-        return v;
-    }
-    HashMap<String, MarkupRegistry::LayoutParamSetter>& MarkupRegistry::LayoutParams_()
-    {
-        static HashMap<String, LayoutParamSetter> v;
-        return v;
-    }
 } // namespace foundation::ui
 
 namespace foundation::ui

@@ -4,9 +4,8 @@
 // UI - :flex_layout partition
 //
 // CSS Flexbox-inspired container: grow distribution, justify-content, cross-axis alignment. Ported
-// from Sedulous.UI/src/Layout/FlexLayout.bf. (Beef nested LayoutParams -> FlexLayoutParams; ComputeJustify
-// ref params -> f32& out params; the unused-in-layout Gravity field is fully qualified to dodge the
-// field/type name clash.)
+// from Sedulous.UI/src/Layout/FlexLayout.bf. Per-child FlexGrow/FlexShrink/AlignSelf come from the
+// child's LayoutStyle. (Beef ComputeJustify ref params -> f32& out params.)
 
 module;
 #include "Core/Prelude.h"
@@ -16,7 +15,7 @@ export module foundation.ui:flex_layout;
 
 import foundation.core; // Max, Optional, RefPtr
 import :view;
-import :layout_params;
+import :layout_style; // Align, LayoutStyle
 import :box_constraints;
 import :size_spec;
 import :unit;
@@ -38,28 +37,6 @@ export namespace foundation::ui
         SpaceAround,
         SpaceEvenly
     };
-    /// Cross-axis alignment.
-    enum class Align
-    {
-        Start,
-        End,
-        Center,
-        Stretch,
-        Baseline
-    };
-
-    /// LayoutParams for a FlexLayout child.
-    class FlexLayoutParams : public LayoutParams
-    {
-        RTTI_OBJECT(FlexLayoutParams, LayoutParams)
-    public:
-        f32 Grow = 0.0f;           ///< Extra main-axis space this child absorbs.
-        f32 Shrink = 0.0f;         ///< How much this child shrinks when space is insufficient.
-        Optional<Align> AlignSelf; ///< Cross-axis override (empty = parent AlignItems).
-        ::foundation::ui::Gravity Gravity = ::foundation::ui::Gravity::None; ///< Cross-axis gravity.
-        FlexLayoutParams() = default;
-    };
-
     class FlexLayout : public ViewGroup
     {
         RTTI_OBJECT(FlexLayout, ViewGroup)
@@ -72,11 +49,6 @@ export namespace foundation::ui
         FlexLayout() = default;
 
     protected:
-        LayoutParamsPtr CreateDefaultLayoutParams() override
-        {
-            return MakeRef<FlexLayoutParams>(MemoryAllocator());
-        }
-
         void OnMeasure(BoxConstraints constraints) override
         {
             const BoxConstraints inner = constraints.Deflate(Padding);
@@ -105,23 +77,10 @@ export namespace foundation::ui
         }
 
     private:
-        static SizeSpec ChildWidth(View* child)
-        {
-            return child->LayoutParams ? child->LayoutParams->Width : SizeSpec::Wrap();
-        }
-        static SizeSpec ChildHeight(View* child)
-        {
-            return child->LayoutParams ? child->LayoutParams->Height : SizeSpec::Wrap();
-        }
-        static Thickness ChildMargin(View* child)
-        {
-            return child->LayoutParams ? child->LayoutParams->Margin : Thickness{};
-        }
-        static f32 Grow(View* child)
-        {
-            FlexLayoutParams* flp = Cast<FlexLayoutParams>(child->LayoutParams.Get());
-            return flp != nullptr ? flp->Grow : 0.0f;
-        }
+        static SizeSpec ChildWidth(View* child) { return child->Layout().Width; }
+        static SizeSpec ChildHeight(View* child) { return child->Layout().Height; }
+        static Thickness ChildMargin(View* child) { return child->Layout().Margin; }
+        static f32 Grow(View* child) { return child->Layout().FlexGrow; }
 
         /// The SEMANTIC part of Flex's first measurement pass, kept parent-side by design:
         /// Match fills the axis, but Match on the CROSS axis is demoted
@@ -373,10 +332,8 @@ export namespace foundation::ui
                 }
                 first = false;
 
-                FlexLayoutParams* flp = Cast<FlexLayoutParams>(child->LayoutParams.Get());
-                const Align align = (flp != nullptr && flp->AlignSelf.HasValue())
-                                        ? flp->AlignSelf.Value()
-                                        : AlignItems;
+                const Optional<Align>& alignSelf = child->Layout().AlignSelf;
+                const Align align = alignSelf.HasValue() ? alignSelf.Value() : AlignItems;
 
                 // MARGIN-box placement (base insets by margin once).
                 const Float2 mb = child->MarginBoxSize();
@@ -447,10 +404,8 @@ export namespace foundation::ui
                 }
                 first = false;
 
-                FlexLayoutParams* flp = Cast<FlexLayoutParams>(child->LayoutParams.Get());
-                const Align align = (flp != nullptr && flp->AlignSelf.HasValue())
-                                        ? flp->AlignSelf.Value()
-                                        : AlignItems;
+                const Optional<Align>& alignSelf = child->Layout().AlignSelf;
+                const Align align = alignSelf.HasValue() ? alignSelf.Value() : AlignItems;
 
                 const Float2 mb = child->MarginBoxSize(); // margin-box placement (P2b)
 
@@ -520,6 +475,5 @@ export namespace foundation::ui
         }
     };
 
-    RTTI_DEFINE_OBJECT(FlexLayoutParams, "rtti::ui")
     RTTI_DEFINE_OBJECT(FlexLayout, "rtti::ui")
 }

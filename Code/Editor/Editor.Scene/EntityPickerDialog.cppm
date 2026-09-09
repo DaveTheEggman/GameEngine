@@ -60,8 +60,8 @@ export namespace editor
                         self->m_filter = String(edit->Text());
                         self->RebuildTree();
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
                 column->AddView(m_filterEdit.Get(), lp);
             }
 
@@ -83,9 +83,9 @@ export namespace editor
                             }
                         }
                     });
-                auto lp = MakeRef<ui::FlexLayoutParams>(MemoryAllocator());
-                lp->Width = ui::SizeSpec::Match();
-                lp->Grow = 1.0f;
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                lp.FlexGrow = 1.0f;
                 column->AddView(m_tree.Get(), lp);
             }
             SetContent(column.Get());
@@ -171,8 +171,8 @@ export namespace editor
                 auto row = MakeRef<ui::FlexLayout>(foundation::core::DefaultAllocator());
                 auto label = MakeRef<ui::Label>(foundation::core::DefaultAllocator());
                 label->FontSize.SetValue(Optional<f32>{12.0f});
-                auto grow = MakeRef<ui::FlexLayoutParams>(foundation::core::DefaultAllocator());
-                grow->Grow = 1.0f;
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
                 row->AddView(label.Get(), grow);
                 return RefPtr<ui::View>(row.Get());
             }

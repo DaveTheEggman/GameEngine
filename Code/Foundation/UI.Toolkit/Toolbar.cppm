@@ -220,8 +220,8 @@ export namespace foundation::ui::toolkit
         /// Add any ToolbarItem (or View). The child tree takes a ref.
         void AddItem(View* item)
         {
-            RefPtr<FlexLayoutParams> lp = MakeRef<FlexLayoutParams>(MemoryAllocator());
-            lp->Height = SizeSpec::Match();
+            LayoutStyle lp;
+            lp.Height = SizeSpec::Match();
             AddView(item, lp);
         }
 

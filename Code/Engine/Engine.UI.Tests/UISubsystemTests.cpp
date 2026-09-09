@@ -243,14 +243,12 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     view.viewportHeight = 600;
     ui->UpdateSceneView(*scene, view);
 
-    auto* lpFront = Cast<AbsoluteLayoutParams>(a.root->LayoutParams.Get());
-    auto* lpBehind = Cast<AbsoluteLayoutParams>(b.root->LayoutParams.Get());
-    REQUIRE(lpFront != nullptr);
-    REQUIRE(lpBehind != nullptr);
-    CHECK(lpFront->X == doctest::Approx(400.0f)); // on-axis -> target center
-    CHECK(lpFront->Y == doctest::Approx(300.0f));
-    CHECK(lpBehind->X == doctest::Approx(-10000.0f)); // behind the camera -> parked
-    CHECK(lpBehind->Y == doctest::Approx(-10000.0f));
+    const foundation::ui::LayoutStyle& lpFront = a.root->Layout();
+    const foundation::ui::LayoutStyle& lpBehind = b.root->Layout();
+    CHECK(lpFront.Left == doctest::Approx(400.0f)); // on-axis -> target center
+    CHECK(lpFront.Top == doctest::Approx(300.0f));
+    CHECK(lpBehind.Left == doctest::Approx(-10000.0f)); // behind the camera -> parked
+    CHECK(lpBehind.Top == doctest::Approx(-10000.0f));
 
     // Sub-rect view (split-screen half): billboards land in VIEWPORT pixels - the VG
     // viewport seam places the whole root at the view's rect, so the on-axis anchor
@@ -259,8 +257,8 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     view.viewportWidth = 400;
     view.viewportHeight = 300;
     ui->UpdateSceneView(*scene, view);
-    CHECK(lpFront->X == doctest::Approx(200.0f)); // center of the 400x300 half
-    CHECK(lpFront->Y == doctest::Approx(150.0f));
+    CHECK(a.root->Layout().Left == doctest::Approx(200.0f)); // center of the 400x300 half
+    CHECK(a.root->Layout().Top == doctest::Approx(150.0f));
 
     // Scene isolation is structural now: another scene's canvas parents into ITS root.
     scene::Scene* other = sm.CreateScene(u8"other");
@@ -401,7 +399,10 @@ TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer 
     RootView* screenRoot = ui->ScreenRoot();
     screenRoot->ViewportSize = Float2{800.0f, 600.0f};
     ui->Context().UpdateRootView(screenRoot);
-    View* hit = screenRoot->HitTest(Float2{20.0f, 20.0f});
+    // Probe OUTSIDE the 80x24 badge: the layer itself must not answer. (Hit-test
+    // visibility is self-only by contract - ToastHost/tool-float layers rely on children
+    // staying hittable - so the badge's own content still answers inside its box.)
+    View* hit = screenRoot->HitTest(Float2{400.0f, 300.0f});
     CHECK((hit == nullptr || hit == screenRoot)); // transparent despite the badge
 
     // A modal overlay alongside it flips the layer back to input-claiming.
