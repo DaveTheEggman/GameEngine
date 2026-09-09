@@ -88,6 +88,9 @@ built - it is P3 slice 1 (see the commands plan).
   `Documentation/Plans/networking-commands.md`.
 - Backlog (web WebSocket client, replication refinements, transport/deployment, matchmaking/
   services hooks): `Documentation/Backlog/networking-followups.md`.
+- **Beef port / unification with the legacy Sedulous.Net** (which stack is the foundation, what
+  the port lifts from the legacy toolkit, the DNS gap on our side): ASSESSED, awaiting a
+  ruling - `Documentation/Plans/net-unification.md`.
 
 ---
 
