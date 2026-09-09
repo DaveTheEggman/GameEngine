@@ -811,6 +811,8 @@ export namespace foundation::ui
                 return StyleValue::ColorVal(ParseColorValue());
             if (prop == StyleProperty::BoxShadow)
                 return ParseBoxShadowValue();
+            if (prop == StyleProperty::Transition)
+                return ParseTransitionValue();
             if (IsSizeSpecProperty(prop) && Peek().Kind == TokenKind::Ident &&
                 Peek().Text != StringView(u8"calc"))
             {
@@ -828,6 +830,84 @@ export namespace foundation::ui
             }
             // Default: a number (Float) or a relative length (%, em, calc -> Length).
             return ParseLengthOrFloat();
+        }
+
+        /// `transition: none | <entry> {, <entry>}` with `<entry> = <property> | all,
+        /// <duration> [<easing>] [<delay>]`. Times take `ms` or `s` (a bare number is ms);
+        /// easings: linear, ease, ease-in, ease-out, ease-in-out. An unknown property name
+        /// drops its entry; `none` yields an EMPTY list (which still overrides a UA `all`).
+        StyleValue ParseTransitionValue()
+        {
+            RefPtr<TransitionList> list = MakeRef<TransitionList>(*m_allocator);
+            if (Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"none"))
+            {
+                Consume();
+                return StyleValue::TransitionsRef(Move(list));
+            }
+            while (Peek().Kind == TokenKind::Ident)
+            {
+                const StringView name = Consume().Text;
+                TransitionSpec spec;
+                bool known = true;
+                if (name == StringView(u8"all"))
+                {
+                    spec.Property = StyleProperty::COUNT;
+                }
+                else if (Optional<StyleProperty> p = ResolvePropertyName(name); p.HasValue())
+                {
+                    spec.Property = p.Value();
+                }
+                else
+                {
+                    known = false;
+                }
+                if (Peek().Kind == TokenKind::Number)
+                {
+                    spec.Duration = ParseTimeSeconds();
+                }
+                if (Peek().Kind == TokenKind::Ident)
+                {
+                    spec.Easing = ParseEasingName(Consume().Text);
+                }
+                if (Peek().Kind == TokenKind::Number)
+                {
+                    spec.Delay = ParseTimeSeconds();
+                }
+                if (known)
+                {
+                    list->Specs.PushBack(spec);
+                }
+                if (!MatchComma())
+                {
+                    break;
+                }
+            }
+            return StyleValue::TransitionsRef(Move(list));
+        }
+
+        /// A `<time>`: `120ms`, `0.2s`, or a bare number of milliseconds. Seconds out.
+        f32 ParseTimeSeconds()
+        {
+            const Token tok = Consume();
+            const f32 value = Max(0.0f, tok.NumericValue);
+            if (tok.UnitSuffix == StringView(u8"s"))
+            {
+                return value;
+            }
+            return value / 1000.0f;
+        }
+
+        [[nodiscard]] static TransitionEasing ParseEasingName(StringView name)
+        {
+            if (name == StringView(u8"linear"))
+                return TransitionEasing::Linear;
+            if (name == StringView(u8"ease-in"))
+                return TransitionEasing::EaseIn;
+            if (name == StringView(u8"ease-out"))
+                return TransitionEasing::EaseOut;
+            if (name == StringView(u8"ease-in-out"))
+                return TransitionEasing::EaseInOut;
+            return TransitionEasing::Ease;
         }
 
         /// `box-shadow: <x> <y> [blur [spread]] <color> [inset]` (also `none`). Lengths are
@@ -1054,6 +1134,10 @@ export namespace foundation::ui
                 return StyleProperty::Overflow;
             if (name == StringView(u8"align-self"))
                 return StyleProperty::AlignSelf;
+
+            // P3 transitions
+            if (name == StringView(u8"transition"))
+                return StyleProperty::Transition;
 
             return {};
         }

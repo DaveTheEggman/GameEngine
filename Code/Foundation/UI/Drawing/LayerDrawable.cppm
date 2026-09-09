@@ -50,7 +50,7 @@ export namespace foundation::ui
                 }
             }
         }
-        void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
+        void DrawState(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
         {
             for (const Layer& layer : m_layers)
             {

@@ -75,12 +75,294 @@ namespace foundation::ui
 
     void View::InvalidateStyle()
     {
-        m_styleCache.valid = false;
+        // The cache stays VALID-BUT-STALE: the context generation bump makes the next lookup
+        // rebuild it, and the rebuild reads the old values first so a transition can start
+        // from where the view IS. Detached views rebuild on every access anyway.
         if (Context != nullptr)
         {
             Context->InvalidateStyles();
         }
+        else
+        {
+            m_styleCache.valid = false;
+        }
         Invalidate();
+    }
+
+    void View::InvalidateStyleSheets()
+    {
+        m_styleCache.valid = false;
+        if (Context != nullptr)
+        {
+            Context->BumpSheetEpoch();
+        }
+        Invalidate();
+    }
+
+    // === Transitions ===
+
+    namespace
+    {
+        [[nodiscard]] f32 ApplyTransitionEasing(TransitionEasing easing, f32 t)
+        {
+            switch (easing)
+            {
+            case TransitionEasing::Linear:
+                return t;
+            case TransitionEasing::EaseIn:
+                return t * t;
+            case TransitionEasing::EaseOut:
+                return 1.0f - (1.0f - t) * (1.0f - t);
+            case TransitionEasing::Ease:
+            case TransitionEasing::EaseInOut:
+            default:
+                return t < 0.5f ? 2.0f * t * t : 1.0f - 2.0f * (1.0f - t) * (1.0f - t);
+            }
+        }
+
+        [[nodiscard]] f32 TransitionProgress(f32 elapsed, f32 duration, f32 delay, TransitionEasing easing)
+        {
+            if (duration <= 0.0f)
+            {
+                return 1.0f;
+            }
+            const f32 t = Clamp((elapsed - delay) / duration, 0.0f, 1.0f);
+            return ApplyTransitionEasing(easing, t);
+        }
+    }
+
+    usize View::ActiveTransitionCount() const noexcept
+    {
+        return m_transitionState ? m_transitionState->Active.Size() : 0u;
+    }
+
+    bool View::IsTransitioning() const noexcept
+    {
+        return m_transitionState &&
+               (!m_transitionState->Active.IsEmpty() || m_transitionState->StateBlendActive);
+    }
+
+    void View::RegisterTransitioning()
+    {
+        if (!m_transitionRegistered && Context != nullptr)
+        {
+            Context->RegisterTransitioning(this);
+            m_transitionRegistered = true;
+        }
+    }
+
+    void View::ClearTransitions()
+    {
+        m_transitionState.Reset();
+        m_transitionRegistered = false;
+    }
+
+    bool View::AdvanceTransitions(f32 deltaTime)
+    {
+        if (!m_transitionState)
+        {
+            m_transitionRegistered = false;
+            return false;
+        }
+        TransitionState& st = *m_transitionState;
+        bool layoutDamage = false;
+        for (usize i = st.Active.Size(); i-- > 0;)
+        {
+            StyleTransition& tr = st.Active[i];
+            tr.Elapsed += deltaTime;
+            if (!IsVisualOnlyStyleProperty(tr.Property))
+            {
+                layoutDamage = true;
+            }
+            if (tr.Elapsed >= tr.Delay + tr.Duration)
+            {
+                st.Active.RemoveAtSwap(i); // the cascade value takes over (== To)
+            }
+        }
+        if (st.StateBlendActive)
+        {
+            st.BlendElapsed += deltaTime;
+            if (st.BlendElapsed >= st.BlendDelay + st.BlendDuration)
+            {
+                st.StateBlendActive = false;
+            }
+        }
+        if (layoutDamage)
+        {
+            Invalidate();
+        }
+        else
+        {
+            InvalidateVisual();
+        }
+        const bool active = !st.Active.IsEmpty() || st.StateBlendActive;
+        if (!active)
+        {
+            m_transitionRegistered = false;
+        }
+        return active;
+    }
+
+    DrawBlend View::CurrentDrawBlend() const
+    {
+        DrawBlend blend;
+        if (!m_transitionState)
+        {
+            return blend;
+        }
+        const TransitionState& st = *m_transitionState;
+        if (st.StateBlendActive)
+        {
+            blend.StateActive = true;
+            blend.FromState = st.BlendFrom;
+            blend.ToState = st.BlendTo;
+            blend.StateT = TransitionProgress(st.BlendElapsed, st.BlendDuration, st.BlendDelay, st.BlendEasing);
+        }
+        for (const StyleTransition& tr : st.Active)
+        {
+            if (tr.Property == StyleProperty::Background && tr.From.GetKind() == StyleValue::Kind::Drawable)
+            {
+                blend.FromDrawable = tr.From.AsDrawable();
+                blend.ToDrawable = tr.To.AsDrawable();
+                blend.DrawableT = TransitionProgress(tr.Elapsed, tr.Duration, tr.Delay, tr.Easing);
+            }
+        }
+        return blend;
+    }
+
+    void View::BeginTransitions(const Array<StyleValue>& snapshot, ControlState oldState,
+                                ControlState newState)
+    {
+        const StyleValue specValue = ComputeStyle(StyleProperty::Transition);
+        const TransitionList* specs = specValue.AsTransitions();
+        if (specs == nullptr || specs->Specs.IsEmpty())
+        {
+            return;
+        }
+        bool started = false;
+        if (!snapshot.IsEmpty())
+        {
+            for (usize p = 0; p < static_cast<usize>(StyleProperty::COUNT); ++p)
+            {
+                const StyleProperty prop = static_cast<StyleProperty>(p);
+                const StyleValue& from = snapshot[p];
+                if (from.IsNone() || !IsAnimatableStyleProperty(prop))
+                {
+                    continue;
+                }
+                const TransitionSpec* spec = specs->Find(prop);
+                if (spec == nullptr || spec->Duration <= 0.0f)
+                {
+                    continue;
+                }
+                const StyleValue to = ComputeStyle(prop);
+                if (to.IsNone() || StyleValueEquivalent(from, to) || !StyleValuesInterpolable(from, to))
+                {
+                    continue;
+                }
+                if (prop == StyleProperty::Background && from.GetKind() != StyleValue::Kind::Drawable)
+                {
+                    continue;
+                }
+                if (!m_transitionState)
+                {
+                    m_transitionState = MakeUnique<TransitionState>(MemoryAllocator());
+                }
+                // Retarget: the entry restarts FROM THE CURRENT value (the snapshot read the
+                // mid-flight value through the overlay), so a re-trigger never snaps.
+                StyleTransition* entry = nullptr;
+                for (StyleTransition& tr : m_transitionState->Active)
+                {
+                    if (tr.Property == prop)
+                    {
+                        entry = &tr;
+                    }
+                }
+                if (entry == nullptr)
+                {
+                    m_transitionState->Active.PushBack(StyleTransition{});
+                    entry = &m_transitionState->Active[m_transitionState->Active.Size() - 1];
+                }
+                entry->Property = prop;
+                entry->From = from;
+                entry->To = to;
+                entry->Elapsed = 0.0f;
+                entry->Duration = spec->Duration;
+                entry->Delay = spec->Delay;
+                entry->Easing = spec->Easing;
+                started = true;
+            }
+        }
+        if (newState != oldState)
+        {
+            // State-aware drawables pick their colors INSIDE Draw, invisible to the cascade:
+            // cross-fade the whole background between the two states under the `background`
+            // (or `all`) entry.
+            if (const TransitionSpec* spec = specs->Find(StyleProperty::Background);
+                spec != nullptr && spec->Duration > 0.0f)
+            {
+                if (!m_transitionState)
+                {
+                    m_transitionState = MakeUnique<TransitionState>(MemoryAllocator());
+                }
+                TransitionState& st = *m_transitionState;
+                ControlState from = oldState;
+                if (st.StateBlendActive)
+                {
+                    // Mid-blend retarget: start from whichever state is currently more visible.
+                    const f32 t = TransitionProgress(st.BlendElapsed, st.BlendDuration, st.BlendDelay, st.BlendEasing);
+                    from = t < 0.5f ? st.BlendFrom : st.BlendTo;
+                }
+                st.StateBlendActive = from != newState;
+                st.BlendFrom = from;
+                st.BlendTo = newState;
+                st.BlendElapsed = 0.0f;
+                st.BlendDuration = spec->Duration;
+                st.BlendDelay = spec->Delay;
+                st.BlendEasing = spec->Easing;
+                started = started || st.StateBlendActive;
+            }
+        }
+        if (started)
+        {
+            RegisterTransitioning();
+        }
+    }
+
+    void UIContext::SetStyleSheet(RefPtr<StyleSheet> sheet)
+    {
+        if (sheet && !sheet->HasUserAgentDefaults())
+        {
+            // The user-agent defaults: interactive controls transition every animatable
+            // property over 120 ms (ease-out). PREPENDED, so a theme rule on the same type
+            // (`Button { transition: none; }`) wins by source order. Types the registry does
+            // not know (a test that registered only TestView) are skipped.
+            static constexpr const char8_t* kInteractive[] = {
+                u8"ButtonBase", u8"CheckBox", u8"RadioButton", u8"ToggleSwitch", u8"Slider",
+                u8"ScrollBar",  u8"ComboBox", u8"TabView",     u8"EditText",     u8"ListView",
+                u8"TreeView",   u8"GridView", u8"Expander"};
+            RefPtr<TransitionList> list = MakeRef<TransitionList>(*m_allocator);
+            TransitionSpec all;
+            all.Property = StyleProperty::COUNT;
+            all.Duration = 0.12f;
+            all.Easing = TransitionEasing::EaseOut;
+            list->Specs.PushBack(all);
+            for (const char8_t* name : kInteractive)
+            {
+                const TypeInfo* type = UITypeRegistry::Resolve(StringView(name));
+                if (type == nullptr)
+                {
+                    continue;
+                }
+                RefPtr<StyleRule> rule = MakeRef<StyleRule>(*m_allocator);
+                rule->Selector.ViewType = type;
+                rule->SetValue(StyleProperty::Transition, StyleValue::TransitionsRef(list));
+                sheet->PrependRule(Move(rule));
+            }
+            sheet->MarkUserAgentDefaults();
+        }
+        m_styleSheet = Move(sheet);
+        BumpSheetEpoch();
     }
 
     const View::StyleCache& View::EnsureStyleCache()
@@ -111,12 +393,60 @@ namespace foundation::ui
         {
             chainVersion += m_inlineSheet->Version();
         }
+        const u32 sheetEpoch = Context != nullptr ? Context->SheetEpoch() : 0u;
         // Without a context there is no generation to key on (class edits on this view would
         // go unseen), so the cache is rebuilt every time - the pre-P1 cost, tests only.
-        if (m_styleCache.valid && Context != nullptr && m_styleCache.generation == generation &&
-            m_styleCache.chainVersion == chainVersion && m_styleCache.state == state)
+        if (m_styleCacheSnapshotting ||
+            (m_styleCache.valid && Context != nullptr && m_styleCache.generation == generation &&
+             m_styleCache.chainVersion == chainVersion && m_styleCache.state == state &&
+             m_styleCache.sheetEpoch == sheetEpoch))
         {
             return m_styleCache;
+        }
+
+        // Transition snapshot: read the values this view HAS before the rebuild, but only
+        // when the old cache's rule pointers are provably alive - the same sheet epoch and
+        // the same summed sheet versions, i.e. only the generation or the state moved. A
+        // sheet swap or a rule edit rebuilds without animating.
+        const bool canTransition = m_styleCache.valid && Context != nullptr &&
+                                   m_styleCache.sheetEpoch == sheetEpoch &&
+                                   m_styleCache.chainVersion == chainVersion;
+        const ControlState oldState = m_styleCache.state;
+        Array<StyleValue> snapshot;
+        if (!canTransition && m_transitionState)
+        {
+            // The rules moved under a running transition (theme swap, rule edit): its targets
+            // are stale, so it ends here and the new cascade value applies at once. The
+            // context's tick de-lists the view on its next pass.
+            m_transitionState->Active.Clear();
+            m_transitionState->StateBlendActive = false;
+        }
+        if (canTransition)
+        {
+            if (const StyleRule* rule = m_styleCache.winners[static_cast<usize>(StyleProperty::Transition)])
+            {
+                const Optional<StyleValue> specValue = rule->GetValue(StyleProperty::Transition);
+                const TransitionList* specs = specValue.HasValue() ? specValue.Value().AsTransitions() : nullptr;
+                if (specs != nullptr && !specs->Specs.IsEmpty())
+                {
+                    m_styleCacheSnapshotting = true;
+                    snapshot.Resize(static_cast<usize>(StyleProperty::COUNT));
+                    for (usize p = 0; p < static_cast<usize>(StyleProperty::COUNT); ++p)
+                    {
+                        const StyleProperty prop = static_cast<StyleProperty>(p);
+                        if (!IsAnimatableStyleProperty(prop) || specs->Find(prop) == nullptr)
+                        {
+                            continue;
+                        }
+                        if (m_styleCache.winners[p] == nullptr && !IsInheritableStyle(prop))
+                        {
+                            continue; // unset before, unset now or not: nothing to start from
+                        }
+                        snapshot[p] = ResolveStyle(prop); // mid-flight value, through the overlay
+                    }
+                    m_styleCacheSnapshotting = false;
+                }
+            }
         }
 
         StyleCache& cache = m_styleCache;
@@ -161,7 +491,12 @@ namespace foundation::ui
         cache.valid = true;
         cache.generation = generation;
         cache.chainVersion = chainVersion;
+        cache.sheetEpoch = sheetEpoch;
         cache.state = state;
+        if (!snapshot.IsEmpty() || (canTransition && state != oldState))
+        {
+            BeginTransitions(snapshot, oldState, state);
+        }
         return cache;
     }
 
@@ -222,6 +557,28 @@ namespace foundation::ui
     }
 
     StyleValue View::ResolveStyle(StyleProperty prop)
+    {
+        StyleValue value = ComputeStyle(prop);
+        if (m_transitionState)
+        {
+            for (const StyleTransition& tr : m_transitionState->Active)
+            {
+                if (tr.Property != prop)
+                {
+                    continue;
+                }
+                if (tr.To.GetKind() == StyleValue::Kind::Drawable)
+                {
+                    return value; // the draw path cross-fades (CurrentDrawBlend)
+                }
+                return LerpStyleValue(tr.From, tr.To,
+                                      TransitionProgress(tr.Elapsed, tr.Duration, tr.Delay, tr.Easing));
+            }
+        }
+        return value;
+    }
+
+    StyleValue View::ComputeStyle(StyleProperty prop)
     {
         const StyleValue raw = RawStyleValue(prop);
         if (!raw.IsNone())

@@ -5,7 +5,50 @@
 > cache, selector chains, inherit/initial, custom properties + var(), palette as root variables,
 > %/em/calc lengths in sheets and markup). P2 BUILT 2026-09-09 (box model: z-index draw/hit
 > order, Position::Absolute in any container, box-shadow through a VG DF shadow mode, overflow,
-> min/max, sheet-driven LayoutStyle, Float consumers read Length values). P3-P4 PROPOSED.
+> min/max, sheet-driven LayoutStyle, Float consumers read Length values). P3 BUILT 2026-09-09
+> (transitions: `transition` lists, per-view retargeting transitions overlaying ResolveStyle,
+> the state cross-fade through Drawable::Draw, UA defaults on the interactive controls).
+> P4 PROPOSED.
+> P3 as built (deviations from section 4, all deliberate):
+> - `transition: none | <property|all> <duration> [<easing>] [<delay>] {, ...}`; times in
+>   `ms` / `s` (a bare number is ms); easings linear / ease / ease-in / ease-out /
+>   ease-in-out (quadratic curves, not CSS cubic-beziers); later entries override earlier ones
+>   (CSS); an unknown property drops its entry; `none` is an EMPTY list (it still wins over a
+>   UA `all`). Value kind `StyleValue::Kind::Transitions` (a shared `TransitionList`).
+> - No Storyboard: a transition is a per-view entry `{property, from, to, clock}` in
+>   `View::m_transitionState`, overlaid by `ResolveStyle` (`ComputeStyle` is the cascade
+>   value without the overlay). Colors, floats, thicknesses, lengths (a Float mixed with a
+>   Length becomes a dp Length) and box shadows interpolate (`LerpStyleValue`); every other
+>   kind switches at the midpoint. Animatable set: `IsAnimatableStyleProperty`.
+> - Trigger: the style-cache rebuild in `EnsureStyleCache`. When only the generation or the
+>   control state moved (same sheet epoch, same summed sheet versions - the old cache's rule
+>   pointers are provably alive), the OLD cache is read first for every listed animatable
+>   property that had a winner (or inherits), through the overlay - so a re-trigger starts
+>   from the CURRENT mid-flight value and never snaps; then the new value is computed and a
+>   differing one starts or RETARGETS the entry. A sheet swap (`UIContext::SetStyleSheet`,
+>   `View::SetLocalStyleSheet` -> the context's sheet epoch) or a rule edit rebuilds without
+>   animating and ends running transitions. `View::InvalidateStyle` therefore keeps the cache
+>   valid-but-stale (the generation bump rebuilds it); detached views never transition.
+> - Tick: `UIContext::BeginFrame` advances the listed views (`View::AdvanceTransitions`),
+>   which mark redraw damage for visual-only properties and layout damage otherwise
+>   (`IsVisualOnlyStyleProperty` - the PROPERTY's kind, never the rule's). Detach de-lists.
+> - State-aware drawables (`state-colors`, StateList/Layer/Inset) pick colors INSIDE Draw,
+>   invisible to the cascade, so a control-state change cross-fades the whole background: the
+>   old state at full strength under the new state at the eased opacity (no mid-fade coverage
+>   dip on opaque backgrounds). `Drawable::Draw(ctx, bounds, state)` is now the NON-virtual
+>   entry that applies the draw context's `DrawBlend` (set per child by DrawChildren from
+>   `View::CurrentDrawBlend`) once and dispatches to the new protected virtual `DrawState`;
+>   a `background:` drawable change cross-fades the same way (old drawable under new).
+>   Opacity, not compositing: overlapping translucent layers double-blend mid-fade.
+> - UA defaults: `UIContext::SetStyleSheet` prepends `transition: all 120ms ease-out` rules for
+>   ButtonBase, CheckBox, RadioButton, ToggleSwitch, Slider, ScrollBar, ComboBox, TabView,
+>   EditText, ListView, TreeView, GridView, Expander (once per sheet, types the registry knows);
+>   a theme rule on the same type wins by source order (`ButtonBase { transition: none }`).
+>   Layout-kind properties are in `all` too (the spec said visual only): the interactive
+>   controls' theme rules only move visual properties by state today, so nothing relayouts
+>   per frame; revisit if a theme animates padding.
+> - NOT built: `transition-property/-duration/...` longhands, `cubic-bezier()`, `steps()`,
+>   transition events, a per-transition Storyboard object (nothing needed one).
 > P2 as built (deviations from section 2, all deliberate):
 > - No `VisualStyle` value object: the per-view computed-style cache from P1 IS the visual
 >   style; DrawChildren reads `box-shadow` / `overflow` and the view its `corner-radius` /

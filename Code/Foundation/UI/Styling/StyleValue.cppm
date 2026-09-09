@@ -21,6 +21,7 @@ import foundation.core; // Color, Optional, RefPtr, String, StringView, HashText
 import :thickness;
 import :unit;
 import :drawable;
+import :style_property;
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -41,6 +42,54 @@ export namespace foundation::ui
         bool Inset = false;
 
         [[nodiscard]] constexpr bool operator==(const BoxShadow&) const noexcept = default;
+    };
+
+    /// CSS timing-function names a `transition` accepts.
+    enum class TransitionEasing : u8
+    {
+        Linear,
+        Ease,
+        EaseIn,
+        EaseOut,
+        EaseInOut
+    };
+
+    /// One entry of a `transition:` list. `Property == StyleProperty::COUNT` means `all`.
+    struct TransitionSpec
+    {
+        StyleProperty Property = StyleProperty::COUNT;
+        /// Seconds.
+        f32 Duration = 0.0f;
+        f32 Delay = 0.0f;
+        TransitionEasing Easing = TransitionEasing::Ease;
+
+        [[nodiscard]] constexpr bool operator==(const TransitionSpec&) const noexcept = default;
+    };
+
+    /// The parsed `transition:` list, shared by every StyleValue copy that carries it. An
+    /// EMPTY list is `transition: none` (it still wins the cascade over a UA `all`).
+    class TransitionList : public Object
+    {
+        RTTI_OBJECT(TransitionList, Object)
+    public:
+        Array<TransitionSpec> Specs;
+
+        TransitionList() = default;
+
+        /// The entry governing `prop`: the LAST one naming it or `all` (CSS: later entries
+        /// override earlier ones), or null when nothing covers it.
+        [[nodiscard]] const TransitionSpec* Find(StyleProperty prop) const noexcept
+        {
+            const TransitionSpec* found = nullptr;
+            for (const TransitionSpec& spec : Specs)
+            {
+                if (spec.Property == prop || spec.Property == StyleProperty::COUNT)
+                {
+                    found = &spec;
+                }
+            }
+            return found;
+        }
     };
 
     /// A `var(--name, fallback)` reference: resolved against the view's custom properties at
@@ -75,6 +124,8 @@ export namespace foundation::ui
             Length,
             /// A BoxShadow tuple (box-shadow).
             Shadow,
+            /// A `transition:` list (TransitionList).
+            Transitions,
             /// The `inherit` keyword: take the parent's computed value.
             Inherit,
             /// The `initial` keyword: as if unset (the property's default).
@@ -141,6 +192,13 @@ export namespace foundation::ui
             v.m_shadow = shadow;
             return v;
         }
+        [[nodiscard]] static StyleValue TransitionsRef(RefPtr<TransitionList> list)
+        {
+            StyleValue v;
+            v.m_kind = Kind::Transitions;
+            v.m_transitions = Move(list);
+            return v;
+        }
         [[nodiscard]] static StyleValue Inherit()
         {
             StyleValue v;
@@ -183,6 +241,12 @@ export namespace foundation::ui
         }
 
         /// Try to get as Color / Float / Thickness / Bool (empty Optional if the kind differs).
+        /// The transition list (null unless Kind::Transitions). Borrowed: valid while this
+        /// value (or the rule holding it) lives.
+        [[nodiscard]] const TransitionList* AsTransitions() const noexcept
+        {
+            return m_kind == Kind::Transitions ? m_transitions.Get() : nullptr;
+        }
         [[nodiscard]] Optional<BoxShadow> AsShadow() const
         {
             if (m_kind == Kind::Shadow)
@@ -250,7 +314,138 @@ export namespace foundation::ui
         Unit m_length{};
         BoxShadow m_shadow{};
         RefPtr<VariableReference> m_variable;
+        RefPtr<TransitionList> m_transitions;
     };
+
+    /// Equality for transition retargeting: same kind and same payload (drawables by
+    /// identity). Keywords/variables compare unequal (they are resolved before this).
+    [[nodiscard]] inline bool StyleValueEquivalent(const StyleValue& a, const StyleValue& b)
+    {
+        if (a.GetKind() != b.GetKind())
+        {
+            return false;
+        }
+        switch (a.GetKind())
+        {
+        case StyleValue::Kind::None:
+            return true;
+        case StyleValue::Kind::Color:
+            return a.AsColor().Value() == b.AsColor().Value();
+        case StyleValue::Kind::Float:
+            return a.AsFloat().Value() == b.AsFloat().Value();
+        case StyleValue::Kind::Thickness:
+            return a.AsThickness().Value() == b.AsThickness().Value();
+        case StyleValue::Kind::Drawable:
+            return a.AsDrawable() == b.AsDrawable();
+        case StyleValue::Kind::Bool:
+            return a.AsBool().Value() == b.AsBool().Value();
+        case StyleValue::Kind::String:
+            return a.AsString().Value() == b.AsString().Value();
+        case StyleValue::Kind::Length:
+            return a.AsLength().Value() == b.AsLength().Value();
+        case StyleValue::Kind::Shadow:
+            return a.AsShadow().Value() == b.AsShadow().Value();
+        case StyleValue::Kind::Transitions:
+            return a.AsTransitions() == b.AsTransitions();
+        default:
+            return false;
+        }
+    }
+
+    /// Whether a transition can run from `a` to `b`: both numeric-like (Float and Length mix
+    /// as lengths), both colors, thicknesses, shadows, or both drawables (cross-fade).
+    [[nodiscard]] inline bool StyleValuesInterpolable(const StyleValue& a, const StyleValue& b)
+    {
+        const StyleValue::Kind ka = a.GetKind();
+        const StyleValue::Kind kb = b.GetKind();
+        const auto numeric = [](StyleValue::Kind k) {
+            return k == StyleValue::Kind::Float || k == StyleValue::Kind::Length;
+        };
+        if (numeric(ka) && numeric(kb))
+        {
+            return true;
+        }
+        if (ka != kb)
+        {
+            return false;
+        }
+        return ka == StyleValue::Kind::Color || ka == StyleValue::Kind::Thickness ||
+               ka == StyleValue::Kind::Shadow || ka == StyleValue::Kind::Drawable;
+    }
+
+    /// The value `t` of the way from `a` to `b` (t clamped to 0..1). Colors, floats,
+    /// thicknesses, lengths (component-wise; a Float promotes to a dp Length when mixed) and
+    /// shadows interpolate; every other kind switches at the midpoint (CSS discrete
+    /// animation) - drawables included, whose cross-fade the draw path handles separately.
+    [[nodiscard]] inline StyleValue LerpStyleValue(const StyleValue& a, const StyleValue& b, f32 t)
+    {
+        if (t <= 0.0f)
+        {
+            return a;
+        }
+        if (t >= 1.0f)
+        {
+            return b;
+        }
+        const auto lerp = [t](f32 x, f32 y) { return x + (y - x) * t; };
+        const StyleValue::Kind ka = a.GetKind();
+        const StyleValue::Kind kb = b.GetKind();
+        if (ka == StyleValue::Kind::Float && kb == StyleValue::Kind::Float)
+        {
+            return StyleValue::FloatVal(lerp(a.AsFloat().Value(), b.AsFloat().Value()));
+        }
+        const auto numeric = [](StyleValue::Kind k) {
+            return k == StyleValue::Kind::Float || k == StyleValue::Kind::Length;
+        };
+        if (numeric(ka) && numeric(kb))
+        {
+            const Unit ua = ka == StyleValue::Kind::Length ? a.AsLength().Value() : Unit::Dp(a.AsFloat().Value());
+            const Unit ub = kb == StyleValue::Kind::Length ? b.AsLength().Value() : Unit::Dp(b.AsFloat().Value());
+            Unit u = ub;
+            u.dp = lerp(ua.dp, ub.dp);
+            u.pt = lerp(ua.pt, ub.pt);
+            u.px = lerp(ua.px, ub.px);
+            u.percent = lerp(ua.percent, ub.percent);
+            u.em = lerp(ua.em, ub.em);
+            return StyleValue::LengthVal(u);
+        }
+        if (ka != kb)
+        {
+            return t < 0.5f ? a : b;
+        }
+        switch (ka)
+        {
+        case StyleValue::Kind::Color:
+        {
+            const core::Color ca = a.AsColor().Value();
+            const core::Color cb = b.AsColor().Value();
+            return StyleValue::ColorVal(core::Color{lerp(ca.r, cb.r), lerp(ca.g, cb.g), lerp(ca.b, cb.b), lerp(ca.a, cb.a)});
+        }
+        case StyleValue::Kind::Thickness:
+        {
+            const Thickness ta = a.AsThickness().Value();
+            const Thickness tb = b.AsThickness().Value();
+            return StyleValue::ThicknessVal(Thickness{lerp(ta.Left, tb.Left), lerp(ta.Top, tb.Top),
+                                                      lerp(ta.Right, tb.Right), lerp(ta.Bottom, tb.Bottom)});
+        }
+        case StyleValue::Kind::Shadow:
+        {
+            const BoxShadow sa = a.AsShadow().Value();
+            const BoxShadow sb = b.AsShadow().Value();
+            BoxShadow s;
+            s.OffsetX = lerp(sa.OffsetX, sb.OffsetX);
+            s.OffsetY = lerp(sa.OffsetY, sb.OffsetY);
+            s.Blur = lerp(sa.Blur, sb.Blur);
+            s.Spread = lerp(sa.Spread, sb.Spread);
+            s.Color = core::Color{lerp(sa.Color.r, sb.Color.r), lerp(sa.Color.g, sb.Color.g),
+                                  lerp(sa.Color.b, sb.Color.b), lerp(sa.Color.a, sb.Color.a)};
+            s.Inset = t < 0.5f ? sa.Inset : sb.Inset;
+            return StyleValue::ShadowVal(s);
+        }
+        default:
+            return t < 0.5f ? a : b;
+        }
+    }
 
     /// Boxes a StyleValue as an Object so a VariableReference can own its fallback.
     class StyleValueBox : public Object
@@ -295,4 +490,5 @@ export namespace foundation::ui
 
     RTTI_DEFINE_OBJECT(VariableReference, "rtti::ui")
     RTTI_DEFINE_OBJECT(StyleValueBox, "rtti::ui")
+    RTTI_DEFINE_OBJECT(TransitionList, "rtti::ui")
 }

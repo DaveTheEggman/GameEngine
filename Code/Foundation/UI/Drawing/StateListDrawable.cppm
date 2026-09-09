@@ -86,7 +86,7 @@ export namespace foundation::ui
                 d->Draw(ctx, bounds);
             }
         }
-        void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
+        void DrawState(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
         {
             if (Drawable* d = Get(state))
             {

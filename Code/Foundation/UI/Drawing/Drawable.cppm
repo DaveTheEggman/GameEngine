@@ -32,11 +32,46 @@ export namespace foundation::ui
         /// State-unaware draw.
         virtual void Draw(UIDrawContext& ctx, const Rectangle& bounds) = 0;
 
-        /// State-aware draw - default delegates to the state-unaware overload.
-        virtual void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state)
+        /// State-aware draw: the ONE entry every control uses. Applies the draw context's
+        /// transition blend (a background drawable swap cross-fades old under new; a control
+        /// state change draws the old state under the new one at the eased opacity), then
+        /// dispatches to DrawState. The blend is consumed here - nested drawables (layers,
+        /// insets) draw plainly.
+        void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state)
         {
-            (void)state;
-            Draw(ctx, bounds);
+            const DrawBlend blend = ctx.Blend();
+            if (!blend.IsActive())
+            {
+                DrawState(ctx, bounds, state);
+                return;
+            }
+            const DrawBlend plain{};
+            ctx.SetBlend(plain);
+            if (blend.FromDrawable != nullptr && blend.ToDrawable == this && blend.FromDrawable != this)
+            {
+                // Old drawable at full strength, the new one fading in over it: opaque
+                // backgrounds keep full coverage throughout (no mid-fade dip).
+                ctx.SetBlend(DrawBlend{nullptr, nullptr, 1.0f, blend.StateActive, blend.FromState,
+                                       blend.ToState, blend.StateT});
+                blend.FromDrawable->Draw(ctx, bounds, state);
+                ctx.SetBlend(DrawBlend{nullptr, nullptr, 1.0f, blend.StateActive, blend.FromState,
+                                       blend.ToState, blend.StateT});
+                ctx.VG().PushOpacity(blend.DrawableT);
+                Draw(ctx, bounds, state);
+                ctx.VG().PopOpacity();
+            }
+            else if (blend.StateActive && state == blend.ToState && blend.FromState != state)
+            {
+                DrawState(ctx, bounds, blend.FromState);
+                ctx.VG().PushOpacity(blend.StateT);
+                DrawState(ctx, bounds, state);
+                ctx.VG().PopOpacity();
+            }
+            else
+            {
+                DrawState(ctx, bounds, state);
+            }
+            ctx.SetBlend(blend);
         }
 
         /// Optional natural size (e.g. icons/images). Empty = no intrinsic size.
@@ -45,6 +80,15 @@ export namespace foundation::ui
         /// Padding contributed by this drawable (e.g. nine-slice borders). Layout can
         /// merge via max(drawablePadding, explicitPadding).
         [[nodiscard]] virtual Thickness DrawablePadding() const { return Thickness{}; }
+
+    protected:
+        /// State-aware draw body - the default delegates to the state-unaware overload.
+        /// Override this (not Draw) in drawables that pick by state.
+        virtual void DrawState(UIDrawContext& ctx, const Rectangle& bounds, ControlState state)
+        {
+            (void)state;
+            Draw(ctx, bounds);
+        }
     };
 
     RTTI_DEFINE_OBJECT(Drawable, "rtti::ui")

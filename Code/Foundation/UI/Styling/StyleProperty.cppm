@@ -71,7 +71,86 @@ export namespace foundation::ui
         /// `start` | `end` | `center` | `stretch` | `baseline`.
         AlignSelf,
 
+        // === P3 transitions ===
+        /// `transition: <property|all> <duration> [<easing>] [<delay>], ...` | `none`.
+        Transition,
+
         /// Number of known properties (for array sizing).
         COUNT
     };
+
+    /// Properties whose change never moves geometry: a transition on one of these marks
+    /// redraw damage per frame, the others mark layout damage (the property's kind decides,
+    /// never the rule's - see the spec's layout-gate gotcha).
+    [[nodiscard]] constexpr bool IsVisualOnlyStyleProperty(StyleProperty prop) noexcept
+    {
+        switch (prop)
+        {
+        case StyleProperty::Background:
+        case StyleProperty::CheckedBackground:
+        case StyleProperty::MenuItemHoverDrawable:
+        case StyleProperty::TextColor:
+        case StyleProperty::TextDimColor:
+        case StyleProperty::PlaceholderColor:
+        case StyleProperty::BorderColor:
+        case StyleProperty::CursorColor:
+        case StyleProperty::SelectionColor:
+        case StyleProperty::AccentColor:
+        case StyleProperty::SuccessColor:
+        case StyleProperty::WarningColor:
+        case StyleProperty::ErrorColor:
+        case StyleProperty::CornerRadius:
+        case StyleProperty::Opacity:
+        case StyleProperty::BoxShadow:
+        case StyleProperty::ZIndex:
+        case StyleProperty::Overflow:
+        case StyleProperty::Transition:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    /// Properties a `transition` can animate: colors, floats, thicknesses, lengths, the box
+    /// shadow, and Background (drawables cross-fade rather than interpolate).
+    [[nodiscard]] constexpr bool IsAnimatableStyleProperty(StyleProperty prop) noexcept
+    {
+        switch (prop)
+        {
+        case StyleProperty::Background:
+        case StyleProperty::TextColor:
+        case StyleProperty::TextDimColor:
+        case StyleProperty::PlaceholderColor:
+        case StyleProperty::BorderColor:
+        case StyleProperty::CursorColor:
+        case StyleProperty::SelectionColor:
+        case StyleProperty::AccentColor:
+        case StyleProperty::SuccessColor:
+        case StyleProperty::WarningColor:
+        case StyleProperty::ErrorColor:
+        case StyleProperty::FontSize:
+        case StyleProperty::CornerRadius:
+        case StyleProperty::BorderWidth:
+        case StyleProperty::Spacing:
+        case StyleProperty::Opacity:
+        case StyleProperty::Width:
+        case StyleProperty::Height:
+        case StyleProperty::Padding:
+        case StyleProperty::Margin:
+        case StyleProperty::BoxShadow:
+        case StyleProperty::MinWidth:
+        case StyleProperty::MinHeight:
+        case StyleProperty::MaxWidth:
+        case StyleProperty::MaxHeight:
+        case StyleProperty::Top:
+        case StyleProperty::Right:
+        case StyleProperty::Bottom:
+        case StyleProperty::Left:
+        case StyleProperty::FlexGrow:
+        case StyleProperty::FlexShrink:
+            return true;
+        default:
+            return false;
+        }
+    }
 }

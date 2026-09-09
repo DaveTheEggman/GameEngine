@@ -42,7 +42,7 @@ export namespace foundation::ui
                 m_inner->Draw(ctx, InsetBounds(bounds));
             }
         }
-        void Draw(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
+        void DrawState(UIDrawContext& ctx, const Rectangle& bounds, ControlState state) override
         {
             if (m_inner)
             {

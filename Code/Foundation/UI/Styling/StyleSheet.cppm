@@ -92,6 +92,10 @@ export namespace foundation::ui
             ++m_version;
         }
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
+        /// Whether UIContext::SetStyleSheet already prepended the user-agent defaults (done
+        /// once per sheet, however many contexts share it).
+        [[nodiscard]] bool HasUserAgentDefaults() const noexcept { return m_userAgentDefaults; }
+        void MarkUserAgentDefaults() noexcept { m_userAgentDefaults = true; }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_rules.Size() == 0; }
         /// Access a rule by index (surfaced for tests; Beef reached mRules via [Friend]).
         [[nodiscard]] const StyleRule& GetRule(usize index) const { return *m_rules[index]; }
@@ -354,6 +358,7 @@ export namespace foundation::ui
         Array<RefPtr<Drawable>> m_ownedDrawables;
         Array<RefPtr<Object>> m_ownedResources;
         u32 m_version = 1;
+        bool m_userAgentDefaults = false;
     };
 
     RTTI_DEFINE_OBJECT(StyleSheet, "rtti::ui")

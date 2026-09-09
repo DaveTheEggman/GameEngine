@@ -16,6 +16,7 @@ import foundation.core;  // Rectangle
 import foundation.vg;    // VGContext
 import foundation.fonts; // IFontService
 import :debug_settings;
+import :control_state;
 
 using namespace foundation::core;
 namespace vg = foundation::vg;
@@ -23,6 +24,30 @@ namespace fonts = foundation::fonts;
 
 export namespace foundation::ui
 {
+    class Drawable;
+
+    /// What a running transition asks the drawable draw path to blend, set per child by
+    /// ViewGroup::DrawChildren from the child's active transitions (see View::CurrentDrawBlend).
+    /// Consumed ONCE by Drawable::Draw (cleared for the nested drawables it draws).
+    struct DrawBlend
+    {
+        /// A `background` drawable change mid-flight: `From` is drawn under `To` at `DrawableT`.
+        Drawable* FromDrawable = nullptr;
+        Drawable* ToDrawable = nullptr;
+        f32 DrawableT = 1.0f;
+        /// A control-state change mid-flight: a state-aware drawable draws `FromState` under
+        /// `ToState` at `StateT`.
+        bool StateActive = false;
+        ControlState FromState = ControlState::Normal;
+        ControlState ToState = ControlState::Normal;
+        f32 StateT = 1.0f;
+
+        [[nodiscard]] bool IsActive() const noexcept
+        {
+            return StateActive || FromDrawable != nullptr;
+        }
+    };
+
     class UIDrawContext
     {
     public:
@@ -58,8 +83,19 @@ export namespace foundation::ui
             return m_vg->IsRectVisible(rect);
         }
 
+        /// The blend the next Drawable::Draw applies (see DrawBlend). Returns the previous
+        /// one so the caller can restore it.
+        DrawBlend SetBlend(const DrawBlend& blend) noexcept
+        {
+            const DrawBlend previous = m_blend;
+            m_blend = blend;
+            return previous;
+        }
+        [[nodiscard]] const DrawBlend& Blend() const noexcept { return m_blend; }
+
     private:
         vg::VGContext* m_vg;
+        DrawBlend m_blend{};
         f32 m_dpiScale;
         fonts::IFontService* m_fontService;
         UIDebugDrawSettings m_debugSettings;

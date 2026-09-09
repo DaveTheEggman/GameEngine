@@ -493,6 +493,22 @@ export namespace foundation::ui
         /// sheet) happened: flush every computed-style cache in the context and relayout.
         /// Class/sheet setters call this; a `Name` write after attach must call it itself.
         void InvalidateStyle(); // impl unit (touches Context)
+        /// As InvalidateStyle, for a change that REPLACES rule objects (a sheet swap): the
+        /// context's sheet epoch moves so no stale cache is ever read for a transition
+        /// snapshot (its rule pointers may be gone). Impl unit.
+        void InvalidateStyleSheets();
+
+        // === Transitions (P3; spec section 4) ===
+        /// Running style transitions on this view (for tests/tools).
+        [[nodiscard]] usize ActiveTransitionCount() const noexcept;
+        [[nodiscard]] bool IsTransitioning() const noexcept;
+        /// Advance every running transition by `deltaTime` and mark damage; returns whether
+        /// any is still running. Called by UIContext::BeginFrame.
+        bool AdvanceTransitions(f32 deltaTime);
+        /// Drop every running transition (detach); the cascade value applies at once.
+        void ClearTransitions();
+        /// What DrawChildren hands the draw context before this view draws (see DrawBlend).
+        [[nodiscard]] DrawBlend CurrentDrawBlend() const;
         void ToggleClass(StringView name)
         {
             if (HasClass(name))
@@ -521,7 +537,7 @@ export namespace foundation::ui
                 return;
             }
             m_localStyleSheet = Move(sheet);
-            InvalidateStyle();
+            InvalidateStyleSheets();
         }
 
         // Typed inline-style setters (map straight onto the inline element rule).
@@ -841,6 +857,7 @@ export namespace foundation::ui
             bool valid = false;
             u32 generation = 0;
             u32 chainVersion = 0;
+            u32 sheetEpoch = 0;
             ControlState state = ControlState::Normal;
             Array<const StyleRule*> rules;
             const StyleRule* winners[static_cast<usize>(StyleProperty::COUNT)] = {};
@@ -852,7 +869,45 @@ export namespace foundation::ui
         /// Turns Inherit/Initial/Variable into a concrete value (depth-limited for var chains).
         [[nodiscard]] StyleValue ResolveKeywords(StyleProperty prop, const StyleValue& raw, i32 depth);
         [[nodiscard]] StyleValue ResolveVariableValue(const StyleValue& reference, i32 depth);
+        /// The cascade's value with keywords/inheritance resolved and NO transition overlay:
+        /// what ResolveStyle returns once every transition on `prop` has finished.
+        [[nodiscard]] StyleValue ComputeStyle(StyleProperty prop);
+        /// After a cache rebuild: start (or retarget) a transition for every listed property
+        /// whose value moved, from `snapshot` (the value BEFORE the rebuild, mid-flight
+        /// included) to the new computed value; and the state cross-fade when the control
+        /// state moved. Impl unit.
+        void BeginTransitions(const Array<StyleValue>& snapshot, ControlState oldState,
+                              ControlState newState);
+        friend class UIContext; // detach de-lists transitions
         StyleCache m_styleCache;
+        /// Set while EnsureStyleCache snapshots the OLD cache (the reads must not re-enter the
+        /// rebuild).
+        bool m_styleCacheSnapshotting = false;
+
+        struct StyleTransition
+        {
+            StyleProperty Property = StyleProperty::COUNT;
+            StyleValue From;
+            StyleValue To;
+            f32 Elapsed = 0.0f;
+            f32 Duration = 0.0f;
+            f32 Delay = 0.0f;
+            TransitionEasing Easing = TransitionEasing::Ease;
+        };
+        struct TransitionState
+        {
+            Array<StyleTransition> Active;
+            bool StateBlendActive = false;
+            ControlState BlendFrom = ControlState::Normal;
+            ControlState BlendTo = ControlState::Normal;
+            f32 BlendElapsed = 0.0f;
+            f32 BlendDuration = 0.0f;
+            f32 BlendDelay = 0.0f;
+            TransitionEasing BlendEasing = TransitionEasing::Ease;
+        };
+        UniquePtr<TransitionState> m_transitionState; ///< null until the first transition
+        bool m_transitionRegistered = false;          ///< listed in the context's tick set
+        void RegisterTransitioning();                  // impl unit
 
         bool m_needsRedraw = true;
         LayoutStyle m_layout;          ///< inline (declared) intent
@@ -1146,7 +1201,9 @@ export namespace foundation::ui
                     ctx.PushClip(Rectangle{0, 0, child->Width(), child->Height()});
                 }
 
+                const DrawBlend previousBlend = ctx.SetBlend(child->CurrentDrawBlend());
                 child->OnDraw(ctx);
+                ctx.SetBlend(previousBlend);
                 if (shadow.HasValue() && shadow.Value().Inset)
                 {
                     DrawBoxShadow(ctx, *child, shadow.Value());
@@ -1470,11 +1527,35 @@ export namespace foundation::ui
         [[nodiscard]] bool WantsTextInput() const;
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
-        void SetStyleSheet(RefPtr<StyleSheet> sheet)
+        /// Install the context sheet (the theme). Prepends the user-agent defaults once per
+        /// sheet (`transition: all 120ms ease-out` on the interactive controls; a theme rule
+        /// on the same type wins by source order) and moves the sheet epoch. Impl unit.
+        void SetStyleSheet(RefPtr<StyleSheet> sheet);
+        /// Bumped whenever rule OBJECTS may have been replaced (context or local sheet swap):
+        /// a View's style cache from another epoch is rebuilt without reading it.
+        [[nodiscard]] u32 SheetEpoch() const noexcept { return m_sheetEpoch; }
+        void BumpSheetEpoch() noexcept
         {
-            m_styleSheet = Move(sheet);
+            ++m_sheetEpoch;
             InvalidateStyles();
         }
+        /// A view with a running transition asks to be ticked (BeginFrame); de-listed when its
+        /// transitions end or it detaches.
+        void RegisterTransitioning(View* view)
+        {
+            m_transitioning.PushBack(view);
+        }
+        void UnregisterTransitioning(View* view)
+        {
+            for (usize i = m_transitioning.Size(); i-- > 0;)
+            {
+                if (m_transitioning[i] == view)
+                {
+                    m_transitioning.RemoveAtSwap(i);
+                }
+            }
+        }
+        [[nodiscard]] usize TransitioningViewCount() const noexcept { return m_transitioning.Size(); }
 
         /// The style generation: bumped by anything that changes which rules match a view
         /// (classes, ids, sheets, tree structure). Every View's computed-style cache keys on it.
@@ -1601,6 +1682,15 @@ export namespace foundation::ui
             m_totalTime += deltaTime;
             m_mutationQueue.Drain();
             m_tooltipManager.Update(deltaTime);
+            // Style transitions: each listed view advances its own clocks and marks its damage
+            // (visual or layout by the property's kind); done views leave the set.
+            for (usize i = m_transitioning.Size(); i-- > 0;)
+            {
+                if (!m_transitioning[i]->AdvanceTransitions(deltaTime))
+                {
+                    m_transitioning.RemoveAtSwap(i);
+                }
+            }
             // Continuous-damage producers (the redraw gate has no free per-frame redraws):
             // live animations move things every tick, and a focused text input needs its
             // caret blink serviced. Both mark BEFORE the host samples the damage state.
@@ -1658,6 +1748,11 @@ export namespace foundation::ui
         {
             InvalidateStyles();
             Unregister(view);
+            if (view->m_transitionRegistered)
+            {
+                UnregisterTransitioning(view);
+            }
+            view->ClearTransitions();
             view->Context = nullptr;
             if (ViewGroup* group = Cast<ViewGroup>(view))
             {
@@ -1701,6 +1796,8 @@ export namespace foundation::ui
         TooltipManager m_tooltipManager;
         DragDropManager m_dragDropManager;
         AnimationManager m_animationManager;
+        Array<View*> m_transitioning; ///< views with running style transitions (raw: de-listed on detach)
+        u32 m_sheetEpoch = 0;
         RefPtr<StyleSheet> m_styleSheet;
         u32 m_styleGeneration = 1;
         IClipboard* m_clipboard = nullptr;
