@@ -66,6 +66,26 @@ TEST_CASE("http: parser - failures (garbage, chunked, oversized head, body cap)"
         HttpMessageParser p(HttpMessageParser::Mode::Request);
         CHECK(p.Push(Bytes(u8"this is not http\r\n\r\n")) == HttpParseState::Failed);
     }
+    // A first line missing its second separator (no version), or ending on it: refused,
+    // never read past (the second scan stops exactly at the end of the line).
+    {
+        HttpMessageParser p(HttpMessageParser::Mode::Request);
+        CHECK(p.Push(Bytes(u8"GET /path\r\n\r\n")) == HttpParseState::Failed);
+    }
+    {
+        HttpMessageParser p(HttpMessageParser::Mode::Request);
+        CHECK(p.Push(Bytes(u8"GET\r\n\r\n")) == HttpParseState::Failed);
+    }
+    {
+        HttpMessageParser p(HttpMessageParser::Mode::Request);
+        CHECK(p.Push(Bytes(u8"GET /path \r\n\r\n")) == HttpParseState::Failed); // empty version
+    }
+    {
+        // A response without a reason phrase is legal and still parses.
+        HttpMessageParser p(HttpMessageParser::Mode::Response);
+        CHECK(p.Push(Bytes(u8"HTTP/1.1 204\r\nContent-Length: 0\r\n\r\n")) != HttpParseState::Failed);
+        CHECK(p.Status() == 204);
+    }
     {
         HttpMessageParser p(HttpMessageParser::Mode::Request);
         CHECK(p.Push(Bytes(u8"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n")) ==

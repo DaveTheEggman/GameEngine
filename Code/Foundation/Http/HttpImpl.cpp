@@ -179,7 +179,14 @@ namespace foundation::http
                 {
                     ++secondSpace;
                 }
-                if (firstSpace >= line.Size() || secondSpace > line.Size())
+                // Both separators must be PRESENT with something after them: "GET /path"
+                // (no version) stops the second scan exactly at the end, which a
+                // `secondSpace > Size` check let through - the version read below then
+                // started one past the line (the Beef port's garbage test caught it).
+                // A response may omit the reason phrase ("HTTP/1.1 200"): only the request
+                // form needs the third part.
+                if (firstSpace >= line.Size() ||
+                    (m_mode == Mode::Request && secondSpace >= line.Size()))
                 {
                     return false;
                 }
