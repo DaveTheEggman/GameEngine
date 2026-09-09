@@ -99,14 +99,83 @@ export namespace foundation::ui
         }
 
         /// Parse a unit value from a number token.
-        /// Unitless = dp (default), "px" = Px, "dp" = Dp, "pt" = Pt.
+        /// Unitless = dp (default), "px" = Px, "dp" = Dp, "pt" = Pt, "em" = Em, "%" = Percent.
         [[nodiscard]] static Unit ParseUnit(f32 value, StringView suffix)
         {
             if (suffix == StringView(u8"px"))
                 return Unit::Px(value);
             if (suffix == StringView(u8"pt"))
                 return Unit::Pt(value);
+            if (suffix == StringView(u8"em"))
+                return Unit::Em(value);
+            if (suffix == StringView(u8"%"))
+                return Unit::Percent(value);
             return Unit::Dp(value); // default: dp (includes "dp" and unitless)
+        }
+
+        /// Parse a length from TEXT (markup attributes): `240`, `240px`, `16dp`, `12pt`, `50%`,
+        /// `2em`, or `calc(a + b)` / `calc(a - b)` over two such terms (one nesting level).
+        /// Empty on anything else.
+        [[nodiscard]] static Optional<Unit> ParseLengthText(StringView text)
+        {
+            const StringView t = Trimmed(text);
+            const auto startsWith = [](StringView v, StringView prefix)
+            { return v.Size() >= prefix.Size() && v.SubStr(0, prefix.Size()) == prefix; };
+            const auto endsWith = [](StringView v, StringView suffix)
+            {
+                return v.Size() >= suffix.Size() &&
+                       v.SubStr(v.Size() - suffix.Size(), suffix.Size()) == suffix;
+            };
+            if (startsWith(t, u8"calc(") && endsWith(t, u8")"))
+            {
+                const StringView inner = Trimmed(t.SubStr(5, t.Size() - 6));
+                // Find the operator: a `+` or `-` surrounded by spaces (a leading sign is not one).
+                for (usize i = 1; i + 1 < inner.Size(); ++i)
+                {
+                    if ((inner[i] == u8'+' || inner[i] == u8'-') && inner[i - 1] == u8' ' &&
+                        inner[i + 1] == u8' ')
+                    {
+                        const Optional<Unit> a = ParseLengthText(inner.SubStr(0, i));
+                        const Optional<Unit> b =
+                            ParseLengthText(inner.SubStr(i + 1, inner.Size() - i - 1));
+                        if (!a.HasValue() || !b.HasValue())
+                        {
+                            return {};
+                        }
+                        return inner[i] == u8'+' ? a.Value() + b.Value() : a.Value() - b.Value();
+                    }
+                }
+                return {};
+            }
+            // Split the trailing unit off the number.
+            usize unitStart = t.Size();
+            while (unitStart > 0)
+            {
+                const char8_t c = t[unitStart - 1];
+                const bool numeric = (c >= u8'0' && c <= u8'9') || c == u8'.' || c == u8'-';
+                if (numeric)
+                {
+                    break;
+                }
+                --unitStart;
+            }
+            const StringView number = t.SubStr(0, unitStart);
+            const StringView suffix = t.SubStr(unitStart, t.Size() - unitStart);
+            if (number.Size() == 0)
+            {
+                return {};
+            }
+            const Optional<f64> v = ParseFloat(number);
+            if (!v.HasValue())
+            {
+                return {};
+            }
+            if (suffix.Size() != 0 && suffix != u8"px" && suffix != u8"dp" && suffix != u8"pt" &&
+                suffix != u8"em" && suffix != u8"%")
+            {
+                return {};
+            }
+            return ParseUnit(static_cast<f32>(v.Value()), suffix);
         }
 
     private:

@@ -453,7 +453,7 @@ export namespace foundation::ui
                 return;
             }
             StyleClasses.PushBack(String(name));
-            Invalidate();
+            InvalidateStyle();
         }
         void RemoveClass(StringView name)
         {
@@ -462,11 +462,15 @@ export namespace foundation::ui
                 if (StyleClasses[i] == name)
                 {
                     StyleClasses.RemoveAt(i);
-                    Invalidate();
+                    InvalidateStyle();
                     return;
                 }
             }
         }
+        /// Something that changes which rules match (a class, an id rename after attach, a
+        /// sheet) happened: flush every computed-style cache in the context and relayout.
+        /// Class/sheet setters call this; a `Name` write after attach must call it itself.
+        void InvalidateStyle(); // impl unit (touches Context)
         void ToggleClass(StringView name)
         {
             if (HasClass(name))
@@ -495,7 +499,7 @@ export namespace foundation::ui
                 return;
             }
             m_localStyleSheet = Move(sheet);
-            Invalidate();
+            InvalidateStyle();
         }
 
         // Typed inline-style setters (map straight onto the inline element rule).
@@ -600,7 +604,20 @@ export namespace foundation::ui
         }
 
         // === Style resolution (orchestrators; defined below - need Context/StyleSheet/inheritance) ===
+        /// The computed value of `prop` for this view: the ordered cascade over the context
+        /// sheet, the local sheets from the outermost ancestor inward, and the inline sheet
+        /// (later wins); `inherit`/`initial`/`var()` resolved; text properties inherit from
+        /// the parent's computed value when unset. Cached per view (see RebuildStyleCache).
         [[nodiscard]] StyleValue ResolveStyle(StyleProperty prop);
+        /// A custom property (`--name`, including the dashes) from the cascade, inherited
+        /// through the parent chain like every custom property; None when unset. Also the
+        /// custom-layout extension point: a container reads `child->CustomProperty(u8"--ring-angle")`.
+        [[nodiscard]] StyleValue CustomProperty(StringView name);
+        /// A Length-valued property resolved against `referenceSize` (the containing box on
+        /// that axis) and this view's font size; a plain Float value passes through; else
+        /// `defaultVal`.
+        [[nodiscard]] f32 ResolveStyleLength(StyleProperty prop, f32 referenceSize,
+                                             f32 defaultVal = 0.0f);
         [[nodiscard]] StyleValue ResolvePartStyle(StringView part, StyleProperty prop,
                                                   ControlState partState);
 
@@ -763,9 +780,33 @@ export namespace foundation::ui
             if (!m_inlineSheet)
             {
                 m_inlineSheet = MakeRef<StyleSheet>(MemoryAllocator());
+                InvalidateStyle();
             }
             return *m_inlineSheet;
         }
+
+        // The computed-style cache: the matching rules in ascending cascade order and, per
+        // property, the winning rule. Valid while the context's style generation, the summed
+        // versions of the sheets in THIS view's chain (context sheet, ancestors' local sheets,
+        // own inline sheet) and the control state are unchanged. Sheets in other contexts, or
+        // on other branches, never invalidate it. Impl-unit methods.
+        struct StyleCache
+        {
+            bool valid = false;
+            u32 generation = 0;
+            u32 chainVersion = 0;
+            ControlState state = ControlState::Normal;
+            Array<const StyleRule*> rules;
+            const StyleRule* winners[static_cast<usize>(StyleProperty::COUNT)] = {};
+        };
+        /// Ensures the cache matches the current state; returns it.
+        [[nodiscard]] const StyleCache& EnsureStyleCache();
+        /// The cascade's raw winning value for `prop` (no keyword/variable resolution), or None.
+        [[nodiscard]] StyleValue RawStyleValue(StyleProperty prop);
+        /// Turns Inherit/Initial/Variable into a concrete value (depth-limited for var chains).
+        [[nodiscard]] StyleValue ResolveKeywords(StyleProperty prop, const StyleValue& raw, i32 depth);
+        [[nodiscard]] StyleValue ResolveVariableValue(const StyleValue& reference, i32 depth);
+        StyleCache m_styleCache;
 
         bool m_needsRedraw = true;
         LayoutStyle m_layout;
@@ -1236,7 +1277,16 @@ export namespace foundation::ui
         [[nodiscard]] bool WantsTextInput() const;
 
         [[nodiscard]] StyleSheet* GetStyleSheet() const noexcept { return m_styleSheet.Get(); }
-        void SetStyleSheet(RefPtr<StyleSheet> sheet) { m_styleSheet = Move(sheet); }
+        void SetStyleSheet(RefPtr<StyleSheet> sheet)
+        {
+            m_styleSheet = Move(sheet);
+            InvalidateStyles();
+        }
+
+        /// The style generation: bumped by anything that changes which rules match a view
+        /// (classes, ids, sheets, tree structure). Every View's computed-style cache keys on it.
+        [[nodiscard]] u32 StyleGeneration() const noexcept { return m_styleGeneration; }
+        void InvalidateStyles() noexcept { ++m_styleGeneration; }
 
         // Clipboard adapter, set by the application / ui.shell bridge (non-owning, nullable). The core
         // stays platform-agnostic; EditText reads it through ITextEditHost.
@@ -1392,6 +1442,7 @@ export namespace foundation::ui
         // === Subtree attach/detach ===
         void AttachView(View* view)
         {
+            InvalidateStyles(); // ancestors, siblings (:first-child/:last-child) changed
             view->Context = this;
             Register(view);
             if (ViewGroup* group = Cast<ViewGroup>(view))
@@ -1412,6 +1463,7 @@ export namespace foundation::ui
         }
         void DetachView(View* view)
         {
+            InvalidateStyles();
             Unregister(view);
             view->Context = nullptr;
             if (ViewGroup* group = Cast<ViewGroup>(view))
@@ -1457,6 +1509,7 @@ export namespace foundation::ui
         DragDropManager m_dragDropManager;
         AnimationManager m_animationManager;
         RefPtr<StyleSheet> m_styleSheet;
+        u32 m_styleGeneration = 1;
         IClipboard* m_clipboard = nullptr;
         fonts::IFontService* m_fontService = nullptr;
         Phase m_phase = Phase::Idle;

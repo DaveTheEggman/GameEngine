@@ -1,7 +1,47 @@
 # UI layout and style model v2 - uniform layout style, a real cascade, transitions
 
 > STATUS: P0 BUILT 2026-09-09 (LayoutStyle on View; LayoutParams classes, CreateDefaultLayoutParams,
-> RegisterLayoutParam deleted; four lanes green). P1-P4 PROPOSED.
+> RegisterLayoutParam deleted; four lanes green). P1 BUILT 2026-09-09 (ordered cascade + computed
+> cache, selector chains, inherit/initial, custom properties + var(), palette as root variables,
+> %/em/calc lengths in sheets and markup). P2-P4 PROPOSED.
+> P1 as built (deviations from section 3, all deliberate):
+> - Selectors: `#id` (View::Name), descendant + child `>` combinators (right-to-left with
+>   backtracking), `:first-child :last-child :empty`, the CSS aliases `:active`(pressed)
+>   `:focus`/`:focus-visible`(focused) beside the existing state names. An unknown TYPE name is
+>   consumed and matches nothing (it used to be mistaken for a property). CSS specificity
+>   (id 100, class and each pseudo-class 10, type and pseudo-element 1) - `:hover` now weighs
+>   like a class, so `Type:hover` vs `Type.primary` is decided by source order, as in CSS.
+>   NOT built: `[attr=value]` (views keep no attribute bag - add when a consumer needs it) and
+>   `:selected` (no control state carries it; `:checked` is what tabs/lists use).
+> - Cascade: per view, the matching rules of the context sheet, the ancestors' local sheets
+>   (outermost first) and the inline sheet, each stable-sorted by specificity, concatenated in
+>   that order; last declaration wins PER PROPERTY. Cached on the view (winning rule per
+>   property + the rule list) and keyed on (context style generation, the SUMMED versions of
+>   the sheets in that view's chain, control state). Sheets carry their own version; a rule
+>   edit bumps its owning sheet - so an editor context and an embedded game context with
+>   different themes never invalidate each other, and an inline edit invalidates one view.
+>   Pseudo-element (part) lookups stay uncached.
+> - Inheritance: text-color, text-dim-color, font-size, font-family, word-wrap take the
+>   parent's COMPUTED value when unset; `inherit` works on any property; `initial` unsets
+>   (no inheritance either). An unset `var()` with no fallback behaves like unset.
+> - Variables: `--name: value` on any rule (typed by its literal: color, drawable factory,
+>   number/length, string, bool, or another var()); `var(--name[, fallback])` on any property,
+>   fallback in the property's own syntax, nested references and fallbacks (depth 8). Custom
+>   properties inherit through the parent chain; `View::CustomProperty(name)` reads them (the
+>   custom-layout extension point). The loader prepends a `View { --<palette-key>: color }`
+>   rule when it has a palette, so `$name` (parse time) and `var(--name)` (compute time)
+>   read the same colors. Note `View { --x }` re-declares on EVERY view (like CSS `* {}`):
+>   declare theme-wide variables on `RootView`.
+> - Units: `Unit` is a component SUM (dp, px, pt, %, em) so `calc(a +/- b)` is a value;
+>   `SizeSpec::Fixed` resolves % against the containing box on that axis (0 when unbounded)
+>   and em against the computed font size in View::Measure; markup `width="50%"`, `"2em"`,
+>   `"calc(100% - 20dp)"` parse (StyleValueParser::ParseLengthText). In sheets a plain
+>   number stays a Float (px/dp/pt as before); %, em and calc() become a Length value read
+>   through `View::ResolveStyleLength(prop, referenceSize)` (em of the view's own font size;
+>   font-size itself in em of the parent's). Controls still read Float, so em/% in THEME
+>   sheets wait for the consumer migration that comes with the P2 box model; sheet-driven
+>   LAYOUT properties (width/height/margin into LayoutStyle) also land with P2.
+> - Still open from P0: unknown markup attributes remain warnings.
 > P0 as built (deviations from the sketch below, all deliberate):
 > - Field names follow the house PascalCase: `Width/Height/Margin/FlexGrow/FlexShrink/AlignSelf/
 >   Gravity/Dock/Left/Top/GridRow/GridColumn/GridRowSpan/GridColumnSpan`. `FlexShrink` keeps the

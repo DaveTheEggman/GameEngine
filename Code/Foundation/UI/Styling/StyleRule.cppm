@@ -45,6 +45,14 @@ export namespace foundation::ui
 
         StyleRule() = default;
 
+        /// The owning sheet's version counter (set by the sheet on AddRule; re-homed by
+        /// MergeFrom; cleared when the sheet dies). A rule edit bumps it, so only the views
+        /// whose chain includes THAT sheet rebuild their computed style - a game context's
+        /// sheet edits never touch the editor's caches, and an inline style edit on one view
+        /// touches that view alone.
+        void BindOwnerVersion(u32* version) noexcept { m_ownerVersion = version; }
+        [[nodiscard]] u32* OwnerVersion() const noexcept { return m_ownerVersion; }
+
         StyleRule& Set(StyleProperty prop, core::Color color)
         {
             SetOverwrite(prop, StyleValue::ColorVal(color));
@@ -75,6 +83,52 @@ export namespace foundation::ui
             SetOverwrite(prop, StyleValue::StringRef(value));
             return *this;
         }
+        /// Any value, including Length / Inherit / Initial / Variable references.
+        StyleRule& SetValue(StyleProperty prop, StyleValue value)
+        {
+            SetOverwrite(prop, Move(value));
+            return *this;
+        }
+
+        // === Custom properties (`--name: value`) ===
+        // Named, untyped values the cascade carries like any declaration; `var(--name)` and
+        // View::CustomProperty read them (the custom-layout extension point).
+        struct CustomEntry
+        {
+            String Name; ///< including the leading `--`
+            u64 NameHash = 0;
+            StyleValue Value;
+        };
+        StyleRule& SetCustom(StringView name, StyleValue value)
+        {
+            const u64 hash = HashText(name);
+            for (CustomEntry& e : m_custom)
+            {
+                if (e.NameHash == hash && e.Name == name)
+                {
+                    e.Value = Move(value);
+                    Changed();
+                    return *this;
+                }
+            }
+            m_custom.PushBack(CustomEntry{String(name), hash, Move(value)});
+            Changed();
+            return *this;
+        }
+        [[nodiscard]] usize CustomCount() const noexcept { return m_custom.Size(); }
+        [[nodiscard]] const CustomEntry& GetCustom(usize index) const { return m_custom[index]; }
+        /// The custom property by hashed name, or null.
+        [[nodiscard]] const StyleValue* FindCustom(u64 nameHash, StringView name) const
+        {
+            for (const CustomEntry& e : m_custom)
+            {
+                if (e.NameHash == nameHash && e.Name == name)
+                {
+                    return &e.Value;
+                }
+            }
+            return nullptr;
+        }
 
         /// Remove a property (releases any owned resource). No-op if not set.
         bool Remove(StyleProperty prop)
@@ -84,6 +138,7 @@ export namespace foundation::ui
                 if (m_properties[i].Prop == prop)
                 {
                     m_properties.RemoveAt(i);
+                    Changed();
                     return true;
                 }
             }
@@ -107,8 +162,17 @@ export namespace foundation::ui
         }
 
     private:
+        void Changed() noexcept
+        {
+            if (m_ownerVersion != nullptr)
+            {
+                ++*m_ownerVersion;
+            }
+        }
+
         void SetOverwrite(StyleProperty prop, StyleValue value)
         {
+            Changed();
             for (Entry& e : m_properties)
             {
                 if (e.Prop == prop)
@@ -121,6 +185,8 @@ export namespace foundation::ui
         }
 
         Array<Entry> m_properties;
+        Array<CustomEntry> m_custom;
+        u32* m_ownerVersion = nullptr;
     };
 
     RTTI_DEFINE_OBJECT(StyleRule, "rtti::ui")

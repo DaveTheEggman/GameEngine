@@ -3,8 +3,9 @@
 
 // UI - :style_sheet partition
 //
-// Rule-based cascading style system: rules match views by type/class/state; most specific match
-// wins. Ported from Sedulous.UI/src/Styling/StyleSheet.bf.
+// Rule-based cascading style system: rules match views by selector chain; the cascade orders
+// every matching rule by (specificity, source order) and the LAST declaration of a property
+// wins (ui-layout-and-style-model.md, P1). Ported from Sedulous.UI/src/Styling/StyleSheet.bf.
 //
 // Divergence (language): Beef manual ownership (rules deleted, drawables ReleaseRef'd, resources
 // deleted in ~this) -> RAII: rules are RefPtr<StyleRule>, owned drawables/resources are RefPtr.
@@ -34,15 +35,17 @@ export namespace foundation::ui
     class
         View; // defined in :view; Resolve(view,prop) body lives there (breaks the View<->styling cycle)
 
-    /// Inheritable style properties - these walk the parent chain (in View.ResolveStyle) if not
-    /// found on the view itself.
+    /// Inheritable style properties (the text properties) - these take the parent's COMPUTED
+    /// value (in View.ResolveStyle) when nothing sets them on the view itself.
     [[nodiscard]] constexpr bool IsInheritableStyle(StyleProperty prop) noexcept
     {
         switch (prop)
         {
         case StyleProperty::TextColor:
+        case StyleProperty::TextDimColor:
         case StyleProperty::FontSize:
         case StyleProperty::FontFamily:
+        case StyleProperty::WordWrap:
             return true;
         default:
             return false;
@@ -54,9 +57,40 @@ export namespace foundation::ui
         RTTI_OBJECT(StyleSheet, Object)
     public:
         StyleSheet() = default;
+        ~StyleSheet() override
+        {
+            // Rules may outlive the sheet (shared through MergeFrom): never leave them pointing
+            // at this counter.
+            for (const RefPtr<StyleRule>& r : m_rules)
+            {
+                if (r->OwnerVersion() == &m_version)
+                {
+                    r->BindOwnerVersion(nullptr);
+                }
+            }
+        }
+
+        /// This sheet's edit counter: bumped by every rule added and every edit to a rule it
+        /// owns. A view's computed-style cache keys on the versions of the sheets in ITS chain
+        /// (context sheet, ancestors' local sheets, its inline sheet) - nothing process-wide,
+        /// so contexts with different themes never flush each other.
+        [[nodiscard]] u32 Version() const noexcept { return m_version; }
 
         // === Rule management ===
-        void AddRule(RefPtr<StyleRule> rule) { m_rules.PushBack(Move(rule)); }
+        void AddRule(RefPtr<StyleRule> rule)
+        {
+            rule->BindOwnerVersion(&m_version);
+            m_rules.PushBack(Move(rule));
+            ++m_version;
+        }
+        /// Insert a rule BEFORE every existing one (lowest source order: a same-specificity
+        /// rule declared in the sheet beats it). The loader's palette-variables rule.
+        void PrependRule(RefPtr<StyleRule> rule)
+        {
+            rule->BindOwnerVersion(&m_version);
+            m_rules.Insert(0, Move(rule));
+            ++m_version;
+        }
         [[nodiscard]] usize RuleCount() const noexcept { return m_rules.Size(); }
         [[nodiscard]] bool IsEmpty() const noexcept { return m_rules.Size() == 0; }
         /// Access a rule by index (surfaced for tests; Beef reached mRules via [Friend]).
@@ -69,6 +103,7 @@ export namespace foundation::ui
         {
             for (const RefPtr<StyleRule>& r : other.m_rules)
             {
+                r->BindOwnerVersion(&m_version); // re-homed: `other` is transient (@import)
                 m_rules.PushBack(r);
             }
             for (const RefPtr<Drawable>& d : other.m_ownedDrawables)
@@ -79,7 +114,16 @@ export namespace foundation::ui
             {
                 m_ownedResources.PushBack(res);
             }
+            ++m_version;
         }
+
+        // === The cascade primitive ===
+        /// Appends every rule matching (view, state, pseudo) in ASCENDING cascade order:
+        /// specificity, then source order - so the last rule in `out` that declares a property
+        /// wins it. Callers concatenate several sheets (context, local, inline) into one list.
+        /// Body in :view (needs View complete for Matches).
+        void CollectMatching(const View& view, ControlState state, StringView pseudo,
+                             Array<const StyleRule*>& out) const;
 
         // === Inline-sheet rule helpers ===
         [[nodiscard]] StyleRule& GetOrCreateInlineElementRule()
@@ -282,43 +326,34 @@ export namespace foundation::ui
         {
             RefPtr<StyleRule> r = MakeRef<StyleRule>(MemoryAllocator());
             StyleRule& ref = *r;
+            r->BindOwnerVersion(&m_version);
             m_rules.PushBack(Move(r));
+            ++m_version;
             return ref;
         }
 
         [[nodiscard]] StyleValue ResolveMatching(const View& view, ControlState state,
                                                  StringView pseudo, StyleProperty prop) const
         {
-            StyleValue best = StyleValue::None();
-            i32 bestSpecificity = -1;
-            for (const RefPtr<StyleRule>& rule : m_rules)
+            // The ordered cascade over THIS sheet: last matching declaration wins. (Rules are
+            // stored in declaration order, so an equal-specificity rule declared later beats an
+            // earlier one - a per-type FontSize beats the global `View { FontSize }`.)
+            Array<const StyleRule*> matching;
+            CollectMatching(view, state, pseudo, matching);
+            for (usize i = matching.Size(); i-- > 0;)
             {
-                if (!rule->Selector.Matches(view, state, pseudo))
+                if (Optional<StyleValue> val = matching[i]->GetValue(prop); val.HasValue())
                 {
-                    continue;
-                }
-                Optional<StyleValue> val = rule->GetValue(prop);
-                if (!val.HasValue())
-                {
-                    continue;
-                }
-                const i32 specificity = rule->Selector.Specificity();
-                // CSS tie-break: on EQUAL specificity the LAST declared rule wins (source order), so
-                // >= not >. Rules are stored in declaration order (base theme, then per-type, then
-                // extensions appended last), so a later equal-specificity rule correctly overrides an
-                // earlier one - e.g. a per-type FontSize beats the global `View { FontSize }`.
-                if (specificity >= bestSpecificity)
-                {
-                    bestSpecificity = specificity;
-                    best = val.Value();
+                    return val.Value();
                 }
             }
-            return best;
+            return StyleValue::None();
         }
 
         Array<RefPtr<StyleRule>> m_rules;
         Array<RefPtr<Drawable>> m_ownedDrawables;
         Array<RefPtr<Object>> m_ownedResources;
+        u32 m_version = 1;
     };
 
     RTTI_DEFINE_OBJECT(StyleSheet, "rtti::ui")

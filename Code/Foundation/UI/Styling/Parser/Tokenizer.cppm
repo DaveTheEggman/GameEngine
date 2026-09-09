@@ -100,13 +100,25 @@ export namespace foundation::ui
             case u8'%':
                 Advance();
                 return Token(TokenKind::Percent, u8"%", startLine, startCol);
+            case u8'>':
+                Advance();
+                return Token(TokenKind::Greater, u8">", startLine, startCol);
+            case u8'+':
+                Advance();
+                return Token(TokenKind::Plus, u8"+", startLine, startCol);
             default:
                 break;
             }
 
-            // Hex color: #rrggbb or #rrggbbaa
+            // `#name`: a hex color in a value (#rrggbb / #rrggbbaa) or an id in a selector -
+            // the PARSER decides by position; the token carries the whole name.
             if (ch == u8'#')
                 return ReadHexColor(startLine, startCol);
+
+            // Custom property name: `--name` (a dash-dash identifier, never a number).
+            if (ch == u8'-' && m_pos + 1 < static_cast<i32>(m_source.Size()) &&
+                m_source[static_cast<usize>(m_pos + 1)] == u8'-')
+                return ReadIdent(startLine, startCol);
 
             // Variable: $name
             if (ch == u8'$')
@@ -155,6 +167,13 @@ export namespace foundation::ui
             if (detail::IsIdentStartC(ch))
                 return ReadIdent(startLine, startCol);
 
+            // A standalone `-` (calc operator): the number and `--name` cases were taken above.
+            if (ch == u8'-')
+            {
+                Advance();
+                return Token(TokenKind::Minus, u8"-", startLine, startCol);
+            }
+
             // Unknown - skip
             Advance();
             return Token(TokenKind::EndOfInput, u8"", startLine, startCol);
@@ -180,7 +199,8 @@ export namespace foundation::ui
             const i32 start = m_pos;
             Advance(); // skip #
             while (m_pos < static_cast<i32>(m_source.Size()) &&
-                   detail::IsHexDigitC(m_source[static_cast<usize>(m_pos)]))
+                   (detail::IsIdentCharC(m_source[static_cast<usize>(m_pos)]) ||
+                    m_source[static_cast<usize>(m_pos)] == u8'-'))
                 Advance();
             return Token(TokenKind::HexColor, Slice(start, m_pos), line, col);
         }

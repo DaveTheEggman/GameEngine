@@ -37,6 +37,9 @@ export namespace foundation::ui
         Comma,         ///< ,
         Equals,        ///< =
         Percent,       ///< %
+        Greater,       ///< > (child combinator)
+        Plus,          ///< + (calc operator)
+        Minus,         ///< - (calc operator; a `-` that starts a number is part of the Number)
         BoolLit,       ///< Keyword: true/false
         Extends,       ///< Keyword: extends
     };

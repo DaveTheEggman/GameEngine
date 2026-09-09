@@ -73,41 +73,250 @@ namespace foundation::ui
         return false;
     }
 
-    StyleValue View::ResolveStyle(StyleProperty prop)
+    void View::InvalidateStyle()
     {
-        if (m_inlineSheet)
+        m_styleCache.valid = false;
+        if (Context != nullptr)
         {
-            StyleValue r = m_inlineSheet->Resolve(*this, prop);
-            if (r.GetKind() != StyleValue::Kind::None)
+            Context->InvalidateStyles();
+        }
+        Invalidate();
+    }
+
+    const View::StyleCache& View::EnsureStyleCache()
+    {
+        const ControlState state = GetControlState();
+        const u32 generation = Context != nullptr ? Context->StyleGeneration() : 0u;
+        // The chain: the sheets whose versions this cache keys on, and the local sheets it
+        // collects from (OUTERMOST ancestor first, so nearer wins later in the list).
+        View* chain[64];
+        usize depth = 0;
+        u32 chainVersion = 0;
+        if (Context != nullptr)
+        {
+            if (const StyleSheet* sheet = Context->GetStyleSheet())
             {
-                return r;
+                chainVersion += sheet->Version();
             }
         }
-        for (View* anc = this; anc != nullptr; anc = anc->Parent)
+        for (View* anc = this; anc != nullptr && depth < 64; anc = anc->Parent)
         {
             if (anc->m_localStyleSheet)
             {
-                StyleValue r = anc->m_localStyleSheet->Resolve(*this, prop);
-                if (r.GetKind() != StyleValue::Kind::None)
+                chain[depth++] = anc;
+                chainVersion += anc->m_localStyleSheet->Version();
+            }
+        }
+        if (m_inlineSheet)
+        {
+            chainVersion += m_inlineSheet->Version();
+        }
+        // Without a context there is no generation to key on (class edits on this view would
+        // go unseen), so the cache is rebuilt every time - the pre-P1 cost, tests only.
+        if (m_styleCache.valid && Context != nullptr && m_styleCache.generation == generation &&
+            m_styleCache.chainVersion == chainVersion && m_styleCache.state == state)
+        {
+            return m_styleCache;
+        }
+
+        StyleCache& cache = m_styleCache;
+        cache.rules.Clear();
+        // Ascending cascade order: the context sheet, then the local sheets from the OUTERMOST
+        // ancestor inward (nearer wins), then this view's inline sheet (wins over everything).
+        if (Context != nullptr)
+        {
+            if (const StyleSheet* sheet = Context->GetStyleSheet())
+            {
+                sheet->CollectMatching(*this, state, StringView{}, cache.rules);
+            }
+        }
+        for (usize i = depth; i-- > 0;)
+        {
+            chain[i]->m_localStyleSheet->CollectMatching(*this, state, StringView{}, cache.rules);
+        }
+        if (m_inlineSheet)
+        {
+            m_inlineSheet->CollectMatching(*this, state, StringView{}, cache.rules);
+        }
+
+        for (usize p = 0; p < static_cast<usize>(StyleProperty::COUNT); ++p)
+        {
+            cache.winners[p] = nullptr;
+        }
+        // Last declaration wins: walk from the highest-priority rule down, first fill wins.
+        usize filled = 0;
+        for (usize i = cache.rules.Size(); i-- > 0 && filled < static_cast<usize>(StyleProperty::COUNT);)
+        {
+            const StyleRule* rule = cache.rules[i];
+            for (usize e = 0; e < rule->PropertyCount(); ++e)
+            {
+                const usize p = static_cast<usize>(rule->GetProperty(e).Prop);
+                if (p < static_cast<usize>(StyleProperty::COUNT) && cache.winners[p] == nullptr)
                 {
-                    return r;
+                    cache.winners[p] = rule;
+                    ++filled;
                 }
             }
         }
-        if (Context != nullptr)
+        cache.valid = true;
+        cache.generation = generation;
+        cache.chainVersion = chainVersion;
+        cache.state = state;
+        return cache;
+    }
+
+    StyleValue View::RawStyleValue(StyleProperty prop)
+    {
+        const StyleCache& cache = EnsureStyleCache();
+        const usize p = static_cast<usize>(prop);
+        if (p >= static_cast<usize>(StyleProperty::COUNT) || cache.winners[p] == nullptr)
         {
-            if (StyleSheet* ctxSheet = Context->GetStyleSheet())
+            return StyleValue::None();
+        }
+        if (Optional<StyleValue> v = cache.winners[p]->GetValue(prop); v.HasValue())
+        {
+            return v.Value();
+        }
+        return StyleValue::None();
+    }
+
+    StyleValue View::ResolveVariableValue(const StyleValue& reference, i32 depth)
+    {
+        const VariableReference* ref = reference.Variable();
+        if (ref == nullptr || depth > 8)
+        {
+            return StyleValue::None();
+        }
+        StyleValue value = CustomProperty(ref->Name.AsView());
+        if (value.IsNone())
+        {
+            value = VariableFallback(*ref);
+        }
+        if (value.GetKind() == StyleValue::Kind::Variable)
+        {
+            return ResolveVariableValue(value, depth + 1);
+        }
+        return value;
+    }
+
+    StyleValue View::ResolveKeywords(StyleProperty prop, const StyleValue& raw, i32 depth)
+    {
+        switch (raw.GetKind())
+        {
+        case StyleValue::Kind::Inherit:
+            return Parent != nullptr ? Parent->ResolveStyle(prop) : StyleValue::None();
+        case StyleValue::Kind::Initial:
+            return StyleValue::None();
+        case StyleValue::Kind::Variable:
+        {
+            StyleValue value = ResolveVariableValue(raw, depth);
+            if (value.NeedsResolution() && depth <= 8)
             {
-                StyleValue r = ctxSheet->Resolve(*this, prop);
-                if (r.GetKind() != StyleValue::Kind::None)
-                {
-                    return r;
-                }
+                return ResolveKeywords(prop, value, depth + 1);
             }
+            return value;
+        }
+        default:
+            return raw;
+        }
+    }
+
+    StyleValue View::ResolveStyle(StyleProperty prop)
+    {
+        const StyleValue raw = RawStyleValue(prop);
+        if (!raw.IsNone())
+        {
+            const StyleValue value = ResolveKeywords(prop, raw, 0);
+            if (!value.IsNone() || raw.GetKind() == StyleValue::Kind::Initial)
+            {
+                return value;
+            }
+            // An unset variable with no fallback behaves like "unset": fall through to inherit.
         }
         if (IsInheritableStyle(prop) && Parent != nullptr)
         {
             return Parent->ResolveStyle(prop);
+        }
+        return StyleValue::None();
+    }
+
+    StyleValue View::CustomProperty(StringView name)
+    {
+        const u64 hash = HashText(name);
+        for (View* v = this; v != nullptr; v = v->Parent)
+        {
+            const StyleCache& cache = v->EnsureStyleCache();
+            for (usize i = cache.rules.Size(); i-- > 0;)
+            {
+                if (const StyleValue* value = cache.rules[i]->FindCustom(hash, name))
+                {
+                    if (value->GetKind() == StyleValue::Kind::Variable)
+                    {
+                        return v->ResolveVariableValue(*value, 1);
+                    }
+                    return *value;
+                }
+            }
+        }
+        return StyleValue::None();
+    }
+
+    f32 View::ResolveStyleLength(StyleProperty prop, f32 referenceSize, f32 defaultVal)
+    {
+        const StyleValue value = ResolveStyle(prop);
+        if (Optional<f32> f = value.AsFloat(); f.HasValue())
+        {
+            return f.Value();
+        }
+        if (Optional<Unit> length = value.AsLength(); length.HasValue())
+        {
+            // em: of this view's computed font size - which, for font-size ITSELF, is the
+            // parent's (CSS), so `font-size: 1.5em` compounds down the tree.
+            const f32 fontSize =
+                prop == StyleProperty::FontSize
+                    ? (Parent != nullptr ? Parent->ResolveStyleLength(StyleProperty::FontSize, 0.0f, 16.0f) : 16.0f)
+                    : ResolveStyleLength(StyleProperty::FontSize, 0.0f, 16.0f);
+            RootView* root = Root();
+            const f32 dpiScale = (root != nullptr) ? Max(root->DpiScale, 0.01f) : 1.0f;
+            return length.Value().Resolve(dpiScale, referenceSize, fontSize);
+        }
+        return defaultVal;
+    }
+
+    StyleValue View::ResolvePartStyle(StringView part, StyleProperty prop, ControlState partState)
+    {
+        // Parts are uncached (per-part state varies per draw); same cascade order as the element.
+        Array<const StyleRule*> rules;
+        if (Context != nullptr)
+        {
+            if (const StyleSheet* sheet = Context->GetStyleSheet())
+            {
+                sheet->CollectMatching(*this, partState, part, rules);
+            }
+        }
+        View* chain[64];
+        usize depth = 0;
+        for (View* anc = this; anc != nullptr && depth < 64; anc = anc->Parent)
+        {
+            if (anc->m_localStyleSheet)
+            {
+                chain[depth++] = anc;
+            }
+        }
+        for (usize i = depth; i-- > 0;)
+        {
+            chain[i]->m_localStyleSheet->CollectMatching(*this, partState, part, rules);
+        }
+        if (m_inlineSheet)
+        {
+            m_inlineSheet->CollectMatching(*this, partState, part, rules);
+        }
+        for (usize i = rules.Size(); i-- > 0;)
+        {
+            if (Optional<StyleValue> v = rules[i]->GetValue(prop); v.HasValue())
+            {
+                return ResolveKeywords(prop, v.Value(), 0);
+            }
         }
         return StyleValue::None();
     }
@@ -134,41 +343,6 @@ namespace foundation::ui
             return String(instanceOverride);
         }
         return ResolveStyleFontFamily();
-    }
-
-    StyleValue View::ResolvePartStyle(StringView part, StyleProperty prop, ControlState partState)
-    {
-        if (m_inlineSheet)
-        {
-            StyleValue r = m_inlineSheet->ResolvePart(*this, part, prop, partState);
-            if (r.GetKind() != StyleValue::Kind::None)
-            {
-                return r;
-            }
-        }
-        for (View* anc = this; anc != nullptr; anc = anc->Parent)
-        {
-            if (anc->m_localStyleSheet)
-            {
-                StyleValue r = anc->m_localStyleSheet->ResolvePart(*this, part, prop, partState);
-                if (r.GetKind() != StyleValue::Kind::None)
-                {
-                    return r;
-                }
-            }
-        }
-        if (Context != nullptr)
-        {
-            if (StyleSheet* ctxSheet = Context->GetStyleSheet())
-            {
-                StyleValue r = ctxSheet->ResolvePart(*this, part, prop, partState);
-                if (r.GetKind() != StyleValue::Kind::None)
-                {
-                    return r;
-                }
-            }
-        }
-        return StyleValue::None();
     }
 
     void View::QueueRemove()
@@ -235,15 +409,22 @@ namespace foundation::ui
         {
             RootView* root = Root();
             const f32 dpiScale = (root != nullptr) ? Max(root->DpiScale, 0.01f) : 1.0f;
+            // Percent resolves against the CONTAINING box on the same axis (the incoming
+            // constraint's max, after margin; 0 when unbounded), em against the computed font
+            // size. Both are only computed when a component needs them.
+            const bool relative = widthSpec.fixedSize.IsRelative() || heightSpec.fixedSize.IsRelative();
+            const f32 fontSize = relative ? ResolveStyleLength(StyleProperty::FontSize, 0.0f, 16.0f) : 0.0f;
             if (widthSpec.kind == SizeSpec::Kind::Fixed)
             {
-                const f32 w = widthSpec.ResolveFixed(dpiScale);
+                const f32 reference = BoxConstraints::IsBounded(box.MaxWidth) ? box.MaxWidth : 0.0f;
+                const f32 w = Max(0.0f, widthSpec.ResolveFixed(dpiScale, reference, fontSize));
                 box.MinWidth = w;
                 box.MaxWidth = w;
             }
             if (heightSpec.kind == SizeSpec::Kind::Fixed)
             {
-                const f32 h = heightSpec.ResolveFixed(dpiScale);
+                const f32 reference = BoxConstraints::IsBounded(box.MaxHeight) ? box.MaxHeight : 0.0f;
+                const f32 h = Max(0.0f, heightSpec.ResolveFixed(dpiScale, reference, fontSize));
                 box.MinHeight = h;
                 box.MaxHeight = h;
             }
@@ -455,6 +636,10 @@ namespace foundation::ui
         {
             return;
         }
+        if (Context != nullptr)
+        {
+            Context->InvalidateStyles(); // :first-child / :last-child follow the order
+        }
         usize current = m_children.Size();
         for (usize i = 0; i < m_children.Size(); ++i)
         {
@@ -503,28 +688,96 @@ namespace foundation::ui
             });
     }
 
+    namespace
+    {
+        [[nodiscard]] bool CompoundMatches(const SelectorCompound& c, const View& view,
+                                           ControlState state)
+        {
+            if (c.UnknownType)
+            {
+                return false;
+            }
+            if (c.ViewType != nullptr && !IsDerivedFrom(view.GetType(), c.ViewType))
+            {
+                return false;
+            }
+            for (const String& cls : c.StyleClasses)
+            {
+                if (!view.HasClass(cls.AsView()))
+                {
+                    return false;
+                }
+            }
+            if (c.Id.HasValue() && view.Name != c.Id.Value())
+            {
+                return false;
+            }
+            if (c.State.HasValue())
+            {
+                const ControlState required = c.State.Value();
+                if (required != ControlState::Normal && !HasFlag(state, required))
+                {
+                    return false;
+                }
+            }
+            if (c.Structural != StructuralMatch::None)
+            {
+                const ViewGroup* parent = Cast<ViewGroup>(view.Parent);
+                if (HasStructural(c.Structural, StructuralMatch::FirstChild) &&
+                    (parent == nullptr || parent->ChildCount() == 0 || parent->GetChildAt(0) != &view))
+                {
+                    return false;
+                }
+                if (HasStructural(c.Structural, StructuralMatch::LastChild) &&
+                    (parent == nullptr || parent->ChildCount() == 0 ||
+                     parent->GetChildAt(parent->ChildCount() - 1) != &view))
+                {
+                    return false;
+                }
+                if (HasStructural(c.Structural, StructuralMatch::Empty))
+                {
+                    const ViewGroup* self = Cast<ViewGroup>(&view);
+                    if (self != nullptr && self->ChildCount() != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Right-to-left with backtracking: a descendant step may match ANY ancestor, and the
+        // steps beyond it must still match from there.
+        [[nodiscard]] bool AncestorsMatch(const Array<SelectorAncestor>& steps, usize index,
+                                          const View& from)
+        {
+            if (index >= steps.Size())
+            {
+                return true;
+            }
+            const SelectorAncestor& step = steps[index];
+            if (step.DirectParent)
+            {
+                const View* parent = from.Parent;
+                return parent != nullptr &&
+                       CompoundMatches(step.Compound, *parent, parent->GetControlState()) &&
+                       AncestorsMatch(steps, index + 1, *parent);
+            }
+            for (const View* anc = from.Parent; anc != nullptr; anc = anc->Parent)
+            {
+                if (CompoundMatches(step.Compound, *anc, anc->GetControlState()) &&
+                    AncestorsMatch(steps, index + 1, *anc))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     bool StyleSelector::Matches(const View& view, ControlState state,
                                 StringView pseudoElement) const
     {
-        if (ViewType != nullptr && !IsDerivedFrom(view.GetType(), ViewType))
-        {
-            return false;
-        }
-        for (const String& cls : StyleClasses)
-        {
-            if (!view.HasClass(cls.AsView()))
-            {
-                return false;
-            }
-        }
-        if (State.HasValue())
-        {
-            const ControlState required = State.Value();
-            if (required != ControlState::Normal && !HasFlag(state, required))
-            {
-                return false;
-            }
-        }
         if (PseudoElement.HasValue())
         {
             if (pseudoElement.Size() == 0u || PseudoElement.Value().AsView() != pseudoElement)
@@ -536,7 +789,70 @@ namespace foundation::ui
         {
             return false;
         }
-        return true;
+        if (UnknownType)
+        {
+            return false;
+        }
+        if (ViewType != nullptr && !IsDerivedFrom(view.GetType(), ViewType))
+        {
+            return false;
+        }
+        for (const String& cls : StyleClasses)
+        {
+            if (!view.HasClass(cls.AsView()))
+            {
+                return false;
+            }
+        }
+        if (Id.HasValue() && view.Name != Id.Value())
+        {
+            return false;
+        }
+        if (State.HasValue())
+        {
+            const ControlState required = State.Value();
+            if (required != ControlState::Normal && !HasFlag(state, required))
+            {
+                return false;
+            }
+        }
+        if (Structural != StructuralMatch::None)
+        {
+            SelectorCompound structuralOnly;
+            structuralOnly.Structural = Structural;
+            if (!CompoundMatches(structuralOnly, view, state))
+            {
+                return false;
+            }
+        }
+        return Ancestors.IsEmpty() || AncestorsMatch(Ancestors, 0, view);
+    }
+
+    void StyleSheet::CollectMatching(const View& view, ControlState state, StringView pseudo,
+                                     Array<const StyleRule*>& out) const
+    {
+        // Gather in source order, then stable-sort by specificity: equal specificity keeps
+        // declaration order, so the later rule ends up later (and wins).
+        const usize first = out.Size();
+        for (const RefPtr<StyleRule>& rule : m_rules)
+        {
+            if (rule->Selector.Matches(view, state, pseudo))
+            {
+                out.PushBack(rule.Get());
+            }
+        }
+        for (usize i = first + 1; i < out.Size(); ++i)
+        {
+            const StyleRule* key = out[i];
+            const i32 keySpecificity = key->Selector.Specificity();
+            usize j = i;
+            while (j > first && out[j - 1]->Selector.Specificity() > keySpecificity)
+            {
+                out[j] = out[j - 1];
+                --j;
+            }
+            out[j] = key;
+        }
     }
 
     StyleValue StyleSheet::Resolve(const View& view, StyleProperty prop) const

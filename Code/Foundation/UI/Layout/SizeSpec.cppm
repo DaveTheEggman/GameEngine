@@ -32,7 +32,7 @@ export namespace foundation::ui
 
         constexpr SizeSpec() noexcept = default; // default: Wrap
 
-        /// Explicit size with a unit (dp/pt/px).
+        /// Explicit size with a unit (dp/pt/px/%/em, or a calc sum of them).
         [[nodiscard]] static constexpr SizeSpec Fixed(Unit size) noexcept
         {
             SizeSpec s;
@@ -55,10 +55,18 @@ export namespace foundation::ui
             return s;
         }
 
-        /// For Fixed: resolves the unit. For Match/Wrap: 0 (parent handles these).
+        /// For Fixed: resolves the ABSOLUTE unit components. For Match/Wrap: 0 (parent handles
+        /// these). Percent/em components need the three-argument overload.
         [[nodiscard]] constexpr f32 ResolveFixed(f32 dpiScale) const noexcept
         {
             return kind == Kind::Fixed ? fixedSize.Resolve(dpiScale) : 0.0f;
+        }
+        /// For Fixed: resolves every component - `referenceSize` is the containing box on this
+        /// axis (0 when unbounded), `fontSize` the computed font size for em.
+        [[nodiscard]] constexpr f32 ResolveFixed(f32 dpiScale, f32 referenceSize,
+                                                 f32 fontSize) const noexcept
+        {
+            return kind == Kind::Fixed ? fixedSize.Resolve(dpiScale, referenceSize, fontSize) : 0.0f;
         }
 
         /// Whether this is a fixed size (not Match or Wrap).

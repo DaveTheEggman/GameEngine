@@ -13,11 +13,13 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 export module foundation.ui:style_value;
 
-import foundation.core; // Color, Optional, RefPtr, String, StringView
+import foundation.core; // Color, Optional, RefPtr, String, StringView, HashText
 import :thickness;
+import :unit;
 import :drawable;
 
 using namespace foundation::core;
@@ -25,6 +27,24 @@ namespace core = foundation::core;
 
 export namespace foundation::ui
 {
+    class StyleValue;
+
+    /// A `var(--name, fallback)` reference: resolved against the view's custom properties at
+    /// COMPUTE time (never at parse time - the value depends on where the view sits). Shared
+    /// by every copy of the StyleValue that carries it; immutable once built.
+    class VariableReference : public Object
+    {
+        RTTI_OBJECT(VariableReference, Object)
+    public:
+        String Name;     ///< Including the leading `--`.
+        u64 NameHash = 0; ///< HashText(Name)
+        /// Used when the variable is unset (may itself be a reference: nested fallback).
+        /// Owned here through a pointer to keep StyleValue's own definition non-recursive.
+        RefPtr<Object> Fallback; // a StyleValueBox (defined below)
+
+        VariableReference() = default;
+    };
+
     class StyleValue
     {
     public:
@@ -36,7 +56,15 @@ export namespace foundation::ui
             Thickness,
             Drawable,
             Bool,
-            String
+            String,
+            /// A length with units (percent/em/calc sums); plain numbers stay Float.
+            Length,
+            /// The `inherit` keyword: take the parent's computed value.
+            Inherit,
+            /// The `initial` keyword: as if unset (the property's default).
+            Initial,
+            /// A `var(--name, fallback)` reference (see VariableReference).
+            Variable
         };
 
         StyleValue() = default; // None
@@ -83,9 +111,53 @@ export namespace foundation::ui
             v.m_string = String(s);
             return v;
         }
+        [[nodiscard]] static StyleValue LengthVal(Unit length)
+        {
+            StyleValue v;
+            v.m_kind = Kind::Length;
+            v.m_length = length;
+            return v;
+        }
+        [[nodiscard]] static StyleValue Inherit()
+        {
+            StyleValue v;
+            v.m_kind = Kind::Inherit;
+            return v;
+        }
+        [[nodiscard]] static StyleValue Initial()
+        {
+            StyleValue v;
+            v.m_kind = Kind::Initial;
+            return v;
+        }
+        /// A reference to a custom property. `name` includes the leading `--`; the overload
+        /// with `fallback` is used when the variable is unset.
+        [[nodiscard]] static StyleValue VariableRef(IAllocator& allocator, StringView name);
+        [[nodiscard]] static StyleValue VariableRef(IAllocator& allocator, StringView name,
+                                                    const StyleValue& fallback);
         [[nodiscard]] static StyleValue None() { return StyleValue{}; }
 
         [[nodiscard]] Kind GetKind() const noexcept { return m_kind; }
+        [[nodiscard]] bool IsNone() const noexcept { return m_kind == Kind::None; }
+        /// Inherit/Initial/Variable: needs the cascade to turn it into a concrete value.
+        [[nodiscard]] bool NeedsResolution() const noexcept
+        {
+            return m_kind == Kind::Inherit || m_kind == Kind::Initial || m_kind == Kind::Variable;
+        }
+
+        [[nodiscard]] Optional<Unit> AsLength() const
+        {
+            if (m_kind == Kind::Length)
+            {
+                return m_length;
+            }
+            return {};
+        }
+        /// The reference for a Variable value (null otherwise).
+        [[nodiscard]] const VariableReference* Variable() const noexcept
+        {
+            return m_kind == Kind::Variable ? m_variable.Get() : nullptr;
+        }
 
         /// Try to get as Color / Float / Thickness / Bool (empty Optional if the kind differs).
         [[nodiscard]] Optional<core::Color> AsColor() const
@@ -144,5 +216,51 @@ export namespace foundation::ui
         RefPtr<Drawable> m_drawable;
         bool m_bool = false;
         String m_string;
+        Unit m_length{};
+        RefPtr<VariableReference> m_variable;
     };
+
+    /// Boxes a StyleValue as an Object so a VariableReference can own its fallback.
+    class StyleValueBox : public Object
+    {
+        RTTI_OBJECT(StyleValueBox, Object)
+    public:
+        StyleValue Value;
+        StyleValueBox() = default;
+        explicit StyleValueBox(StyleValue value) : Value(Move(value)) {}
+    };
+
+    inline StyleValue StyleValue::VariableRef(IAllocator& allocator, StringView name)
+    {
+        return VariableRef(allocator, name, StyleValue{});
+    }
+
+    inline StyleValue StyleValue::VariableRef(IAllocator& allocator, StringView name,
+                                              const StyleValue& fallback)
+    {
+        RefPtr<VariableReference> ref = MakeRef<VariableReference>(allocator);
+        ref->Name = String(name);
+        ref->NameHash = HashText(name);
+        if (!fallback.IsNone())
+        {
+            ref->Fallback = MakeRef<StyleValueBox>(allocator, fallback);
+        }
+        StyleValue v;
+        v.m_kind = Kind::Variable;
+        v.m_variable = Move(ref);
+        return v;
+    }
+
+    /// The fallback of a reference as a StyleValue (None when there is none).
+    [[nodiscard]] inline StyleValue VariableFallback(const VariableReference& ref)
+    {
+        if (const StyleValueBox* box = Cast<StyleValueBox>(ref.Fallback.Get()))
+        {
+            return box->Value;
+        }
+        return StyleValue::None();
+    }
+
+    RTTI_DEFINE_OBJECT(VariableReference, "rtti::ui")
+    RTTI_DEFINE_OBJECT(StyleValueBox, "rtti::ui")
 }

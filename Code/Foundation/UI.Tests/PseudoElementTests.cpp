@@ -108,7 +108,7 @@ TEST_CASE("pseudo-element: Specificity_Full")
     sel.AddClass(u8"primary");
     sel.State = ControlState::Hover;
     sel.SetPseudoElement(u8"thumb");
-    CHECK(sel.Specificity() == 13); // type=1 + class=10 + state=1 + pseudo=1
+    CHECK(sel.Specificity() == 22); // CSS: type=1 + class=10 + pseudo-class(:hover)=10 + pseudo-element=1
 }
 
 // === StyleSheet pseudo-element resolution ===

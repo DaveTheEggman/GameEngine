@@ -16,6 +16,7 @@ add_executable(UI.Tests
     ThemeTests.cpp
     TokenizerTests.cpp
     SSSParserTests.cpp
+    CascadeTests.cpp
     TestHelpers.cpp
     ViewTests.cpp
     ViewGroupTests.cpp

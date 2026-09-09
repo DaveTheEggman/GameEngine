@@ -287,7 +287,8 @@ export namespace foundation::ui
         }
         // === Value parsing helpers ===
 
-        /// Parse a SizeSpec from markup: "wrap", "match", "240", "240px", "16dp".
+        /// Parse a SizeSpec from markup: "wrap", "match", or a length - "240", "240px", "16dp",
+        /// "50%", "2em", "calc(100% - 20dp)" (see StyleValueParser::ParseLengthText).
         [[nodiscard]] static SizeSpec ParseSizeSpec(StringView value)
         {
             if (value == u8"wrap")
@@ -298,31 +299,9 @@ export namespace foundation::ui
             {
                 return SizeSpec::Match();
             }
-            const StringView t = Trimmed(value);
-            if (EndsWith(t, u8"px"))
+            if (Optional<Unit> length = StyleValueParser::ParseLengthText(value); length.HasValue())
             {
-                if (Optional<f64> v = ParseFloat(Chop(t, 2)); v.HasValue())
-                {
-                    return SizeSpec::Fixed(Unit::Px(static_cast<f32>(v.Value())));
-                }
-            }
-            else if (EndsWith(t, u8"dp"))
-            {
-                if (Optional<f64> v = ParseFloat(Chop(t, 2)); v.HasValue())
-                {
-                    return SizeSpec::Fixed(Unit::Dp(static_cast<f32>(v.Value())));
-                }
-            }
-            else if (EndsWith(t, u8"pt"))
-            {
-                if (Optional<f64> v = ParseFloat(Chop(t, 2)); v.HasValue())
-                {
-                    return SizeSpec::Fixed(Unit::Pt(static_cast<f32>(v.Value())));
-                }
-            }
-            if (Optional<f64> v = ParseFloat(value); v.HasValue())
-            {
-                return SizeSpec::Fixed(Unit::Dp(static_cast<f32>(v.Value())));
+                return SizeSpec::Fixed(length.Value());
             }
             return SizeSpec::Wrap();
         }

@@ -414,62 +414,150 @@ export namespace foundation::ui
 
         // === Rules ===
 
-        void ParseRule()
+        /// True when the current token touches the previous one (no whitespace between): the
+        /// tokenizer drops whitespace, so the descendant combinator is recovered from positions.
+        [[nodiscard]] bool TouchesPrevious() const
         {
-            // Selector: Type.class.class:state:state { ... }
-            RefPtr<StyleRule> rule = MakeRef<StyleRule>((*m_allocator));
+            if (m_pos <= 0 || m_pos >= static_cast<i32>(m_tokens.Size()))
+                return false;
+            const Token& prev = m_tokens[static_cast<usize>(m_pos - 1)];
+            const Token& cur = m_tokens[static_cast<usize>(m_pos)];
+            return prev.Line == cur.Line &&
+                   cur.Column == prev.Column + static_cast<i32>(prev.Text.Size());
+        }
 
-            // Type selector
+        [[nodiscard]] bool PeekStartsCompound() const
+        {
+            const TokenKind k = Peek().Kind;
+            return k == TokenKind::Ident || k == TokenKind::ClassSelector ||
+                   k == TokenKind::HexColor || k == TokenKind::PseudoState;
+        }
+
+        /// One compound of a selector chain: `[Type][#id][.class]*[:pseudo-class]*`. The
+        /// pseudo-element (`::part[:state]*`) is only read for the SUBJECT (`allowPseudoElement`).
+        void ParseCompound(SelectorCompound& compound, Optional<String>* pseudoElement,
+                           ControlState& pseudoElementState, bool& hasPseudoElementState)
+        {
+            // Type selector. An unknown type name is consumed and marks the compound as
+            // matching nothing (rather than being mistaken for a property name).
             if (Peek().Kind == TokenKind::Ident)
             {
-                const StringView typeName = Peek().Text;
+                const StringView typeName = Consume().Text;
                 if (const TypeInfo* type = UITypeRegistry::Resolve(typeName))
-                {
-                    Consume();
-                    rule->Selector.ViewType = type;
-                }
+                    compound.ViewType = type;
+                else
+                    compound.UnknownType = true;
             }
 
-            // Class selectors
-            while (Peek().Kind == TokenKind::ClassSelector)
-            {
-                const Token cls = Consume();
-                rule->Selector.AddClass(cls.Text.SubStr(1, cls.Text.Size() - 1)); // skip leading .
-            }
-
-            // Pseudo-states (:hover, :checked, ...) - may be multiple for compound states
+            bool consumedAny = compound.ViewType != nullptr || compound.UnknownType;
             ControlState state = ControlState::Normal;
             bool hasState = false;
-            while (Peek().Kind == TokenKind::PseudoState)
+            for (;;)
             {
-                const Token ps = Consume();
-                state |=
-                    ParsePseudoStateName(ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
-                hasState = true;
+                // A part joins this compound when it TOUCHES the previous token (no
+                // whitespace) or starts the compound; whitespace before it is the descendant
+                // combinator, handled by the caller.
+                const bool joins = !consumedAny || TouchesPrevious();
+                if (Peek().Kind == TokenKind::HexColor && joins)
+                {
+                    const Token id = Consume();
+                    compound.Id = String(id.Text.SubStr(1, id.Text.Size() - 1)); // skip #
+                    consumedAny = true;
+                    continue;
+                }
+                if (Peek().Kind == TokenKind::ClassSelector && joins)
+                {
+                    const Token cls = Consume();
+                    compound.StyleClasses.PushBack(String(cls.Text.SubStr(1, cls.Text.Size() - 1)));
+                    consumedAny = true;
+                    continue;
+                }
+                if (Peek().Kind == TokenKind::PseudoState && joins)
+                {
+                    consumedAny = true;
+                    const Token ps = Consume();
+                    ApplyPseudoClass(ps.Text.SubStr(1, ps.Text.Size() - 1), state, hasState,
+                                     compound.Structural);
+                    continue;
+                }
+                break;
             }
-            if (hasState)
-                rule->Selector.State = state;
 
             // Pseudo-element (::thumb, ::track, ...). The tokenizer produces :: as Colon +
             // PseudoState(:name), since the second : followed by a letter reads as a PseudoState.
-            if (Peek().Kind == TokenKind::Colon && m_pos + 1 < static_cast<i32>(m_tokens.Size()) &&
+            if (pseudoElement != nullptr && Peek().Kind == TokenKind::Colon &&
+                m_pos + 1 < static_cast<i32>(m_tokens.Size()) &&
                 m_tokens[static_cast<usize>(m_pos + 1)].Kind == TokenKind::PseudoState)
             {
                 Consume();                  // first : (Colon)
                 const Token ps = Consume(); // :name (PseudoState)
-                rule->Selector.SetPseudoElement(
-                    ps.Text.SubStr(1, ps.Text.Size() - 1)); // skip leading :
-            }
-
-            // Allow :state after ::pseudo (e.g., ::tab:hover)
-            while (Peek().Kind == TokenKind::PseudoState)
-            {
-                const Token ps = Consume();
-                state |= ParsePseudoStateName(ps.Text.SubStr(1, ps.Text.Size() - 1));
-                hasState = true;
+                *pseudoElement = String(ps.Text.SubStr(1, ps.Text.Size() - 1));
+                // Allow :state after ::pseudo (e.g., ::tab:hover)
+                while (Peek().Kind == TokenKind::PseudoState)
+                {
+                    const Token st = Consume();
+                    ApplyPseudoClass(st.Text.SubStr(1, st.Text.Size() - 1), pseudoElementState,
+                                     hasPseudoElementState, compound.Structural);
+                }
             }
             if (hasState)
+                compound.State = state;
+        }
+
+        void ParseRule()
+        {
+            // Selector chain: compound (` ` | `>`) compound ... { ... }
+            RefPtr<StyleRule> rule = MakeRef<StyleRule>((*m_allocator));
+
+            Array<SelectorCompound> compounds;
+            Array<bool> childCombinator; // [i] = compound i is the DIRECT parent of i+1
+            Optional<String> pseudoElement;
+            ControlState partState = ControlState::Normal;
+            bool hasPartState = false;
+            for (;;)
+            {
+                SelectorCompound compound;
+                ParseCompound(compound, &pseudoElement, partState, hasPartState);
+                compounds.PushBack(Move(compound));
+                if (pseudoElement.HasValue())
+                    break; // a pseudo-element ends the chain (it is the subject's)
+                if (Peek().Kind == TokenKind::Greater)
+                {
+                    Consume();
+                    childCombinator.PushBack(true);
+                    continue;
+                }
+                if (PeekStartsCompound() && !TouchesPrevious())
+                {
+                    childCombinator.PushBack(false);
+                    continue;
+                }
+                break;
+            }
+
+            // The last compound is the subject; the rest are ancestors, nearest first.
+            const usize subjectIndex = compounds.Size() - 1;
+            SelectorCompound& subject = compounds[subjectIndex];
+            rule->Selector.ViewType = subject.ViewType;
+            rule->Selector.UnknownType = subject.UnknownType;
+            rule->Selector.StyleClasses = Move(subject.StyleClasses);
+            rule->Selector.Id = subject.Id;
+            rule->Selector.Structural = subject.Structural;
+            if (subject.State.HasValue() || hasPartState)
+            {
+                ControlState state = subject.State.HasValue() ? subject.State.Value()
+                                                              : ControlState::Normal;
+                if (hasPartState)
+                    state |= partState;
                 rule->Selector.State = state;
+            }
+            if (pseudoElement.HasValue())
+                rule->Selector.PseudoElement = pseudoElement;
+            for (usize i = 0; i < subjectIndex; ++i)
+            {
+                // AddAncestor prepends: feed outermost first so [0] ends up nearest.
+                rule->Selector.AddAncestor(Move(compounds[i]), childCombinator[i]);
+            }
 
             // Property block
             Expect(TokenKind::LBrace);
@@ -484,6 +572,14 @@ export namespace foundation::ui
         {
             const StringView propName = ConsumeIdent();
             Expect(TokenKind::Colon);
+
+            // `--name: value` - a custom property, typed by its literal.
+            if (propName.Size() > 2 && propName[0] == u8'-' && propName[1] == u8'-')
+            {
+                rule.SetCustom(propName, ParseCustomValue());
+                MatchSemicolon();
+                return;
+            }
 
             // `background-color` stores Background as a raw COLOR (CSS-style), for controls that
             // resolve it via ResolveStyleColor (ToastCard) - `background:` always builds a drawable.
@@ -502,6 +598,32 @@ export namespace foundation::ui
                 return;
             }
             const StyleProperty p = prop.Value();
+
+            // The cascade keywords and variable references apply to EVERY property.
+            if (Peek().Kind == TokenKind::Ident)
+            {
+                const StringView word = Peek().Text;
+                if (word == StringView(u8"inherit"))
+                {
+                    Consume();
+                    rule.SetValue(p, StyleValue::Inherit());
+                    MatchSemicolon();
+                    return;
+                }
+                if (word == StringView(u8"initial"))
+                {
+                    Consume();
+                    rule.SetValue(p, StyleValue::Initial());
+                    MatchSemicolon();
+                    return;
+                }
+                if (word == StringView(u8"var"))
+                {
+                    rule.SetValue(p, ParseVarReference(p));
+                    MatchSemicolon();
+                    return;
+                }
+            }
 
             // String-valued properties (font-family, etc) skip the StyleValue wrapper.
             if (IsStringProperty(p))
@@ -524,25 +646,161 @@ export namespace foundation::ui
             }
 
             const StyleValue value = ParseStyleValue(p);
-            switch (value.GetKind())
-            {
-            case StyleValue::Kind::Color:
-                rule.Set(p, value.AsColor().Value());
-                break;
-            case StyleValue::Kind::Float:
-                rule.Set(p, value.AsFloat().Value());
-                break;
-            case StyleValue::Kind::Thickness:
-                rule.Set(p, value.AsThickness().Value());
-                break;
-            case StyleValue::Kind::Bool:
-                rule.Set(p, value.AsBool().Value());
-                break;
-            default:
-                break;
-            }
+            if (!value.IsNone())
+                rule.SetValue(p, value);
 
             MatchSemicolon();
+        }
+
+        /// The typed value of a property, or a var()/keyword. Used for values and for a
+        /// var() fallback (which is written in the property's own syntax).
+        StyleValue ParseTypedValue(StyleProperty p)
+        {
+            if (p == StyleProperty::COUNT) // a custom property's fallback: typed by its literal
+                return ParseCustomValue();
+            if (Peek().Kind == TokenKind::Ident)
+            {
+                const StringView word = Peek().Text;
+                if (word == StringView(u8"inherit"))
+                {
+                    Consume();
+                    return StyleValue::Inherit();
+                }
+                if (word == StringView(u8"initial"))
+                {
+                    Consume();
+                    return StyleValue::Initial();
+                }
+                if (word == StringView(u8"var"))
+                    return ParseVarReference(p);
+            }
+            if (IsStringProperty(p))
+            {
+                const StringView str = ParseStringOrIdent();
+                return str.Size() > 0 ? StyleValue::StringRef(str) : StyleValue::None();
+            }
+            if (IsDrawableProperty(p))
+            {
+                RefPtr<Drawable> d = ParseDrawableValue(*m_sheet);
+                return d ? StyleValue::DrawableRef(Move(d)) : StyleValue::None();
+            }
+            return ParseStyleValue(p);
+        }
+
+        /// `var(--name[, fallback])` where the fallback is in the property's own syntax.
+        StyleValue ParseVarReference(StyleProperty p)
+        {
+            Consume(); // var
+            Expect(TokenKind::LParen);
+            const StringView name = ConsumeIdent();
+            StyleValue fallback;
+            if (MatchComma())
+                fallback = ParseTypedValue(p);
+            Expect(TokenKind::RParen);
+            return StyleValue::VariableRef(*m_allocator, name, fallback);
+        }
+
+        /// A custom property's value, typed by its literal: a color (hex, $palette, name,
+        /// function), a drawable factory call, a length/number, a string, a bool, or another
+        /// var() reference.
+        StyleValue ParseCustomValue()
+        {
+            switch (Peek().Kind)
+            {
+            case TokenKind::HexColor:
+            case TokenKind::Variable:
+                return StyleValue::ColorVal(ParseColorValue());
+            case TokenKind::Number:
+                return ParseLengthOrFloat();
+            case TokenKind::StringLit:
+                return StyleValue::StringRef(Consume().Text);
+            case TokenKind::BoolLit:
+                return StyleValue::BoolVal(Consume().Text == StringView(u8"true"));
+            case TokenKind::Ident:
+            {
+                const StringView name = Peek().Text;
+                if (name == StringView(u8"var"))
+                    return ParseVarReference(StyleProperty::COUNT);
+                if (name == StringView(u8"calc"))
+                    return ParseLengthOrFloat();
+                if (DrawableFactoryRegistry::Get(name) != nullptr)
+                {
+                    RefPtr<Drawable> d = ParseDrawableValue(*m_sheet);
+                    return d ? StyleValue::DrawableRef(Move(d)) : StyleValue::None();
+                }
+                if (StyleValueParser::ParseNamedColor(name).HasValue() ||
+                    name == StringView(u8"rgb") || name == StringView(u8"rgba") ||
+                    name == StringView(u8"lighten") || name == StringView(u8"darken") ||
+                    name == StringView(u8"alpha") || name == StringView(u8"mix") ||
+                    name == StringView(u8"hover") || name == StringView(u8"pressed") ||
+                    name == StringView(u8"disabled") || name == StringView(u8"focused"))
+                    return StyleValue::ColorVal(ParseColorValue());
+                return StyleValue::StringRef(Consume().Text);
+            }
+            default:
+                SkipUntilSemicolonOrBrace();
+                return StyleValue::None();
+            }
+        }
+
+        /// One length term: a number with an optional unit suffix (px/dp/pt/em) or a trailing
+        /// `%`. A bare/px/dp/pt number is an ABSOLUTE length; em and % are relative.
+        Unit ParseLengthTerm()
+        {
+            if (Peek().Kind != TokenKind::Number)
+                return Unit::Dp(0.0f);
+            const Token tok = Consume();
+            if (Peek().Kind == TokenKind::Percent)
+            {
+                Consume();
+                return Unit::Percent(tok.NumericValue);
+            }
+            return StyleValueParser::ParseUnit(tok.NumericValue, tok.UnitSuffix);
+        }
+
+        /// A number stays a Float (dp; px/pt convert at resolve as before) unless it needs a
+        /// reference - em, %, or a calc() - in which case it becomes a Length.
+        StyleValue ParseLengthOrFloat()
+        {
+            if (Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"calc"))
+            {
+                Consume();
+                Expect(TokenKind::LParen);
+                Unit result = ParseLengthTerm();
+                // One nesting level: a chain of `+ term` / `- term` (a `-20dp` written without
+                // the space arrives as a negative Number and adds).
+                for (;;)
+                {
+                    if (Peek().Kind == TokenKind::Plus)
+                    {
+                        Consume();
+                        result = result + ParseLengthTerm();
+                    }
+                    else if (Peek().Kind == TokenKind::Minus)
+                    {
+                        Consume();
+                        result = result - ParseLengthTerm();
+                    }
+                    else if (Peek().Kind == TokenKind::Number)
+                    {
+                        result = result + ParseLengthTerm();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                Expect(TokenKind::RParen);
+                return StyleValue::LengthVal(result);
+            }
+            if (Peek().Kind != TokenKind::Number)
+                return StyleValue::None();
+            const Token tok = Peek();
+            const bool percent = m_pos + 1 < static_cast<i32>(m_tokens.Size()) &&
+                                 m_tokens[static_cast<usize>(m_pos + 1)].Kind == TokenKind::Percent;
+            if (percent || tok.UnitSuffix == StringView(u8"em"))
+                return StyleValue::LengthVal(ParseLengthTerm());
+            return StyleValue::FloatVal(ParseFloatValue());
         }
 
         // === Private value parsing ===
@@ -559,8 +817,8 @@ export namespace foundation::ui
                     return StyleValue::BoolVal(Consume().Text == StringView(u8"true"));
                 return StyleValue::None();
             }
-            // Default: float
-            return StyleValue::FloatVal(ParseFloatValue());
+            // Default: a number (Float) or a relative length (%, em, calc -> Length).
+            return ParseLengthOrFloat();
         }
 
         Color ParseRgbFunction()
@@ -717,23 +975,41 @@ export namespace foundation::ui
             return {};
         }
 
-        [[nodiscard]] static ControlState ParsePseudoStateName(StringView name)
+        /// A pseudo-class: a control state (with the CSS aliases `:active` = pressed, `:focus`
+        /// and `:focus-visible` = focused) or a structural test. Unknown names are ignored.
+        static void ApplyPseudoClass(StringView name, ControlState& state, bool& hasState,
+                                     StructuralMatch& structural)
         {
-            if (name == StringView(u8"normal"))
-                return ControlState::Normal;
+            if (name == StringView(u8"first-child"))
+            {
+                structural = structural | StructuralMatch::FirstChild;
+                return;
+            }
+            if (name == StringView(u8"last-child"))
+            {
+                structural = structural | StructuralMatch::LastChild;
+                return;
+            }
+            if (name == StringView(u8"empty"))
+            {
+                structural = structural | StructuralMatch::Empty;
+                return;
+            }
+            hasState = true;
             if (name == StringView(u8"hover"))
-                return ControlState::Hover;
-            if (name == StringView(u8"pressed"))
-                return ControlState::Pressed;
-            if (name == StringView(u8"focused"))
-                return ControlState::Focused;
-            if (name == StringView(u8"disabled"))
-                return ControlState::Disabled;
-            if (name == StringView(u8"checked"))
-                return ControlState::Checked;
-            if (name == StringView(u8"indeterminate"))
-                return ControlState::Indeterminate;
-            return ControlState::Normal;
+                state |= ControlState::Hover;
+            else if (name == StringView(u8"pressed") || name == StringView(u8"active"))
+                state |= ControlState::Pressed;
+            else if (name == StringView(u8"focused") || name == StringView(u8"focus") ||
+                     name == StringView(u8"focus-visible"))
+                state |= ControlState::Focused;
+            else if (name == StringView(u8"disabled"))
+                state |= ControlState::Disabled;
+            else if (name == StringView(u8"checked"))
+                state |= ControlState::Checked;
+            else if (name == StringView(u8"indeterminate"))
+                state |= ControlState::Indeterminate;
+            // `normal` (and anything unknown) adds no flag: matches the normal state.
         }
 
         [[nodiscard]] static bool IsDrawableProperty(StyleProperty prop)

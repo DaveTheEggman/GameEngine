@@ -143,13 +143,26 @@ TEST_CASE("stylesheet: Selector_Specificity_Computed")
 
     StyleSelector selState;
     selState.State = ControlState::Hover;
-    CHECK(selState.Specificity() == 1);
+    CHECK(selState.Specificity() == 10); // a pseudo-class weighs like a class (CSS)
 
     StyleSelector selAll;
     selAll.ViewType = &TestView::StaticType();
     selAll.AddClass(StringView{u8"primary"});
     selAll.State = ControlState::Hover;
-    CHECK(selAll.Specificity() == 12);
+    CHECK(selAll.Specificity() == 21);
+
+    StyleSelector selId;
+    selId.SetId(u8"ok");
+    CHECK(selId.Specificity() == 100);
+
+    StyleSelector selChain; // `.panel > TestView.primary:hover:checked`
+    selChain.ViewType = &TestView::StaticType();
+    selChain.AddClass(StringView{u8"primary"});
+    selChain.State = ControlState::Hover | ControlState::Checked;
+    SelectorCompound panel;
+    panel.StyleClasses.PushBack(String(u8"panel"));
+    selChain.AddAncestor(panel, true);
+    CHECK(selChain.Specificity() == 1 + 10 + 20 + 10);
 }
 
 // === Palette ===

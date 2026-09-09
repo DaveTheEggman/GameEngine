@@ -19,6 +19,8 @@ export module foundation.ui:style_sheet_loader;
 import foundation.core;  // HashMap, String, StringView, Color, RefPtr
 import foundation.image; // ImageData
 import :style_sheet;
+import :style_rule;
+import :style_value;
 import :theme_palette;
 import :sss_token;
 import :sss_tokenizer;
@@ -98,7 +100,25 @@ export namespace foundation::ui
 
             SSSParser parser(*m_allocator, Move(tokens), &palette, &m_svgRegistry,
                              &m_imageRegistry, ResourceProvider, String(basePath));
-            return parser.Parse();
+            RefPtr<StyleSheet> sheet = parser.Parse();
+
+            // The palette (base + the sheet's @palette blocks) ALSO becomes a root rule of
+            // custom properties - `$primary` at parse time and `var(--primary)` /
+            // View::CustomProperty(u8"--primary") at compute time read the same colors.
+            // Prepended, so any `--name` the sheet declares on View wins over it.
+            if (!palette.IsEmpty())
+            {
+                RefPtr<StyleRule> variables = MakeRef<StyleRule>(*m_allocator);
+                variables->Selector.ViewType = UITypeRegistry::Resolve(u8"View");
+                for (const auto& kv : palette)
+                {
+                    String name(u8"--");
+                    name.Append(kv.key.AsView());
+                    variables->SetCustom(name.AsView(), StyleValue::ColorVal(kv.value));
+                }
+                sheet->PrependRule(Move(variables));
+            }
+            return sheet;
         }
 
         /// Convenience: initialize registries (idempotent). Call once at startup.
