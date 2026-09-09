@@ -809,6 +809,15 @@ export namespace foundation::ui
         {
             if (IsColorProperty(prop))
                 return StyleValue::ColorVal(ParseColorValue());
+            if (prop == StyleProperty::BoxShadow)
+                return ParseBoxShadowValue();
+            if (IsSizeSpecProperty(prop) && Peek().Kind == TokenKind::Ident &&
+                Peek().Text != StringView(u8"calc"))
+            {
+                // `match` / `wrap` (and the CSS spellings) travel as a String; the view's
+                // effective-layout refresh maps them to the SizeSpec kind.
+                return StyleValue::StringRef(Consume().Text);
+            }
             if (IsThicknessProperty(prop))
                 return StyleValue::ThicknessVal(ParseThicknessValue());
             if (IsBoolProperty(prop))
@@ -819,6 +828,48 @@ export namespace foundation::ui
             }
             // Default: a number (Float) or a relative length (%, em, calc -> Length).
             return ParseLengthOrFloat();
+        }
+
+        /// `box-shadow: <x> <y> [blur [spread]] <color> [inset]` (also `none`). Lengths are
+        /// plain numbers (dp); the color is any color syntax; `inset` may lead or trail.
+        StyleValue ParseBoxShadowValue()
+        {
+            if (Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"none"))
+            {
+                Consume();
+                return StyleValue::None();
+            }
+            BoxShadow shadow;
+            if (Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"inset"))
+            {
+                Consume();
+                shadow.Inset = true;
+            }
+            f32 lengths[4] = {};
+            i32 count = 0;
+            while (count < 4 && Peek().Kind == TokenKind::Number)
+            {
+                lengths[count++] = ParseFloatValue();
+            }
+            if (count < 2)
+            {
+                return StyleValue::None();
+            }
+            shadow.OffsetX = lengths[0];
+            shadow.OffsetY = lengths[1];
+            shadow.Blur = count > 2 ? Max(0.0f, lengths[2]) : 0.0f;
+            shadow.Spread = count > 3 ? lengths[3] : 0.0f;
+            if (Peek().Kind != TokenKind::Semicolon && Peek().Kind != TokenKind::RBrace &&
+                !(Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"inset")))
+            {
+                shadow.Color = ParseColorValue();
+            }
+            if (Peek().Kind == TokenKind::Ident && Peek().Text == StringView(u8"inset"))
+            {
+                Consume();
+                shadow.Inset = true;
+            }
+            return StyleValue::ShadowVal(shadow);
         }
 
         Color ParseRgbFunction()
@@ -972,6 +1023,38 @@ export namespace foundation::ui
             if (name == StringView(u8"word-wrap"))
                 return StyleProperty::WordWrap;
 
+            // P2 box model
+            if (name == StringView(u8"box-shadow"))
+                return StyleProperty::BoxShadow;
+            if (name == StringView(u8"min-width"))
+                return StyleProperty::MinWidth;
+            if (name == StringView(u8"min-height"))
+                return StyleProperty::MinHeight;
+            if (name == StringView(u8"max-width"))
+                return StyleProperty::MaxWidth;
+            if (name == StringView(u8"max-height"))
+                return StyleProperty::MaxHeight;
+            if (name == StringView(u8"top"))
+                return StyleProperty::Top;
+            if (name == StringView(u8"right"))
+                return StyleProperty::Right;
+            if (name == StringView(u8"bottom"))
+                return StyleProperty::Bottom;
+            if (name == StringView(u8"left"))
+                return StyleProperty::Left;
+            if (name == StringView(u8"z-index"))
+                return StyleProperty::ZIndex;
+            if (name == StringView(u8"flex-grow"))
+                return StyleProperty::FlexGrow;
+            if (name == StringView(u8"flex-shrink"))
+                return StyleProperty::FlexShrink;
+            if (name == StringView(u8"position"))
+                return StyleProperty::Position;
+            if (name == StringView(u8"overflow"))
+                return StyleProperty::Overflow;
+            if (name == StringView(u8"align-self"))
+                return StyleProperty::AlignSelf;
+
             return {};
         }
 
@@ -1030,7 +1113,13 @@ export namespace foundation::ui
         }
         [[nodiscard]] static bool IsStringProperty(StyleProperty prop)
         {
-            return prop == StyleProperty::FontFamily;
+            return prop == StyleProperty::FontFamily || prop == StyleProperty::Position ||
+                   prop == StyleProperty::Overflow || prop == StyleProperty::AlignSelf;
+        }
+        /// width/height accept the SizeSpec keywords (`match`, `wrap`) as well as a length.
+        [[nodiscard]] static bool IsSizeSpecProperty(StyleProperty prop)
+        {
+            return prop == StyleProperty::Width || prop == StyleProperty::Height;
         }
 
         /// Read a quoted string literal or a bare identifier.

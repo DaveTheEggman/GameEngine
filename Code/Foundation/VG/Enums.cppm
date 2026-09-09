@@ -65,6 +65,11 @@ export namespace foundation::vg
         DistanceField,  ///< Decode an MSDF atlas (median-of-3 + screen-space AA).
         GradientRadial, ///< Per-pixel radial gradient: t = length(texcoord); samples the ramp LUT.
         GradientConic,  ///< Per-pixel conic gradient: t = angle(texcoord)/2pi; samples the ramp LUT.
+        /// A blurred rounded-rectangle (the UI box-shadow): the vertex texcoord carries the
+        /// rounded-box SDF operand in blur-sigma units and coverage the corner radius (negative =
+        /// inset); the shader integrates a Gaussian over the signed distance. One shader, no
+        /// texture, any number of shadows per command.
+        BoxShadow,
     };
 
     /// Stencil-then-cover fill phases. Direct commands draw color immediately (the

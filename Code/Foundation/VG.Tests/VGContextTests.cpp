@@ -660,3 +660,107 @@ TEST_CASE("vg.context: a plain draw after a gradient is back on the white passth
     CHECK(plain.drawMode == VGDrawMode::Default);
 }
 
+
+// === Box shadow (the UI box-shadow primitive: four quadrant quads in the BoxShadow mode) ===
+
+namespace
+{
+    [[nodiscard]] bool FindCommandWithMode(const VGBatch& batch, VGDrawMode mode, VGCommand& out)
+    {
+        for (usize i = 0; i < batch.CommandCount(); ++i)
+        {
+            const VGCommand cmd = batch.GetCommand(i);
+            if (cmd.drawMode == mode && cmd.indexCount > 0)
+            {
+                out = cmd;
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+TEST_CASE("vg.context: FillBoxShadow emits four quadrant quads over the blurred extent in sigma units")
+{
+    VGContext ctx;
+    // blur 12 -> sigma 6 -> the shadow reaches 18 past the box on every side.
+    ctx.FillBoxShadow(Rectangle{10, 20, 100, 50}, CornerRadii(8.0f), 12.0f, Color{0, 0, 0, 0.5f});
+    const VGBatch& batch = ctx.GetBatch();
+
+    VGCommand cmd;
+    REQUIRE(FindCommandWithMode(batch, VGDrawMode::BoxShadow, cmd));
+    CHECK(cmd.indexCount == 24); // 4 quads
+    CHECK(cmd.textureIndex == 0); // no texture: the solid slot
+
+    // The 16 vertices span the box expanded by three sigma.
+    f32 minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+    usize shadowVertices = 0;
+    for (usize i = 0; i < batch.vertices.Size(); ++i)
+    {
+        const VGVertex& v = batch.vertices[i];
+        if (v.color.a > 0.49f && v.color.a < 0.51f)
+        {
+            ++shadowVertices;
+            minX = Min(minX, v.position.x);
+            maxX = Max(maxX, v.position.x);
+            minY = Min(minY, v.position.y);
+            maxY = Max(maxY, v.position.y);
+            // Every vertex carries the corner radius in sigma units (outset: positive).
+            CHECK(v.coverage == doctest::Approx(8.0f / 6.0f));
+        }
+    }
+    CHECK(shadowVertices == 16);
+    CHECK(minX == doctest::Approx(10.0f - 18.0f));
+    CHECK(maxX == doctest::Approx(110.0f + 18.0f));
+    CHECK(minY == doctest::Approx(20.0f - 18.0f));
+    CHECK(maxY == doctest::Approx(70.0f + 18.0f));
+
+    // The centre vertex of each quadrant sits deep inside: q = -(half - r) / sigma.
+    usize centres = 0;
+    for (usize i = 0; i < batch.vertices.Size(); ++i)
+    {
+        const VGVertex& v = batch.vertices[i];
+        if (v.position.x == doctest::Approx(60.0f) && v.position.y == doctest::Approx(45.0f))
+        {
+            ++centres;
+            CHECK(v.texCoord.x == doctest::Approx(-(50.0f - 8.0f) / 6.0f));
+            CHECK(v.texCoord.y == doctest::Approx(-(25.0f - 8.0f) / 6.0f));
+        }
+    }
+    CHECK(centres == 4);
+
+    // The mode is restored: a following plain fill is a Default command.
+    ctx.FillRect(Rectangle{0, 0, 5, 5}, Color::Red);
+    VGCommand plain;
+    CHECK(FindCommandWithMode(ctx.GetBatch(), VGDrawMode::Default, plain));
+}
+
+TEST_CASE("vg.context: a zero-blur shadow is a plain rounded rect; an inset shadow stays inside the box")
+{
+    {
+        VGContext ctx;
+        ctx.FillBoxShadow(Rectangle{10, 10, 40, 40}, CornerRadii(4.0f), 0.0f, Color::Black);
+        VGCommand cmd;
+        CHECK_FALSE(FindCommandWithMode(ctx.GetBatch(), VGDrawMode::BoxShadow, cmd));
+        CHECK(FindCommandWithMode(ctx.GetBatch(), VGDrawMode::Default, cmd)); // the rounded rect
+    }
+    {
+        VGContext ctx;
+        ctx.FillBoxShadow(Rectangle{10, 10, 40, 40}, CornerRadii(4.0f), 8.0f, Color::Black, true);
+        const VGBatch& batch = ctx.GetBatch();
+        VGCommand cmd;
+        REQUIRE(FindCommandWithMode(batch, VGDrawMode::BoxShadow, cmd));
+        for (usize i = 0; i < batch.vertices.Size(); ++i)
+        {
+            const VGVertex& v = batch.vertices[i];
+            CHECK(v.position.x >= 10.0f - 0.001f);
+            CHECK(v.position.x <= 50.0f + 0.001f);
+            CHECK(v.coverage < 0.0f); // inset flag
+        }
+    }
+    {
+        VGContext ctx;
+        ctx.FillBoxShadow(Rectangle{10, 10, 40, 40}, CornerRadii(4.0f), 0.0f, Color::Black, true);
+        CHECK(ctx.GetBatch().vertices.IsEmpty()); // a hard inset shadow is nothing
+    }
+}

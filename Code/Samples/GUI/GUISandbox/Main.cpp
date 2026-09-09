@@ -158,6 +158,7 @@ private:
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
     rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient fragment shader
     rhi::ShaderModule* m_distanceFieldFragmentShader = nullptr;         // distance-field text fragment shader
+    rhi::ShaderModule* m_boxShadowFs = nullptr; // blurred rounded rect fragment shader
     rhi::CommandPool* m_pool = nullptr;
     rhi::Fence* m_fence = nullptr;
     u64 m_fenceVal = 0;
@@ -228,12 +229,15 @@ Status GUISandbox::OnInit()
                                             shaders::ShaderFlags::None);
     m_distanceFieldFragmentShader = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                      shaders::ShaderFlags::None);
+    m_boxShadowFs = m_shaderHost.GetVariant(u8"vg_shadow", shaders::ShaderStage::Fragment,
+                                            shaders::ShaderFlags::None);
     if (m_vs == nullptr || m_fs == nullptr || m_gradRadialFs == nullptr || m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
 
     if (!m_renderer
              .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
-                         m_distanceFieldFragmentShader, m_gradRadialFs, m_gradConicFs)
+                         m_distanceFieldFragmentShader, m_gradRadialFs, m_gradConicFs,
+                         foundation::vg::renderer::VGTargetConfig{}, m_boxShadowFs)
              .IsOk())
         return ErrorCode::Unknown;
 

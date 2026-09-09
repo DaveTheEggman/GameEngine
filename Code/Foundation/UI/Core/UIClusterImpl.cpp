@@ -398,35 +398,195 @@ namespace foundation::ui
 
     // The base measure template method. Lives here because the dpi query
     // needs RootView complete. See the declaration comment in View.cppm for the contract.
+    void View::RefreshEffectiveLayout()
+    {
+        // The effective copy marks sheet-filled fields DECLARED too: consumers ask "is Right
+        // set?" of the effective layout and must not care where the value came from. The
+        // inline m_layout keeps its own flags.
+        LayoutStyle e = m_layout;
+        m_styledOverflowHidden = false;
+        const StyleCache& cache = EnsureStyleCache();
+        // One cache lookup, then only the properties a rule actually sets pay for keyword /
+        // variable resolution (RefreshEffectiveLayout runs at the top of every Measure).
+        const auto set = [&cache](StyleProperty prop) {
+            return cache.winners[static_cast<usize>(prop)] != nullptr;
+        };
+        const auto sizeSpec = [&](StyleProperty prop, Declared<SizeSpec>& field) {
+            if (field.IsDeclared() || !set(prop))
+            {
+                return;
+            }
+            const StyleValue v = ResolveStyle(prop);
+            if (Optional<StringView> word = v.AsString(); word.HasValue())
+            {
+                const StringView w = word.Value();
+                if (w == StringView(u8"match") || w == StringView(u8"match-parent") ||
+                    w == StringView(u8"fill") || w == StringView(u8"stretch"))
+                {
+                    field = SizeSpec::Match();
+                }
+                else if (w == StringView(u8"wrap") || w == StringView(u8"wrap-content") ||
+                         w == StringView(u8"auto"))
+                {
+                    field = SizeSpec::Wrap();
+                }
+            }
+            else if (Optional<f32> f = v.AsFloat(); f.HasValue())
+            {
+                field = SizeSpec::Fixed(Unit::Dp(f.Value()));
+            }
+            else if (Optional<Unit> u = v.AsLength(); u.HasValue())
+            {
+                field = SizeSpec::Fixed(u.Value());
+            }
+        };
+        const auto unit = [&](StyleProperty prop, Declared<Unit>& field) {
+            if (field.IsDeclared() || !set(prop))
+            {
+                return;
+            }
+            const StyleValue v = ResolveStyle(prop);
+            if (Optional<f32> f = v.AsFloat(); f.HasValue())
+            {
+                field = Unit::Dp(f.Value());
+            }
+            else if (Optional<Unit> u = v.AsLength(); u.HasValue())
+            {
+                field = u.Value();
+            }
+        };
+        const auto number = [&](StyleProperty prop, Declared<f32>& field) {
+            if (field.IsDeclared() || !set(prop))
+            {
+                return;
+            }
+            // Insets/flex factors: absolute lengths (dp/px/em) resolve here; a percent inset
+            // has no reference box at refresh time and contributes 0 (deviation, see spec).
+            field = ResolveStyleLength(prop, 0.0f, field.value);
+        };
+        sizeSpec(StyleProperty::Width, e.Width);
+        sizeSpec(StyleProperty::Height, e.Height);
+        if (!e.Margin.IsDeclared() && set(StyleProperty::Margin))
+        {
+            if (Optional<Thickness> t = ResolveStyle(StyleProperty::Margin).AsThickness(); t.HasValue())
+            {
+                e.Margin = t.Value();
+            }
+        }
+        unit(StyleProperty::MinWidth, e.MinWidth);
+        unit(StyleProperty::MinHeight, e.MinHeight);
+        unit(StyleProperty::MaxWidth, e.MaxWidth);
+        unit(StyleProperty::MaxHeight, e.MaxHeight);
+        number(StyleProperty::Top, e.Top);
+        number(StyleProperty::Right, e.Right);
+        number(StyleProperty::Bottom, e.Bottom);
+        number(StyleProperty::Left, e.Left);
+        number(StyleProperty::FlexGrow, e.FlexGrow);
+        number(StyleProperty::FlexShrink, e.FlexShrink);
+        if (!e.ZIndex.IsDeclared() && set(StyleProperty::ZIndex))
+        {
+            e.ZIndex = static_cast<i32>(ResolveStyleFloat(StyleProperty::ZIndex, 0.0f));
+        }
+        if (!e.Position.IsDeclared() && set(StyleProperty::Position))
+        {
+            const String word = ResolveStyleString(StyleProperty::Position);
+            e.Position = word == StringView(u8"absolute") ? Position::Absolute : Position::Static;
+        }
+        if (!e.AlignSelf.HasValue() && set(StyleProperty::AlignSelf))
+        {
+            const String word = ResolveStyleString(StyleProperty::AlignSelf);
+            const StringView w = word.AsView();
+            if (w == StringView(u8"start") || w == StringView(u8"flex-start"))
+                e.AlignSelf = Align::Start;
+            else if (w == StringView(u8"end") || w == StringView(u8"flex-end"))
+                e.AlignSelf = Align::End;
+            else if (w == StringView(u8"center"))
+                e.AlignSelf = Align::Center;
+            else if (w == StringView(u8"stretch"))
+                e.AlignSelf = Align::Stretch;
+            else if (w == StringView(u8"baseline"))
+                e.AlignSelf = Align::Baseline;
+        }
+        if (set(StyleProperty::Overflow))
+        {
+            const String word = ResolveStyleString(StyleProperty::Overflow);
+            m_styledOverflowHidden = word == StringView(u8"hidden");
+        }
+        m_effectiveLayout = e;
+    }
+
     void View::Measure(BoxConstraints c)
     {
+        // Effective layout first: this view's (its own spec/margin below) and its children's
+        // (the container's OnMeasure reads child->Layout() before measuring each child).
+        RefreshEffectiveLayout();
+        RefreshChildEffectiveLayouts();
+
         const BoxMetrics metrics = ResolveBoxMetrics();
         BoxConstraints box = c.Deflate(metrics.Margin);
 
-        const SizeSpec widthSpec = m_layout.Width;
-        const SizeSpec heightSpec = m_layout.Height;
-        if (widthSpec.kind == SizeSpec::Kind::Fixed || heightSpec.kind == SizeSpec::Kind::Fixed)
+        const LayoutStyle& layout = m_effectiveLayout;
+        const SizeSpec widthSpec = layout.Width;
+        const SizeSpec heightSpec = layout.Height;
+        const bool clampsW = layout.MinWidth.Value() != Unit{} || layout.MaxWidth.Value() != Unit{};
+        const bool clampsH = layout.MinHeight.Value() != Unit{} || layout.MaxHeight.Value() != Unit{};
+        if (widthSpec.kind == SizeSpec::Kind::Fixed || heightSpec.kind == SizeSpec::Kind::Fixed ||
+            clampsW || clampsH)
         {
             RootView* root = Root();
             const f32 dpiScale = (root != nullptr) ? Max(root->DpiScale, 0.01f) : 1.0f;
             // Percent resolves against the CONTAINING box on the same axis (the incoming
             // constraint's max, after margin; 0 when unbounded), em against the computed font
             // size. Both are only computed when a component needs them.
-            const bool relative = widthSpec.fixedSize.IsRelative() || heightSpec.fixedSize.IsRelative();
+            const bool relative = widthSpec.fixedSize.IsRelative() || heightSpec.fixedSize.IsRelative() ||
+                                  layout.MinWidth->IsRelative() || layout.MaxWidth->IsRelative() ||
+                                  layout.MinHeight->IsRelative() || layout.MaxHeight->IsRelative();
             const f32 fontSize = relative ? ResolveStyleLength(StyleProperty::FontSize, 0.0f, 16.0f) : 0.0f;
+            const f32 referenceW = BoxConstraints::IsBounded(box.MaxWidth) ? box.MaxWidth : 0.0f;
+            const f32 referenceH = BoxConstraints::IsBounded(box.MaxHeight) ? box.MaxHeight : 0.0f;
             if (widthSpec.kind == SizeSpec::Kind::Fixed)
             {
-                const f32 reference = BoxConstraints::IsBounded(box.MaxWidth) ? box.MaxWidth : 0.0f;
-                const f32 w = Max(0.0f, widthSpec.ResolveFixed(dpiScale, reference, fontSize));
+                const f32 w = Max(0.0f, widthSpec.ResolveFixed(dpiScale, referenceW, fontSize));
                 box.MinWidth = w;
                 box.MaxWidth = w;
             }
             if (heightSpec.kind == SizeSpec::Kind::Fixed)
             {
-                const f32 reference = BoxConstraints::IsBounded(box.MaxHeight) ? box.MaxHeight : 0.0f;
-                const f32 h = Max(0.0f, heightSpec.ResolveFixed(dpiScale, reference, fontSize));
+                const f32 h = Max(0.0f, heightSpec.ResolveFixed(dpiScale, referenceH, fontSize));
                 box.MinHeight = h;
                 box.MaxHeight = h;
+            }
+            // min/max clamp the constraint band (a Fixed size included); max wins over min
+            // when they cross, like CSS.
+            if (clampsW)
+            {
+                if (layout.MinWidth.Value() != Unit{})
+                {
+                    const f32 minW = Max(0.0f, layout.MinWidth->Resolve(dpiScale, referenceW, fontSize));
+                    box.MinWidth = Max(box.MinWidth, minW);
+                    box.MaxWidth = Max(box.MaxWidth, minW);
+                }
+                if (layout.MaxWidth.Value() != Unit{})
+                {
+                    const f32 maxW = Max(0.0f, layout.MaxWidth->Resolve(dpiScale, referenceW, fontSize));
+                    box.MaxWidth = Min(box.MaxWidth, maxW);
+                    box.MinWidth = Min(box.MinWidth, maxW);
+                }
+            }
+            if (clampsH)
+            {
+                if (layout.MinHeight.Value() != Unit{})
+                {
+                    const f32 minH = Max(0.0f, layout.MinHeight->Resolve(dpiScale, referenceH, fontSize));
+                    box.MinHeight = Max(box.MinHeight, minH);
+                    box.MaxHeight = Max(box.MaxHeight, minH);
+                }
+                if (layout.MaxHeight.Value() != Unit{})
+                {
+                    const f32 maxH = Max(0.0f, layout.MaxHeight->Resolve(dpiScale, referenceH, fontSize));
+                    box.MaxHeight = Min(box.MaxHeight, maxH);
+                    box.MinHeight = Min(box.MinHeight, maxH);
+                }
             }
         }
 
@@ -436,9 +596,15 @@ namespace foundation::ui
         {
             MeasuredSize = Float2{box.ConstrainWidth(content.x + chrome.TotalHorizontal()),
                                   box.ConstrainHeight(content.y + chrome.TotalVertical())};
-            return;
         }
-        OnMeasure(box); // legacy seam - the control handles its own chrome
+        else
+        {
+            OnMeasure(box); // legacy seam - the control handles its own chrome
+        }
+        // Absolute children never feed MeasuredSize; they are measured against the content
+        // box this view just settled on.
+        MeasureAbsoluteChildren(Max(0.0f, MeasuredSize.x - chrome.TotalHorizontal()),
+                                Max(0.0f, MeasuredSize.y - chrome.TotalVertical()));
     }
 
     // The base arrange (margin inset + device-grid rounding). Rounds
@@ -448,7 +614,7 @@ namespace foundation::ui
     // of 1/dpi stay multiples).
     void View::Layout(f32 x, f32 y, f32 width, f32 height)
     {
-        const Thickness margin = m_layout.Margin;
+        const Thickness margin = m_effectiveLayout.Margin;
         f32 bx = x + margin.Left;
         f32 by = y + margin.Top;
         f32 bw = Max(0.0f, width - margin.TotalHorizontal());
@@ -465,6 +631,7 @@ namespace foundation::ui
 
         Bounds = Rectangle{bx, by, bw, bh};
         OnLayout(bx, by, bw, bh);
+        LayoutAbsoluteChildren();
     }
 
     // Lazily create the RootView's PopupLayer (kept as the last child). Defined here because the

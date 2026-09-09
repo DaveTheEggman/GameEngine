@@ -110,7 +110,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -144,7 +144,7 @@ export namespace foundation::ui
                 for (usize i = 0; i < ChildCount(); ++i)
                 {
                     View* child = GetChildAt(i);
-                    if (child->Visibility == Visibility::Gone)
+                    if (!IsInFlow(child))
                     {
                         continue;
                     }
@@ -180,7 +180,7 @@ export namespace foundation::ui
                 for (usize i = 0; i < ChildCount(); ++i)
                 {
                     View* child = GetChildAt(i);
-                    if (child->Visibility == Visibility::Gone)
+                    if (!IsInFlow(child))
                     {
                         continue;
                     }
@@ -208,7 +208,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -242,7 +242,7 @@ export namespace foundation::ui
                 for (usize i = 0; i < ChildCount(); ++i)
                 {
                     View* child = GetChildAt(i);
-                    if (child->Visibility == Visibility::Gone)
+                    if (!IsInFlow(child))
                     {
                         continue;
                     }
@@ -276,7 +276,7 @@ export namespace foundation::ui
                 for (usize i = 0; i < ChildCount(); ++i)
                 {
                     View* child = GetChildAt(i);
-                    if (child->Visibility == Visibility::Gone)
+                    if (!IsInFlow(child))
                     {
                         continue;
                     }
@@ -302,7 +302,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -322,7 +322,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -353,7 +353,9 @@ export namespace foundation::ui
                     break;
                 case Align::Stretch:
                     yPos = Padding.Top;
-                    finalH = contentH;
+                    // CSS: stretch fills the cross axis only when the cross size is auto; an
+                    // explicit (Fixed) cross size keeps its measured height.
+                    finalH = child->Layout().Height->IsFixed() ? mb.y : contentH;
                     break;
                 case Align::Baseline:
                     yPos = Padding.Top;
@@ -374,7 +376,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -394,7 +396,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -424,7 +426,7 @@ export namespace foundation::ui
                     break;
                 case Align::Stretch:
                     xPos = Padding.Left;
-                    finalW = contentW;
+                    finalW = child->Layout().Width->IsFixed() ? mb.x : contentW;
                     break;
                 case Align::Baseline:
                     xPos = Padding.Left;

@@ -140,7 +140,8 @@ export namespace foundation::vg::renderer
                           i32 frameCount, rhi::ShaderModule* distanceFieldFragmentShader = nullptr,
                           rhi::ShaderModule* gradRadialFragShader = nullptr,
                           rhi::ShaderModule* gradConicFragShader = nullptr,
-                          VGTargetConfig targetConfig = {})
+                          VGTargetConfig targetConfig = {},
+                          rhi::ShaderModule* boxShadowFragShader = nullptr)
         {
             m_device = &device;
             m_queue = device.GetQueue(rhi::QueueType::Graphics, 0);
@@ -154,6 +155,7 @@ export namespace foundation::vg::renderer
             m_distanceFieldModule = distanceFieldFragmentShader;
             m_gradRadialModule = gradRadialFragShader;
             m_gradConicModule = gradConicFragShader;
+            m_boxShadowModule = boxShadowFragShader;
 
             if (!CreateSampler().IsOk())
                 return ErrorCode::Unknown;
@@ -172,6 +174,10 @@ export namespace foundation::vg::renderer
                 return ErrorCode::Unknown;
             if (gradConicFragShader != nullptr &&
                 !CreatePipelineInto(vertShader, *gradConicFragShader, m_gradConicPipeline).IsOk())
+                return ErrorCode::Unknown;
+            // Optional box-shadow pipeline (the UI's blurred rounded rects; direct fills only).
+            if (boxShadowFragShader != nullptr &&
+                !CreatePipelineInto(vertShader, *boxShadowFragShader, m_boxShadowPipeline).IsOk())
                 return ErrorCode::Unknown;
             // Stencil-then-cover pipelines - only with a host-provided stencil attachment.
             // Write pass: color-masked fans accumulate winding (incr/decr-wrap = NonZero,
@@ -652,6 +658,8 @@ export namespace foundation::vg::renderer
                 m_device->DestroyRenderPipeline(m_gradRadialPipeline);
             if (m_gradConicPipeline)
                 m_device->DestroyRenderPipeline(m_gradConicPipeline);
+            if (m_boxShadowPipeline)
+                m_device->DestroyRenderPipeline(m_boxShadowPipeline);
             if (m_stencilWriteNonZero)
                 m_device->DestroyRenderPipeline(m_stencilWriteNonZero);
             if (m_stencilWriteEvenOdd)
@@ -682,6 +690,7 @@ export namespace foundation::vg::renderer
             m_coverGradConicPipeline = nullptr;
             m_gradRadialPipeline = nullptr;
             m_gradConicPipeline = nullptr;
+            m_boxShadowPipeline = nullptr;
             m_pipelineLayout = nullptr;
             m_bindGroupLayout = nullptr;
             m_sampler = nullptr;
@@ -864,6 +873,14 @@ export namespace foundation::vg::renderer
                 return (blended || clipped)
                            ? Variant(PipelineKind::GradConic, cmd.blendMode, clipped)
                            : m_gradConicPipeline;
+            if (cmd.drawMode == foundation::vg::VGDrawMode::BoxShadow)
+                // No substitute: the default shader would paint the quadrant quads as flat
+                // colour over everything around the box. SKIP when the shader was not given.
+                return m_boxShadowPipeline == nullptr
+                           ? nullptr
+                           : ((blended || clipped)
+                                  ? Variant(PipelineKind::BoxShadow, cmd.blendMode, clipped)
+                                  : m_boxShadowPipeline);
             return (blended || clipped) ? Variant(PipelineKind::Default, cmd.blendMode, clipped)
                                         : m_pipeline;
         }
@@ -880,8 +897,9 @@ export namespace foundation::vg::renderer
             Cover,
             CoverRadial,
             CoverConic,
+            BoxShadow,
         };
-        static constexpr usize kPipelineKindCount = 7;
+        static constexpr usize kPipelineKindCount = 8;
         static constexpr usize kBlendVariantCount = 3; // Additive / Multiply / Screen
 
         /// Get-or-create the (kind, blend, clipped) pipeline. Built on FIRST use - most
@@ -928,6 +946,9 @@ export namespace foundation::vg::renderer
             case PipelineKind::CoverConic:
                 frag = m_gradConicModule;
                 role = StencilRole::Cover;
+                break;
+            case PipelineKind::BoxShadow:
+                frag = m_boxShadowModule;
                 break;
             }
             if (m_vsModule == nullptr || frag == nullptr ||
@@ -1407,13 +1428,15 @@ export namespace foundation::vg::renderer
         rhi::RenderPipeline* m_coverGradConicPipeline = nullptr;  // cover, conic (nullable)
         rhi::RenderPipeline* m_gradRadialPipeline = nullptr; // per-pixel radial gradient (nullable)
         rhi::RenderPipeline* m_gradConicPipeline = nullptr;  // per-pixel conic gradient (nullable)
+        rhi::RenderPipeline* m_boxShadowPipeline = nullptr;  // blurred rounded rect (nullable)
         rhi::ShaderModule* m_vsModule = nullptr; // borrowed (lazy blend variants)
         rhi::ShaderModule* m_fsModule = nullptr;
         rhi::ShaderModule* m_distanceFieldModule = nullptr;
         rhi::ShaderModule* m_gradRadialModule = nullptr;
         rhi::ShaderModule* m_gradConicModule = nullptr;
-        rhi::RenderPipeline* m_blendPipelines[3][7] = {}; // [blend-1][PipelineKind] (unclipped)
-        rhi::RenderPipeline* m_clippedPipelines[4][7] = {}; // [blend][PipelineKind], lazy
+        rhi::ShaderModule* m_boxShadowModule = nullptr;
+        rhi::RenderPipeline* m_blendPipelines[3][8] = {}; // [blend-1][PipelineKind] (unclipped)
+        rhi::RenderPipeline* m_clippedPipelines[4][8] = {}; // [blend][PipelineKind], lazy
         rhi::RenderPipeline* m_clippedWriteNonZero = nullptr; // lazy clipped write pair
         rhi::RenderPipeline* m_clippedWriteEvenOdd = nullptr;
         rhi::RenderPipeline* m_clipApplyPipeline = nullptr; // winding -> clip mask

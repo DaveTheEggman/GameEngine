@@ -300,7 +300,7 @@ export namespace foundation::ui::runtime
             }
             data->renderer.Initialize(*m_device->Raw(), *m_vs, *m_fs, window->Swap()->Format(),
                                       static_cast<i32>(m_device->FramesInFlight()), m_distanceFieldFragmentShader,
-                                      m_gradRadialFs, m_gradConicFs, targetConfig);
+                                      m_gradRadialFs, m_gradConicFs, targetConfig, m_boxShadowFs);
             data->vg->SetPerPixelGradients(perPixelGrad);
             data->vg->SetStencilFills(data->renderer.StencilFillsSupported());
 
@@ -1053,6 +1053,10 @@ export namespace foundation::ui::runtime
             // that predates it just means DF glyph runs fall back to the default sampler.
             m_distanceFieldFragmentShader = m_shaderHost.GetVariant(u8"vg_df", shaders::ShaderStage::Fragment,
                                              shaders::ShaderFlags::None);
+            // Box-shadow fragment (the BoxShadow draw-mode pipeline); a pack that predates it
+            // means shadows are skipped, never mis-drawn.
+            m_boxShadowFs = m_shaderHost.GetVariant(u8"vg_shadow", shaders::ShaderStage::Fragment,
+                                                    shaders::ShaderFlags::None);
         }
         core::IAllocator* m_allocator;
 
@@ -1065,6 +1069,7 @@ export namespace foundation::ui::runtime
         rhi::ShaderModule* m_fs = nullptr;      // borrowed from m_shaderHost
         rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient (borrowed)
         rhi::ShaderModule* m_gradConicFs = nullptr;  // per-pixel conic gradient (borrowed)
+        rhi::ShaderModule* m_boxShadowFs = nullptr;  // blurred rounded rect (borrowed)
 
         UIContext m_ctx; // shared context; owns N RootViews (allocator from the ctor)
         core::UniquePtr<shell::InputRouter> m_router;

@@ -1068,7 +1068,7 @@ namespace
                 View* child = GetChildAt(i);
                 const Float2 mb = child->MarginBoxSize();
                 const LayoutStyle& ls = child->Layout();
-                const f32 x = (ls.Gravity & Gravity::Right) == Gravity::Right ? width - mb.x : ls.Left;
+                const f32 x = (ls.Gravity & Gravity::Right) == Gravity::Right ? width - mb.x : ls.Left.Value();
                 child->Layout(x, y, mb.x, mb.y);
                 y += mb.y;
             }

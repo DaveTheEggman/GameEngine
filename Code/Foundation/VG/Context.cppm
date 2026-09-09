@@ -489,6 +489,78 @@ export namespace foundation::vg
             FillPath(pb.ToPath(), color);
         }
 
+        /// A Gaussian-blurred rounded rectangle - the UI box-shadow. `rect`/`radii` are the
+        /// shadow's own box (the caller applies offset and spread); `blur` is the CSS blur
+        /// radius (sigma = blur / 2; the shadow fades over three sigma outside the box). An
+        /// OUTSET shadow paints outside the box and is fully opaque inside it (the box's own
+        /// background covers the inside); an INSET shadow paints only inside, fading inward
+        /// from the edge. blur <= 0 degrades to a hard rounded rect (outset) or nothing (inset).
+        ///
+        /// Emitted as FOUR QUADRANT quads in the BoxShadow draw mode: within one quadrant the
+        /// rounded-box SDF operand `|p - c| - (halfSize - r)` is LINEAR in position, so it
+        /// interpolates exactly from the vertices (in sigma units, in texcoord) and the shader
+        /// only has to finish `length(max(q,0)) + min(max(q.x,q.y),0) - r`. Non-uniform radii
+        /// come for free: each quadrant carries its own corner radius (coverage = r / sigma,
+        /// negated for inset). Batches with every other shadow in the same command.
+        void FillBoxShadow(Rectangle rect, CornerRadii radii, f32 blur, Color color,
+                           bool inset = false)
+        {
+            if (rect.width <= 0.0f || rect.height <= 0.0f || color.a <= 0.0f)
+            {
+                return;
+            }
+            if (blur <= 0.0f)
+            {
+                if (!inset)
+                {
+                    FillRoundedRect(rect, radii, color);
+                }
+                return;
+            }
+            const f32 sigma = blur * 0.5f;
+            const f32 extent = inset ? 0.0f : sigma * 3.0f;
+            const Float2 half{rect.width * 0.5f, rect.height * 0.5f};
+            const Float2 center{rect.x + half.x, rect.y + half.y};
+            const Color opColor = ApplyOpacity(color);
+
+            SetDrawMode(VGDrawMode::BoxShadow);
+            SetupForSolidDraw();
+
+            // Quadrants: (sx, sy) picks the corner; the outer extent reaches past the box by
+            // three sigma so the tail has room to fade.
+            const f32 corner[4] = {radii.topLeft, radii.topRight, radii.bottomRight,
+                                   radii.bottomLeft};
+            const f32 signs[4][2] = {{-1.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 1.0f}};
+            for (int qd = 0; qd < 4; ++qd)
+            {
+                const f32 sx = signs[qd][0];
+                const f32 sy = signs[qd][1];
+                const f32 r = Min(corner[qd], Min(half.x, half.y));
+                const f32 coverage = (inset ? -r : r) / sigma;
+                const f32 reachX = half.x + extent;
+                const f32 reachY = half.y + extent;
+                // q at a local offset (ax, ay) = |offset| - (half - r), in sigma units.
+                const auto q = [&](f32 ax, f32 ay)
+                { return Float2{(ax - (half.x - r)) / sigma, (ay - (half.y - r)) / sigma}; };
+                const Float2 p0 = center;
+                const Float2 p1{center.x + sx * reachX, center.y};
+                const Float2 p2{center.x + sx * reachX, center.y + sy * reachY};
+                const Float2 p3{center.x, center.y + sy * reachY};
+                const u32 base = static_cast<u32>(m_batch.vertices.Size());
+                m_batch.vertices.PushBack(VGVertex(TransformPoint(p0), q(0.0f, 0.0f), opColor, coverage));
+                m_batch.vertices.PushBack(VGVertex(TransformPoint(p1), q(reachX, 0.0f), opColor, coverage));
+                m_batch.vertices.PushBack(VGVertex(TransformPoint(p2), q(reachX, reachY), opColor, coverage));
+                m_batch.vertices.PushBack(VGVertex(TransformPoint(p3), q(0.0f, reachY), opColor, coverage));
+                m_batch.indices.PushBack(base + 0);
+                m_batch.indices.PushBack(base + 1);
+                m_batch.indices.PushBack(base + 2);
+                m_batch.indices.PushBack(base + 0);
+                m_batch.indices.PushBack(base + 2);
+                m_batch.indices.PushBack(base + 3);
+            }
+            SetDrawMode(VGDrawMode::Default);
+        }
+
         void FillCircle(Float2 center, f32 radius, Color color)
         {
             PathBuilder pb;

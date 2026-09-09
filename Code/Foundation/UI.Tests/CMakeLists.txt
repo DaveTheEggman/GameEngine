@@ -45,6 +45,7 @@ add_executable(UI.Tests
     DialogTests.cpp
     AnimationTests.cpp
     MarkupLoaderTests.cpp
+    BoxModelTests.cpp
     MutationQueueTests.cpp
     PseudoElementTests.cpp
     WantsTextInputTests.cpp

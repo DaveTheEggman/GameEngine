@@ -109,6 +109,7 @@ private:
     rhi::ShaderModule* m_distanceFieldFragmentShader = nullptr;         // MSDF distance-field fragment shader
     rhi::ShaderModule* m_gradRadialFs = nullptr; // per-pixel radial gradient fragment shader
     rhi::ShaderModule* m_gradConicFs = nullptr;
+    rhi::ShaderModule* m_boxShadowFs = nullptr; // blurred rounded rect fragment shader
     // VG quality targets: 4x MSAA color (resolved into the swapchain) + stencil
     // (stencil-then-cover fills). Fixed window size, so created once at init.
     rhi::Texture* m_msaaColor = nullptr;
@@ -157,6 +158,8 @@ Status VGSandbox::OnInit()
                                              shaders::ShaderFlags::None);
     m_gradConicFs = m_shaderHost.GetVariant(u8"vg_grad_conic", shaders::ShaderStage::Fragment,
                                             shaders::ShaderFlags::None);
+    m_boxShadowFs = m_shaderHost.GetVariant(u8"vg_shadow", shaders::ShaderStage::Fragment,
+                                            shaders::ShaderFlags::None);
     if (m_vs == nullptr || m_fs == nullptr || m_distanceFieldFragmentShader == nullptr || m_gradRadialFs == nullptr ||
         m_gradConicFs == nullptr)
         return ErrorCode::Unknown;
@@ -174,7 +177,8 @@ Status VGSandbox::OnInit()
 
     if (!m_renderer
              .Initialize(*m_device, *m_vs, *m_fs, m_swapChain->Format(), static_cast<i32>(kFrames),
-                         m_distanceFieldFragmentShader, m_gradRadialFs, m_gradConicFs, targetConfig)
+                         m_distanceFieldFragmentShader, m_gradRadialFs, m_gradConicFs, targetConfig,
+                         m_boxShadowFs)
              .IsOk())
         return ErrorCode::Unknown;
 

@@ -153,10 +153,16 @@ export namespace foundation::ui
         [[nodiscard]] f32 Width() const noexcept { return Bounds.width; }
         [[nodiscard]] f32 Height() const noexcept { return Bounds.height; }
 
-        /// This view's placement intent (size specs, margin, and the per-container fields).
-        /// Read by whichever container holds the view; survives reparenting unchanged.
-        [[nodiscard]] const LayoutStyle& Layout() const noexcept { return m_layout; }
-        /// Replace the placement intent. Marks layout damage (geometry may change).
+        /// This view's EFFECTIVE placement (size specs, margin, insets, and the per-container
+        /// fields): every declared inline field, with the undeclared ones filled from the
+        /// cascade (`width:`, `margin:`, `position:` ... in a sheet). Read by whichever
+        /// container holds the view; the inline part survives reparenting unchanged. Refreshed
+        /// by SetLayout and at the top of every Measure (for this view and its children).
+        [[nodiscard]] const LayoutStyle& Layout() const noexcept { return m_effectiveLayout; }
+        /// The inline placement intent alone (what SetLayout stored; undeclared fields read as
+        /// their defaults).
+        [[nodiscard]] const LayoutStyle& DeclaredLayout() const noexcept { return m_layout; }
+        /// Replace the inline placement intent. Marks layout damage (geometry may change).
         void SetLayout(const LayoutStyle& layout)
         {
             if (m_layout == layout)
@@ -164,7 +170,23 @@ export namespace foundation::ui
                 return;
             }
             m_layout = layout;
+            RefreshEffectiveLayout();
             Invalidate();
+        }
+        /// Recompute the effective LayoutStyle from the inline value and the cascade. Impl unit.
+        void RefreshEffectiveLayout();
+        /// In the parent's flow: not Gone and not Position::Absolute. Containers lay out only
+        /// in-flow children; the base ViewGroup places absolute ones against its content box.
+        [[nodiscard]] static bool IsInFlow(const View* child) noexcept
+        {
+            return child->Visibility != VisibilityValue::Gone &&
+                   child->Layout().Position.Value() != Position::Absolute;
+        }
+        /// Clips children to the border box: the ClipsContent field or `overflow: hidden`
+        /// from the cascade (cached by RefreshEffectiveLayout).
+        [[nodiscard]] bool EffectiveClipsContent() const noexcept
+        {
+            return ClipsContent || m_styledOverflowHidden;
         }
 
         // === Visibility & interaction ===
@@ -319,7 +341,7 @@ export namespace foundation::ui
         /// hand Layout the MARGIN box; the base insets to the border box).
         [[nodiscard]] Float2 MarginBoxSize() const
         {
-            const Thickness m = m_layout.Margin;
+            const Thickness m = m_effectiveLayout.Margin;
             return Float2{MeasuredSize.x + m.TotalHorizontal(),
                           MeasuredSize.y + m.TotalVertical()};
         }
@@ -636,11 +658,19 @@ export namespace foundation::ui
             }
             return defaultVal;
         }
+        /// A Float property; a Length value (em/px/pt/dp, calc) resolves too, against this
+        /// view's font size - so `font-size: 1.2em` or `corner-radius: 0.5em` in a theme reach
+        /// every control that reads floats. Percent has no reference box on this path (0).
         [[nodiscard]] f32 ResolveStyleFloat(StyleProperty prop, f32 defaultVal = 0.0f)
         {
-            if (Optional<f32> f = ResolveStyle(prop).AsFloat(); f.HasValue())
+            const StyleValue value = ResolveStyle(prop);
+            if (Optional<f32> f = value.AsFloat(); f.HasValue())
             {
                 return f.Value();
+            }
+            if (value.GetKind() == StyleValue::Kind::Length)
+            {
+                return ResolveStyleLength(prop, 0.0f, defaultVal);
             }
             return defaultVal;
         }
@@ -665,7 +695,7 @@ export namespace foundation::ui
         [[nodiscard]] BoxMetrics ResolveBoxMetrics()
         {
             BoxMetrics m;
-            m.Margin = m_layout.Margin;
+            m.Margin = m_effectiveLayout.Margin;
             const Optional<Thickness> styled = ResolveStyle(StyleProperty::Padding).AsThickness();
             const Thickness stylePad = styled.HasValue() ? styled.Value() : DefaultStylePadding();
             Thickness drawablePad{};
@@ -683,13 +713,16 @@ export namespace foundation::ui
             m.Border = Thickness{borderWidth, borderWidth, borderWidth, borderWidth};
             return m;
         }
-        [[nodiscard]] StringView ResolveStyleString(StyleProperty prop, StringView defaultVal = {})
+        /// A String property, returned by VALUE: ResolveStyle hands back a StyleValue temporary,
+        /// so a borrowed view would dangle (the ResolveStyleFontFamily lesson, caught by ASAN).
+        [[nodiscard]] String ResolveStyleString(StyleProperty prop, StringView defaultVal = {})
         {
-            if (Optional<StringView> s = ResolveStyle(prop).AsString(); s.HasValue())
+            const StyleValue value = ResolveStyle(prop);
+            if (Optional<StringView> s = value.AsString(); s.HasValue())
             {
-                return s.Value();
+                return String(s.Value());
             }
-            return defaultVal;
+            return String(defaultVal);
         }
 
         [[nodiscard]] Drawable* ResolvePartDrawable(StringView part, StyleProperty prop,
@@ -741,6 +774,19 @@ export namespace foundation::ui
         void QueueDestroy();
 
     protected:
+        /// Position::Absolute children hooks (ViewGroup implements; leaves have no children).
+        /// Called by View::Measure after OnMeasure with the content box, and by View::Layout
+        /// after OnLayout.
+        virtual void MeasureAbsoluteChildren(f32 contentWidth, f32 contentHeight)
+        {
+            (void)contentWidth;
+            (void)contentHeight;
+        }
+        virtual void LayoutAbsoluteChildren() {}
+        /// Refresh every child's effective LayoutStyle (ViewGroup implements); called by
+        /// View::Measure before OnMeasure, since containers read child->Layout() first.
+        virtual void RefreshChildEffectiveLayouts() {}
+
         /// The container-field padding channel merged by ResolveBoxMetrics (ViewGroup overrides
         /// with its Padding field; leaf views have none).
         [[nodiscard]] virtual Thickness OwnPaddingField() const { return Thickness{}; }
@@ -809,7 +855,9 @@ export namespace foundation::ui
         StyleCache m_styleCache;
 
         bool m_needsRedraw = true;
-        LayoutStyle m_layout;
+        LayoutStyle m_layout;          ///< inline (declared) intent
+        LayoutStyle m_effectiveLayout; ///< inline + cascade (see Layout())
+        bool m_styledOverflowHidden = false;
         RefPtr<StyleSheet> m_inlineSheet;
         RefPtr<StyleSheet> m_localStyleSheet;
         HashMap<String, void*> m_userData;
@@ -917,10 +965,14 @@ export namespace foundation::ui
                 return nullptr;
             }
 
-            const usize count = VisualChildCount();
+            // Front to back: the reverse of DrawChildren's order (z-index, then child order).
+            View* zOrdered[kZOrderStackCapacity];
+            Array<View*> zOrderedHeap;
+            const Span<View*> order = OrderedVisualChildren(zOrdered, zOrderedHeap);
+            const usize count = order.Size();
             for (usize i = count; i-- > 0;)
             {
-                View* child = GetVisualChild(i);
+                View* child = order[i];
                 if (child == nullptr || child->Visibility != VisibilityValue::Visible ||
                     !child->IsInteractionEnabled)
                 {
@@ -978,8 +1030,8 @@ export namespace foundation::ui
         [[nodiscard]] static BoxConstraints AvailForChild(f32 availW, f32 availH, View* child)
         {
             const LayoutStyle& ls = child->Layout();
-            const bool fillW = ls.Width.kind == SizeSpec::Kind::Match;
-            const bool fillH = ls.Height.kind == SizeSpec::Kind::Match;
+            const bool fillW = ls.Width->kind == SizeSpec::Kind::Match;
+            const bool fillH = ls.Height->kind == SizeSpec::Kind::Match;
             return BoxConstraints{fillW ? availW : 0.0f, availW, fillH ? availH : 0.0f, availH};
         }
 
@@ -993,7 +1045,7 @@ export namespace foundation::ui
             f32 maxW = 0, maxH = 0;
             for (const RefPtr<View>& child : m_children)
             {
-                if (child->Visibility == VisibilityValue::Gone)
+                if (!IsInFlow(child.Get()))
                 {
                     continue;
                 }
@@ -1019,7 +1071,7 @@ export namespace foundation::ui
             const Thickness chrome = ResolveBoxMetrics().Chrome();
             for (const RefPtr<View>& child : m_children)
             {
-                if (child->Visibility == VisibilityValue::Gone)
+                if (!IsInFlow(child.Get()))
                 {
                     continue;
                 }
@@ -1030,10 +1082,14 @@ export namespace foundation::ui
 
         void DrawChildren(UIDrawContext& ctx)
         {
-            const usize count = VisualChildCount();
+            // Back to front: ascending z-index, child order within a z level.
+            View* zOrdered[kZOrderStackCapacity];
+            Array<View*> zOrderedHeap;
+            const Span<View*> order = OrderedVisualChildren(zOrdered, zOrderedHeap);
+            const usize count = order.Size();
             for (usize i = 0; i < count; ++i)
             {
-                View* child = GetVisualChild(i);
+                View* child = order[i];
                 if (child == nullptr || child->Visibility != VisibilityValue::Visible)
                 {
                     continue;
@@ -1077,19 +1133,31 @@ export namespace foundation::ui
                 {
                     ctx.VG().PushOpacity(child->Opacity);
                 }
-                if (child->ClipsContent)
+                // The outer box-shadow sits UNDER the child's own drawing and outside its
+                // clip; an inset shadow is drawn over the child (after OnDraw) inside it.
+                Optional<BoxShadow> shadow = child->ResolveStyle(StyleProperty::BoxShadow).AsShadow();
+                if (shadow.HasValue() && !shadow.Value().Inset)
+                {
+                    DrawBoxShadow(ctx, *child, shadow.Value());
+                }
+                const bool clips = child->EffectiveClipsContent();
+                if (clips)
                 {
                     ctx.PushClip(Rectangle{0, 0, child->Width(), child->Height()});
                 }
 
                 child->OnDraw(ctx);
+                if (shadow.HasValue() && shadow.Value().Inset)
+                {
+                    DrawBoxShadow(ctx, *child, shadow.Value());
+                }
 
                 if (ctx.DebugSettings().AnyEnabled())
                 {
                     UIDebugOverlay::DrawOverlays(ctx, *child);
                 }
 
-                if (child->ClipsContent)
+                if (clips)
                 {
                     ctx.PopClip();
                 }
@@ -1098,6 +1166,131 @@ export namespace foundation::ui
                     ctx.VG().PopOpacity();
                 }
                 ctx.VG().PopState();
+            }
+        }
+
+        /// One `box-shadow` for `child` (the VG is already translated to the child's origin):
+        /// the border box grown by the spread, offset, blurred by the VG's DF shadow mode,
+        /// rounded by the child's corner radius (plus the spread, as CSS does).
+        static void DrawBoxShadow(UIDrawContext& ctx, View& child, const BoxShadow& shadow)
+        {
+            const f32 radius = Max(0.0f, child.ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f));
+            const f32 spread = shadow.Inset ? -shadow.Spread : shadow.Spread;
+            const Rectangle rect{shadow.OffsetX - spread, shadow.OffsetY - spread,
+                                 child.Width() + 2.0f * spread, child.Height() + 2.0f * spread};
+            const f32 r = Max(0.0f, radius + spread);
+            ctx.VG().FillBoxShadow(rect, vg::CornerRadii{r, r, r, r}, shadow.Blur, shadow.Color,
+                                   shadow.Inset);
+        }
+
+        /// The visual children in draw order: ascending ZIndex, child order within a level
+        /// (stable). Absent any non-zero z-index the child order is returned untouched.
+        /// `stack` holds up to kZOrderStackCapacity entries; larger groups spill to `heap`.
+        [[nodiscard]] Span<View*> OrderedVisualChildren(View** stack, Array<View*>& heap) const
+        {
+            const usize count = VisualChildCount();
+            View** out = stack;
+            if (count > kZOrderStackCapacity)
+            {
+                heap.Resize(count);
+                out = heap.Data();
+            }
+            bool anyZ = false;
+            for (usize i = 0; i < count; ++i)
+            {
+                out[i] = GetVisualChild(i);
+                anyZ = anyZ || (out[i] != nullptr && out[i]->Layout().ZIndex.Value() != 0);
+            }
+            if (anyZ)
+            {
+                // Insertion sort: sibling counts are small and the order is nearly sorted.
+                for (usize i = 1; i < count; ++i)
+                {
+                    View* v = out[i];
+                    const i32 z = v != nullptr ? v->Layout().ZIndex.Value() : 0;
+                    usize j = i;
+                    while (j > 0 && (out[j - 1] != nullptr ? out[j - 1]->Layout().ZIndex.Value() : 0) > z)
+                    {
+                        out[j] = out[j - 1];
+                        --j;
+                    }
+                    out[j] = v;
+                }
+            }
+            return Span<View*>{out, count};
+        }
+        static constexpr usize kZOrderStackCapacity = 64;
+
+        void RefreshChildEffectiveLayouts() override
+        {
+            for (const RefPtr<View>& child : m_children)
+            {
+                child->RefreshEffectiveLayout();
+            }
+        }
+
+        /// Measure the Position::Absolute children (skipped by every container's OnMeasure)
+        /// loosely within the content box; called by View::Measure after OnMeasure.
+        void MeasureAbsoluteChildren(f32 contentWidth, f32 contentHeight) override
+        {
+            for (const RefPtr<View>& child : m_children)
+            {
+                if (child->Visibility == VisibilityValue::Gone ||
+                    child->Layout().Position.Value() != Position::Absolute)
+                {
+                    continue;
+                }
+                const LayoutStyle& ls = child->Layout();
+                // CSS shrink-to-fit: the available box is the content box minus the declared
+                // insets on each axis; both insets declared pin BOTH edges (the margin box is
+                // exactly the remainder).
+                const f32 availW = Max(0.0f, contentWidth - (ls.Left.IsDeclared() ? ls.Left.Value() : 0.0f) -
+                                                 (ls.Right.IsDeclared() ? ls.Right.Value() : 0.0f));
+                const f32 availH = Max(0.0f, contentHeight - (ls.Top.IsDeclared() ? ls.Top.Value() : 0.0f) -
+                                                 (ls.Bottom.IsDeclared() ? ls.Bottom.Value() : 0.0f));
+                BoxConstraints c = AvailForChild(availW, availH, child.Get());
+                if (ls.Left.IsDeclared() && ls.Right.IsDeclared())
+                {
+                    c.MinWidth = availW;
+                    c.MaxWidth = availW;
+                }
+                if (ls.Top.IsDeclared() && ls.Bottom.IsDeclared())
+                {
+                    c.MinHeight = availH;
+                    c.MaxHeight = availH;
+                }
+                child->Measure(c);
+            }
+        }
+
+        /// Place the Position::Absolute children against the content box from their insets
+        /// (Left/Top, or Right/Bottom anchoring the far edge; undeclared = 0 from the near
+        /// edge); called by View::Layout after OnLayout.
+        void LayoutAbsoluteChildren() override
+        {
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            const f32 contentWidth = Max(0.0f, Width() - chrome.TotalHorizontal());
+            const f32 contentHeight = Max(0.0f, Height() - chrome.TotalVertical());
+            for (const RefPtr<View>& child : m_children)
+            {
+                if (child->Visibility == VisibilityValue::Gone ||
+                    child->Layout().Position.Value() != Position::Absolute)
+                {
+                    continue;
+                }
+                const LayoutStyle& ls = child->Layout();
+                const Float2 mb = child->MarginBoxSize();
+                f32 x = ls.Left.Value();
+                f32 y = ls.Top.Value();
+                if (!ls.Left.IsDeclared() && ls.Right.IsDeclared())
+                {
+                    x = contentWidth - ls.Right.Value() - mb.x;
+                }
+                if (!ls.Top.IsDeclared() && ls.Bottom.IsDeclared())
+                {
+                    y = contentHeight - ls.Bottom.Value() - mb.y;
+                }
+                child->Layout(chrome.Left + x, chrome.Top + y, mb.x, mb.y);
             }
         }
 

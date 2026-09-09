@@ -174,6 +174,7 @@ namespace engine::ui
         rhi::ShaderModule* gradRadialShader = nullptr;   // per-pixel radial gradient (borrowed)
         rhi::ShaderModule* distanceFieldShader = nullptr;           // MSDF text fragment (borrowed)
         rhi::ShaderModule* gradConicShader = nullptr;    // per-pixel conic gradient (borrowed)
+        rhi::ShaderModule* boxShadowShader = nullptr;    // blurred rounded rect (borrowed)
         vg::VGContext vgContext;
         struct FormatRenderer
         {
@@ -454,7 +455,8 @@ namespace engine::ui
                 auto renderer = MakeUnique<vg::renderer::VGRenderer>(*allocator, *allocator);
                 if (!renderer
                          ->Initialize(*device, *vertexShader, *fragmentShader, format, frameCount,
-                                      distanceFieldShader, gradRadialShader, gradConicShader, targetConfig)
+                                      distanceFieldShader, gradRadialShader, gradConicShader, targetConfig,
+                                      boxShadowShader)
                          .IsOk())
                 {
                     return nullptr;
@@ -1926,6 +1928,10 @@ namespace engine::ui
         // MSDF text fragment (the DistanceField draw-mode pipeline).
         m_render->distanceFieldShader =
             m_render->shaderHost.GetVariant(u8"vg_df", foundation::shaders::ShaderStage::Fragment,
+                                            foundation::shaders::ShaderFlags::None);
+        // Box-shadow fragment (the BoxShadow draw-mode pipeline).
+        m_render->boxShadowShader =
+            m_render->shaderHost.GetVariant(u8"vg_shadow", foundation::shaders::ShaderStage::Fragment,
                                             foundation::shaders::ShaderFlags::None);
         // Per-pixel radial/conic gradients only if both shaders resolved (a pre-cooked pack may
         // predate them); otherwise every renderer + the context fall back to the affine LUT.

@@ -293,9 +293,10 @@ TEST_CASE("cascade: percent and em resolve against the reference box and the fon
     CHECK(v->ResolveStyleLength(StyleProperty::FontSize, 0.0f) == doctest::Approx(30.0f));
     CHECK(v->ResolveStyleLength(StyleProperty::BorderWidth, 0.0f) == doctest::Approx(60.0f));
     CHECK(v->ResolveStyleLength(StyleProperty::Spacing, 300.0f) == doctest::Approx(280.0f));
-    // A Length is not a Float: the plain accessor sees nothing, the default applies.
-    CHECK(v->ResolveStyleFloat(StyleProperty::CornerRadius, -1.0f) == doctest::Approx(-1.0f));
-    CHECK(v->ResolveStyleFloat(StyleProperty::BorderWidth, -1.0f) == doctest::Approx(-1.0f));
+    // The plain Float accessor resolves a Length too (P2 consumer migration): em against the
+    // font size; percent has no reference box on that path and reads 0.
+    CHECK(v->ResolveStyleFloat(StyleProperty::CornerRadius, -1.0f) == doctest::Approx(0.0f));
+    CHECK(v->ResolveStyleFloat(StyleProperty::BorderWidth, -1.0f) == doctest::Approx(60.0f));
     CHECK(v->ResolveStyleThickness(StyleProperty::Padding).Left == doctest::Approx(4.0f));
 }
 

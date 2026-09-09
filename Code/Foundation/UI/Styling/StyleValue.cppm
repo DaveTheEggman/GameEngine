@@ -29,6 +29,20 @@ export namespace foundation::ui
 {
     class StyleValue;
 
+    /// `box-shadow` value: the CSS tuple. Offsets/blur/spread are logical units (dp) at
+    /// resolve time; the VG draws it as one blurred rounded-rect (VGContext::FillBoxShadow).
+    struct BoxShadow
+    {
+        f32 OffsetX = 0.0f;
+        f32 OffsetY = 0.0f;
+        f32 Blur = 0.0f;
+        f32 Spread = 0.0f;
+        core::Color Color{0.0f, 0.0f, 0.0f, 0.5f};
+        bool Inset = false;
+
+        [[nodiscard]] constexpr bool operator==(const BoxShadow&) const noexcept = default;
+    };
+
     /// A `var(--name, fallback)` reference: resolved against the view's custom properties at
     /// COMPUTE time (never at parse time - the value depends on where the view sits). Shared
     /// by every copy of the StyleValue that carries it; immutable once built.
@@ -59,6 +73,8 @@ export namespace foundation::ui
             String,
             /// A length with units (percent/em/calc sums); plain numbers stay Float.
             Length,
+            /// A BoxShadow tuple (box-shadow).
+            Shadow,
             /// The `inherit` keyword: take the parent's computed value.
             Inherit,
             /// The `initial` keyword: as if unset (the property's default).
@@ -118,6 +134,13 @@ export namespace foundation::ui
             v.m_length = length;
             return v;
         }
+        [[nodiscard]] static StyleValue ShadowVal(const BoxShadow& shadow)
+        {
+            StyleValue v;
+            v.m_kind = Kind::Shadow;
+            v.m_shadow = shadow;
+            return v;
+        }
         [[nodiscard]] static StyleValue Inherit()
         {
             StyleValue v;
@@ -160,6 +183,14 @@ export namespace foundation::ui
         }
 
         /// Try to get as Color / Float / Thickness / Bool (empty Optional if the kind differs).
+        [[nodiscard]] Optional<BoxShadow> AsShadow() const
+        {
+            if (m_kind == Kind::Shadow)
+            {
+                return m_shadow;
+            }
+            return {};
+        }
         [[nodiscard]] Optional<core::Color> AsColor() const
         {
             if (m_kind == Kind::Color)
@@ -217,6 +248,7 @@ export namespace foundation::ui
         bool m_bool = false;
         String m_string;
         Unit m_length{};
+        BoxShadow m_shadow{};
         RefPtr<VariableReference> m_variable;
     };
 

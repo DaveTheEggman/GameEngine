@@ -60,7 +60,7 @@ namespace foundation::ui
         // Margin (orange exterior bands).
         if (settings.ShowMargin)
         {
-            if (!view.Layout().Margin.IsZero())
+            if (!view.Layout().Margin->IsZero())
             {
                 const Thickness m = view.Layout().Margin;
                 ctx.VG().FillRect(Rectangle{-m.Left, -m.Top, w + m.TotalHorizontal(), m.Top},

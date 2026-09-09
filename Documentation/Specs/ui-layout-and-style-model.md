@@ -3,7 +3,55 @@
 > STATUS: P0 BUILT 2026-09-09 (LayoutStyle on View; LayoutParams classes, CreateDefaultLayoutParams,
 > RegisterLayoutParam deleted; four lanes green). P1 BUILT 2026-09-09 (ordered cascade + computed
 > cache, selector chains, inherit/initial, custom properties + var(), palette as root variables,
-> %/em/calc lengths in sheets and markup). P2-P4 PROPOSED.
+> %/em/calc lengths in sheets and markup). P2 BUILT 2026-09-09 (box model: z-index draw/hit
+> order, Position::Absolute in any container, box-shadow through a VG DF shadow mode, overflow,
+> min/max, sheet-driven LayoutStyle, Float consumers read Length values). P3-P4 PROPOSED.
+> P2 as built (deviations from section 2, all deliberate):
+> - No `VisualStyle` value object: the per-view computed-style cache from P1 IS the visual
+>   style; DrawChildren reads `box-shadow` / `overflow` and the view its `corner-radius` /
+>   `background` from the cascade at draw time (state-keyed, so `:hover { box-shadow }` works).
+> - `LayoutStyle` fields are `Declared<T>` (assignment declares; `->` for member access;
+>   `IsDeclared()`): `View::Layout()` is the EFFECTIVE style = every declared inline field plus
+>   the cascade's `width/height/margin/min-*/max-*/position/top/right/bottom/left/z-index/
+>   flex-grow/flex-shrink/align-self` for the undeclared ones (inline wins even when it equals
+>   the default - CSS inline-style rule); `View::DeclaredLayout()` is the inline value alone.
+>   Refreshed by SetLayout and at the top of every Measure (self + children, since containers
+>   read child->Layout() before measuring). `width: match | wrap` keywords work in sheets.
+> - New fields: `Position` (Static | Absolute), `Right/Bottom` insets (f32 like Left/Top;
+>   sheet insets resolve dp/px/em - a PERCENT inset has no reference box at refresh time and
+>   reads 0), `ZIndex` (i32), `MinWidth/MinHeight/MaxWidth/MaxHeight` (Unit; zero = none;
+>   %/em resolve like a Fixed size; max wins over min when they cross, and a Fixed size is
+>   clamped too).
+> - Absolute in ANY container: the six layouts and the base ViewGroup skip `!View::IsInFlow`
+>   children (Gone or Absolute); `View::Measure` then measures them shrink-to-fit inside the
+>   declared insets (both insets on an axis pin both edges) and `View::Layout` places them
+>   against the content box after OnLayout (Right/Bottom anchor the far edge). They never
+>   feed the container's MeasuredSize. Custom containers outside the six that iterate
+>   children themselves keep laying absolute children out as before until they adopt
+>   `IsInFlow`.
+> - Draw order: `DrawChildren` walks ascending z-index (stable, child order within a level);
+>   `ViewGroup::HitTest` walks the same order front to back. Zero z-index everywhere = the old
+>   behaviour, no sort.
+> - `box-shadow: x y [blur [spread]] color [inset]` / `none` -> `StyleValue::Kind::Shadow`
+>   (`BoxShadow`), drawn by `VGContext::FillBoxShadow` (new `VGDrawMode::BoxShadow`, ONE
+>   shader `vg_shadow.ps.hlsl`: rounded-box SDF x erf Gaussian, four quadrant quads reaching
+>   3 sigma, sigma = blur / 2) under the child (outset) or over it (inset), rounded by the
+>   child's `corner-radius` + spread. Renderer hosts pass the shader module; when absent the
+>   commands are skipped (no crash, no shadow). Web: the WGSL cook picks the new .hlsl up.
+> - `overflow: hidden` -> `View::EffectiveClipsContent()` (the ClipsContent field OR the
+>   sheet). `overflow: scroll` is not a thing here (ScrollView is the scrolling container).
+> - Opacity stays PER-VERTEX (PushOpacity multiplies down the tree; parent 0.5 x child 0.5 =
+>   0.25 on every vertex) - the VG has no offscreen layer, so overlapping siblings inside a
+>   translucent subtree double-blend. Composited opacity waits for a VG layer seam.
+> - Consumer migration: `View::ResolveStyleFloat` now resolves a Length value (em/px/pt/dp,
+>   calc) against the view's font size, so `font-size: 1.2em` / `corner-radius: 0.5em` in a
+>   theme reach every control without per-control edits; percent reads 0 on that path.
+> - Flex `align-items: stretch` no longer overrides a child's FIXED cross size (CSS: stretch
+>   applies to an auto cross size only).
+> - NOT built (section 2 items with no consumer yet): per-edge `border`, per-corner
+>   `border-radius`, gradient backgrounds, `cursor` / `visibility` from the sheet.
+> - Markup attributes added: `position right bottom z-index min-width min-height max-width
+>   max-height` (the one table `MarkupRegistry::LayoutAttributeNames`).
 > P1 as built (deviations from section 3, all deliberate):
 > - Selectors: `#id` (View::Name), descendant + child `>` combinators (right-to-left with
 >   backtracking), `:first-child :last-child :empty`, the CSS aliases `:active`(pressed)

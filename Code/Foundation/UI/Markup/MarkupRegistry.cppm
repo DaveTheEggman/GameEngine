@@ -117,7 +117,9 @@ export namespace foundation::ui
             static constexpr StringView kNames[] = {
                 u8"width",    u8"height",   u8"margin",        u8"flex-grow",
                 u8"flex-shrink", u8"align-self", u8"gravity",  u8"dock",
-                u8"left",     u8"top",      u8"grid-row",      u8"grid-column",
+                u8"left",     u8"top",      u8"right",         u8"bottom",
+                u8"position", u8"z-index",  u8"min-width",     u8"min-height",
+                u8"max-width", u8"max-height", u8"grid-row",   u8"grid-column",
                 u8"grid-row-span", u8"grid-column-span"};
             return Span<const StringView>{kNames, sizeof(kNames) / sizeof(kNames[0])};
         }
@@ -189,6 +191,58 @@ export namespace foundation::ui
                 if (Optional<f64> f = ParseFloat(value); f.HasValue())
                 {
                     layout.Top = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"right")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.Right = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"bottom")
+            {
+                if (Optional<f64> f = ParseFloat(value); f.HasValue())
+                {
+                    layout.Bottom = static_cast<f32>(f.Value());
+                }
+                return true;
+            }
+            if (name == u8"position")
+            {
+                if (value == u8"absolute")
+                {
+                    layout.Position = Position::Absolute;
+                }
+                else if (value == u8"static")
+                {
+                    layout.Position = Position::Static;
+                }
+                return true;
+            }
+            if (name == u8"z-index")
+            {
+                if (Optional<i64> i = ParseInt(value); i.HasValue())
+                {
+                    layout.ZIndex = static_cast<i32>(i.Value());
+                }
+                return true;
+            }
+            if (name == u8"min-width" || name == u8"min-height" || name == u8"max-width" ||
+                name == u8"max-height")
+            {
+                if (Optional<Unit> length = StyleValueParser::ParseLengthText(value); length.HasValue())
+                {
+                    if (name == u8"min-width")
+                        layout.MinWidth = length.Value();
+                    else if (name == u8"min-height")
+                        layout.MinHeight = length.Value();
+                    else if (name == u8"max-width")
+                        layout.MaxWidth = length.Value();
+                    else
+                        layout.MaxHeight = length.Value();
                 }
                 return true;
             }

@@ -180,8 +180,8 @@ TEST_CASE("markup: WidthHeight_LayoutStyle")
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     REQUIRE(flex != nullptr);
     View* child = flex->GetChildAt(0);
-    CHECK(child->Layout().Width.kind == SizeSpec::Kind::Fixed);
-    CHECK(child->Layout().Height.kind == SizeSpec::Kind::Fixed);
+    CHECK(child->Layout().Width->kind == SizeSpec::Kind::Fixed);
+    CHECK(child->Layout().Height->kind == SizeSpec::Kind::Fixed);
 }
 
 TEST_CASE("markup: MatchWrap_LayoutStyle")
@@ -193,8 +193,8 @@ TEST_CASE("markup: MatchWrap_LayoutStyle")
                                      u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
-    CHECK(child->Layout().Width.kind == SizeSpec::Kind::Match);
-    CHECK(child->Layout().Height.kind == SizeSpec::Kind::Wrap);
+    CHECK(child->Layout().Width->kind == SizeSpec::Kind::Match);
+    CHECK(child->Layout().Height->kind == SizeSpec::Kind::Wrap);
 }
 
 TEST_CASE("markup: FlexGrow_LayoutStyle")
@@ -271,8 +271,8 @@ TEST_CASE("markup: LayoutAttributes_ApplyRegardlessOfParent")
                             u8"  <Label text=\"X\" flex-grow=\"1\" dock=\"right\" gravity=\"Bottom\"/>\n"
                             u8"</Frame>");
     REQUIRE(view.Get() != nullptr);
-    CHECK(view->Layout().Width.kind == SizeSpec::Kind::Fixed);
-    CHECK(view->Layout().Margin.Left == 4);
+    CHECK(view->Layout().Width->kind == SizeSpec::Kind::Fixed);
+    CHECK(view->Layout().Margin->Left == 4);
     FrameLayout* frame = Cast<FrameLayout>(view.Get());
     REQUIRE(frame != nullptr);
     const LayoutStyle& ls = frame->GetChildAt(0)->Layout();
@@ -519,8 +519,8 @@ TEST_CASE("markup: Margin_LayoutParam")
                                              u8"</Flex>");
     FlexLayout* flex = Cast<FlexLayout>(view.Get());
     View* child = flex->GetChildAt(0);
-    CHECK(child->Layout().Margin.Top == 4);
-    CHECK(child->Layout().Margin.Left == 8);
+    CHECK(child->Layout().Margin->Top == 4);
+    CHECK(child->Layout().Margin->Left == 8);
 }
 
 // === Style resolution with markup (theme) ===

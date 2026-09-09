@@ -441,8 +441,8 @@ export namespace foundation::ui::toolkit
             const f32 intendedW = Max(kMinWidth, m_userW);
             const f32 intendedH = m_collapsed ? kHeaderHeight : Max(kMinHeight, m_userH);
             LayoutStyle placement = Layout();
-            placement.Left = Clamp(placement.Left, 0.0f, Max(0.0f, Parent->Bounds.width - intendedW));
-            placement.Top = Clamp(placement.Top, 0.0f, Max(0.0f, Parent->Bounds.height - intendedH));
+            placement.Left = Clamp(placement.Left.Value(), 0.0f, Max(0.0f, Parent->Bounds.width - intendedW));
+            placement.Top = Clamp(placement.Top.Value(), 0.0f, Max(0.0f, Parent->Bounds.height - intendedH));
             SetLayout(placement);
         }
 

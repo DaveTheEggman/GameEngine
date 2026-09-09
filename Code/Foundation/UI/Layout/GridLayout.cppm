@@ -82,7 +82,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -159,7 +159,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -212,7 +212,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -273,7 +273,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }

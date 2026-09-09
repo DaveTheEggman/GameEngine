@@ -47,6 +47,30 @@ export namespace foundation::ui
         // Bool properties
         WordWrap,
 
+        // === P2 box model (appended: the parser's range predicates depend on the order above) ===
+        /// `box-shadow: x y blur spread color [inset]` (a Shadow value).
+        BoxShadow,
+        // Length properties feeding LayoutStyle (see View::RefreshEffectiveLayout).
+        MinWidth,
+        MinHeight,
+        MaxWidth,
+        MaxHeight,
+        Top,
+        Right,
+        Bottom,
+        Left,
+        // Float properties feeding LayoutStyle.
+        ZIndex,
+        FlexGrow,
+        FlexShrink,
+        // Keyword (String) properties.
+        /// `static` | `absolute`.
+        Position,
+        /// `visible` | `hidden` (hidden clips children to the border box).
+        Overflow,
+        /// `start` | `end` | `center` | `stretch` | `baseline`.
+        AlignSelf,
+
         /// Number of known properties (for array sizing).
         COUNT
     };

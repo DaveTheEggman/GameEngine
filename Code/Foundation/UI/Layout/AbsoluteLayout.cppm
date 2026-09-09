@@ -36,7 +36,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -46,8 +46,8 @@ export namespace foundation::ui
                 const f32 availW = Max(0.0f, constraints.MaxWidth - Padding.TotalHorizontal());
                 const f32 availH = Max(0.0f, constraints.MaxHeight - Padding.TotalVertical());
                 const LayoutStyle& ls = child->Layout();
-                const bool fillW = ls.Width.kind == SizeSpec::Kind::Match;
-                const bool fillH = ls.Height.kind == SizeSpec::Kind::Match;
+                const bool fillW = ls.Width->kind == SizeSpec::Kind::Match;
+                const bool fillH = ls.Height->kind == SizeSpec::Kind::Match;
                 child->Measure(BoxConstraints{fillW ? availW : 0.0f, fillW ? availW : kFloatMax,
                                               fillH ? availH : 0.0f, fillH ? availH : kFloatMax});
 
@@ -68,7 +68,7 @@ export namespace foundation::ui
             for (usize i = 0; i < ChildCount(); ++i)
             {
                 View* child = GetChildAt(i);
-                if (child->Visibility == Visibility::Gone)
+                if (!IsInFlow(child))
                 {
                     continue;
                 }
@@ -83,11 +83,11 @@ export namespace foundation::ui
                 const Float2 mb = child->MarginBoxSize();
                 f32 w = mb.x;
                 f32 h = mb.y;
-                if (ls.Width.kind == SizeSpec::Kind::Match)
+                if (ls.Width->kind == SizeSpec::Kind::Match)
                 {
                     w = Max(0.0f, width - Padding.TotalHorizontal() - ax);
                 }
-                if (ls.Height.kind == SizeSpec::Kind::Match)
+                if (ls.Height->kind == SizeSpec::Kind::Match)
                 {
                     h = Max(0.0f, height - Padding.TotalVertical() - ay);
                 }

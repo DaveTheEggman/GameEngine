@@ -459,6 +459,7 @@ namespace
         {
             ctx.SetBlendMode(blend);
             ctx.FillRect(Rectangle{1, 1, 20, 20}, Color::Red);
+            ctx.FillBoxShadow(Rectangle{5, 5, 30, 30}, CornerRadii(4.0f), 8.0f, Color::Black);
             VGRadialGradientFill radial(Float2{30, 30}, 10.0f);
             radial.AddStop(0.0f, Color::Red);
             radial.AddStop(1.0f, Color::Blue);
@@ -513,6 +514,7 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
     rhi::ShaderModule* df = MakeModule(device);
     rhi::ShaderModule* radial = MakeModule(device);
     rhi::ShaderModule* conic = MakeModule(device);
+    rhi::ShaderModule* shadow = MakeModule(device);
     REQUIRE(vs != nullptr);
 
     VGContext ctx;
@@ -520,6 +522,7 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
     VGBatch& batch = ctx.GetBatch();
     i32 live = 0;
     i32 stencilPhase = 0;
+    i32 shadowCommands = 0;
     for (usize i = 0; i < batch.CommandCount(); ++i)
     {
         const VGCommand cmd = batch.GetCommand(i);
@@ -528,9 +531,12 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
         ++live;
         if (cmd.fillPhase != VGFillPhase::Direct)
             ++stencilPhase;
+        if (cmd.drawMode == VGDrawMode::BoxShadow)
+            ++shadowCommands;
     }
     REQUIRE(live > 8);
     REQUIRE(stencilPhase > 0);
+    REQUIRE(shadowCommands == 4); // one per blend mode
 
     // With stencil pipelines + gradient shaders: NOTHING is skipped - every variant is built
     // (the blend variants lazily, on first use) and every command dispatches.
@@ -541,7 +547,7 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
         config.depthStencilFormat = rhi::TextureFormat::Depth24PlusStencil8;
         REQUIRE(renderer
                     .Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1, df, radial,
-                                conic, config)
+                                conic, config, shadow)
                     .IsOk());
         REQUIRE(renderer.StencilFillsSupported());
         renderer.BeginFrame(0);
@@ -556,8 +562,9 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
         renderer.Dispose();
     }
 
-    // Without stencil pipelines: the stencil-phase commands are SKIPPED, never drawn with a
-    // substitute (winding fans would show as colour); everything else still dispatches.
+    // Without stencil pipelines OR the shadow shader: the stencil-phase commands AND the
+    // box-shadow commands are SKIPPED, never drawn with a substitute (winding fans and
+    // shadow quadrants would both show as flat colour); everything else still dispatches.
     {
         VGRenderer renderer{DefaultAllocator()};
         REQUIRE(renderer.Initialize(device, *vs, *fs, rhi::TextureFormat::BGRA8UnormSrgb, 1)
@@ -570,11 +577,12 @@ TEST_CASE("vg.renderer: every blend x draw mode, stencil phase x rule x clip, an
         REQUIRE(pass.Begin(device));
         renderer.Render(*pass.pass, 64, 64, 0, slice);
         pass.End(device);
-        CHECK(renderer.LastRenderStats().skipped == stencilPhase);
-        CHECK(renderer.LastRenderStats().drawn == live - stencilPhase);
+        CHECK(renderer.LastRenderStats().skipped == stencilPhase + shadowCommands);
+        CHECK(renderer.LastRenderStats().drawn == live - stencilPhase - shadowCommands);
         renderer.Dispose();
     }
 
+    device.DestroyShaderModule(shadow);
     device.DestroyShaderModule(conic);
     device.DestroyShaderModule(radial);
     device.DestroyShaderModule(df);
