@@ -151,7 +151,12 @@ namespace foundation::ui
         }
 
         m_interactive = target->IsTooltipInteractive;
+        // Hit-test visibility is SELF-only (the tool-float layers rely on that), so it alone
+        // left the tooltip's CONTENT catching the pointer between the cursor and the thing
+        // described. Interaction takes out the whole subtree: an ordinary tooltip is
+        // pass-through, an interactive one is a real target.
         m_tooltipView->IsHitTestVisible = m_interactive;
+        m_tooltipView->IsInteractionEnabled = m_interactive;
 
         // Get the popup layer from the active root.
         RootView* root = m_context->ActiveInputRoot();

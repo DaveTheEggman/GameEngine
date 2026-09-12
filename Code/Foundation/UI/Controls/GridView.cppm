@@ -91,6 +91,7 @@ export namespace foundation::ui
             {
                 m_adapter->SetObserver(this);
             }
+            Selection.PruneFrom(m_adapter != nullptr ? m_adapter->ItemCount() : 0);
             RecycleAllActive();
             Invalidate();
         }
@@ -110,6 +111,9 @@ export namespace foundation::ui
         void OnDataSetChanged() override
         {
             RecycleAllActive();
+            // Selection is positional: drop indices past the new count so a shrunken data set
+            // never leaves a stale index silently highlighting whichever cell inherits it.
+            Selection.PruneFrom(m_adapter != nullptr ? m_adapter->ItemCount() : 0);
             Invalidate();
         }
         void OnItemRangeChanged(i32 start, i32 count) override
@@ -448,10 +452,9 @@ export namespace foundation::ui
                     }
                     m_activeViews.InsertOrAssign(pos, Move(view));
                 }
-                else
-                {
-                    m_adapter->BindView(m_activeViews.Find(pos)->Get(), pos);
-                }
+                // Already-active cells are NOT rebound here (the ListView rule): GetOrCreate bound
+                // them on acquire and every data-change path rebinds. A per-pass rebind was pure
+                // cost and clobbered whatever state a bound cell held.
 
                 const i32 row = pos / m_columnsCount;
                 const i32 col = pos % m_columnsCount;

@@ -37,17 +37,13 @@ import :toast_host;
 import :curve_canvas;
 import :gradient_editor;
 import :floating_panel;
+import :timeline;
 
 using namespace foundation::core;
 namespace core = foundation::core;
 
 export namespace foundation::ui::toolkit
 {
-    /// Number of toolkit types registered for stylesheet selectors - tripwire: bump when
-    /// RegisterToolkitTypes gains a control (a .sss selector for an unregistered type silently
-    /// matches nothing).
-    inline constexpr core::usize kToolkitStyleTypeCount = 17;
-
     /// Make the toolkit controls selectable from .sss - the
     /// prerequisite for expressing this extension's rules as a toolkit.sss fragment. Idempotent;
     /// called by ToolkitThemeExtension construction, and callable directly by hosts that parse
@@ -77,6 +73,10 @@ export namespace foundation::ui::toolkit
         UITypeRegistry::Register(u8"GradientEditor", &GradientEditor::StaticType());
         UITypeRegistry::Register(u8"DockDragPreview", &DockDragPreview::StaticType());
         UITypeRegistry::Register(u8"FloatingPanel", &FloatingPanel::StaticType());
+        UITypeRegistry::Register(u8"Timeline", &Timeline::StaticType());
+        // No hand-kept count here: a .sss selector for an unregistered type parses as
+        // UnknownType and matches nothing, silently - the toolkit sheet test asserts that no
+        // rule of either fragment is unknown, which is what catches a missing registration.
     }
 
     /// Registers default theme styles for all foundation.ui.toolkit controls (Pattern-B injected

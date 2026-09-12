@@ -641,27 +641,33 @@ export namespace foundation::ui::toolkit
             return f;
         }
 
-        // Conversion helpers - X=pitch (around X), Y=yaw (around Y), Z=roll (around Z).
+    public:
+        // Conversion helpers - X=pitch (around X), Y=yaw (around Y), Z=roll (around Z). The
+        // forward composition below is Z, then Y, then X, so the MIDDLE axis (Y) is the one
+        // that comes from an arcsine; X and Z come from arctangents. (The arcsine used to sit
+        // on X, which inverted a single-axis rotation correctly and every compound rotation
+        // wrongly - 30/45/60 read back as -16.3/50.4/39.6 and was then rewritten to match on
+        // the first keystroke. Found by the Beef port.)
         static Float3 QuaternionToEulerDegrees(Quaternion q)
         {
-            const f32 sinP = 2.0f * (q.w * q.x - q.z * q.y);
-            f32 pitch;
-            if (Abs(sinP) >= 1.0f)
+            const f32 sinXCosY = 2.0f * (q.w * q.x + q.y * q.z);
+            const f32 cosXCosY = 1.0f - 2.0f * (q.x * q.x + q.y * q.y);
+            const f32 pitch = Atan2(sinXCosY, cosXCosY);
+
+            const f32 sinY = 2.0f * (q.w * q.y - q.z * q.x);
+            f32 yaw;
+            if (Abs(sinY) >= 1.0f)
             {
-                pitch = (sinP >= 0) ? (kPi / 2.0f) : -(kPi / 2.0f);
+                yaw = (sinY >= 0) ? (kPi / 2.0f) : -(kPi / 2.0f);
             }
             else
             {
-                pitch = Asin(sinP);
+                yaw = Asin(sinY);
             }
 
-            const f32 sinYCosP = 2.0f * (q.w * q.y + q.x * q.z);
-            const f32 cosYCosP = 1.0f - 2.0f * (q.x * q.x + q.y * q.y);
-            const f32 yaw = Atan2(sinYCosP, cosYCosP);
-
-            const f32 sinRCosP = 2.0f * (q.w * q.z + q.x * q.y);
-            const f32 cosRCosP = 1.0f - 2.0f * (q.x * q.x + q.z * q.z);
-            const f32 roll = Atan2(sinRCosP, cosRCosP);
+            const f32 sinZCosY = 2.0f * (q.w * q.z + q.x * q.y);
+            const f32 cosZCosY = 1.0f - 2.0f * (q.y * q.y + q.z * q.z);
+            const f32 roll = Atan2(sinZCosY, cosZCosY);
 
             return Float3{pitch * kRadToDeg, yaw * kRadToDeg, roll * kRadToDeg};
         }
@@ -683,6 +689,7 @@ export namespace foundation::ui::toolkit
                               cp * cy * sr - sp * sy * cr, cp * cy * cr + sp * sy * sr};
         }
 
+    private:
         NumericField* m_x = nullptr;
         NumericField* m_y = nullptr;
         NumericField* m_z = nullptr;

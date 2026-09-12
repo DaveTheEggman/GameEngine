@@ -144,3 +144,68 @@ TEST_CASE("grid-view: GetActiveView + OnItemKeyDown (item keys before navigation
     CHECK(seenPosition == 1);                  // handler saw it (pre-navigation position)
     CHECK(gv->Selection.FirstSelected() == 2); // then navigation moved the selection
 }
+
+namespace
+{
+    class GridBindCountingAdapter : public ListAdapterBase
+    {
+    public:
+        core::i32 Count = 0;
+        core::Array<core::i32> Binds;
+        explicit GridBindCountingAdapter(core::i32 count) : Count(count)
+        {
+            Binds.Resize(static_cast<core::usize>(count), 0);
+        }
+        [[nodiscard]] core::i32 ItemCount() const override { return Count; }
+        [[nodiscard]] core::RefPtr<View> CreateView(core::i32) override
+        {
+            return core::MakeRef<TestView>(core::DefaultAllocator(), 60.0f, 30.0f);
+        }
+        void BindView(View*, core::i32 position) override
+        {
+            Binds[static_cast<core::usize>(position)] += 1;
+        }
+    };
+}
+
+TEST_CASE("grid-view: an ordinary layout pass rebinds nothing (the ListView rule)")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
+    GridBindCountingAdapter adapter(50);
+    auto gv = MakeGrid();
+    gv->CellWidth.SetValue(60);
+    gv->SetAdapter(&adapter);
+    root->AddView(gv.Get());
+    LayoutPass(ctx, root.Get());
+    REQUIRE(adapter.Binds[0] == 1); // bound once, on acquire
+    gv->Invalidate();
+    LayoutPass(ctx, root.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(adapter.Binds[0] == 1); // still once: layout passes do not rebind
+    adapter.NotifyRangeChanged(0, 1);
+    CHECK(adapter.Binds[0] == 2); // a data change does
+}
+
+TEST_CASE("grid-view: a shrunken data set prunes the positional selection")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 300, 300);
+    SimpleListAdapter adapter(10);
+    auto gv = MakeGrid();
+    gv->CellWidth.SetValue(60);
+    gv->SetAdapter(&adapter);
+    root->AddView(gv.Get());
+    LayoutPass(ctx, root.Get());
+    gv->Selection.Select(8);
+    REQUIRE(gv->Selection.IsSelected(8));
+    adapter.Count = 3;
+    adapter.NotifyDataSetChanged();
+    CHECK_FALSE(gv->Selection.IsSelected(8)); // no stale index survives the shrink
+    gv->Selection.Select(2);
+    adapter.Count = 5;
+    adapter.NotifyDataSetChanged();
+    CHECK(gv->Selection.IsSelected(2)); // a still-valid index is kept
+}

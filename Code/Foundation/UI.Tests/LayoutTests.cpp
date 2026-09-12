@@ -1140,3 +1140,25 @@ TEST_CASE("grid: AutoFlow_KeepsChildIntent")
     CHECK(c->Bounds.x == doctest::Approx(100)); // re-flowed into the second cell
     CHECK(c->Bounds.y == doctest::Approx(0));
 }
+
+TEST_CASE("dock: a styled border is part of the measured size (chrome, not just padding)")
+{
+    // The measure deflated by the CHROME but added back only the padding, so a bordered dock
+    // measured short by the border (found by the Beef port).
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto host = New<FrameLayout>(); // loose constraints: the dock wraps its content
+    auto dock = New<DockLayout>();
+    dock->SetStyle(StyleProperty::BorderWidth, 5.0f);
+    dock->Padding = Thickness{2, 2, 2, 2};
+    auto top = TV(100, 50);
+    dock->AddView(top.Get(), Docked(Dock::Top));
+    host->AddView(dock.Get());
+    root->AddView(host.Get());
+    LayoutPass(ctx, root.Get());
+    // A Top-docked child spans the dock rather than sizing it, so only the height is its own.
+    CHECK(dock->MeasuredSize.y == doctest::Approx(50 + 2 * (5 + 2)));
+    CHECK(top->Bounds.y == doctest::Approx(7)); // border + padding
+    CHECK(top->Bounds.x == doctest::Approx(7));
+}

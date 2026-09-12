@@ -42,6 +42,10 @@ export namespace foundation::ui
         f32 ShowDelay = 0.5f;
         /// Seconds before tooltip auto-hides.
         f32 AutoHideDelay = 5.0f;
+        /// Whether a tooltip is currently up (tests, tools).
+        [[nodiscard]] bool IsShowing() const noexcept { return m_showing; }
+        /// Whether `view` is the tooltip view or sits inside it (hit tests, press handling).
+        [[nodiscard]] bool IsTooltipOrDescendant(View* view) const;
 
         /// Called when the hover target changes.
         void OnHoverChanged(View* newTarget);
@@ -57,7 +61,6 @@ export namespace foundation::ui
     private:
         void Show(View* target);
         void Hide();
-        [[nodiscard]] bool IsTooltipOrDescendant(View* view) const;
 
         static Float2 PositionTooltip(TooltipPlacement placement, f32 targetX, f32 targetY,
                                       f32 targetW, f32 targetH, Float2 popupSize, Rectangle screen);

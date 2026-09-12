@@ -956,7 +956,10 @@ export namespace foundation::vg::renderer
                 !CreatePipelineVariant(*m_vsModule, *frag, role, slot, blendMode, clipped).IsOk())
             {
                 slot = nullptr;
-                return clipped ? nullptr : m_pipeline;
+                // The default pipeline is a tolerable stand-in for a DF or gradient variant
+                // (flat colour), never for a box shadow: it would paint the quadrant quads as
+                // flat colour over everything around the box. Skip the command instead.
+                return (clipped || kind == PipelineKind::BoxShadow) ? nullptr : m_pipeline;
             }
             return slot;
         }

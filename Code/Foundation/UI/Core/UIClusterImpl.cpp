@@ -1221,7 +1221,7 @@ namespace foundation::ui
             if (c.State.HasValue())
             {
                 const ControlState required = c.State.Value();
-                if (required != ControlState::Normal && !HasFlag(state, required))
+                if (required != ControlState::Normal && !HasAllFlags(state, required)) // every flag of the compound
                 {
                     return false;
                 }
@@ -1317,7 +1317,7 @@ namespace foundation::ui
         if (State.HasValue())
         {
             const ControlState required = State.Value();
-            if (required != ControlState::Normal && !HasFlag(state, required))
+            if (required != ControlState::Normal && !HasAllFlags(state, required)) // every flag of the compound
             {
                 return false;
             }

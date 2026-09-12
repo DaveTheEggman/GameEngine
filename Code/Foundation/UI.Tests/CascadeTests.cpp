@@ -25,6 +25,17 @@ namespace core = foundation::core;
 
 namespace
 {
+    /// A TestView whose control state the test sets directly.
+    class StateView final : public TestView
+    {
+        RTTI_OBJECT(StateView, TestView)
+    public:
+        ControlState State = ControlState::Normal;
+        StateView() = default;
+        [[nodiscard]] ControlState GetControlState() const override { return State; }
+    };
+    RTTI_DEFINE_OBJECT(StateView, "rtti::ui::tests")
+
     void EnsureGlobals()
     {
         StyleSheetLoader::InitializeGlobals();
@@ -32,6 +43,7 @@ namespace
         UITypeRegistry::Register(u8"RootView", &RootView::StaticType());
         UITypeRegistry::Register(u8"TestView", &TestView::StaticType());
         UITypeRegistry::Register(u8"TestGroup", &TestGroup::StaticType());
+        UITypeRegistry::Register(u8"StateView", &StateView::StaticType());
     }
 
     core::RefPtr<StyleSheet> LoadSSS(StringView src)
@@ -423,4 +435,23 @@ TEST_CASE("cascade: two contexts with different sheets stay independent (editor 
     CHECK(Red(*e) == doctest::Approx(1.0f));
     CHECK(Green(*e) == doctest::Approx(0.0f));
     CHECK(editor.GetStyleSheet()->Version() == editorSheetVersion);
+}
+
+TEST_CASE("cascade: a compound state selector needs EVERY flag, not any one of them")
+{
+    // `:hover:checked` used to match a view that was merely hovered (the match tested ANY bit
+    // of the compound); the selector's own doc said all flags must be present. Found by the
+    // Beef port reading the code against the comment.
+    Fixture f(LoadSSS(u8"StateView { text-color: #000000; }\n"
+                      u8"StateView:hover:checked { text-color: #ff0000; }\n"));
+    auto v = core::MakeRef<StateView>(core::DefaultAllocator());
+    f.root->AddView(v.Get());
+    v->State = ControlState::Hover;
+    CHECK(Red(*v) == doctest::Approx(0.0f));
+    v->State = ControlState::Checked;
+    CHECK(Red(*v) == doctest::Approx(0.0f));
+    v->State = ControlState::Hover | ControlState::Checked;
+    CHECK(Red(*v) == doctest::Approx(1.0f));
+    v->State = ControlState::Hover | ControlState::Checked | ControlState::Focused; // extra bits are fine
+    CHECK(Red(*v) == doctest::Approx(1.0f));
 }

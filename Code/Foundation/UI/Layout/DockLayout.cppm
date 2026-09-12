@@ -83,8 +83,10 @@ export namespace foundation::ui
                 maxH = Max(maxH, usedTop + usedBottom);
             }
 
-            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + Padding.TotalHorizontal()),
-                                  constraints.ConstrainHeight(maxH + Padding.TotalVertical())};
+            // The chrome (padding AND border) was deflated above, so it is the chrome that
+            // comes back - adding only the padding measured a bordered dock short by the border.
+            MeasuredSize = Float2{constraints.ConstrainWidth(maxW + chrome.TotalHorizontal()),
+                                  constraints.ConstrainHeight(maxH + chrome.TotalVertical())};
         }
 
         void OnLayout(f32 left, f32 top, f32 width, f32 height) override

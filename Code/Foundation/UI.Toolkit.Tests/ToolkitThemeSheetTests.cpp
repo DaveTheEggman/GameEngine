@@ -120,3 +120,32 @@ TEST_CASE("toolkit-sheets: toolkit-light.sss holds the design system")
 {
     CheckFragment(EmbeddedToolkitThemes::Light(), ThemePalette::Light());
 }
+
+TEST_CASE("toolkit-sheets: every type selector in both fragments resolves to a registered type")
+{
+    // A selector naming an unregistered type parses as UnknownType and styles nothing,
+    // silently. The hand-kept type COUNT that was meant to catch this agreed with the
+    // registrations rather than with the sheets, which is how Timeline went unstyled.
+    struct Case
+    {
+        StringView fragment;
+        ThemePalette palette;
+    };
+    const Case cases[] = {{EmbeddedToolkitThemes::Dark(), ThemePalette::Dark()},
+                          {EmbeddedToolkitThemes::Light(), ThemePalette::Light()}};
+    for (const Case& c : cases)
+    {
+        ToolkitThemeExtension ext;
+        RefPtr<StyleSheet> sheetRef = MakeRef<StyleSheet>(DefaultAllocator());
+        ext.Apply(*sheetRef, c.palette);
+        REQUIRE(sheetRef->RuleCount() > 0);
+        bool timelineStyled = false;
+        for (usize r = 0; r < sheetRef->RuleCount(); ++r)
+        {
+            const StyleSelector& sel = sheetRef->GetRule(r).Selector;
+            CHECK_FALSE(sel.UnknownType);
+            timelineStyled = timelineStyled || sel.ViewType == &Timeline::StaticType();
+        }
+        CHECK(timelineStyled);
+    }
+}

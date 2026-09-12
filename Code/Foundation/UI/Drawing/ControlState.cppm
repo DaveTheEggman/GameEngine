@@ -58,6 +58,12 @@ export namespace foundation::ui
     {
         return (static_cast<u32>(value) & static_cast<u32>(flag)) != 0u;
     }
+    /// True when EVERY bit of `flags` is set in `value` (a compound selector `:hover:checked`
+    /// needs both; HasFlag answers for any one of them).
+    [[nodiscard]] constexpr bool HasAllFlags(ControlState value, ControlState flags) noexcept
+    {
+        return (static_cast<u32>(value) & static_cast<u32>(flags)) == static_cast<u32>(flags);
+    }
     /// True if any flag is set (i.e. not Normal).
     [[nodiscard]] constexpr bool Any(ControlState value) noexcept
     {
