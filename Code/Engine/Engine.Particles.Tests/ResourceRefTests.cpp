@@ -19,6 +19,7 @@ import foundation.resource;
 import foundation.particles;
 import foundation.particles.resource;
 import engine.particles;
+import engine.render; // CameraComponentManager (the primary camera the manager reads)
 import foundation.scene;
 import foundation.scene.resource;
 
@@ -197,4 +198,42 @@ TEST_CASE("particles: entity-active - starts-inactive never attaches/emits; togg
     sceneObj.SetActive(e, false);
     sceneObj.Update(0.5f);
     CHECK(c.instance->Effect().GetSystem(0)->AliveCount() == alive);
+}
+
+TEST_CASE("particles: the manager takes its camera position from the scene's primary camera")
+{
+    // The alpha sort and the trail ribbons work from this point; it used to stay at the origin
+    // for the life of the scene (read in three places, written in none).
+    particles::RegisterParticleEffectResource();
+    scene::Scene sceneObj{DefaultAllocator()};
+    auto* particlesManager = sceneObj.AddSystem<engine::particles::ParticleEffectComponentManager>();
+    auto* cameras = sceneObj.AddSystem<engine::render::CameraComponentManager>();
+
+    sceneObj.Update(0.1f);
+    CHECK(particlesManager->CameraPosition().x == doctest::Approx(0.0f)); // no camera yet: the origin
+
+    // The manager ticks in PostUpdate and the scene refreshes world matrices AFTER that phase,
+    // so the camera (like the emitters' own positions) is read one frame late: two ticks.
+    const scene::EntityHandle camEntity = sceneObj.CreateEntity(u8"Camera");
+    sceneObj.SetLocalPosition(camEntity, Float3{3, 4, 5});
+    engine::render::CameraComponent& cam = cameras->Add(camEntity);
+    cam.primary = true;
+    sceneObj.Update(0.1f);
+    sceneObj.Update(0.1f);
+    CHECK(particlesManager->CameraPosition().x == doctest::Approx(3.0f));
+    CHECK(particlesManager->CameraPosition().y == doctest::Approx(4.0f));
+    CHECK(particlesManager->CameraPosition().z == doctest::Approx(5.0f));
+
+    // It follows the camera.
+    sceneObj.SetLocalPosition(camEntity, Float3{-1, 0, 2});
+    sceneObj.Update(0.1f);
+    sceneObj.Update(0.1f);
+    CHECK(particlesManager->CameraPosition().x == doctest::Approx(-1.0f));
+    CHECK(particlesManager->CameraPosition().z == doctest::Approx(2.0f));
+
+    // An inactive primary is skipped: nothing else to pick, so the last known point stands.
+    sceneObj.SetActive(camEntity, false);
+    sceneObj.Update(0.1f);
+    sceneObj.Update(0.1f);
+    CHECK(particlesManager->CameraPosition().x == doctest::Approx(-1.0f));
 }

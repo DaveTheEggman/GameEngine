@@ -31,6 +31,7 @@ import foundation.particles.resource; // ParticleEffectResource + CloneEffect (c
 import foundation.texture;            // Texture::View() for resolved per-system textures
 import foundation.texture.resource;
 import foundation.script.facades; // script::Entity/Scene + CurrentRunResources (the SceneParticles handle)
+import engine.render;             // ExtractPrimaryCamera - the point the sort and the ribbons face
 import :renderdata;
 
 using namespace foundation::core;
@@ -160,6 +161,10 @@ export namespace engine::particles
         // The dispatch id of the ParticleRenderer (set by the ParticleSubsystem after it registers it).
         void SetBillboardRendererId(u16 id) noexcept { m_billboardRendererId = id; }
 
+        /// The camera position the alpha sort and the trail ribbons work from: the scene's
+        /// primary camera as of the last tick (the origin until one exists).
+        [[nodiscard]] Float3 CameraPosition() const noexcept { return m_cameraPos; }
+
         // Scene-driven sim: advance every instance in PostUpdate (before render extraction).
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
@@ -168,6 +173,16 @@ export namespace engine::particles
                 return;
             }
             PROFILE_SCOPE("Particles.Simulate");
+            // The point the back-to-front sort and the camera-facing ribbons work from. It was
+            // declared, read in three places and written nowhere, so both faced the ORIGIN
+            // (found by the Beef port). The scene's primary camera, refreshed every tick.
+            {
+                render::ViewCamera camera;
+                if (::engine::render::ExtractPrimaryCamera(*m_scene, camera))
+                {
+                    m_cameraPos = camera.position;
+                }
+            }
             ForEach(
                 [&](ParticleEffectComponent& c, scene::EntityHandle owner)
                 {

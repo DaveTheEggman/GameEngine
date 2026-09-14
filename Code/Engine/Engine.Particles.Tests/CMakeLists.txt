@@ -7,7 +7,7 @@ add_executable(Engine.Particles.Tests
     ResourceRefTests.cpp)
 
 target_link_libraries(Engine.Particles.Tests PRIVATE
-    Engine::Particles Foundation::Particles Foundation::Particles.Resource
+    Engine::Particles Engine::Render Foundation::Particles Foundation::Particles.Resource
     Foundation::Scene Foundation::Scene.Resource Foundation::Resource Foundation::VFS Foundation::Content doctest::doctest)
 
 target_compile_definitions(Engine.Particles.Tests PRIVATE

@@ -289,8 +289,23 @@ export namespace foundation::rhi::vk
             }
 #endif
 
-            if (enableValidation)
-                extensions.PushBack(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            // Debug utils whenever the loader has it, not only with validation: it is what a
+            // frame capture reads pass names out of, and the encoder's label calls degrade to
+            // nothing without it (they null-check their entry points). Validation still needs
+            // it for the messenger, so that case pushes it regardless. (Adopted from the Beef
+            // port, whose unguarded label calls crashed the shipping path.)
+            {
+                u32 availCount = 0;
+                vkEnumerateInstanceExtensionProperties(nullptr, &availCount, nullptr);
+                Array<VkExtensionProperties> avail(availCount);
+                vkEnumerateInstanceExtensionProperties(nullptr, &availCount, avail.Data());
+                bool hasDebugUtils = false;
+                for (const auto& e : avail)
+                    if (std::strcmp(e.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
+                        hasDebugUtils = true;
+                if (enableValidation || hasDebugUtils)
+                    extensions.PushBack(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            }
 
             // ---- Layers ----
             Array<const char*> layers;
