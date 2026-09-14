@@ -179,6 +179,20 @@ export namespace foundation::vfs
                 return;
             }
 
+            // The header is the least trustworthy part of a corrupt or truncated file, and
+            // everything below is sized from it (the Beef port's reading of this code): the
+            // table must lie inside the file, past the header, and the count must be one the
+            // table can actually hold.
+            const i64 fileSizeSigned = file.Size();
+            const u64 fileSize = fileSizeSigned > 0 ? static_cast<u64>(fileSizeSigned) : 0u;
+            constexpr u64 kHeaderBytes = 4 + 4 + 8 + 8 + 8;
+            constexpr u64 kMinEntryBytes = 2 + 8 + 8 + 8 + 2; // an empty locator and the fixed fields
+            if (tocOffset < kHeaderBytes || tocOffset > fileSize || tocSize > fileSize - tocOffset ||
+                entryCount > tocSize / kMinEntryBytes)
+            {
+                return;
+            }
+
             if (file.Seek(static_cast<i64>(tocOffset), SeekOrigin::Begin) < 0)
             {
                 return;
@@ -202,6 +216,14 @@ export namespace foundation::vfs
                 reader.Read(entry.originalSize);
                 reader.Read(entry.compression);
                 if (!reader.IsOk())
+                {
+                    return;
+                }
+                // An entry's bytes live in the data heap between the header and the table;
+                // a range outside it would hand a reader garbage or nothing. Only the stored
+                // compression exists.
+                if (entry.offset < kHeaderBytes || entry.offset > tocOffset ||
+                    entry.storedSize > tocOffset - entry.offset || entry.compression != kCompressionNone)
                 {
                     return;
                 }

@@ -125,3 +125,113 @@ TEST_CASE("vfs.pak: a non-pak file is rejected")
 
     FileDelete(path);
 }
+
+namespace
+{
+    Array<u8> ReadAll(StringView path)
+    {
+        Array<u8> bytes;
+        FileStream file(path, FileMode::Read);
+        if (!file.IsValid())
+        {
+            return bytes;
+        }
+        bytes.Resize(static_cast<usize>(file.Size()));
+        (void)file.Read(bytes.Data(), bytes.Size());
+        return bytes;
+    }
+    void WriteAll(StringView path, const Array<u8>& bytes)
+    {
+        FileDelete(path);
+        FileStream file(path, FileMode::Write);
+        REQUIRE(file.IsValid());
+        (void)file.Write(bytes.Data(), bytes.Size());
+    }
+    void PutU64(Array<u8>& bytes, usize at, u64 value)
+    {
+        for (usize i = 0; i < 8; ++i)
+        {
+            bytes[at + i] = static_cast<u8>((value >> (8 * i)) & 0xFFu);
+        }
+    }
+    u64 GetU64(const Array<u8>& bytes, usize at)
+    {
+        u64 v = 0;
+        for (usize i = 0; i < 8; ++i)
+        {
+            v |= static_cast<u64>(bytes[at + i]) << (8 * i);
+        }
+        return v;
+    }
+}
+
+TEST_CASE("vfs.pak: a corrupt or truncated header is refused rather than sized from")
+{
+    // Header layout: magic u32 @0, version u32 @4, entryCount u64 @8, tocOffset u64 @16, tocSize u64 @24.
+    const StringView good = u8"scratch_pak_good.pak";
+    const StringView bad = u8"scratch_pak_bad.pak";
+    FileDelete(good);
+    {
+        PakBuilder builder;
+        builder.Add(u8"a.txt", Bytes("alpha"));
+        builder.Add(u8"b.txt", Bytes("beta"));
+        REQUIRE(builder.Write(good).IsOk());
+    }
+    const Array<u8> original = ReadAll(good);
+    REQUIRE(original.Size() > 32u);
+    const u64 tocOffset = GetU64(original, 16);
+    const u64 tocSize = GetU64(original, 24);
+    REQUIRE(tocOffset >= 32u);
+
+    SUBCASE("entry count the table cannot hold")
+    {
+        Array<u8> bytes = original;
+        PutU64(bytes, 8, 0x7FFFFFFFFFFFFFFFull);
+        WriteAll(bad, bytes);
+        PakFileSystem fs(bad);
+        CHECK_FALSE(fs.IsValid());
+    }
+    SUBCASE("table past the end of the file")
+    {
+        Array<u8> bytes = original;
+        PutU64(bytes, 16, static_cast<u64>(bytes.Size()) + 4096u);
+        WriteAll(bad, bytes);
+        PakFileSystem fs(bad);
+        CHECK_FALSE(fs.IsValid());
+    }
+    SUBCASE("table longer than what follows its offset")
+    {
+        Array<u8> bytes = original;
+        PutU64(bytes, 24, tocSize + 1000u);
+        WriteAll(bad, bytes);
+        PakFileSystem fs(bad);
+        CHECK_FALSE(fs.IsValid());
+    }
+    SUBCASE("an entry whose bytes lie outside the data heap")
+    {
+        Array<u8> bytes = original;
+        // Entry 0 at tocOffset: u16 locatorLength, locator, u64 offset, u64 storedSize ...
+        const usize len = bytes[static_cast<usize>(tocOffset)] | (bytes[static_cast<usize>(tocOffset) + 1] << 8);
+        const usize storedSizeAt = static_cast<usize>(tocOffset) + 2 + len + 8;
+        PutU64(bytes, storedSizeAt, 1u << 30);
+        WriteAll(bad, bytes);
+        PakFileSystem fs(bad);
+        CHECK_FALSE(fs.IsValid());
+    }
+    SUBCASE("a file truncated inside the table")
+    {
+        Array<u8> bytes = original;
+        bytes.Resize(static_cast<usize>(tocOffset) + 5);
+        WriteAll(bad, bytes);
+        PakFileSystem fs(bad);
+        CHECK_FALSE(fs.IsValid());
+    }
+    SUBCASE("the untouched file still opens")
+    {
+        PakFileSystem fs(good);
+        CHECK(fs.IsValid());
+        CHECK(fs.EntryCount() == 2u);
+    }
+    FileDelete(bad);
+    FileDelete(good);
+}
