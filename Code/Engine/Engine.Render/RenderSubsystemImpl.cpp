@@ -910,15 +910,18 @@ namespace engine::render
         m_frame.Reset();          // releases the forward pass's per-frame GPU resources
         m_clusterSystem.Reset();  // before the ShaderSystem it borrows
         m_tonemapPass.Reset();    // before the ShaderSystem it borrows
+        m_exposurePass.Reset();   // before the ShaderSystem it borrows (auto-exposure, with tonemap)
         m_shadowSystem.Reset();   // shadow depth textures
         m_skyPass.Reset();        // before the ShaderSystem it borrows
         m_bloomPass.Reset();      // before the ShaderSystem it borrows
         m_taaPass.Reset();        // before the ShaderSystem it borrows
         m_aoPass.Reset();         // before the ShaderSystem it borrows
         m_ssrPass.Reset();        // before the ShaderSystem it borrows
+        m_ssgiPass.Reset();       // before the ShaderSystem it borrows (with SSR)
         m_fxaaPass.Reset();       // before the ShaderSystem it borrows
         m_decalPass.Reset();      // before the ShaderSystem it borrows
         m_debugPass.Reset();      // before the ShaderSystem it borrows
+        m_debugBlitPass.Reset();  // before the ShaderSystem it borrows (with the debug pass)
         m_probeSystem.Reset();    // probe textures/buffers (before the ShaderSystem it borrows)
         m_iblSystem.Reset();      // IBL textures/buffers (before the ShaderSystem it borrows)
         m_spriteRenderer.Reset(); // before the ShaderSystem it borrows
