@@ -79,11 +79,12 @@ export namespace editor::mcp
 {
     // Registers project_export. `builders` is the host's registry; `hostToolDir` is the
     // directory of the host executable (where Engine.Player + its runtime sidecars live -
-    // the host template source, exactly as the export CLI resolves it).
+    // the host template source, exactly as the export CLI resolves it); `dataRoot` is the
+    // host's resolved engine data root (the shader cook reads <dataRoot>/Shaders).
     inline void RegisterProjectExportTool(foundation::mcp::McpServer& server,
                                           ProjectSession& session,
                                           pipeline::BuilderRegistry& builders,
-                                          String hostToolDir)
+                                          String hostToolDir, String dataRoot)
     {
         using foundation::mcp::SchemaBuilder;
         using foundation::mcp::ToolResult;
@@ -104,7 +105,7 @@ export namespace editor::mcp
                 .Str(u8"out", u8"output root directory (default: <project>/Dist)")
                 .Boolean(u8"rebuild", u8"force a full re-cook first (default incremental)")
                 .Build(),
-            [s, bld, hostToolDir](const JsonValue& args) -> ToolResult
+            [s, bld, hostToolDir, dataRoot](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)
                 {
@@ -172,8 +173,8 @@ export namespace editor::mcp
 
                 editor::ExportResult result;
                 if (!editor::ExportOne(*s->project, *preset, templates, *bld, outRoot.AsView(),
-                                       rebuild, &result, {}, /*cook=*/true, &sceneStreams,
-                                       &scanner)
+                                       dataRoot.AsView(), rebuild, &result, {}, /*cook=*/true,
+                                       &sceneStreams, &scanner)
                          .IsOk())
                 {
                     return Err(Format(u8"export of preset '{}' failed - read log_read "

@@ -47,10 +47,8 @@ namespace
 namespace
 {
     // VG shaders ship in the engine corpus (vg.vs/vg.ps); resolved via ShaderSystemHost in OnInit.
-
-#ifndef BUILTIN_GUI_FONT_PATH
-#define BUILTIN_GUI_FONT_PATH ""
-#endif
+    // The demo font is the engine's built-in Roboto under the data root.
+    constexpr StringView kFontAsset = u8"Assets/fonts/roboto/Roboto-Regular.ttf";
 
     // App-specific rules layered on top of the built-in theme: two button accent classes, a
     // font-family rule resolved through the font service, and a @keyframes pulse animation.
@@ -146,10 +144,7 @@ private:
 
     void BuildUI();
     void LoadFontSize(StringView path, f32 pixelHeight);
-    [[nodiscard]] bool HasFonts() const
-    {
-        return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH)).IsEmpty();
-    }
+    [[nodiscard]] bool HasFonts() const { return FileExists(DataPath(kFontAsset).AsView()); }
 
     // Render plumbing (mirrors VGSandbox).
     shaders::ShaderSystemHost m_shaderHost{AppRoot()}; // owns the ShaderSystem + the VG modules
@@ -211,14 +206,9 @@ private:
 
 Status GUISandbox::OnInit()
 {
-    // Resolve the VG shaders through the shared ShaderSystemHost (cooked pack or dev DXC over
-    // Data/Shaders) - the same cooked corpus (vg.vs/vg.ps) the runtime UI uses.
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-    constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-    constexpr StringView kShaderRoot = u8"Shaders";
-#endif
-    if (!m_shaderHost.Initialize(*m_device, kShaderRoot))
+    // Resolve the VG shaders through the shared ShaderSystemHost over the data mount (cooked pack
+    // or dev DXC over Shaders/) - the same cooked corpus (vg.vs/vg.ps) the runtime UI uses.
+    if (!m_shaderHost.Initialize(*m_device, DataFileSystem()))
         return ErrorCode::Unknown;
     m_vs = m_shaderHost.GetVariant(u8"vg", shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
     m_fs =
@@ -250,9 +240,9 @@ Status GUISandbox::OnInit()
                                                            AppRoot());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_GUI_FONT_PATH));
-        LoadFontSize(fontPath, 18.0f);
-        LoadFontSize(fontPath, 30.0f);
+        const String fontPath = DataPath(kFontAsset);
+        LoadFontSize(fontPath.AsView(), 18.0f);
+        LoadFontSize(fontPath.AsView(), 30.0f);
         m_font = m_fontService->GetFont(u8"Roboto", 18.0f);
         m_fontLarge = m_fontService->GetFont(u8"Roboto", 30.0f);
     }

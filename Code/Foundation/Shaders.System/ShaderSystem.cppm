@@ -148,14 +148,13 @@ export namespace foundation::shaders
             }
         }
 
-        // Include search paths for DXC #include resolution of shared .hlsli (owned).
-        void SetIncludePaths(core::Span<const core::StringView> paths)
+        // Where `#include`s resolve during on-demand compiles (borrowed; may be null = the
+        // compiler's disk handler with no search path). The dev file provider is one - it serves
+        // the shared .hlsli from the same mount the sources come from.
+        void SetIncludeResolver(IShaderIncludeResolver* resolver) { m_includeResolver = resolver; }
+        [[nodiscard]] IShaderIncludeResolver* IncludeResolver() const noexcept
         {
-            m_includePaths.Clear();
-            for (core::usize i = 0; i < paths.Size(); ++i)
-            {
-                m_includePaths.PushBack(core::String(paths[i]));
-            }
+            return m_includeResolver;
         }
 
         // Get (compile-on-demand + cache) the GPU module for a variant. Returns null
@@ -363,18 +362,11 @@ export namespace foundation::shaders
             core::Array<ShaderDefine> defines;
             AppendDefines(flags, defines);
 
-            core::Array<core::StringView> includeViews;
-            for (const core::String& p : m_includePaths)
-            {
-                includeViews.PushBack(p.AsView());
-            }
-
             CompileOptions opts{};
             opts.shaderModel = u8"6_0";
             opts.optimizationLevel = 3;
             opts.defines = core::Span<const ShaderDefine>(defines.Data(), defines.Size());
-            opts.includePaths =
-                core::Span<const core::StringView>(includeViews.Data(), includeViews.Size());
+            opts.includeResolver = m_includeResolver;
             if (!isDX12)
             {
                 // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
@@ -450,7 +442,7 @@ export namespace foundation::shaders
         core::HashMap<ShaderVariantKey, rhi::ShaderModule*>
             m_cache;                                    // variant -> GPU module (owned)
         core::HashMap<core::u64, core::u64> m_versions; // nameHash -> version
-        core::Array<core::String> m_includePaths;
+        IShaderIncludeResolver* m_includeResolver = nullptr; // borrowed
     };
 
 } // namespace foundation::shaders

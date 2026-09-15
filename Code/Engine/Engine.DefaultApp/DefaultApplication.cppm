@@ -28,6 +28,7 @@ import foundation.runtime.client;       // IApplication, IApplicationHost
 import engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import foundation.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import foundation.graphics;             // GraphicsDevice, FrameContext
+import foundation.vfs;                  // the data root: ResolveDataRoot + the NativeFileSystem mounted over it
 import foundation.scene;                // Scene
 import engine.scene;      // SceneSubsystem (the standard scene driver)
 import engine.render;     // RenderSubsystem (the standard renderer)
@@ -149,9 +150,20 @@ export namespace engine::runtime
         void SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings);
         [[nodiscard]] engine::ui::UISubsystem* UI() const noexcept { return m_ui; }
 
-        /// TTF for the game UI's default font (preset BEFORE Configure; the editor passes
-        /// its own font path, the player defaults to the dev-tree Roboto).
-        void SetUIFontPath(core::StringView path) { m_uiFontPath = core::String(path); }
+        /// Preset BEFORE Configure: an explicit data-root directory (from `--data-root`);
+        /// empty = discover it (the `Data/.dataroot` walk from the executable, then the cwd).
+        /// Configure resolves it ONCE, mounts a filesystem over it, and hands that mount to
+        /// every subsystem that reads engine data (shaders, the built-in UI font). No root =
+        /// a loud error and RequestExit(1) - there is no compile-time path fallback.
+        void SetDataRoot(core::StringView directory) { m_dataRootOverride = core::String(directory); }
+        /// The resolved data-root directory (valid after Configure; empty = not found).
+        [[nodiscard]] core::StringView DataRoot() const noexcept { return m_dataRoot.AsView(); }
+        /// The mount over the data root (valid after Configure). Subsystems and samples read
+        /// engine data through it by data-relative path ("Assets/fonts/...", "Shaders/...").
+        [[nodiscard]] foundation::vfs::IFileSystem& DataFileSystem() noexcept
+        {
+            return *m_dataFileSystem;
+        }
 
         // ---- infrastructure preset (Sedulous PresetInfrastructure lineage): shared
         // pieces are handed in BEFORE Startup; anything not preset the app creates for
@@ -273,7 +285,9 @@ export namespace engine::runtime
         // screen-tier root + ScreenStack + a cooked-UIDocument instantiator, installed on every run
         // context by the context configurator. App-owned (the screen tier is app-wide).
         engine::uiscript::UiScreenScriptBinding m_uiScreenBinding;
-        core::String m_uiFontPath;
+        core::String m_dataRootOverride; // preset (SetDataRoot); empty = discover
+        core::String m_dataRoot;         // resolved in Configure
+        core::UniquePtr<foundation::vfs::NativeFileSystem> m_dataFileSystem; // the data mount (owned)
         engine::physics::PhysicsSubsystem* m_physics = nullptr;
         engine::audio::AudioSubsystem* m_audio = nullptr;
         engine::render::RenderSubsystem* m_render = nullptr; // for the `DebugDraw.of(scene)` service

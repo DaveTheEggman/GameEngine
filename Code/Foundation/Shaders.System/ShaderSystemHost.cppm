@@ -5,15 +5,18 @@
 ///
 /// ShaderSystemHost builds and owns a ready-to-use ShaderSystem for a device, encapsulating the
 /// pack-vs-dev decision ONCE so every consumer (renderer, VG/UI, ImGui) resolves shaders the same
-/// way via GetVariant():
-///   - DEV mode: DXC + a FileShaderSourceProvider over the engine shader root => on-demand compile
-///     with hot reload. The desktop dev path - PREFERRED whenever both a compiler and the source
-///     root exist, so a stray cooked pack near the binaries can never silently freeze shaders
-///     (hot reload is the payoff; losing it must be a choice, not an accident).
-///   - PACK mode: a cooked shaders.dpak beside the executable (or in the cwd) => no compiler,
-///     prebuilt blobs in the device's backend format (WGSL in a browser). The dist / web path,
-///     entered when dev mode is unavailable - or explicitly, via ShaderPackPolicy::ForcePack or
-///     the OPTION_USE_SHADER_PACK environment variable (pack-on-desktop testing).
+/// way via GetVariant(). Both modes read from the DATA filesystem the application hands in (its
+/// mounted data root - see foundation.vfs ResolveDataRoot); the host knows the layout under it,
+/// never where it is:
+///   - DEV mode: DXC + a FileShaderSourceProvider over `Shaders/` => on-demand compile with hot
+///     reload (includes resolve through the same mount). The desktop dev path - PREFERRED
+///     whenever both a compiler and the source folder exist, so a stray cooked pack can never
+///     silently freeze shaders (hot reload is the payoff; losing it must be a choice, not an
+///     accident).
+///   - PACK mode: the cooked `Shaders/shaders.dpak` => no compiler, prebuilt blobs in the
+///     device's backend format (WGSL in a browser). The dist / web path, entered when dev mode
+///     is unavailable - or explicitly, via ShaderPackPolicy::ForcePack or the
+///     OPTION_USE_SHADER_PACK environment variable (pack-on-desktop testing).
 ///
 /// This is the single implementation of "how do I get a ShaderSystem for this device".
 
@@ -24,12 +27,14 @@ export module foundation.shaders.system:host;
 
 import foundation.core;
 import foundation.rhi;
+import foundation.vfs;
 import foundation.shaders;
 import :shader_system;
 import :file_provider;
 
 using namespace foundation::core;
 namespace rhi = foundation::rhi;
+namespace vfs = foundation::vfs;
 
 export namespace foundation::shaders
 {
@@ -43,6 +48,12 @@ export namespace foundation::shaders
         ForceDev,
     };
 
+    /// The engine shader layout under the data root - the ONE place it is spelled. The cook
+    /// tools and the export stage write to the same names.
+    inline constexpr StringView kShaderFolder = u8"Shaders";
+    inline constexpr StringView kShaderPackFile = u8"shaders.dpak";
+    inline constexpr StringView kShaderPackPath = u8"Shaders/shaders.dpak";
+
     class ShaderSystemHost
     {
     public:
@@ -55,12 +66,14 @@ export namespace foundation::shaders
         ShaderSystemHost(const ShaderSystemHost&) = delete;
         ShaderSystemHost& operator=(const ShaderSystemHost&) = delete;
 
-        /// Build the ShaderSystem for `device`. `engineShaderRoot` is the dev-mode HLSL source root
-        /// (e.g. BUILTIN_ENGINE_SHADER_DIR, or "Shaders" beside a dist). Returns true if a
-        /// ShaderSystem is ready (either a dev compiler+provider or a cooked pack).
-        bool Initialize(rhi::Device& device, StringView engineShaderRoot,
+        /// Build the ShaderSystem for `device` from `dataFileSystem` (the application's data
+        /// mount, borrowed for the host's lifetime): dev sources in `Shaders/`, or the cooked
+        /// `Shaders/shaders.dpak`. Returns true if a ShaderSystem is ready (either a dev
+        /// compiler+provider or a cooked pack).
+        bool Initialize(rhi::Device& device, vfs::IFileSystem& dataFileSystem,
                         ShaderPackPolicy policy = ShaderPackPolicy::Automatic)
         {
+            m_dataFileSystem = &dataFileSystem;
             // DXC is OPTIONAL - only needed in dev mode. A dist/web build that ships a cooked pack
             // renders with no compiler at all.
             if (!createCompiler(CompilerDesc{}, m_compiler).IsOk())
@@ -68,12 +81,8 @@ export namespace foundation::shaders
                 m_compiler = nullptr;
             }
 
-            StringView root = engineShaderRoot;
-            if (!DirectoryExists(root) && DirectoryExists(u8"Shaders"))
-            {
-                root = u8"Shaders"; // relocated build - dist layout fallback
-            }
-            const bool devPossible = m_compiler != nullptr && DirectoryExists(root);
+            const bool haveSources = dataFileSystem.Exists(kShaderFolder);
+            const bool devPossible = m_compiler != nullptr && haveSources;
 
             // DEV FIRST: a present pack must not silently take over a working dev setup
             // (that kills hot reload with one log line). Pack mode is entered when dev is
@@ -114,22 +123,20 @@ export namespace foundation::shaders
                 if (wantPack)
                 {
                     rhi::LogErrorf("ShaderSystemHost: pack mode requested but no usable "
-                                   "shaders.dpak found - falling back to dev compilation");
+                                   "Shaders/shaders.dpak in the data root - falling back to dev "
+                                   "compilation");
                 }
                 m_provider = MakeUnique<FileShaderSourceProvider>(*m_allocator, *m_allocator);
-                if (m_provider->Initialize(root).IsOk())
+                if (m_provider->Initialize(dataFileSystem, kShaderFolder).IsOk())
                 {
                     m_shaders->SetSourceProvider(m_provider.Get());
-                    const StringView includePaths[] = {m_provider->RootDirectory()};
-                    m_shaders->SetIncludePaths(Span<const StringView>{includePaths, 1});
+                    m_shaders->SetIncludeResolver(m_provider.Get());
                 }
                 else
                 {
-                    m_provider.Reset(); // no source root: only explicit RegisterSource works
-                    rhi::LogErrorf("ShaderSystemHost: engine shader root not found (%.*s) - only "
-                                   "explicitly registered shaders will resolve",
-                                   static_cast<int>(root.Size()),
-                                   reinterpret_cast<const char*>(root.Data()));
+                    m_provider.Reset(); // no source folder: only explicit RegisterSource works
+                    rhi::LogErrorf("ShaderSystemHost: no Shaders/ folder in the data root - only "
+                                   "explicitly registered shaders will resolve");
                 }
             }
             return true;
@@ -166,37 +173,19 @@ export namespace foundation::shaders
         }
 
     private:
-        // Look for shaders.dpak beside the executable (robust for a relocated dist), then the cwd.
+        // The cooked pack at its one location under the data root.
         bool LoadPack()
         {
-            constexpr StringView kPackFile = u8"shaders.dpak";
-            String paths[2];
-            const String exeDir = GetExecutableDirectory();
-            if (!exeDir.IsEmpty())
+            UniquePtr<IStream> file = m_dataFileSystem->Open(kShaderPackPath, FileMode::Read);
+            if (!file || !file->IsValid())
             {
-                paths[0] = exeDir;
-                paths[0] += u8"/";
-                paths[0] += kPackFile;
+                return false;
             }
-            paths[1] = String(kPackFile);
-
-            for (const String& path : paths)
+            UniquePtr<CookedShaderPack> pack = MakeUnique<CookedShaderPack>(*m_allocator);
+            if (pack->Read(*file).IsOk() && !pack->IsEmpty())
             {
-                if (path.IsEmpty() || !FileExists(path.AsView()))
-                {
-                    continue;
-                }
-                FileStream file(path.AsView(), FileMode::Read);
-                if (!file.IsValid())
-                {
-                    continue;
-                }
-                UniquePtr<CookedShaderPack> pack = MakeUnique<CookedShaderPack>(*m_allocator);
-                if (pack->Read(file).IsOk() && !pack->IsEmpty())
-                {
-                    m_pack = Move(pack);
-                    return true;
-                }
+                m_pack = Move(pack);
+                return true;
             }
             return false;
         }
@@ -205,6 +194,7 @@ export namespace foundation::shaders
         UniquePtr<CookedShaderPack> m_pack;
         UniquePtr<FileShaderSourceProvider> m_provider;
         core::IAllocator* m_allocator;
+        vfs::IFileSystem* m_dataFileSystem = nullptr; // borrowed (the application's data mount)
         UniquePtr<ShaderSystem> m_shaders;
     };
 }

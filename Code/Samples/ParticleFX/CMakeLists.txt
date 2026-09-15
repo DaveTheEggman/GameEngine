@@ -24,8 +24,4 @@ target_link_libraries(ParticleFX PRIVATE
     Pipeline::Core Foundation::Content Foundation::Resource Foundation::VFS
     Foundation::Policy)
 
-# Per-sample cooked-output DB (isolated), matching the other samples' pattern.
-target_compile_definitions(ParticleFX PRIVATE
-    SAMPLE_PARTICLEFX_OUTPUT_DIR="${CMAKE_SOURCE_DIR}/Data/Output/ParticleFX")
-
 util_copy_sdl3_dll(ParticleFX)

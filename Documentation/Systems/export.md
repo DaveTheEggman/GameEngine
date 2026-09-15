@@ -50,9 +50,11 @@ filesStaged, outputDir, engineVersionWarning }`. A resolved template whose `engi
 warns and still exports (soft-match). Scene/prefab source streams pre-transcode to binary before packing
 (`CollectSceneStreams` / `TranscodeSceneStreamToBinary`); file ops use native
 `core::FileCopyPreserving` / `CreateDirectories`. Every export also cooks the engine shaders for the
-target platform and stages a `shaders.dpak` beside the player (`StageShaderPack` - Vulkan/DXIL for
-desktop, WGSL for Web), so a dist renders with no external dependency (engine shaders are cooked `.hlsl`,
-not baked into the binary).
+target platform from the caller's data root (`ExportOne` / `ExportAll` take `dataRoot`; the editor,
+`Tools.Export` and the MCP tool resolve it the one way - `Documentation/Systems/data-root.md`) and
+stages `Data/.dataroot` + `Data/Shaders/shaders.dpak` beside the player (`StageShaderPack` -
+Vulkan/DXIL for desktop, WGSL for Web): the data-root layout the player's discovery walk finds, so a
+dist renders with no external dependency (engine shaders are cooked `.hlsl`, not baked into the binary).
 
 - **CLI** (`Tools.Export`): `<project> [--out --preset | --all --rebuild]`, `--template list|import|
   create`; host-preset fallback when no `export_presets.xml`.

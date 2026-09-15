@@ -7,14 +7,7 @@ target_link_libraries(Editor.Core
            Foundation::Settings Foundation::Scene.Resource
            Pipeline::Cook Foundation::Resource Foundation::Policy
            Foundation::Image Foundation::Image.IO Foundation::UI
-           Foundation::Shaders) # export cooks the engine shader pack (shaders.dpak)
-
-# Export cooks the built-in shaders from the source tree (same root the renderer bakes); a
-# relocated editor falls back to a "Shaders" dir beside it.
-if(TARGET Foundation::Shaders)
-    target_compile_definitions(Editor.Core PRIVATE
-        BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
-endif()
+           Foundation::Shaders Foundation::Shaders.System) # export cooks the engine shader pack (Data/Shaders/shaders.dpak)
 
 # The player executable basename, from the build's single source of truth (root CMakeLists). The
 # export host-template stages "<base>[.exe]" and reads "<base>.runtime-libs" beside the running tool.

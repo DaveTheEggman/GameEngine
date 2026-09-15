@@ -15,6 +15,7 @@
 #include <cstdio>
 
 import foundation.core;
+import foundation.vfs; // FindDataRoot + the mount the ImGui shaders resolve through
 import foundation.runtime;
 import foundation.runtime.client;
 import foundation.shell;
@@ -151,11 +152,22 @@ namespace
     public:
         void Configure(runtime::IApplicationHost& host) override
         {
+            // A bare IApplication (no DefaultApplication): resolve the data root itself - the
+            // same discovery walk every executable uses - and mount it for the ImGui shaders.
+            const core::String dataRoot = foundation::vfs::FindDataRoot();
+            if (dataRoot.IsEmpty())
+            {
+                host.RequestExit(1); // FindDataRoot already logged what it searched
+                return;
+            }
+            m_dataFileSystem = MakeUnique<foundation::vfs::NativeFileSystem>(
+                core::DefaultAllocator(), dataRoot.AsView(), core::DefaultAllocator());
             m_input = host.Ctx().AddSubsystem<engine::input::InputSubsystem>(
                 host.Shell() != nullptr ? host.Shell()->Input() : nullptr);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight(),
+                                                                    *m_dataFileSystem);
             }
         }
 
@@ -418,6 +430,8 @@ namespace
         }
 
         engine::input::InputSubsystem* m_input = nullptr;
+
+        core::UniquePtr<foundation::vfs::NativeFileSystem> m_dataFileSystem; // the data mount (owned)
         input::InputMap m_asset;                // pristine defaults
         input::InputBindingOverrides m_overlay; // the user's rebinds (persisted)
         input::ActionRef m_move;

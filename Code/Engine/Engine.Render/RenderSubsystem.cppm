@@ -27,6 +27,7 @@ import foundation.runtime;         // Subsystem, Context
 import foundation.scene; // Scene
 import engine.scene; // SceneSubsystem (to register as scene-aware)
 import foundation.shaders.system;  // ShaderSystem, ShaderSystemHost
+import foundation.vfs;             // IFileSystem: the application's data mount (shaders live in it)
 import foundation.materials;       // MaterialSystem
 import foundation.materials.pipelinecache;   // PipelineStateCache
 import foundation.render;          // MeshRenderer, RendererRegistry, RenderFrame, ExtractedScene
@@ -111,8 +112,13 @@ export namespace engine::render
     public:
         // Everything the renderer allocates (systems, passes, caches, per-frame graph
         // objects) rolls up under the Render memory tag, backed by the owner's allocator.
-        RenderSubsystem(IAllocator& allocator, rhi::Device& device, u32 framesInFlight) noexcept
+        // `dataFileSystem` is the application's data mount (borrowed for the subsystem's
+        // lifetime): engine shaders resolve from it (Shaders/ in dev, Shaders/shaders.dpak
+        // in a dist) - the renderer never knows where on disk that is.
+        RenderSubsystem(IAllocator& allocator, rhi::Device& device, u32 framesInFlight,
+                        foundation::vfs::IFileSystem& dataFileSystem) noexcept
             : m_allocator(allocator, RegisterMemoryTag("Render")), m_device(&device),
+              m_dataFileSystem(&dataFileSystem),
               m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight)
         {
         }
@@ -301,6 +307,8 @@ export namespace engine::render
         TaggedAllocator m_allocator;
 
         rhi::Device* m_device;
+
+        foundation::vfs::IFileSystem* m_dataFileSystem; // borrowed (the application's data mount)
         u32 m_framesInFlight = 2;
         u32 m_maxMsaaSamples = 1; // device-supported scene-pass MSAA ceiling (queried at init)
         // Owns the pack-vs-dev ShaderSystem (cooked blobs in a dist/web build, DXC + file provider

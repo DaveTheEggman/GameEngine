@@ -252,9 +252,12 @@ namespace editor::app
                              fonts::FontLoadOptions::ExtendedLatin(), Span<const u8>{});
         }
         EditorIcons::Get().Initialize(); // shared SVG drawables (toolbar + asset types)
+        // The editor's mount over the data root: the UI host reads its VG shaders through it.
+        m_dataFileSystem = MakeUnique<foundation::vfs::NativeFileSystem>(
+            m_editorAllocator, m_config.dataRoot.AsView(), m_editorAllocator);
         m_uiHost = MakeUnique<ui::runtime::UIHost>(m_editorAllocator, m_editorAllocator,
-                                                   *host.Graphics(),
-                                                   *host.Shell(), *m_fontService);
+                                                   *host.Graphics(), *host.Shell(), *m_fontService,
+                                                   *m_dataFileSystem);
         m_dockHost = MakeUnique<ui::application::RuntimeDockableWindowHost>(m_editorAllocator,
                                                                             host, *m_uiHost);
 
@@ -371,10 +374,7 @@ namespace editor::app
                 m_stopGameRequested = true;
             }});
         m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(m_editorAllocator);
-        if (!m_config.fontPath.IsEmpty())
-        {
-            m_embeddedApp->SetUIFontPath(m_config.fontPath.AsView());
-        }
+        m_embeddedApp->SetDataRoot(m_config.dataRoot.AsView()); // the editor's root, not a re-walk
         m_embeddedApp->Configure(*m_embeddedHost);
         // Embedded-runtime input policy: UN-BOUND input must never
         // reach scene-tier game UI here. The player's shell source owns its whole
@@ -1262,13 +1262,14 @@ namespace editor::app
 
         const String toolDir = GetExecutableDirectory();
         const String templatesRoot = TemplatesRoot(); // resolve on the main thread (reads settings)
+        const String dataRoot = m_config.dataRoot;     // the shader cook reads <dataRoot>/Shaders
         const String outRoot = Absolutize(PathJoin(m_project->Directory(), u8"Dist").AsView());
         const String title(all ? StringView(u8"Export All") : StringView(u8"Export"));
 
         m_jobService.Submit(
             title.AsView(),
-            [project, builders, toolDir, templatesRoot, presetName, all, outRoot, sceneStreams,
-             reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
+            [project, builders, toolDir, templatesRoot, dataRoot, presetName, all, outRoot,
+             sceneStreams, reachableRoots, presetsPtr](editor::JobContext& ctx) -> Status
             {
                 foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), editor::EditorRootAllocator());
                 foundation::vfs::NativeFileSystem rootFs(
@@ -1287,6 +1288,7 @@ namespace editor::app
                     const Span<const editor::ExportPreset> span(presets.presets.Data(),
                                                                 presets.presets.Size());
                     return editor::ExportAll(*project, span, registry, *builders, outRoot.AsView(),
+                                             dataRoot.AsView(),
                                              /*rebuild*/ false, onProgress, /*cook*/ false,
                                              sceneStreams,
                                              /*scanner*/ nullptr, reachableRoots);
@@ -1298,6 +1300,7 @@ namespace editor::app
                 }
                 editor::ExportResult result;
                 return editor::ExportOne(*project, *preset, registry, *builders, outRoot.AsView(),
+                                         dataRoot.AsView(),
                                          /*rebuild*/ false, &result, onProgress, /*cook*/ false,
                                          sceneStreams,
                                          /*scanner*/ nullptr, reachableRoots);

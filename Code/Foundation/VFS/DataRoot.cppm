@@ -3,17 +3,19 @@
 
 // Foundation::VFS - :data_root partition.
 //
-// Discovers the DATA ROOT: the "Data" directory that holds the runtime assets, shaders, and
-// fonts, identified by a ".dataroot" marker file. Discovery is anchored at the EXECUTABLE
-// (robust for a relocated distribution - the working directory is unreliable when an app is
-// launched from a menu or a .desktop file), walking up for a dev source tree, then falling
-// back to the working directory. One runtime-discovered root replaces per-asset compile-time
-// source paths and behaves identically in a dev checkout and a shipped build.
+// THE one mechanism by which an executable finds engine data (runtime assets, shaders, fonts):
+// the "Data" directory identified by a ".dataroot" marker file. Discovery is anchored at the
+// EXECUTABLE (robust for a relocated distribution - the working directory is unreliable when an
+// app is launched from a menu or a .desktop file), walking up for a dev source tree, then
+// falling back to the working directory. An explicit `--data-root <dir>` override wins, and is
+// validated (it must hold the marker). There is deliberately no compile-time path fallback:
+// a build that cannot find its data fails loudly instead of reading the build machine's tree.
 //
-// Mounting it as a `data://` scheme is a two-liner over the rest of the VFS:
-//     NativeFileSystem dataFs(FindDataRoot());
-//     vfs.Mount(u8"data", dataFs);   // then read "data://Assets/..." etc.
-
+// The application resolves the root ONCE at startup (ResolveDataRoot), mounts a
+// NativeFileSystem over it, and hands that IFileSystem to whatever reads engine data (the
+// shader host reads "Shaders/...", the UI its default font under "Assets/fonts/..."). Nothing
+// below the application knows where the root is - only what it reads relative to it.
+//
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h" // the no-data-root warning (a silent miss = unexplained missing assets)
@@ -65,20 +67,73 @@ export namespace foundation::vfs
         String fromCwd = FindDataRootFrom(GetCurrentDirectory().AsView());
         if (fromCwd.IsEmpty())
         {
-            // Loud, not silent: the caller falls back to compile-time paths that only exist on
-            // the build machine, so a user with a botched extraction gets missing assets with no
-            // clue. Name what was searched so the fix is self-service (put Data/ beside the exe).
-            LOG_WARNING(u8"VFS",
-                        u8"no data root found (searched up from exe dir '{}' and cwd '{}' for a "
-                        u8"Data/.dataroot marker) - falling back to built-in paths",
-                        GetExecutableDirectory(), GetCurrentDirectory());
+            // Loud, not silent: there is no compile-time fallback, so a botched extraction
+            // otherwise surfaces as unexplained missing assets. Name what was searched so the
+            // fix is self-service (put Data/ beside the exe, or pass --data-root).
+            LOG_ERROR(u8"VFS",
+                      u8"no data root found (searched up from exe dir '{}' and cwd '{}' for a "
+                      u8"Data/.dataroot marker) - put Data/ beside the executable or pass "
+                      u8"--data-root <dir>",
+                      GetExecutableDirectory(), GetCurrentDirectory());
         }
         return fromCwd;
     }
 
-    // Joins a data-root-relative path onto `dataRoot`. An empty root returns `relative`
-    // unchanged, so a caller can pass FindDataRoot() straight through and keep a compile-time
-    // fallback for the empty case.
+    // The command-line override every entry point honors: `--data-root <dir>` or
+    // `--data-root=<dir>`.
+    inline constexpr StringView kDataRootArgument = u8"--data-root";
+
+    // Scans argv for the data-root override. Empty when absent (or given without a value).
+    [[nodiscard]] inline String DataRootFromArguments(int argc, char** argv)
+    {
+        for (int i = 1; i < argc; ++i)
+        {
+            const StringView arg(reinterpret_cast<const utf8char*>(argv[i]));
+            if (arg == kDataRootArgument)
+            {
+                if (i + 1 < argc)
+                {
+                    return String(StringView(reinterpret_cast<const utf8char*>(argv[i + 1])));
+                }
+                return String();
+            }
+            if (arg.Size() > kDataRootArgument.Size() + 1 &&
+                arg.SubStr(0, kDataRootArgument.Size()) == kDataRootArgument &&
+                arg[kDataRootArgument.Size()] == utf8char('='))
+            {
+                return String(arg.SubStr(kDataRootArgument.Size() + 1,
+                                         arg.Size() - kDataRootArgument.Size() - 1));
+            }
+        }
+        return String();
+    }
+
+    // Resolves the data root: an explicit `overrideDir` (validated - it must hold the marker,
+    // else an error and empty), otherwise the discovery walk. Empty = no data root; callers
+    // fail loudly (an application exits, a test REQUIREs).
+    [[nodiscard]] inline String ResolveDataRoot(StringView overrideDir)
+    {
+        if (!overrideDir.IsEmpty())
+        {
+            if (IsDataRoot(overrideDir))
+            {
+                return String(overrideDir);
+            }
+            LOG_ERROR(u8"VFS", u8"--data-root '{}' is not a data root (no {} marker inside it)",
+                      overrideDir, kDataRootMarker);
+            return String();
+        }
+        return FindDataRoot();
+    }
+
+    // The entry-point form: `--data-root` from argv, else the discovery walk.
+    [[nodiscard]] inline String ResolveDataRoot(int argc, char** argv)
+    {
+        return ResolveDataRoot(DataRootFromArguments(argc, argv).AsView());
+    }
+
+    // Joins a data-root-relative path onto `dataRoot` (a plain PathJoin - kept so call sites
+    // read as "data path", and so an empty root yields the relative path unchanged).
     [[nodiscard]] inline String DataPath(StringView dataRoot, StringView relative)
     {
         return dataRoot.IsEmpty() ? String(relative) : PathJoin(dataRoot, relative);

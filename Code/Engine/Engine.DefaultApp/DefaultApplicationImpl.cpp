@@ -18,6 +18,7 @@ import foundation.runtime.client;       // IApplication, IApplicationHost
 import engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import foundation.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
 import foundation.graphics;             // GraphicsDevice, FrameContext
+import foundation.vfs;                  // ResolveDataRoot + NativeFileSystem (the data mount)
 import foundation.scene;                // Scene
 import engine.scene;      // SceneSubsystem (the standard scene driver)
 import engine.scenesurface; // FullSceneComposition (the single source of truth for scene assembly)
@@ -127,6 +128,28 @@ namespace engine::runtime
     void DefaultApplication::Configure(IApplicationHost& host)
     {
         m_host = &host; // stable for the app's lifetime; extra instances route run.requestExit through it
+
+        // THE data root, resolved once: the explicit override (validated) or the discovery walk.
+        // Every consumer below reads through the mount - none knows the location. Missing = the
+        // run ends with an error naming what was searched; the mount still points at the place a
+        // dist would need (Data/ beside the executable) so every miss on the way out is explicit.
+        m_dataRoot = foundation::vfs::ResolveDataRoot(m_dataRootOverride.AsView());
+        if (m_dataRoot.IsEmpty())
+        {
+            LOG_ERROR(u8"App", u8"no data root - cannot start (expected Data/.dataroot beside the "
+                               u8"executable or up the tree, or --data-root <dir>)");
+            host.RequestExit(1);
+            m_dataFileSystem = core::MakeUnique<foundation::vfs::NativeFileSystem>(
+                host.Ctx().Allocator(),
+                core::PathJoin(core::GetExecutableDirectory().AsView(), u8"Data").AsView(),
+                host.Ctx().Allocator());
+        }
+        else
+        {
+            LOG_INFO(u8"App", u8"data root: {}", m_dataRoot);
+            m_dataFileSystem = core::MakeUnique<foundation::vfs::NativeFileSystem>(
+                host.Ctx().Allocator(), m_dataRoot.AsView(), host.Ctx().Allocator());
+        }
         m_scenes = host.Ctx().AddSubsystem<engine::scene::SceneSubsystem>();
         // The scene-assembly blueprint: every registered manager's CreateScene
         // assembles from the full composition (the single source of truth).
@@ -137,7 +160,7 @@ namespace engine::runtime
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             m_render = host.Ctx().AddSubsystem<engine::render::RenderSubsystem>(
-                host.Ctx().Allocator(), *gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().Allocator(), *gfx->Raw(), gfx->FramesInFlight(), *m_dataFileSystem);
             // Drives skeletal animation from the scene tick (injects the SkeletalAnimation manager,
             // ticks players, feeds bone matrices to mesh components). Needs the render managers.
             host.Ctx().AddSubsystem<engine::animation::AnimationSubsystem>();
@@ -171,11 +194,8 @@ namespace engine::runtime
         // The primary instance's per-instance input reads the shell devices by default (the player
         // path); the editor Game tab overrides this to its gated viewport source per tab.
         m_instance.SetInputSource(&m_input->ShellSource());
-        m_ui = host.Ctx().AddSubsystem<engine::ui::UISubsystem>(host.Ctx().Allocator());
-        if (!m_uiFontPath.IsEmpty())
-        {
-            m_ui->SetFontPath(m_uiFontPath.AsView());
-        }
+        m_ui = host.Ctx().AddSubsystem<engine::ui::UISubsystem>(host.Ctx().Allocator(),
+                                                               *m_dataFileSystem);
 
         // Entity behaviors. Facade/backend registration is
         // batteries-included here (idempotent - entry points may register more);

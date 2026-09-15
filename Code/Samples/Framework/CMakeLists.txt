@@ -12,6 +12,7 @@ endif()
 util_add_engine_library(SamplesFramework ALIAS Samples::Framework)
 target_link_libraries(SamplesFramework PUBLIC
     Foundation::Core
+    Foundation::VFS
     Foundation::RHI
     Foundation::RHI.Validation
     Foundation::Shell

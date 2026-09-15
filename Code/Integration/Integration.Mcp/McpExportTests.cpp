@@ -10,6 +10,7 @@
 #include <filesystem>
 #include "Core/Prelude.h"
 import foundation.core;
+import foundation.vfs; // FindDataRoot: the engine shaders the export cooks
 import foundation.json;
 import foundation.content;
 import foundation.scene;
@@ -72,7 +73,8 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
     McpServer server;
     editor::mcp::ProjectSession session;
     editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterProjectExportTool(server, session, builders, TestExeDir());
+    editor::mcp::RegisterProjectExportTool(server, session, builders, TestExeDir(),
+                                           foundation::vfs::FindDataRoot());
 
     // No project -> guided refusal.
     (void)ExCall(server, u8"project_export", JsonValue::MakeObject(), /*expectOk=*/false);

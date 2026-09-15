@@ -29,7 +29,7 @@ target_sources(Tools.Mcp PRIVATE ${MCP_BUILD_STAMP_CPP})
 # (a dyndep edge on a regenerated file destabilizes incremental ninja builds, and there is
 # nothing to scan anyway).
 set_source_files_properties(${MCP_BUILD_STAMP_CPP} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
-target_link_libraries(Tools.Mcp PRIVATE
+target_link_libraries(Tools.Mcp PRIVATE Foundation::VFS
     Foundation::Mcp.Reflection Foundation::Mcp.Script Editor::Mcp
     Engine::ScriptSurface # complete script surface (all facades); both script backends
                           # (angelscript | luau) come transitively from Pipeline::Registration below

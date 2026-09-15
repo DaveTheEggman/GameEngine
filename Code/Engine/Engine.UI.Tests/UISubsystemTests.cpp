@@ -8,6 +8,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the data mount the subsystem reads engine data through
 import foundation.runtime;
 import foundation.scene;
 import engine.scene;
@@ -43,6 +44,18 @@ namespace
     }
 }
 
+namespace
+{
+    // The data mount the subsystem reads its shaders and built-in font through (the repo's
+    // Data/, found by the same discovery walk every executable uses).
+    foundation::vfs::IFileSystem& DataFs()
+    {
+        static foundation::vfs::NativeFileSystem fs(foundation::vfs::FindDataRoot(),
+                                                    DefaultAllocator());
+        return fs;
+    }
+}
+
 TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
 {
     runtime::Context ctx(foundation::core::DefaultAllocator());
@@ -54,7 +67,7 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     scene::Scene* scene = sm.CreateScene(u8"menu");
@@ -114,7 +127,7 @@ TEST_CASE("ui.subsystem: an effectively-inactive entity's canvas goes Gone (and 
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     scene::Scene* scene = sm.CreateScene(u8"menu");
@@ -201,7 +214,7 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     (void)ui;
     // The camera manager comes from the render subsystem normally; add it directly here.
     ctx.Startup();
@@ -285,7 +298,7 @@ TEST_CASE("ui.subsystem: the scene-less screen tier survives scene swaps and sta
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     scene::Scene* scene = sm.CreateScene(u8"level");
@@ -330,7 +343,7 @@ TEST_CASE("ui.subsystem: an EMPTY overlay layer never blocks canvas hit-testing"
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     scene::Scene* scene = sm.CreateScene(u8"level");
     scene::EntityHandle e = scene->CreateEntity(u8"hud");
@@ -381,7 +394,7 @@ TEST_CASE("ui.subsystem: a PASSIVE screen overlay (badge) never turns the layer 
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     // A watermark/badge pushed with IsHitTestVisible = false must not flip the
@@ -471,7 +484,7 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     NavFakeDevices devices;
@@ -542,7 +555,7 @@ TEST_CASE("ui.subsystem: preview roots live in the context but never on the scre
 {
     runtime::Context ctx(foundation::core::DefaultAllocator());
     ctx.AddSubsystem<engine::scene::SceneSubsystem>();
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     // Parse failure -> null (the page keeps its last good preview).
@@ -582,7 +595,7 @@ TEST_CASE("ui.subsystem: canvases stack by order; billboard layer stays below; d
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     scene::Scene* scene = sm.CreateScene(u8"hud");
@@ -675,7 +688,7 @@ TEST_CASE(
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     scene::Scene* scene = sm.CreateScene(u8"menu");
     auto* canvases = scene->GetSystem<UICanvasComponentManager>();
@@ -779,7 +792,7 @@ TEST_CASE("ui.subsystem: key/text events reach a focused game EditText; IME foll
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     EventFakeDevices devices;
@@ -851,7 +864,7 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     // Headless GPU: the Null RHI device (texture lifecycle without a real GPU).
@@ -944,7 +957,7 @@ TEST_CASE(
 {
     runtime::Context ctx(foundation::core::DefaultAllocator());
     ctx.AddSubsystem<engine::scene::SceneSubsystem>();
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     StyleSheet* builtin = ui->Context().GetStyleSheet();
@@ -987,7 +1000,7 @@ TEST_CASE("ui.subsystem: removing a canvas or billboard COMPONENT sweeps its tre
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     scene::Scene* scene = sm.CreateScene(u8"level");
 
@@ -1101,7 +1114,7 @@ TEST_CASE("ui.subsystem: a bound source confines routing + consumption to ITS sc
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     PointerFakeDevices devices;
@@ -1199,7 +1212,7 @@ TEST_CASE("ui.subsystem: ScreenTierOnly keeps un-bound input out of scene UI (ed
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     PointerFakeDevices devices;
@@ -1276,7 +1289,7 @@ TEST_CASE("ui.subsystem: RT canvases auto-bind the entity's sprite/decal texture
         const scene::SceneModule* modules[] = {&uiModule};
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
 
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
@@ -1389,7 +1402,7 @@ TEST_CASE("ui.worldpanel: instantiates, renders to its target, drives the sprite
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
@@ -1518,7 +1531,7 @@ TEST_CASE("ui.subsystem: a stretched full-screen canvas does NOT swallow the poi
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
     ui->EnsureRenderReady(device, 2);
@@ -1597,7 +1610,7 @@ TEST_CASE("ui.subsystem: a press over EMPTY space never consumes the pointer "
         scenes->SetComposition(scene::SceneComposition::Build(modules));
     }
     auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
-    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator());
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
     PointerFakeDevices devices;
     input->SetSourceProvider(&devices);

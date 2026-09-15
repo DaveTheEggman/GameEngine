@@ -15,6 +15,7 @@ import foundation.rhi;
 import foundation.rhi.null;
 import foundation.shaders;
 import foundation.shaders.system;
+import foundation.vfs;
 
 using namespace foundation::core;
 using namespace foundation::shaders;
@@ -247,8 +248,9 @@ TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
+        foundation::vfs::NativeFileSystem fs(u8"shader_canon_corpus", DefaultAllocator());
         FileShaderSourceProvider provider{DefaultAllocator()};
-        REQUIRE(provider.Initialize(u8"shader_canon_corpus").IsOk());
+        REQUIRE(provider.Initialize(fs, u8"").IsOk());
 
         ShaderSystem ss(*compiler, device);
         ss.SetSourceProvider(&provider);
@@ -282,54 +284,66 @@ TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked
     compiler->Destroy();
 }
 
-TEST_CASE("shader system host: dev-first policy - a nearby pack does not silently win")
+TEST_CASE("shader system host: dev-first policy - a pack in the data root does not silently win")
 {
+    namespace vfs = foundation::vfs;
     rhi::null::NullDevice device{DefaultAllocator()};
 
-    // A usable pack in the CWD (one of the two locations LoadPack scans).
+    // A scratch DATA ROOT in the production shape: Shaders/<sources> + Shaders/shaders.dpak.
+    const std::filesystem::path root = "host_data_root";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "Shaders");
     {
         CookedShaderPack pack;
         const byte blob[] = {byte{1}};
         pack.Add(u8"x", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
                  Span<const byte>(blob, 1));
-        FileStream out(u8"shaders.dpak", FileMode::Write);
+        FileStream out(u8"host_data_root/Shaders/shaders.dpak", FileMode::Write);
         REQUIRE(out.IsValid());
         REQUIRE(pack.Write(out).IsOk());
     }
-    // A dev source root.
-    std::filesystem::create_directories("host_dev_root");
     {
-        std::ofstream f("host_dev_root/hosted.vs.hlsl", std::ios::binary);
+        std::ofstream f(root / "Shaders" / "hosted.vs.hlsl", std::ios::binary);
         f << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
     }
+    vfs::NativeFileSystem dataFs(u8"host_data_root", DefaultAllocator());
+    CHECK(kShaderPackPath == u8"Shaders/shaders.dpak"); // the layout every writer targets
 
     {
-        // Automatic: dev is possible (DXC + root), so the pack must NOT take over.
+        // Automatic: dev is possible (DXC + Shaders/), so the pack must NOT take over.
         ShaderSystemHost host{DefaultAllocator()};
-        if (!host.Initialize(device, u8"host_dev_root"))
+        if (!host.Initialize(device, dataFs))
         {
             MESSAGE("DXC unavailable; skipping");
-            (void)FileDelete(u8"shaders.dpak");
             return;
         }
         CHECK_FALSE(host.UsingPack());
         CHECK(host.GetVariant(u8"hosted", ShaderStage::Vertex, ShaderFlags::None) != nullptr);
     }
     {
-        // Explicit opt-in: ForcePack loads a nearby pack. LoadPack scans the EXECUTABLE
-        // directory before the cwd, and a dev machine may legitimately have a cooked pack
-        // beside the test binary - so assert pack mode, not which pack won.
+        // Explicit opt-in: ForcePack loads Shaders/shaders.dpak from the data root - and ONLY
+        // from there (no executable-dir or cwd probing), so it is exactly our one-variant pack.
         ShaderSystemHost host{DefaultAllocator()};
-        REQUIRE(host.Initialize(device, u8"host_dev_root", ShaderPackPolicy::ForcePack));
+        REQUIRE(host.Initialize(device, dataFs, ShaderPackPolicy::ForcePack));
         CHECK(host.UsingPack());
-        CHECK(host.PackVariantCount() >= 1u);
+        CHECK(host.PackVariantCount() == 1u);
     }
     {
-        // ForceDev ignores the pack even when the root is missing (registered-only mode).
+        // ForceDev ignores the pack even when the source folder is missing (registered-only
+        // mode): a data root with no Shaders/ at all.
+        std::filesystem::create_directories("host_data_root_empty");
+        vfs::NativeFileSystem emptyFs(u8"host_data_root_empty", DefaultAllocator());
         ShaderSystemHost host{DefaultAllocator()};
-        REQUIRE(host.Initialize(device, u8"no_such_root_zzz", ShaderPackPolicy::ForceDev));
+        REQUIRE(host.Initialize(device, emptyFs, ShaderPackPolicy::ForceDev));
+        CHECK_FALSE(host.UsingPack());
+        CHECK(host.GetVariant(u8"hosted", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
+    }
+    {
+        // Pack mode with NO pack present and no compiler path forced: Automatic on an empty
+        // root still succeeds (a compiler exists) but serves only registered sources.
+        vfs::NativeFileSystem emptyFs(u8"host_data_root_empty", DefaultAllocator());
+        ShaderSystemHost host{DefaultAllocator()};
+        REQUIRE(host.Initialize(device, emptyFs));
         CHECK_FALSE(host.UsingPack());
     }
-
-    (void)FileDelete(u8"shaders.dpak");
 }

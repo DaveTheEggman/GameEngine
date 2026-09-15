@@ -633,15 +633,10 @@ namespace engine::render
     {
         RegisterRenderComponentReflection(); // tooling: reflected components (idempotent)
 
-        // The ShaderSystemHost encapsulates the pack-vs-dev decision (cooked shaders.dpak beside the
-        // executable => no compiler; otherwise DXC + a file provider over the engine shader root with
+        // The ShaderSystemHost encapsulates the pack-vs-dev decision over the data mount (cooked
+        // Shaders/shaders.dpak => no compiler; otherwise DXC + a file provider over Shaders/ with
         // hot reload). The same host every consumer (VG/UI, ImGui) uses. Inert if neither is present.
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-        constexpr StringView kEngineShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-        constexpr StringView kEngineShaderRoot = u8"Shaders";
-#endif
-        if (!m_shaderHost.Initialize(*m_device, kEngineShaderRoot))
+        if (!m_shaderHost.Initialize(*m_device, *m_dataFileSystem))
         {
             return; // neither a compiler nor a pack - renderer stays inert
         }
@@ -664,11 +659,11 @@ namespace engine::render
                 // The runtime compiler (DXC) cannot emit WGSL - that is a cook-time path (naga).
                 // Every shader lookup will miss and the scene renders BLACK. The usual cause is
                 // ENV_WEBGPU_WGSL=1 without OPTION_USE_SHADER_PACK=1 (or no cooked
-                // shaders.dpak beside the executable).
+                // Shaders/shaders.dpak in the data root).
                 rhi::LogErrorf("RenderSubsystem: the device wants WGSL but there is no cooked "
                                "shader pack - the runtime compiler cannot produce WGSL, so "
-                               "NOTHING will render. Cook a WGSL shaders.dpak next to the "
-                               "executable and set OPTION_USE_SHADER_PACK=1.");
+                               "NOTHING will render. Cook a WGSL Shaders/shaders.dpak into the "
+                               "data root and set OPTION_USE_SHADER_PACK=1.");
             }
         }
 

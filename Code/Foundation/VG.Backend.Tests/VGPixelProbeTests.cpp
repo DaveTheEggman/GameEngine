@@ -42,8 +42,7 @@ namespace
     {
         Pixels out;
         shaders::ShaderSystemHost host{DefaultAllocator()};
-        if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
-                                         BUILTIN_ENGINE_SHADER_DIR))))
+        if (!host.Initialize(device, testsupport::DataFileSystem()))
         {
             return out;
         }
@@ -544,7 +543,7 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     }
 
     Result<Array<byte>> ttfFile =
-        ReadFile(StringView(reinterpret_cast<const char8_t*>(BUILTIN_TEST_FONT_PATH)));
+        ReadFile(testsupport::DataPath(u8"Assets/fonts/roboto/Roboto-Regular.ttf").AsView());
     REQUIRE(ttfFile.HasValue());
     const Array<byte>& ttf = ttfFile.Value();
     REQUIRE(!ttf.IsEmpty());
@@ -552,8 +551,8 @@ TEST_CASE("vg.pixels: the baked-font draw path matches the TTF path (fonts triad
     // Path A: the TTF service (rasterize-on-demand; the dev-tree path - ground truth).
     fonts::TrueTypeFontService ttfService(DefaultAllocator());
     REQUIRE(ttfService.LoadFont(u8"Roboto",
-                                StringView(reinterpret_cast<const char8_t*>(
-                                    BUILTIN_TEST_FONT_PATH))) == fonts::FontLoadResult::Success);
+                                testsupport::DataPath(u8"Assets/fonts/roboto/Roboto-Regular.ttf")
+                                    .AsView()) == fonts::FontLoadResult::Success);
     fonts::CachedFont* ttfFont = ttfService.GetFont(u8"Roboto", kProbeSize);
     REQUIRE(ttfFont != nullptr);
     // The TTF service serves its CLOSEST loaded size, not necessarily the request - bake strip

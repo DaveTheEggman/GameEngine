@@ -2,7 +2,7 @@
 # crossing foundation.mcp x editor.mcp x editor.core x VFS/content. The collection's first MCP resident.
 
 add_executable(Integration.Mcp TestsMain.cpp McpProjectFlowTests.cpp McpSceneFlowTests.cpp McpAssetUsesTests.cpp McpLogToolsTests.cpp McpScriptValidateTests.cpp McpExportTests.cpp McpFullFlowTests.cpp)
-target_link_libraries(Integration.Mcp PRIVATE
+target_link_libraries(Integration.Mcp PRIVATE Foundation::VFS
     Editor::Mcp Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Content
     Foundation::Scene Foundation::Scene.Resource Foundation::Net.Replication Engine::SceneSurface
     Foundation::Resource Pipeline::Materials Pipeline::Texture Pipeline::Audio Engine::Render Pipeline::Script Foundation::Script.Resource

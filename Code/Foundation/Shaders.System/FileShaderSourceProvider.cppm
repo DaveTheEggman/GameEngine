@@ -3,17 +3,19 @@
 
 /// Foundation::Shaders.System - the `:file_provider` partition.
 ///
-/// The DEV IShaderSourceProvider: engine built-in shaders as real files under the
-/// engine shader root. Naming convention: the shader NAME is the
-/// file stem, the stage is the double extension - `tonemap.ps.hlsl` serves
-/// GetVariant("tonemap", Fragment, ...). Shared code lives in `.hlsli` next to
-/// them (the root doubles as the DXC include path).
+/// The DEV IShaderSourceProvider: engine built-in shaders as real files in a `Shaders`
+/// folder of a filesystem the owner hands in (the application's data mount - the provider
+/// never knows where on disk that is). Naming convention: the shader NAME is the file
+/// stem, the stage is the double extension - `tonemap.ps.hlsl` serves
+/// GetVariant("tonemap", Fragment, ...). Shared code lives in `.hlsli` next to them, served
+/// to the compiler through the IShaderIncludeResolver half (so includes come from the
+/// same mount - the compiler never touches the native filesystem).
 ///
 /// The manifest is scanned EAGERLY (built-ins are enumerable - tooling wants the
-/// list) but sources are read lazily. Hot reload goes through the VFS change
-/// source: the whole mount is tracked once (the sweep is recursive), so `.hlsli`
-/// edits are seen too - includers are unknown, so a `.hlsli` change reports EVERY
-/// shader name (a full recompile is the correct dev answer). The stat sweep is
+/// list) but sources are read lazily. Hot reload goes through the mount's change
+/// source when it has one: the folder is tracked once (the sweep is recursive), so
+/// `.hlsli` edits are seen too - includers are unknown, so a `.hlsli` change reports
+/// EVERY shader name (a full recompile is the correct dev answer). The stat sweep is
 /// O(files) per Poll, so polls are throttled here, not in callers.
 
 module;
@@ -31,12 +33,13 @@ namespace vfs = foundation::vfs;
 
 export namespace foundation::shaders
 {
-    class FileShaderSourceProvider final : public IShaderSourceProvider
+    class FileShaderSourceProvider final : public IShaderSourceProvider,
+                                           public IShaderIncludeResolver
     {
     public:
-        // The allocator (required - the owner decides) backs the VFS mount.
+        // The allocator (required - the owner decides) backs the manifest and read buffers.
         explicit FileShaderSourceProvider(core::IAllocator& allocator) noexcept
-            : m_allocator(&allocator)
+            : m_allocator(&allocator), m_entries(allocator)
         {
         }
 
@@ -44,28 +47,35 @@ export namespace foundation::shaders
         /// (the sweep is O(files)). ~1 second at 60 fps - dev hot reload, not a race.
         static constexpr core::u32 PollEveryNCalls = 60;
 
-        /// Mounts `rootDirectory` and scans the manifest. NotFound when the root
-        /// does not exist (callers fall back to registered strings, loudly).
-        core::Status Initialize(core::StringView rootDirectory)
+        /// Scans the manifest of `folder` inside `fileSystem` (both borrowed for the provider's
+        /// lifetime; "" = the mount root). NotFound when the folder does not exist (callers fall
+        /// back to registered strings, loudly); Unsupported when the mount cannot enumerate.
+        core::Status Initialize(vfs::IFileSystem& fileSystem, core::StringView folder)
         {
-            if (!core::DirectoryExists(rootDirectory))
+            m_fileSystem = &fileSystem;
+            m_folder = core::String(folder);
+            m_entries.Clear();
+            m_changes = nullptr;
+
+            vfs::IEnumerableFileSystem* enumerable = fileSystem.AsEnumerable();
+            if (enumerable == nullptr)
+            {
+                return core::ErrorCode::NotSupported;
+            }
+            if (!folder.IsEmpty() && !fileSystem.Exists(folder))
             {
                 return core::ErrorCode::NotFound;
             }
-            m_root = core::String(rootDirectory);
-            m_mount = core::MakeUnique<vfs::NativeFileSystem>(*m_allocator, rootDirectory,
-                                                              *m_allocator);
-
             core::Array<vfs::DirEntry> entries;
-            if (!m_mount->Enumerate(u8"", entries).IsOk())
+            if (!enumerable->Enumerate(folder, entries).IsOk())
             {
-                return core::ErrorCode::Unknown;
+                return core::ErrorCode::NotFound;
             }
             for (const vfs::DirEntry& entry : entries)
             {
                 if (entry.isDirectory)
                 {
-                    continue; // flat root; subdirectories are skipped
+                    continue; // flat folder; subdirectories are skipped
                 }
                 ShaderStage stage;
                 core::StringView stem;
@@ -76,17 +86,43 @@ export namespace foundation::shaders
                 Entry mapped;
                 mapped.name = core::String(stem);
                 mapped.stage = stage;
-                mapped.fileName = core::String(entry.name.AsView());
+                mapped.path = Locate(entry.name.AsView());
                 m_entries.PushBack(core::Move(mapped));
             }
 
-            m_changes = m_mount->AsWatchable()->ChangeSource();
-            m_changes->Track(u8""); // whole mount, recursive - catches .hlsli too
+            // Hot reload when the mount can watch (a native mount can; a pak cannot).
+            if (vfs::IWatchableFileSystem* watchable = fileSystem.AsWatchable())
+            {
+                m_changes = watchable->ChangeSource();
+                m_changes->Track(folder); // whole folder, recursive - catches .hlsli too
+            }
             return core::ErrorCode::Ok;
         }
 
-        [[nodiscard]] core::StringView RootDirectory() const noexcept { return m_root.AsView(); }
+        /// The folder the manifest was scanned from (mount-relative; "" = the mount root).
+        [[nodiscard]] core::StringView Folder() const noexcept { return m_folder.AsView(); }
         [[nodiscard]] core::usize ShaderFileCount() const noexcept { return m_entries.Size(); }
+        /// True when the mount supports change polling (dev hot reload is live).
+        [[nodiscard]] bool SupportsReload() const noexcept { return m_changes != nullptr; }
+
+        // --- IShaderIncludeResolver ---
+        // The preprocessor asks with the include path as written, relative to the includer: a
+        // first-level include arrives bare ("common.hlsli") and is looked up in the folder;
+        // a nested one already carries the folder prefix. Both are tried, folder-first.
+        bool LoadInclude(core::StringView path, core::String& outSource) override
+        {
+            if (m_fileSystem == nullptr || path.IsEmpty())
+            {
+                return false;
+            }
+            const core::String inFolder = Locate(path);
+            if (m_fileSystem->Exists(inFolder.AsView()) && ReadWholeFile(inFolder.AsView(), outSource))
+            {
+                return true;
+            }
+            return inFolder.AsView() != path && m_fileSystem->Exists(path) &&
+                   ReadWholeFile(path, outSource);
+        }
 
         bool FetchSource(core::StringView name, ShaderStage stage,
                          core::String& outSource) override
@@ -95,7 +131,7 @@ export namespace foundation::shaders
             {
                 if (entry.stage == stage && entry.name.AsView() == name)
                 {
-                    return ReadWholeFile(entry.fileName.AsView(), outSource);
+                    return ReadWholeFile(entry.path.AsView(), outSource);
                 }
             }
             return false;
@@ -135,7 +171,7 @@ export namespace foundation::shaders
                 }
                 for (const Entry& entry : m_entries)
                 {
-                    if (entry.fileName.AsView() == file.AsView())
+                    if (entry.path.AsView() == file.AsView())
                     {
                         any = true;
                         AppendUnique(outChangedNames, entry.name.AsView());
@@ -149,10 +185,23 @@ export namespace foundation::shaders
     private:
         struct Entry
         {
-            core::String name;     // shader name = file stem ("tonemap")
-            ShaderStage stage;     // from the double extension
-            core::String fileName; // mount-relative ("tonemap.ps.hlsl")
+            core::String name; // shader name = file stem ("tonemap")
+            ShaderStage stage; // from the double extension
+            core::String path; // mount-relative ("Shaders/tonemap.ps.hlsl")
         };
+
+        // Mount-relative path of a file inside the scanned folder.
+        [[nodiscard]] core::String Locate(core::StringView fileName) const
+        {
+            if (m_folder.IsEmpty())
+            {
+                return core::String(fileName);
+            }
+            core::String path(m_folder.AsView());
+            path.PushBack(core::utf8char('/'));
+            path.Append(fileName);
+            return path;
+        }
 
         static bool EndsWith(core::StringView text, core::StringView suffix)
         {
@@ -203,10 +252,9 @@ export namespace foundation::shaders
             return !outStem.IsEmpty();
         }
 
-        bool ReadWholeFile(core::StringView fileName, core::String& outSource)
+        bool ReadWholeFile(core::StringView path, core::String& outSource)
         {
-            core::UniquePtr<core::IStream> stream =
-                m_mount->Open(fileName, core::FileMode::Read);
+            core::UniquePtr<core::IStream> stream = m_fileSystem->Open(path, core::FileMode::Read);
             if (!stream)
             {
                 return false;
@@ -216,7 +264,7 @@ export namespace foundation::shaders
             {
                 return false;
             }
-            core::Array<core::u8> bytes;
+            core::Array<core::u8> bytes(*m_allocator);
             bytes.Resize(static_cast<core::usize>(size));
             if (!bytes.IsEmpty() &&
                 stream->Read(bytes.Data(), bytes.Size()) != static_cast<core::u64>(bytes.Size()))
@@ -238,10 +286,10 @@ export namespace foundation::shaders
             return true;
         }
 
-        core::String m_root;
         core::IAllocator* m_allocator;
-        core::UniquePtr<vfs::NativeFileSystem> m_mount;
-        vfs::IChangeSource* m_changes = nullptr; // owned by the mount
+        vfs::IFileSystem* m_fileSystem = nullptr; // borrowed (the application's data mount)
+        core::String m_folder;                    // mount-relative folder ("Shaders")
+        vfs::IChangeSource* m_changes = nullptr;  // owned by the mount; null = no reload
         core::Array<Entry> m_entries;
         core::u32 m_callsSinceSweep = 0;
     };

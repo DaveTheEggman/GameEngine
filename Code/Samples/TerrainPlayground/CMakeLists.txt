@@ -37,7 +37,7 @@ if(EMSCRIPTEN)
         Foundation::Runtime.Web)
 
     # Cook the WGSL shader pack with the NATIVE tool (the browser has no compiler) and bundle it
-    # into the virtual FS at /shaders.dpak, where the shader host finds it. Tools.ShaderPack must
+    # into the virtual FS at /Data/Shaders/shaders.dpak, where the shader host finds it. Tools.ShaderPack must
     # be built first by any desktop preset (a native authoring tool, never built for wasm).
     set(_web_shader_pack "${CMAKE_CURRENT_BINARY_DIR}/shaders.dpak")
     set(_cook_tool
@@ -67,7 +67,10 @@ if(EMSCRIPTEN)
         "-sASYNCIFY_STACK_SIZE=1048576"
         "-sALLOW_MEMORY_GROWTH=1"
         "-sASSERTIONS=1"
-        "--preload-file=${_web_shader_pack}@shaders.dpak"
+        # The data tree at the layout every executable discovers (Data/.dataroot at "/Data"):
+        # the cooked WGSL pack under Data/Shaders, exactly where a dist stages it.
+        "--preload-file=${CMAKE_SOURCE_DIR}/Data/.dataroot@Data/.dataroot"
+        "--preload-file=${_web_shader_pack}@Data/Shaders/shaders.dpak"
         # The ImGui HUD font, at the exact dev-tree path the subsystem probes.
         "--preload-file=${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf@Data/Assets/fonts/roboto/Roboto-Regular.ttf")
 

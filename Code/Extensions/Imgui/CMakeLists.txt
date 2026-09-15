@@ -12,8 +12,3 @@ target_sources(Imgui
             ImguiRenderer.cppm
             ImguiSubsystem.cppm
             ImguiModule.cppm)
-
-# Dev-mode shader source root: the ShaderSystemHost compiles the ImGui shaders (imgui.vs/imgui.ps)
-# on demand from here when no cooked pack is present (a dist/browser ships shaders.dpak instead).
-target_compile_definitions(Imgui
-    PRIVATE BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")

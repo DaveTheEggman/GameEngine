@@ -364,6 +364,33 @@ TEST_CASE("vfs: data-root discovery via the .dataroot marker")
           PathJoin(dataDir.AsView(), u8"Assets/x.ttf"));
     CHECK(DataPath(u8"", u8"Assets/x.ttf") == String(u8"Assets/x.ttf"));
 
+    // ResolveDataRoot: a valid override wins verbatim; an override without the marker is
+    // refused (empty, logged) rather than silently used; no override = the discovery walk.
+    CHECK(ResolveDataRoot(dataDir.AsView()) == dataDir);
+    CHECK(ResolveDataRoot(base).IsEmpty());
+    CHECK(ResolveDataRoot(u8"scratch_dataroot_absent").IsEmpty());
+    // The test binary lives under Bin/ in the source tree: the walk finds the repo's Data/.
+    const String discovered = ResolveDataRoot(u8"");
+    CHECK_FALSE(discovered.IsEmpty());
+    CHECK(IsDataRoot(discovered.AsView()));
+    CHECK(discovered == FindDataRoot());
+
+    // DataRootFromArguments: both spellings, absent, and a dangling flag.
+    {
+        const char* two[] = {"app", "--data-root", "some/Data"};
+        CHECK(DataRootFromArguments(3, const_cast<char**>(two)) == String(u8"some/Data"));
+        const char* eq[] = {"app", "--vk", "--data-root=other/Data"};
+        CHECK(DataRootFromArguments(3, const_cast<char**>(eq)) == String(u8"other/Data"));
+        const char* none[] = {"app", "--vk"};
+        CHECK(DataRootFromArguments(2, const_cast<char**>(none)).IsEmpty());
+        const char* dangling[] = {"app", "--data-root"};
+        CHECK(DataRootFromArguments(2, const_cast<char**>(dangling)).IsEmpty());
+        CHECK(DataRootFromArguments(0, nullptr).IsEmpty());
+        // The entry-point form composes the two.
+        const char* full[] = {"app", "--data-root", "scratch_dataroot_test/Data"};
+        CHECK(ResolveDataRoot(3, const_cast<char**>(full)) == dataDir);
+    }
+
     // Remove the scratch files; ignore failure (the temp dir is discarded regardless).
     NativeFileSystem scratch(base, DefaultAllocator());
     if (IWritableFileSystem* w = scratch.AsWritable())

@@ -67,8 +67,8 @@ namespace samples
             engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<extensions::imgui::ImguiSubsystem>(*gfx->Raw(),
-                                                                         gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<extensions::imgui::ImguiSubsystem>(
+                    *gfx->Raw(), gfx->FramesInFlight(), DataFileSystem());
             }
         }
 #endif

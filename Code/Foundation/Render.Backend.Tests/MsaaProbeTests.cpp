@@ -57,8 +57,7 @@ namespace
     {
         testsupport::CapturedImage out;
         shaders::ShaderSystemHost host{DefaultAllocator()};
-        if (!host.Initialize(device, StringView(reinterpret_cast<const char8_t*>(
-                                         BUILTIN_ENGINE_SHADER_DIR))))
+        if (!host.Initialize(device, testsupport::DataFileSystem()))
         {
             return out;
         }

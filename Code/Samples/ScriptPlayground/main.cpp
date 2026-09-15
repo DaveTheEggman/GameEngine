@@ -206,13 +206,6 @@ namespace
     class ScriptApp final : public engine::runtime::DefaultApplication
     {
     public:
-        ScriptApp()
-        {
-#ifdef BUILTIN_PLAYGROUND_FONT
-            SetUIFontPath(reinterpret_cast<const core::utf8char*>(BUILTIN_PLAYGROUND_FONT));
-#endif
-        }
-
         void OnLaunch(runtime::IApplicationHost& host) override
         {
             // Route script logs (Log.info from behaviors, faults) to the console so the

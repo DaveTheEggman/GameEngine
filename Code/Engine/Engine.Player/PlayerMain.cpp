@@ -16,6 +16,7 @@
 // both share PlayerApplication.h.
 //
 // Usage: Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
+//                      [--data-root <dir>]  (engine data; default = the Data/.dataroot walk)
 //
 // Two modes, detected by layout:
 //   PROJECT dir (Project.xml): scenes load from the authored source DB (their cooked form IS
@@ -196,6 +197,9 @@ int engine::player::PlayerMain(int argc, char** argv,
     options.nativeGame = nativeGame;
 
     PlayerApplication app(static_cast<PlayerOptions&&>(options));
+    // Engine data (shaders, built-in fonts): an explicit --data-root, else the discovery walk
+    // from the executable (a dist stages Data/ beside the player). Resolved in Configure.
+    app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
     const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
     GlobalLogger().RemoveSink(&consoleSink);
     return code;

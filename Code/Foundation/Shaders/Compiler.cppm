@@ -77,6 +77,130 @@ namespace foundation::shaders
 
     static CompilerState* stateOf(Compiler* c) { return static_cast<CompilerState*>(c->state); }
 
+    // wchar_t (DXC) -> UTF-8 std::string. The inverse of widen() below: on Windows (UTF-16)
+    // surrogate pairs recombine; on Linux (UTF-32) each unit is a code point.
+    static std::string narrow(const wchar_t* text)
+    {
+        std::string out;
+        if (text == nullptr)
+        {
+            return out;
+        }
+        for (usize i = 0; text[i] != 0; ++i)
+        {
+            uint32_t cp = static_cast<uint32_t>(text[i]);
+            if (cp >= 0xD800 && cp <= 0xDBFF && text[i + 1] != 0)
+            {
+                const uint32_t low = static_cast<uint32_t>(text[i + 1]);
+                if (low >= 0xDC00 && low <= 0xDFFF)
+                {
+                    cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                    ++i;
+                }
+            }
+            if (cp < 0x80)
+            {
+                out.push_back(static_cast<char>(cp));
+            }
+            else if (cp < 0x800)
+            {
+                out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+                out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+            }
+            else if (cp < 0x10000)
+            {
+                out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+                out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+                out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+            }
+            else
+            {
+                out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+                out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+                out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+                out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+            }
+        }
+        return out;
+    }
+
+    // The include handler DXC calls when CompileOptions::includeResolver is set: every
+    // candidate path the preprocessor forms is normalized (backslashes -> '/', leading "./"
+    // stripped - DXC prefixes the includer's "current dir" that way) and handed to the
+    // resolver; a miss returns the not-found HRESULT so the preprocessor keeps searching /
+    // reports the include as missing. Lives for one Compile call (stack-owned; DXC does not
+    // retain it), so the refcount is nominal.
+    class ResolverIncludeHandler final : public IDxcIncludeHandler
+    {
+    public:
+        ResolverIncludeHandler(IDxcUtils& utils, IShaderIncludeResolver& resolver) noexcept
+            : m_utils(&utils), m_resolver(&resolver)
+        {
+        }
+
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override
+        {
+            if (ppvObject == nullptr)
+            {
+                return E_POINTER;
+            }
+            if (IsEqualIID(riid, __uuidof(IUnknown)) ||
+                IsEqualIID(riid, __uuidof(IDxcIncludeHandler)))
+            {
+                *ppvObject = static_cast<IDxcIncludeHandler*>(this);
+                AddRef();
+                return S_OK;
+            }
+            *ppvObject = nullptr;
+            return E_NOINTERFACE;
+        }
+        ULONG STDMETHODCALLTYPE AddRef() override { return ++m_refs; }
+        ULONG STDMETHODCALLTYPE Release() override { return m_refs > 0 ? --m_refs : 0; }
+
+        HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
+                                             IDxcBlob** ppIncludeSource) override
+        {
+            if (ppIncludeSource == nullptr)
+            {
+                return E_POINTER;
+            }
+            *ppIncludeSource = nullptr;
+            std::string path = narrow(pFilename);
+            for (char& c : path)
+            {
+                if (c == '\\')
+                {
+                    c = '/';
+                }
+            }
+            while (path.size() >= 2 && path[0] == '.' && path[1] == '/')
+            {
+                path.erase(0, 2);
+            }
+            String source;
+            if (!m_resolver->LoadInclude(
+                    StringView(reinterpret_cast<const utf8char*>(path.data()), path.size()),
+                    source))
+            {
+                return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+            }
+            IDxcBlobEncoding* blob = nullptr;
+            const HRESULT hr = m_utils->CreateBlob(source.Data(), static_cast<UINT32>(source.Size()),
+                                                   DXC_CP_UTF8, &blob);
+            if (FAILED(hr) || blob == nullptr)
+            {
+                return FAILED(hr) ? hr : E_FAIL;
+            }
+            *ppIncludeSource = blob;
+            return S_OK;
+        }
+
+    private:
+        IDxcUtils* m_utils;
+        IShaderIncludeResolver* m_resolver;
+        ULONG m_refs = 1;
+    };
+
     // StringView (UTF-8) -> std::wstring for DXC. Decodes UTF-8 codepoints,
     // then on Windows (wchar_t = UTF-16) emits surrogate pairs for astral code
     // points; on Linux (wchar_t = UTF-32) emits the codepoint directly.
@@ -245,10 +369,13 @@ namespace foundation::shaders
             }
             pushS(std::move(arg));
         }
-        for (usize i = 0; i < options.includePaths.Size(); ++i)
+        if (options.includeResolver == nullptr)
         {
-            push(L"-I");
-            pushS(widen(options.includePaths[i]));
+            for (usize i = 0; i < options.includePaths.Size(); ++i)
+            {
+                push(L"-I");
+                pushS(widen(options.includePaths[i]));
+            }
         }
         push(L"-Wno-ignored-attributes");
 
@@ -262,8 +389,18 @@ namespace foundation::shaders
         src.Size = sourceSize;
         src.Encoding = DXC_CP_UTF8;
         IDxcResult* result = nullptr;
-        HRESULT hr = s->dxc->Compile(&src, args.data(), static_cast<UINT32>(args.size()),
-                                     s->includeHdlr, IID_PPV_ARGS(&result));
+        HRESULT hr;
+        if (options.includeResolver != nullptr)
+        {
+            ResolverIncludeHandler resolverHandler(*s->utils, *options.includeResolver);
+            hr = s->dxc->Compile(&src, args.data(), static_cast<UINT32>(args.size()),
+                                 &resolverHandler, IID_PPV_ARGS(&result));
+        }
+        else
+        {
+            hr = s->dxc->Compile(&src, args.data(), static_cast<UINT32>(args.size()),
+                                 s->includeHdlr, IID_PPV_ARGS(&result));
+        }
 
         if (FAILED(hr) || !result)
         {

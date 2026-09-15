@@ -33,8 +33,9 @@ subset, WebGPU texture-format conventions, no bind group past set 3 = WebGPU's 4
 
 `foundation.rhi.webgpu` (the backend), `foundation.runtime.web` (the web runner), `foundation.shell.web`
 (the web shell), and the Web player entry (`Engine.Player/WebMain.cpp`). Web export ships the wasm + js +
-html shell + `Content.pak` + the WGSL `shaders.dpak` through the standard export path (the "Web" export
-template - see `Documentation/Systems/export.md`).
+html shell + `Content.pak` + the WGSL `Data/Shaders/shaders.dpak` (+ `Data/.dataroot`) through the
+standard export path (the "Web" export template - see `Documentation/Systems/export.md`); the web
+player fetches the `Data/` tree into MEMFS so the one data-root discovery finds it at `/Data`.
 
 ## Deferred (none block a playing game)
 

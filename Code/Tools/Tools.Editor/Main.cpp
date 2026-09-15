@@ -229,30 +229,16 @@ namespace
 
     // Starter content for a manager-created project: the baseline FONT (and its manifest
     // default - a fresh project must render game-UI text in an export from day one), the
-    // default SKY, and the primitive meshes. Payload files come from the baseline-assets dir
-    // (the source tree in dev; a relocated editor looks beside the exe).
-    // The discovered Data root (runtime, relocatable), cached for the process. Empty when the
-    // .dataroot marker is not found - callers then fall back to the compile-time source paths,
-    // which keeps a dev build running from a checkout with no staged Data/ beside the exe.
-    [[nodiscard]] StringView EditorDataRoot()
-    {
-        static const String root = foundation::vfs::FindDataRoot();
-        return root.AsView();
-    }
+    // default SKY, and the primitive meshes. Payload files come from the data root's Assets/.
+    // THE data root for this process: resolved once in main (an explicit --data-root, else the
+    // Data/.dataroot walk from the executable) - the same mechanism every executable uses. The
+    // editor refuses to start without one; there is no compile-time path fallback.
+    String g_dataRoot;
+    [[nodiscard]] StringView EditorDataRoot() { return g_dataRoot.AsView(); }
 
     [[nodiscard]] String BaselineAssetPath(StringView relative)
     {
-        const StringView root = EditorDataRoot();
-        String base = root.IsEmpty()
-                          ? String(StringView(
-                                reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_BASELINE_ASSETS)))
-                          : foundation::vfs::DataPath(root, u8"Assets");
-        String path = PathJoin(base.AsView(), relative);
-        if (FileExists(path.AsView()))
-        {
-            return path;
-        }
-        return PathJoin(u8"BaselineAssets", relative); // relocated: staged beside the editor
+        return foundation::vfs::DataPath(EditorDataRoot(), PathJoin(u8"Assets", relative).AsView());
     }
 
     void SeedNewProject(editor::EditorContext& ctx, editor::EditorProject& project)
@@ -359,7 +345,18 @@ int main(int argc, char** argv)
                       reinterpret_cast<const char8_t*>(BuildStamp()));
     GlobalLogger().SetMinLevel(LogLevel::Debug); // the Console panel has a Debug filter toggle
 
+    // Engine data first: everything below (fonts, baseline assets, the embedded runtime's
+    // shaders, the export's shader cook) reads from the data root.
+    g_dataRoot = foundation::vfs::ResolveDataRoot(argc, argv);
+    if (g_dataRoot.IsEmpty())
+    {
+        std::fprintf(stderr, "Tools.Editor: no data root (put Data/ with its .dataroot marker "
+                             "beside the editor, or pass --data-root <dir>)\n");
+        return 1;
+    }
+
     editor::app::EditorAppConfig config;
+    config.dataRoot = g_dataRoot;
     // Project selection: an explicit project (positional arg or --project <dir>) opens
     // directly, Godot-style single-project lifecycle. NO project => the built-in PROJECT
     // MANAGER screen (recent projects, open/create), and File > Close Project returns there.
@@ -385,19 +382,12 @@ int main(int argc, char** argv)
     }
     config.startInProjectManager = config.projectDirectory.IsEmpty();
     {
-        // Fonts resolve from the discovered Data root (relocatable); the compile-time source
-        // paths are the dev fallback when the .dataroot marker is not found. The UI font also
-        // has an embedded twin (below) as a last resort, so UI text renders even if both miss.
-        const StringView dataRoot = EditorDataRoot();
-        config.fontPath =
-            dataRoot.IsEmpty()
-                ? String(StringView(reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_FONT_PATH)))
-                : foundation::vfs::DataPath(dataRoot, u8"Assets/fonts/roboto/Roboto-Regular.ttf");
-        config.monoFontPath =
-            dataRoot.IsEmpty()
-                ? String(StringView(
-                      reinterpret_cast<const utf8char*>(BUILTIN_EDITOR_MONO_FONT_PATH)))
-                : foundation::vfs::DataPath(dataRoot, u8"Assets/fonts/dejavu/DejaVuSansMono.ttf");
+        // Fonts resolve from the data root. The UI font also has an embedded twin (below) as a
+        // last resort, so UI text renders even if the data file is missing.
+        config.fontPath = foundation::vfs::DataPath(EditorDataRoot(),
+                                                    u8"Assets/fonts/roboto/Roboto-Regular.ttf");
+        config.monoFontPath = foundation::vfs::DataPath(
+            EditorDataRoot(), u8"Assets/fonts/dejavu/DejaVuSansMono.ttf");
     }
     config.embeddedFont = reinterpret_cast<const u8*>(g_embeddedEditorFont);
     config.embeddedFontSize = static_cast<usize>(g_embeddedEditorFontSize);

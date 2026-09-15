@@ -562,9 +562,12 @@ export namespace editor
     // `cook` = false skips the cook and only packs/stages (ExportContent) - the editor uses this AFTER
     // cooking through its CookService (so the cook, which mutates the DB the UI reads, never runs on a
     // background job). The CLI leaves it true (cook + content in one shot).
+    // `dataRoot` = the engine data root (the caller's resolved one): the engine shaders are cooked
+    // from <dataRoot>/Shaders into the dist's own Data/Shaders/shaders.dpak (+ Data/.dataroot),
+    // so the player finds them with the same discovery walk every executable uses.
     [[nodiscard]] Status ExportOne(EditorProject& project, const ExportPreset& preset,
                                    const TemplateRegistry& templates, BuilderRegistry& builders,
-                                   StringView outRoot, bool rebuild,
+                                   StringView outRoot, StringView dataRoot, bool rebuild,
                                    ExportResult* outResult = nullptr,
                                    const ExportProgress& onProgress = {}, bool cook = true,
                                    const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
@@ -575,7 +578,7 @@ export namespace editor
     /// continue). Returns Ok only when all presets succeeded.
     [[nodiscard]] Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
                                    const TemplateRegistry& templates, BuilderRegistry& builders,
-                                   StringView outRoot, bool rebuild,
+                                   StringView outRoot, StringView dataRoot, bool rebuild,
                                    const ExportProgress& onProgress = {}, bool cook = true,
                                    const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
                                    const SceneReferenceScanner* scanner = nullptr,

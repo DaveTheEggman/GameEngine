@@ -18,6 +18,7 @@
 #include <cmath>
 
 import foundation.core;
+import foundation.vfs; // DataPath (engine data lives under the app-resolved data root)
 import foundation.runtime;
 import foundation.runtime.client;
 import engine.defaultapp;
@@ -81,7 +82,8 @@ namespace
             engine::runtime::DefaultApplication::Configure(host); // registers AudioSubsystem
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight(),
+                                                                    DataFileSystem());
             }
         }
 
@@ -94,7 +96,8 @@ namespace
             }
             m_scene = PrimaryScenes().CreateScene(u8"audio-playground");
 
-            const core::String dataDir(u8"" SAMPLE_AUDIO_DATA_DIR);
+            const core::String dataDir =
+                foundation::vfs::DataPath(DataRoot(), u8"Assets/audio/playground");
             m_ambient =
                 LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"ambient_loop.wav"), true);
             m_beepHigh = LoadClipFromFile(core::PathJoin(dataDir.AsView(), u8"beep_high.wav"));

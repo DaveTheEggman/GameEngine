@@ -55,6 +55,20 @@ export namespace foundation::shaders
         static constexpr BindingShifts Standard() { return {0, 100, 300, 200}; }
     };
 
+    /// Serves `#include` requests during a compile from wherever the caller's shader sources
+    /// live (a VFS mount, memory, ...) - the compiler never touches the native filesystem for
+    /// includes when one is set. `path` is the include path as the preprocessor formed it,
+    /// normalized to forward slashes with any leading "./" stripped: relative to the including
+    /// file's directory (the main source has none, so a first-level include arrives bare -
+    /// "common.hlsli"), and nested includes carry the includer's directory prefix. Return
+    /// false for "not found" (the preprocessor then reports the missing include).
+    class IShaderIncludeResolver
+    {
+    public:
+        virtual ~IShaderIncludeResolver() = default;
+        [[nodiscard]] virtual bool LoadInclude(StringView path, String& outSource) = 0;
+    };
+
     struct CompileOptions
     {
         StringView shaderModel = u8"6_0";
@@ -66,7 +80,12 @@ export namespace foundation::shaders
         bool enableDebugInfo = false;
         bool rowMajorMatrices = false;
         Span<const ShaderDefine> defines;
+        /// Native include directories (-I) for the default disk include handler. Ignored when
+        /// `includeResolver` is set.
         Span<const StringView> includePaths;
+        /// When set, EVERY include resolves through it (no disk access) - the dev shader
+        /// provider serves includes from the data mount this way. Borrowed for the call.
+        IShaderIncludeResolver* includeResolver = nullptr;
         BindingShifts bindingShifts;
         u32 bindingShiftSets = 1;
     };

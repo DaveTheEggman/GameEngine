@@ -8,6 +8,7 @@
 
 import foundation.core;
 import foundation.shaders;
+import foundation.vfs; // FindDataRoot: the engine corpus lives under <data root>/Shaders
 
 using namespace foundation::core;
 using namespace foundation::shaders;
@@ -126,7 +127,6 @@ namespace
 
 // --- Engine-shader cook (enumerate corpus -> pack) -------------------------
 
-#ifdef BUILTIN_ENGINE_SHADER_DIR
 TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants expanded)")
 {
     Compiler* compiler = MakeCompiler();
@@ -135,12 +135,16 @@ TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants 
         MESSAGE("DXC runtime unavailable; skipping cook test");
         return;
     }
+    // The corpus is found the way every executable finds engine data: the discovered data root.
+    const String dataRoot = foundation::vfs::FindDataRoot();
+    REQUIRE_FALSE(dataRoot.IsEmpty());
+    const String shaderDir = foundation::vfs::DataPath(dataRoot.AsView(), u8"Shaders");
 
     // SPIR-V only: in-process (no naga/tint spawns), so this stays fast while still exercising
     // enumeration + the drift-lint + every shader compiling. The WGSL path is covered above.
     const CookedShaderFormat formats[] = {CookedShaderFormat::SpirV};
     ShaderCookOptions opts;
-    opts.shaderDir = StringView(reinterpret_cast<const char8_t*>(BUILTIN_ENGINE_SHADER_DIR));
+    opts.shaderDir = shaderDir.AsView();
     opts.scratchDir = u8".test-scratch";
     opts.formats = Span<const CookedShaderFormat>(formats, 1);
 
@@ -210,7 +214,85 @@ TEST_CASE("cook: drift-lint fails a shader that #ifdefs an undeclared flag")
     (void)FileDelete(u8".test-scratch/badshaders/drift.ps.hlsl");
     compiler->Destroy();
 }
-#endif // BUILTIN_ENGINE_SHADER_DIR
+
+// --- Include resolution through a resolver (no disk) -------------------------
+
+namespace
+{
+    // Serves includes from memory and records what the preprocessor asked for.
+    class MemoryIncludeResolver final : public IShaderIncludeResolver
+    {
+    public:
+        Array<String> requested;
+        bool LoadInclude(StringView path, String& outSource) override
+        {
+            requested.PushBack(String(path));
+            if (path == u8"tint.hlsli")
+            {
+                outSource = String(u8"#include \"nested/inner.hlsli\"\n"
+                                   u8"float4 Tint() { return Inner(); }\n");
+                return true;
+            }
+            if (path == u8"nested/inner.hlsli")
+            {
+                outSource = String(u8"float4 Inner() { return float4(0, 0, 1, 1); }\n");
+                return true;
+            }
+            return false;
+        }
+    };
+}
+
+TEST_CASE("shaders: includes resolve through CompileOptions::includeResolver, never the disk")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping include resolver test");
+        return;
+    }
+    const char* src = "#include \"tint.hlsli\"\n"
+                      "float4 main() : SV_Target { return Tint(); }\n";
+
+    MemoryIncludeResolver resolver;
+    CompileOptions opts;
+    opts.includeResolver = &resolver;
+    // A bogus -I must be ignored (the resolver owns includes): no disk lookup can succeed.
+    const StringView bogus[] = {u8"/definitely/not/a/dir"};
+    opts.includePaths = Span<const StringView>(bogus, 1);
+
+    CompileResult result{};
+    const Status status =
+        compiler->compile(reinterpret_cast<const u8*>(src), std::strlen(src), ShaderStage::Fragment,
+                          u8"main", ShaderTarget::SPIRV, opts, result);
+    if (!result.success)
+    {
+        MESSAGE("compile messages: ", result.messages != nullptr ? result.messages : "");
+    }
+    CHECK(status.IsOk());
+    CHECK(result.success);
+    CHECK(result.bytecodeSize > 0u);
+    // The first-level include arrives bare; the nested one carries its own directory.
+    bool sawTint = false, sawInner = false;
+    for (const String& r : resolver.requested)
+    {
+        sawTint = sawTint || r.AsView() == u8"tint.hlsli";
+        sawInner = sawInner || r.AsView() == u8"nested/inner.hlsli";
+    }
+    CHECK(sawTint);
+    CHECK(sawInner);
+    compiler->freeResult(result);
+
+    // A resolver miss is a compile error (reported), not a crash or a silent disk fallback.
+    const char* missing = "#include \"absent.hlsli\"\nfloat4 main() : SV_Target { return 0; }\n";
+    CompileResult bad{};
+    (void)compiler->compile(reinterpret_cast<const u8*>(missing), std::strlen(missing),
+                            ShaderStage::Fragment, u8"main", ShaderTarget::SPIRV, opts, bad);
+    CHECK_FALSE(bad.success);
+    CHECK(bad.messages != nullptr);
+    compiler->freeResult(bad);
+    compiler->Destroy();
+}
 
 // --- Cooked shader pack (serialize / lookup) -------------------------------
 

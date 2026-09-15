@@ -211,6 +211,35 @@ TEST_CASE("client: RequestExit stops a manual run loop")
 
 namespace
 {
+    // Requests exit from inside Configure - the "cannot start" shape (no data root, an
+    // unreadable dist): the run must end with that code, never run frames.
+    class AbortingApp final : public IApplication
+    {
+    public:
+        void Configure(IApplicationHost& host) override { host.RequestExit(3); }
+    };
+}
+
+TEST_CASE("client: an exit requested during startup ends the run before the first frame")
+{
+    AbortingApp app;
+    ApplicationHost host(DefaultAllocator());
+    host.Start(app);
+
+    int frames = 0;
+    while (host.IsRunning())
+    {
+        host.Tick(0.5f);
+        ++frames;
+    }
+    host.Stop();
+
+    CHECK(frames == 0);
+    CHECK(host.ExitCode() == 3);
+}
+
+namespace
+{
     // Records the borrowed shell it sees during Configure.
     class PlatformApp final : public IApplication
     {

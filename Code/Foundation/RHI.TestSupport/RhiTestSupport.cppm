@@ -19,12 +19,35 @@ export module foundation.rhi.testsupport;
 
 import foundation.core;
 import foundation.rhi;
+import foundation.vfs;
 
 using namespace foundation::core;
 
 export namespace foundation::rhi::testsupport
 {
     namespace rhi = foundation::rhi;
+
+    // The engine data root, found the way every executable finds it (the Data/.dataroot walk
+    // from the test binary under Bin/). Empty = not found (the caller REQUIREs or skips).
+    [[nodiscard]] inline StringView DataRoot()
+    {
+        static const String root = foundation::vfs::FindDataRoot();
+        return root.AsView();
+    }
+
+    // A process-wide mount over the data root - what a ShaderSystemHost or a file provider reads
+    // engine shaders through in a test, exactly as the application's subsystems do.
+    [[nodiscard]] inline foundation::vfs::IFileSystem& DataFileSystem()
+    {
+        static foundation::vfs::NativeFileSystem fs(DataRoot(), DefaultAllocator());
+        return fs;
+    }
+
+    // A data-relative path resolved against the root ("Assets/fonts/x.ttf" -> absolute).
+    [[nodiscard]] inline String DataPath(StringView relative)
+    {
+        return foundation::vfs::DataPath(DataRoot(), relative);
+    }
 
     // Create a device from a backend's first adapter. Returns null (test should skip) when the
     // backend has no adapter or device creation fails - e.g. no GPU in a headless CI box.

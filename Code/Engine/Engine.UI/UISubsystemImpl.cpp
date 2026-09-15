@@ -478,11 +478,28 @@ namespace engine::ui
         }
     };
 
-    UISubsystem::UISubsystem(IAllocator& allocator)
-        : m_allocator(allocator, RegisterMemoryTag("GameUI"))
+    UISubsystem::UISubsystem(IAllocator& allocator, foundation::vfs::IFileSystem& dataFileSystem)
+        : m_allocator(allocator, RegisterMemoryTag("GameUI")), m_dataFileSystem(&dataFileSystem)
     {
     }
     UISubsystem::~UISubsystem() = default;
+
+    // Whole-file read through the data mount (false when absent or unreadable).
+    bool UISubsystem::ReadDataFile(StringView path, Array<u8>& outBytes) const
+    {
+        UniquePtr<IStream> stream = m_dataFileSystem->Open(path, FileMode::Read);
+        if (!stream || !stream->IsValid())
+        {
+            return false;
+        }
+        const i64 size = stream->Size();
+        if (size <= 0)
+        {
+            return false;
+        }
+        outBytes.Resize(static_cast<usize>(size));
+        return stream->Read(outBytes.Data(), outBytes.Size()) == static_cast<u64>(outBytes.Size());
+    }
 
     void UISubsystem::OnInit()
     {
@@ -490,12 +507,14 @@ namespace engine::ui
         foundation::ui::gamekit::RegisterGamekitMarkup(); // the `<screen>` element for authored screens
         m_fonts = MakeUnique<foundation::fonts::TrueTypeFontService>(m_allocator,
                                                                      m_allocator);
-        StringView fontPath = m_fontPath.AsView();
-        if (fontPath.IsEmpty())
-        {
-            fontPath = u8"Data/Assets/fonts/roboto/Roboto-Regular.ttf"; // dev-tree default
-        }
-        if (m_fonts->LoadFont(u8"Roboto", fontPath) == foundation::fonts::FontLoadResult::Success)
+        // The built-in default font, read through the data mount (present in a dev tree and in
+        // any dist that stages it; a web dist usually does not).
+        constexpr StringView kDefaultFont = u8"Assets/fonts/roboto/Roboto-Regular.ttf";
+        Array<u8> fontBytes(m_allocator);
+        if (ReadDataFile(kDefaultFont, fontBytes) &&
+            m_fonts->LoadFontFromMemory(u8"Roboto", Span<const u8>(fontBytes.Data(),
+                                                                   fontBytes.Size())) ==
+                foundation::fonts::FontLoadResult::Success)
         {
             m_fonts->SetDefaultFamily(u8"Roboto");
         }
@@ -505,9 +524,9 @@ namespace engine::ui
             // Default UI font - the player/editor do this after init) replaces this probe.
             // Only when NEITHER resolves does game-UI text fail to render.
             LOG_INFO(u8"UI",
-                     u8"dev fallback font '{}' not present (normal outside the source tree) - "
+                     u8"built-in font '{}' not in the data root (normal for a dist) - "
                      u8"game UI text needs the project's cooked default font to bind",
-                     fontPath);
+                     kDefaultFont);
         }
         m_context.SetFontService(m_fonts.Get());
         m_theme = GameTheme::Create(m_allocator);
@@ -1901,15 +1920,10 @@ namespace engine::ui
         m_render->device = &device;
         m_render->frameCount = frameCount;
 
-        // Resolve the VG shaders through the shared ShaderSystemHost: cooked WGSL from shaders.dpak
-        // (dist/browser, no compiler) or on-demand DXC over Data/Shaders (dev). The VG shaders ship
-        // in the engine corpus (vg.vs/vg.ps) like every other shader.
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-        constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-        constexpr StringView kShaderRoot = u8"Shaders";
-#endif
-        if (!m_render->shaderHost.Initialize(device, kShaderRoot))
+        // Resolve the VG shaders through the shared ShaderSystemHost over the data mount: cooked
+        // WGSL from Shaders/shaders.dpak (dist/browser, no compiler) or on-demand DXC over
+        // Shaders/ (dev). The VG shaders ship in the engine corpus (vg.vs/vg.ps) like every other.
+        if (!m_render->shaderHost.Initialize(device, *m_dataFileSystem))
         {
             LOG_ERROR(u8"UI",
                                u8"no shader compiler and no shader pack - game UI will not render");

@@ -13,9 +13,10 @@ piece.
 
 - **HLSL is the authoring language** (the whole ported corpus is HLSL; DXC is the front end). WGSL is a
   cook-time TRANSLATION target, not a source language.
-- **All engine built-ins live as `.hlsl` files** under a VFS-mounted engine content root, sharing code
-  via `.hlsli` (the ShaderSystem's DXC include-path seam). Passes fetch by name. The old C++ string-bank
-  partitions are deleted.
+- **All engine built-ins live as `.hlsl` files** in the data root's `Shaders/` folder, read through the
+  application's data mount (`Documentation/Systems/data-root.md`), sharing code via `.hlsli` - served
+  to DXC by the file provider as the compiler's include resolver (no native include paths). Passes
+  fetch by name. The old C++ string-bank partitions are deleted.
 - **Dual-mode cooked form**: dev/editor keeps runtime-DXC compile-on-demand (instant hot reload, no
   variant pre-enumeration); EXPORT cooks declared variant sets to per-backend bytecode - SPIR-V (Vulkan)
   / DXIL (DX12) / WGSL (WebGPU). A shipped dist drops the DXC sidecar entirely.
@@ -27,7 +28,8 @@ piece.
 - **`foundation.shaders.resource`** (`Shaders.Resource`) - `ShaderResource` / `ShaderFactory` /
   `ShaderSource` / the `ShaderSystem` variant registry.
 - **`foundation.shaders.system`** (`Shaders.System`) - the host that picks dev-compile vs pack mode
-  (`ShaderSystemHost`) + `FileShaderSourceProvider` (the hot-reload source).
+  over the data mount (`ShaderSystemHost`: `Shaders/` sources, or the cooked `Shaders/shaders.dpak` -
+  `kShaderPackPath`) + `FileShaderSourceProvider` (the hot-reload source AND the include resolver).
 - **`shaders.pipeline`** (`Pipeline/Shaders.Pipeline`) - the cook integration.
 - **`Tools.ShaderPack`** - the CLI shader-pack cooker.
 

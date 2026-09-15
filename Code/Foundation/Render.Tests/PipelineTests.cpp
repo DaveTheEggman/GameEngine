@@ -10,6 +10,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the engine data root (FindDataRoot / DataPath)
 import foundation.rhi;
 import foundation.rhi.null;
 import foundation.geometry;
@@ -30,7 +31,7 @@ namespace shaders = foundation::shaders;
 namespace
 {
 
-    // Engine built-in shaders live as files under the engine shader root;
+    // Engine built-in shaders live as files under the data root's Shaders/;
     // tests wire the same dev file provider the RenderSubsystem does.
     shaders::FileShaderSourceProvider& EngineShaderProvider()
     {
@@ -39,7 +40,11 @@ namespace
         if (!initialized)
         {
             initialized = true;
-            REQUIRE(provider.Initialize(u8"" BUILTIN_ENGINE_SHADER_DIR).IsOk());
+            // The engine corpus, found the way every executable finds it: the data root's
+            // Shaders/ through a mount over it (includes resolve through the same mount).
+            static foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(),
+                                                            DefaultAllocator());
+            REQUIRE(provider.Initialize(dataFs, shaders::kShaderFolder).IsOk());
         }
         return provider;
     }
@@ -47,8 +52,7 @@ namespace
     void WireEngineShaders(shaders::ShaderSystem& ss)
     {
         ss.SetSourceProvider(&EngineShaderProvider());
-        const StringView includePaths[] = {EngineShaderProvider().RootDirectory()};
-        ss.SetIncludePaths(Span<const StringView>{includePaths, 1});
+        ss.SetIncludeResolver(&EngineShaderProvider());
     }
 
     // A small fixture holding the GPU-side systems + a color target + an encoder.

@@ -8,7 +8,7 @@
 // same result whichever surface triggers it. Links ZERO editor code into the result.
 //
 // Usage:
-//   Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]
+//   Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild] [--data-root <dir>]
 //   Tools.Export --template list
 //   Tools.Export --template import <templateDir>
 //   Tools.Export --template create <configDir> [--install | --out <folder>]
@@ -396,11 +396,21 @@ int main(int argc, char** argv)
 
     const editor::SceneReferenceScanner scanner = MakeSceneScanner();
 
+    // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
+    // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
+    const String dataRoot = vfs::ResolveDataRoot(argc, argv);
+    if (dataRoot.IsEmpty())
+    {
+        std::fprintf(stderr, "Tools.Export: no data root (put Data/ with its .dataroot marker "
+                             "beside the tool, or pass --data-root <dir>)\n");
+        return 1;
+    }
+
     if (all)
     {
         const Span<const editor::ExportPreset> span(presets.presets.Data(), presets.presets.Size());
-        if (!editor::ExportAll(*project, span, registry, builders, outRoot.AsView(), rebuild, {},
-                               true, &sceneStreams, &scanner)
+        if (!editor::ExportAll(*project, span, registry, builders, outRoot.AsView(),
+                               dataRoot.AsView(), rebuild, {}, true, &sceneStreams, &scanner)
                  .IsOk())
         {
             std::fprintf(stderr, "Tools.Export: one or more presets failed (see log)\n");
@@ -422,8 +432,8 @@ int main(int argc, char** argv)
     }
 
     editor::ExportResult result;
-    if (!editor::ExportOne(*project, *preset, registry, builders, outRoot.AsView(), rebuild,
-                           &result, {}, true, &sceneStreams, &scanner)
+    if (!editor::ExportOne(*project, *preset, registry, builders, outRoot.AsView(),
+                           dataRoot.AsView(), rebuild, &result, {}, true, &sceneStreams, &scanner)
              .IsOk())
     {
         std::fprintf(stderr, "Tools.Export: export failed (see log)\n");

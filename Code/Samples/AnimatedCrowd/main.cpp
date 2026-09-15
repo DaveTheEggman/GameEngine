@@ -42,12 +42,8 @@ import engine.animation; // SkeletalAnimationComponent(Manager) - engine-driven 
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 
-#ifndef SAMPLE_SANDBOX_MODEL_DIR
-#define SAMPLE_SANDBOX_MODEL_DIR ""
-#endif
-#ifndef SAMPLE_SANDBOX_OUTPUT_DIR
-#define SAMPLE_SANDBOX_OUTPUT_DIR ""
-#endif
+// The raw model files and the per-sample cooked-output database live under the data root
+// (resolved by the app).
 
 namespace core = foundation::core;
 namespace rhi = foundation::rhi;
@@ -118,7 +114,8 @@ namespace
             engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight(),
+                                                                    DataFileSystem());
             }
         }
 
@@ -204,10 +201,12 @@ namespace
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
-            const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_OUTPUT_DIR));
-            const core::StringView modelDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_MODEL_DIR));
+            const core::String outputDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Output/AnimatedCrowd");
+            const core::String modelDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Assets/models");
+            const core::StringView outputDir = outputDirStorage.AsView();
+            const core::StringView modelDir = modelDirStorage.AsView();
             if (outputDir.IsEmpty() || modelDir.IsEmpty())
             {
                 return;

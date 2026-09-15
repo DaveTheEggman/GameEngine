@@ -14,8 +14,7 @@ target_link_libraries(Engine.Terrain.Backend.Tests PRIVATE
     Foundation::RHI.TestSupport Foundation::RHI.Vulkan Foundation::RHI.WebGPU doctest::doctest)
 
 target_compile_definitions(Engine.Terrain.Backend.Tests PRIVATE
-    DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS
-    BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
+    DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 
 # DX12 backend - Windows only. Cross-check the terrain shaders' DXIL cook too.
 if(TARGET Foundation::RHI.DX12)

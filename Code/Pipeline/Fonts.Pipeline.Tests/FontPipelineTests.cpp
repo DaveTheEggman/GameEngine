@@ -42,11 +42,14 @@ namespace
         RemoveDirectory(u8"scratch_fontpipe_out_db");
     }
 
-    // Copy the repo's DejaVu Mono beside the test (the sources mount is the CWD).
+    // Copy the data root's DejaVu Mono beside the test (the sources mount is the CWD).
     bool StageSourceFont()
     {
+        const String root = FindDataRoot();
+        REQUIRE_FALSE(root.IsEmpty());
         return FileCopyPreserving(
-            StringView(reinterpret_cast<const utf8char*>(TEST_FONT_PATH)), kSourceFont);
+            DataPath(root.AsView(), u8"Assets/fonts/dejavu/DejaVuSansMono.ttf").AsView(),
+            kSourceFont);
     }
 }
 

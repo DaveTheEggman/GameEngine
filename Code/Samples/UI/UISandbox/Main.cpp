@@ -11,6 +11,8 @@
 
 #include <new>
 #include <cstdio>
+#include "Core/Prelude.h"
+#include "Core/Log/Log.h" // LOG_ERROR (no data root)
 
 import foundation.core;
 import foundation.rhi;
@@ -305,13 +307,9 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
         Array<rhi::BindGroup*> m_bindGroups;
     };
 
-#ifndef BUILTIN_UI_FONT_PATH
-#define BUILTIN_UI_FONT_PATH ""
-#endif
-
-#ifndef BUILTIN_UI_ASSET_DIR
-#define BUILTIN_UI_ASSET_DIR ""
-#endif
+// Engine data under the data root (discovered at startup - the one mechanism every executable
+// uses; this sample has no argv, so there is no --data-root here).
+constexpr StringView kFontAsset = u8"Assets/fonts/roboto/Roboto-Regular.ttf";
 
     // Appends "<n>" into buf (small values); caller supplies the prefix.
     inline void AppendNum(char8_t* buf, usize& pos, i32 n)
@@ -918,10 +916,13 @@ public:
 private:
     void BuildUI();
     void LoadFontSize(StringView family, StringView path, f32 pixelHeight);
-    [[nodiscard]] bool HasFonts() const
+    [[nodiscard]] bool HasFonts() const { return FileExists(DataPath(kFontAsset).AsView()); }
+    [[nodiscard]] String DataPath(StringView relative) const
     {
-        return !StringView(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH)).IsEmpty();
+        return vfs::DataPath(m_dataRoot.AsView(), relative);
     }
+    String m_dataRoot;                                // resolved in OnStartup
+    UniquePtr<vfs::NativeFileSystem> m_dataFileSystem; // the mount over it
     [[nodiscard]] static ui::LayoutStyle LP(ui::SizeSpec w, ui::SizeSpec h)
     {
         ui::LayoutStyle p;
@@ -1047,33 +1048,40 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
     m_width = mainRw->Window().Width();
     m_height = mainRw->Window().Height();
 
+    // THE data root: fonts, the .sss/.sml assets, and the UI host's shaders all read from it.
+    m_dataRoot = vfs::FindDataRoot();
+    if (m_dataRoot.IsEmpty())
+    {
+        LOG_ERROR(u8"UISandbox", u8"no data root - cannot start");
+        host.RequestExit(1);
+        return;
+    }
+    m_dataFileSystem = MakeUnique<vfs::NativeFileSystem>(AppRoot(), m_dataRoot.AsView(), AppRoot());
+
     // Fonts (CPU rasterization; no device needed).
     m_fontService = MakeUnique<fonts::TrueTypeFontService>(AppRoot(),
                                                            AppRoot());
     if (HasFonts())
     {
-        const StringView fontPath(reinterpret_cast<const utf8char*>(BUILTIN_UI_FONT_PATH));
-        LoadFontSize(u8"Roboto", fontPath, 14.0f);
-        LoadFontSize(u8"Roboto", fontPath, 16.0f);
-        LoadFontSize(u8"Roboto", fontPath, 24.0f);
+        const String fontPath = DataPath(kFontAsset);
+        LoadFontSize(u8"Roboto", fontPath.AsView(), 14.0f);
+        LoadFontSize(u8"Roboto", fontPath.AsView(), 16.0f);
+        LoadFontSize(u8"Roboto", fontPath.AsView(), 24.0f);
 
         // Decorative families for the pause-menu FontFamily demo (copied from Sedulous assets). GetFont
         // falls back to Roboto if a family is missing, so the demo still renders if these fail to load.
-        const StringView monsterPath(reinterpret_cast<const utf8char*>(
-            BUILTIN_UI_ASSET_DIR "/fonts/attack-of-monster/Attack Of Monster.ttf"));
-        const StringView junglePath(reinterpret_cast<const utf8char*>(
-            BUILTIN_UI_ASSET_DIR "/fonts/jungle-adventurer/JungleAdventurer.ttf"));
+        const String monsterPath = DataPath(u8"Assets/fonts/attack-of-monster/Attack Of Monster.ttf");
+        const String junglePath = DataPath(u8"Assets/fonts/jungle-adventurer/JungleAdventurer.ttf");
         const f32 decorativeSizes[] = {14.0f, 18.0f, 24.0f, 32.0f};
         for (f32 s : decorativeSizes)
         {
-            LoadFontSize(u8"AttackOfMonster", monsterPath, s);
-            LoadFontSize(u8"JungleAdventurer", junglePath, s);
+            LoadFontSize(u8"AttackOfMonster", monsterPath.AsView(), s);
+            LoadFontSize(u8"JungleAdventurer", junglePath.AsView(), s);
         }
     }
 
-    m_uiHost = MakeUnique<ui::runtime::UIHost>(AppRoot(), AppRoot(),
-                                                   *host.Graphics(), *host.Shell(),
-                                               *m_fontService);
+    m_uiHost = MakeUnique<ui::runtime::UIHost>(AppRoot(), AppRoot(), *host.Graphics(),
+                                               *host.Shell(), *m_fontService, *m_dataFileSystem);
     // Docking host needs the runtime host + UIHost; construct before BuildUI (the Docking tab uses it).
     m_dockHost =
         MakeUnique<ui::application::RuntimeDockableWindowHost>(AppRoot(), host, *m_uiHost);
@@ -1299,21 +1307,19 @@ void UISandbox::ApplyTheme()
 // Load a .sss theme file through the VFS-backed resource provider (mirrors Sedulous LoadSSSTheme): a
 // StyleSheetLoader with the provider + palette + the built-in SVG icons registered, fed the .sss text.
 // Falls back to DarkTheme if the file can't be read.
-// Create the VFS-backed resource provider once, rooted at <assets>/ui (shared by the .sss theme loader
-// and the pause-menu .sml tab). No-op if already created or if no asset dir was compiled in.
+// Create the VFS-backed resource provider once, rooted at <data root>/Assets/ui (shared by the .sss
+// theme loader and the pause-menu .sml tab). No-op if already created or if there is no data root.
 void UISandbox::EnsureResourceProvider()
 {
     if (m_resProvider)
     {
         return;
     }
-    const StringView assetDir(reinterpret_cast<const utf8char*>(BUILTIN_UI_ASSET_DIR));
-    if (assetDir.IsEmpty())
+    if (m_dataRoot.IsEmpty())
     {
         return;
     }
-    String uiRoot(assetDir);
-    uiRoot += u8"/ui";
+    const String uiRoot = DataPath(u8"Assets/ui");
     m_uiFs = MakeUnique<vfs::NativeFileSystem>(AppRoot(), uiRoot.AsView(), AppRoot());
     m_resProvider = MakeUnique<ui::vfs::VfsResourceProvider>(AppRoot(), m_uiFs.Get());
 }
@@ -1561,8 +1567,7 @@ void UISandbox::BuildDockingTab(ui::TabView* tabView)
 // Sedulous; if they fail to load, GetFont falls back to Roboto and the screen still renders.
 void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
 {
-    const StringView assetDir(reinterpret_cast<const utf8char*>(BUILTIN_UI_ASSET_DIR));
-    if (assetDir.IsEmpty())
+    if (m_dataRoot.IsEmpty())
     {
         return;
     }

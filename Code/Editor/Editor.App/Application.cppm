@@ -25,6 +25,7 @@ import foundation.fonts;
 import foundation.fonts.truetype;
 import foundation.runtime;
 import foundation.runtime.client;
+import foundation.vfs;    // NativeFileSystem: the editor's mount over the data root
 import engine.defaultapp; // the embedded game application (v3)
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
@@ -64,6 +65,10 @@ export namespace editor::app
 
     struct EditorAppConfig
     {
+        // THE data root (resolved by main - --data-root or the Data/.dataroot walk). The editor
+        // mounts it once: the UI host's shaders, the embedded runtime, and the export's shader
+        // cook all read from it. Required.
+        String dataRoot;
         String projectDirectory; // opened on startup; scaffolded if no manifest yet
         String projectName = String(u8"Untitled"); // name used when scaffolding
         String fontPath;     // UI font (.ttf); empty = no text (debug only)
@@ -444,6 +449,7 @@ export namespace editor::app
         // calls DetachView/Unregister on its context (LogView's ListView does, via
         // SetAdapter(nullptr) in its dtor), which is a use-after-free once the host is gone.
         // ASAN caught exactly that with the previous declared-last ordering.
+        UniquePtr<foundation::vfs::NativeFileSystem> m_dataFileSystem; // the data mount (owned)
         UniquePtr<ui::runtime::UIHost> m_uiHost;
         // Icon bake state: the content scale the icon set was last baked for (OnUpdate
         // re-bakes when the main window's scale drifts - monitor moves, OS scale change).

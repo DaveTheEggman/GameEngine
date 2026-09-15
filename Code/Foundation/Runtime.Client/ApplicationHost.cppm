@@ -66,6 +66,10 @@ export namespace foundation::runtime
             m_shell = shell;
             m_graphics = graphics;
             m_settings = app.Settings();
+            // Running from here on, so a RequestExit raised DURING startup (Configure/OnStartup:
+            // no data root, an unreadable dist) is honored by the run loop instead of being
+            // overwritten when Start completes.
+            m_running = true;
 
             // Fatal-signal backtraces: a crash anywhere in the app prints a native stack to
             // stderr before dying (raw segfaults printed nothing; asserts already did).
@@ -98,7 +102,6 @@ export namespace foundation::runtime
             m_app->OnLaunch(*this); // standalone enters play immediately
 
             m_started = true;
-            m_running = true;
         }
 
         // Advance exactly one frame with an explicit delta. The shell runner

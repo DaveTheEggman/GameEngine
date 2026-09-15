@@ -53,6 +53,14 @@ namespace geometry = foundation::geometry;
 
 namespace
 {
+    // The engine data root the export's shader cook reads (<root>/Shaders), found the way every
+    // executable finds it - the Data/.dataroot walk from the test binary.
+    StringView TestDataRoot()
+    {
+        static const String root = foundation::vfs::FindDataRoot();
+        REQUIRE_FALSE(root.IsEmpty());
+        return root.AsView();
+    }
     void NukeTree(StringView root)
     {
         std::filesystem::remove_all(
@@ -698,7 +706,7 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     pipeline::BuilderRegistry builders{DefaultAllocator()}; // no assets -> no builders needed
     editor::ExportResult result;
     REQUIRE(
-        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
+        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false, &result)
             .IsOk());
 
     // The dist carries the player, the sidecar, and the content (Content.pak + player.xml).
@@ -707,7 +715,12 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     CHECK(distFs.Exists(u8"libfoo.so"));
     CHECK(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));
-    CHECK(result.filesStaged == 3u); // player + shaders.dpak + one sidecar (no additionalFiles)
+    // The engine data tree the player's data-root discovery finds beside it: the marker + the
+    // cooked pack at the one layout every executable reads (Data/Shaders/shaders.dpak).
+    CHECK(distFs.Exists(u8"Data/.dataroot"));
+    CHECK(distFs.Exists(u8"Data/Shaders/shaders.dpak"));
+    CHECK(foundation::vfs::IsDataRoot(PathJoin(result.outputDir.AsView(), u8"Data").AsView()));
+    CHECK(result.filesStaged == 4u); // player + pack + marker + one sidecar (no additionalFiles)
     // The host template is stamped with this build's engine version, so no soft-mismatch warning.
     CHECK(result.engineVersionWarning.IsEmpty());
 
@@ -761,7 +774,7 @@ TEST_CASE("export: a template built against a different engine version warns but
     editor::ExportResult result;
     // Export still SUCCEEDS (soft match) ...
     REQUIRE(
-        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
+        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false, &result)
             .IsOk());
     // ... but records the version mismatch for the caller to surface.
     CHECK_FALSE(result.engineVersionWarning.IsEmpty());
@@ -1033,14 +1046,14 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         preset.templateId = String(TEMPLATE_ID_PREFIX u8"-sym");
         preset.outputSubdir = String(u8"stripped");
         editor::ExportResult result;
-        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
+        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                                   &result)
                     .IsOk());
         foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
         CHECK(distFs.Exists(GetExecutableName(u8"Engine.Player").AsView()));
         CHECK(distFs.Exists(u8"libfoo.so"));                // required sidecar always staged
         CHECK_FALSE(distFs.Exists(u8"Engine.Player.debug")); // symbols stripped by default
-        CHECK(result.filesStaged == 3u);                    // player + shaders.dpak + sidecar
+        CHECK(result.filesStaged == 4u);                    // player + pack + marker + sidecar
     }
 
     // Opt-in preset: symbols staged too.
@@ -1051,12 +1064,12 @@ TEST_CASE("export: ExportOne stages template symbols only when the preset opts i
         preset.outputSubdir = String(u8"symbols");
         preset.stageSymbols = true;
         editor::ExportResult result;
-        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
+        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                                   &result)
                     .IsOk());
         foundation::vfs::NativeFileSystem distFs(result.outputDir.AsView(), foundation::core::DefaultAllocator());
         CHECK(distFs.Exists(u8"Engine.Player.debug")); // opted in
-        CHECK(result.filesStaged == 4u);              // player + shaders.dpak + sidecar + symbol
+        CHECK(result.filesStaged == 5u);              // player + pack + marker + sidecar + symbol
     }
 
     NukeTree(projectDir.AsView());
@@ -1203,7 +1216,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     preset.outputSubdir = String(u8"pruned");
     preset.pruneToReachable = true;
     editor::ExportResult result;
-    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                               &result, {}, true, nullptr, &scanner)
                 .IsOk());
 
@@ -1239,7 +1252,7 @@ TEST_CASE("export: pruned dist keeps the referenced closure, drops the rest, and
     full.platform = String(GetHostPlatformName());
     full.outputSubdir = String(u8"full"); // pruneToReachable defaults false
     editor::ExportResult fullResult;
-    REQUIRE(editor::ExportOne(*project, full, registry, builders, outRoot.AsView(), false,
+    REQUIRE(editor::ExportOne(*project, full, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                               &fullResult, {}, true, nullptr, &scanner)
                 .IsOk());
     foundation::vfs::PakFileSystem fullPak(
@@ -1323,7 +1336,7 @@ TEST_CASE(
     preset.outputSubdir = String(u8"pruned");
     preset.pruneToReachable = true;
     editor::ExportResult result;
-    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                               &result, {}, true, nullptr, /*scanner*/ nullptr, &reachable)
                 .IsOk());
 
@@ -1345,7 +1358,7 @@ TEST_CASE(
     noHelp.outputSubdir = String(u8"nohelp");
     noHelp.pruneToReachable = true;
     editor::ExportResult noHelpResult;
-    REQUIRE(editor::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), false,
+    REQUIRE(editor::ExportOne(*project, noHelp, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                               &noHelpResult)
                 .IsOk());
     foundation::vfs::PakFileSystem noHelpPak(
@@ -1449,7 +1462,7 @@ TEST_CASE("export: pruning keeps a scene -> prefab -> asset chain")
     preset.outputSubdir = String(u8"pruned");
     preset.pruneToReachable = true;
     editor::ExportResult result;
-    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false,
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false,
                               &result, {}, true, nullptr, &scanner)
                 .IsOk());
 
@@ -1863,7 +1876,7 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     editor::ExportResult result;
     REQUIRE(
-        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), false, &result)
+        editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(), TestDataRoot(), false, &result)
             .IsOk());
 
     // The served folder: page + sidecars + content + the ENGINE shader pack.
@@ -1878,11 +1891,15 @@ TEST_CASE("export: a Web preset stages the browser player + a WGSL shader pack")
     CHECK(distFs.Exists(u8"Content-astc.pak"));
     CHECK_FALSE(distFs.Exists(u8"Content.pak"));
     CHECK(distFs.Exists(u8"player.xml"));
-    CHECK(distFs.Exists(u8"shaders.dpak")); // single shader pack (platform-keyed, compression-orthogonal)
+    // Single shader pack (platform-keyed, compression-orthogonal) at the same Data/ layout a desktop
+    // dist stages - the web player fetches Data/.dataroot + Data/Shaders/shaders.dpak into MEMFS.
+    CHECK(distFs.Exists(u8"Data/.dataroot"));
+    CHECK(distFs.Exists(u8"Data/Shaders/shaders.dpak"));
+    CHECK_FALSE(distFs.Exists(u8"shaders.dpak")); // never at the serving-folder root any more
 
     // The pack is WGSL-format (the Web platform's runtime format), not SPIR-V/DXIL.
     {
-        UniquePtr<IStream> packStream = distFs.Open(u8"shaders.dpak", FileMode::Read);
+        UniquePtr<IStream> packStream = distFs.Open(u8"Data/Shaders/shaders.dpak", FileMode::Read);
         REQUIRE(static_cast<bool>(packStream));
         foundation::shaders::CookedShaderPack pack;
         REQUIRE(pack.Read(*packStream).IsOk());

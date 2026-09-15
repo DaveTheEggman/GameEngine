@@ -83,7 +83,8 @@ namespace
             engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight(),
+                                                                    DataFileSystem());
             }
         }
 
@@ -1113,8 +1114,9 @@ namespace
         // path (an editor would bake offline; here we bake at startup), proving it end to end in the app.
         void SetupCookedDemo(engine::particles::ParticleEffectComponentManager& pmgr)
         {
-            const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_PARTICLEFX_OUTPUT_DIR));
+            const core::String outputDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Output/ParticleFX");
+            const core::StringView outputDir = outputDirStorage.AsView();
             if (outputDir.IsEmpty())
             {
                 return;

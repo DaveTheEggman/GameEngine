@@ -26,6 +26,7 @@ import foundation.rhi;
 import foundation.image;
 import foundation.shaders;
 import foundation.shaders.system; // ShaderSystemHost (cooked-pack-or-dev shader resolution)
+import foundation.vfs;            // IFileSystem: the application's data mount (shaders live in it)
 import foundation.shell;
 import foundation.graphics;
 import foundation.vg;
@@ -168,12 +169,15 @@ export namespace foundation::ui::runtime
     public:
         // The allocator (required - the entry point decides) roots the WHOLE UI:
         // the shared UIContext, every view tree under it, and the host's own services.
+        // `dataFileSystem` is the application's data mount (borrowed): the VG shaders resolve
+        // from it (Shaders/ sources in dev, Shaders/shaders.dpak in a dist).
         UIHost(core::IAllocator& allocator, graphics::GraphicsDevice& device,
-               shell::IShell& shellRef, fonts::IFontService& fontService)
+               shell::IShell& shellRef, fonts::IFontService& fontService,
+               foundation::vfs::IFileSystem& dataFileSystem)
             : m_allocator(&allocator), m_device(&device), m_shell(&shellRef),
               m_fonts(&fontService), m_shaderHost(allocator), m_ctx(allocator)
         {
-            InitShaders();
+            InitShaders(dataFileSystem);
             m_ctx.SetFontService(&fontService);
             m_router =
                 core::MakeUnique<shell::InputRouter>(allocator, shellRef.Input());
@@ -1024,18 +1028,13 @@ export namespace foundation::ui::runtime
             m_bridge->PumpMouseAt(mx, my, mouse);
         }
 
-        // Resolve the VG shaders through the shared ShaderSystemHost: cooked WGSL from shaders.dpak
-        // in a dist/browser (no compiler), or on-demand DXC over Data/Shaders in dev. The VG shaders
-        // ship in the engine corpus like every other shader (vg.vs / vg.ps), so this is the SAME path
-        // the renderer uses - no more bespoke inline-HLSL compile here.
-        void InitShaders()
+        // Resolve the VG shaders through the shared ShaderSystemHost over the data mount: cooked
+        // WGSL from Shaders/shaders.dpak in a dist/browser (no compiler), or on-demand DXC over
+        // Shaders/ in dev. The VG shaders ship in the engine corpus like every other shader
+        // (vg.vs / vg.ps), so this is the SAME path the renderer uses.
+        void InitShaders(foundation::vfs::IFileSystem& dataFileSystem)
         {
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-            constexpr core::StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-            constexpr core::StringView kShaderRoot = u8"Shaders";
-#endif
-            if (!m_shaderHost.Initialize(*m_device->Raw(), kShaderRoot))
+            if (!m_shaderHost.Initialize(*m_device->Raw(), dataFileSystem))
             {
                 return; // no compiler and no pack - UI stays un-rendered (loud but not a crash)
             }

@@ -16,6 +16,7 @@
 #include <filesystem>
 
 import foundation.core;
+import foundation.vfs; // ResolveDataRoot (--data-root / the Data/.dataroot walk)
 import foundation.json;
 import foundation.mcp;
 import foundation.mcp.reflection;
@@ -174,7 +175,7 @@ namespace
     }
 }
 
-int main(int /*argc*/, char** argv)
+int main(int argc, char** argv)
 {
     // The log capture FIRST (before anything logs), so log_read sees the whole run; stderr
     // mirror second - stdout is the protocol stream.
@@ -234,7 +235,17 @@ int main(int /*argc*/, char** argv)
     editor::mcp::RegisterScriptValidateTool(server);
     editor::mcp::RegisterScriptCreateTool(server, session); // starter-seeded script assets
     // project_export: the ONE export entry point (identical to the editor menu + export CLI).
-    editor::mcp::RegisterProjectExportTool(server, session, builders, ToolDir(argv[0]));
+    // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
+    // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
+    const String dataRoot = foundation::vfs::ResolveDataRoot(argc, argv);
+    if (dataRoot.IsEmpty())
+    {
+        std::fprintf(stderr, "Tools.Mcp: no data root (put Data/ with its .dataroot marker "
+                             "beside the tool, or pass --data-root <dir>)\n");
+        return 1;
+    }
+    editor::mcp::RegisterProjectExportTool(server, session, builders, ToolDir(argv[0]),
+                                           dataRoot);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),

@@ -28,11 +28,13 @@ import foundation.rhi.webgpu;
 import foundation.rhi.validation;
 import foundation.shell;
 import foundation.shell.desktop;
+import foundation.vfs; // ResolveDataRoot + the NativeFileSystem mounted over the data root
 
 using namespace foundation::core;
 using namespace foundation;
 namespace rhi = foundation::rhi;
 namespace shell = foundation::shell;
+namespace vfs = foundation::vfs;
 
 export namespace samples::framework
 {
@@ -69,6 +71,17 @@ export namespace samples::framework
         int Run(int argc = 0, char** argv = nullptr);
 
     protected:
+        // THE data root (resolved in Run: --data-root, else the Data/.dataroot walk from the
+        // executable) and the mount over it - samples read engine data (shaders, fonts, models)
+        // through these, never from a compiled-in path.
+        [[nodiscard]] StringView DataRoot() const noexcept { return m_dataRoot.AsView(); }
+        [[nodiscard]] vfs::IFileSystem& DataFileSystem() noexcept { return *m_dataFileSystem; }
+        // A data-relative path resolved against the root ("Assets/fonts/x.ttf" -> absolute).
+        [[nodiscard]] String DataPath(StringView relative) const
+        {
+            return vfs::DataPath(m_dataRoot.AsView(), relative);
+        }
+
         virtual StringView Title() const { return u8"RHI Sample"; }
         virtual rhi::DeviceFeatures RequiredFeatures() const { return {}; }
         virtual rhi::TextureFormat SwapChainFormat() const
@@ -103,6 +116,8 @@ export namespace samples::framework
         BackendType m_backendType;
         bool m_validationEnabled;
         UniquePtr<shell::IShell> m_shellOwner;
+        String m_dataRoot;
+        UniquePtr<vfs::NativeFileSystem> m_dataFileSystem;
 
         Status Init();
         void MainLoop();
@@ -133,6 +148,17 @@ export namespace samples::framework
                 m_validationEnabled = false;
             }
         }
+
+        m_dataRoot = vfs::ResolveDataRoot(argc, argv);
+        if (m_dataRoot.IsEmpty())
+        {
+            std::fprintf(stderr, "SampleApp: no data root (put Data/ with its .dataroot marker "
+                                 "beside the sample, or pass --data-root <dir>)\n");
+            return 1;
+        }
+        m_dataFileSystem = MakeUnique<vfs::NativeFileSystem>(foundation::core::DefaultAllocator(),
+                                                             m_dataRoot.AsView(),
+                                                             foundation::core::DefaultAllocator());
 
         if (!Init().IsOk())
         {

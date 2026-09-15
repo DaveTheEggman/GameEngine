@@ -18,6 +18,3 @@ target_link_libraries(PhysicsPlayground PRIVATE
     Extensions::Imgui
     Foundation::Policy)
 util_copy_sdl3_dll(PhysicsPlayground)
-
-target_compile_definitions(PhysicsPlayground PRIVATE
-    BUILTIN_PLAYGROUND_FONT="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")

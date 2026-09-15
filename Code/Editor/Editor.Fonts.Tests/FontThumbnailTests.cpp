@@ -9,6 +9,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the engine data root (FindDataRoot / DataPath)
 import foundation.image;
 import editor.fonts;
 import editor.core;
@@ -20,8 +21,11 @@ TEST_CASE("font thumbnail rasterizes a glyph sample from TTF bytes")
 {
     Array<byte> ttf;
     {
-        FileStream stream(StringView(reinterpret_cast<const char8_t*>(TEST_FONT_PATH)),
-                          FileMode::Read);
+        const String root = foundation::vfs::FindDataRoot();
+        REQUIRE_FALSE(root.IsEmpty());
+        FileStream stream(
+            foundation::vfs::DataPath(root.AsView(), u8"Assets/fonts/roboto/Roboto-Bold.ttf").AsView(),
+            FileMode::Read);
         REQUIRE(stream.IsValid());
         const i64 size = stream.Size();
         REQUIRE(size > 0);

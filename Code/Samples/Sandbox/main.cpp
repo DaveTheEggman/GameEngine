@@ -46,12 +46,8 @@ import foundation.animation;          // AnimationPlayer (drives GPU skinning)
 
 #include "../Common/FlyCamera.h" // shared free-fly camera (uses the imported runtime/core types)
 
-#ifndef SAMPLE_SANDBOX_MODEL_DIR
-#define SAMPLE_SANDBOX_MODEL_DIR ""
-#endif
-#ifndef SAMPLE_SANDBOX_OUTPUT_DIR
-#define SAMPLE_SANDBOX_OUTPUT_DIR ""
-#endif
+// Everything this sample reads or writes lives under the data root (resolved by the app):
+// the raw model/environment/image files and the per-sample cooked-output database.
 
 namespace core = foundation::core;
 namespace rhi = foundation::rhi;
@@ -103,7 +99,8 @@ namespace
             engine::runtime::DefaultApplication::Configure(host);
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight());
+                host.Ctx().AddSubsystem<imgui::ImguiSubsystem>(*gfx->Raw(), gfx->FramesInFlight(),
+                                                                    DataFileSystem());
             }
         }
 
@@ -134,9 +131,8 @@ namespace
                 // Default exposure below 1.0 - the procedural sky + IBL ambient are bright, so the AgX
                 // tonemap washes out at 1.0. Tune live via the Environment window's Exposure slider.
                 render->SetExposure(0.5f);
-                core::String hdrPath = core::Format(
-                    u8"{}/BlueSky.hdr", core::StringView(reinterpret_cast<const core::utf8char*>(
-                                            SAMPLE_SANDBOX_ENV_DIR)));
+                core::String hdrPath =
+                    foundation::vfs::DataPath(DataRoot(), u8"Assets/environment/BlueSky.hdr");
                 foundation::image::Image img;
                 if (foundation::image::io::LoadImage(hdrPath.AsView(), img).IsOk() &&
                     img.Format() == foundation::image::PixelFormat::RGBA32F)
@@ -161,10 +157,8 @@ namespace
 
                 // Cubemap source: point at ONE face; the importer detects the other 5 (px/nx/...) and
                 // loads + combines them. (Explicit 6-path LoadCubemap also works.)
-                core::String oneFace =
-                    core::Format(u8"{}/cube_sky/px.png",
-                                 core::StringView(reinterpret_cast<const core::utf8char*>(
-                                     SAMPLE_SANDBOX_ENV_DIR)));
+                core::String oneFace = foundation::vfs::DataPath(
+                    DataRoot(), u8"Assets/environment/cube_sky/px.png");
                 core::Array<core::String> facePaths;
                 if (pipeline::TextureImporter::DetectCubemapFaces(oneFace.AsView(), facePaths)
                         .IsOk() &&
@@ -488,10 +482,12 @@ namespace
         // wiring (factory -> Bind -> render) is identical.
         void LoadImportedModel(runtime::IApplicationHost& host)
         {
-            const core::StringView outputDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_OUTPUT_DIR));
-            const core::StringView modelDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_MODEL_DIR));
+            const core::String outputDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Output/Sandbox");
+            const core::String modelDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Assets/models");
+            const core::StringView outputDir = outputDirStorage.AsView();
+            const core::StringView modelDir = modelDirStorage.AsView();
             if (outputDir.IsEmpty() || modelDir.IsEmpty())
             {
                 return;
@@ -579,8 +575,9 @@ namespace
             {
                 return nullptr;
             }
-            const core::StringView imageDir(
-                reinterpret_cast<const core::utf8char*>(SAMPLE_SANDBOX_IMAGE_DIR));
+            const core::String imageDirStorage =
+                foundation::vfs::DataPath(DataRoot(), u8"Assets/images");
+            const core::StringView imageDir = imageDirStorage.AsView();
 
             pipeline::TextureAsset asset;
             pipeline::TextureImporter::Import2D(u8"logo.png",

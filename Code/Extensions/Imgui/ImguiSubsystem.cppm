@@ -22,6 +22,7 @@ import foundation.shell;    // IInputManager / IMouse / IKeyboard / KeyCode / Mo
 import foundation.graphics; // FrameContext
 import foundation.shaders;
 import foundation.shaders.system;
+import foundation.vfs; // IFileSystem: the application's data mount (the ImGui shaders live in it)
 import :renderer;
 
 using namespace foundation::core;
@@ -35,8 +36,12 @@ export namespace extensions::imgui
     class ImguiSubsystem final : public foundation::runtime::Subsystem
     {
     public:
-        ImguiSubsystem(rhi::Device& device, u32 framesInFlight) noexcept
-            : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight)
+        // `dataFileSystem` = the application's data mount (borrowed): the ImGui shaders resolve
+        // from it like every other engine shader.
+        ImguiSubsystem(rhi::Device& device, u32 framesInFlight,
+                       foundation::vfs::IFileSystem& dataFileSystem) noexcept
+            : m_device(&device), m_framesInFlight(framesInFlight < 1 ? 1 : framesInFlight),
+              m_dataFileSystem(&dataFileSystem)
         {
         }
 
@@ -95,14 +100,9 @@ export namespace extensions::imgui
     protected:
         void OnInit() override
         {
-            // Resolve the ImGui shaders via the shared ShaderSystemHost: cooked WGSL from the pack
-            // (dist/browser, no compiler) or dev DXC over Data/Shaders. Needs one or the other.
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-            constexpr StringView kShaderRoot = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-            constexpr StringView kShaderRoot = u8"Shaders";
-#endif
-            if (!m_shaderHost.Initialize(*m_device, kShaderRoot))
+            // Resolve the ImGui shaders via the shared ShaderSystemHost over the data mount: cooked
+            // WGSL from Shaders/shaders.dpak (dist/browser) or dev DXC over Shaders/.
+            if (!m_shaderHost.Initialize(*m_device, *m_dataFileSystem))
             {
                 return; // no compiler and no shader pack - ImGui stays inert
             }
@@ -184,6 +184,7 @@ export namespace extensions::imgui
         rhi::Device* m_device;
         u32 m_framesInFlight = 2;
         shaders::ShaderSystemHost m_shaderHost{DefaultAllocator()}; // owns the ShaderSystem + the ImGui modules
+        foundation::vfs::IFileSystem* m_dataFileSystem; // borrowed (the application's data mount)
         UniquePtr<ImguiRenderer> m_renderer;
         ImGuiContext* m_context = nullptr;
         u32 m_width = 1280,

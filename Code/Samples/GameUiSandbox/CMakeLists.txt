@@ -13,6 +13,3 @@ target_link_libraries(GameUiSandbox PRIVATE
     Foundation::Input
     Foundation::Policy)
 util_copy_sdl3_dll(GameUiSandbox)
-
-target_compile_definitions(GameUiSandbox PRIVATE
-    BUILTIN_GAMEUI_FONT="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")

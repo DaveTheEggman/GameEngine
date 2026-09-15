@@ -3,7 +3,7 @@
 # depends only on RHI + Core so any backend test can link it.
 
 util_add_engine_library(RHI.TestSupport ALIAS Foundation::RHI.TestSupport)
-target_link_libraries(RHI.TestSupport PUBLIC Foundation::RHI Foundation::Core)
+target_link_libraries(RHI.TestSupport PUBLIC Foundation::RHI Foundation::Core Foundation::VFS)
 
 target_sources(RHI.TestSupport
     PUBLIC

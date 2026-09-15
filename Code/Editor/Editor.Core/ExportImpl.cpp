@@ -30,6 +30,7 @@ import foundation.scene.resource;
 import pipeline.core;
 import pipeline.cook;
 import foundation.shaders;
+import foundation.shaders.system; // kShaderFolder / kShaderPackPath (the dist data layout)
 import :project;
 import :export_preset;
 import :export_roots;
@@ -39,6 +40,7 @@ using namespace foundation::core;
 using namespace foundation;
 using namespace pipeline;
 namespace shaders = foundation::shaders;
+namespace vfs = foundation::vfs;
 
 namespace editor
 {
@@ -88,28 +90,22 @@ namespace editor
             return contains(u8"dxcompiler") || contains(u8"dxil");
         }
 
-        // Resolve the engine shader source root for the cook (baked source path, else a "Shaders"
-        // dir beside a relocated editor).
-        StringView EngineShaderDir()
-        {
-#ifdef BUILTIN_ENGINE_SHADER_DIR
-            constexpr StringView baked = u8"" BUILTIN_ENGINE_SHADER_DIR;
-#else
-            constexpr StringView baked = u8"Shaders";
-#endif
-            if (DirectoryExists(baked))
-            {
-                return baked;
-            }
-            return u8"Shaders";
-        }
-
-        // Cook the built-in shaders for `platform` and write <outputDir>/shaders.dpak. The dist
-        // renders from this pack with no runtime compiler (see the ShaderSystem cooked path). Returns
-        // the variant count via `outVariants`; Status carries any cook/compile failure.
-        Status StageShaderPack(StringView outputDir, StringView platform, u32& outVariants)
+        // Cook the built-in shaders (from <dataRoot>/Shaders) for `platform` and write the dist's
+        // Data/Shaders/shaders.dpak plus its Data/.dataroot marker - the layout the player's data-root
+        // discovery finds beside the executable. The dist renders from this pack with no runtime
+        // compiler (see the ShaderSystem cooked path). Returns the variant count via `outVariants`;
+        // Status carries any cook/compile failure.
+        Status StageShaderPack(StringView outputDir, StringView dataRoot, StringView platform,
+                               u32& outVariants)
         {
             outVariants = 0;
+            const String shaderDir = vfs::DataPath(dataRoot, shaders::kShaderFolder);
+            if (!DirectoryExists(shaderDir.AsView()))
+            {
+                LOG_ERROR(u8"Export", u8"cannot cook shaders: no '{}' under the data root '{}'",
+                          shaders::kShaderFolder, dataRoot);
+                return Status{ErrorCode::NotFound};
+            }
             shaders::Compiler* compiler = nullptr;
             if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk() ||
                 compiler == nullptr)
@@ -121,7 +117,7 @@ namespace editor
 
             const Array<shaders::CookedShaderFormat> formats = FormatsForPlatform(platform);
             shaders::ShaderCookOptions opts;
-            opts.shaderDir = EngineShaderDir();
+            opts.shaderDir = shaderDir.AsView();
             opts.scratchDir = outputDir; // WGSL intermediates (deleted); unused for SPIR-V/DXIL
             opts.formats = Span<const shaders::CookedShaderFormat>(formats.Data(), formats.Size());
 
@@ -139,11 +135,29 @@ namespace editor
                 return Status{ErrorCode::Internal};
             }
 
-            const String packPath = PathJoin(outputDir, u8"shaders.dpak");
+            const String distData = PathJoin(outputDir, u8"Data");
+            const String packPath = PathJoin(distData.AsView(), shaders::kShaderPackPath);
+            if (!CreateDirectories(PathParent(packPath.AsView())))
+            {
+                LOG_ERROR(u8"Export", u8"could not create '{}'", PathParent(packPath.AsView()));
+                return Status{ErrorCode::Internal};
+            }
             FileStream out(packPath.AsView(), FileMode::Write);
             if (!out.IsValid() || !pack.Write(out).IsOk())
             {
-                LOG_ERROR(u8"Export", u8"could not write shaders.dpak to '{}'", outputDir);
+                LOG_ERROR(u8"Export", u8"could not write '{}'", packPath);
+                return Status{ErrorCode::Internal};
+            }
+            // The marker that makes <dist>/Data a data root for the player's discovery walk.
+            constexpr StringView kMarkerText = u8"# Data root marker (foundation.vfs FindDataRoot). "
+                                               u8"Staged by the export.\nversion: 1\n";
+            const String marker = PathJoin(distData.AsView(), vfs::kDataRootMarker);
+            if (!WriteFile(marker.AsView(),
+                           Span<const byte>(reinterpret_cast<const byte*>(kMarkerText.Data()),
+                                            kMarkerText.Size()))
+                     .IsOk())
+            {
+                LOG_ERROR(u8"Export", u8"could not write '{}'", marker);
                 return Status{ErrorCode::Internal};
             }
             outVariants = static_cast<u32>(pack.Count());
@@ -989,7 +1003,7 @@ namespace editor
 
     Status ExportOne(EditorProject& project, const ExportPreset& preset,
                      const TemplateRegistry& templates, BuilderRegistry& builders,
-                     StringView outRoot, bool rebuild, ExportResult* outResult,
+                     StringView outRoot, StringView dataRoot, bool rebuild, ExportResult* outResult,
                      const ExportProgress& onProgress, bool cook,
                      const HashMap<Guid, Array<byte>>* sceneStreams,
                      const SceneReferenceScanner* scanner,
@@ -1211,16 +1225,17 @@ namespace editor
             }
         }
 
-        // Cooked engine shaders: produce shaders.dpak beside the player so the dist renders with no
-        // runtime compiler. A cook failure is fatal - a dist without shaders cannot render.
+        // Cooked engine shaders: Data/Shaders/shaders.dpak (+ Data/.dataroot) beside the player so
+        // the dist renders with no runtime compiler, found by the same data-root discovery every
+        // executable uses. A cook failure is fatal - a dist without shaders cannot render.
         if (onProgress)
         {
             onProgress(u8"Cooking shaders...", 0.95f);
         }
         {
             u32 shaderVariants = 0;
-            const Status packStatus =
-                StageShaderPack(result.outputDir.AsView(), preset.platform.AsView(), shaderVariants);
+            const Status packStatus = StageShaderPack(result.outputDir.AsView(), dataRoot,
+                                                      preset.platform.AsView(), shaderVariants);
             if (!packStatus.IsOk())
             {
                 if (outResult != nullptr)
@@ -1229,8 +1244,9 @@ namespace editor
                 }
                 return Status{ErrorCode::Internal};
             }
-            ++result.filesStaged;
-            LOG_INFO(u8"Export", u8"staged shaders.dpak ({} variants)", shaderVariants);
+            result.filesStaged += 2; // the pack + the marker
+            LOG_INFO(u8"Export", u8"staged Data/{} ({} variants)", shaders::kShaderPackPath,
+                     shaderVariants);
         }
 
         if (onProgress && !tmpl->sidecars.IsEmpty())
@@ -1314,7 +1330,8 @@ namespace editor
 
     Status ExportAll(EditorProject& project, Span<const ExportPreset> presets,
                      const TemplateRegistry& templates, BuilderRegistry& builders,
-                     StringView outRoot, bool rebuild, const ExportProgress& onProgress, bool cook,
+                     StringView outRoot, StringView dataRoot, bool rebuild,
+                     const ExportProgress& onProgress, bool cook,
                      const HashMap<Guid, Array<byte>>* sceneStreams,
                      const SceneReferenceScanner* scanner,
                      const Array<Guid>* precomputedReachableRoots)
@@ -1339,8 +1356,8 @@ namespace editor
                 onProgress(s.AsView(), (static_cast<f32>(i) + frac) / static_cast<f32>(n));
             };
             ExportResult result;
-            if (ExportOne(project, preset, templates, builders, outRoot, rebuild, &result, scoped,
-                          cook, sceneStreams, scanner, precomputedReachableRoots)
+            if (ExportOne(project, preset, templates, builders, outRoot, dataRoot, rebuild, &result,
+                          scoped, cook, sceneStreams, scanner, precomputedReachableRoots)
                     .IsOk())
             {
                 ++ok;

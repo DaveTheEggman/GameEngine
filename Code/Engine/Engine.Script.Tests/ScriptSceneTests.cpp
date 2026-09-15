@@ -16,6 +16,7 @@
 #include <initializer_list>
 
 import foundation.core;
+import foundation.vfs; // the data mount the subsystem reads engine data through
 import foundation.runtime;
 import foundation.scene;
 import foundation.scene.resource;
@@ -3159,7 +3160,8 @@ TEST_CASE("script.scene: DebugDraw.of(scene) appends to THIS scene's list on the
     engine::render::RegisterRenderScriptFacade();
 
     foundation::rhi::null::NullDevice device{DefaultAllocator()};
-    engine::render::RenderSubsystem sub{DefaultAllocator(), device, 2};
+    foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(), DefaultAllocator());
+    engine::render::RenderSubsystem sub{DefaultAllocator(), device, 2, dataFs};
 
     ScriptedScene bed;
     // The app-side wiring: ExposeToScript installs the per-context render service at context

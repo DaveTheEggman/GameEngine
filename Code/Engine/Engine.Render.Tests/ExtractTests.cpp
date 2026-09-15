@@ -9,6 +9,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the data mount the subsystem reads engine data through
 import foundation.scene;
 import foundation.geometry;
 import foundation.materials;
@@ -666,7 +667,8 @@ TEST_CASE("components: reflected types carry authored displayName + category att
 TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task #118)")
 {
     rhi::null::NullDevice device{DefaultAllocator()};
-    RenderSubsystem sub{DefaultAllocator(), device, 2};
+    foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(), DefaultAllocator());
+    RenderSubsystem sub{DefaultAllocator(), device, 2, dataFs};
 
     // Two distinct viewport keys (e.g. the main editor viewport + the camera-preview inset).
     int mainKey = 0;

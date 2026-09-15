@@ -33,6 +33,7 @@ import foundation.rhi;
 import foundation.fonts;
 import foundation.fonts.truetype;
 import foundation.fonts.resource;
+import foundation.vfs; // IFileSystem: the application's data mount (shaders + the default font)
 import foundation.input;
 import engine.input;
 import foundation.render.api; // the two-tier overlay roles (ISceneOverlay/IScreenOverlay)
@@ -348,16 +349,15 @@ export namespace engine::ui
     {
     public:
         // Everything the game-UI subsystem allocates rolls up under the GameUI tag.
-        explicit UISubsystem(IAllocator& allocator); // defined in the impl unit
+        // `dataFileSystem` is the application's data mount (borrowed for the subsystem's
+        // lifetime): the VG shaders and the built-in default font come from it.
+        UISubsystem(IAllocator& allocator,
+                    foundation::vfs::IFileSystem& dataFileSystem); // defined in the impl unit
         ~UISubsystem() override; // defined in the impl unit (RenderState is opaque here)
 
         /// Before the scene subsystem so canvas visibility/trees are current for pages;
         /// lane choice matters more than order: ALL work runs in BeginFrame (raw dt).
         [[nodiscard]] i32 UpdateOrder() const noexcept override { return -650; }
-
-        /// Optional TTF for the default font ("" = try the repo-relative Roboto, else
-        /// text simply doesn't render). Preset before Startup.
-        void SetFontPath(StringView path) { m_fontPath = String(path); }
 
         /// The window whose platform text input (IME) follows GAME UI focus: when the
         /// context's WantsTextInput() turns on/off (an EditText gains/loses focus), the
@@ -616,8 +616,10 @@ export namespace engine::ui
                             u32 height, i32 frameIndex, bool stencilCapable = false,
                             u32 sampleCount = 1);
 
-        String m_fontPath;
+        [[nodiscard]] bool ReadDataFile(StringView path, Array<u8>& outBytes) const; // impl unit
+
         TaggedAllocator m_allocator;
+        foundation::vfs::IFileSystem* m_dataFileSystem; // borrowed (the application's data mount)
         UIContext m_context{m_allocator};
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;

@@ -79,13 +79,6 @@ namespace
     class GameUiSandbox final : public engine::runtime::DefaultApplication
     {
     public:
-        GameUiSandbox()
-        {
-#ifdef BUILTIN_GAMEUI_FONT
-            SetUIFontPath(reinterpret_cast<const core::utf8char*>(BUILTIN_GAMEUI_FONT));
-#endif
-        }
-
         void OnLaunch(runtime::IApplicationHost& host) override
         {
             if (host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>() == nullptr)

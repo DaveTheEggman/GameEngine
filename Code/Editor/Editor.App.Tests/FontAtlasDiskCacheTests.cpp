@@ -25,12 +25,9 @@ namespace
 {
     String FontPath()
     {
-        String p;
-        for (const char* s = BUILTIN_FONTS_ASSET_DIR; *s != '\0'; ++s)
-            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
-        for (const char* s = "/roboto/Roboto-Regular.ttf"; *s != '\0'; ++s)
-            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
-        return p;
+        const String root = FindDataRoot();
+        REQUIRE_FALSE(root.IsEmpty());
+        return DataPath(root.AsView(), u8"Assets/fonts/roboto/Roboto-Regular.ttf");
     }
 
     IFont* LoadRoboto()

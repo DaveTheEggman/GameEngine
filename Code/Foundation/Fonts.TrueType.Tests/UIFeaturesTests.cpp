@@ -10,6 +10,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the engine data root (FindDataRoot / DataPath)
 import foundation.fonts;
 import foundation.fonts.truetype;
 
@@ -18,11 +19,12 @@ using namespace foundation::fonts;
 
 namespace
 {
+    // "<data root>/Assets/fonts" + rel (rel starts with '/'): the bundled fonts are found the way
+    // every executable finds engine data - the Data/.dataroot walk from the test binary.
     String AssetPath(const char* rel)
     {
-        String p;
-        for (const char* s = BUILTIN_FONTS_ASSET_DIR; *s != '\0'; ++s)
-            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        String p = foundation::vfs::DataPath(foundation::vfs::FindDataRoot(), u8"Assets/fonts");
+        REQUIRE_FALSE(p.IsEmpty());
         for (const char* s = rel; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;

@@ -19,6 +19,3 @@ target_link_libraries(AudioPlayground PRIVATE
     Extensions::Imgui
     Foundation::Policy)
 util_copy_sdl3_dll(AudioPlayground)
-
-target_compile_definitions(AudioPlayground PRIVATE
-    SAMPLE_AUDIO_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Data")

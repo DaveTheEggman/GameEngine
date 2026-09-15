@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Tests for the FileShaderSourceProvider (engine shader root) and the
+// Tests for the FileShaderSourceProvider (a Shaders folder in a borrowed filesystem) and the
 // ShaderSystem provider seam: manifest scan + stem/stage mapping, lazy fetch, pull-on-miss
-// through GetVariant with .hlsli include resolution, explicit-registration precedence, and
-// PumpReloads hot reload (including the .hlsli -> reload-everything fallback). File shaders
-// compile real SPIR-V via DXC on the Null RHI backend, same as ShaderSystemTests.
+// through GetVariant with .hlsli include resolution THROUGH THE MOUNT (the provider is the
+// compiler's include resolver), explicit-registration precedence, and PumpReloads hot reload
+// (including the .hlsli -> reload-everything fallback). File shaders compile real SPIR-V via
+// DXC on the Null RHI backend, same as ShaderSystemTests.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -17,10 +18,12 @@ import foundation.rhi;
 import foundation.rhi.null;
 import foundation.shaders;
 import foundation.shaders.system;
+import foundation.vfs;
 
 using namespace foundation::core;
 using namespace foundation::shaders;
 namespace rhi = foundation::rhi;
+namespace vfs = foundation::vfs;
 
 namespace
 {
@@ -72,8 +75,11 @@ TEST_CASE("file provider: manifest scan, stem/stage mapping, lazy fetch")
     WriteFile(root / "shared.hlsli", "// helper only\n");
     WriteFile(root / "readme.txt", "not a shader\n");
 
+    vfs::NativeFileSystem fs(u8"shader_provider_scan", DefaultAllocator());
     FileShaderSourceProvider provider{DefaultAllocator()};
-    REQUIRE(provider.Initialize(u8"shader_provider_scan").IsOk());
+    REQUIRE(provider.Initialize(fs, u8"").IsOk());
+    CHECK(provider.Folder().IsEmpty());
+    CHECK(provider.SupportsReload()); // a native mount can watch
     CHECK(provider.ShaderFileCount() == 3); // .hlsli and .txt are not shader entries
 
     Array<String> names;
@@ -95,8 +101,46 @@ TEST_CASE("file provider: manifest scan, stem/stage mapping, lazy fetch")
     CHECK_FALSE(provider.FetchSource(u8"tonemap", ShaderStage::Compute, source));
     CHECK_FALSE(provider.FetchSource(u8"nope", ShaderStage::Fragment, source));
 
+    // A folder the mount does not have -> NotFound (callers fall back to registered strings).
     FileShaderSourceProvider missing{DefaultAllocator()};
-    CHECK(missing.Initialize(u8"shader_provider_does_not_exist") == ErrorCode::NotFound);
+    CHECK(missing.Initialize(fs, u8"does_not_exist") == ErrorCode::NotFound);
+    CHECK(missing.ShaderFileCount() == 0);
+}
+
+TEST_CASE("file provider: a Shaders subfolder - mount-relative paths and folder-first includes")
+{
+    // The production shape: the data root is the mount, the shaders live in Shaders/ under it.
+    const std::filesystem::path root = "shader_provider_data";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "Shaders" / "nested");
+    WriteFile(root / "Shaders" / "tonemap.ps.hlsl", kRedPS);
+    WriteFile(root / "Shaders" / "common.hlsli", "// common\n");
+    WriteFile(root / "Shaders" / "nested" / "inner.hlsli", "// inner\n");
+    WriteFile(root / "stray.hlsli", "// outside the shader folder\n");
+
+    vfs::NativeFileSystem fs(u8"shader_provider_data", DefaultAllocator());
+    FileShaderSourceProvider provider{DefaultAllocator()};
+    REQUIRE(provider.Initialize(fs, u8"Shaders").IsOk());
+    CHECK(provider.Folder() == u8"Shaders");
+    CHECK(provider.ShaderFileCount() == 1);
+
+    String source;
+    CHECK(provider.FetchSource(u8"tonemap", ShaderStage::Fragment, source));
+    CHECK(source.AsView() == StringView(reinterpret_cast<const char8_t*>(kRedPS)));
+
+    // The include resolver half: a bare first-level include resolves inside the folder; a
+    // nested include arrives with the folder prefix already (DXC forms it from the includer's
+    // directory); a file outside the folder is NOT reachable bare; an absent one fails.
+    String inc;
+    CHECK(provider.LoadInclude(u8"common.hlsli", inc));
+    CHECK(inc.AsView() == u8"// common\n");
+    CHECK(provider.LoadInclude(u8"Shaders/nested/inner.hlsli", inc));
+    CHECK(inc.AsView() == u8"// inner\n");
+    CHECK(provider.LoadInclude(u8"nested/inner.hlsli", inc)); // folder-first also finds it
+    CHECK_FALSE(provider.LoadInclude(u8"absent.hlsli", inc));
+    CHECK_FALSE(provider.LoadInclude(u8"", inc));
+    // A mount-relative path outside the folder still resolves (the includer could be there).
+    CHECK(provider.LoadInclude(u8"stray.hlsli", inc));
 }
 
 TEST_CASE("shader system: pulls source from the provider; includes resolve; "
@@ -118,15 +162,15 @@ TEST_CASE("shader system: pulls source from the provider; includes resolve; "
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
+        vfs::NativeFileSystem fs(u8"shader_provider_sys", DefaultAllocator());
         FileShaderSourceProvider provider{DefaultAllocator()};
-        REQUIRE(provider.Initialize(u8"shader_provider_sys").IsOk());
+        REQUIRE(provider.Initialize(fs, u8"").IsOk());
 
         ShaderSystem ss(*compiler, device);
         ss.SetSourceProvider(&provider);
-        const StringView includePaths[] = {provider.RootDirectory()};
-        ss.SetIncludePaths(Span<const StringView>{includePaths, 1});
+        ss.SetIncludeResolver(&provider); // includes come through the mount, not the disk
 
-        // Never registered - the source comes from the provider, the #include from the root.
+        // Never registered - the source comes from the provider, the #include from the mount.
         rhi::ShaderModule* m = ss.GetVariant(u8"prov", ShaderStage::Fragment, ShaderFlags::None);
         CHECK(m != nullptr);
 
@@ -157,8 +201,9 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
 
     rhi::null::NullDevice device{DefaultAllocator()};
     {
+        vfs::NativeFileSystem fs(u8"shader_provider_reload", DefaultAllocator());
         FileShaderSourceProvider provider{DefaultAllocator()};
-        REQUIRE(provider.Initialize(u8"shader_provider_reload").IsOk());
+        REQUIRE(provider.Initialize(fs, u8"").IsOk());
 
         ShaderSystem ss(*compiler, device);
         ss.SetSourceProvider(&provider);
@@ -189,20 +234,21 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
     compiler->Destroy();
 }
 
-// Same reload flow with an ABSOLUTE root - mirrors how the RenderSubsystem passes the
-// compile-time engine shader dir (relative roots are the dist fallback).
-TEST_CASE("file provider: reload detection with an absolute root")
+// Same reload flow with an ABSOLUTE mount root and a Shaders subfolder - mirrors the
+// application's data mount (an absolute discovered data root).
+TEST_CASE("file provider: reload detection with an absolute root and a subfolder")
 {
     const std::filesystem::path root = std::filesystem::absolute("shader_provider_abs");
     std::filesystem::remove_all(root);
-    std::filesystem::create_directories(root);
-    WriteFile(root / "hot.ps.hlsl", kRedPS);
+    std::filesystem::create_directories(root / "Shaders");
+    WriteFile(root / "Shaders" / "hot.ps.hlsl", kRedPS);
 
-    FileShaderSourceProvider provider{DefaultAllocator()};
     const std::string rootStr = root.string();
-    REQUIRE(provider.Initialize(StringView(reinterpret_cast<const char8_t*>(rootStr.c_str()),
-                                           rootStr.size()))
-                .IsOk());
+    vfs::NativeFileSystem fs(
+        StringView(reinterpret_cast<const char8_t*>(rootStr.c_str()), rootStr.size()),
+        DefaultAllocator());
+    FileShaderSourceProvider provider{DefaultAllocator()};
+    REQUIRE(provider.Initialize(fs, u8"Shaders").IsOk());
 
     Array<String> changed;
     for (u32 i = 0; i < FileShaderSourceProvider::PollEveryNCalls * 2 + 1; ++i)
@@ -211,7 +257,7 @@ TEST_CASE("file provider: reload detection with an absolute root")
     }
     CHECK(changed.Size() == 0);
 
-    WriteFile(root / "hot.ps.hlsl", kGreenPS);
+    WriteFile(root / "Shaders" / "hot.ps.hlsl", kGreenPS);
     for (u32 i = 0; i < FileShaderSourceProvider::PollEveryNCalls * 2 + 1; ++i)
     {
         (void)provider.PollChanges(changed);

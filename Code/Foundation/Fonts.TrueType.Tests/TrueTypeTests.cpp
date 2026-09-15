@@ -3,13 +3,13 @@
 
 // Ported from Sedulous.Fonts.Tests TTF suites (loader/font/atlas/shaper).
 // Sedulous loaded system fonts from C:/Windows/Fonts; the engine bundles the
-// Roboto asset (copied from Sedulous/Assets) and points at it via the
-// BUILTIN_FONTS_ASSET_DIR compile definition.
+// Roboto asset (copied from Sedulous/Assets) under the data root's Assets/fonts.
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // the engine data root (FindDataRoot / DataPath)
 import foundation.fonts;
 import foundation.fonts.truetype;
 
@@ -19,11 +19,12 @@ using namespace foundation::fonts;
 namespace
 {
     // Build a UTF-8 path from the (ASCII) asset dir + a relative suffix.
+    // "<data root>/Assets/fonts" + rel (rel starts with '/'): the bundled fonts are found the way
+    // every executable finds engine data - the Data/.dataroot walk from the test binary.
     String AssetPath(const char* rel)
     {
-        String p;
-        for (const char* s = BUILTIN_FONTS_ASSET_DIR; *s != '\0'; ++s)
-            p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
+        String p = foundation::vfs::DataPath(foundation::vfs::FindDataRoot(), u8"Assets/fonts");
+        REQUIRE_FALSE(p.IsEmpty());
         for (const char* s = rel; *s != '\0'; ++s)
             p.PushBack(static_cast<utf8char>(static_cast<unsigned char>(*s)));
         return p;

@@ -8,11 +8,6 @@ target_link_libraries(Engine.Render
            Foundation::Texture.Resource Foundation::Resource Foundation::Script.Facades
            Foundation::Materials.PipelineCache Foundation::Profiler Foundation::Policy)
 
-# Dev builds resolve engine built-in shaders straight from the source tree (edit ->
-# hot reload); dists stage them as "Shaders" next to the executable (the fallback).
-target_compile_definitions(Engine.Render
-    PRIVATE BUILTIN_ENGINE_SHADER_DIR="${CMAKE_SOURCE_DIR}/Data/Shaders")
-
 target_sources(Engine.Render
     PRIVATE
         RenderComponentsImpl.cpp   # REFLECT_* bodies (see RenderComponents.cppm)

@@ -21,6 +21,3 @@ target_link_libraries(ScriptPlayground PRIVATE
     Foundation::Script.Facades Engine::Script
     Foundation::Policy)
 util_copy_sdl3_dll(ScriptPlayground)
-
-target_compile_definitions(ScriptPlayground PRIVATE
-    BUILTIN_PLAYGROUND_FONT="${CMAKE_SOURCE_DIR}/Data/Assets/fonts/roboto/Roboto-Regular.ttf")
