@@ -206,6 +206,22 @@ TEST_CASE("DynamicUniformRing: per-frame regions are disjoint; exhaustion + grow
     CHECK_FALSE(ring.AllocateRange(2).ok); // only 1 slot left in the region
     ring.EndFrame();
 
+    // Lazy mapping: a frame that allocates nothing never maps (no flush, no compare on an
+    // emulated mapping); the first allocation maps; EndFrame reports the written slot count.
+    ring.BeginFrame(2);
+    CHECK_FALSE(ring.IsMappedThisFrame());
+    CHECK(ring.FrameAllocatedSlots() == 0u);
+    ring.EndFrame(); // nothing to flush
+    ring.BeginFrame(2);
+    CHECK(ring.AllocateRange(2).ok);
+    CHECK(ring.IsMappedThisFrame());
+    CHECK(ring.FrameAllocatedSlots() == 2u);
+    ring.EndFrame();
+    CHECK_FALSE(ring.IsMappedThisFrame());
+    // Outside a frame nothing allocates (the region base is undefined).
+    CHECK_FALSE(ring.Allocate().ok);
+    CHECK(ring.SlotsPerFrame() == 4u);
+
     // Reserving more grows (new generation); a smaller reserve does not.
     REQUIRE(ring.Reserve(16));
     CHECK(ring.Generation() != gen0);

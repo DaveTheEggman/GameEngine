@@ -170,6 +170,98 @@ TEST_CASE("RenderFrame draws a one-cube view (extract -> sort -> mesh upload -> 
     CHECK(psoCache.Size() >= 1); // cached PSOs reused across frames
 }
 
+TEST_CASE("RenderFrame: the bone pool starts small and grows the frame that needs more")
+{
+    RenderHarness h;
+    if (!h.Init(256, 256))
+    {
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem,
+                              /*framesInFlight*/ 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&meshRenderer);
+    RenderFrame frame(DefaultAllocator(), h.device, registry, /*framesInFlight*/ 2);
+
+    // A minimal skinned mesh: one triangle, each vertex bound to one joint.
+    RefPtr<geometry::SkinnedMesh> skinned = MakeRef<geometry::SkinnedMesh>(DefaultAllocator());
+    for (u32 i = 0; i < 3; ++i)
+    {
+        skinned->vertices.PushBack(geometry::StaticMeshVertex{
+            Float3{static_cast<f32>(i), 0, 0}, Float3{0, 1, 0}, Float2{0, 0}, 0xFFFFFFFFu,
+            Float3{1, 0, 0}});
+        geometry::VertexSkinning s{};
+        s.joints[0] = static_cast<u16>(i);
+        s.weights = Float4{1, 0, 0, 0};
+        skinned->skinning.PushBack(s);
+    }
+    skinned->indices.Resize(3);
+    skinned->indices.AddTriangle(0, 1, 2);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+
+    // Distinct casters dedupe by their bone-matrix POINTER, so each gets its own palette.
+    constexpr u32 kBones = 64;
+    constexpr u32 kCasters = 40; // 40 x 64 x 2 (current + previous slab) = 5120 > 4096
+    Array<Array<Float4x4>> palettes;
+    palettes.Resize(kCasters);
+    ExtractedScene scene{DefaultAllocator()};
+    for (u32 c = 0; c < kCasters; ++c)
+    {
+        palettes[c].Resize(kBones, Float4x4::Identity());
+        MeshRenderData* rd = scene.Add<MeshRenderData>();
+        rd->world = Float4x4::Identity();
+        rd->mesh = skinned.Get();
+        rd->material = material.Get();
+        rd->category = RenderCategories::Opaque;
+        rd->boneMatrices = palettes[c].Data();
+        rd->boneCount = kBones;
+    }
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+
+    // Nothing is reserved before the first frame (PrepareFrame sizes the rings).
+    CHECK(meshRenderer.BonePoolSlotsPerFrame() == 0u);
+
+    // The first frame with 5120 matrices grows the pool to the next power of two - in the
+    // same frame, so nothing renders unskinned - and the next frame keeps it.
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+    frame.End();
+    CHECK(meshRenderer.BonePoolSlotsPerFrame() == 8192u);
+    frame.Begin(*h.encoder, 1);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+    frame.End();
+    CHECK(meshRenderer.BonePoolSlotsPerFrame() == 8192u);
+
+    // A scene that fits never grows it.
+    MeshRenderer small(h.device, shaderSystem, psoCache, materialSystem, 2);
+    REQUIRE(small.Initialize().IsOk());
+    RendererRegistry smallRegistry;
+    smallRegistry.Register(&small);
+    RenderFrame smallFrame(DefaultAllocator(), h.device, smallRegistry, 2);
+    ExtractedScene one{DefaultAllocator()};
+    MeshRenderData* rd = one.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = skinned.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+    rd->boneMatrices = palettes[0].Data();
+    rd->boneCount = kBones;
+    smallFrame.Begin(*h.encoder, 0);
+    smallFrame.AddView(one, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 256, 256);
+    smallFrame.End();
+    CHECK(small.BonePoolSlotsPerFrame() == MeshRenderer::InitialBonePoolSlots());
+}
+
 TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced draw")
 {
     RenderHarness h;

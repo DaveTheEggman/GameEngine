@@ -932,6 +932,109 @@ TEST_CASE("rhi.webgpu: persistent shadow flush skips byte-identical re-uploads")
     backend->Destroy();
 }
 
+TEST_CASE("rhi.webgpu: FlushRange uploads only the written window; Unmap then adds nothing")
+{
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    Queue* queue = device->GetQueue(QueueType::Graphics);
+
+    // A "ring": 1 KB, of which one frame writes a 64-byte window at offset 512.
+    BufferDesc ringDesc;
+    ringDesc.size = 1024;
+    ringDesc.usage = BufferUsage::Uniform | BufferUsage::CopySrc;
+    ringDesc.memory = MemoryLocation::CpuToGpu;
+    Buffer* ring = nullptr;
+    REQUIRE(device->CreateBuffer(ringDesc, ring).IsOk());
+    auto* webgpuRing = static_cast<webgpu::WebGpuBuffer*>(ring);
+
+    BufferDesc readbackDesc;
+    readbackDesc.size = 1024;
+    readbackDesc.usage = BufferUsage::CopyDst;
+    readbackDesc.memory = MemoryLocation::GpuToCpu;
+    Buffer* readback = nullptr;
+    REQUIRE(device->CreateBuffer(readbackDesc, readback).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    const auto submitCopy = [&](u64 frame)
+    {
+        CommandEncoder* encoder = nullptr;
+        REQUIRE(pool->CreateEncoder(encoder).IsOk());
+        encoder->CopyBufferToBuffer(ring, 0, readback, 0, 1024);
+        CommandBuffer* commandBuffer = encoder->Finish();
+        CommandBuffer* commandBuffers[] = {commandBuffer};
+        queue->Submit(Span<CommandBuffer* const>(commandBuffers, 1), fence, frame);
+        REQUIRE(fence->Wait(frame, ~0ull));
+        pool->DestroyEncoder(encoder);
+    };
+
+    // Frame 1: map, write the window, flush the window, unmap - exactly ONE upload, and the
+    // Unmap after a ranged flush must not add a whole-buffer one.
+    u8* mapped = static_cast<u8*>(ring->Map());
+    REQUIRE(mapped != nullptr);
+    MemSet(mapped + 512, 0x5A, 64);
+    ring->FlushRange(512, 64);
+    CHECK(webgpuRing->UploadCount() == 1u);
+    ring->Unmap();
+    CHECK(webgpuRing->UploadCount() == 1u);
+    submitCopy(1);
+    CHECK(webgpuRing->UploadCount() == 1u); // and the submit hook re-sends nothing
+    {
+        const u8* bytes = static_cast<const u8*>(readback->Map());
+        REQUIRE(bytes != nullptr);
+        CHECK(bytes[0] == 0x00);   // untouched bytes stay zero-initialized
+        CHECK(bytes[511] == 0x00);
+        CHECK(bytes[512] == 0x5A); // the window landed
+        CHECK(bytes[575] == 0x5A);
+        CHECK(bytes[576] == 0x00);
+        readback->Unmap();
+    }
+
+    // Frame 2: the same bytes flushed again are a skipped upload (the ranged compare).
+    mapped = static_cast<u8*>(ring->Map());
+    ring->FlushRange(512, 64);
+    ring->Unmap();
+    CHECK(webgpuRing->UploadCount() == 1u);
+
+    // Frame 3: a different window uploads once more and lands beside the first.
+    mapped = static_cast<u8*>(ring->Map());
+    MemSet(mapped + 128, 0xA5, 32);
+    ring->FlushRange(128, 32);
+    ring->Unmap();
+    CHECK(webgpuRing->UploadCount() == 2u);
+    submitCopy(2);
+    {
+        const u8* bytes = static_cast<const u8*>(readback->Map());
+        REQUIRE(bytes != nullptr);
+        CHECK(bytes[128] == 0xA5);
+        CHECK(bytes[159] == 0xA5);
+        CHECK(bytes[160] == 0x00);
+        CHECK(bytes[512] == 0x5A); // the earlier window survives a partial upload
+        readback->Unmap();
+    }
+
+    // A plain Map/Unmap with no writes still costs at most the whole-shadow compare, never an
+    // upload (the GPU holds these exact bytes).
+    (void)ring->Map();
+    ring->Unmap();
+    CHECK(webgpuRing->UploadCount() == 2u);
+
+    CHECK(!device->IsLost());
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyBuffer(readback);
+    device->DestroyBuffer(ring);
+    device->Destroy();
+    backend->Destroy();
+}
+
 TEST_CASE("rhi.webgpu: cube faces render + cube view samples correctly")
 {
     // The IBL/sky shape: render INTO per-face 2D views of a cube, then a pipeline

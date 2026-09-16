@@ -346,12 +346,17 @@ export namespace foundation::render
             return true;
         }
 
-        // Begin a frame: select the device ring slot's region + map it for writes.
+        // Begin a frame: select the device ring slot's region. The buffer is mapped LAZILY by
+        // the first allocation, so a ring nothing writes this frame never maps, flushes or
+        // compares anything - on a backend that emulates mapping with a CPU shadow (WebGPU)
+        // an unconditional map/unmap was a full-buffer compare per ring per frame, ~145 MB
+        // of it in a scene using none of the skinning/terrain/sprite/particle rings.
         void BeginFrame(u32 frameIndex)
         {
             m_frameBase = static_cast<u32>(frameIndex % m_framesInFlight) * m_slotsPerFrame;
             m_cursor = 0;
-            m_mapped = (m_buffer != nullptr) ? static_cast<u8*>(m_buffer->Map()) : nullptr;
+            m_mapped = nullptr;
+            m_inFrame = true;
         }
 
         // A run of `count` contiguous slots in this frame's region. `slotIndex` is the absolute
@@ -368,9 +373,18 @@ export namespace foundation::render
 
         [[nodiscard]] Range AllocateRange(u32 count)
         {
-            if (m_mapped == nullptr || count == 0 || m_cursor + count > m_slotsPerFrame)
+            if (!m_inFrame || m_buffer == nullptr || count == 0 ||
+                m_cursor + count > m_slotsPerFrame)
             {
                 return Range{};
+            }
+            if (m_mapped == nullptr)
+            {
+                m_mapped = static_cast<u8*>(m_buffer->Map()); // first write this frame
+                if (m_mapped == nullptr)
+                {
+                    return Range{};
+                }
             }
             const u32 slot = m_frameBase + m_cursor;
             m_cursor += count;
@@ -380,17 +394,31 @@ export namespace foundation::render
 
         [[nodiscard]] Range Allocate() { return AllocateRange(1); }
 
+        // End a frame: flush exactly the slots this frame wrote (a no-op on a coherent
+        // mapping; the emulated one uploads that window and nothing else), then unmap.
         void EndFrame()
         {
             if (m_mapped != nullptr && m_buffer != nullptr)
             {
+                if (m_cursor > 0)
+                {
+                    m_buffer->FlushRange(static_cast<u64>(m_frameBase) * m_slotSize,
+                                         static_cast<u64>(m_cursor) * m_slotSize);
+                }
                 m_buffer->Unmap();
             }
             m_mapped = nullptr;
+            m_inFrame = false;
         }
+
+        /// Slots allocated so far this frame (0 outside a frame or when untouched).
+        [[nodiscard]] u32 FrameAllocatedSlots() const noexcept { return m_cursor; }
+        /// Whether this frame's first allocation has mapped the buffer yet.
+        [[nodiscard]] bool IsMappedThisFrame() const noexcept { return m_mapped != nullptr; }
 
         [[nodiscard]] rhi::Buffer* Buffer() const noexcept { return m_buffer; }
         [[nodiscard]] u64 SlotSize() const noexcept { return m_slotSize; }
+        [[nodiscard]] u32 SlotsPerFrame() const noexcept { return m_slotsPerFrame; }
         [[nodiscard]] u64 ByteCapacity() const noexcept
         {
             return static_cast<u64>(m_framesInFlight) * static_cast<u64>(m_slotsPerFrame) *
@@ -424,6 +452,7 @@ export namespace foundation::render
         u32 m_frameBase = 0;
         u32 m_cursor = 0;
         u32 m_generation = 0;
+        bool m_inFrame = false;
     };
 
 } // namespace foundation::render

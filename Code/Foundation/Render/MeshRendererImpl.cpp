@@ -241,7 +241,7 @@ namespace foundation::render
         if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
-            !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(kMaxBoneMatrices))
+            !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(m_boneSlotsWanted))
         {
             return;
         }
@@ -270,6 +270,31 @@ namespace foundation::render
         m_instShareCache
             .Clear(); // per-frame: the camera prepass fills it, the forward reuses it (ring offsets are frame-scoped)
         m_ready = true;
+    }
+
+    // Grow the bone pool to hold `needed` matrices per frame: the next power of two, capped.
+    // Safe mid-frame ONLY here, before this frame's block is allocated: the ring has not mapped
+    // yet (lazy), the old buffers retire through the queue, and the mirror's generation bump
+    // makes every set-0 bind group rebuild at record time.
+    bool MeshRenderer::GrowBonePool(u32 needed)
+    {
+        if (needed > kMaxBoneMatrices)
+        {
+            return false;
+        }
+        u32 wanted = m_boneSlotsWanted < kInitialBoneMatrices ? kInitialBoneMatrices
+                                                              : m_boneSlotsWanted;
+        while (wanted < needed)
+        {
+            wanted = (wanted >= (kMaxBoneMatrices >> 1)) ? kMaxBoneMatrices : wanted * 2u;
+        }
+        m_boneSlotsWanted = wanted;
+        if (!m_boneRing.Reserve(wanted))
+        {
+            return false;
+        }
+        m_boneRing.BeginFrame(m_frameIndex); // the region base moved with the capacity
+        return EnsureBoneDevice();
     }
 
     bool MeshRenderer::EnsureBoneDevice()
@@ -409,6 +434,11 @@ namespace foundation::render
         {
             m_boneStart.Clear();
             return;
+        }
+        if (total > m_boneRing.SlotsPerFrame() && !GrowBonePool(total))
+        {
+            m_boneStart.Clear();
+            return; // over the cap (or allocation failed): this frame's casters render unskinned
         }
         const DynamicUniformRing::Range block = m_boneRing.AllocateRange(total);
         if (!block.ok)

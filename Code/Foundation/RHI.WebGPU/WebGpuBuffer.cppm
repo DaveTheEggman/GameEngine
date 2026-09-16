@@ -81,6 +81,7 @@ export namespace foundation::rhi::webgpu
             if (!m_shadow.IsEmpty())
             {
                 m_shadowOutstanding = true; // flushed on Unmap AND before every submit
+                m_rangeFlushed = false;     // a fresh mapping: Unmap flushes whole unless ranged
                 return m_shadow.Data();
             }
             if (desc.memory != MemoryLocation::GpuToCpu)
@@ -148,8 +149,14 @@ export namespace foundation::rhi::webgpu
         {
             if (!m_shadow.IsEmpty())
             {
-                UploadShadowIfChanged();
+                // A mapping that flushed its writes by range has nothing left to send: the
+                // whole-shadow compare would only re-read every byte to learn that.
+                if (!m_rangeFlushed)
+                {
+                    UploadShadowIfChanged();
+                }
                 m_shadowOutstanding = false; // paired callers pay exactly one upload
+                m_rangeFlushed = false;
                 return;
             }
             if (m_readMapped)
@@ -157,6 +164,43 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuBufferUnmap(m_buffer);
                 m_readMapped = false;
             }
+        }
+
+        /// The ranged half of the emulation: upload exactly [offset, offset+size) of the
+        /// shadow (4-byte aligned outward, as WriteBuffer requires), skipping it when the GPU
+        /// already holds those bytes. Marks the mapping as range-flushed, so neither Unmap nor
+        /// the submit hook re-walks the whole shadow - the caller owns every write from here.
+        void FlushRange(u64 offset, u64 size) override
+        {
+            if (m_shadow.IsEmpty() || size == 0)
+            {
+                return;
+            }
+            const u64 total = static_cast<u64>(m_shadow.Size());
+            u64 begin = offset & ~3ull;
+            u64 end = (offset + size + 3ull) & ~3ull;
+            if (begin >= total)
+            {
+                return;
+            }
+            end = end > total ? total : end;
+            const usize first = static_cast<usize>(begin);
+            const usize count = static_cast<usize>(end - begin);
+            if (m_lastUploaded.Size() != m_shadow.Size())
+            {
+                // First upload through this buffer: the GPU side is zero-initialized, and so is
+                // an untouched shadow, so a zeroed ledger is an honest picture of it.
+                m_lastUploaded.Resize(m_shadow.Size());
+            }
+            m_rangeFlushed = true;
+            m_shadowOutstanding = false;
+            if (MemCompare(m_lastUploaded.Data() + first, m_shadow.Data() + first, count) == 0)
+            {
+                return;
+            }
+            m_api->wgpuQueueWriteBuffer(m_queue, m_buffer, begin, m_shadow.Data() + first, count);
+            MemCopy(m_lastUploaded.Data() + first, m_shadow.Data() + first, count);
+            ++m_uploadCount;
         }
 
         /// Queue-submit hook: re-upload the shadow while a mapping is left open
@@ -213,6 +257,7 @@ export namespace foundation::rhi::webgpu
         Array<u8> m_shadow;
         Array<u8> m_lastUploaded; // the bytes last uploaded; the flush skips when unchanged
         bool m_shadowOutstanding = false;
+        bool m_rangeFlushed = false; // this mapping's writes went through FlushRange
         bool m_readMapped = false;
         u64 m_uploadCount = 0;
     };

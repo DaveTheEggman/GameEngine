@@ -265,13 +265,15 @@ export namespace foundation::render
         static constexpr u32 kMaxShadowPasses = 256;
         static constexpr u32 kMaxLocalShadows =
             kMaxLocalShadowEntries; // frame-global entry cap (shared with the pipeline)
-        static constexpr u32 kMaxBoneMatrices =
-            1u << 20; // GPU skinning bone-matrix pool slots per frame.
-                      // The current arch re-uploads each caster's bones
-                      // PER PASS (forward + 4 CSM cascades + local), so
-                      // usage is ~N*bones*(5+); sized big so the stress
-                      // test doesn't overflow (the persistent-buffer
-                      // rewrite uploads once, shared across passes).
+        // GPU skinning bone-matrix pool: the staging ring and its VRAM mirror start at
+        // kInitialBoneMatrices slots per frame and GROW (power of two, up to the cap) the first
+        // frame that needs more - the pool is empty in any scene without skinning, and reserving
+        // the cap up front cost 128 MB of staging plus 128 MB of VRAM unconditionally. Growth
+        // happens in UploadSkinning before anything has referenced this frame's ring or mirror
+        // (the set-0 bind groups check the mirror's generation at record time), so the frame that
+        // grows still skins everything. The cap is what the stress test needs at once.
+        static constexpr u32 kInitialBoneMatrices = 1u << 12;
+        static constexpr u32 kMaxBoneMatrices = 1u << 20;
 
         // Per-view LOD selection: projected-sphere coverage of the item's
         // world bounds against THIS ctx's camera (perspective divides by view depth; ortho is
@@ -280,6 +282,13 @@ export namespace foundation::render
         // band remembered per (view pointer, item) - so the depth prepass and forward pass
         // of one view always agree within a frame. Returns 0 for chainless meshes.
         [[nodiscard]] u32 SelectLod(const RenderRecordContext& ctx, const MeshRenderData& md);
+
+        bool GrowBonePool(u32 needed); // impl unit; see kInitialBoneMatrices
+    public:
+        /// Bone-matrix slots the pool currently holds per frame (grows on demand; tests pin it).
+        [[nodiscard]] u32 BonePoolSlotsPerFrame() const noexcept { return m_boneRing.SlotsPerFrame(); }
+        [[nodiscard]] static constexpr u32 InitialBonePoolSlots() noexcept { return kInitialBoneMatrices; }
+    private:
 
         void ResolveSingle(const RenderRecordContext& ctx, u32 viewOffset,
                            rhi::BindGroup* clusterBG, const MeshRenderData& md, const GpuMesh& mesh,
@@ -445,6 +454,7 @@ export namespace foundation::render
         DynamicUniformRing m_lightRing;
         DynamicUniformRing m_localShadowRing; // per-frame GpuLocalShadow entries (spot/point atlas)
         DynamicUniformRing m_boneRing; // bone-matrix STAGING ring (CpuToGpu; written once/frame)
+        u32 m_boneSlotsWanted = kInitialBoneMatrices; // per-frame slots the pool is sized for
         rhi::Buffer* m_boneDevice = nullptr; // GpuOnly device mirror the VS reads (set-0 t4 SRV)
         u64 m_boneDeviceBytes = 0;
         u32 m_boneDeviceGen = 0; // bumps on (re)create -> invalidates set-0 bind groups

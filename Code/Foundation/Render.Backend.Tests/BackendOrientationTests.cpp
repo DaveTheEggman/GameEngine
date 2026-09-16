@@ -317,3 +317,75 @@ TEST_CASE("orientation: WebGPU matches Vulkan at every stage, cube on top, plane
         webgpu->Destroy();
     }
 }
+
+// The per-frame rings on an EMULATED mapping (WebGPU keeps a CPU shadow and compares it
+// against the last upload on Unmap). Before the lazy map + ranged flush, every ring paid a
+// full-buffer compare per frame whether or not anything wrote it - ~145 MB per frame in a
+// scene using none of the skinning/terrain/sprite/particle rings. Pinned through the
+// buffer's upload counter: an untouched ring never uploads, a written ring uploads exactly its
+// window once per frame, and an unchanged re-write is skipped by the ranged compare.
+TEST_CASE("rings: an untouched DynamicUniformRing never flushes; a used one flushes its window")
+{
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
+    rhi::Device* device = webgpu != nullptr ? testsupport::MakeTestDevice(webgpu) : nullptr;
+    if (device == nullptr)
+    {
+        MESSAGE("WebGPU unavailable - ring flush probe skipped");
+        if (webgpu != nullptr)
+        {
+            webgpu->Destroy();
+        }
+        return;
+    }
+    {
+        // 2 frames x 1024 slots x 256 B = 512 KB: big enough that a whole-buffer compare would
+        // be the wrong shape, small enough for a probe.
+        DynamicUniformRing ring(*device, 2, 256, rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst,
+                                u8"probe.ring");
+        REQUIRE(ring.Reserve(1024));
+        auto* buffer = static_cast<rhi::webgpu::WebGpuBuffer*>(ring.Buffer());
+        REQUIRE(buffer != nullptr);
+
+        // Ten idle frames: nothing maps, nothing uploads.
+        for (u32 f = 0; f < 10; ++f)
+        {
+            ring.BeginFrame(f);
+            CHECK_FALSE(ring.IsMappedThisFrame());
+            ring.EndFrame();
+        }
+        CHECK(buffer->UploadCount() == 0u);
+
+        // One written slot per frame: exactly one upload per frame (the window), not a
+        // whole-buffer compare deciding it.
+        for (u32 f = 0; f < 4; ++f)
+        {
+            ring.BeginFrame(f);
+            DynamicUniformRing::Range r = ring.Allocate();
+            REQUIRE(r.ok);
+            MemSet(r.ptr, static_cast<int>(0x10 + f), 256);
+            ring.EndFrame();
+            CHECK(buffer->UploadCount() == f + 1u);
+        }
+
+        // Re-writing a region with the bytes it already holds is a skipped upload. Two
+        // frames in flight: frame 4 lands in region 0, which frame 2 last wrote (0x12).
+        ring.BeginFrame(4);
+        DynamicUniformRing::Range same = ring.Allocate();
+        REQUIRE(same.ok);
+        MemSet(same.ptr, 0x12, 256);
+        ring.EndFrame();
+        CHECK(buffer->UploadCount() == 4u);
+        // ...and a real change to that region uploads again.
+        ring.BeginFrame(6);
+        DynamicUniformRing::Range changed = ring.Allocate();
+        REQUIRE(changed.ok);
+        MemSet(changed.ptr, 0x77, 256);
+        ring.EndFrame();
+        CHECK(buffer->UploadCount() == 5u);
+        CHECK(!device->IsLost());
+    }
+    device->WaitIdle();
+    device->Destroy();
+    webgpu->Destroy();
+}

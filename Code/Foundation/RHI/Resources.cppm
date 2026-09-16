@@ -32,6 +32,18 @@ export namespace foundation::rhi
         /// Map the buffer for CPU access. Returns nullptr if not mappable.
         [[nodiscard]] virtual void* Map() = 0;
         virtual void Unmap() = 0;
+
+        /// Make [offset, offset+size) of a mapped CpuToGpu buffer visible to the GPU. A real
+        /// coherent mapping needs nothing (this default); a backend that EMULATES mapping with
+        /// a CPU shadow (WebGPU) uploads exactly that range instead of comparing and re-sending
+        /// the whole shadow on Unmap. Contract: a caller that uses FlushRange flushes EVERY
+        /// range it wrote during the mapping; Unmap then only closes the mapping. Writers that
+        /// touch a small window of a large buffer (the per-frame rings) want this.
+        virtual void FlushRange(u64 offset, u64 size)
+        {
+            (void)offset;
+            (void)size;
+        }
     };
 
     /// GPU texture (1D/2D/3D, with mip levels and array layers).
