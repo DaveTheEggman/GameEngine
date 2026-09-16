@@ -282,40 +282,52 @@ export namespace foundation::rhi::webgpu
         return WGPUCompareFunction_Always;
     }
 
-    /// True for formats the internal blit pass can render to (2D color targets):
-    /// excludes depth/stencil, block-compressed, and formats WebGPU cannot render.
+    /// True for formats the internal blit pass can render to (2D color targets): the
+    /// ALLOWLIST of WebGPU's renderable color formats. Spelled as an allowlist on purpose -
+    /// the old exclusion list forgot ASTC (block-compressed, never renderable) and the 8-bit
+    /// snorm formats, so a mip-chained texture in one of them had RenderAttachment widened
+    /// onto it and failed at creation. A format this does not name is not blit-capable.
     [[nodiscard]] inline bool IsBlitCapableFormat(TextureFormat format)
     {
         switch (format)
         {
-        case TextureFormat::Undefined:
-        case TextureFormat::Depth16Unorm:
-        case TextureFormat::Depth24Plus:
-        case TextureFormat::Depth24PlusStencil8:
-        case TextureFormat::Depth32Float:
-        case TextureFormat::Depth32FloatStencil8:
-        case TextureFormat::Stencil8:
-        case TextureFormat::BC1RGBAUnorm:
-        case TextureFormat::BC1RGBAUnormSrgb:
-        case TextureFormat::BC2RGBAUnorm:
-        case TextureFormat::BC2RGBAUnormSrgb:
-        case TextureFormat::BC3RGBAUnorm:
-        case TextureFormat::BC3RGBAUnormSrgb:
-        case TextureFormat::BC4RUnorm:
-        case TextureFormat::BC4RSnorm:
-        case TextureFormat::BC5RGUnorm:
-        case TextureFormat::BC5RGSnorm:
-        case TextureFormat::BC6HRGBUfloat:
-        case TextureFormat::BC6HRGBFloat:
-        case TextureFormat::BC7RGBAUnorm:
-        case TextureFormat::BC7RGBAUnormSrgb:
-        case TextureFormat::RGBA16Unorm:
-        case TextureFormat::RGBA16Snorm:
-        case TextureFormat::RGB9E5Float:
-        case TextureFormat::RG11B10Float:
-            return false;
-        default:
+        case TextureFormat::R8Unorm:
+        case TextureFormat::R8Uint:
+        case TextureFormat::R8Sint:
+        case TextureFormat::R16Uint:
+        case TextureFormat::R16Sint:
+        case TextureFormat::R16Float:
+        case TextureFormat::RG8Unorm:
+        case TextureFormat::RG8Uint:
+        case TextureFormat::RG8Sint:
+        case TextureFormat::R32Uint:
+        case TextureFormat::R32Sint:
+        case TextureFormat::R32Float:
+        case TextureFormat::RG16Uint:
+        case TextureFormat::RG16Sint:
+        case TextureFormat::RG16Float:
+        case TextureFormat::RGBA8Unorm:
+        case TextureFormat::RGBA8UnormSrgb:
+        case TextureFormat::RGBA8Uint:
+        case TextureFormat::RGBA8Sint:
+        case TextureFormat::BGRA8Unorm:
+        case TextureFormat::BGRA8UnormSrgb:
+        case TextureFormat::RGB10A2Unorm:
+        case TextureFormat::RGB10A2Uint:
+        case TextureFormat::RG32Uint:
+        case TextureFormat::RG32Sint:
+        case TextureFormat::RG32Float:
+        case TextureFormat::RGBA16Uint:
+        case TextureFormat::RGBA16Sint:
+        case TextureFormat::RGBA16Float:
+        case TextureFormat::RGBA32Uint:
+        case TextureFormat::RGBA32Sint:
+        case TextureFormat::RGBA32Float:
             return true;
+        default:
+            // Depth/stencil, every BC and ASTC block format, the 8-bit snorm trio,
+            // RGBA16Unorm/Snorm, RGB9E5 and RG11B10 (feature-gated), and Undefined.
+            return false;
         }
     }
 

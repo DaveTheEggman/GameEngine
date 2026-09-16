@@ -142,6 +142,77 @@ TEST_CASE("rhi.webgpu: a missing sidecar fails with NotFound, not a crash")
     }
 }
 
+TEST_CASE("rhi.webgpu: blit-capable = WebGPU-renderable color formats only (no ASTC/BC/snorm)")
+{
+    // No device needed: the predicate decides whether texture creation widens usage to
+    // RenderAttachment for a mip chain. Every block-compressed format (BC AND ASTC), every
+    // depth/stencil format and the 8-bit snorm trio must say no, or creation fails.
+    for (u32 raw = static_cast<u32>(TextureFormat::Undefined);
+         raw <= static_cast<u32>(TextureFormat::ASTC8x8UnormSrgb); ++raw)
+    {
+        const TextureFormat f = static_cast<TextureFormat>(raw);
+        const bool capable = webgpu::IsBlitCapableFormat(f);
+        if (IsCompressed(f) || IsDepthFormat(f) || f == TextureFormat::Stencil8 ||
+            f == TextureFormat::Undefined)
+        {
+            CHECK_MESSAGE(!capable, "format ", raw, " must not be blit-capable");
+        }
+    }
+    // ASTC was the fall-through the exclusion list missed; BC was always excluded.
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::ASTC4x4Unorm));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::ASTC8x8UnormSrgb));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::BC7RGBAUnormSrgb));
+    // Not renderable in WebGPU core either.
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::R8Snorm));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::RG8Snorm));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::RGBA8Snorm));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::RGBA16Unorm));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::RGB9E5Float));
+    CHECK_FALSE(webgpu::IsBlitCapableFormat(TextureFormat::RG11B10Float));
+    // The renderable set the mip blit actually targets.
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::RGBA8Unorm));
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::RGBA8UnormSrgb));
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::BGRA8UnormSrgb));
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::RGBA16Float));
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::R32Float));
+    CHECK(webgpu::IsBlitCapableFormat(TextureFormat::RGB10A2Unorm));
+
+    // On a live device: a mip-chained texture in a non-blit-capable format must still be
+    // CREATABLE (usage not widened) and GenerateMipmaps must be a clean no-op on it.
+    Backend* backend = TryCreateBackend();
+    if (backend == nullptr)
+    {
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    {
+        TextureDesc desc;
+        desc.format = TextureFormat::RGBA8Snorm;
+        desc.width = 16;
+        desc.height = 16;
+        desc.mipLevelCount = 3;
+        desc.usage = TextureUsage::Sampled | TextureUsage::CopyDst;
+        Texture* texture = nullptr;
+        REQUIRE(device->CreateTexture(desc, texture).IsOk());
+        CommandPool* pool = nullptr;
+        REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+        CommandEncoder* encoder = nullptr;
+        REQUIRE(pool->CreateEncoder(encoder).IsOk());
+        encoder->GenerateMipmaps(texture); // not blit-capable: no-op, no validation error
+        CommandBuffer* commandBuffers[] = {encoder->Finish()};
+        device->GetQueue(QueueType::Graphics)
+            ->Submit(Span<CommandBuffer* const>(commandBuffers, 1));
+        device->WaitIdle();
+        CHECK(!device->IsLost());
+        device->DestroyCommandPool(pool);
+        device->DestroyTexture(texture);
+    }
+    device->WaitIdle();
+    device->Destroy();
+    backend->Destroy();
+}
+
 TEST_CASE("rhi.webgpu: resources - buffer map emulation, texture + view, sampler, WGSL shader")
 {
     Backend* backend = TryCreateBackend();
