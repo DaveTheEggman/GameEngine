@@ -127,6 +127,12 @@ export namespace engine::render
         // Register an external Renderer (borrowed - caller owns it); returns its dispatch id to stamp on
         // the subsystem's render-data. The pipeline drives PrepareFrame/Resolve/FinishFrame registry-wide.
         u16 RegisterRenderer(Renderer& renderer);
+        /// The built-in MeshRenderer's registration id (what mesh-shaped data routes to). Producers
+        /// of MeshRenderData outside the extractor stamp THIS, never a literal 0.
+        [[nodiscard]] u16 MeshRendererId() const noexcept
+        {
+            return m_meshRenderer ? m_meshRenderer->RendererId() : 0;
+        }
         // Register a render-data provider FOR a scene (borrowed). Invoked during that scene's extraction.
         // The provider interface is scene-free; the scene binding lives here. Auto-cleared on scene destroy.
         void RegisterProvider(scene::Scene& scene, IRenderDataProvider& provider);

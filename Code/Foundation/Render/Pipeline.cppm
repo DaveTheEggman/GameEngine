@@ -702,6 +702,10 @@ export namespace foundation::render
         [[nodiscard]] const rendergraph::RenderGraph& Graph() const noexcept { return m_graph; }
 
         [[nodiscard]] usize ViewCount() const noexcept { return m_views.ActiveCount(); }
+        /// Diagnostics/tests: this scene's shadow caster count and how many of them are skinned
+        /// (animated) casters, from the last frame that built the scene's shadow context.
+        [[nodiscard]] usize ShadowCasterCount(const ExtractedScene* scene) const noexcept;
+        [[nodiscard]] usize AnimatedShadowCasterCount(const ExtractedScene* scene) const noexcept;
 
     private:
         RendererRegistry* m_registry;

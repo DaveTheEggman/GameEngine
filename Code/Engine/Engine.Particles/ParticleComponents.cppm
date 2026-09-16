@@ -160,6 +160,8 @@ export namespace engine::particles
 
         // The dispatch id of the ParticleRenderer (set by the ParticleSubsystem after it registers it).
         void SetBillboardRendererId(u16 id) noexcept { m_billboardRendererId = id; }
+        /// The mesh renderer's registration id, for the instanced-mesh sets (never assume 0).
+        void SetMeshRendererId(u16 id) noexcept { m_meshRendererId = id; }
 
         /// The camera position the alpha sort and the trail ribbons work from: the scene's
         /// primary camera as of the last tick (the origin until one exists).
@@ -513,7 +515,7 @@ export namespace engine::particles
             const bool perSubmesh = (matCache != nullptr) && (matCache->Size() > 1);
             rd->submeshMaterials = perSubmesh ? matCache->Data() : nullptr;
             rd->submeshMaterialCount = perSubmesh ? static_cast<u32>(matCache->Size()) : 0u;
-            rd->rendererId = 0; // the mesh renderer (id 0)
+            rd->rendererId = m_meshRendererId; // the mesh renderer, by its real registration id
             // Category from the material's blend mode (like regular meshes + Sedulous): an opaque material
             // stays Opaque; a transparent/additive one routes to the Transparent pass (ResolveMultiMesh
             // still instances it - the set sorts as one item, fine for additive / approximate for alpha).
@@ -752,6 +754,7 @@ export namespace engine::particles
         Array<i32> m_sortOrder;   // back-to-front particle order (alpha systems)
         Array<f32> m_sortDist;    // squared camera distance per particle (sort key)
         u16 m_billboardRendererId = 0;
+        u16 m_meshRendererId = 0; // set by the subsystem from the render subsystem
         Array<UniquePtr<Array<ParticleBillboardInstance>>> m_scratch;
         usize m_scratchUsed = 0;
         Array<UniquePtr<Array<Float4x4>>> m_xformScratch; // mesh-particle world transforms

@@ -147,15 +147,29 @@ export namespace foundation::render
     // Base for a unit of renderable work. Arena-allocated, trivially destructible, valid one
     // frame. Dispatch is by `category` (not virtual) - the registered `Renderer` knows the
     // concrete subclass and static_casts, so there is no vtable.
+    /// What a RenderData IS, for the few frame-level passes that must read past the base fields
+    /// (the shadow caster list reads skinned-caster bones). A one-byte answer with no RTTI: the
+    /// subtype's constructor stamps it, so a subclass of MeshRenderData inherits Mesh. This is
+    /// the ONLY sanctioned way to downcast a RenderData outside its own renderer - never the
+    /// renderer id, which is a registration-order value an external renderer can hold too.
+    enum class RenderDataKind : u8
+    {
+        Generic = 0, // base fields only (terrain, sprites, particles, any external renderer)
+        Mesh,        // MeshRenderData or a subclass (MultiMeshRenderData)
+    };
+
     struct RenderData
     {
         RenderCategory category = RenderCategories::Opaque;
         // Which renderer draws this item - the per-item dispatch key (ezEngine-style), so several
         // renderers can share a category (e.g. sprites + transparent meshes both blended) and still be
         // routed correctly. Its value is the renderer's registration id (RendererRegistry assigns them in
-        // order); the DEFAULT 0 is the first-registered renderer (the MeshRenderer), so existing mesh data
-        // needs no change. Non-mesh producers (sprites, particles) set this to their renderer's id.
+        // order); the DEFAULT 0 is the first-registered renderer (the MeshRenderer in the standard
+        // subsystem, so mesh data needs no change) - a DISPATCH default, not a type: a frame that
+        // registers another renderer first routes id 0 there. Non-mesh producers set their renderer's
+        // id. Never infer the concrete type from this id; read `kind`.
         u16 rendererId = 0;
+        RenderDataKind kind = RenderDataKind::Generic;
         // View-space depth sort center (world-space) + a batch-clustering key, read GENERICALLY by the
         // draw-list builder (it no longer downcasts to a concrete type). worldCenter drives the depth sort;
         // sortBatchKey folds (mesh,material)-like identity into the sort so same-state draws stay contiguous
@@ -173,6 +187,7 @@ export namespace foundation::render
     // the producer may set (e.g. a packed entity handle) for picking - meaningless to the core.
     struct MeshRenderData : RenderData
     {
+        MeshRenderData() noexcept { kind = RenderDataKind::Mesh; } // subclasses inherit the stamp
         Float4x4 world = Float4x4::Identity();
         // worldCenter + worldRadius live on the RenderData base now (generic depth sort + cull); see them there.
         Color color = Color{1.0f, 1.0f, 1.0f, 1.0f}; // per-instance tint

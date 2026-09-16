@@ -58,6 +58,7 @@ export namespace engine::particles
             mgr->SetBillboardRendererId(m_billboardRendererId);
             if (m_render != nullptr)
             {
+                mgr->SetMeshRendererId(m_render->MeshRendererId());
                 m_render->RegisterProvider(scene, *mgr);
             }
         }

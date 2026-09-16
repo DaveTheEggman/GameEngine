@@ -852,14 +852,16 @@ namespace foundation::render
             {
                 continue;
             }
-            // The caster list is heterogeneous: any renderer can produce Opaque/Masked casters (terrain,
-            // not just meshes). Read only the GENERIC base fields here (worldCenter/worldRadius +
-            // sortBatchKey) - NEVER downcast to MeshRenderData blindly. The one mesh-specific need,
-            // skinned-caster spheres (for per-tile static-atlas invalidation), is gated on the mesh
-            // renderer's id: rendererId 0 is the MeshRenderer by contract (see RenderData::rendererId),
-            // and only it produces bone data; other Opaque producers carry none.
-            u32 stateBits = data->sortBatchKey & ((1u << kSortStateBits) - 1);
-            if (data->rendererId == 0)
+            // The caster list is heterogeneous: any renderer - terrain, an external one - can produce
+            // Opaque/Masked casters. Read only the GENERIC base fields (worldCenter/worldRadius +
+            // sortBatchKey, which every producer sets at extraction with the same BatchKey the
+            // draw-list builder sorts by - no recompute). The one mesh-specific need, skinned-caster
+            // spheres (per-tile static-atlas invalidation), asks the data what it IS: `kind`, stamped
+            // by MeshRenderData's constructor. It used to gate on rendererId == 0, which is only the
+            // first-REGISTERED renderer - the terrain probe registers terrain alone, so that read
+            // bones out of terrain fields (found by the Beef port's checked downcast).
+            const u32 stateBits = data->sortBatchKey & ((1u << kSortStateBits) - 1);
+            if (data->kind == RenderDataKind::Mesh)
             {
                 const auto* md = static_cast<const MeshRenderData*>(data);
                 // Animated (skinned) casters deform every frame: remember each one's world sphere so only
@@ -868,10 +870,6 @@ namespace foundation::render
                 {
                     ctx.animatedSpheres.PushBack(Sphere{md->worldCenter, md->worldRadius});
                 }
-                const usize m = reinterpret_cast<usize>(md->mesh),
-                            n = reinterpret_cast<usize>(md->material);
-                stateBits = static_cast<u32>(
-                    (((m >> 4) * 1099511628211ull + (n >> 4)) & ((1u << kSortStateBits) - 1)));
             }
             ctx.casters.PushBack(DrawItem{MakeSortKey(data->category, stateBits, 0u), data});
         }
@@ -887,6 +885,30 @@ namespace foundation::render
             ctx.casterBounds.PushBack(Float4{it.data->worldCenter.x, it.data->worldCenter.y,
                                              it.data->worldCenter.z, it.data->worldRadius});
         }
+    }
+
+    usize RenderFrame::ShadowCasterCount(const ExtractedScene* scene) const noexcept
+    {
+        for (const UniquePtr<SceneShadowCtx>& ctx : m_sceneShadowPool)
+        {
+            if (ctx->scene == scene && scene != nullptr)
+            {
+                return ctx->casters.Size();
+            }
+        }
+        return 0;
+    }
+
+    usize RenderFrame::AnimatedShadowCasterCount(const ExtractedScene* scene) const noexcept
+    {
+        for (const UniquePtr<SceneShadowCtx>& ctx : m_sceneShadowPool)
+        {
+            if (ctx->scene == scene && scene != nullptr)
+            {
+                return ctx->animatedSpheres.Size();
+            }
+        }
+        return 0;
     }
 
     u64 RenderFrame::StaticCasterSignature(const ExtractedScene* scene) const

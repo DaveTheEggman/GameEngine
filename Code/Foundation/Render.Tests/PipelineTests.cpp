@@ -262,6 +262,126 @@ TEST_CASE("RenderFrame: the bone pool starts small and grows the frame that need
     CHECK(small.BonePoolSlotsPerFrame() == MeshRenderer::InitialBonePoolSlots());
 }
 
+namespace
+{
+    // An external renderer's Opaque data: base fields + a payload that is NOT a MeshRenderData.
+    // Every byte past the base is 0xFF, so a blind MeshRenderData downcast would read a non-null
+    // boneMatrices with a huge boneCount and file it as an animated caster.
+    struct JunkRenderData : RenderData
+    {
+        JunkRenderData() { MemSet(junk, 0xFF, sizeof(junk)); }
+        u8 junk[512];
+    };
+
+    // A minimal external renderer that claims Opaque and draws nothing.
+    class InertOpaqueRenderer final : public Renderer
+    {
+    public:
+        [[nodiscard]] Span<const RenderCategory> SupportedCategories() const override
+        {
+            static const RenderCategory kCats[] = {RenderCategories::Opaque};
+            return Span<const RenderCategory>{kCats, 1};
+        }
+        void Resolve(const RenderRecordContext&, Span<const DrawItem>, Array<ResolvedDraw>&) override
+        {
+        }
+        void ResolveDepthOnly(const RenderRecordContext&, Span<const DrawItem>,
+                              Array<ResolvedDraw>&) override
+        {
+        }
+    };
+}
+
+TEST_CASE("RenderData::kind says what an item is; the caster list never downcasts by renderer id")
+{
+    // The stamp: the base is Generic, MeshRenderData and everything derived from it is Mesh.
+    CHECK(RenderData{}.kind == RenderDataKind::Generic);
+    CHECK(MeshRenderData{}.kind == RenderDataKind::Mesh);
+    CHECK(MultiMeshRenderData{}.kind == RenderDataKind::Mesh);
+    CHECK(JunkRenderData{}.kind == RenderDataKind::Generic);
+
+    RenderHarness h;
+    if (!h.Init(128, 128))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*h.compiler, h.device);
+    WireEngineShaders(shaderSystem);
+    materials::PipelineStateCache psoCache(shaderSystem, h.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(h.device).IsOk());
+    MeshRenderer meshRenderer(h.device, shaderSystem, psoCache, materialSystem, 2);
+    REQUIRE(meshRenderer.Initialize().IsOk());
+    // The external renderer registers FIRST, so it - not the mesh renderer - holds id 0. That is
+    // the terrain probe's shape (it registers terrain alone) and any embedding that adds its own
+    // renderer before the built-in one.
+    InertOpaqueRenderer external;
+    RendererRegistry registry;
+    registry.Register(&external);
+    registry.Register(&meshRenderer);
+    REQUIRE(external.RendererId() == 0u);
+    REQUIRE(meshRenderer.RendererId() == 1u);
+    ShadowSystem shadows(h.device, 2);
+    REQUIRE(shadows.Initialize().IsOk());
+    RenderFrame frame(DefaultAllocator(), h.device, registry, 2, nullptr, nullptr, &shadows);
+
+    // Two junk casters from the external renderer (id 0) + one skinned mesh caster (id 1).
+    RefPtr<geometry::SkinnedMesh> skinned = MakeRef<geometry::SkinnedMesh>(DefaultAllocator());
+    for (u32 i = 0; i < 3; ++i)
+    {
+        skinned->vertices.PushBack(geometry::StaticMeshVertex{
+            Float3{static_cast<f32>(i), 0, 0}, Float3{0, 1, 0}, Float2{0, 0}, 0xFFFFFFFFu,
+            Float3{1, 0, 0}});
+        geometry::VertexSkinning vs{};
+        vs.joints[0] = static_cast<u16>(i);
+        vs.weights = Float4{1, 0, 0, 0};
+        skinned->skinning.PushBack(vs);
+    }
+    skinned->indices.Resize(3);
+    skinned->indices.AddTriangle(0, 1, 2);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    Array<Float4x4> palette;
+    palette.Resize(8, Float4x4::Identity());
+
+    ExtractedScene scene{DefaultAllocator()};
+    for (int i = 0; i < 2; ++i)
+    {
+        JunkRenderData* junk = scene.Add<JunkRenderData>();
+        junk->category = RenderCategories::Opaque;
+        junk->rendererId = external.RendererId();
+        junk->worldCenter = Float3{static_cast<f32>(i), 0, 0};
+        junk->worldRadius = 1.0f;
+    }
+    MeshRenderData* rd = scene.Add<MeshRenderData>();
+    rd->world = Float4x4::Identity();
+    rd->mesh = skinned.Get();
+    rd->material = material.Get();
+    rd->category = RenderCategories::Opaque;
+    rd->rendererId = meshRenderer.RendererId();
+    rd->boneMatrices = palette.Data();
+    rd->boneCount = 8;
+    rd->worldRadius = 1.0f;
+    DirectionalShadow ds;
+    ds.direction = Normalized(Float3{0.3f, -1.0f, 0.2f});
+    ds.valid = true;
+    scene.SetDirectionalShadow(ds);
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 5}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+    frame.Begin(*h.encoder, 0);
+    frame.AddView(scene, camera, settings, h.colorView, rhi::TextureFormat::BGRA8Unorm, 128, 128);
+    frame.End();
+
+    // All three are casters (base fields only); exactly the skinned MESH is an animated caster.
+    // The id gate read 2 animated casters here (the junk bytes) and missed the real one.
+    CHECK(frame.ShadowCasterCount(&scene) == 3u);
+    CHECK(frame.AnimatedShadowCasterCount(&scene) == 1u);
+}
+
 TEST_CASE("RenderFrame batches same-mesh-same-material draws into an instanced draw")
 {
     RenderHarness h;
