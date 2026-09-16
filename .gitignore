@@ -37,3 +37,6 @@ Documentation/Parity/
 
 # Editor/game distribution output (scripts/build-editor-dist.sh, build-export-templates)
 /dist/
+
+# The cooked engine shader pack in the data root (Tools.ShaderPack output; a build product).
+/Data/Shaders/shaders.dpak

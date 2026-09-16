@@ -4,7 +4,7 @@
 
 add_executable(RenderStressTest main.cpp)
 
-target_link_libraries(RenderStressTest PRIVATE
+target_link_libraries(RenderStressTest PRIVATE Foundation::VFS
     Foundation::Core
     Foundation::Runtime
     Foundation::Runtime.Client

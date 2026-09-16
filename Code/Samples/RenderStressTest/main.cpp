@@ -27,6 +27,7 @@ import foundation.shell;
 import foundation.runtime.desktop;
 import foundation.shell.desktop;
 import foundation.graphics;
+import foundation.vfs; // DataRootFromArguments (--data-root)
 import foundation.graphics.gpu;
 import engine.defaultapp;
 import foundation.scene;
@@ -773,13 +774,17 @@ namespace
     };
 }
 
-int main(int, char**)
+// A custom entry (not APP_MAIN) that still honours the shared flags: --vulkan/--webgpu/--dx12
+// pick the backend, --data-root <dir> overrides the data-root walk.
+int main(int argc, char** argv)
 {
     auto shell = shell::CreateShell(AppRoot());
     graphics::GraphicsDeviceDesc gpuDesc{};
+    gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     StressTestApp app;
+    app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
     return runtime::RunApplication(app, *shell, device);
 }
