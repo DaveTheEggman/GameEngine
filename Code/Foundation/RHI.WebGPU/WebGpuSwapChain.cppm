@@ -28,6 +28,98 @@ using namespace foundation::core;
 
 export namespace foundation::rhi::webgpu
 {
+    /// The same 8-bit colour format in the other channel order; identity where there is no pair.
+    [[nodiscard]] inline TextureFormat SwappedChannelOrder(TextureFormat format) noexcept
+    {
+        switch (format)
+        {
+        case TextureFormat::RGBA8Unorm:
+            return TextureFormat::BGRA8Unorm;
+        case TextureFormat::BGRA8Unorm:
+            return TextureFormat::RGBA8Unorm;
+        case TextureFormat::RGBA8UnormSrgb:
+            return TextureFormat::BGRA8UnormSrgb;
+        case TextureFormat::BGRA8UnormSrgb:
+            return TextureFormat::RGBA8UnormSrgb;
+        default:
+            return format;
+        }
+    }
+
+    /// The RHI colour format of a surface-capability format the swap chain can adopt
+    /// (Undefined for anything else).
+    [[nodiscard]] inline TextureFormat FromWgpuSurfaceColorFormat(WGPUTextureFormat format) noexcept
+    {
+        switch (format)
+        {
+        case WGPUTextureFormat_RGBA8Unorm:
+            return TextureFormat::RGBA8Unorm;
+        case WGPUTextureFormat_RGBA8UnormSrgb:
+            return TextureFormat::RGBA8UnormSrgb;
+        case WGPUTextureFormat_BGRA8Unorm:
+            return TextureFormat::BGRA8Unorm;
+        case WGPUTextureFormat_BGRA8UnormSrgb:
+            return TextureFormat::BGRA8UnormSrgb;
+        default:
+            return TextureFormat::Undefined;
+        }
+    }
+
+    /// Log spelling for the surface formats a swap chain negotiates between.
+    [[nodiscard]] inline const char* SurfaceFormatName(TextureFormat format) noexcept
+    {
+        switch (format)
+        {
+        case TextureFormat::RGBA8Unorm:
+            return "RGBA8Unorm";
+        case TextureFormat::RGBA8UnormSrgb:
+            return "RGBA8UnormSrgb";
+        case TextureFormat::BGRA8Unorm:
+            return "BGRA8Unorm";
+        case TextureFormat::BGRA8UnormSrgb:
+            return "BGRA8UnormSrgb";
+        default:
+            return "(other)";
+        }
+    }
+
+    /// The requested format when the surface offers it, else the closest thing it does: the
+    /// requested format's sibling in the other channel order (sRGB-ness is what the renderer's
+    /// output depends on; channel order is the pipeline's business and it reads Format() back),
+    /// else the surface's first ADOPTABLE choice, else the request unchanged. `offered` is the
+    /// surface's capability list in RHI terms, Undefined for entries the swap chain cannot adopt
+    /// (see FromWgpuSurfaceColorFormat) - pure, so a test can hand it any list.
+    [[nodiscard]] inline TextureFormat NegotiateSurfaceFormat(TextureFormat requested,
+                                                              Span<const TextureFormat> offered) noexcept
+    {
+        for (usize i = 0; i < offered.Size(); ++i)
+        {
+            if (offered[i] == requested)
+            {
+                return requested;
+            }
+        }
+        const TextureFormat sibling = SwappedChannelOrder(requested);
+        if (sibling != requested)
+        {
+            for (usize i = 0; i < offered.Size(); ++i)
+            {
+                if (offered[i] == sibling)
+                {
+                    return sibling;
+                }
+            }
+        }
+        for (usize i = 0; i < offered.Size(); ++i)
+        {
+            if (offered[i] != TextureFormat::Undefined)
+            {
+                return offered[i];
+            }
+        }
+        return requested;
+    }
+
     class WebGpuSwapChain final : public SwapChain
     {
     public:
@@ -272,21 +364,46 @@ export namespace foundation::rhi::webgpu
                 config.viewFormats = &viewFormat;
             }
 #else
-            config.format = ToWgpuTextureFormat(m_format);
-#endif
-
-#if !PLATFORM_WEB
             // Refuse CLEANLY when this adapter cannot present to the surface - wgpu-native
             // PANICS inside configure otherwise ("Surface does not support the adapter's
             // queue family", seen on Windows hybrid/multi-adapter machines). Zero supported
             // formats = no present support for this (surface, adapter) pair; the backend logs
             // the adapter list at startup and ENV_WEBGPU_ADAPTER=<index> overrides the pick.
+            //
+            // And NEGOTIATE the format from what the surface offers, the way the Vulkan swap
+            // chain does: wgpu-native also panics inside configure when the format is not one
+            // the surface lists. A Windows surface offers both channel orders and a Wayland one
+            // RGBA, so the engine's RGBA8UnormSrgb default passed straight through; an X11
+            // surface through wgpu's Vulkan backend offers only the BGRA pair and killed every
+            // sample at startup (found by the Beef port). Callers read Format() back for their
+            // colour targets, so the negotiated format follows through.
             {
                 WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
                 if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter, &caps) ==
                     WGPUStatus_Success)
                 {
                     const bool presentable = caps.formatCount > 0;
+                    if (presentable)
+                    {
+                        Array<TextureFormat> offered;
+                        offered.Reserve(static_cast<usize>(caps.formatCount));
+                        for (usize i = 0; i < caps.formatCount; ++i)
+                        {
+                            offered.PushBack(FromWgpuSurfaceColorFormat(caps.formats[i]));
+                        }
+                        const TextureFormat negotiated = NegotiateSurfaceFormat(
+                            m_format, Span<const TextureFormat>{offered.Data(), offered.Size()});
+                        LogInfof("[RHI] swapchain surface format: requested %s, negotiated %s",
+                                 SurfaceFormatName(m_format), SurfaceFormatName(negotiated));
+                        if (!IsSrgb(negotiated))
+                        {
+                            LogWarningf("[RHI] swapchain negotiated a NON-sRGB format (%s) - the "
+                                        "surface offered no sRGB target; output may look washed "
+                                        "out where the final pass assumes encode-on-write",
+                                        SurfaceFormatName(negotiated));
+                        }
+                        m_format = negotiated;
+                    }
                     m_api->wgpuSurfaceCapabilitiesFreeMembers(caps);
                     if (!presentable)
                     {
@@ -297,6 +414,7 @@ export namespace foundation::rhi::webgpu
                     }
                 }
             }
+            config.format = ToWgpuTextureFormat(m_format);
 #endif
             m_api->wgpuSurfaceConfigure(m_surface->Handle(), &config);
             m_configured = true;
@@ -342,13 +460,17 @@ export namespace foundation::rhi::webgpu
             return chosen;
         }
 
+        // Releases whatever of the current image exists: the view when it was built, and the
+        // borrowed surface texture whenever one is held. NOT gated on m_haveImage - that flag
+        // is set only after the view succeeds, and gating on it stranded the surface texture
+        // when the view failed to build (the Beef port's swap chain frees it inline; this is
+        // the same fix from the other side).
         void DropCurrent()
         {
-            if (!m_haveImage)
+            if (m_haveImage)
             {
-                return;
+                m_currentView.Release();
             }
-            m_currentView.Release();
             if (m_ownedHandle != nullptr)
             {
                 m_api->wgpuTextureRelease(m_ownedHandle);

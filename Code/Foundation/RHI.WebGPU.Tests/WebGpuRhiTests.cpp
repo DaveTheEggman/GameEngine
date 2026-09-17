@@ -213,6 +213,38 @@ TEST_CASE("rhi.webgpu: blit-capable = WebGPU-renderable color formats only (no A
     backend->Destroy();
 }
 
+TEST_CASE("rhi.webgpu: surface format negotiation - requested, then the channel-order sibling, "
+          "then the surface's first choice")
+{
+    // wgpu-native panics inside configure when the format is not one the surface lists, so
+    // the swap chain negotiates like Vulkan's. Pure: the caps list is a span of RHI formats,
+    // Undefined standing for a surface format the swap chain cannot adopt.
+    using webgpu::NegotiateSurfaceFormat;
+    using F = TextureFormat;
+    const F bgraOnly[] = {F::BGRA8UnormSrgb, F::BGRA8Unorm};
+    const F both[] = {F::BGRA8Unorm, F::BGRA8UnormSrgb, F::RGBA8Unorm, F::RGBA8UnormSrgb};
+    const F unormOnly[] = {F::BGRA8Unorm};
+    const F exotic[] = {F::Undefined, F::Undefined};
+    const F exoticThenReal[] = {F::Undefined, F::RGBA8Unorm};
+
+    // Offered as asked: the request stands (both channel orders, the Windows shape).
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>(both, 4)) == F::RGBA8UnormSrgb);
+    // The X11 shape: only BGRA offered, the engine default RGBA8UnormSrgb -> its sRGB sibling.
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>(bgraOnly, 2)) == F::BGRA8UnormSrgb);
+    CHECK(NegotiateSurfaceFormat(F::RGBA8Unorm, Span<const F>(bgraOnly, 2)) == F::BGRA8Unorm);
+    // No sRGB target at all: the surface's first choice (the caller logs the non-sRGB warning).
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>(unormOnly, 1)) == F::BGRA8Unorm);
+    // The first ADOPTABLE choice, skipping what the swap chain cannot use.
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>(exoticThenReal, 2)) == F::RGBA8Unorm);
+    // Nothing adoptable, or nothing at all: the request is left alone (configure decides).
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>(exotic, 2)) == F::RGBA8UnormSrgb);
+    CHECK(NegotiateSurfaceFormat(F::RGBA8UnormSrgb, Span<const F>{}) == F::RGBA8UnormSrgb);
+    // The sibling map is an involution and leaves non-paired formats alone.
+    CHECK(webgpu::SwappedChannelOrder(webgpu::SwappedChannelOrder(F::BGRA8UnormSrgb)) ==
+          F::BGRA8UnormSrgb);
+    CHECK(webgpu::SwappedChannelOrder(F::RGBA16Float) == F::RGBA16Float);
+}
+
 TEST_CASE("rhi.webgpu: resources - buffer map emulation, texture + view, sampler, WGSL shader")
 {
     Backend* backend = TryCreateBackend();
