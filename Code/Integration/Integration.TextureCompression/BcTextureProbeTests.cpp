@@ -235,16 +235,16 @@ namespace
     rhi::TextureView* MakePaddedRgba8Texture(rhi::Device& device, rhi::Texture*& outTexture)
     {
         outTexture = nullptr;
-        constexpr u32 kSize = 8;
-        constexpr u32 kBytesPerRow = kSize * 4 + 32; // 32 bytes of padding per row
+        constexpr u32 kEdge = 8;
+        constexpr u32 kBytesPerRow = kEdge * 4 + 32; // 32 bytes of padding per row
         Array<u8> src;
-        src.Resize(static_cast<usize>(kBytesPerRow) * kSize);
-        for (u32 y = 0; y < kSize; ++y)
+        src.Resize(static_cast<usize>(kBytesPerRow) * kEdge);
+        for (u32 y = 0; y < kEdge; ++y)
         {
             u8* row = src.Data() + static_cast<usize>(y) * kBytesPerRow;
             for (u32 x = 0; x < kBytesPerRow / 4; ++x)
             {
-                const bool padding = x >= kSize;
+                const bool padding = x >= kEdge;
                 row[x * 4 + 0] = padding ? 20 : 230;
                 row[x * 4 + 1] = 20;
                 row[x * 4 + 2] = padding ? 230 : 20;
@@ -253,8 +253,8 @@ namespace
         }
         rhi::TextureDesc td{};
         td.format = rhi::TextureFormat::RGBA8Unorm;
-        td.width = kSize;
-        td.height = kSize;
+        td.width = kEdge;
+        td.height = kEdge;
         td.mipLevelCount = 1;
         td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
         td.label = u8"padded.probe.source";
@@ -272,9 +272,9 @@ namespace
         }
         rhi::TextureDataLayout layout{};
         layout.bytesPerRow = kBytesPerRow;
-        layout.rowsPerImage = kSize;
+        layout.rowsPerImage = kEdge;
         batch->WriteTexture(texture, Span<const u8>(src.Data(), src.Size()), layout,
-                            rhi::Extent3D{kSize, kSize, 1}, /*mip*/ 0, /*layer*/ 0);
+                            rhi::Extent3D{kEdge, kEdge, 1}, /*mip*/ 0, /*layer*/ 0);
         const Status submitted = batch->Submit();
         queue->DestroyTransferBatch(batch);
         if (!submitted.IsOk())

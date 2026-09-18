@@ -177,7 +177,7 @@ private:
     gui::StyleManager m_styles;
     UniquePtr<gui::GuiInputBridge> m_bridge;
     UniquePtr<gui::ShellClipboard> m_clipboard; // adapts the shell clipboard to gui::IClipboard
-    UniquePtr<shell::InputSurface> m_surface;
+    UniquePtr<shell::InputSurface> m_inputSurface;
     UniquePtr<shell::InputRouter> m_router;
     i32 m_clicks = 0;
 
@@ -605,9 +605,9 @@ void GUISandbox::BuildUI()
                 return;
             char8_t buf[64] = u8"picked: ";
             usize pos = 8;
-            const StringView row = modelRef->ItemAt(static_cast<usize>(idx.Row));
-            for (usize i = 0; i < row.Size() && pos < 62; ++i)
-                buf[pos++] = row[i];
+            const StringView picked = modelRef->ItemAt(static_cast<usize>(idx.Row));
+            for (usize i = 0; i < picked.Size() && pos < 62; ++i)
+                buf[pos++] = picked[i];
             buf[pos] = 0;
             echoRef->SetText(StringView(buf));
         });
@@ -1076,21 +1076,21 @@ void GUISandbox::OnRender()
     {
         shell::IInputManager& input = *m_shell->Input();
         const Rectangle region{0.0f, 0.0f, static_cast<f32>(m_width), static_cast<f32>(m_height)};
-        if (!m_surface)
+        if (!m_inputSurface)
         {
             const ContentFit fit{region,
                                  Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)},
                                  FitMode::Stretch};
-            m_surface =
+            m_inputSurface =
                 MakeUnique<shell::InputSurface>(AppRoot(), &input, m_window->Id(), fit);
             m_router = MakeUnique<shell::InputRouter>(AppRoot(), &input);
-            m_router->AddSurface(m_surface.Get());
+            m_router->AddSurface(m_inputSurface.Get());
             m_bridge->SetTextInputTarget(m_window); // the bridge drives IME on/off from focus
         }
-        m_surface->SetRegion(region);
-        m_surface->SetContentSize(Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)});
+        m_inputSurface->SetRegion(region);
+        m_inputSurface->SetContentSize(Float2{static_cast<f32>(m_width), static_cast<f32>(m_height)});
         m_router->Update();
-        m_bridge->PumpFromSurface(*m_surface);
+        m_bridge->PumpFromSurface(*m_inputSurface);
 
         // Keyboard/text is NOT part of the mouse-only surface pump: dispatch the raw event
         // stream's key/text events through the bridge's event path (mouse events are skipped
@@ -1188,7 +1188,7 @@ void GUISandbox::OnShutdown()
     if (m_device)
         m_device->WaitIdle();
     m_router.Reset();
-    m_surface.Reset();
+    m_inputSurface.Reset();
     m_bridge.Reset();
     m_root.Reset();
     m_counter.Reset();
