@@ -766,8 +766,8 @@ namespace editor::app
         // Headless-debug hook: ENV_TEST_OPEN=<guid> opens that instance's page ~2s in
         // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset
         // browser's double-click paths in unattended (ASAN/gdb) runs.
-        if (const char* testOpen = std::getenv("ENV_TEST_OPEN");
-            testOpen != nullptr && m_project)
+        if (const Optional<String> testOpen = GetEnvironmentVariable(u8"ENV_TEST_OPEN");
+            testOpen.HasValue() && m_project)
         {
             m_testOpenElapsed += dt;
             const bool first = m_testOpenStage == 0 && m_testOpenElapsed >= 2.0f;
@@ -776,7 +776,7 @@ namespace editor::app
             {
                 ++m_testOpenStage;
                 Guid id;
-                if (Guid::TryParse(StringView(reinterpret_cast<const utf8char*>(testOpen)), id))
+                if (Guid::TryParse(testOpen.Value().AsView(), id))
                 {
                     if (foundation::content::Instance* instance =
                             m_project->SourceDb().GetInstance(id))
@@ -790,11 +790,11 @@ namespace editor::app
         // Headless-debug hook: ENV_TEST_REIMPORT="<group>;<file>" deletes the named
         // source group ~2s in and reimports <file> ~4s in (the watcher recook follows) -
         // scripts the delete->reimport crash repro for unattended ASAN runs.
-        if (const char* reimport = std::getenv("ENV_TEST_REIMPORT");
-            reimport != nullptr && m_project)
+        if (const Optional<String> reimport = GetEnvironmentVariable(u8"ENV_TEST_REIMPORT");
+            reimport.HasValue() && m_project)
         {
             m_testOpenElapsed += dt; // shared timer with ENV_TEST_OPEN (use one hook per run)
-            const StringView spec(reinterpret_cast<const utf8char*>(reimport));
+            const StringView spec = reimport.Value().AsView();
             usize semi = spec.Size();
             for (usize i = 0; i < spec.Size(); ++i)
             {

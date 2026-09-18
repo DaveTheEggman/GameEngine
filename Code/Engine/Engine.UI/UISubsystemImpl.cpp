@@ -1024,7 +1024,7 @@ namespace engine::ui
                 if (target == nullptr)
                 {
                     const bool centerAim = mouse->RelativeMode();
-                    const bool rayDebug = std::getenv("ENV_UI_RAY_DEBUG") != nullptr;
+                    const bool rayDebug = GetEnvironmentVariable(u8"ENV_UI_RAY_DEBUG").HasValue();
                     f32 bestDistance = 0.0f;
                     for (SceneUI& sceneUI : m_sceneUIs)
                     {
@@ -1127,7 +1127,7 @@ namespace engine::ui
                     }
                 }
             }
-            if (std::getenv("ENV_UI_RAY_DEBUG") != nullptr)
+            if (GetEnvironmentVariable(u8"ENV_UI_RAY_DEBUG").HasValue())
             {
                 const char* kind = "none";
                 if (target == m_screenRoot.Get())

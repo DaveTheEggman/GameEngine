@@ -9,6 +9,7 @@
 #include "Core/Prelude.h"
 
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 import foundation.core;
@@ -48,12 +49,11 @@ namespace
 TEST_CASE("gltf: a matrix-only node lands in the TRS fields and agrees with the TRS node")
 {
     const char* path = "scratch_gltf_matrix_node.gltf";
-    {
-        std::FILE* f = std::fopen(path, "wb");
-        REQUIRE(f != nullptr);
-        std::fputs(kDocument, f);
-        std::fclose(f);
-    }
+    // The engine's own file write (std::fopen is a C4996 error under MSVC /WX).
+    REQUIRE(WriteFile(StringView(reinterpret_cast<const utf8char*>(path)),
+                      Span<const byte>(reinterpret_cast<const byte*>(kDocument),
+                                       std::strlen(kDocument)))
+                .IsOk());
 
     Model model;
     gltf::GltfLoader loader;

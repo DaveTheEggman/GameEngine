@@ -739,9 +739,18 @@ namespace
     // value never is.
     void WriteFlatRadianceHdr(const char* path, u32 w, u32 h, f32 r, f32 g, f32 b)
     {
-        std::FILE* f = std::fopen(path, "wb");
-        REQUIRE(f != nullptr);
-        std::fprintf(f, "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y %u +X %u\n", h, w);
+        // Built in memory and written through the engine's own file write (std::fopen is a
+        // C4996 error under MSVC /WX).
+        Array<byte> bytes;
+        char header[96];
+        const int headerLength =
+            std::snprintf(header, sizeof(header), "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y %u +X %u\n",
+                          h, w);
+        REQUIRE(headerLength > 0);
+        for (int i = 0; i < headerLength; ++i)
+        {
+            bytes.PushBack(static_cast<byte>(header[i]));
+        }
         const f32 v = r > g ? (r > b ? r : b) : (g > b ? g : b);
         u8 rgbe[4] = {0, 0, 0, 0};
         if (v >= 1.0e-32f)
@@ -756,9 +765,14 @@ namespace
         }
         for (u32 i = 0; i < w * h; ++i)
         {
-            std::fwrite(rgbe, 1, 4, f);
+            for (u8 c : rgbe)
+            {
+                bytes.PushBack(static_cast<byte>(c));
+            }
         }
-        std::fclose(f);
+        REQUIRE(WriteFile(StringView(reinterpret_cast<const utf8char*>(path)),
+                          Span<const byte>(bytes.Data(), bytes.Size()))
+                    .IsOk());
     }
 }
 

@@ -22,10 +22,10 @@ namespace
 {
     void WriteText(const char* path, const char* text)
     {
-        std::FILE* f = std::fopen(path, "wb");
-        REQUIRE(f != nullptr);
-        std::fputs(text, f);
-        std::fclose(f);
+        // The engine's own file write (std::fopen is a C4996 error under MSVC /WX).
+        REQUIRE(WriteFile(StringView(reinterpret_cast<const utf8char*>(path)),
+                          Span<const byte>(reinterpret_cast<const byte*>(text), std::strlen(text)))
+                    .IsOk());
     }
 
     // A quad as two triangles sharing an edge: 4 distinct vertices, 6 indices.
