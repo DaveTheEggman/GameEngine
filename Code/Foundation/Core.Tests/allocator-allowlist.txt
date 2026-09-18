@@ -71,6 +71,7 @@ Code/Foundation/Render/MeshRendererImpl.cpp
 Code/Foundation/Render/PipelineImpl.cpp
 Code/Foundation/RHI.DX12/DxBackend.cppm
 Code/Foundation/RHI.Null/NullModule.cppm
+Code/Foundation/RHI.TestSupport/RhiTestSupport.cppm
 Code/Foundation/RHI.Validation/ValidatedBackend.cppm
 Code/Foundation/RHI.Vulkan/VkBackend.cppm
 Code/Foundation/RHI.WebGPU/WebGpuBuffer.cppm
