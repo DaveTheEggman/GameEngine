@@ -4,10 +4,9 @@
 	<string name="typeName">StaticMeshAsset</string>
 	<array name="dataVersions" count="1">
 		<u64 name="type">12778688144019301733</u64>
-		<u32 name="version">3</u32>
+		<u32 name="version">5</u32>
 	</array>
 	<object name="payload">
 		<string name="fileName"/>
-		<u8 name="geometryInSidecar">1</u8>
 	</object>
 </root>
