@@ -520,10 +520,16 @@ export namespace foundation::ui
             return StyleValueParser::ParseThickness(values, count);
         }
 
-        /// Register all built-in view types with their markup-settable properties. Safe to call twice.
+        /// Register all built-in view types with their markup-settable properties. Safe to call
+        /// twice, and from several threads at once (the UI document cook runs per build on job
+        /// workers): the first call registers, every other call waits for it and returns.
         static void RegisterBuiltins();
 
     private:
+        static void RegisterBuiltinsBody();
+        // Non-inline (UiRegistryStateImpl.cpp): the rendezvous rule, see ViewFactories.
+        [[nodiscard]] static Mutex& RegistrationLock();
+        [[nodiscard]] static bool& BuiltinsRegisteredFlag();
         // Registry storage accessors are NON-inline (UiRegistryStateImpl.cpp): the
         // function-local statics were chosen for init-order safety, but an inline body
         // duplicates the map per shared library - registered in one, empty in another
@@ -560,12 +566,22 @@ export namespace foundation::ui
 
     inline void MarkupRegistry::RegisterBuiltins()
     {
-        static bool registered = false;
+        // A plain static bool let two workers both pass the check and rehash the maps under
+        // each other. The lock makes the second caller WAIT for the first registration to
+        // finish (it returns to read a complete registry); the flag lives in the impl unit so
+        // every shared library sees the same one.
+        ScopedLock lock(RegistrationLock());
+        bool& registered = BuiltinsRegisteredFlag();
         if (registered)
         {
             return;
         }
+        RegisterBuiltinsBody();
         registered = true;
+    }
+
+    inline void MarkupRegistry::RegisterBuiltinsBody()
+    {
 
         // Common View properties (id/class/style/visibility/opacity/padding/tooltip/cursor/...) are
         // handled inline by MarkupLoader.

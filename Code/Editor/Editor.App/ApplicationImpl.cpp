@@ -2173,6 +2173,7 @@ namespace editor::app
             if (created.IsOk())
             {
                 m_project = editor::EditorProject::Open(editor::EditorRootAllocator(), directory);
+                m_seedAfterOpen = m_project && m_config.seedOnScaffold;
             }
         }
 

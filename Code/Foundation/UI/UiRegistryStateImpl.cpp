@@ -25,6 +25,20 @@ namespace foundation::ui
         static HashMap<String, PropertySetter> v;
         return v;
     }
+    // The RegisterBuiltins lock + run-once flag: non-inline for the same rendezvous reason as
+    // the maps (an inline function-local guard is duplicated per shared library, so one
+    // library's registration would satisfy only its own copy), and a lock because the UI
+    // document cook registers per build on job workers.
+    Mutex& MarkupRegistry::RegistrationLock()
+    {
+        static Mutex lock;
+        return lock;
+    }
+    bool& MarkupRegistry::BuiltinsRegisteredFlag()
+    {
+        static bool registered = false;
+        return registered;
+    }
 } // namespace foundation::ui
 
 namespace foundation::ui
@@ -60,5 +74,10 @@ namespace foundation::ui::detail
     {
         static bool registered = false;
         return registered;
+    }
+    Mutex& DrawableRegistrationLock()
+    {
+        static Mutex lock;
+        return lock;
     }
 } // namespace foundation::ui::detail

@@ -76,9 +76,16 @@ public:                                                                         
     static void RttiEnumBody_##EnumType(::foundation::core::EnumBuilder<EnumType>&);             \
     void RttiRegisterEnum_##EnumType()                                                         \
     {                                                                                              \
-        ::foundation::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);                     \
-        RttiEnumBody_##EnumType(builder);                                                      \
-        builder.Build();                                                                           \
+        /* ONCE and thread-safe: builders re-register from cook workers, and a rebuild moves */   \
+        /* a fresh enumerator array over the live one another thread may be reading.        */   \
+        static const bool rttiOnce = []()                                                          \
+        {                                                                                          \
+            ::foundation::core::EnumBuilder<EnumType> builder(#EnumType, Namespace);                 \
+            RttiEnumBody_##EnumType(builder);                                                  \
+            builder.Build();                                                                       \
+            return true;                                                                           \
+        }();                                                                                       \
+        (void)rttiOnce;                                                                            \
     }                                                                                              \
     static void RttiEnumBody_##EnumType(                                                       \
         [[maybe_unused]] ::foundation::core::EnumBuilder<EnumType>& builder)
@@ -97,14 +104,21 @@ public:                                                                         
     static void RttiReflectValue_##Type(::foundation::core::TypeBuilder<Type>& builder);         \
     void RttiRegisterValue_##Type()                                                            \
     {                                                                                              \
-        static ::foundation::core::TypeData rttiTypeData = []()                                  \
+        /* The in-place patch of TypeOf<Type>() happens ONCE too (thread-safe static init): */    \
+        /* re-copying identical bytes over a TypeInfo other threads read is still a race.   */    \
+        static const bool rttiOnce = []()                                                          \
         {                                                                                          \
-            ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);                \
-            RttiReflectValue_##Type(builder);                                                  \
-            return builder.Build();                                                                \
+            static ::foundation::core::TypeData rttiTypeData = []()                              \
+            {                                                                                      \
+                ::foundation::core::TypeBuilder<Type> builder(#Type, Namespace, nullptr);            \
+                RttiReflectValue_##Type(builder);                                              \
+                return builder.Build();                                                            \
+            }();                                                                                   \
+            const_cast<::foundation::core::TypeInfo&>(::foundation::core::TypeOf<Type>()) =            \
+                rttiTypeData.info;                                                             \
+            return true;                                                                           \
         }();                                                                                       \
-        const_cast<::foundation::core::TypeInfo&>(::foundation::core::TypeOf<Type>()) =                \
-            rttiTypeData.info;                                                                 \
+        (void)rttiOnce;                                                                            \
     }                                                                                              \
     static void RttiReflectValue_##Type(                                                       \
         [[maybe_unused]] ::foundation::core::TypeBuilder<Type>& builder)

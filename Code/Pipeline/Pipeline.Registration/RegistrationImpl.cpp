@@ -13,6 +13,9 @@ module;
 module pipeline.registration;
 
 import foundation.core;
+import foundation.script.facades; // RegisterScriptFacadeReflection (the script cooks' surface)
+import foundation.ui;             // MarkupLoader (the UI document cook validates markup)
+import foundation.ui.gamekit;     // RegisterGamekitMarkup (<screen>)
 import foundation.content;
 import foundation.animation;
 import foundation.particles;
@@ -83,6 +86,15 @@ namespace pipeline
 
     void RegisterPipelineTypes()
     {
+        // Everything a builder registers AT BUILD TIME goes here first, on the caller's thread,
+        // so the parallel cook phase never performs a first-time registration: the registries
+        // lock their writes, but a reader iterating the type list (the script cooks) while another
+        // worker first-registers is still a race. After this, the builders' own calls are no-ops.
+        foundation::core::RegisterCoreTypes();
+        foundation::script::RegisterScriptFacadeReflection();
+        foundation::ui::MarkupLoader::Initialize();
+        foundation::ui::gamekit::RegisterGamekitMarkup();
+
         RegisterAssetReflection(); // base Asset::fileName + SourcePath
         RegisterTextureAsset();
         RegisterFontAsset(); // asset + FontResource product
@@ -129,6 +141,10 @@ namespace pipeline
         // Scenes are packed/read as SceneDocument (export staging + a headless scene cook path):
         // register the type + its serializer so ReadObject/WriteObject round-trip them.
         GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
+        // The prefab twin (PrefabDocument primary + the referenced scene stream): reading one back
+        // through the registry refused it as an unknown type until 2026-09-18.
+        GlobalTypeRegistry().Register(foundation::scene::PrefabDocument::StaticType());
+        RegisterSerializable<foundation::scene::PrefabDocument>();
         RegisterSerializable<foundation::scene::SceneDocument>();
     }
 

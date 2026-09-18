@@ -485,3 +485,13 @@ cross+arrow / point range sphere / spot cone from range+outerAngle), ReflectionP
 (wire BOX from halfExtents - our probes are boxes, Sedulous drew a sphere). Default
 DrawWhenUnselected=false (Sedulous drew every light's range sphere always - noisy; markers
 already anchor unselected entities).
+
+
+## 9. Headless flags (Tools.Editor)
+
+`Tools.Editor [<projectDir>] [--project <dir>] [--exit-after <s>] [--rebuild-after <s>]
+[--seed] [--seed-primitives] [--data-root <dir>] [--vulkan|--webgpu|--dx12]`. A bare directory
+scaffolds a fresh project (the manager's New Project flow seeds starter content; a CLI scaffold
+does not, unless `--seed` = font/sky/three primitives, or `--seed-primitives` = the same plus
+every primitive creator). `--seed-primitives` + `--exit-after` is the headless way to regenerate
+primitive meshes at the current source version (paperkid.md, upgrade recipe).

@@ -88,6 +88,10 @@ export namespace editor::app
         // main() when no project was given). File > Close Project returns to the manager only
         // in this mode; a CLI-opened editor keeps its single-project lifecycle.
         bool startInProjectManager = false;
+        // CLI: when the project directory has no manifest and gets scaffolded, also seed the
+        // starter content the manager's New Project flow seeds (baseline font/sky/primitive
+        // meshes). Headless regeneration of that content - `Tools.Editor <dir> --seed`.
+        bool seedOnScaffold = false;
 
         // Smoke-test aid: request a CLEAN shutdown after this many seconds (0 = never).
         // Exercises the real teardown path, unlike killing the process.

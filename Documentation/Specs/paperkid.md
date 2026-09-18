@@ -502,3 +502,25 @@ if that ever changes it is a finding we stop and discuss, not silent scope creep
 - No damage/health sim, no economy, no save profiles beyond level+score, no online.
 - No bespoke art - primitives + a couple of sprites; a reskin is a later, separate pass.
 - No procedural generation - blocks are hand-authored from the prefab kit.
+
+
+### Upgrading the sources after a wire-version bump (recipe, 2026-09-18)
+
+The strict readers REFUSE a record at another data version, so a bump or a key rename anywhere
+in the pipeline leaves the sample project unreadable until its sources are upgraded. The
+freshness pin is `Integration.Mcp` "sample project: every PaperKid source reads at the CURRENT
+data versions" - it opens a scratch copy, reads every instance, then cooks it in parallel; red
+means upgrade. What the 2026-09-18 upgrade needed, per record kind:
+
+- **Key rename / dropped field in an XML envelope** (FontAsset `dfSize` -> `distanceFieldSize`,
+  UIDocumentAsset lost its inline `markup`): edit the `.xasset` payload by hand and set the
+  `dataVersions` entry to the type's current `DataVersion` (FontAsset 1, UIDocumentAsset 2).
+- **Meshes** (StaticMeshAsset 3 -> 5 AND the `.geometry.bin` sidecar stamped with
+  StaticMeshSource 3 -> 5): regenerate, never hand-edit a sidecar. Headless:
+  `Tools.Editor <scratch dir> --seed-primitives --exit-after 6` scaffolds a project and seeds
+  every primitive creator (Cube/Sphere/Plane/Cylinder/Cone/Torus) plus the baseline font; copy
+  the six `.xasset` + `.geometry.bin` pairs over PaperKid's, restoring PaperKid's ORIGINAL guids
+  in the `.xasset` (the scenes reference meshes by guid; the sidecar carries none).
+- Verify: `Tools.Cook SampleProjects/PaperKid --rebuild` -> "host cooked 20, failed 0", and the
+  integration test above. Scenes/prefabs were not affected this time (stream version 3); a
+  scene-stream bump would need the editor's scene page to re-save them.

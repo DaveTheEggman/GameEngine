@@ -459,6 +459,18 @@ namespace pipeline{
             [[nodiscard]] bool Cook(StringView source, StringView assetName,
                                     CookScriptErrorSink& sink, ScriptClassSource& out) override
             {
+                const bool ok = CookOnThisThread(source, assetName, sink, out);
+                // AngelScript keeps per-thread local data (active-context stack, type-name
+                // scratch) that only asThreadCleanup releases. Cooks run on job workers that
+                // never exit through AngelScript's own teardown, so release it here, after
+                // the engine this cook built is gone - else every worker leaks it.
+                asThreadCleanup();
+                return ok;
+            }
+
+            [[nodiscard]] bool CookOnThisThread(StringView source, StringView assetName,
+                                                CookScriptErrorSink& sink, ScriptClassSource& out)
+            {
                 out.language = String(u8"angelscript");
                 out.sourceName = String(assetName); // the source file identity (breakpoint key)
                 out.source = String(source);

@@ -6,6 +6,7 @@
 util_add_engine_library(Pipeline.Registration ALIAS Pipeline::Registration)
 target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Core Foundation::Content Foundation::VFS
+    Foundation::Script.Facades Foundation::UI Foundation::UI.Gamekit
     Foundation::Scene Foundation::Scene.Resource
     Pipeline::Core Pipeline::Importer
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Pipeline::Heightfield Pipeline::Terrain Pipeline::Geometry

@@ -23,6 +23,8 @@ import :allocator;
 import :hash_map;
 import :iserializable;
 import :object; // Cast<Base> for the polymorphic-container create adapter
+import :mutex;
+import :scoped_lock;
 
 export namespace foundation::core
 {
@@ -33,6 +35,7 @@ export namespace foundation::core
     public:
         void Register(TypeId id, SerializableFactory factory)
         {
+            ScopedLock lock(m_lock); // registrars run from cook workers too (TypeRegistry rule)
             const bool inserted = m_factories.Find(id) == nullptr;
             m_factories.InsertOrAssign(id, factory);
             if (inserted && m_observer != nullptr)
@@ -44,7 +47,11 @@ export namespace foundation::core
         // Remove a factory (hot reload: a plugin's recorded registrations reverse before
         // its library closes - a factory pointer into an unloaded module is a dangling
         // call). No-op for unknown ids; the rebuilt module re-registers into the slot.
-        void Unregister(TypeId id) { m_factories.Remove(id); }
+        void Unregister(TypeId id)
+        {
+            ScopedLock lock(m_lock);
+            m_factories.Remove(id);
+        }
 
         // Registration observer (one at a time) - the PluginHost recording hook; see
         // TypeRegistry::SetRegistrationObserver for the contract.
@@ -64,6 +71,7 @@ export namespace foundation::core
         [[nodiscard]] bool Contains(TypeId id) const { return m_factories.Find(id) != nullptr; }
 
     private:
+        Mutex m_lock;
         HashMap<TypeId, SerializableFactory> m_factories;
         void (*m_observer)(void*, TypeId) = nullptr;
         void* m_observerContext = nullptr;

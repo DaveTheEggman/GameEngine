@@ -548,3 +548,43 @@ TEST_CASE("core-reflection: per-property attributes via PropAttribute")
     // Type-level attributes are unaffected by the per-property storage.
     CHECK(FindAttribute(type, "category") != nullptr);
 }
+
+TEST_CASE("reflection: RegisterCoreTypes is safe to call concurrently (the cook workers do)")
+{
+    // The script cooks call RegisterCoreTypes per build on job-system workers. Before the
+    // once-guard, two concurrent calls rebuilt the global enum tables at the same time and
+    // double-freed them (an ASAN-visible abort in Tools.Cook). Hammer it from many workers and
+    // then read the tables: intact, and registered exactly once.
+    JobSystem jobs(DefaultAllocator(), 4);
+    jobs.ParallelFor(64, [](u32) { RegisterCoreTypes(); }, 1);
+    CHECK(EnumeratorCount(TypeOf<SeekOrigin>()) == 3u);
+    CHECK(EnumeratorCount(TypeOf<FileMode>()) == 4u);
+    CHECK(EnumValueName(TypeOf<SeekOrigin>(), static_cast<i64>(SeekOrigin::End)) != nullptr);
+    i64 end = -1;
+    CHECK(EnumValueByName(TypeOf<SeekOrigin>(), "End", end));
+    CHECK(end == static_cast<i64>(SeekOrigin::End));
+}
+
+TEST_CASE("reflection: TypeRegistry::Register is safe under concurrent first-time registrations")
+{
+    // Cook workers register their product types as they go; two first-time registrations at
+    // once rehashed the id map under each other. Sixty-four distinct types from four workers
+    // into a private registry: every one lands exactly once and stays findable.
+    static TypeInfo infos[64] = {};
+    for (u32 i = 0; i < 64; ++i)
+    {
+        infos[i].id = 0x5EED0000ull + i;
+        infos[i].name = "ConcurrentType";
+        infos[i].namespaceName = "rtti::tests";
+    }
+    TypeRegistry registry;
+    JobSystem jobs(DefaultAllocator(), 4);
+    jobs.ParallelFor(64, [&registry](u32 i) { registry.Register(infos[i]); }, 1);
+    // Re-registering is a no-op (idempotent), also from workers.
+    jobs.ParallelFor(64, [&registry](u32 i) { registry.Register(infos[i]); }, 1);
+    CHECK(registry.All().Size() == 64u);
+    for (u32 i = 0; i < 64; ++i)
+    {
+        CHECK(registry.FindById(infos[i].id) == &infos[i]);
+    }
+}

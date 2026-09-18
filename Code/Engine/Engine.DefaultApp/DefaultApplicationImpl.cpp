@@ -535,6 +535,8 @@ namespace engine::runtime
         foundation::ui::RegisterUIResource();
         foundation::fonts::RegisterFontResource();
         core::GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
+        core::GlobalTypeRegistry().Register(foundation::scene::PrefabDocument::StaticType());
+        core::RegisterSerializable<foundation::scene::PrefabDocument>();
         core::RegisterSerializable<foundation::scene::SceneDocument>();
         engine::ui::RegisterUIComponentReflection();
         if (GraphicsDevice* gfx = host.Graphics();

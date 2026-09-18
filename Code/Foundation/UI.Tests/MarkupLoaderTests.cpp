@@ -547,3 +547,15 @@ TEST_CASE("markup: StyleClass_ResolvesTheme")
     Drawable* bg = btn->ResolveStyleDrawable(StyleProperty::Background);
     CHECK(bg != nullptr);
 }
+
+TEST_CASE("markup: MarkupLoader::Initialize is safe to call from many threads at once")
+{
+    // The UI document cook initializes the markup registry per build on job workers; a plain
+    // static bool let two of them rehash the builtin maps under each other (a use-after-free
+    // in Tools.Cook). Hammer it, then the registry must still resolve a builtin.
+    JobSystem jobs(DefaultAllocator(), 4);
+    jobs.ParallelFor(64, [](u32) { MarkupLoader::Initialize(); }, 1);
+    auto view = MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Label text=\"Hello\"/>");
+    REQUIRE(view);
+    CHECK(Cast<Label>(view.Get()) != nullptr);
+}

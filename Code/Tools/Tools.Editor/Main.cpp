@@ -227,6 +227,11 @@ namespace
         }
     }
 
+    // `--seed-primitives`: the headless seed also creates EVERY primitive the creator table
+    // offers (Cylinder/Cone/Torus beyond the starter three) - regenerating a project's
+    // primitive meshes at the current source version without opening the editor UI.
+    bool g_seedAllPrimitives = false;
+
     // Starter content for a manager-created project: the baseline FONT (and its manifest
     // default - a fresh project must render game-UI text in an export from day one), the
     // default SKY, and the primitive meshes. Payload files come from the data root's Assets/.
@@ -307,8 +312,18 @@ namespace
                                           foundation::geometry::Primitives::Sphere(AppRoot()), nullptr);
         (void)CreatePrimitiveMeshInstance(ctx, u8"Plane", foundation::geometry::Primitives::Plane(AppRoot()),
                                           nullptr);
+        if (g_seedAllPrimitives)
+        {
+            (void)CreatePrimitiveMeshInstance(
+                ctx, u8"Cylinder", foundation::geometry::Primitives::Cylinder(AppRoot()), nullptr);
+            (void)CreatePrimitiveMeshInstance(ctx, u8"Cone",
+                                              foundation::geometry::Primitives::Cone(AppRoot()), nullptr);
+            (void)CreatePrimitiveMeshInstance(
+                ctx, u8"Torus", foundation::geometry::Primitives::Torus(AppRoot()), nullptr);
+        }
 
-        LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives)");
+        LOG_INFO(u8"Editor", u8"starter content seeded (font/sky/primitives{})",
+                 g_seedAllPrimitives ? u8", all primitives" : u8"");
     }
 }
 namespace graphics = foundation::graphics;
@@ -378,6 +393,18 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--rebuild-after") == 0)
         {
             config.autoRebuildSeconds = static_cast<f32>(std::atof(argv[i + 1]));
+        }
+    }
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::strcmp(argv[i], "--seed") == 0)
+        {
+            config.seedOnScaffold = true; // a scaffolded project also gets the starter content
+        }
+        if (std::strcmp(argv[i], "--seed-primitives") == 0)
+        {
+            config.seedOnScaffold = true;
+            g_seedAllPrimitives = true; // ...plus every primitive creator, not just the three
         }
     }
     config.startInProjectManager = config.projectDirectory.IsEmpty();

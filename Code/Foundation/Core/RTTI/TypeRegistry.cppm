@@ -16,6 +16,8 @@ import :array;
 import :hash_map;
 import :string;
 import :string_hash;
+import :mutex;
+import :scoped_lock;
 
 export namespace foundation::core
 {
@@ -46,8 +48,13 @@ export namespace foundation::core
     class TypeRegistry
     {
     public:
+        // Mutations lock: registrars run from cook workers as well as the main thread, and two
+        // first-time registrations at once corrupted the maps. Reads stay lock-free by the
+        // registration contract - a reader has called its own registrar (which returned after
+        // the write it depends on completed); the pipeline root registers everything up front.
         void Register(const TypeInfo& info, TypeDomain domain = kRuntimeTypeDomain)
         {
+            ScopedLock lock(m_lock);
             if (m_byId.Contains(info.id))
             {
                 // Already registered: the domain may only WIDEN to Runtime (registration
@@ -77,6 +84,7 @@ export namespace foundation::core
         // Register with the same id (the rebuilt module) takes the freed slot.
         void Unregister(TypeId id)
         {
+            ScopedLock lock(m_lock);
             if (!m_byId.Contains(id))
             {
                 return;
@@ -140,6 +148,7 @@ export namespace foundation::core
         [[nodiscard]] const Array<const TypeInfo*>& All() const noexcept { return m_all; }
 
     private:
+        Mutex m_lock;
         HashMap<TypeId, const TypeInfo*> m_byId;
         void (*m_observer)(void*, TypeId) = nullptr;
         void* m_observerContext = nullptr;

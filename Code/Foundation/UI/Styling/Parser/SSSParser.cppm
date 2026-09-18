@@ -1328,8 +1328,11 @@ export namespace foundation::ui
         [[nodiscard]] HashMap<String, DrawableFactoryRegistry::FactoryFn>& FactoryMap();
 
         // The RegisterBuiltins run-once flag - same rule: an inline function-local flag
-        // would let one library's registration satisfy only its own guard.
+        // would let one library's registration satisfy only its own guard. And its lock: the
+        // UI document cook registers per build on job workers, and two of them past a plain
+        // flag rehashed the factory map under each other (an orphaned bucket array under ASAN).
         [[nodiscard]] bool& DrawableBuiltinsRegisteredFlag();
+        [[nodiscard]] Mutex& DrawableRegistrationLock();
 
         [[nodiscard]] inline ControlState ParseStateName(StringView name)
         {
@@ -1367,8 +1370,11 @@ export namespace foundation::ui
 
     inline void DrawableFactoryRegistry::RegisterBuiltins()
     {
-        // Idempotent: the factory map is a global static, so register once even if called from several
-        // entry points (StyleSheetLoader::Load and SSSParser::ApplyInlineStyle both ensure this).
+        // Idempotent AND thread-safe: the factory map is a global static, so register once even if
+        // called from several entry points (StyleSheetLoader::Load and SSSParser::ApplyInlineStyle
+        // both ensure this) or several cook workers at once - a second caller waits for the first
+        // registration to complete rather than reading a half-built map.
+        ScopedLock lock(detail::DrawableRegistrationLock());
         bool& registered = detail::DrawableBuiltinsRegisteredFlag();
         if (registered)
         {

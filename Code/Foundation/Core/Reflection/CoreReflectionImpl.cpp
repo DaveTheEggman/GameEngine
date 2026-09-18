@@ -320,8 +320,15 @@ namespace foundation::core
     // Registers all Core value types for reflection (patches each TypeOf<T>())
     // and adds them to the GlobalTypeRegistry. Idempotent; call once at startup.
     // Declared (exported) in the :core_reflection interface partition.
+    // ONCE and thread-safe (a function-local static's initializer runs exactly once and blocks
+    // concurrent callers until it finishes). Every cook worker calls this per script build: two
+    // builds in flight rebuilt the enum tables at once (EnumBuilder::Build moves a fresh array
+    // over the live one) and double-freed them - Tools.Cook aborted on any project with two
+    // script assets. Same idiom as RegisterScriptFacadeReflection.
     void RegisterCoreTypes()
     {
+        static const bool once = []()
+        {
         RttiRegisterValue_Float2();
         GlobalTypeRegistry().Register(TypeOf<Float2>());
         RttiRegisterValue_Float3();
@@ -374,5 +381,8 @@ namespace foundation::core
         GlobalTypeRegistry().Register(TypeOf<FileMode>());
         RttiRegisterEnum_SeekOrigin();
         GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
+            return true;
+        }();
+        (void)once;
     }
 }
