@@ -370,7 +370,8 @@ TEST_CASE("EncodeBlockCompressedHdr - unsigned clamps negatives, NaN and beyond-
     Array<f32> src;
     src.Resize(w * h * 4, 1.0f);
     src[0] = -5.0f;                 // negative -> 0
-    src[4] = 0.0f / 0.0f;           // NaN -> 0 (guarded: never poisons the block)
+    src[4] = std::nanf("");        // NaN -> 0 (guarded: never poisons the block); a constant
+                                   // 0.0f / 0.0f is a hard error under MSVC (C2124)
     src[8] = 1.0e9f;                // beyond half -> the largest finite half
     const Array<byte> enc = EncodeBlockCompressedHdr(src.Data(), w, h, 128);
     const Array<f32> dec = DecodeBc6h(enc, w, h);
