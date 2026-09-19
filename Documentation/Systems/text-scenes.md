@@ -55,6 +55,18 @@ warning (matching component-record skip semantics).
   Readers sniff: `LoadScene`, `SpawnPrefab`, `RevertPrefabInstance`, `RebuildPrefabInstances`,
   `ComputeInstanceDeltasVsTemplate` (the last reads template payloads without a scene, via a transient
   scratch entity for XML).
+- **Runtime spawn by id** (`PrefabSpawnSystem`, Scene.Resource, ported from the Beef side 2026-09-19):
+  ONE recipe for every runtime spawn - a script's `scene.spawn`, the replicated spawn resolver. A scene
+  system in the full composition (module `prefabs`) holding the content database + resource manager
+  the host points it at (`DefaultApplication` at every scene's `SystemsReady`, and again when the
+  database or manager arrives later); `Spawn(prefab, position, rotation, parent)` reads the payload,
+  spawns it WITH the database as the nested-payload resolver (the old app lambdas passed none, so a
+  runtime-spawned template's nested instances were silently absent), places the root in the
+  parent's space, and binds ONLY the spawned subtree (`ResolveEntityResources` +
+  `SceneSystem::ResolveEntityResources(entity, manager)`) rather than re-walking the scene. No
+  source / nil id / unknown id / no stream = invalid handle, never a partial spawn. The static
+  `SpawnInto(scene, database, resources, prefab, parent)` is the same recipe for a caller with no
+  system in hand (`DefaultApplication::ResolveNetworkPrefab` delegates to it).
 - **Export staging** (`Editor.Core/Export` + `Tools.Export`): `StageScene` transcodes an XML scene
   stream to binary via a scratch `Scene` assembled from `engine::FullSceneComposition()` (a
   hand-listed manager set would silently drop component types); headless consumers (CLI export,

@@ -25,6 +25,7 @@ export module foundation.script.facades;
 
 import foundation.core;
 import foundation.scene;
+import foundation.scene.resource; // PrefabSpawnSystem - what scene.spawn reaches
 import foundation.script;
 import foundation.resource; // ResourceManager - the run's resource-swap seam (Track A resource refs)
 
@@ -90,13 +91,6 @@ export namespace foundation::script
         core::Function<void(scene::Scene*, scene::EntityHandle, StringView,
                             core::Span<const core::Variant>)>
             dispatchMessage;
-
-        // Prefab spawning: `scene.spawn(prefab, x, y, z)` on a BOUND Scene routes here. The
-        // host app installs `spawnPrefab` (it owns the content DB that resolves a prefab id to its
-        // payload); the bound Scene passes its OWN scene ptr, so there is no ambient current-scene
-        // state to keep correct. Null spawner (bare cook VM / no host) = safe no-op.
-        core::Function<scene::EntityHandle(scene::Scene*, const core::Guid&, const core::Float3&)>
-            spawnPrefab;
 
         // Resource swaps (Track A): the run's resource manager, for binding a resource id (a Guid)
         // onto a component's resource::Ref at runtime - e.g. `sceneRender.setMesh(entity, id)`.
@@ -309,9 +303,11 @@ export namespace foundation::script
     {
         scene::Scene* scene = nullptr;
 
-        /// Instantiate a prefab into THIS scene at a world position; invalid Entity if the scene is
-        /// null, no spawner is wired, or the prefab id is nil. The id comes from an `asset:Prefab`
-        /// behavior property (marshalled as a Guid).
+        /// Instantiate a prefab into THIS scene at a position (the root's local position under
+        /// the scene root); invalid Entity if the scene is null, has no PrefabSpawnSystem or the
+        /// system has no content source (a bare cook VM), or the prefab id is nil / unknown. The
+        /// id comes from an `asset:Prefab` behavior property (marshalled as a Guid). Reaches the
+        /// scene's OWN spawn system - no ambient current-scene state, no host callback.
         [[nodiscard]] Entity spawn(Guid prefab, f32 x, f32 y, f32 z) const;
         /// First entity in THIS scene with this name (invalid if none).
         [[nodiscard]] Entity find(String name) const;
@@ -367,16 +363,12 @@ export namespace foundation::script
         {
             return Entity{};
         }
-        IScriptContext* context = CurrentScriptContext();
-        auto* binding =
-            context != nullptr
-                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
-                : nullptr;
-        if (binding == nullptr || !binding->spawnPrefab)
+        scene::PrefabSpawnSystem* spawner = scene->GetSystem<scene::PrefabSpawnSystem>();
+        if (spawner == nullptr)
         {
             return Entity{};
         }
-        return WrapEntity(scene, binding->spawnPrefab(scene, prefab, Float3{x, y, z}));
+        return WrapEntity(scene, spawner->Spawn(prefab, Float3{x, y, z}));
     }
 
     inline Entity Scene::find(String name) const

@@ -157,6 +157,9 @@ namespace engine::runtime
         // The run's scene group lives on the GameInstance: register it so it
         // ticks on the Context lane. WireInstance centralizes this so extra instances wire the same way.
         m_scenes->RegisterManager(&m_instance.Scenes());
+        // A script's scene.spawn reaches content through the scene's spawn system, which only the
+        // app can point at the database and the manager - at every scene's SystemsReady.
+        m_scenes->RegisterObserver(this, foundation::scene::SceneLifecycleStage::SystemsReady);
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             m_render = host.Ctx().AddSubsystem<engine::render::RenderSubsystem>(
@@ -274,43 +277,6 @@ namespace engine::runtime
                                                    : core::RefPtr<foundation::ui::View>{};
                     }};
         }
-        // Scene.spawn: resolve the prefab payload from the content DB the entry point
-        // preset, spawn it, place the root at the requested world position, and bind
-        // the freshly spawned entities' resources.
-        m_scripts->SetPrefabSpawner(
-            core::Function<foundation::scene::EntityHandle(foundation::scene::Scene*, const core::Guid&,
-                                                         const core::Float3&)>{
-                [self](foundation::scene::Scene* scene, const core::Guid& prefabId,
-                       const core::Float3& position) -> foundation::scene::EntityHandle
-                {
-                    if (scene == nullptr || self->m_contentDatabase == nullptr)
-                    {
-                        return foundation::scene::EntityHandle::Invalid();
-                    }
-                    foundation::content::Instance* prefab =
-                        self->m_contentDatabase->GetInstance(prefabId);
-                    core::UniquePtr<core::IStream> payload = (prefab != nullptr)
-                                                                 ? prefab->ReadData(u8"scene")
-                                                                 : core::UniquePtr<core::IStream>{};
-                    if (!payload)
-                    {
-                        return foundation::scene::EntityHandle::Invalid();
-                    }
-                    const foundation::scene::EntityHandle root =
-                        foundation::scene::SpawnPrefab(*scene, *payload, prefabId);
-                    if (root.IsAssigned())
-                    {
-                        core::Transform transform = scene->GetLocalTransform(root);
-                        transform.position = position;
-                        scene->SetLocalTransform(root, transform);
-                        if (self->Resources() != nullptr)
-                        {
-                            foundation::scene::ResolveSceneResources(*scene, *self->Resources());
-                        }
-                    }
-                    return root;
-                }});
-
         // Track A resource swaps (SceneRender.setMesh, ...): give the run a GETTER for the app's
         // resource manager (created later, in OnStartup), so a behavior can bind a resource id onto
         // a component's Ref. Borrowed - the app owns it.
@@ -514,6 +480,21 @@ namespace engine::runtime
     DefaultApplication::SetContentDatabase(foundation::content::IContentDatabase* database) noexcept
     {
         m_contentDatabase = database;
+        PointSpawnersAtContent();
+    }
+
+    void DefaultApplication::OnSystemsReady(foundation::scene::Scene& scene)
+    {
+        if (auto* spawner = scene.GetSystem<foundation::scene::PrefabSpawnSystem>())
+        {
+            spawner->SetSource(m_contentDatabase, Resources());
+        }
+    }
+
+    void DefaultApplication::PointSpawnersAtContent()
+    {
+        ForEachInstance([this](GameInstance& gi)
+                        { gi.Scenes().ForEachScene([this](foundation::scene::Scene& scene) { OnSystemsReady(scene); }); });
     }
 
     foundation::resource::ResourceManager* DefaultApplication::Resources() const noexcept
@@ -554,6 +535,7 @@ namespace engine::runtime
                 core::HasGlobalJobSystem() ? &core::GlobalJobs() : nullptr);
         }
         foundation::resource::ResourceManager* resources = Resources();
+        PointSpawnersAtContent(); // the manager exists now; scenes composed earlier learn of it
         if (resources == nullptr)
         {
             return;
@@ -655,6 +637,7 @@ namespace engine::runtime
         {
             netSubsystem->SetEndpointSource({});
         }
+        m_scenes->UnregisterObserver(this); // the observer is this app; scenes may still compose below
         // Destroy the run's scenes while the aware subsystems are still alive (they get
         // OnSceneDestroyed). The editor's GamePage already cleared them per Stop; this covers the
         // player + any leftover. Do it FIRST, before subsystem teardown, for EVERY instance.
@@ -738,24 +721,7 @@ namespace engine::runtime
         foundation::content::IContentDatabase* database, foundation::resource::ResourceManager* resources,
         foundation::scene::Scene& scene, const core::Guid& prefabId)
     {
-        if (database == nullptr)
-        {
-            return foundation::scene::EntityHandle::Invalid();
-        }
-        foundation::content::Instance* prefab = database->GetInstance(prefabId);
-        core::UniquePtr<core::IStream> payload =
-            (prefab != nullptr) ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
-        if (!payload)
-        {
-            return foundation::scene::EntityHandle::Invalid();
-        }
-        const foundation::scene::EntityHandle root =
-            foundation::scene::SpawnPrefab(scene, *payload, prefabId);
-        if (root.IsAssigned() && resources != nullptr)
-        {
-            foundation::scene::ResolveSceneResources(scene, *resources);
-        }
-        return root;
+        return foundation::scene::PrefabSpawnSystem::SpawnInto(scene, database, resources, prefabId);
     }
 
     net::StateReplication::SpawnHandler DefaultApplication::MakeSpawnResolver()

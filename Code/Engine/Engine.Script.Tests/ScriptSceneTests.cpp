@@ -14,12 +14,15 @@
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h" // REFLECT_VALUE (the OPTION 1 test component)
 #include <initializer_list>
+#include <cstdio>
+#include <filesystem>
 
 import foundation.core;
 import foundation.vfs; // the data mount the subsystem reads engine data through
 import foundation.runtime;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.content; // ContentDatabase - a prefab for scene.spawn to reach
 import engine.scene;
 import foundation.resource;
 import foundation.script;
@@ -234,6 +237,86 @@ namespace
     };
 
     bool Near(f32 a, f32 b) { return Abs(a - b) < 1e-4f; }
+
+    // What scene.spawn reaches: the scene's PrefabSpawnSystem pointed at a content database holding
+    // ONE prefab, Turret -> Barrel. The scene's scripts spawn it by id; the assertions read the
+    // scene (a Turret root exists, where, with its child) rather than a recording callback.
+    struct PrefabSource
+    {
+        std::filesystem::path dir = "scratch_script_prefabs";
+        UniquePtr<foundation::vfs::NativeFileSystem> mount;
+        UniquePtr<foundation::content::ContentDatabase> db;
+        Guid turret;
+
+        explicit PrefabSource(ScriptedScene& bed)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+            std::filesystem::create_directories(dir, ec);
+            mount = MakeUnique<foundation::vfs::NativeFileSystem>(
+                DefaultAllocator(), u8"scratch_script_prefabs", DefaultAllocator());
+            db = MakeUnique<foundation::content::ContentDatabase>(
+                DefaultAllocator(), DefaultAllocator(), *mount, BinarySerializerFactory(), u8".rasset");
+            scene::Scene author(DefaultAllocator(), u8"author");
+            const scene::EntityHandle root = author.CreateEntity(u8"Turret");
+            author.SetParent(author.CreateEntity(u8"Barrel"), root);
+            MemoryStream payload;
+            REQUIRE(scene::CapturePrefab(author, root, payload).IsOk());
+            foundation::content::Instance* prefab =
+                db->RootGroup()->CreateInstance(u8"Turret", scene::PrefabDocument::StaticType());
+            REQUIRE(prefab != nullptr);
+            REQUIRE(prefab->WriteData(u8"scene", payload.Bytes()).IsOk());
+            turret = prefab->Id();
+            bed.scene.AddSystem<scene::PrefabSpawnSystem>()->SetSource(db.Get(), nullptr);
+        }
+        ~PrefabSource()
+        {
+            db.Reset();
+            mount.Reset();
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+        }
+
+        // The prefab's id as a behavior Asset property (the way a cooked script carries one).
+        [[nodiscard]] ScriptPropertyDesc Property() const
+        {
+            ScriptPropertyDesc prefabProp;
+            prefabProp.name = String(u8"prefab");
+            prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
+            prefabProp.type = ScriptPropertyType::Asset;
+            prefabProp.assetType = String(u8"Prefab");
+            prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
+            prefabProp.defaultValue.guid = turret;
+            return prefabProp;
+        }
+        // The canonical 36-char spelling (what Guid.new / Guid(text) parse).
+        [[nodiscard]] String Canonical() const
+        {
+            char text[40];
+            std::snprintf(text, sizeof text, "%08llx-%04llx-%04llx-%04llx-%012llx",
+                          static_cast<unsigned long long>(turret.high >> 32),
+                          static_cast<unsigned long long>((turret.high >> 16) & 0xFFFFu),
+                          static_cast<unsigned long long>(turret.high & 0xFFFFu),
+                          static_cast<unsigned long long>(turret.low >> 48),
+                          static_cast<unsigned long long>(turret.low & 0xFFFFFFFFFFFFull));
+            return String(StringView(reinterpret_cast<const utf8char*>(text)));
+        }
+        // How many Turret instances the scene holds (each spawn is one root named Turret).
+        [[nodiscard]] static u32 Spawned(scene::Scene& in)
+        {
+            u32 count = 0;
+            for (scene::EntityHandle root = in.GetFirstRoot();
+                 root.IsAssigned(); root = in.GetNextSibling(root))
+            {
+                if (in.GetEntityName(root) == StringView(u8"Turret") ||
+                    in.GetEntityName(root) == StringView(u8"child"))
+                {
+                    ++count;
+                }
+            }
+            return count;
+        }
+    };
 }
 
 TEST_CASE("script.scene: lifecycle - onStart once (deferred to the first simulated "
@@ -1601,28 +1684,12 @@ TEST_CASE("script.scene: LUAU Log/Time/Random facades are callable (service-boun
     CHECK(Near(bed.scene.GetLocalTransform(e).position.x, 4.0f));
 }
 
-TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the current scene "
-          "and returns a live Entity (P2)")
+TEST_CASE("script.scene: Scene.spawn reaches the scene's PrefabSpawnSystem and returns the live "
+          "instance root (P2)")
 {
     ScriptedScene bed;
-
-    // A fake prefab spawner: creates a plain entity at the requested position (a real run
-    // resolves + spawns a cooked prefab payload; the facade->binding->scene path is what
-    // is under test here). Records the last call.
-    int spawnCalls = 0;
-    Guid lastPrefab;
-    scene::EntityHandle spawnedHandle;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid& prefabId,
-                const Float3& position) -> scene::EntityHandle
-            {
-                ++spawnCalls;
-                lastPrefab = prefabId;
-                spawnedHandle = scene->CreateEntity(u8"spawned");
-                scene->SetLocalPosition(spawnedHandle, position);
-                return spawnedHandle;
-            }};
+    // The real recipe: the scene's spawn system over a one-prefab database (no host callback).
+    PrefabSource prefabs(bed);
 
     // The behavior spawns on start using a prefab id delivered as an asset property.
     RefPtr<ScriptClass> spawner =
@@ -1637,48 +1704,28 @@ TEST_CASE("script.scene: Scene.spawn routes through the run spawner to the curre
                   u8"    }\n"
                   u8"}\n",
                   {u8"onStart"});
-    ScriptPropertyDesc prefabProp;
-    prefabProp.name = String(u8"prefab");
-    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
-    prefabProp.type = ScriptPropertyType::Asset;
-    prefabProp.assetType = String(u8"Prefab");
-    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
-    prefabProp.defaultValue.guid = Guid{0xABC, 0xDEF};
-    spawner->properties.PushBack(prefabProp);
+    spawner->properties.PushBack(prefabs.Property());
 
     const scene::EntityHandle e = bed.AddScripted(spawner, u8"spawner");
     (void)e;
     bed.Start();
     bed.Frame();
 
-    CHECK(spawnCalls == 1);
-    CHECK(lastPrefab == Guid{0xABC, 0xDEF});
-    // Scene.spawn returned the live Entity: the script renamed it and it sits at the
-    // requested world position.
+    // Scene.spawn returned the live instance root: the script renamed it, it sits at the
+    // requested position, and its Barrel child came with it (the whole payload spawned).
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u);
+    const scene::EntityHandle spawnedHandle = bed.scene.FindEntityByName(u8"child");
     REQUIRE(spawnedHandle.IsAssigned());
-    CHECK(bed.scene.GetEntityName(spawnedHandle) == StringView(u8"child"));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.z, 5.0f));
+    CHECK(bed.scene.FindChildByName(spawnedHandle, u8"Barrel").IsAssigned());
+    CHECK(bed.scene.FindPrefabInstanceByRoot(bed.scene.GetEntityId(spawnedHandle)) != nullptr);
 }
 
-TEST_CASE("script.scene: LUAU Scene.spawn routes through the run spawner + returns a live Entity")
+TEST_CASE("script.scene: LUAU Scene.spawn reaches the scene's PrefabSpawnSystem + returns a live Entity")
 {
     ScriptedScene bed;
-
-    int spawnCalls = 0;
-    Guid lastPrefab;
-    scene::EntityHandle spawnedHandle;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid& prefabId,
-                const Float3& position) -> scene::EntityHandle
-            {
-                ++spawnCalls;
-                lastPrefab = prefabId;
-                spawnedHandle = scene->CreateEntity(u8"spawned");
-                scene->SetLocalPosition(spawnedHandle, position);
-                return spawnedHandle;
-            }};
+    PrefabSource prefabs(bed);
 
     // The prefab id crosses as an Asset property (a Guid), is stored on the instance field, then
     // read back and passed to spawn - exercising Guid marshalling both ways through the Luau VM.
@@ -1692,25 +1739,18 @@ TEST_CASE("script.scene: LUAU Scene.spawn routes through the run spawner + retur
         u8"    e:setName(\"child\")\n"
         u8"end\n",
         {u8"onStart"});
-    ScriptPropertyDesc prefabProp;
-    prefabProp.name = String(u8"prefab");
-    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
-    prefabProp.type = ScriptPropertyType::Asset;
-    prefabProp.assetType = String(u8"Prefab");
-    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
-    prefabProp.defaultValue.guid = Guid{0xABC, 0xDEF};
-    spawner->properties.PushBack(prefabProp);
+    spawner->properties.PushBack(prefabs.Property());
 
     (void)bed.AddScripted(spawner, u8"spawner");
     bed.Start();
     bed.Frame();
 
-    CHECK(spawnCalls == 1);
-    CHECK(lastPrefab == Guid{0xABC, 0xDEF});
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u);
+    const scene::EntityHandle spawnedHandle = bed.scene.FindEntityByName(u8"child");
     REQUIRE(spawnedHandle.IsAssigned());
-    CHECK(bed.scene.GetEntityName(spawnedHandle) == StringView(u8"child"));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.x, 3.0f));
     CHECK(Near(bed.scene.GetLocalTransform(spawnedHandle).position.z, 5.0f));
+    CHECK(bed.scene.FindChildByName(spawnedHandle, u8"Barrel").IsAssigned());
 }
 
 TEST_CASE("script.scene: Scene.find / Scene.findByPath resolve entities in the current "
@@ -2591,19 +2631,7 @@ TEST_CASE("script-facade: entity.scene() is bound to the entity's OWN scene (cro
 TEST_CASE("script.scene: entity.scene.spawn works from onDestroy - a FORMER footgun")
 {
     ScriptedScene bed;
-    int spawnCalls = 0;
-    scene::Scene* spawnedScene = nullptr;
-    scene::EntityHandle spawned;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid&, const Float3& pos) -> scene::EntityHandle
-            {
-                ++spawnCalls;
-                spawnedScene = scene;
-                spawned = scene->CreateEntity(u8"death-spawn");
-                scene->SetLocalPosition(spawned, pos);
-                return spawned;
-            }};
+    PrefabSource prefabs(bed);
 
     RefPtr<ScriptClass> dier =
         MakeClass(u8"Dier",
@@ -2614,41 +2642,25 @@ TEST_CASE("script.scene: entity.scene.spawn works from onDestroy - a FORMER foot
                   u8"    void onDestroy() { self.scene.spawn(prefab, 1.0f, 2.0f, 3.0f); }\n"
                   u8"}\n",
                   {u8"onDestroy"});
-    ScriptPropertyDesc prefabProp;
-    prefabProp.name = String(u8"prefab");
-    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
-    prefabProp.type = ScriptPropertyType::Asset;
-    prefabProp.assetType = String(u8"Prefab");
-    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
-    prefabProp.defaultValue.guid = Guid{0x11, 0x22};
-    dier->properties.PushBack(prefabProp);
+    dier->properties.PushBack(prefabs.Property());
 
     const scene::EntityHandle e = bed.AddScripted(dier, u8"dier");
     bed.Start();
     bed.Frame(); // instantiate + (no onStart handler)
-    CHECK(spawnCalls == 0);
+    CHECK(PrefabSource::Spawned(bed.scene) == 0u);
 
     bed.scene.DestroyEntity(e);
     bed.Frame(); // removal detected -> onDestroy -> spawn into the entity's own scene
-    CHECK(spawnCalls == 1);
-    CHECK(spawnedScene == &bed.scene); // the entity's scene, resolved from the bound handle
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u); // the entity's scene, from the bound handle
+    const scene::EntityHandle spawned = bed.scene.FindEntityByName(u8"Turret");
     REQUIRE(spawned.IsAssigned());
-    CHECK(bed.scene.GetEntityName(spawned) == StringView(u8"death-spawn"));
+    CHECK(Near(bed.scene.GetLocalTransform(spawned).position.y, 2.0f));
 }
 
 TEST_CASE("script.scene: entity.scene.spawn works from a resumed coroutine - a FORMER footgun")
 {
     ScriptedScene bed;
-    int spawnCalls = 0;
-    scene::Scene* spawnedScene = nullptr;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid&, const Float3&) -> scene::EntityHandle
-            {
-                ++spawnCalls;
-                spawnedScene = scene;
-                return scene->CreateEntity(u8"coro-spawn");
-            }};
+    PrefabSource prefabs(bed);
 
     RefPtr<ScriptClass> spawner =
         MakeClass(u8"CoroSpawner",
@@ -2664,53 +2676,43 @@ TEST_CASE("script.scene: entity.scene.spawn works from a resumed coroutine - a F
                   u8"}\n",
                   {u8"onStart"});
     spawner->usesCoroutines = true;
-    ScriptPropertyDesc prefabProp;
-    prefabProp.name = String(u8"prefab");
-    prefabProp.hash = ScriptPropertyNameHash(u8"prefab");
-    prefabProp.type = ScriptPropertyType::Asset;
-    prefabProp.assetType = String(u8"Prefab");
-    prefabProp.defaultValue.kind = ScriptPropertyType::Asset;
-    prefabProp.defaultValue.guid = Guid{0x33, 0x44};
-    spawner->properties.PushBack(prefabProp);
+    spawner->properties.PushBack(prefabs.Property());
 
     (void)bed.AddScripted(spawner, u8"cs");
     bed.Start();
     bed.Frame(0.5f); // registers wait(1.0); +0.5s -> pending, no spawn
-    CHECK(spawnCalls == 0);
+    CHECK(PrefabSource::Spawned(bed.scene) == 0u);
     bed.Frame(0.5f); // +0.5s -> 1.0s reached -> coroutine resumes -> spawn
-    CHECK(spawnCalls == 1);
-    CHECK(spawnedScene == &bed.scene); // resumed OUTSIDE any tick swap, still the right scene
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u); // resumed OUTSIDE any tick swap, the right scene
+    CHECK(Near(bed.scene.GetLocalTransform(bed.scene.FindEntityByName(u8"Turret")).position.x, 7.0f));
 }
 
 TEST_CASE("script.scene: an AngelScript behavior spawns through self.scene() (bound Scene, 2nd backend)")
 {
     foundation::script::angelscript::RegisterAngelScriptBackend();
     ScriptedScene bed;
-    int spawnCalls = 0;
-    scene::Scene* spawnedScene = nullptr;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid&, const Float3&) -> scene::EntityHandle
-            {
-                ++spawnCalls;
-                spawnedScene = scene;
-                return scene->CreateEntity(u8"as-spawn");
-            }};
+    PrefabSource prefabs(bed);
 
-    RefPtr<ScriptClass> spawner = MakeClassLang(
-        u8"angelscript", u8"Spawner",
-        u8"class Spawner {\n"
-        u8"    private Entity@ self;\n"
-        u8"    Spawner(Entity@ entity) { @self = entity; }\n"
-        u8"    void onStart() { self.scene.spawn(Guid(0x55, 0x66), 1.0f, 0.0f, 0.0f); }\n"
-        u8"}\n",
-        {u8"onStart"});
+    // The id is spelled in source as its two halves (the Guid value constructor).
+    char literal[64];
+    std::snprintf(literal, sizeof literal, "Guid(0x%llx, 0x%llx)",
+                  static_cast<unsigned long long>(prefabs.turret.high),
+                  static_cast<unsigned long long>(prefabs.turret.low));
+    String source(u8"class Spawner {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Spawner(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() { self.scene.spawn(");
+    source.Append(StringView(reinterpret_cast<const utf8char*>(literal)));
+    source.Append(u8", 1.0f, 0.0f, 0.0f); }\n}\n");
+    RefPtr<ScriptClass> spawner =
+        MakeClassLang(u8"angelscript", u8"Spawner", source.AsView(), {u8"onStart"});
 
     (void)bed.AddScripted(spawner, u8"as");
     bed.Start();
     bed.Frame();
-    CHECK(spawnCalls == 1);
-    CHECK(spawnedScene == &bed.scene); // the bound Scene value carried the entity's scene through AS
+    // The bound Scene value carried the entity's scene through AS: the spawn landed HERE.
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u);
+    CHECK(Near(bed.scene.GetLocalTransform(bed.scene.FindEntityByName(u8"Turret")).position.x, 1.0f));
 }
 
 // ---- Scene-level scripting (the third tier): one `Level` object per scene, constructed with the
@@ -3938,36 +3940,29 @@ TEST_CASE("script.scene: Guid constructs from its canonical string in AngelScrip
 TEST_CASE("script.scene: Guid.new constructs from its canonical string in Luau")
 {
     ScriptedScene bed;
+    PrefabSource prefabs(bed);
 
-    Guid lastPrefab;
-    bed.host.Binding().spawnPrefab =
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-            [&](scene::Scene* scene, const Guid& prefabId,
-                const Float3&) -> scene::EntityHandle
-            {
-                lastPrefab = prefabId;
-                return scene->CreateEntity(u8"spawned");
-            }};
-
-    RefPtr<ScriptClass> spawner = MakeClassLang(
-        u8"luau", u8"Spawner",
-        u8"Spawner = {}\n"
-        u8"Spawner.__index = Spawner\n"
-        u8"function Spawner.new(entity) return setmetatable({ entity = entity }, Spawner) end\n"
-        u8"function Spawner:onStart()\n"
-        u8"    local id = Guid.new(\"00000000-0000-cc33-0000-00000000dd44\")\n"
-        u8"    if Guid.new(\"not-a-guid\"):IsNil() and not id:IsNil() then\n"
-        u8"        self.entity.scene:spawn(id, 1.0, 2.0, 3.0)\n"
-        u8"    end\n"
-        u8"end\n",
-        {u8"onStart"});
+    // The prefab's id spelled canonically in source: only a correct parse spawns it.
+    String source(u8"Spawner = {}\n"
+                  u8"Spawner.__index = Spawner\n"
+                  u8"function Spawner.new(entity) return setmetatable({ entity = entity }, Spawner) end\n"
+                  u8"function Spawner:onStart()\n"
+                  u8"    local id = Guid.new(\"");
+    source.Append(prefabs.Canonical().AsView());
+    source.Append(u8"\")\n"
+                  u8"    if Guid.new(\"not-a-guid\"):IsNil() and not id:IsNil() then\n"
+                  u8"        self.entity.scene:spawn(id, 1.0, 2.0, 3.0)\n"
+                  u8"    end\n"
+                  u8"end\n");
+    RefPtr<ScriptClass> spawner = MakeClassLang(u8"luau", u8"Spawner", source.AsView(), {u8"onStart"});
 
     (void)bed.AddScripted(spawner, u8"spawner");
     bed.Start();
     bed.Frame();
 
-    // spawn received the parsed halves; the malformed spelling read back as Nil.
-    CHECK(lastPrefab == Guid{0xCC33, 0xDD44});
+    // spawn received the parsed id (the database knew it); the malformed spelling read as Nil.
+    CHECK(PrefabSource::Spawned(bed.scene) == 1u);
+    CHECK(Near(bed.scene.GetLocalTransform(bed.scene.FindEntityByName(u8"Turret")).position.y, 2.0f));
 }
 
 // An asset/resource (Guid) editor property applies to an AngelScript behavior when declared as a

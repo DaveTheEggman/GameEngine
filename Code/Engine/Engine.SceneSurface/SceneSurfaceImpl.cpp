@@ -14,6 +14,7 @@ module engine.scenesurface;
 
 import foundation.core;
 import foundation.scene;
+import foundation.scene.resource; // PrefabSpawnSystem (the runtime spawn by id)
 import foundation.net.replication;
 import engine.render;
 import engine.animation;
@@ -63,11 +64,15 @@ namespace
                                         &foundation::net::RegisterReplicationComponents};
     const scene::SceneModule kSplineModule{u8"spline", &engine::spline::AddSplineSceneManagers,
                                            &engine::spline::RegisterSplineComponentReflection};
+    // The runtime prefab spawn (a script's scene.spawn, the replicated spawn): a Foundation
+    // system with no components, so no reflection to register. Inert until the host points it at
+    // its content (DefaultApplication, at SystemsReady).
+    const scene::SceneModule kPrefabModule{u8"prefabs", &scene::AddPrefabSpawnSceneManagers, nullptr};
 
     const scene::SceneModule* kAllModules[] = {
         &kRenderModule,   &kAnimationModule, &kParticleModule, &kPhysicsModule, &kTerrainModule,
         &kNavigationModule, &kAudioModule,   &kScriptModule,   &kUiModule,      &kNetModule,
-        &kSplineModule,
+        &kSplineModule,   &kPrefabModule,
     };
 }
 

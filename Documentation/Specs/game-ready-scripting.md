@@ -163,7 +163,8 @@ the Foundation `Scene` would smear UI onto "Scene is data" and create a second s
 property calls the slot; an empty slot returns null (headless runs, dedicated servers, no-UI tests
 correct by default). `draconic.engine.ui` installs the implementation (it owns the `Ui` facade +
 UISubsystem map) and returns the bound `RootView` handle. This is the CONVENTIONS inversion rule
-(capability flows in through installed pointers), exactly like `spawnPrefab`; `run.ui` later reuses
+(capability flows in through installed pointers), as `spawnPrefab` did before `scene.spawn` moved onto
+the scene's own `PrefabSpawnSystem` (2026-09-19); `run.ui` later reuses
 the same slot pattern, run-scoped.
 
 **Acceptance (honesty bar).** `scene.ui` must *resolve the root*; property/method access on it
@@ -256,8 +257,8 @@ The script bridge is itself just one native subscriber that fans events to the d
   only. **C++-only games use it directly**, no scripting involved.
 - **Script emit is direct, no host hook.** The Foundation bound `Scene` facade already carries a
   `scene::Scene*`, so `scene.events.emit(name, payload)` calls `scene->EventBus().Publish(...)` - both
-  Foundation, so unlike `scene.spawn` (which needs the host content DB via `ScriptRuntimeBinding`)
-  it needs NO binding hook. So no `emitSceneEvent` hook is added to `ScriptRuntimeBinding` at all.
+  Foundation, so like `scene.spawn` today (the scene's `PrefabSpawnSystem` carries the content DB;
+  historically it went through a `ScriptRuntimeBinding` hook) it needs NO binding hook. So no `emitSceneEvent` hook is added to `ScriptRuntimeBinding` at all.
 - **Script receive is a BRIDGE** in `Draconic.Engine.Script` (mirroring `ScriptPhysicsContactBridge`):
   one native subscriber that fans bus events to the declaring `on<Type>` handlers via
   `ScriptObject::Invoke`; installed by the Engine composition root. The bus stays script-agnostic.

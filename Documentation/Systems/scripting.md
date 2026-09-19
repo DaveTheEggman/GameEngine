@@ -104,7 +104,8 @@ supported. Stop tears the context down (isolation is between RUNS, the PIE rule)
 
 The reflection registry exposes every reflected type. On top, a curated gameplay facade set
 (`foundation.script.facades` + per-subsystem facades, kept OUT-OF-TREE per [[facade-pattern]]):
-`entity` (transform/name/destroy/findChild/components), `Scene.spawn(prefab, transform)` /
+`entity` (transform/name/destroy/findChild/components), `Scene.spawn(prefab, x, y, z)` (the scene's
+own `PrefabSpawnSystem`, see [[text-scenes]]; no host callback) /
 `Scene.find`, `Input`, `Audio`, `Physics.rayCast`, `UI`, `Net`, `Log`, `Time`, `Random`. Rule:
 a facade lands only WITH a sample that uses it (no API-first surface). Write facades with
 natural C++ types (i32/i64), not f64 ([[script-facade-numerics]]). `Engine.ScriptSurface`

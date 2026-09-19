@@ -720,6 +720,82 @@ namespace foundation::scene
         scene.ForEachSystem([&](SceneSystem& system) { system.ResolveResources(resources); });
     }
 
+    void ResolveEntityResources(Scene& scene, EntityHandle root,
+                                foundation::resource::ResourceManager& resources)
+    {
+        if (!scene.IsValid(root))
+        {
+            return;
+        }
+        scene.ForEachSystem([&](SceneSystem& system) { system.ResolveEntityResources(root, resources); });
+        for (EntityHandle child = scene.GetFirstChild(root); child.IsAssigned();
+             child = scene.GetNextSibling(child))
+        {
+            ResolveEntityResources(scene, child, resources);
+        }
+    }
+
+    EntityHandle PrefabSpawnSystem::Spawn(const Guid& prefab, const Float3& position,
+                                          const Quaternion& rotation, EntityHandle parent)
+    {
+        if (m_scene == nullptr)
+        {
+            return EntityHandle::Invalid();
+        }
+        const EntityHandle root = SpawnInto(*m_scene, m_database, m_resources, prefab, parent);
+        if (!root.IsAssigned())
+        {
+            return EntityHandle::Invalid();
+        }
+        Transform transform = m_scene->GetLocalTransform(root);
+        transform.position = position;
+        transform.rotation = rotation;
+        m_scene->SetLocalTransform(root, transform);
+        return root;
+    }
+
+    EntityHandle PrefabSpawnSystem::SpawnInto(Scene& scene,
+                                              foundation::content::IContentDatabase* database,
+                                              foundation::resource::ResourceManager* resources,
+                                              const Guid& prefab, EntityHandle parent)
+    {
+        if (database == nullptr || prefab.IsNil())
+        {
+            return EntityHandle::Invalid();
+        }
+        foundation::content::Instance* instance = database->GetInstance(prefab);
+        if (instance == nullptr)
+        {
+            return EntityHandle::Invalid();
+        }
+        UniquePtr<IStream> payload = instance->ReadData(u8"scene");
+        if (!payload)
+        {
+            return EntityHandle::Invalid();
+        }
+        // The prefabs this one nests come from the same database; without a resolver their
+        // records would be skipped and the instance would arrive missing its children.
+        const PrefabPayloadResolver resolver{[database](const Guid& id) -> UniquePtr<IStream>
+                                             {
+                                                 foundation::content::Instance* nested =
+                                                     database->GetInstance(id);
+                                                 return nested != nullptr ? nested->ReadData(u8"scene")
+                                                                          : UniquePtr<IStream>{};
+                                             }};
+        const EntityHandle root = SpawnPrefab(scene, *payload, prefab, parent, nullptr, &resolver);
+        // The subtree names its resources by id and nothing has bound them yet.
+        if (root.IsAssigned() && resources != nullptr)
+        {
+            foundation::scene::ResolveEntityResources(scene, root, *resources);
+        }
+        return root;
+    }
+
+    void AddPrefabSpawnSceneManagers(Scene& scene)
+    {
+        scene.AddSystem<PrefabSpawnSystem>();
+    }
+
     Status CapturePrefab(Scene& scene, EntityHandle root, IStream& out,
                          detail::SceneStreamEncoding encoding)
     {

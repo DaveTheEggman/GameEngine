@@ -3,7 +3,8 @@
 add_executable(Scene.Resource.Tests
     TestsMain.cpp
     SceneSerializeTests.cpp
-    SceneSaveLoadTests.cpp)
+    SceneSaveLoadTests.cpp
+    PrefabSpawnSystemTests.cpp)
 
 target_link_libraries(Scene.Resource.Tests PRIVATE
     Foundation::Scene.Resource Foundation::VFS doctest::doctest)

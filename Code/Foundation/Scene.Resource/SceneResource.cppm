@@ -858,6 +858,60 @@ export namespace foundation::scene
     // through the manager. Run after LoadScene once a ResourceManager over the cooked DB exists;
     // idempotent (re-binding an already-bound ref is a cache hit).
     void ResolveSceneResources(Scene& scene, foundation::resource::ResourceManager& resources);
+    // Binds the references held by `root` and everything under it: what a subtree spawned into
+    // an already-resolved scene needs, without re-walking the whole scene (every system's
+    // per-entity hook, top down). Nothing for an invalid root.
+    void ResolveEntityResources(Scene& scene, EntityHandle root,
+                                foundation::resource::ResourceManager& resources);
+
+    /// Spawns prefabs into its scene at runtime, by id: what a script's `scene.spawn` and the
+    /// replicated-spawn resolver reach. The scene knows nothing of content, so this is where
+    /// the content database and the resource manager meet it: the host that owns them points a
+    /// scene's system at them once the scene is composed (DefaultApplication does it at
+    /// SystemsReady); a scene with no source spawns nothing and says so with an invalid handle.
+    ///
+    /// ONE recipe for every runtime spawn: read the payload, spawn it with the database
+    /// resolving what it nests, place the root, bind the spawned subtree (only it). The instance
+    /// is recorded on the scene like any other, so a saved scene restores it.
+    class PrefabSpawnSystem final : public SceneSystem
+    {
+    public:
+        void OnSceneCreate(Scene& scene) override { m_scene = &scene; }
+
+        /// The database the prefabs come from and the manager their resources bind through.
+        /// Both borrowed; either may be null: no database spawns nothing, no manager leaves the
+        /// subtree unbound until a later resolve pass.
+        void SetSource(foundation::content::IContentDatabase* database,
+                       foundation::resource::ResourceManager* resources) noexcept
+        {
+            m_database = database;
+            m_resources = resources;
+        }
+        [[nodiscard]] bool HasSource() const noexcept { return m_database != nullptr; }
+
+        /// Spawns the prefab under `parent` (invalid = a scene root), its root placed at
+        /// `position` / `rotation` in the parent's space. Invalid when the prefab is unknown,
+        /// the payload is unreadable, or there is no source - never a partial spawn.
+        [[nodiscard]] EntityHandle Spawn(const Guid& prefab, const Float3& position,
+                                         const Quaternion& rotation = Quaternion::Identity,
+                                         EntityHandle parent = EntityHandle::Invalid());
+
+        /// The recipe as a function of what it needs, so a host without a scene system in hand
+        /// (the replicated-spawn resolver) runs the same one.
+        [[nodiscard]] static EntityHandle SpawnInto(Scene& scene,
+                                                    foundation::content::IContentDatabase* database,
+                                                    foundation::resource::ResourceManager* resources,
+                                                    const Guid& prefab,
+                                                    EntityHandle parent = EntityHandle::Invalid());
+
+    private:
+        Scene* m_scene = nullptr;                                   // borrowed: the scene outlives its systems
+        foundation::content::IContentDatabase* m_database = nullptr; // borrowed from the host
+        foundation::resource::ResourceManager* m_resources = nullptr; // borrowed from the host
+    };
+
+    /// The scene module: the spawn system, inert until a host gives it a source.
+    void AddPrefabSpawnSceneManagers(Scene& scene);
 
     // Unresolved component records (their manager was absent at load; preserved verbatim -
     // game-native-code.md S3) become real components once the manager exists: called for a

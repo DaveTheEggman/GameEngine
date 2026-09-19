@@ -283,6 +283,14 @@ export namespace foundation::scene
         {
             this->ForEach([&](T& c, EntityHandle) { ResolveOne(manager, c); });
         }
+        void ResolveEntityResources(EntityHandle entity,
+                                    foundation::resource::ResourceManager& manager) override
+        {
+            if (T* c = this->Get(entity))
+            {
+                ResolveOne(manager, *c);
+            }
+        }
 
     private:
         // Unqualified call so ADL finds the user's Serialize(ar, T&); the using-declaration

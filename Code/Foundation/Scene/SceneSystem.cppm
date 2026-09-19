@@ -77,6 +77,14 @@ export namespace foundation::scene
         // manager - the post-load resolve pass. ComponentManagerBase overrides it for component
         // pools; plain systems with resource-bearing settings override it too. Default: nothing.
         virtual void ResolveResources(foundation::resource::ResourceManager& /*manager*/) {}
+        // Bind the resource::Refs ONE entity's data in this system holds - for a subtree that
+        // arrived after the scene was resolved (a runtime prefab spawn), so the spawn binds what
+        // it added rather than re-walking the scene. A system with no per-entity data does
+        // nothing; SerializableComponentManager resolves that entity's component.
+        virtual void ResolveEntityResources(EntityHandle /*entity*/,
+                                            foundation::resource::ResourceManager& /*manager*/)
+        {
+        }
 
         // Lower runs earlier within a phase.
         [[nodiscard]] virtual i32 UpdateOrder() const noexcept { return 0; }

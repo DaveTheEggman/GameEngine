@@ -1533,16 +1533,8 @@ export namespace engine::script
                                                         self->m_configurator(context);
                                                     }
                                                 }});
-            host.Binding().spawnPrefab =
-                Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>{
-                    [self](scene::Scene* scene, const Guid& prefab,
-                           const Float3& position) -> scene::EntityHandle
-                    {
-                        return self->m_spawner ? self->m_spawner(scene, prefab, position)
-                                               : scene::EntityHandle::Invalid();
-                    }};
             // Resource-swap seam: forward to the app's getter at call time, so a manager
-            // created AFTER this host was configured is still seen (like m_spawner's live wrapper).
+            // created AFTER this host was configured is still seen.
             host.Binding().resolveResources = Function<resource::ResourceManager*()>{
                 [self]() -> resource::ResourceManager*
                 { return self->m_resourcesGetter ? self->m_resourcesGetter() : nullptr; }};
@@ -1638,13 +1630,6 @@ export namespace engine::script
         void SetContextConfigurator(Function<void(IScriptContext&)> configurator)
         {
             m_configurator = Move(configurator);
-        }
-        /// Host-app wiring: the prefab spawner behind `Scene.spawn` (the host owns the content DB that
-        /// resolves a prefab id). Applied to every run host by ConfigureRunHost's live wrapper.
-        void SetPrefabSpawner(
-            Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)> spawner)
-        {
-            m_spawner = Move(spawner);
         }
         /// Host-app wiring: a GETTER for the run's resource manager, behind the resource-swap
         /// ops (SceneRender.setMesh, ...). A getter (not a ptr) because the app's manager is created
@@ -1804,8 +1789,6 @@ export namespace engine::script
         Array<SceneEntry> m_systems;
         Function<void(IScriptContext&)>
             m_configurator; // app services, applied to every host via ConfigureRunHost
-        Function<scene::EntityHandle(scene::Scene*, const Guid&, const Float3&)>
-            m_spawner; // Scene.spawn
         Function<resource::ResourceManager*()>
             m_resourcesGetter; // resource swaps (late-bound; app owns the manager)
     };

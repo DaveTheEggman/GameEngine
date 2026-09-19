@@ -90,7 +90,7 @@ export namespace engine::runtime
     // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
     namespace net = foundation::net;
 
-    class DefaultApplication : public IApplication
+    class DefaultApplication : public IApplication, public foundation::scene::ISceneObserver
     {
     public:
         // Press P to print the previous frame's CPU scope tree + per-pass GPU timing. A game
@@ -190,6 +190,10 @@ export namespace engine::runtime
         void OnStartup(IApplicationHost& host) override;
 
         void OnShutdown(IApplicationHost&) override;
+
+        /// ISceneObserver: every composed scene's PrefabSpawnSystem gets the app's content
+        /// database and resource manager - the scene knows nothing of content, the app owns it.
+        void OnSystemsReady(foundation::scene::Scene& scene) override;
 
         // ---- the game script (a `Game` class: construct new(), launch(), update(dt),
         // exit() - all optional except the class). Faults disable the SCRIPT, not the game. ----
@@ -316,9 +320,9 @@ export namespace engine::runtime
         // set relevancy. The controller applies it to each endpoint, so reconnect keeps it - the app just
         // hands it over once at wiring (it needs the content DB), no longer wiring the endpoint itself.
         [[nodiscard]] net::StateReplication::SpawnHandler MakeSpawnResolver();
-        /// The resolver's body, on its own so it can be tested without a network: the prefab's
-        /// "scene" stream from `database` spawned into `scene` under `prefabId`, resources resolved
-        /// through `resources` when given. Invalid (never a partial spawn) when there is no
+        /// The resolver's body: the ONE runtime spawn recipe (PrefabSpawnSystem::SpawnInto) with
+        /// the app's database and manager supplied - a script's scene.spawn runs the same one
+        /// through the scene's own system. Invalid (never a partial spawn) when there is no
         /// database, no such instance, or an instance with no scene stream.
     public:
         [[nodiscard]] static foundation::scene::EntityHandle
@@ -332,6 +336,10 @@ export namespace engine::runtime
         // reliable-config tuning uses the endpoint defaults here; the preset path is the CLI/dedicated
         // launch (scripts go online via the Net facade instead).
         void ApplyNetworkStartup(GameInstance& instance);
+
+        /// Re-points every live scene's spawn system at the current content database + resource
+        /// manager: SetContentDatabase and the manager's creation can both land after scenes exist.
+        void PointSpawnersAtContent();
 
         engine::scene::SceneSubsystem* m_scenes = nullptr;
         GameInstance m_instance; // the primary running game (app-level ops target this one)

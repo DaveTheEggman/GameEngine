@@ -68,8 +68,8 @@ default/editing scenes; each `GameInstance` owns one for its group. `OnSceneCrea
 the subsystem's default host; a `GameInstance` RE-BINDS its own scenes' `ScriptSceneSystem` to its host
 after adopting them (legit: the instance is in the script layer; the lower `SceneSubsystem` cannot reach
 `ScriptSceneSystem`). Each owner drives its own host (binding clock + GC + teardown). Routing is shared
-logic on any host: `ScriptSubsystem::ConfigureRunHost(host)` installs the message route + prefab spawner
-+ service configurator; `MaybeTeardownRunHost(host)` tears a host down when nothing holds it, none of
+logic on any host: `ScriptSubsystem::ConfigureRunHost(host)` installs the message route + service
+configurator (`scene.spawn` needs no host hook: it reaches the scene's `PrefabSpawnSystem`); `MaybeTeardownRunHost(host)` tears a host down when nothing holds it, none of
 its scenes simulate, and no live behaviors remain. The game-script hold is a per-host flag; the game
 script talks to the instance's host directly.
 

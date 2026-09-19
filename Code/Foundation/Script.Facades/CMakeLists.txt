@@ -3,7 +3,7 @@
 # and the editor's COOK so both VMs register the same "main"-module surface.
 util_add_engine_library(Script.Facades ALIAS Foundation::Script.Facades)
 target_link_libraries(Script.Facades PUBLIC
-    Foundation::Core Foundation::Scene Foundation::Script Foundation::Policy)
+    Foundation::Core Foundation::Scene Foundation::Scene.Resource Foundation::Script Foundation::Policy)
 target_sources(Script.Facades
     PRIVATE
         ScriptFacadesImpl.cpp   # implementation unit: the REFLECT_* bodies (GCC gcm rule)

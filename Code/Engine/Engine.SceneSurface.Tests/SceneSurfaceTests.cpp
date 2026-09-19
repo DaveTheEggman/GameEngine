@@ -22,6 +22,7 @@ import engine.ui;
 import engine.terrain;
 import engine.spline;
 import engine.audio;
+import foundation.scene.resource;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -29,7 +30,7 @@ namespace scene = foundation::scene;
 TEST_CASE("engine.scenesurface: full composition covers every domain")
 {
     // One module per engine domain + net (the single source of truth in SceneSurfaceImpl).
-    CHECK(engine::FullSceneComposition().ModuleCount() == 11u); // + terrain + spline
+    CHECK(engine::FullSceneComposition().ModuleCount() == 12u); // + terrain + spline + prefabs
 
     // Reproducing the aggregate: Instantiate yields the full manager set with no parallel list.
     scene::Scene scratch(DefaultAllocator(), u8"surface");
@@ -45,6 +46,9 @@ TEST_CASE("engine.scenesurface: full composition covers every domain")
     CHECK(scratch.HasSystem<foundation::net::NetworkComponentManager>());
     CHECK(scratch.HasSystem<engine::terrain::TerrainComponentManager>());
     CHECK(scratch.HasSystem<engine::spline::SplineComponentManager>());
+    // The runtime spawn rides the composition, so every composed scene can spawn by id.
+    CHECK(scratch.HasSystem<foundation::scene::PrefabSpawnSystem>());
+    CHECK_FALSE(scratch.GetSystem<foundation::scene::PrefabSpawnSystem>()->HasSource()); // until a host points it
 
     // Serialization routing works: on-disk type ids resolve to their managers.
     CHECK(scratch.FindManagerBySerializationId(u8"net.Network") != nullptr);
