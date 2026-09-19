@@ -562,6 +562,20 @@ TEST_CASE("sss: RegisterBuiltins_ResolvesTypes")
     CHECK(UITypeRegistry::Resolve(u8"Flex") == &FlexLayout::StaticType()); // alias
 }
 
+TEST_CASE("sss: RegisterBuiltins is safe to call from many threads at once (the theme cook does)")
+{
+    // The UI theme cook reaches this through StyleSheetLoader on job workers; a plain flag let
+    // two builds rehash the type map under each other. Hammer it, then the map is intact and
+    // holds exactly what one registration holds.
+    UITypeRegistry::RegisterBuiltins();
+    const usize expected = UITypeRegistry::Count();
+    core::JobSystem jobs(core::DefaultAllocator(), 4);
+    jobs.ParallelFor(64, [](core::u32) { UITypeRegistry::RegisterBuiltins(); }, 1);
+    CHECK(UITypeRegistry::Count() == expected);
+    CHECK(UITypeRegistry::Resolve(u8"ComboBox") != nullptr);
+    CHECK(UITypeRegistry::Resolve(u8"Flex") == &FlexLayout::StaticType());
+}
+
 TEST_CASE("sss: TypeSelectors_DoNotLeakAcrossControls")
 {
     EnsureGlobals();

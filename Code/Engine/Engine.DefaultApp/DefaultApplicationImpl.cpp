@@ -734,34 +734,40 @@ namespace engine::runtime
                                frame.height, frame.frameIndex);
     }
 
+    foundation::scene::EntityHandle DefaultApplication::ResolveNetworkPrefab(
+        foundation::content::IContentDatabase* database, foundation::resource::ResourceManager* resources,
+        foundation::scene::Scene& scene, const core::Guid& prefabId)
+    {
+        if (database == nullptr)
+        {
+            return foundation::scene::EntityHandle::Invalid();
+        }
+        foundation::content::Instance* prefab = database->GetInstance(prefabId);
+        core::UniquePtr<core::IStream> payload =
+            (prefab != nullptr) ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
+        if (!payload)
+        {
+            return foundation::scene::EntityHandle::Invalid();
+        }
+        const foundation::scene::EntityHandle root =
+            foundation::scene::SpawnPrefab(scene, *payload, prefabId);
+        if (root.IsAssigned() && resources != nullptr)
+        {
+            foundation::scene::ResolveSceneResources(scene, *resources);
+        }
+        return root;
+    }
+
     net::StateReplication::SpawnHandler DefaultApplication::MakeSpawnResolver()
     {
         DefaultApplication* self = this;
-        // The resolver itself (content DB -> a live prefab); the NetworkController applies it to each
-        // endpoint. The app owns only the content-DB knowledge here.
+        // The resolver (content DB -> a live prefab); the NetworkController applies it to each
+        // endpoint. The database and resources are read WHEN INVOKED, not when wired - the entry
+        // point hands the content database over after construction.
         return net::StateReplication::SpawnHandler{
             [self](foundation::scene::Scene& scene, const core::Guid& prefabId,
                    net::NetworkId) -> foundation::scene::EntityHandle
-            {
-                if (self->m_contentDatabase == nullptr)
-                {
-                    return foundation::scene::EntityHandle::Invalid();
-                }
-                foundation::content::Instance* prefab = self->m_contentDatabase->GetInstance(prefabId);
-                core::UniquePtr<core::IStream> payload =
-                    (prefab != nullptr) ? prefab->ReadData(u8"scene") : core::UniquePtr<core::IStream>{};
-                if (!payload)
-                {
-                    return foundation::scene::EntityHandle::Invalid();
-                }
-                const foundation::scene::EntityHandle root =
-                    foundation::scene::SpawnPrefab(scene, *payload, prefabId);
-                if (root.IsAssigned() && self->Resources() != nullptr)
-                {
-                    foundation::scene::ResolveSceneResources(scene, *self->Resources());
-                }
-                return root;
-            }};
+            { return ResolveNetworkPrefab(self->m_contentDatabase, self->Resources(), scene, prefabId); }};
     }
 
     void DefaultApplication::ApplyNetworkStartup(GameInstance& instance)

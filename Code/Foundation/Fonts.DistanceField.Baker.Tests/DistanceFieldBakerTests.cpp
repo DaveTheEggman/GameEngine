@@ -8,6 +8,7 @@
 
 #include <doctest/doctest.h>
 #include <cstdio>
+#include "Core/Prelude.h" // <new> for container instantiation under GCC modules
 
 import foundation.core;
 import foundation.vfs; // the engine data root (FindDataRoot / DataPath)
@@ -274,4 +275,19 @@ TEST_CASE("df baker: baking is deterministic across runs (parallel-bake regressi
     DefaultAllocator().Delete(a);
     DefaultAllocator().Delete(b);
     DefaultAllocator().Delete(font);
+}
+
+TEST_CASE("distancefield: Initialize is safe to call from many threads at once (the font cook does)")
+{
+    // FontAssetBuilder calls this per build on job workers. A plain null check let two of them
+    // each create and register a baker: the second leaked and the factory list held both.
+    JobSystem jobs(DefaultAllocator(), 4);
+    jobs.ParallelFor(64, [](u32) { DistanceFieldFonts::Initialize(); }, 1);
+    CHECK(DistanceFieldFonts::IsInitialized());
+    // Shutdown re-arms it: a later Initialize creates exactly one baker again.
+    DistanceFieldFonts::Shutdown();
+    CHECK_FALSE(DistanceFieldFonts::IsInitialized());
+    jobs.ParallelFor(64, [](u32) { DistanceFieldFonts::Initialize(); }, 1);
+    CHECK(DistanceFieldFonts::IsInitialized());
+    DistanceFieldFonts::Shutdown();
 }

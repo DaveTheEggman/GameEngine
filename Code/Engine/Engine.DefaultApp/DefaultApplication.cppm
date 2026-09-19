@@ -316,6 +316,17 @@ export namespace engine::runtime
         // set relevancy. The controller applies it to each endpoint, so reconnect keeps it - the app just
         // hands it over once at wiring (it needs the content DB), no longer wiring the endpoint itself.
         [[nodiscard]] net::StateReplication::SpawnHandler MakeSpawnResolver();
+        /// The resolver's body, on its own so it can be tested without a network: the prefab's
+        /// "scene" stream from `database` spawned into `scene` under `prefabId`, resources resolved
+        /// through `resources` when given. Invalid (never a partial spawn) when there is no
+        /// database, no such instance, or an instance with no scene stream.
+    public:
+        [[nodiscard]] static foundation::scene::EntityHandle
+        ResolveNetworkPrefab(foundation::content::IContentDatabase* database,
+                             foundation::resource::ResourceManager* resources,
+                             foundation::scene::Scene& scene, const core::Guid& prefabId);
+
+    private:
 
         // Enter the preset startup role on the primary instance (None = single-player, no-op). The
         // reliable-config tuning uses the endpoint defaults here; the preset path is the CLI/dedicated

@@ -49,8 +49,11 @@ export namespace foundation::rhi::dx12
             }
 
             // Collect entry point names and per-stage export descriptors.
-            // Export names are UTF-8 StringView; DX12 wants LPCWSTR, so widen them
-            // (ASCII-safe for shader export names).
+            // Export names are UTF-8 StringView; DX12 wants LPCWSTR, so widen them through
+            // WidenExportName - the SAME conversion getShaderIdentifier uses, so a registered
+            // name and a looked-up name can never disagree. (A reinterpret_cast of the UTF-8
+            // bytes as wchar_t here registered garbage names, so no identifier ever resolved -
+            // found by the Beef port.)
             std::vector<std::wstring> entryWide;
             Array<D3D12_EXPORT_DESC> exports;
 
@@ -61,8 +64,7 @@ export namespace foundation::rhi::dx12
                 if (!dxMod)
                     continue;
 
-                entryWide.emplace_back(reinterpret_cast<const wchar_t*>(stage.entryPoint.Data()),
-                                       stage.entryPoint.Size());
+                entryWide.push_back(WidenExportName(stage.entryPoint));
             }
 
             exports.Resize(entryWide.size());
@@ -167,8 +169,7 @@ export namespace foundation::rhi::dx12
                         group.generalShaderIndex < desc.stages.Size())
                     {
                         auto ep = desc.stages[group.generalShaderIndex].entryPoint;
-                        m_groupExportNames.emplace_back(reinterpret_cast<const wchar_t*>(ep.Data()),
-                                                        ep.Size());
+                        m_groupExportNames.push_back(WidenExportName(ep));
                     }
                     else
                     {
@@ -236,13 +237,19 @@ export namespace foundation::rhi::dx12
             if (!m_properties)
                 return nullptr;
 
-            // Convert narrow string to wide (ASCII-safe for shader entry points).
+            const std::wstring wide = WidenExportName(exportName);
+            return m_properties->GetShaderIdentifier(wide.c_str());
+        }
+
+        // UTF-8 -> wide, one code unit per byte (shader export names are ASCII). The one
+        // conversion for registration AND lookup.
+        static std::wstring WidenExportName(StringView exportName)
+        {
             std::wstring wide;
             wide.reserve(exportName.Size());
             for (usize i = 0; i < exportName.Size(); ++i)
-                wide.push_back(static_cast<wchar_t>(exportName[i]));
-
-            return m_properties->GetShaderIdentifier(wide.c_str());
+                wide.push_back(static_cast<wchar_t>(static_cast<unsigned char>(exportName[i])));
+            return wide;
         }
 
         void cleanup()

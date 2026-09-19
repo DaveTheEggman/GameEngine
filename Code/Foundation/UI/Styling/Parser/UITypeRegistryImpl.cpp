@@ -31,12 +31,20 @@ namespace foundation::ui
 {
     void UITypeRegistry::RegisterBuiltins()
     {
-        static bool registered = false;
-        if (registered)
+        // ONCE and thread-safe (a function-local static's initializer runs exactly once and blocks
+        // concurrent callers): the UI theme cook reaches this through StyleSheetLoader on job
+        // workers, and a plain flag let two builds rehash the type map under each other. One
+        // per process because this is an impl unit (the shared-library rendezvous rule).
+        static const bool once = []()
         {
-            return;
-        }
-        registered = true;
+            RegisterBuiltinsBody();
+            return true;
+        }();
+        (void)once;
+    }
+
+    void UITypeRegistry::RegisterBuiltinsBody()
+    {
 
         // Core.
         Register(u8"View", &View::StaticType());

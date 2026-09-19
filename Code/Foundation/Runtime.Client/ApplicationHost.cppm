@@ -21,6 +21,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h" // the main-render-window failure (a silent skip reads as a render bug)
 #include "Profiler/Profiler.h"
 
 export module foundation.runtime.client;
@@ -94,6 +95,14 @@ export namespace foundation::runtime
                     {
                         m_windows.PushBack(
                             static_cast<core::UniquePtr<RenderWindow>&&>(rw.Value()));
+                    }
+                    else
+                    {
+                        // The host keeps ticking with no render window, so nothing draws and
+                        // nothing says why - a long hunt on the web port. Name it.
+                        LOG_ERROR(u8"Runtime",
+                                  u8"failed to create the main render window (surface/swap chain) "
+                                  u8"- the application runs but renders NOTHING");
                     }
                 }
             }

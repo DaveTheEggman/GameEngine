@@ -55,5 +55,8 @@ export namespace foundation::ui
         /// (UITypeRegistryImpl.cpp) that reaches every control via the module - so element selectors like
         /// `ComboBox::arrow` in a .sss resolve to a concrete type instead of matching everything.
         static void RegisterBuiltins();
+
+    private:
+        static void RegisterBuiltinsBody(); // impl unit
     };
 }

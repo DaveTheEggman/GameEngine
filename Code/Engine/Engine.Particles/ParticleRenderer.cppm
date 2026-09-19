@@ -544,6 +544,12 @@ export namespace engine::particles
                 u8"particle", shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
             if (vs == nullptr || ps == nullptr)
             {
+                if (!m_loggedBillboardPipelineMiss)
+                {
+                    m_loggedBillboardPipelineMiss = true;
+                    rhi::LogErrorf("ParticleRenderer: 'particle' shaders unresolved - billboard "
+                                   "particles will not draw");
+                }
                 return nullptr;
             }
 
@@ -614,6 +620,15 @@ export namespace engine::particles
                 EnsureTextureBindGroup(b->texture != nullptr ? b->texture : m_whiteView);
             if (pso == nullptr || texBg == nullptr)
             {
+                // Loud: a silent return here hid a DX12 input-layout refusal (POSITION semantics)
+                // for as long as the shader existed. Once per renderer, not per frame.
+                if (!m_loggedTrailPipelineMiss)
+                {
+                    m_loggedTrailPipelineMiss = true;
+                    rhi::LogErrorf("ParticleRenderer: trail pipeline%s unavailable - trails will "
+                                   "not draw (see the backend's shader/layout errors above)",
+                                   pso == nullptr ? "" : "'s texture bind group");
+                }
                 return;
             }
             render::ResolvedDraw d{};
@@ -817,6 +832,8 @@ export namespace engine::particles
         rhi::Buffer* m_indexBuffer = nullptr;
         rhi::Texture* m_whiteTex = nullptr; // 1x1 white default (untextured particles)
         rhi::TextureView* m_whiteView = nullptr;
+        bool m_loggedTrailPipelineMiss = false;     // once-per-renderer diagnostics
+        bool m_loggedBillboardPipelineMiss = false;
         rhi::BindGroup* m_viewBg = nullptr;
         u32 m_viewBgGen = 0;
         // Keyed by view pointer, validated by TextureView::uniqueId on every hit (address

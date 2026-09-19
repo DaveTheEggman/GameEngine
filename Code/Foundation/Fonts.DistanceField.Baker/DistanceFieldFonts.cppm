@@ -22,12 +22,20 @@ export namespace foundation::fonts
     class DistanceFieldFonts
     {
     public:
+        // Idempotent AND thread-safe: the font cook calls this per build on job workers, and
+        // a plain null check let two of them each register a baker (the second leaked and the
+        // factory list held both). The initializer runs once and blocks concurrent callers;
+        // Shutdown re-arms it for the next Initialize.
         static void Initialize()
         {
-            if (s_baker)
+            static bool armed = false; // set once the baker exists; cleared by Shutdown
+            static Mutex lock;
+            ScopedLock guard(lock);
+            if (armed && s_baker != nullptr)
                 return;
             s_baker = DefaultAllocator().New<DistanceFieldFontAtlasBaker>();
             FontAtlasBakerFactory::RegisterBaker(s_baker);
+            armed = true;
         }
 
         static void Shutdown()
