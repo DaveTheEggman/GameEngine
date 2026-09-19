@@ -257,7 +257,8 @@ export namespace engine::ui
     // ---- world-panel pointer math (pure; unit-tested) ----
 
     /// The world-space pointer ray for `pointerPx` on a view of `viewSize`, through
-    /// `camera` (unjittered). D3D depth convention (near z = 0, far z = 1).
+    /// `camera` (unjittered). The near and far ends are the engine's NDC depths
+    /// (core::projection - reverse-Z), never literals.
     inline void PointerRayFromCamera(const render::ViewCamera& camera, Float2 pointerPx,
                                      Float2 viewSize, Float3& outOrigin, Float3& outDirection)
     {
@@ -270,8 +271,8 @@ export namespace engine::ui
             const f32 w = clip.w != 0.0f ? clip.w : 1.0f;
             return Float3{clip.x / w, clip.y / w, clip.z / w};
         };
-        outOrigin = unproject(0.0f);
-        const Float3 far = unproject(1.0f);
+        outOrigin = unproject(projection::kNdcDepthNear);
+        const Float3 far = unproject(projection::kNdcDepthFar);
         outDirection =
             Normalized(Float3{far.x - outOrigin.x, far.y - outOrigin.y, far.z - outOrigin.z});
     }

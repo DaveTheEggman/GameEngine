@@ -5,6 +5,7 @@ export module foundation.rhi;
 
 export import :log;
 export import :enums;
+export import :depth;
 export import :texture_format;
 export import :types;
 export import :forward;

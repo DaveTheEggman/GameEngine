@@ -169,7 +169,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             rpd.depthStencil = rhi::DepthStencilState{};
             rpd.depthStencil->format = depthFmt;
             rpd.depthStencil->depthWriteEnabled = true;
-            rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
+            rpd.depthStencil->depthCompare = rhi::depth::Nearer();
             rpd.primitive.cullMode = rhi::CullMode::None;
             device->CreateRenderPipeline(rpd, m_pipeline);
         }
@@ -199,7 +199,7 @@ float4 PSMain(PSIn i) : SV_TARGET { return float4(i.Color, 1.0); }
             dsa.view = depthView;
             dsa.depthLoadOp = rhi::LoadOp::Clear;
             dsa.depthStoreOp = rhi::StoreOp::Store;
-            dsa.depthClearValue = 1.0f;
+            dsa.depthClearValue = rhi::depth::ClearValue();
             rhi::RenderPassDesc rp{};
             rp.colorAttachments.Add(ca);
             rp.depthStencilAttachment = dsa;

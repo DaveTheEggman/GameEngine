@@ -166,6 +166,83 @@ TEST_CASE("math: perspective has the expected projective structure")
     CHECK(NearlyEqual(proj.m[0][0], 1.0f)); // xScale = 1/tan(45) at aspect 1
 }
 
+namespace
+{
+    // NDC depth of a point `distance` in front of a camera at the origin looking down -Z.
+    f32 NdcDepthAt(const Float4x4& proj, f32 distance)
+    {
+        const Float4 clip = Float4{0.0f, 0.0f, -distance, 1.0f} * proj;
+        return clip.z / clip.w;
+    }
+}
+
+TEST_CASE("math: the depth convention is reverse-Z - near maps to 1, far to 0, nearer is larger")
+{
+    static_assert(projection::kReverseZ);
+    static_assert(projection::kNdcDepthNear == 1.0f);
+    static_assert(projection::kNdcDepthFar == 0.0f);
+    static_assert(projection::IsNearer(0.7f, 0.2f));
+    static_assert(projection::IsBackground(projection::kNdcDepthFar));
+    static_assert(!projection::IsBackground(1.0e-7f));
+
+    const f32 n = 0.1f, f = 1000.0f;
+    const Float4x4 proj = Float4x4::PerspectiveFovRH(1.0f, 16.0f / 9.0f, n, f);
+    CHECK(NearlyEqual(NdcDepthAt(proj, n), projection::kNdcDepthNear, 1.0e-5f));
+    CHECK(NearlyEqual(NdcDepthAt(proj, f), projection::kNdcDepthFar, 1.0e-5f));
+    // Monotonic: farther is smaller, and the matrix agrees with the closed form.
+    f32 previous = 2.0f;
+    const f32 distances[] = {n, 0.5f, 1.0f, 10.0f, 100.0f, 500.0f, f};
+    for (f32 d : distances)
+    {
+        const f32 depth = NdcDepthAt(proj, d);
+        CHECK(depth < previous);
+        CHECK(NearlyEqual(depth, projection::DepthAtDistance(d, n, f), 1.0e-5f));
+        // Linearize inverts it (relative tolerance: the far end is a large number).
+        CHECK(Abs(projection::LinearizeDepth(depth, n, f) - d) <= d * 1.0e-4f);
+        previous = depth;
+    }
+    // Reverse-Z spends the float where a perspective divide starves it: two surfaces 0.02 apart at
+    // 900 units are ~2500 float ulps apart (they z-fight under standard-Z, where the gap is a
+    // fraction of an ulp at depth ~1).
+    const f32 wall = NdcDepthAt(proj, 900.0f);
+    const f32 face = NdcDepthAt(proj, 900.0f - 0.02f);
+    CHECK(face > wall);
+    CHECK((face - wall) > 100.0f * 1.2e-7f * wall); // > 100 ulps of the smaller value
+
+    // Orthographic: the same reading.
+    const Float4x4 ortho = Float4x4::OrthographicRH(10.0f, 10.0f, 2.0f, 50.0f);
+    CHECK(NearlyEqual(NdcDepthAt(ortho, 2.0f), projection::kNdcDepthNear, 1.0e-6f));
+    CHECK(NearlyEqual(NdcDepthAt(ortho, 50.0f), projection::kNdcDepthFar, 1.0e-6f));
+    CHECK(NearlyEqual(NdcDepthAt(ortho, 26.0f), 0.5f, 1.0e-6f));
+}
+
+TEST_CASE("math: BoundingFrustum extracts the reverse-Z near and far planes where the camera puts them")
+{
+    const f32 n = 0.5f, f = 200.0f;
+    const Float4x4 view = Float4x4::LookAtRH(Float3{0, 0, 0}, Float3{0, 0, -1}, Float3{0, 1, 0});
+    const Float4x4 proj = Float4x4::PerspectiveFovRH(DegreesToRadians(90.0f), 1.0f, n, f);
+    const BoundingFrustum frustum{view * proj};
+
+    // Just inside each plane is contained; just outside is not.
+    CHECK(frustum.Contains(Float3{0, 0, -(n + 0.01f)}) == ContainmentType::Contains);
+    CHECK(frustum.Contains(Float3{0, 0, -(n - 0.01f)}) == ContainmentType::Disjoint);
+    CHECK(frustum.Contains(Float3{0, 0, -(f - 0.1f)}) == ContainmentType::Contains);
+    CHECK(frustum.Contains(Float3{0, 0, -(f + 0.1f)}) == ContainmentType::Disjoint);
+    CHECK(frustum.Contains(Float3{0, 0, 1.0f}) == ContainmentType::Disjoint); // behind the camera
+
+    // The named planes sit at the near and far distances, and the corners follow them.
+    CHECK(NearlyEqual(-Dot(frustum.Near().normal, Float3{0, 0, -n}) - frustum.Near().d, 0.0f, 1.0e-3f));
+    CHECK(NearlyEqual(-Dot(frustum.Far().normal, Float3{0, 0, -f}) - frustum.Far().d, 0.0f, 1.0e-2f));
+    for (i32 i = 0; i < 4; ++i)
+    {
+        CHECK(NearlyEqual(frustum.corners[i].z, -n, 1.0e-3f));
+        CHECK(NearlyEqual(frustum.corners[4 + i].z, -f, 1.0e-1f));
+    }
+    // A sphere straddling the far plane intersects; one past it does not.
+    CHECK(Intersects(frustum, BoundingSphere{Float3{0, 0, -f}, 1.0f}));
+    CHECK_FALSE(Intersects(frustum, BoundingSphere{Float3{0, 0, -(f + 5.0f)}, 1.0f}));
+}
+
 // --- Math: Quaternion ------------------------------------------------------------
 
 TEST_CASE("math: Quaternion rotates vectors and agrees with its matrix")

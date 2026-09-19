@@ -1755,7 +1755,7 @@ namespace foundation::render
         // single-sample - shadows are not multisampled.
         c.sampleCount = ctx.depthPrepass ? ctx.sampleCount : static_cast<u8>(1);
         c.depthMode = materials::DepthMode::ReadWrite;
-        c.depthCompare = rhi::CompareFunction::Less;
+        c.depthCompare = rhi::depth::Nearer();
         // Render FRONT faces into the shadow map (cull back) - matches Sedulous (ShadowPipeline: .Back)
         // and is the conventional default: flat/architectural casters get tight contacts. CURVED casters
         // (spheres) keep a small grazing-contact gap inherent to shadow maps; the general fix is a later
@@ -1766,11 +1766,12 @@ namespace foundation::render
         // in shadow-map depth space (so it adds little visible spatial gap, unlike the normal-offset).
         // Pairs with the receiver-side (1 - NdotL) normal-offset bias in forward.frag for acne control.
         // The camera depth PREPASS must NOT bias - its depth has to equal the forward pass's exactly so
-        // the LessEqual early-Z accepts the re-drawn opaque fragments (bias would z-fight / reject them).
+        // the NearerOrEqual early-Z accepts the re-drawn opaque fragments (bias would z-fight / reject
+        // them). The bias pushes casters AWAY from the light; its sign follows the depth convention.
         if (!ctx.depthPrepass)
         {
-            c.depthBias = 50;
-            c.depthBiasSlopeScale = 1.5f;
+            c.depthBias = static_cast<i16>(rhi::depth::BiasAwayFromViewer(50));
+            c.depthBiasSlopeScale = rhi::depth::SlopeBiasAwayFromViewer(1.5f);
         }
         return c;
     }
@@ -1805,7 +1806,7 @@ namespace foundation::render
             config.colorFormats[3] = kGMaterialFormat; // SSR: roughness/metallic
             config.shaderFlags |= shaders::ShaderFlags::GBuffer;
             // Equal-depth fragments from the depth prepass must pass (early-Z shades each opaque pixel once).
-            config.depthCompare = rhi::CompareFunction::LessEqual;
+            config.depthCompare = rhi::depth::NearerOrEqual();
             // Masked: enable the alpha-test discard permutation (opaque-like, but cuts sub-cutoff pixels).
             if (config.blendMode == materials::BlendMode::Masked)
             {
@@ -2128,7 +2129,7 @@ namespace foundation::render
         sd.addressU = rhi::AddressMode::ClampToEdge;
         sd.addressV = rhi::AddressMode::ClampToEdge;
         sd.addressW = rhi::AddressMode::ClampToEdge;
-        sd.compare = rhi::CompareFunction::LessEqual; // lit when fragment depth <= stored depth
+        sd.compare = rhi::depth::NearerOrEqual(); // lit when the receiver is at or nearer than the occluder
         sd.label = u8"mesh.shadowSampler";
         if (!m_device->CreateSampler(sd, m_shadowSampler).IsOk())
         {

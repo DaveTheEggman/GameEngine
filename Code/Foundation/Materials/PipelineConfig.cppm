@@ -57,7 +57,7 @@ export namespace foundation::materials
 
         // --- depth/stencil ---
         DepthMode depthMode = DepthMode::ReadWrite;
-        rhi::CompareFunction depthCompare = rhi::CompareFunction::Less;
+        rhi::CompareFunction depthCompare = rhi::depth::Nearer(); // the engine's depth convention
         rhi::TextureFormat depthFormat = rhi::TextureFormat::Depth32Float;
         i16 depthBias = 0;
         f32 depthBiasSlopeScale = 0.0f;
@@ -161,7 +161,7 @@ export namespace foundation::materials
             c.shaderName = shader;
             c.vertexLayout = VertexLayoutType::PositionOnly;
             c.depthMode = DepthMode::ReadOnly;
-            c.depthCompare = rhi::CompareFunction::LessEqual;
+            c.depthCompare = rhi::depth::NearerOrEqual(); // at the far plane: only a cleared pixel
             c.cullMode = CullModeConfig::Front;
             return c;
         }

@@ -29,7 +29,8 @@ namespace rhi = foundation::rhi;
 export namespace foundation::render
 {
 
-    // Unproject an NDC corner (clip xy in [-1,1], z in [0,1]) to world space via the inverse view-proj.
+    // Unproject an NDC corner (clip xy in [-1,1], z an NDC depth - name it: projection::kNdcDepthNear /
+    // kNdcDepthFar, never a literal) to world space via the inverse view-proj.
     [[nodiscard]] inline Float3 UnprojectNDC(const Float4x4& invViewProj, f32 ndcX, f32 ndcY,
                                              f32 ndcZ)
     {
@@ -72,8 +73,8 @@ export namespace foundation::render
         const f32 ys[4] = {-1.0f, -1.0f, 1.0f, 1.0f};
         for (int i = 0; i < 4; ++i)
         {
-            nearC[i] = UnprojectNDC(invVP, xs[i], ys[i], 0.0f);
-            farC[i] = UnprojectNDC(invVP, xs[i], ys[i], 1.0f);
+            nearC[i] = UnprojectNDC(invVP, xs[i], ys[i], projection::kNdcDepthNear);
+            farC[i] = UnprojectNDC(invVP, xs[i], ys[i], projection::kNdcDepthFar);
         }
 
         const Float3 dir = Normalized(lightDir);

@@ -56,13 +56,13 @@ TEST_CASE("rg.builder: SetDepthTarget adds access + attachment")
     RenderGraphPass pass(u8"Test", RGPassType::Render);
     PassBuilder builder(pass);
     const RGHandle handle{0, 1};
-    builder.SetDepthTarget(handle, rhi::LoadOp::Clear, rhi::StoreOp::Store, 1.0f);
+    builder.SetDepthTarget(handle, rhi::LoadOp::Clear, rhi::StoreOp::Store, rhi::depth::ClearValue());
 
     REQUIRE(pass.accesses.Size() == 1u);
     CHECK(pass.accesses[0].type == RGAccessType::WriteDepthTarget);
     REQUIRE(pass.depthTarget.HasValue());
     CHECK(pass.depthTarget.Value().handle == handle);
-    CHECK(pass.depthTarget.Value().depthClearValue == 1.0f);
+    CHECK(pass.depthTarget.Value().depthClearValue == rhi::depth::ClearValue()); // the far plane
 }
 
 TEST_CASE("rg.builder: SetDepthTarget stencil ops default to DontCare")

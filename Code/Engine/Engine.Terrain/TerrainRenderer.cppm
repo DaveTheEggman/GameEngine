@@ -212,7 +212,7 @@ export namespace engine::terrain
             ssd.addressU = rhi::AddressMode::ClampToEdge;
             ssd.addressV = rhi::AddressMode::ClampToEdge;
             ssd.addressW = rhi::AddressMode::ClampToEdge;
-            ssd.compare = rhi::CompareFunction::LessEqual; // lit when fragment depth <= stored depth
+            ssd.compare = rhi::depth::NearerOrEqual(); // lit when the receiver is at or nearer than the occluder
             ssd.label = u8"terrain.shadowSampler";
             if (!m_device->CreateSampler(ssd, m_shadowSampler).IsOk())
             {
@@ -1156,7 +1156,7 @@ export namespace engine::terrain
             ds.format = m_depthFormat;
             ds.depthTestEnabled = true;
             ds.depthWriteEnabled = true;
-            ds.depthCompare = rhi::CompareFunction::LessEqual;
+            ds.depthCompare = rhi::depth::NearerOrEqual();
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = m_pipelineLayout;
@@ -1225,11 +1225,11 @@ export namespace engine::terrain
             ds.format = depthFormat;
             ds.depthTestEnabled = true;
             ds.depthWriteEnabled = true;
-            ds.depthCompare = rhi::CompareFunction::Less;
+            ds.depthCompare = rhi::depth::Nearer();
             if (biased)
             {
-                ds.depthBias = 50;
-                ds.depthBiasSlopeScale = 1.5f;
+                ds.depthBias = rhi::depth::BiasAwayFromViewer(50);
+                ds.depthBiasSlopeScale = rhi::depth::SlopeBiasAwayFromViewer(1.5f);
             }
 
             rhi::RenderPipelineDesc pd{};

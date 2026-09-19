@@ -1306,7 +1306,7 @@ namespace foundation::render
                             sub.baseArrayLayer = layer;
                             sub.arrayLayerCount = 1;
                             b.SetDepthTarget(atlasH, rhi::LoadOp::Clear, rhi::StoreOp::Store,
-                                             /*clearDepth*/ 1.0f, sub);
+                                             rhi::depth::ClearValue(), sub);
                             b.SetViewport(0, 0, atlasRes,
                                           atlasRes); // pass default; each tile sets its own below
                             b.SetExecute(
@@ -1404,7 +1404,7 @@ namespace foundation::render
                             sub.baseArrayLayer = layer;
                             sub.arrayLayerCount = 1;
                             b.SetDepthTarget(shadowH, rhi::LoadOp::Clear, rhi::StoreOp::Store,
-                                             /*clearDepth*/ 1.0f, sub);
+                                             rhi::depth::ClearValue(), sub);
                             b.SetViewport(0, 0, shadowRes, shadowRes);
                             b.SetExecute(
                                 [this, cascadeVP, reg, sctx, v](rhi::RenderPassEncoder& rp)
@@ -2125,7 +2125,7 @@ namespace foundation::render
                             {
                                 // Depth unused; stencil cleared to 0 for stencil-then-cover.
                                 b.SetDepthTarget(overlayDs, rhi::LoadOp::Clear,
-                                                 rhi::StoreOp::DontCare, 1.0f, {},
+                                                 rhi::StoreOp::DontCare, rhi::depth::ClearValue(), {},
                                                  rhi::LoadOp::Clear, rhi::StoreOp::DontCare, 0);
                             }
                             b.NeverCull();

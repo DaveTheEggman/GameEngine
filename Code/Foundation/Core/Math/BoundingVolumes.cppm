@@ -231,14 +231,16 @@ export namespace foundation::core
         [[nodiscard]] const Plane& Top() const noexcept { return planes[4]; }
         [[nodiscard]] const Plane& Bottom() const noexcept { return planes[5]; }
 
-        // Gribb-Hartmann plane extraction for a row-vector row-major view-proj, NDC z in [0,1] - the exact
-        // column combinations Sedulous uses (M{r}{c} 1-indexed -> m(r-1,c-1)); planes point OUTWARD.
+        // Gribb-Hartmann plane extraction for a row-vector row-major view-proj, NDC z in [0,1], planes
+        // pointing OUTWARD. REVERSE-Z (projection::kReverseZ): the near plane is where z' = w'
+        // (depth 1) and the far plane where z' = 0, so the two column combinations are the swap
+        // of the standard-Z extraction; Left/Right/Top/Bottom are unaffected.
         void SetMatrix(const Float4x4& m) noexcept
         {
             matrix = m;
-            planes[0] = Plane{Float3{-m(0, 2), -m(1, 2), -m(2, 2)}, -m(3, 2)}; // Near
-            planes[1] = Plane{Float3{m(0, 2) - m(0, 3), m(1, 2) - m(1, 3), m(2, 2) - m(2, 3)},
-                              m(3, 2) - m(3, 3)}; // Far
+            planes[0] = Plane{Float3{m(0, 2) - m(0, 3), m(1, 2) - m(1, 3), m(2, 2) - m(2, 3)},
+                              m(3, 2) - m(3, 3)};                                  // Near (z' <= w')
+            planes[1] = Plane{Float3{-m(0, 2), -m(1, 2), -m(2, 2)}, -m(3, 2)}; // Far (z' >= 0)
             planes[2] = Plane{Float3{-m(0, 3) - m(0, 0), -m(1, 3) - m(1, 0), -m(2, 3) - m(2, 0)},
                               -m(3, 3) - m(3, 0)}; // Left
             planes[3] = Plane{Float3{m(0, 0) - m(0, 3), m(1, 0) - m(1, 3), m(2, 0) - m(2, 3)},

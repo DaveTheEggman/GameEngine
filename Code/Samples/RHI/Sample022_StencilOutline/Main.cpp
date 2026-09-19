@@ -328,7 +328,7 @@ void StencilOutlineSample::OnRender()
     dsa.view = m_depthStencilView;
     dsa.depthLoadOp = rhi::LoadOp::Clear;
     dsa.depthStoreOp = rhi::StoreOp::Store;
-    dsa.depthClearValue = 1.0f;
+    dsa.depthClearValue = rhi::depth::ClearValue();
     dsa.stencilLoadOp = rhi::LoadOp::Clear;
     dsa.stencilStoreOp = rhi::StoreOp::Store;
     dsa.stencilClearValue = 0;

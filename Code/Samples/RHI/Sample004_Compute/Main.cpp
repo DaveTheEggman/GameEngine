@@ -186,7 +186,7 @@ foundation::core::Status ComputeSample::OnInit()
     rpd.primitive.topology = rhi::PrimitiveTopology::PointList;
     rpd.depthStencil = rhi::DepthStencilState{};
     rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
-    rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
+    rpd.depthStencil->depthCompare = rhi::depth::Nearer();
     if (m_device->CreateRenderPipeline(rpd, m_renPipe) != foundation::core::ErrorCode::Ok)
         return foundation::core::ErrorCode::Unknown;
 
@@ -259,7 +259,7 @@ void ComputeSample::OnRender()
     dsa.view = m_depthBuf.view;
     dsa.depthLoadOp = rhi::LoadOp::Clear;
     dsa.depthStoreOp = rhi::StoreOp::Store;
-    dsa.depthClearValue = 1.0f;
+    dsa.depthClearValue = rhi::depth::ClearValue();
     rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     rpd.depthStencilAttachment = dsa;

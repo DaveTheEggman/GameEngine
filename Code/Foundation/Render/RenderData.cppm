@@ -389,7 +389,8 @@ export namespace foundation::render
     {
         Float4x4 viewProj = Float4x4::Identity();   // world -> light clip (perspective)
         Float4 atlasScaleBias = Float4{1, 1, 0, 0}; // xy = uv scale, zw = uv offset (tile in atlas)
-        f32 depthBias = 0.0015f;                    // constant depth-compare bias
+        f32 depthBias = 0.0015f;                    // constant depth-compare bias (NDC units; the shader
+                                                    // applies it toward the light per depth.hlsli)
         f32 atlasSelect = 0.0f; // atlas array layer: 0 = realtime, 1 = static (5.4)
         f32 pad1 = 0.0f, pad2 = 0.0f;
     };

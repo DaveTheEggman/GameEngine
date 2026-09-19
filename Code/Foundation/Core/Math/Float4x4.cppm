@@ -99,27 +99,35 @@ export namespace foundation::core
                              {0.0f, 0.0f, 0.0f, 1.0f}}};
         }
 
-        // Right-handed perspective, NDC z in [0, 1] (XNA / D3D style).
+        // Right-handed perspective, REVERSE-Z: NDC z in [0, 1] with the NEAR plane at 1 and the
+        // FAR plane at 0 (the engine's one depth convention, see projection:: below). With a
+        // float depth buffer this spends the float's precision where a perspective divide
+        // starves it (far away): the resolvable depth step grows ~linearly with distance
+        // instead of quadratically. Derivation, row-vector, view z negative forward (ze = -d):
+        //   ndc = n (f - d) / ((f - n) d)  ->  z' = ze * n/(f-n) + n f/(f-n),  w' = -ze.
         [[nodiscard]] static Float4x4 PerspectiveFovRH(f32 fovYRadians, f32 aspect, f32 zNear,
                                                        f32 zFar) noexcept
         {
             const f32 yScale = 1.0f / Tan(fovYRadians * 0.5f);
             const f32 xScale = yScale / aspect;
-            const f32 zRange = zFar / (zNear - zFar);
+            const f32 zRange = zNear / (zFar - zNear);
             return Float4x4{{{xScale, 0.0f, 0.0f, 0.0f},
                              {0.0f, yScale, 0.0f, 0.0f},
                              {0.0f, 0.0f, zRange, -1.0f},
-                             {0.0f, 0.0f, zNear * zRange, 0.0f}}};
+                             {0.0f, 0.0f, zFar * zRange, 0.0f}}};
         }
 
+        // Right-handed orthographic, REVERSE-Z (near -> 1, far -> 0), same convention as the
+        // perspective builder so shadow cascades, thumbnails and the camera share one depth
+        // reading: ndc = (f - d) / (f - n)  ->  z' = ze / (f - n) + f / (f - n).
         [[nodiscard]] static Float4x4 OrthographicRH(f32 width, f32 height, f32 zNear,
                                                      f32 zFar) noexcept
         {
-            const f32 zRange = 1.0f / (zNear - zFar);
+            const f32 zRange = 1.0f / (zFar - zNear);
             return Float4x4{{{2.0f / width, 0.0f, 0.0f, 0.0f},
                              {0.0f, 2.0f / height, 0.0f, 0.0f},
                              {0.0f, 0.0f, zRange, 0.0f},
-                             {0.0f, 0.0f, zNear * zRange, 1.0f}}};
+                             {0.0f, 0.0f, zFar * zRange, 1.0f}}};
         }
 
         [[nodiscard]] static Float4x4 LookAtRH(Float3 eye, Float3 target, Float3 up) noexcept
@@ -133,6 +141,42 @@ export namespace foundation::core
                              {-Dot(xAxis, eye), -Dot(yAxis, eye), -Dot(zAxis, eye), 1.0f}}};
         }
     };
+
+    // ---- The depth convention -------------------------------------------------------------------
+    // ONE convention for every projection the engine builds and every depth it reads: REVERSE-Z.
+    // The near plane maps to NDC depth 1, the far plane to 0, a cleared (background) depth is 0,
+    // and "nearer" is the LARGER value. Everything that would otherwise hard-code 0/1 or a
+    // compare direction names these instead (rhi::depth:: maps them to compare functions and
+    // rasterizer bias signs; Data/Shaders/depth.hlsli is the shader-side twin - keep the three
+    // in step). A consumer that reconstructs position through an inverse projection matrix is
+    // convention-free and needs none of this.
+    namespace projection
+    {
+        inline constexpr bool kReverseZ = true;
+        inline constexpr f32 kNdcDepthNear = 1.0f; // what the near plane maps to
+        inline constexpr f32 kNdcDepthFar = 0.0f;  // what the far plane maps to = the clear value
+
+        // The larger of two NDC depths is the nearer surface.
+        [[nodiscard]] constexpr bool IsNearer(f32 depth, f32 than) noexcept { return depth > than; }
+        // A depth that is at (or past) the far plane: nothing was drawn there.
+        [[nodiscard]] constexpr bool IsBackground(f32 depth) noexcept
+        {
+            return depth <= kNdcDepthFar;
+        }
+
+        // Reverse-Z perspective NDC depth -> positive view-space distance (the inverse of
+        // PerspectiveFovRH's z row): d = n f / (ndc (f - n) + n). ndc 1 -> n, ndc 0 -> f.
+        [[nodiscard]] constexpr f32 LinearizeDepth(f32 ndcDepth, f32 zNear, f32 zFar) noexcept
+        {
+            const f32 denominator = ndcDepth * (zFar - zNear) + zNear;
+            return (denominator > 1.0e-12f) ? (zNear * zFar / denominator) : zFar;
+        }
+        // The forward map, for tests and for anything that must place a value at a distance.
+        [[nodiscard]] constexpr f32 DepthAtDistance(f32 distance, f32 zNear, f32 zFar) noexcept
+        {
+            return zNear * (zFar - distance) / ((zFar - zNear) * distance);
+        }
+    } // namespace projection
 
     [[nodiscard]] constexpr Float4x4 operator*(const Float4x4& a, const Float4x4& b) noexcept
     {

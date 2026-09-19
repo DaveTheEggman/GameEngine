@@ -62,35 +62,36 @@ private:
     )";
 
     // Geometry: 3 quads
-    // Quad 0: Occluder (opaque gray, z=0.3, center)
-    // Quad 1: Test A (red, z=0.7, partially behind occluder)
-    // Quad 2: Test B (blue, z=0.7, fully behind occluder)
+    // Reverse-Z (rhi::depth): nearer = LARGER depth, the clear is the far plane (0).
+    // Quad 0: Occluder (opaque gray, z=0.7 = nearest, center)
+    // Quad 1: Test A (red, z=0.3, partially behind occluder)
+    // Quad 2: Test B (blue, z=0.3, fully behind occluder)
     static constexpr float kVerts[] = {
         // Quad 0: Occluder - center, near
         -0.3f,
         -0.4f,
-        0.3f,
+        0.7f,
         0.4f,
         0.4f,
         0.4f,
         1.0f,
         0.3f,
         -0.4f,
-        0.3f,
+        0.7f,
         0.4f,
         0.4f,
         0.4f,
         1.0f,
         0.3f,
         0.4f,
-        0.3f,
+        0.7f,
         0.5f,
         0.5f,
         0.5f,
         1.0f,
         -0.3f,
         0.4f,
-        0.3f,
+        0.7f,
         0.5f,
         0.5f,
         0.5f,
@@ -99,28 +100,28 @@ private:
         // Quad 1: Test A - partially occluded (left side visible)
         -0.7f,
         -0.3f,
-        0.7f,
+        0.3f,
         1.0f,
         0.3f,
         0.3f,
         1.0f,
         0.0f,
         -0.3f,
-        0.7f,
+        0.3f,
         1.0f,
         0.3f,
         0.3f,
         1.0f,
         0.0f,
         0.3f,
-        0.7f,
+        0.3f,
         1.0f,
         0.5f,
         0.5f,
         1.0f,
         -0.7f,
         0.3f,
-        0.7f,
+        0.3f,
         1.0f,
         0.5f,
         0.5f,
@@ -129,28 +130,28 @@ private:
         // Quad 2: Test B - fully occluded (behind occluder)
         -0.15f,
         -0.2f,
-        0.7f,
+        0.3f,
         0.3f,
         0.3f,
         1.0f,
         1.0f,
         0.15f,
         -0.2f,
-        0.7f,
+        0.3f,
         0.3f,
         0.3f,
         1.0f,
         1.0f,
         0.15f,
         0.2f,
-        0.7f,
+        0.3f,
         0.5f,
         0.5f,
         1.0f,
         1.0f,
         -0.15f,
         0.2f,
-        0.7f,
+        0.3f,
         0.5f,
         0.5f,
         1.0f,
@@ -272,7 +273,7 @@ foundation::core::Status OcclusionQuerySample::OnInit()
     rpd.depthStencil = rhi::DepthStencilState{};
     rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true;
-    rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
+    rpd.depthStencil->depthCompare = rhi::depth::Nearer();
     rpd.label = u8"OccPipeline";
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
         return foundation::core::ErrorCode::Unknown;
@@ -360,7 +361,7 @@ void OcclusionQuerySample::OnRender()
     dsa.view = m_depthView;
     dsa.depthLoadOp = rhi::LoadOp::Clear;
     dsa.depthStoreOp = rhi::StoreOp::Store;
-    dsa.depthClearValue = 1.0f;
+    dsa.depthClearValue = rhi::depth::ClearValue();
     rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     rpd.depthStencilAttachment = dsa;

@@ -33,6 +33,14 @@ piece.
 - **`shaders.pipeline`** (`Pipeline/Shaders.Pipeline`) - the cook integration.
 - **`Tools.ShaderPack`** - the CLI shader-pack cooker.
 
+## Depth convention
+
+`Data/Shaders/depth.hlsli` is the shader-side twin of `core::projection` / `rhi::depth`: REVERSE-Z
+(near = 1, far = 0, cleared = 0, nearer = larger). A shader that tests for background, walks depths
+to the closest, biases a shadow compare or linearizes explicitly includes it and names its helpers
+(`IsBackgroundDepth`, `NearerOf`, `BiasTowardViewer`, `LinearizeDepth`); one that reconstructs
+position through an inverse projection is convention-free. See renderer.md 8.1.
+
 ## Variant model + cooked pack
 
 RHI takes BYTECODE only (`ShaderModuleDesc.code` = SPIR-V / DXIL; source never crosses the RHI

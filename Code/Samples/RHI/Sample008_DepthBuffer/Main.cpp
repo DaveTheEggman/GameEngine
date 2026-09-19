@@ -4,7 +4,8 @@
 #include <new>
 /// Sample008 - Depth Buffer. Ported from Sedulous Sample008_DepthBuffer.
 /// Three overlapping quads at different Z depths demonstrate depth testing.
-/// Red (z=0.8, far), Green (z=0.5, mid), Blue (z=0.2, near) - drawn far-to-near,
+/// Red (z=0.2, far), Green (z=0.5, mid), Blue (z=0.8, near) - drawn far-to-near,
+/// in the engine's REVERSE-Z convention (rhi::depth: nearer = larger, clear = far = 0),
 /// depth buffer ensures correct visibility.
 
 #include <cstdint>
@@ -57,31 +58,31 @@ private:
     // Three overlapping quads drawn in order: red (far), green (middle), blue (near).
     // Stride: 7 floats per vertex (pos xyz + color rgba).
     static constexpr float kVerts[] = {
-        // Quad 0: Red - large, behind (z=0.8), drawn first.
+        // Quad 0: Red - large, behind (z=0.2), drawn first.
         -0.6f,
         -0.6f,
-        0.8f,
+        0.2f,
         1.0f,
         0.2f,
         0.2f,
         1.0f,
         0.4f,
         -0.6f,
-        0.8f,
+        0.2f,
         1.0f,
         0.2f,
         0.2f,
         1.0f,
         0.4f,
         0.6f,
-        0.8f,
+        0.2f,
         1.0f,
         0.2f,
         0.2f,
         1.0f,
         -0.6f,
         0.6f,
-        0.8f,
+        0.2f,
         1.0f,
         0.2f,
         0.2f,
@@ -115,31 +116,31 @@ private:
         1.0f,
         0.2f,
         1.0f,
-        // Quad 2: Blue - overlaps both, nearest (z=0.2), drawn third.
+        // Quad 2: Blue - overlaps both, nearest (z=0.8), drawn third.
         -0.4f,
         -0.7f,
-        0.2f,
+        0.8f,
         0.2f,
         0.3f,
         1.0f,
         1.0f,
         0.2f,
         -0.7f,
-        0.2f,
+        0.8f,
         0.2f,
         0.3f,
         1.0f,
         1.0f,
         0.2f,
         0.7f,
-        0.2f,
+        0.8f,
         0.2f,
         0.3f,
         1.0f,
         1.0f,
         -0.4f,
         0.7f,
-        0.2f,
+        0.8f,
         0.2f,
         0.3f,
         1.0f,
@@ -248,7 +249,7 @@ foundation::core::Status DepthBufferSample::OnInit()
     rpd.depthStencil = rhi::DepthStencilState{};
     rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
     rpd.depthStencil->depthWriteEnabled = true;
-    rpd.depthStencil->depthCompare = rhi::CompareFunction::Less;
+    rpd.depthStencil->depthCompare = rhi::depth::Nearer();
     if (m_device->CreateRenderPipeline(rpd, m_pipeline) != foundation::core::ErrorCode::Ok)
         return foundation::core::ErrorCode::Unknown;
 
@@ -286,7 +287,7 @@ void DepthBufferSample::OnRender()
     dsa.view = m_depthView;
     dsa.depthLoadOp = rhi::LoadOp::Clear;
     dsa.depthStoreOp = rhi::StoreOp::Store;
-    dsa.depthClearValue = 1.0f;
+    dsa.depthClearValue = rhi::depth::ClearValue();
     rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     rpd.depthStencilAttachment = dsa;

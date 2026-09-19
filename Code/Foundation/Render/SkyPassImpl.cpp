@@ -184,8 +184,8 @@ namespace foundation::render
         ds.format = depthFmt;
         ds.depthTestEnabled = true;
         ds.depthWriteEnabled = false;
-        ds.depthCompare =
-            rhi::CompareFunction::LessEqual; // pass at the far plane (background only)
+        ds.depthCompare = rhi::depth::NearerOrEqual(); // the sky sits AT the far plane: only a
+                                                       // cleared (background) pixel passes
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;

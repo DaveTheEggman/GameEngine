@@ -17,6 +17,7 @@ target_sources(RHI
         FILE_SET rhi_modules TYPE CXX_MODULES FILES
             Log.cppm
             Enums.cppm
+            Depth.cppm
             TextureFormat.cppm
             Types.cppm
             Forward.cppm

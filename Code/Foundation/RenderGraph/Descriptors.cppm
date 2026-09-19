@@ -111,7 +111,7 @@ export namespace foundation::rendergraph
         RGHandle handle = RGHandle::Invalid();
         rhi::LoadOp depthLoadOp = rhi::LoadOp::Clear;
         rhi::StoreOp depthStoreOp = rhi::StoreOp::Store;
-        f32 depthClearValue = 1.0f;
+        f32 depthClearValue = rhi::depth::ClearValue(); // the far plane (reverse-Z: 0)
         bool readOnly = false;
         rhi::LoadOp stencilLoadOp = rhi::LoadOp::DontCare;
         rhi::StoreOp stencilStoreOp = rhi::StoreOp::DontCare;

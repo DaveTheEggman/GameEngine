@@ -438,12 +438,12 @@ namespace foundation::render
         }
         DestroyGeomPipelines(*entry);
         entry->lineDepth = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
-                                            rhi::CompareFunction::LessEqual);
+                                            rhi::depth::NearerOrEqual());
         entry->lineOverlay = MakeGeomPipeline(colorFmt, depthFmt, rhi::PrimitiveTopology::LineList,
                                               rhi::CompareFunction::Always);
         entry->triDepth = MakeGeomPipeline(colorFmt, depthFmt,
                                            rhi::PrimitiveTopology::TriangleList,
-                                           rhi::CompareFunction::LessEqual);
+                                           rhi::depth::NearerOrEqual());
         entry->triOverlay = MakeGeomPipeline(
             colorFmt, depthFmt, rhi::PrimitiveTopology::TriangleList, rhi::CompareFunction::Always);
         if (entry->lineDepth == nullptr || entry->lineOverlay == nullptr ||

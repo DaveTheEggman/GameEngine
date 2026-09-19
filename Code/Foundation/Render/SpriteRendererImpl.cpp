@@ -336,7 +336,7 @@ namespace foundation::render
         ds.format = m_depthFormat;
         ds.depthTestEnabled = true;
         ds.depthWriteEnabled = false;
-        ds.depthCompare = rhi::CompareFunction::LessEqual;
+        ds.depthCompare = rhi::depth::NearerOrEqual();
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;

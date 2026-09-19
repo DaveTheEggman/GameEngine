@@ -123,7 +123,8 @@ export namespace foundation::rendergraph
 
         PassBuilder& SetDepthTarget(RGHandle handle, rhi::LoadOp loadOp = rhi::LoadOp::Clear,
                                     rhi::StoreOp storeOp = rhi::StoreOp::Store,
-                                    f32 clearDepth = 1.0f, RGSubresourceRange subresource = {},
+                                    f32 clearDepth = rhi::depth::ClearValue(),
+                                    RGSubresourceRange subresource = {},
                                     rhi::LoadOp stencilLoadOp = rhi::LoadOp::DontCare,
                                     rhi::StoreOp stencilStoreOp = rhi::StoreOp::DontCare,
                                     u32 clearStencil = 0)
@@ -166,7 +167,7 @@ export namespace foundation::rendergraph
             dt.handle = handle;
             dt.depthLoadOp = rhi::LoadOp::Load;
             dt.depthStoreOp = rhi::StoreOp::Store;
-            dt.depthClearValue = 1.0f;
+            dt.depthClearValue = rhi::depth::ClearValue();
             dt.readOnly = true;
             dt.subresource = subresource;
             m_pass->depthTarget = dt;

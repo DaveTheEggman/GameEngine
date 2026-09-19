@@ -1294,7 +1294,7 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
         u8"@vertex fn vertexMain(@builtin(vertex_index) index : u32)\n"
         u8"    -> @builtin(position) vec4f {\n"
         u8"  let uv = vec2f(f32((index << 1u) & 2u), f32(index & 2u));\n"
-        u8"  return vec4f(uv * 2.0 - 1.0, 1.0, 1.0);\n" // z = w = 1.0: the far plane
+        u8"  return vec4f(uv * 2.0 - 1.0, 0.0, 1.0);\n" // z = 0: the far plane (reverse-Z, rhi::depth)
         u8"}\n"
         u8"@fragment fn fragmentMain() -> FragmentOutput {\n"
         u8"  var output : FragmentOutput;\n"
@@ -1326,7 +1326,7 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
     depthState.format = TextureFormat::Depth32Float;
     depthState.depthTestEnabled = true;
     depthState.depthWriteEnabled = false;
-    depthState.depthCompare = CompareFunction::LessEqual;
+    depthState.depthCompare = foundation::rhi::depth::NearerOrEqual(); // at the far plane: only a cleared pixel
     pipelineDesc.depthStencil = depthState;
     RenderPipeline* pipeline = nullptr;
     REQUIRE(device->CreateRenderPipeline(pipelineDesc, pipeline).IsOk());
@@ -1336,7 +1336,7 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
     CommandEncoder* encoder = nullptr;
     REQUIRE(pool->CreateEncoder(encoder).IsOk());
 
-    // Pass 1: clear depth to 1.0 (and color to black).
+    // Pass 1: clear depth to the far plane (and color to black).
     {
         RenderPassDesc pass;
         ColorAttachment color;
@@ -1346,11 +1346,11 @@ TEST_CASE("rhi.webgpu: sky-shaped draw - z=1.0 vs cleared depth, read-only pass,
         DepthStencilAttachment depth;
         depth.view = depthView;
         depth.depthLoadOp = LoadOp::Clear;
-        depth.depthClearValue = 1.0f;
+        depth.depthClearValue = foundation::rhi::depth::ClearValue();
         pass.depthStencilAttachment = depth;
         encoder->BeginRenderPass(pass)->End();
     }
-    // Pass 2: the sky shape - load color, READ-ONLY depth, fullscreen at z=1.
+    // Pass 2: the sky shape - load color, READ-ONLY depth, fullscreen at the far plane.
     {
         RenderPassDesc pass;
         ColorAttachment color;

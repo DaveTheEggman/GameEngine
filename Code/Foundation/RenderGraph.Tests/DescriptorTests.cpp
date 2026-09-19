@@ -86,7 +86,7 @@ TEST_CASE("rg.descriptor: depth target defaults")
     target.handle = RGHandle{0, 1};
     CHECK(target.depthLoadOp == rhi::LoadOp::Clear);
     CHECK(target.depthStoreOp == rhi::StoreOp::Store);
-    CHECK(target.depthClearValue == 1.0f);
+    CHECK(target.depthClearValue == rhi::depth::ClearValue()); // the far plane
     CHECK_FALSE(target.readOnly);
 }
 

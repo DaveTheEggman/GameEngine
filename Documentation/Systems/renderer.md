@@ -286,6 +286,42 @@ Port Sedulous's patterns (the best part of it), on our RHI:
 
 ---
 
+## 8.1 The depth convention: reverse-Z (2026-09-19)
+
+ONE convention for every projection the engine builds and every depth it reads: the near plane
+maps to NDC depth 1, the far plane to 0, a cleared (background) pixel reads 0, and the NEARER
+surface is the LARGER value. Depth buffers are `Depth32Float`; with a float buffer this spends
+the float's precision where a perspective divide starves it (far away), so the resolvable depth
+step grows ~linearly with distance instead of quadratically (two surfaces 0.02 apart at 900
+units are ~2500 ulps apart; under standard-Z they were a fraction of one ulp and z-fought).
+
+It lives in three places, kept in step:
+- `core::projection` (Float4x4.cppm): `kReverseZ`, `kNdcDepthNear`/`kNdcDepthFar`, `IsNearer`,
+  `IsBackground`, `LinearizeDepth`, `DepthAtDistance`. `PerspectiveFovRH` and `OrthographicRH`
+  build it; `BoundingFrustum::SetMatrix` extracts the near/far planes accordingly.
+- `rhi::depth` (Foundation/RHI/Depth.cppm): `Nearer()` / `NearerOrEqual()` / `Farther()` are the
+  compare functions (Greater / GreaterEqual / Less), `ClearValue()` the far plane,
+  `BiasAwayFromViewer(units)` / `SlopeBiasAwayFromViewer(scale)` the rasterizer bias with its
+  sign (a shadow caster is pushed away from the light = to a SMALLER depth). Every depth-stencil
+  state, sampler compare and depth clear in the engine names one of these - `PipelineConfig`,
+  the render-graph defaults, mesh/terrain/sprite/particle/debug/sky/MSAA passes, the shadow
+  samplers, the samples.
+- `Data/Shaders/depth.hlsli`: `kDepthNear`/`kDepthFar`, `IsBackgroundDepth`, `IsNearerDepth`,
+  `FarthestDepth`/`NearerOf` (closest-in-neighborhood searches), `BiasTowardViewer` /
+  `BiasClipTowardViewer` (shadow receiver bias, debug-line pull), `LinearizeDepth`. The sky
+  sits AT `kDepthFar` with `NearerOrEqual`, so only a cleared pixel passes.
+
+What is convention-free and stayed as it was: everything that reconstructs position through an
+inverse projection (GTAO/SSAO/SSR/SSGI/decals via `InvProj`/`InvViewProj`), the soft-particle
+depth from projection terms, the cluster slices (view-space), LOD (projection[1][1]), the editor
+mouse ray (from the FOV). Rules: never a literal 0/1 depth, never a literal Less/Greater, never
+a raw bias sign - name the helper, so the convention can be read in one place and audited by
+grep. Proven at the pixel by `Render.Backend.Tests/ReverseZProbeTests` on Vulkan + WebGPU
+(and the cooked WGSL path): nearer wins with the background untouched, the 0.02-at-900 face is
+solid, and a sun's shadow reads lit beside the caster and dark behind it (cascade projection,
+caster bias sign, sampler compare and receiver bias all agreeing). `MathTests` pins the matrix
+and the frustum planes. Re-cook the shader pack after touching the shaders.
+
 ## 9. Views, scenes & the frame graph
 
 The renderer renders a **set of views** per frame. A view is the unit of work: *render one

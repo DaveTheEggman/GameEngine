@@ -163,7 +163,7 @@ foundation::core::Status WireframeSample::OnInit()
                      wireframe ? rhi::FillMode::Wireframe : rhi::FillMode::Solid};
     rpd.depthStencil = rhi::DepthStencilState{};
     rpd.depthStencil->format = rhi::TextureFormat::Depth24PlusStencil8;
-    rpd.depthStencil->depthCompare = rhi::CompareFunction::LessEqual;
+    rpd.depthStencil->depthCompare = rhi::depth::NearerOrEqual();
     rpd.depthStencil->depthWriteEnabled = false;
     if (m_device->CreateRenderPipeline(rpd, m_wirePipe) != foundation::core::ErrorCode::Ok)
         return foundation::core::ErrorCode::Unknown;
@@ -214,7 +214,7 @@ void WireframeSample::OnRender()
     dsa.view = m_depthBuf.view;
     dsa.depthLoadOp = rhi::LoadOp::Clear;
     dsa.depthStoreOp = rhi::StoreOp::Store;
-    dsa.depthClearValue = 1.0f;
+    dsa.depthClearValue = rhi::depth::ClearValue();
     rhi::RenderPassDesc rpd{};
     rpd.colorAttachments.Add(ca);
     rpd.depthStencilAttachment = dsa;
