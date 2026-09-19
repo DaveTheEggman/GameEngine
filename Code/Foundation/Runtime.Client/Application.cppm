@@ -101,6 +101,10 @@ export namespace foundation::runtime
         // Fifo (vsync), sRGB, double-buffered. Override to uncap the frame rate (Immediate/Mailbox), etc.
         [[nodiscard]] virtual RenderWindowDesc MainRenderWindow() const { return {}; }
 
+        /// The process's command line, before Configure: the entry (APP_MAIN or a hand-written
+        /// main) hands it over; an app reads the flags it knows (DefaultApplication: --screenshot).
+        /// Web entries have no argv and never call it.
+        virtual void OnCommandLine(int argc, char** argv) { (void)argc; (void)argv; }
         virtual void Configure(IApplicationHost& host) { (void)host; } // register subsystems/types
         virtual void OnStartup(IApplicationHost& host) { (void)host; } // after Context.Startup
         virtual void OnLaunch(IApplicationHost& host) { (void)host; }  // enter play

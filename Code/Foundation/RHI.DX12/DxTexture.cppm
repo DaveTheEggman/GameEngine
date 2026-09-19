@@ -56,7 +56,7 @@ export namespace foundation::rhi::dx12
             if (static_cast<u32>(d.usage & TextureUsage::DepthStencil))
             {
                 clearVal.Format = toDxgiFormat(d.format);
-                clearVal.DepthStencil = {1.0f, 0};
+                clearVal.DepthStencil = {depth::ClearValue(), 0}; // the far plane (reverse-Z: 0)
                 pClearVal = &clearVal;
                 m_state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
             }

@@ -305,11 +305,12 @@ namespace
                     }
                 }
             }
-            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            RenderFrame(host, frame); // the scenes + window overlays; FinishFrame below closes the shot
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->Render(frame);
             }
+            FinishFrame(host, frame); // the screenshot copy, with the overlay in it
         }
 
     private:

@@ -203,7 +203,7 @@ int engine::player::PlayerMain(int argc, char** argv,
     // Engine data (shaders, built-in fonts): an explicit --data-root, else the discovery walk
     // from the executable (a dist stages Data/ beside the player). Resolved in Configure.
     app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
-    app.SetScreenshotOptions(engine::runtime::ScreenshotOptionsFromArguments(argc, argv));
+    app.OnCommandLine(argc, argv); // the base app's flags (--screenshot ...)
     app.SetExitAfterSeconds(exitAfterSeconds); // was parsed and never applied before
     const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
     GlobalLogger().RemoveSink(&consoleSink);

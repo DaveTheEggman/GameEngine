@@ -265,7 +265,8 @@ namespace
                     }
                 }
             }
-            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            RenderFrame(host, frame); // the scenes + window overlays; FinishFrame below closes the shot
+            FinishFrame(host, frame); // the screenshot copy, with the overlay in it
         }
 
     private:
@@ -406,6 +407,7 @@ int main(int argc, char** argv)
     auto appGpu = graphics::CreateGraphicsDevice(appGpuDesc);
     graphics::GraphicsDevice* appDevice = appGpu.HasValue() ? appGpu.Value().Get() : nullptr;
     ScriptApp app;
+    app.OnCommandLine(argc, argv); // --screenshot and whatever else the base app reads
     return runtime::RunApplication(app, *shell, appDevice);
 }
 #endif

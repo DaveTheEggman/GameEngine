@@ -84,6 +84,7 @@ extern "C" const char* BuildStamp();
         ::foundation::graphics::GraphicsDevice* appDevice =                                     \
             appGpu.HasValue() ? appGpu.Value().Get() : nullptr;                          \
         AppType app;                                                                               \
+        app.OnCommandLine(argc, argv);                                                             \
         return ::foundation::runtime::RunApplication(app, *shell, appDevice);                   \
     }
 

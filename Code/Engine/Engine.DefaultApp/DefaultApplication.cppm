@@ -199,15 +199,20 @@ export namespace engine::runtime
         /// frame. The write lands one frame later (the GPU has to finish the copy first).
         void CaptureScreenshot(core::StringView path);
         /// The --screenshot flags (ScreenshotOptionsFromArguments): capture at frame N or after
-        /// S seconds, optionally exit once written.
+        /// S seconds, optionally exit once written. OnCommandLine reads them for every app.
         void SetScreenshotOptions(ScreenshotOptions options) { m_screenshotOptions = core::Move(options); }
+        void OnCommandLine(int argc, char** argv) override;
         /// Exit the host after this many seconds of updates (0 = never). The player's --exit-after.
         void SetExitAfterSeconds(core::f32 seconds) noexcept { m_exitAfterSeconds = seconds; }
 
     protected:
-        /// The last thing a frame does before the host presents it: records the armed screenshot
-        /// copy off the backbuffer (in RenderTarget state, left in RenderTarget state). The base
-        /// OnRenderWindow calls it; a subclass that overrides OnRenderWindow calls it at its end.
+        /// The base OnRenderWindow is RenderFrame then FinishFrame. A subclass that draws its own
+        /// overlay (ImGui, a HUD) overrides OnRenderWindow and calls the two around it, so the
+        /// overlay is in the screenshot: RenderFrame(host, frame); <overlay>; FinishFrame(host, frame).
+        /// RenderFrame: every instance's scenes + the window-space overlays into the backbuffer.
+        void RenderFrame(IApplicationHost& host, FrameContext& frame);
+        /// FinishFrame: the last thing before the host presents - the armed screenshot copy off
+        /// the backbuffer (in RenderTarget state, left in RenderTarget state).
         void FinishFrame(IApplicationHost& host, FrameContext& frame);
 
     public:

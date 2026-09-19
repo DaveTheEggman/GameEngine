@@ -70,13 +70,19 @@ with a log line, never a silent no-op. Three ways in:
 - **F11** in any DefaultApplication: `screenshot_<ticks>.png` in the working directory (the legacy
   sandbox binding, now on the base app so the player has it too).
 - **`--screenshot <png> [--screenshot-frame N | --screenshot-after S] [--screenshot-exit]`**
-  (`ScreenshotOptionsFromArguments`; Sandbox and the player read it): capture at rendered frame N
+  (`ScreenshotOptionsFromArguments`, read by `OnCommandLine` for every app): capture at rendered frame N
   (default 30) or at the first frame past S seconds (frame-rate independent), and exit once the
   file is written when asked - a screenshot with no hand on the keyboard and no desktop capture
   tool (Wayland has none an unprivileged process may use). Exit code 1 when the capture could not
   be produced.
-- A subclass that overrides `OnRenderWindow` (the Sandbox does) calls `FinishFrame(host, frame)` at
-  its end, after its last draw into the backbuffer.
+- The base `OnRenderWindow` is `RenderFrame` (the scenes + window overlays) then `FinishFrame`. A
+  subclass that draws its own overlay (ImGui, a HUD - every sample does) overrides it and calls
+  the two around the overlay, so the overlay is in the shot; the Sandbox, which renders offscreen
+  and blits, calls `FinishFrame` after its blit and ImGui.
+- `IApplication::OnCommandLine(argc, argv)` is how the flags reach an app: the desktop `APP_MAIN`
+  calls it before running, a hand-written main calls it itself (Sandbox, the player, the samples
+  with their own entry). DefaultApplication's override reads the `--screenshot` flags; web entries
+  have no argv and never call it.
 The WebGPU swapchain now asks for `CopySrc` when the surface offers it (the Vulkan surface already
 carried TRANSFER_SRC where the driver allows). The player's `--exit-after <seconds>` was parsed and
 never applied; it is wired to `SetExitAfterSeconds` now. Tests: `Engine.DefaultApp.Tests/

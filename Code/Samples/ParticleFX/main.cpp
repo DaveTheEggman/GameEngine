@@ -293,11 +293,12 @@ namespace
 
         void OnRenderWindow(runtime::IApplicationHost& host, graphics::FrameContext& frame) override
         {
-            engine::runtime::DefaultApplication::OnRenderWindow(host, frame);
+            RenderFrame(host, frame); // the scenes + window overlays; FinishFrame below closes the shot
             if (auto* g = host.Ctx().GetSubsystem<imgui::ImguiSubsystem>())
             {
                 g->Render(frame);
             }
+            FinishFrame(host, frame); // the screenshot copy, with the overlay in it
         }
 
         // Free the explosion flipbook atlas we created in OnStartup (device still alive here).
@@ -1281,5 +1282,6 @@ int main(int argc, char** argv)
 
     ParticleFXApp app;
     app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
+    app.OnCommandLine(argc, argv); // --screenshot and whatever else the base app reads
     return runtime::RunApplication(app, *shell, device);
 }

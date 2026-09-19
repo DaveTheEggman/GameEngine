@@ -709,6 +709,17 @@ namespace engine::runtime
 
     void DefaultApplication::OnRenderWindow(IApplicationHost& host, FrameContext& frame)
     {
+        RenderFrame(host, frame);
+        FinishFrame(host, frame);
+    }
+
+    void DefaultApplication::OnCommandLine(int argc, char** argv)
+    {
+        SetScreenshotOptions(ScreenshotOptionsFromArguments(argc, argv));
+    }
+
+    void DefaultApplication::RenderFrame(IApplicationHost& host, FrameContext& frame)
+    {
         auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
         auto* scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
         if (render == nullptr || !render->IsReady() || scenes == nullptr ||
@@ -748,7 +759,6 @@ namespace engine::runtime
         // finished frame through the generic registry - the host names no source.
         render->RenderOverlays(*frame.encoder, frame.backbufferView, colorFormat, frame.width,
                                frame.height, frame.frameIndex);
-        FinishFrame(host, frame);
     }
 
     void DefaultApplication::CaptureScreenshot(core::StringView path)
