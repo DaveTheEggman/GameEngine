@@ -21,7 +21,8 @@ target_link_libraries(Engine.DefaultApp
            Foundation::Texture.Resource Foundation::Image.Resource Foundation::Model.Resource Foundation::UI.Resource Engine::UI Engine::UI.Script Foundation::UI.Gamekit
            Foundation::Heightfield.Resource Foundation::Terrain.Resource
             Foundation::Net Foundation::Net.Manager Engine::Net
-            Foundation::Profiler Foundation::Policy Engine::SceneSurface Engine::ScriptSurface)
+            Foundation::Profiler Foundation::Policy Engine::SceneSurface Engine::ScriptSurface
+            Foundation::Image Foundation::Image.IO)
 
 # Script VM backends - AngelScript and Luau. Each is independently toggleable via
 # its option; a run resolves the backend by the game script's LANGUAGE, so with both ON a project can
@@ -40,4 +41,5 @@ target_sources(Engine.DefaultApp
         DefaultApplicationImpl.cpp   # out-of-line defs (see DefaultApplication.cppm)
     PUBLIC
         FILE_SET runtime_defaultapp_modules TYPE CXX_MODULES FILES
-            DefaultApplication.cppm)
+            DefaultApplication.cppm
+            ScreenshotCapture.cppm)

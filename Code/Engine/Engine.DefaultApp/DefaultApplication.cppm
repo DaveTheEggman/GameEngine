@@ -21,6 +21,7 @@ module;
 #include "Core/Log/Log.h"
 
 export module engine.defaultapp;
+export import :screenshot; // ScreenshotCapture + the --screenshot flags
 
 import foundation.core;
 import foundation.rhi;
@@ -191,6 +192,25 @@ export namespace engine::runtime
 
         void OnShutdown(IApplicationHost&) override;
 
+        // ---- screenshots (legacy Sedulous CaptureScreenshot, finished: it now writes the file) ----
+
+        /// Capture the next presented frame of the main window to `path` as a PNG. F11 does this
+        /// with a timestamped name in the working directory; --screenshot does it at a chosen
+        /// frame. The write lands one frame later (the GPU has to finish the copy first).
+        void CaptureScreenshot(core::StringView path);
+        /// The --screenshot flags (ScreenshotOptionsFromArguments): capture at frame N or after
+        /// S seconds, optionally exit once written.
+        void SetScreenshotOptions(ScreenshotOptions options) { m_screenshotOptions = core::Move(options); }
+        /// Exit the host after this many seconds of updates (0 = never). The player's --exit-after.
+        void SetExitAfterSeconds(core::f32 seconds) noexcept { m_exitAfterSeconds = seconds; }
+
+    protected:
+        /// The last thing a frame does before the host presents it: records the armed screenshot
+        /// copy off the backbuffer (in RenderTarget state, left in RenderTarget state). The base
+        /// OnRenderWindow calls it; a subclass that overrides OnRenderWindow calls it at its end.
+        void FinishFrame(IApplicationHost& host, FrameContext& frame);
+
+    public:
         /// ISceneObserver: every composed scene's PrefabSpawnSystem gets the app's content
         /// database and resource manager - the scene knows nothing of content, the app owns it.
         void OnSystemsReady(foundation::scene::Scene& scene) override;
@@ -340,6 +360,14 @@ export namespace engine::runtime
         /// Re-points every live scene's spawn system at the current content database + resource
         /// manager: SetContentDatabase and the manager's creation can both land after scenes exist.
         void PointSpawnersAtContent();
+
+        ScreenshotCapture m_screenshot;
+        ScreenshotOptions m_screenshotOptions;
+        core::u64 m_renderedFrames = 0; // frames FinishFrame saw (the --screenshot-frame count)
+        bool m_screenshotOptionFired = false; // the --screenshot request is one-shot
+        bool m_screenshotExitPending = false;
+        core::f32 m_exitAfterSeconds = 0.0f;
+        core::f32 m_runSeconds = 0.0f;
 
         engine::scene::SceneSubsystem* m_scenes = nullptr;
         GameInstance m_instance; // the primary running game (app-level ops target this one)

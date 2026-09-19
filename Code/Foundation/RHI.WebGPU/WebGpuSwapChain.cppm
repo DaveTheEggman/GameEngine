@@ -338,6 +338,12 @@ export namespace foundation::rhi::webgpu
             // backbuffer, so the surface needs CopyDst alongside RenderAttachment
             // (universally supported by wgpu surfaces).
             config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopyDst;
+            // CopySrc when the surface offers it: what a screenshot (ScreenshotCapture) reads the
+            // presented backbuffer through. Not guaranteed by the spec, so it is asked for, not assumed.
+            if (SupportsUsage(WGPUTextureUsage_CopySrc))
+            {
+                config.usage |= WGPUTextureUsage_CopySrc;
+            }
             config.width = width;
             config.height = height;
             config.presentMode = SupportedPresentMode(ToWgpuPresentMode(m_presentMode));
@@ -426,6 +432,20 @@ export namespace foundation::rhi::webgpu
         /// The requested mode when the surface offers it, else the closest match
         /// (Immediate/Mailbox degrade toward each other, everything else to Fifo -
         /// the only mode WebGPU guarantees).
+        /// Whether the surface's capabilities include `usage` (false when the query fails).
+        bool SupportsUsage(WGPUTextureUsage usage)
+        {
+            WGPUSurfaceCapabilities capabilities = WGPU_SURFACE_CAPABILITIES_INIT;
+            if (m_api->wgpuSurfaceGetCapabilities(m_surface->Handle(), m_adapter,
+                                                  &capabilities) != WGPUStatus_Success)
+            {
+                return false;
+            }
+            const bool supported = (capabilities.usages & usage) != 0;
+            m_api->wgpuSurfaceCapabilitiesFreeMembers(capabilities);
+            return supported;
+        }
+
         WGPUPresentMode SupportedPresentMode(WGPUPresentMode requested)
         {
             WGPUSurfaceCapabilities capabilities = WGPU_SURFACE_CAPABILITIES_INIT;

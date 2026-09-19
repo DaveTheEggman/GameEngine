@@ -17,6 +17,7 @@
 //
 // Usage: Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
 //                      [--data-root <dir>]  (engine data; default = the Data/.dataroot walk)
+//                      [--screenshot <png> [--screenshot-frame N | --screenshot-after S] [--screenshot-exit]]
 //
 // Two modes, detected by layout:
 //   PROJECT dir (Project.xml): scenes load from the authored source DB (their cooked form IS
@@ -126,6 +127,7 @@ int engine::player::PlayerMain(int argc, char** argv,
     GlobalLogger().SetMinLevel(LogLevel::Info);
 
     PlayerOptions options;
+    f32 exitAfterSeconds = 0.0f;
     if (argc > 1 && argv[1][0] != '-')
     {
         options.projectDir = String(StringView(reinterpret_cast<const utf8char*>(argv[1])));
@@ -166,6 +168,7 @@ int engine::player::PlayerMain(int argc, char** argv,
         if (std::strcmp(argv[i], "--exit-after") == 0)
         {
             options.exitAfterSeconds = static_cast<f32>(std::atof(argv[i + 1]));
+            exitAfterSeconds = options.exitAfterSeconds;
         }
     }
 
@@ -200,6 +203,8 @@ int engine::player::PlayerMain(int argc, char** argv,
     // Engine data (shaders, built-in fonts): an explicit --data-root, else the discovery walk
     // from the executable (a dist stages Data/ beside the player). Resolved in Configure.
     app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
+    app.SetScreenshotOptions(engine::runtime::ScreenshotOptionsFromArguments(argc, argv));
+    app.SetExitAfterSeconds(exitAfterSeconds); // was parsed and never applied before
     const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
     GlobalLogger().RemoveSink(&consoleSink);
     return code;

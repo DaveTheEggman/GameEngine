@@ -56,6 +56,33 @@ untouched).
 proposed one but it was never added; per-window rendering is driven by `IApplication::OnRenderWindow`
 (given a `FrameContext` per window per frame), and rendering subsystems draw through that path.
 
+## Screenshots (DefaultApplication, 2026-09-19)
+
+`DefaultApplication::CaptureScreenshot(path)` writes the next presented frame of the main window
+as a PNG. Legacy Sedulous had the request and the GPU copy and stopped there (the readback was
+never mapped); Raptor's `ScreenshotCapture` (`engine.defaultapp:screenshot`) is the whole path:
+armed by the request, `FinishFrame` records the copy off the backbuffer inside the frame
+(RenderTarget -> CopySrc -> RenderTarget, so the host's own Present transition still holds) into a
+256-byte-pitch GpuToCpu buffer; the next `OnUpdate` waits the device idle (a one-off hitch),
+unpacks the rows into RGBA8 (BGRA surfaces swizzled), writes the file through
+`foundation.image.io`, and logs `Screenshot: wrote '<path>' (WxH)`. Non-8-bit surfaces are refused
+with a log line, never a silent no-op. Three ways in:
+- **F11** in any DefaultApplication: `screenshot_<ticks>.png` in the working directory (the legacy
+  sandbox binding, now on the base app so the player has it too).
+- **`--screenshot <png> [--screenshot-frame N | --screenshot-after S] [--screenshot-exit]`**
+  (`ScreenshotOptionsFromArguments`; Sandbox and the player read it): capture at rendered frame N
+  (default 30) or at the first frame past S seconds (frame-rate independent), and exit once the
+  file is written when asked - a screenshot with no hand on the keyboard and no desktop capture
+  tool (Wayland has none an unprivileged process may use). Exit code 1 when the capture could not
+  be produced.
+- A subclass that overrides `OnRenderWindow` (the Sandbox does) calls `FinishFrame(host, frame)` at
+  its end, after its last draw into the backbuffer.
+The WebGPU swapchain now asks for `CopySrc` when the surface offers it (the Vulkan surface already
+carried TRANSFER_SRC where the driver allows). The player's `--exit-after <seconds>` was parsed and
+never applied; it is wired to `SetExitAfterSeconds` now. Tests: `Engine.DefaultApp.Tests/
+ScreenshotTests` (flags, the row unpack + swizzle, and an RGBA8 + BGRA8 clear captured, written
+and loaded back on Vulkan + WebGPU).
+
 ## Embedded host (the editor)
 
 The editor holds EXACTLY TWO contexts, forever: the editor-app context (chrome/tools/UIHost) and ONE

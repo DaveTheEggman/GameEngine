@@ -54,6 +54,7 @@ import foundation.fonts.resource;      // FontResource + FontFactory (default UI
 import foundation.physics.resource;    // collision-shape/physical-material factories
 import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
+import foundation.image;               // Image (the screenshot the capture hands back)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
 import foundation.ui;                  // View (the `ui` binding's instantiate return type)
@@ -81,6 +82,27 @@ namespace engine::runtime
 {
     void DefaultApplication::OnUpdate(IApplicationHost& host, core::f32 deltaTime)
     {
+        // A screenshot recorded last frame: the GPU has run that frame by now for any slot the
+        // host reuses, but not necessarily this one - a screenshot is a one-off, so wait for
+        // everything, then map, write, and honour --screenshot-exit.
+        if (m_screenshot.Recorded())
+        {
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                gfx->Raw()->WaitIdle();
+                foundation::image::Image written;
+                (void)m_screenshot.Complete(*gfx->Raw(), host.Ctx().Allocator(), written);
+            }
+            if (m_screenshotExitPending)
+            {
+                host.RequestExit(0);
+            }
+        }
+        m_runSeconds += deltaTime;
+        if (m_exitAfterSeconds > 0.0f && m_runSeconds >= m_exitAfterSeconds)
+        {
+            host.RequestExit(0);
+        }
         // Finalize any async resource loads first, so this frame's spawns/ticks see ready
         // resources (task #123). Pump ONLY the manager this app OWNS: when this DefaultApplication
         // is embedded in the editor it BORROWS the editor's manager (m_ownedResources stays null),
@@ -106,6 +128,13 @@ namespace engine::runtime
         IShell* plat = host.Shell();
         IInputManager* input = (plat != nullptr) ? plat->Input() : nullptr;
         IKeyboard* kb = (input != nullptr) ? input->Keyboard() : nullptr;
+        if (kb != nullptr && kb->IsKeyPressed(KeyCode::F11))
+        {
+            // F11: a timestamped PNG in the working directory (the legacy sandbox binding).
+            core::String path;
+            core::AppendFormat(path, u8"screenshot_{}.png", core::Clock::Now().Ticks());
+            CaptureScreenshot(path.AsView());
+        }
         if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P))
         {
             return;
@@ -649,6 +678,10 @@ namespace engine::runtime
                 gi.RunHost().Teardown();
             });
         m_contactBridge.Uninstall();
+        if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+        {
+            m_screenshot.Release(*gfx->Raw());
+        }
         m_ownedResources = nullptr; // release products while the device is alive
         m_textureFactory = nullptr;
     }
@@ -715,6 +748,41 @@ namespace engine::runtime
         // finished frame through the generic registry - the host names no source.
         render->RenderOverlays(*frame.encoder, frame.backbufferView, colorFormat, frame.width,
                                frame.height, frame.frameIndex);
+        FinishFrame(host, frame);
+    }
+
+    void DefaultApplication::CaptureScreenshot(core::StringView path)
+    {
+        m_screenshot.Request(path);
+    }
+
+    void DefaultApplication::FinishFrame(IApplicationHost& host, FrameContext& frame)
+    {
+        ++m_renderedFrames;
+        if (m_screenshotOptions.Requested() && !m_screenshotOptionFired &&
+            m_screenshotOptions.Due(m_renderedFrames, m_runSeconds))
+        {
+            m_screenshotOptionFired = true;
+            m_screenshot.Request(m_screenshotOptions.path.AsView());
+            m_screenshotExitPending = m_screenshotOptions.exitAfter;
+        }
+        if (!m_screenshot.Armed())
+        {
+            return;
+        }
+        auto* gfx = host.Graphics();
+        if (gfx == nullptr || gfx->Raw() == nullptr || frame.encoder == nullptr ||
+            frame.window == nullptr)
+        {
+            return; // stays armed for a frame that has a backbuffer
+        }
+        const bool recorded =
+            m_screenshot.Record(*gfx->Raw(), *frame.encoder, frame.backbuffer,
+                                frame.window->Swap()->Format(), frame.width, frame.height);
+        if (!recorded && m_screenshotExitPending)
+        {
+            host.RequestExit(1); // asked for a file that cannot be produced: say so by exit code
+        }
     }
 
     foundation::scene::EntityHandle DefaultApplication::ResolveNetworkPrefab(

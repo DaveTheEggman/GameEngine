@@ -1309,6 +1309,7 @@ namespace
             {
                 g->Render(frame);
             }
+            FinishFrame(host, frame); // the screenshot copy, off the finished backbuffer
         }
 
         // Create (or resize) one frame-slot's offscreen color target. Each slot tracks its own size,
@@ -1742,5 +1743,8 @@ int main(int argc, char** argv)
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 
     SandboxApp app;
+    // --screenshot <path> [--screenshot-frame N | --screenshot-after S] [--screenshot-exit]: a
+    // capture without a hand on F11.
+    app.SetScreenshotOptions(engine::runtime::ScreenshotOptionsFromArguments(argc, argv));
     return runtime::RunApplication(app, *shell, device);
 }
