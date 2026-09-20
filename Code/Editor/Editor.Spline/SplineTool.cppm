@@ -33,4 +33,20 @@ export namespace editor
 
     /// Register the spline viewport tool (call once at editor start, from Tools.Editor).
     void RegisterSplineViewportTools();
+
+    /// The spline tool for one host (what the provider adds to a viewport's manager), for a
+    /// host that drives it directly - a headless test.
+    [[nodiscard]] UniquePtr<IViewportTool> CreateSplineEditTool(const ViewportToolHostContext& context);
+
+    /// What the spline tool is doing, read off its Id-checked instance: the hovered and
+    /// selected point (-1 = none), whether a drag is live, whether Ctrl shows an insert
+    /// preview. All defaults for a tool that is not the spline tool.
+    struct SplineEditToolState
+    {
+        i32 hoverPoint = -1;
+        i32 selectedPoint = -1;
+        bool dragging = false;
+        bool insertPreview = false;
+    };
+    [[nodiscard]] SplineEditToolState SplineEditToolStateOf(const IViewportTool& tool);
 }

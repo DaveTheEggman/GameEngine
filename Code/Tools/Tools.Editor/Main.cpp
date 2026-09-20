@@ -11,6 +11,9 @@
 //   Content/Sources/Cooked/Editor/.cache on first run) - the single-project lifecycle.
 //   With NO project: starts on the built-in PROJECT MANAGER (recent projects from the
 //   per-user registry, open/create/remove); File > Close Project returns to it.
+//   Smoke-test aids: [--exit-after <s>] [--rebuild-after <s>]
+//   [--screenshot <png> [--screenshot-after <s>]] (the main window, UI included, as a PNG -
+//   a run proves what it drew) [--seed] [--seed-primitives] [--version].
 
 #include <cstdio>
 #include <cstring>
@@ -393,6 +396,14 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--rebuild-after") == 0)
         {
             config.autoRebuildSeconds = static_cast<f32>(std::atof(argv[i + 1]));
+        }
+        if (std::strcmp(argv[i], "--screenshot") == 0)
+        {
+            config.screenshotPath = String(StringView(reinterpret_cast<const utf8char*>(argv[i + 1])));
+        }
+        if (std::strcmp(argv[i], "--screenshot-after") == 0)
+        {
+            config.screenshotAfterSeconds = static_cast<f32>(std::atof(argv[i + 1]));
         }
     }
     for (int i = 1; i < argc; ++i)

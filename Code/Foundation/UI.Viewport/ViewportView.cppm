@@ -101,6 +101,13 @@ export namespace foundation::ui::viewport
                 m_surface =
                     MakeUnique<shell::InputSurface>(MemoryAllocator(), input, windowId, fit);
             }
+            // A view mounted and laid out BEFORE its device arrived has a size and no targets,
+            // and an unchanged size never lays out again - so it would paint its placeholder
+            // forever (every editor preview page opens this way). Make them now.
+            if (m_device != nullptr && m_textureWidth == 0 && m_layoutWidth > 0 && m_layoutHeight > 0)
+            {
+                ResizeRenderTarget(m_layoutWidth, m_layoutHeight);
+            }
         }
 
         /// Re-bind the view to a different window's VGRenderer + window id. Call when a dockable panel
@@ -359,6 +366,8 @@ export namespace foundation::ui::viewport
         {
             const u32 w = m_fixedWidth > 0 ? m_fixedWidth : static_cast<u32>(Max(1.0f, width));
             const u32 h = m_fixedHeight > 0 ? m_fixedHeight : static_cast<u32>(Max(1.0f, height));
+            m_layoutWidth = w; // remembered for a device that arrives after this layout
+            m_layoutHeight = h;
             if (w != m_textureWidth || h != m_textureHeight)
             {
                 ResizeRenderTarget(w, h);
@@ -526,6 +535,8 @@ export namespace foundation::ui::viewport
         bool m_hostedTextInputWanted = false;
         u32 m_fixedWidth = 0;
         u32 m_fixedHeight = 0;
+        u32 m_layoutWidth = 0; // the last laid-out size (targets may lag it: no device yet)
+        u32 m_layoutHeight = 0;
         u32 m_textureWidth = 0;
         u32 m_textureHeight = 0;
         bool m_registered = false;

@@ -187,21 +187,7 @@ namespace editor
         // XmlDocument parse first: MarkupLoader swallows the error position, and the code
         // editor wants the failing LINE as an Error marker.
         ui::MarkupLoader::Initialize();
-        {
-            foundation::xml::XmlDocument probe(Allocator());
-            const foundation::xml::XmlResult result = probe.Parse(m_markup.AsView());
-            Array<ui::toolkit::CodeDiagnostic> diagnostics;
-            if (foundation::xml::IsError(result))
-            {
-                ui::toolkit::CodeDiagnostic diagnostic;
-                diagnostic.isError = true;
-                diagnostic.line = probe.ErrorLine() - 1; // 1-based -> buffer lines
-                diagnostic.message = String(foundation::xml::Describe(result));
-                diagnostics.PushBack(Move(diagnostic));
-            }
-            m_editor->Document().SetDiagnostics(Move(diagnostics));
-            m_editor->Invalidate();
-        }
+        (void)markup_diagnostics::Apply(Allocator(), m_markup.AsView(), *m_editor);
         Array<String> warnings;
         RefPtr<ui::View> parsed =
             ui::MarkupLoader::LoadFromString(Allocator(), m_markup.AsView(), nullptr,

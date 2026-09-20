@@ -27,7 +27,8 @@ import foundation.fonts.resource;
 import foundation.fonts.distancefield.baker; // DistanceFieldFonts (MSDF baker registration) for the DF font path
 import foundation.runtime;
 import foundation.runtime.client;
-import engine.defaultapp; // the embedded game application (v3)
+import engine.defaultapp; // the embedded game application (v3) + ScreenshotCapture
+import foundation.image;  // Image (the screenshot the capture hands back)
 import engine.scene; // GlobalSceneContributionRecorder (game-native-code.md S1)
 import foundation.scene;          // Scene (the reload scene bracket)
 import foundation.scene.resource; // SceneSnapshot (the reload scene bracket)
@@ -749,7 +750,20 @@ namespace editor::app
             m_embeddedApp->OnUpdate(*m_embeddedHost, dt);
         }
 
-        if (m_config.autoExitSeconds > 0.0f || m_config.autoRebuildSeconds > 0.0f)
+        // A screenshot recorded last frame: the GPU has to finish the copy; a one-off, so wait
+        // for everything, then map and write.
+        if (m_screenshot.Recorded())
+        {
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                gfx->Raw()->WaitIdle();
+                foundation::image::Image written;
+                (void)m_screenshot.Complete(*gfx->Raw(), host.Ctx().Allocator(), written);
+            }
+        }
+        const bool screenshotRequested = !m_config.screenshotPath.IsEmpty();
+        if (m_config.autoExitSeconds > 0.0f || m_config.autoRebuildSeconds > 0.0f ||
+            screenshotRequested)
         {
             m_elapsed += dt;
             if (m_config.autoExitSeconds > 0.0f && m_elapsed >= m_config.autoExitSeconds)
@@ -761,6 +775,12 @@ namespace editor::app
             {
                 m_autoRebuilt = true;
                 m_cookService.RequestCook(true);
+            }
+            if (screenshotRequested && !m_screenshotFired &&
+                m_elapsed >= m_config.screenshotAfterSeconds)
+            {
+                m_screenshotFired = true; // one shot: the next main-window frame records it
+                m_screenshot.Request(m_config.screenshotPath.AsView());
             }
         }
         // Headless-debug hook: ENV_TEST_OPEN=<guid> opens that instance's page ~2s in
@@ -974,11 +994,24 @@ namespace editor::app
         {
             m_uiHost->RenderWindow(frame);
         }
+        // The --screenshot capture: the main window's finished backbuffer, UI included. The
+        // copy sits in this frame's command stream; OnUpdate completes it next frame.
+        if (m_screenshot.Armed() && frame.valid && frame.window == host.MainRenderWindow() &&
+            frame.encoder != nullptr && host.Graphics() != nullptr &&
+            host.Graphics()->Raw() != nullptr)
+        {
+            (void)m_screenshot.Record(*host.Graphics()->Raw(), *frame.encoder, frame.backbuffer,
+                                      frame.window->Swap()->Format(), frame.width, frame.height);
+        }
     }
 
-    void EditorApplication::OnShutdown(runtime::IApplicationHost&)
+    void EditorApplication::OnShutdown(runtime::IApplicationHost& host)
     {
         fonts::FontAtlasBakerFactory::SetAtlasCache(nullptr); // ours dies with this app
+        if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+        {
+            m_screenshot.Release(*gfx->Raw()); // the readback buffer, while the device lives
+        }
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         // Release page resources while the device and windows are still alive. Pages
         // destroy their scenes in the RUNTIME context, so it must outlive them.

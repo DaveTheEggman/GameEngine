@@ -35,22 +35,6 @@ namespace vg = foundation::vg;
 
 namespace editor
 {
-    String UIThemeEditorPage::ReadLinkedSource(StringView fileName) const
-    {
-        String sourcesRoot;
-        if (m_context->Project() != nullptr)
-        {
-            sourcesRoot = m_context->Project()->SourcesRoot();
-        }
-        const String path = PathJoin(sourcesRoot.AsView(), fileName);
-        if (Result<Array<byte>> bytes = ReadFile(path.AsView()); bytes.HasValue())
-        {
-            const Array<byte>& data = bytes.Value();
-            return String(StringView(reinterpret_cast<const utf8char*>(data.Data()), data.Size()));
-        }
-        return String{};
-    }
-
     Status UIThemeEditorPage::Save()
     {
         foundation::content::Instance* instance =
@@ -188,21 +172,7 @@ namespace editor
     {
         ui::MarkupLoader::Initialize();
         // Diagnostics for the PREVIEW-MARKUP editor (the SSS editor has no line info from the loader).
-        {
-            foundation::xml::XmlDocument probe(Allocator());
-            const foundation::xml::XmlResult result = probe.Parse(m_previewMarkup.AsView());
-            Array<ui::toolkit::CodeDiagnostic> diagnostics;
-            if (foundation::xml::IsError(result))
-            {
-                ui::toolkit::CodeDiagnostic diagnostic;
-                diagnostic.isError = true;
-                diagnostic.line = probe.ErrorLine() - 1;
-                diagnostic.message = String(foundation::xml::Describe(result));
-                diagnostics.PushBack(Move(diagnostic));
-            }
-            m_previewEditor->Document().SetDiagnostics(Move(diagnostics));
-            m_previewEditor->Invalidate();
-        }
+        (void)markup_diagnostics::Apply(Allocator(), m_previewMarkup.AsView(), *m_previewEditor);
         if (m_ui == nullptr)
         {
             m_status->SetText(u8"No runtime UI subsystem - preview unavailable.");

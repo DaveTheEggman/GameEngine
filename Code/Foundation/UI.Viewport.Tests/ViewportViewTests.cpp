@@ -119,6 +119,25 @@ TEST_CASE("ui.viewport: RenderContent fires the callback bracketed by transition
     device.DestroyCommandPool(pool);
 }
 
+TEST_CASE("ui.viewport: a view laid out BEFORE its device arrives gets its targets on Initialize")
+{
+    // Every editor preview page opens this way: the view is mounted and laid out one frame,
+    // bound to the device the next. An unchanged size never lays out again, so without this
+    // the view painted its placeholder forever.
+    rhi::null::NullDevice device{DefaultAllocator()};
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
+    view.Layout(0.0f, 0.0f, 100.0f, 50.0f); // no device yet: nothing to make targets with
+    CHECK(view.RenderWidth() == 0u);
+    CHECK_FALSE(view.IsReady());
+    view.Initialize(&device, /*renderer*/ nullptr, nullptr, 0);
+    CHECK(view.RenderWidth() == 100u);
+    CHECK(view.RenderHeight() == 50u);
+    // And the same size laid out again is not a resize.
+    view.Layout(0.0f, 0.0f, 100.0f, 50.0f);
+    CHECK(view.RenderWidth() == 100u);
+}
+
 TEST_CASE("ui.viewport: resize re-registers; teardown is clean")
 {
     rhi::null::NullDevice device{DefaultAllocator()};

@@ -14,12 +14,25 @@ module;
 export module editor.physics:collision_thumbnail;
 
 import foundation.core;
+import foundation.geometry;         // StaticMesh (the outline as a lit mesh)
+import foundation.physics.resource; // CollisionShape (the cooked outline)
 import editor.core;
 
 using namespace foundation::core;
 
 export namespace editor
 {
+    /// The cooked outline (a triangle soup, 3 vertices each) as a lit StaticMesh: unwelded,
+    /// so the generated normals give the flat facets a hull should read as; one submesh; a
+    /// stray vertex past the last whole triangle is dropped. False (and an empty mesh) when
+    /// there is no whole triangle.
+    [[nodiscard]] bool BuildCollisionOutlineMesh(const foundation::physics::CollisionShape& shape,
+                                                 foundation::geometry::StaticMesh& mesh);
+
+    /// The generator itself, for a host that keeps its own (a test): what
+    /// RegisterCollisionThumbnailGenerator hands the service.
+    [[nodiscard]] UniquePtr<ISceneThumbnailGenerator> CreateCollisionThumbnailGenerator();
+
     /// Register the collision-shape thumbnail generator (the domain's composition entry
     /// point calls this; the count feeds the composition root's tripwire).
     void RegisterCollisionThumbnailGenerator(ThumbnailService& service);

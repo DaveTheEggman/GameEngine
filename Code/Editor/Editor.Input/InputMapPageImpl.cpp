@@ -91,32 +91,7 @@ namespace editor
             m_listenDirection = -1;
             Mutate(
                 [set, action, binding, direction, captured](input::InputMap& map)
-                {
-                    if (set >= map.sets.Size())
-                    {
-                        return;
-                    }
-                    if (action >= map.sets[set].actions.Size())
-                    {
-                        return;
-                    }
-                    auto& bindings = map.sets[set].actions[action].bindings;
-                    if (binding >= bindings.Size())
-                    {
-                        return;
-                    }
-                    if (direction < 0)
-                    {
-                        bindings[binding] = captured;
-                        return;
-                    }
-                    // Composite direction: swap in just the captured KEY code.
-                    u32* slot = direction == 0   ? &bindings[binding].negX
-                                : direction == 1 ? &bindings[binding].posX
-                                : direction == 2 ? &bindings[binding].negY
-                                                 : &bindings[binding].posY;
-                    *slot = captured.code;
-                });
+                { input_map_edit::ApplyCapture(map, set, action, binding, direction, captured); });
         }
     }
 
@@ -382,12 +357,7 @@ namespace editor
                                            return;
                                        }
                                        input::Action& act = m.sets[s].actions[a];
-                                       input::Binding fresh;
-                                       if (act.kind == input::ActionKind::Axis2D)
-                                       {
-                                           fresh.source = input::BindingSource::GamepadStick;
-                                       }
-                                       act.bindings.PushBack(fresh);
+                                       act.bindings.PushBack(input_map_edit::FreshBinding(act.kind));
                                    });
                            });
                 MakeButton(*row, u8"x", 22.0f,
@@ -426,20 +396,9 @@ namespace editor
                                     {
                                         return;
                                     }
-                                    input::BindingSource valid[8];
-                                    const usize n = detail::ValidSources(act.kind, valid);
-                                    usize current = 0;
-                                    for (usize i = 0; i < n; ++i)
-                                    {
-                                        if (valid[i] == act.bindings[b].source)
-                                        {
-                                            current = i;
-                                            break;
-                                        }
-                                    }
-                                    input::Binding fresh; // source change resets source-specifics
-                                    fresh.source = valid[(current + 1) % n];
-                                    act.bindings[b] = fresh;
+                                    // a source change resets the source-specifics
+                                    act.bindings[b] =
+                                        input_map_edit::CycleSource(act.kind, act.bindings[b]);
                                 });
                         });
                     AddLabel(*bindingRow,
@@ -556,37 +515,10 @@ namespace editor
         m_listenAction = action;
         m_listenBinding = binding;
         m_listenDirection = compositeDirection;
-        if (compositeDirection >= 0)
-        {
-            // A composite direction rebind is always a single KEY.
-            input::CaptureFilter keysOnly;
-            keysOnly.mouseButtons = false;
-            keysOnly.gamepadButtons = false;
-            m_listenFilter = keysOnly;
-            RequestRebuild();
-            return;
-        }
-        // Filter by the action's declared kind: a Button rebind ignores stick noise,
-        // an Axis2D rebind captures sticks only.
-        input::CaptureFilter filter;
-        if (set < m_map.sets.Size() && action < m_map.sets[set].actions.Size())
-        {
-            switch (m_map.sets[set].actions[action].kind)
-            {
-            case input::ActionKind::Button:
-                break; // keys + mouse + pad buttons
-            case input::ActionKind::Axis1D:
-                filter.gamepadAxes = true;
-                break;
-            case input::ActionKind::Axis2D:
-                filter.keys = false;
-                filter.mouseButtons = false;
-                filter.gamepadButtons = false;
-                filter.gamepadSticks = true;
-                break;
-            }
-        }
-        m_listenFilter = filter;
+        // Filter by the action's declared kind (a composite direction is always one key).
+        const input::Action* target = input_map_edit::ActionAt(m_map, set, action);
+        m_listenFilter = input_map_edit::FilterFor(
+            target != nullptr ? target->kind : input::ActionKind::Button, compositeDirection >= 0);
         // Defer: BeginListen runs INSIDE the Listen button's click dispatch. A direct Rebuild()
         // frees the clicked button (and its row) mid-dispatch, so FireClick/DispatchMouseUp then
         // dereference freed memory. RequestRebuild queues the rebuild to run after dispatch drains.

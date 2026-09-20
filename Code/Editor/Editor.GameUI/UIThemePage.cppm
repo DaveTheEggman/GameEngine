@@ -30,6 +30,7 @@ import foundation.rhi;
 import foundation.vg.renderer;
 import foundation.ui;
 import foundation.ui.toolkit;
+import foundation.xml; // the markup probe (XmlDocument) behind the editors' diagnostics
 import foundation.ui.resource;
 import ui.pipeline;
 import foundation.ui.runtime;
@@ -46,6 +47,69 @@ export namespace editor
     namespace ui = foundation::ui;
     namespace vg = foundation::vg;
     namespace rhi = foundation::rhi;
+
+    // ---- the headless halves the two game-UI pages share (testable without a page) ----
+
+    /// A small stock document so a brand-new theme (no preview markup yet) previews against
+    /// something.
+    inline constexpr StringView kStockPreviewMarkup =
+        u8"<Panel padding=\"16\">\n"
+        u8"  <Label text=\"Heading\" class=\"heading\"/>\n"
+        u8"  <Label text=\"Body text sample.\"/>\n"
+        u8"  <Button text=\"Primary\" class=\"primary\"/>\n"
+        u8"  <Button text=\"Default\"/>\n"
+        u8"</Panel>\n";
+
+    /// The markup probe both pages show in their code editors: a direct XmlDocument parse
+    /// (MarkupLoader swallows the error position; the editor wants the failing LINE as an
+    /// Error marker). One diagnostic at most, on the parser's line, 0-based.
+    namespace markup_diagnostics
+    {
+        /// True when `markup` parses; else one error diagnostic appended to `outDiagnostics`.
+        [[nodiscard]] inline bool Probe(IAllocator& allocator, StringView markup,
+                                        Array<ui::toolkit::CodeDiagnostic>& outDiagnostics)
+        {
+            foundation::xml::XmlDocument probe(allocator);
+            const foundation::xml::XmlResult result = probe.Parse(markup);
+            if (!foundation::xml::IsError(result))
+            {
+                return true;
+            }
+            ui::toolkit::CodeDiagnostic diagnostic;
+            diagnostic.isError = true;
+            diagnostic.line = probe.ErrorLine() - 1; // 1-based -> buffer lines
+            diagnostic.message = String(foundation::xml::Describe(result));
+            outDiagnostics.PushBack(Move(diagnostic));
+            return false;
+        }
+        /// Probe, and put the result on `editor`'s document (the margin takes it). True when clean.
+        inline bool Apply(IAllocator& allocator, StringView markup, ui::toolkit::CodeEditView& editor)
+        {
+            Array<ui::toolkit::CodeDiagnostic> diagnostics;
+            const bool clean = Probe(allocator, markup, diagnostics);
+            editor.Document().SetDiagnostics(Move(diagnostics));
+            editor.Invalidate();
+            return clean;
+        }
+    }
+
+    /// A source file of the open project by its Sources-relative name, as text; empty when
+    /// there is no project or no such file (a stale preview stays stale rather than crashing).
+    [[nodiscard]] inline String ReadProjectSource(EditorContext& context, StringView fileName)
+    {
+        String sourcesRoot;
+        if (context.Project() != nullptr)
+        {
+            sourcesRoot = context.Project()->SourcesRoot();
+        }
+        const String path = PathJoin(sourcesRoot.AsView(), fileName);
+        if (Result<Array<byte>> bytes = ReadFile(path.AsView()); bytes.HasValue())
+        {
+            const Array<byte>& data = bytes.Value();
+            return String(StringView(reinterpret_cast<const utf8char*>(data.Data()), data.Size()));
+        }
+        return String{};
+    }
 
     class UIThemeEditorPage final : public app::UIEditorPage
     {
@@ -184,16 +248,10 @@ export namespace editor
         void EnsureViewportBound();
         void RebuildPreview();
         void PickPreviewDocument();
-        [[nodiscard]] String ReadLinkedSource(StringView fileName) const;
-
-        // A small stock document so a brand-new theme (no preview markup yet) previews against something.
-        static constexpr StringView kStockPreviewMarkup =
-            u8"<Panel padding=\"16\">\n"
-            u8"  <Label text=\"Heading\" class=\"heading\"/>\n"
-            u8"  <Label text=\"Body text sample.\"/>\n"
-            u8"  <Button text=\"Primary\" class=\"primary\"/>\n"
-            u8"  <Button text=\"Default\"/>\n"
-            u8"</Panel>\n";
+        [[nodiscard]] String ReadLinkedSource(StringView fileName) const
+        {
+            return ReadProjectSource(*m_context, fileName);
+        }
 
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;

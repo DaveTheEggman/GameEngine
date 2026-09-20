@@ -99,6 +99,12 @@ export namespace editor::app
         // Smoke-test aid: trigger Build > Rebuild All after this many seconds (0 = never).
         // Exercises the hot-reload cascade exactly like the menu click.
         f32 autoRebuildSeconds = 0.0f;
+        // Smoke-test aid: the MAIN window's backbuffer written as a PNG to this path (empty =
+        // never), once screenshotAfterSeconds have run - so a run proves what it drew (the UI
+        // included, since the capture records after the UI host's draw). `Tools.Editor
+        // --screenshot <png> --screenshot-after <s>`; the same ScreenshotCapture as the runtime's.
+        String screenshotPath;
+        f32 screenshotAfterSeconds = 0.0f;
 
         // The assembly seams - editor.app never links engine modules or the
         // editor plugin modules; the EXECUTABLE composes them here:
@@ -417,7 +423,9 @@ export namespace editor::app
             false;                          // true when the pre-scan ran (else no pruning this run)
         UIEditorPage* m_gamePage = nullptr; // the PRIMARY game tab (focus target); extras untracked
         u32 m_gamePageCounter = 0;          // unique persistence id for "Play New Instance" tabs
-        f32 m_elapsed = 0.0f;               // autoExit/autoRebuild accumulator
+        f32 m_elapsed = 0.0f;               // autoExit/autoRebuild/screenshot accumulator
+        engine::runtime::ScreenshotCapture m_screenshot; // the --screenshot capture (one shot)
+        bool m_screenshotFired = false;
         f32 m_testOpenElapsed = 0.0f;       // ENV_TEST_OPEN hook
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;

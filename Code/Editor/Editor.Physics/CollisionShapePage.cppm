@@ -60,12 +60,14 @@ export namespace editor
                             foundation::graphics::FrameContext& frame) override;
         void OnClose() override;
 
+        /// The label a cook kind shows in the page's combo (headless; a test reads it).
+        [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
+
     private:
         void PickMesh();
         void RefreshStatus();
         void DrawOutline(); // immediate-mode wireframe of the outline triangles (per frame)
         [[nodiscard]] String MeshName(const Guid& id) const;
-        [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
 
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;

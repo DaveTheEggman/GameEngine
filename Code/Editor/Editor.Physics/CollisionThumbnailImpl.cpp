@@ -59,34 +59,14 @@ namespace editor
                     }
                     return ThumbnailStageStep::Pending;
                 }
-                if (shape->outline.Size() < 3)
-                {
-                    return ThumbnailStageStep::Failed; // cooked without display triangles
-                }
-
-                // Unwelded soup: one vertex per corner, so GenerateNormals yields the flat
-                // facets a collision hull should read as.
                 if (!m_mesh)
                 {
                     m_mesh = MakeRef<geometry::StaticMesh>(editor::EditorRootAllocator());
                 }
-                m_mesh->ClearForReload();
-                const usize count = shape->outline.Size() - (shape->outline.Size() % 3);
-                m_mesh->vertices.Reserve(count);
-                m_mesh->indices.Resize(static_cast<u32>(count));
-                for (usize i = 0; i < count; ++i)
+                if (!BuildCollisionOutlineMesh(*shape, *m_mesh))
                 {
-                    m_mesh->vertices.PushBack(geometry::StaticMeshVertex{
-                        shape->outline[i], Float3{0, 1, 0}, Float2{}, 0xFFFFFFFFu,
-                        Float4{1, 0, 0, 1}});
-                    m_mesh->indices.Add(static_cast<u32>(i));
+                    return ThumbnailStageStep::Failed; // cooked without display triangles
                 }
-                m_mesh->GenerateNormals();
-                m_mesh->GenerateTangents();
-                m_mesh->CalculateBounds();
-                m_mesh->subMeshes.PushBack(
-                    geometry::SubMesh{0, static_cast<i32>(m_mesh->IndexCount()), 0,
-                                      geometry::PrimitiveType::Triangles});
 
                 component->mesh.SetId(Guid{});
                 component->mesh = m_mesh.Get();
@@ -158,6 +138,39 @@ namespace editor
             RefPtr<geometry::StaticMesh> m_mesh;
             RefPtr<materials::Material> m_material;
         };
+    }
+
+    bool BuildCollisionOutlineMesh(const physics::CollisionShape& shape, geometry::StaticMesh& mesh)
+    {
+        mesh.ClearForReload();
+        const usize count = shape.outline.Size() - (shape.outline.Size() % 3);
+        if (count < 3)
+        {
+            return false;
+        }
+        // Unwelded soup: one vertex per corner, so GenerateNormals yields the flat facets a
+        // collision hull should read as.
+        mesh.vertices.Reserve(count);
+        mesh.indices.Resize(static_cast<u32>(count));
+        for (usize i = 0; i < count; ++i)
+        {
+            mesh.vertices.PushBack(geometry::StaticMeshVertex{shape.outline[i], Float3{0, 1, 0},
+                                                              Float2{}, 0xFFFFFFFFu,
+                                                              Float4{1, 0, 0, 1}});
+            mesh.indices.Add(static_cast<u32>(i));
+        }
+        mesh.GenerateNormals();
+        mesh.GenerateTangents();
+        mesh.CalculateBounds();
+        mesh.subMeshes.PushBack(geometry::SubMesh{0, static_cast<i32>(mesh.IndexCount()), 0,
+                                                  geometry::PrimitiveType::Triangles});
+        return true;
+    }
+
+    UniquePtr<ISceneThumbnailGenerator> CreateCollisionThumbnailGenerator()
+    {
+        return UniquePtr<ISceneThumbnailGenerator>(
+            editor::EditorRootAllocator().New<CollisionThumbnailGenerator>(), editor::EditorRootAllocator());
     }
 
     void RegisterCollisionThumbnailGenerator(ThumbnailService& service)

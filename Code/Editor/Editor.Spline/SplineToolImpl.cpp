@@ -95,6 +95,11 @@ namespace editor
 
             [[nodiscard]] StringView Id() const override { return u8"spline.edit"; }
             [[nodiscard]] StringView DisplayName() const override { return u8"Spline"; }
+            [[nodiscard]] SplineEditToolState State() const noexcept
+            {
+                return SplineEditToolState{m_hoverPoint, m_selectedPoint, m_dragging,
+                                           m_hasInsertPreview};
+            }
 
             [[nodiscard]] bool IsAvailable() const override
             {
@@ -474,11 +479,26 @@ namespace editor
         };
     }
 
+    UniquePtr<IViewportTool> CreateSplineEditTool(const ViewportToolHostContext& context)
+    {
+        return UniquePtr<IViewportTool>(editor::EditorRootAllocator().New<SplineEditTool>(context),
+                                        editor::EditorRootAllocator());
+    }
+
+    SplineEditToolState SplineEditToolStateOf(const IViewportTool& tool)
+    {
+        // The Id is the type check (no RTTI): only the spline tool answers "spline.edit".
+        if (tool.Id() != StringView(u8"spline.edit"))
+        {
+            return SplineEditToolState{};
+        }
+        return static_cast<const SplineEditTool&>(tool).State();
+    }
+
     void SplineViewportToolProvider::CreateTools(ViewportToolManager& manager,
                                                  const ViewportToolHostContext& context)
     {
-        manager.Add(UniquePtr<IViewportTool>(editor::EditorRootAllocator().New<SplineEditTool>(context),
-                                             editor::EditorRootAllocator()));
+        manager.Add(CreateSplineEditTool(context));
     }
 
     void RegisterSplineViewportTools()

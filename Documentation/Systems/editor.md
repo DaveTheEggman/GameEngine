@@ -495,3 +495,12 @@ scaffolds a fresh project (the manager's New Project flow seeds starter content;
 does not, unless `--seed` = font/sky/three primitives, or `--seed-primitives` = the same plus
 every primitive creator). `--seed-primitives` + `--exit-after` is the headless way to regenerate
 primitive meshes at the current source version (paperkid.md, upgrade recipe).
+
+`--screenshot <png> [--screenshot-after <s>]` (2026-09-20) writes the MAIN window's backbuffer, UI
+included, as a PNG once that many seconds have run - the same `ScreenshotCapture` the runtime's
+`--screenshot` uses, recorded after the UI host's draw. With `--exit-after` it is a headless proof
+of what the editor drew: `Tools.Editor <project> --seed --screenshot shot.png --screenshot-after 6
+--exit-after 9`. Ported from the Beef side, which also found that a viewport laid out before its
+device arrived kept its placeholder forever (fixed: `ViewportView::Initialize` makes the targets
+for a view that already has a size).
+

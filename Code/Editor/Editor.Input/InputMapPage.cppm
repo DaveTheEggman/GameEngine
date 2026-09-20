@@ -52,6 +52,109 @@ export namespace editor
         using input::ValidSources;
     }
 
+    /// The input map editor's headless edits: what the rows' clicks and the listen capture do
+    /// to the map, without a page. Every lookup is guarded (an out-of-range set, action or
+    /// binding is a no-op or null), since a row can outlive the map it was built from.
+    namespace input_map_edit
+    {
+        [[nodiscard]] inline input::ActionSet* SetAt(input::InputMap& map, usize set)
+        {
+            return set < map.sets.Size() ? &map.sets[set] : nullptr;
+        }
+        [[nodiscard]] inline input::Action* ActionAt(input::InputMap& map, usize set, usize action)
+        {
+            input::ActionSet* s = SetAt(map, set);
+            return (s != nullptr && action < s->actions.Size()) ? &s->actions[action] : nullptr;
+        }
+        [[nodiscard]] inline bool HasBinding(input::InputMap& map, usize set, usize action,
+                                             usize binding)
+        {
+            const input::Action* a = ActionAt(map, set, action);
+            return a != nullptr && binding < a->bindings.Size();
+        }
+        /// A new binding for an action of `kind`: a stick for a 2D axis, else a key.
+        [[nodiscard]] inline input::Binding FreshBinding(input::ActionKind kind)
+        {
+            input::Binding fresh;
+            if (kind == input::ActionKind::Axis2D)
+            {
+                fresh.source = input::BindingSource::GamepadStick;
+            }
+            return fresh;
+        }
+        /// The next valid source for the kind after `current`'s (wrapping), on a FRESH binding:
+        /// a source change resets the source-specific fields.
+        [[nodiscard]] inline input::Binding CycleSource(input::ActionKind kind,
+                                                        const input::Binding& current)
+        {
+            input::BindingSource valid[8];
+            const usize n = input::ValidSources(kind, valid);
+            usize index = 0;
+            for (usize i = 0; i < n; ++i)
+            {
+                if (valid[i] == current.source)
+                {
+                    index = i;
+                    break;
+                }
+            }
+            input::Binding fresh;
+            fresh.source = valid[(index + 1) % n];
+            return fresh;
+        }
+        /// What a listen for an action of `kind` captures: a Button rebind ignores stick
+        /// noise, an Axis2D rebind captures sticks only; one Composite2D DIRECTION is always a
+        /// single key.
+        [[nodiscard]] inline input::CaptureFilter FilterFor(input::ActionKind kind,
+                                                            bool compositeDirection)
+        {
+            input::CaptureFilter filter;
+            if (compositeDirection)
+            {
+                filter.mouseButtons = false;
+                filter.gamepadButtons = false;
+                return filter;
+            }
+            switch (kind)
+            {
+            case input::ActionKind::Button:
+                break; // keys + mouse + pad buttons
+            case input::ActionKind::Axis1D:
+                filter.gamepadAxes = true;
+                break;
+            case input::ActionKind::Axis2D:
+                filter.keys = false;
+                filter.mouseButtons = false;
+                filter.gamepadButtons = false;
+                filter.gamepadSticks = true;
+                break;
+            }
+            return filter;
+        }
+        /// Lands a capture: the whole binding, or (direction 0..3 = -X +X -Y +Y) just the
+        /// captured KEY code into that Composite2D slot. Out-of-range targets are ignored.
+        inline void ApplyCapture(input::InputMap& map, usize set, usize action, usize binding,
+                                 i32 direction, const input::Binding& captured)
+        {
+            input::Action* a = ActionAt(map, set, action);
+            if (a == nullptr || binding >= a->bindings.Size())
+            {
+                return;
+            }
+            input::Binding& target = a->bindings[binding];
+            if (direction < 0)
+            {
+                target = captured;
+                return;
+            }
+            u32* slot = direction == 0   ? &target.negX
+                        : direction == 1 ? &target.posX
+                        : direction == 2 ? &target.negY
+                                         : &target.posY;
+            *slot = captured.code;
+        }
+    }
+
     class InputMapEditorPage final : public app::UIEditorPage
     {
     public:
