@@ -1333,3 +1333,100 @@ deterministic estimate, Validation forwards; (2) AccelStructDesc gains
 (3) Build* validates dst capacity + scratch size against the query and
 reports (Validation layer error), instead of letting the driver reject.
 Then a Vulkan probe: one triangle BLAS + one-instance TLAS build + trace.
+
+## Seeded: depth-ordered transform update + per-phase system lists (user 2026-09-20)
+
+Origin: the pre-Beef "Assiduous" experiments (C# and Beef rewrites of Raptor's core, in
+/home/robert/Dev/CS/GameEngine/{CSharp,Beef}/Assiduous, notes in
+/home/robert/Dev/CS/GameEngine/ARCHITECTURE.md sections 11.3 and 11.4). That tree may go
+away, so the whole design is written down here. The agent of the time called it "the one
+considered divergence" from Raptor's scene and reported it "built, and it removed more than it
+added". NOT started on Raptor; the user asked what the remark was, then to file it.
+
+### What Raptor does today (Scene::UpdateTransforms, Foundation/Scene/SceneImpl.cpp)
+
+`TransformData`, one per entity slot in a parallel array: `Transform local; Float4x4 worldMatrix,
+prevWorldMatrix; EntityHandle parent, firstChild, lastChild, nextSibling, prevSibling; bool
+dirty, updatedThisFrame`. Intrusive doubly-linked sibling lists with head AND tail on the parent
+and back-pointers, so append and remove are O(1). Three details each encode a bug already paid
+for, and any replacement must keep them:
+- `effectiveActive`, a cached bit = the entity's own active flag AND every ancestor's, on the
+  entity slot, recomputed by a pruning subtree walk at the three choke points that can change
+  it (set-active, reparent, creation); ALL runtime gating reads it, never the raw flag.
+- Dirty marking cascades DOWN the subtree and UP to the root. Up exists only because the update
+  scans for dirty TOPS, and an ancestor must be marked to be found.
+- Two passes. Pass one walks last frame's updated-index list and, for entities now clean, copies
+  world into previous-world: a stopped object reports a zero motion vector instead of a stale
+  smear (TAA/motion blur). Pass two is a linear scan of every slot for alive dirty nodes whose
+  parent is absent or clean, recursing depth-first from each; not roots-only because a freshly
+  REPARENTED entity under a clean parent is a top a roots-only scan misses (the symptom was
+  pasted/duplicated children rendering at the origin).
+
+### The experiment's design (TransformHierarchy.cs / TransformHierarchy.bf)
+
+Entries kept SORTED BY DEPTH: `mByDepth[depth]` is a list of node indices; each node records
+`Depth` and `BucketSlot` (its position in its bucket) so removal is O(1) swap-back (move the
+last entry into the slot, fix that entry's BucketSlot, pop). `AddToBucket` grows the bucket
+list as needed. `SetParent` = Detach, Attach, `Redepth(index, parentDepth + 1)` which removes
+and re-adds the node and recurses over the subtree (each child depth + 1), marking each dirty.
+Roots sit at depth 0. The update, verbatim in shape:
+
+```
+Update():
+  for index in updatedLastFrame:            // pass one, as Raptor's
+    if !alive: continue
+    if dirty: continue                       // still moving; keep last frame's
+    prevWorld[index] = world[index]; updatedThisFrame = false
+  updatedLastFrame.clear()
+  for depth in 0..byDepth.count:            // pass two: one forward pass, parents final first
+    for index in byDepth[depth]:
+      if !alive: continue
+      parentUpdated = parent != None && nodes[parent].updatedThisFrame
+      effectiveActive = active && (parent == None || nodes[parent].effectiveActive)
+      if !dirty && !parentUpdated: updatedThisFrame = false; continue
+      prevWorld[index] = world[index]
+      world[index] = parent == None ? local.ToMatrix() : local.ToMatrix() * world[parent]
+      dirty = false; updatedThisFrame = true; updatedLastFrame.add(index)
+MarkDirty(index): nodes[index].dirty = true   // ONE node; no cascade either way
+```
+
+What that removes from Raptor's version: (1) the UP-cascade in MarkDirty (a node updates when it
+is dirty OR its parent updated, and the parent's flag is already final - the top-scan the
+up-cascade served is gone); (2) the DOWN-cascade too (descendants notice through parentUpdated);
+(3) the choke-point recomputation of effectiveActive (own AND parent's, in the same pass);
+(4) recursion (a 2000-deep chain is a flat loop; no stack-depth concern); and it gives
+sequential memory access per bucket instead of chasing firstChild/nextSibling, and each depth
+level is independently parallelisable (a depth's nodes read only the previous depth's
+results).
+
+What it costs: depth order must be maintained across reparenting (the Redepth subtree walk -
+comparable to Raptor's reparent, which already walks the subtree for MarkDirty and for
+effectiveActive); per-node bucket bookkeeping (Depth, BucketSlot, one list per depth); and
+effectiveActive is recomputed for every alive node every frame where Raptor caches it and only
+touches it at the choke points. The forward pass still VISITS every alive node per frame, as
+Raptor's top-scan does, so the complexity class is the same; the win is the removed cascades,
+the access order, and the parallel option. Honest expectation: pays on deep hierarchies and
+large crowds (AnimatedCrowd, AnimStressTest), neutral on flat scenes.
+
+### The second remark, phases (ARCHITECTURE.md 11.4)
+
+Raptor's `Scene::RunPhase` iterates every sorted system and calls `OnUpdate(phase, dt)` on all
+of them; each system's body early-returns for phases not its own. Five phases run per frame
+(PreUpdate, Update, AsyncUpdate, PostUpdate, PostTransform; TransformUpdate is the scene's own,
+Initialize/Cleanup are not RunPhase'd), so a system that serves one phase takes four no-op
+virtual calls per frame. The experiment registers each system's phases at add time and keeps
+one list per phase. Small and free. It also notes `AsyncUpdate` is a name only on Raptor:
+nothing in the scene update runs in parallel (the job system is used for render extraction and
+command recording only).
+
+### If picked up
+
+- Gate: measure first. AnimStressTest and RenderStressTest on the clang-reldbg lane, transform
+  update time and total frame, before and after; a synthetic deep-chain case (2000 deep) and a
+  wide-crowd case (50k roots) in Scene.Tests as the unit-level timing probes.
+- Keep the three paid-for behaviours as tests: stopped object -> zero motion vector; reparent
+  under a clean parent updates the same frame; effectiveActive gating unchanged for every
+  consumer (the entity-active-state rule: every tick/extract loop gates on it).
+- The per-phase lists are a separate, smaller commit; do it first, it changes no semantics.
+- Scope decision for the user: transform update only, or also the AsyncUpdate promise (a
+  parallel per-depth-level pass is the natural first use of it).
