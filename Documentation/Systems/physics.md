@@ -26,6 +26,17 @@ abstraction seam (deliberate - see the design history).
 
 ## Components (value-pool)
 
+- **A moving body (dynamic OR kinematic) needs a CONVEX shape** (box, sphere, capsule, convex
+  hull). Jolt's `Shape::MustBeStatic()` names the rest - triangle mesh, plane, heightfield, and
+  any compound or decorated shape holding one: no mass, no collision path between two of them,
+  and Jolt sets mass properties for every non-static body, so it asserts "Invalid mass" at
+  creation (a release build gets a body with no inertia instead). `PhysicsWorld::CreateBody`
+  demotes such a body to static with an error, and the scene system names the entity (plane
+  and heightfield from the shape kind, a cooked mesh from the collision resource's `convex`
+  flag). A convex shape degenerate to zero volume (a hull cooked from a flat quad; Jolt refuses
+  a zero scale at shape creation) still collides, so it gets the mass of a solid box over its
+  bounds and keeps simulating. Agreed with the Beef port 2026-09-21 (the same fix both sides);
+  before it, the editor's Simulate crashed on a dynamic body over a mesh.
 - **`RigidBodyComponent`** - motion type (Static/Dynamic + kinematic), mass (0 = computed),
   friction / restitution / damping / gravity factor, sensor, sleep, CCD, DOF locks, and a
   `collisionGroup` (`u8`, `[0, 32)`). Runtime control (`SetLinearVelocity`, `AddForce`/`AddImpulse`,

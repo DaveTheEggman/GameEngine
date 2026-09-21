@@ -631,8 +631,24 @@ namespace foundation::physics
 
         const PhysicsLayer layer = desc.isTrigger ? PhysicsLayer::Trigger : desc.layer;
         const u8 group = static_cast<u8>(desc.group & 0x1Fu);
-        const JPH::EMotionType motion = desc.motion == MotionKind::Static ? JPH::EMotionType::Static
-                                        : desc.motion == MotionKind::Kinematic
+        MotionKind motionKind = desc.motion;
+        if (motionKind != MotionKind::Static && shape->MustBeStatic())
+        {
+            // Jolt's own rule (Shape::MustBeStatic: mesh, heightfield, plane, and any compound
+            // or decorated shape holding one): such a shape derives no mass, and Jolt sets mass
+            // properties for EVERY non-static body - dynamic or kinematic - so it asserts
+            // "Invalid mass" at creation (the editor's Simulate crash, 2026-09-21; a release
+            // build instead gets a body with no inertia). A data error, not a crash: the body
+            // simulates as static, and the scene system names the entity.
+            LOG_ERROR(u8"Physics",
+                      u8"{} body over a mesh/plane/heightfield shape: such a shape can only be "
+                      u8"static (a moving body needs a convex shape: box, sphere, capsule, convex "
+                      u8"hull) - simulated as STATIC",
+                      motionKind == MotionKind::Kinematic ? u8"kinematic" : u8"dynamic");
+            motionKind = MotionKind::Static;
+        }
+        const JPH::EMotionType motion = motionKind == MotionKind::Static ? JPH::EMotionType::Static
+                                        : motionKind == MotionKind::Kinematic
                                             ? JPH::EMotionType::Kinematic
                                             : JPH::EMotionType::Dynamic;
         JPH::BodyCreationSettings settings(shape, ToJph(desc.position), ToJph(desc.rotation),
@@ -644,13 +660,39 @@ namespace foundation::physics
         settings.mIsSensor = desc.isTrigger;
         settings.mUserData = desc.userData;
         settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateMassAndInertia;
-        if (desc.motion == MotionKind::Dynamic)
+        if (motionKind == MotionKind::Dynamic)
         {
             if (desc.continuousCollision)
             {
                 settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
             }
-            if (desc.massOverride > 0.0f)
+            // A convex shape degenerate to zero volume (a hull cooked from a flat quad - Jolt
+            // refuses a zero scale at shape creation, so the flat hull is the reachable case)
+            // derives no mass and would trip the same "Invalid mass" assert. It still collides
+            // correctly, so it gets the mass and inertia of a solid box filling its local bounds
+            // (a centimetre thick at least), density-derived or scaled to the explicit mass, and
+            // keeps simulating; the warning points at the data.
+            const JPH::MassProperties derived = shape->GetMassProperties();
+            const bool shapeDerivesMass = derived.mMass > 0.0f && std::isfinite(derived.mMass);
+            if (!shapeDerivesMass)
+            {
+                JPH::Vec3 size = shape->GetLocalBounds().GetSize();
+                size = JPH::Vec3::sMax(size, JPH::Vec3::sReplicate(0.01f)); // never a zero side
+                JPH::MassProperties box;
+                box.SetMassAndInertiaOfSolidBox(size, desc.density > 0.0f ? desc.density : 1000.0f);
+                if (desc.massOverride > 0.0f)
+                {
+                    box.ScaleToMass(desc.massOverride);
+                }
+                settings.mOverrideMassProperties =
+                    JPH::EOverrideMassProperties::MassAndInertiaProvided;
+                settings.mMassPropertiesOverride = box;
+                LOG_WARNING(u8"Physics",
+                            u8"dynamic body: its convex shape derives no mass (zero volume); "
+                            u8"using its bounds as a solid box ({} kg)",
+                            box.mMass);
+            }
+            else if (desc.massOverride > 0.0f)
             {
                 // Inertia stays density-derived; only the scalar mass is overridden.
                 settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
@@ -660,8 +702,8 @@ namespace foundation::physics
 
         JPH::BodyInterface& bodies = m_impl->system->GetBodyInterface();
         const JPH::BodyID id = bodies.CreateAndAddBody(
-            settings, desc.motion == MotionKind::Static ? JPH::EActivation::DontActivate
-                                                        : JPH::EActivation::Activate);
+            settings, motionKind == MotionKind::Static ? JPH::EActivation::DontActivate
+                                                       : JPH::EActivation::Activate);
         return id.IsInvalid() ? BodyId{} : BodyId{id.GetIndexAndSequenceNumber()};
     }
 

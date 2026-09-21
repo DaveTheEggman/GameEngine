@@ -802,6 +802,25 @@ export namespace engine::physics
                             return;
                         }
                     }
+                    // A shape that can only be static (Jolt's MustBeStatic: plane, heightfield,
+                    // a cooked triangle mesh) under a moving body: the world demotes it to
+                    // static rather than tripping Jolt's mass assert; named HERE, where the
+                    // entity is known, so the author can find the component.
+                    const bool staticOnly =
+                        c.shape == ShapeKind::Plane || c.shape == ShapeKind::Heightfield ||
+                        (c.shape == ShapeKind::Cooked && c.collisionShape.Get() != nullptr &&
+                         !c.collisionShape->convex);
+                    if (c.motion != MotionKind::Static && staticOnly)
+                    {
+                        LOG_ERROR(u8"Physics",
+                                  u8"'{}': a {} body cannot use a {} shape (static only: no mass, "
+                                  u8"no mesh-vs-mesh collision) - simulated as static",
+                                  scene.GetEntityName(e),
+                                  c.motion == MotionKind::Kinematic ? u8"kinematic" : u8"dynamic",
+                                  c.shape == ShapeKind::Plane         ? u8"plane"
+                                  : c.shape == ShapeKind::Heightfield ? u8"heightfield"
+                                                                      : u8"triangle-mesh");
+                    }
                     desc.shapes.PushBack(own);
 
                     // Hierarchy compounding: descendant ColliderComponents fold in at their

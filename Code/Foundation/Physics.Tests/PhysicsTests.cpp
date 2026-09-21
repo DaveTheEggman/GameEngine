@@ -863,3 +863,173 @@ TEST_CASE("physics: an explicit mass override wins over the density-derived mass
     // Static bodies report no mass.
     CHECK(world.BodyMass(world.CreateBody(FloorDesc())) == 0.0f);
 }
+
+TEST_CASE("physics: a DYNAMIC body over a mesh/plane shape simulates as static, not an assert")
+{
+    // Jolt: triangle meshes, planes and heightfields derive no mass ("Invalid mass" assert at
+    // creation) and have no collision path against each other ("Unsupported shape pair" at the
+    // first contact). The editor's Simulate crashed on a dynamic body with a cooked mesh shape
+    // (2026-09-21). The world demotes such a body to static with an error, and it still exists.
+    PhysicsWorld world(DefaultAllocator());
+    (void)world.CreateBody(FloorDesc());
+
+    const Float3 positions[4] = {Float3{-1, 0, -1}, Float3{1, 0, -1}, Float3{1, 0, 1},
+                                 Float3{-1, 0, 1}};
+    const u32 indices[6] = {0, 2, 1, 0, 3, 2};
+    const u32 slots[2] = {0, 0};
+    Array<byte> blob;
+    REQUIRE(CookTriangleMesh(Span<const Float3>(positions, 4), Span<const u32>(indices, 6),
+                             Span<const u32>(slots, 2), blob));
+
+    BodyDesc meshBody;
+    meshBody.motion = MotionKind::Dynamic;
+    meshBody.position = Float3{0.0f, 5.0f, 0.0f};
+    {
+        ShapeDesc shape;
+        shape.kind = ShapeKind::Cooked;
+        shape.cooked = Span<const byte>(blob.Data(), blob.Size());
+        meshBody.shapes.PushBack(shape);
+    }
+    const BodyId mesh = world.CreateBody(meshBody);
+    REQUIRE(mesh.IsValid());
+    CHECK(world.BodyMass(mesh) == 0.0f); // static: no mass
+
+    BodyDesc planeBody;
+    planeBody.motion = MotionKind::Dynamic;
+    planeBody.position = Float3{20.0f, 5.0f, 0.0f};
+    {
+        ShapeDesc shape;
+        shape.kind = ShapeKind::Plane;
+        shape.planeHalfExtent = 2.0f;
+        planeBody.shapes.PushBack(shape);
+    }
+    const BodyId plane = world.CreateBody(planeBody);
+    REQUIRE(plane.IsValid());
+
+    // A compound with a mesh part is non-convex too.
+    BodyDesc compound = meshBody;
+    compound.position = Float3{-20.0f, 5.0f, 0.0f};
+    {
+        ShapeDesc box;
+        box.kind = ShapeKind::Box;
+        compound.shapes.PushBack(box);
+    }
+    const BodyId compoundId = world.CreateBody(compound);
+    REQUIRE(compoundId.IsValid());
+    CHECK(world.BodyMass(compoundId) == 0.0f);
+
+    // A KINEMATIC mesh: Jolt sets mass properties for every non-static body, so it is the same
+    // assert - demoted the same way.
+    BodyDesc kinematic = meshBody;
+    kinematic.motion = MotionKind::Kinematic;
+    kinematic.position = Float3{0.0f, 5.0f, 20.0f};
+    const BodyId kinematicId = world.CreateBody(kinematic);
+    REQUIRE(kinematicId.IsValid());
+    CHECK(world.BodyMass(kinematicId) == 0.0f);
+
+    // A dynamic BOX still falls through the same world, and the static-demoted bodies stay put.
+    BodyDesc drop;
+    drop.motion = MotionKind::Dynamic;
+    drop.position = Float3{0.0f, 8.0f, 0.0f};
+    {
+        ShapeDesc box;
+        box.kind = ShapeKind::Box;
+        drop.shapes.PushBack(box);
+    }
+    const BodyId dropped = world.CreateBody(drop);
+    REQUIRE(dropped.IsValid());
+    for (int i = 0; i < 60; ++i)
+    {
+        world.Step(1.0f / 60.0f); // mesh vs box contacts are supported; nothing asserts
+    }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(mesh, position, rotation);
+    CHECK(position.y == doctest::Approx(5.0f));
+    world.GetBodyTransform(dropped, position, rotation);
+    CHECK(position.y < 7.9f);
+}
+
+TEST_CASE("physics: a heightfield asked to be dynamic is static - it stays put and a ball lands on it")
+{
+    PhysicsWorld world(DefaultAllocator());
+    constexpr u32 kN = 17;
+    Array<f32> samples;
+    samples.Resize(static_cast<usize>(kN) * kN, 2.0f); // a flat field 2 units up
+    BodyDesc ground;
+    ground.motion = MotionKind::Dynamic; // the authored default, left as it is
+    {
+        ShapeDesc field;
+        field.kind = ShapeKind::Heightfield;
+        field.heightSamples = Span<const f32>(samples.Data(), samples.Size());
+        field.heightSampleCount = kN;
+        field.heightWorldSize = Float2{16.0f, 16.0f};
+        ground.shapes.PushBack(field);
+    }
+    const BodyId terrain = world.CreateBody(ground);
+    REQUIRE(terrain.IsValid());
+    CHECK(world.BodyMass(terrain) == 0.0f);
+
+    BodyDesc drop;
+    drop.motion = MotionKind::Dynamic;
+    drop.position = Float3{0.0f, 10.0f, 0.0f};
+    {
+        ShapeDesc sphere;
+        sphere.kind = ShapeKind::Sphere;
+        sphere.radius = 0.5f;
+        drop.shapes.PushBack(sphere);
+    }
+    const BodyId ball = world.CreateBody(drop);
+    REQUIRE(ball.IsValid());
+    for (int i = 0; i < 240; ++i)
+    {
+        world.Step(1.0f / 60.0f);
+    }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(terrain, position, rotation);
+    CHECK(position.y == doctest::Approx(0.0f).epsilon(0.001)); // the ground never fell
+    world.GetBodyTransform(ball, position, rotation);
+    CHECK(position.y == doctest::Approx(2.5f).epsilon(0.05)); // and the ball landed on it
+}
+
+TEST_CASE("physics: a dynamic body over a FLAT convex hull gets a solid-box mass and simulates")
+{
+    // The one reachable zero-volume convex: a hull cooked from a flat quad. Jolt derives no
+    // mass for it; the world gives it a solid-box mass over its bounds (a centimetre thick).
+    PhysicsWorld world(DefaultAllocator());
+    (void)world.CreateBody(FloorDesc());
+    const Float3 quad[4] = {Float3{-1, 0, -1}, Float3{1, 0, -1}, Float3{1, 0, 1}, Float3{-1, 0, 1}};
+    Array<byte> blob;
+    if (!CookConvexHull(Span<const Float3>(quad, 4), blob))
+    {
+        MESSAGE("this Jolt refuses a coplanar hull; the degenerate path is unreachable here");
+        return;
+    }
+    BodyDesc flat;
+    flat.motion = MotionKind::Dynamic;
+    flat.position = Float3{0.0f, 5.0f, 0.0f};
+    {
+        ShapeDesc shape;
+        shape.kind = ShapeKind::Cooked;
+        shape.cooked = Span<const byte>(blob.Data(), blob.Size());
+        flat.shapes.PushBack(shape);
+    }
+    const BodyId body = world.CreateBody(flat);
+    REQUIRE(body.IsValid());
+    CHECK(world.BodyMass(body) > 0.0f);
+    BodyDesc heavy = flat;
+    heavy.massOverride = 3.0f;
+    heavy.position = Float3{20.0f, 5.0f, 0.0f};
+    const BodyId heavyId = world.CreateBody(heavy);
+    REQUIRE(heavyId.IsValid());
+    CHECK(world.BodyMass(heavyId) == doctest::Approx(3.0f));
+    for (int i = 0; i < 60; ++i)
+    {
+        world.Step(1.0f / 60.0f);
+    }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(body, position, rotation);
+    CHECK(position.y < 4.9f); // it falls: a dynamic body, mass invented, collision real
+}
