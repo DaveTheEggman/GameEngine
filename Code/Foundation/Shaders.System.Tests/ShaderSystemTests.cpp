@@ -347,3 +347,55 @@ TEST_CASE("shader system host: dev-first policy - a pack in the data root does n
         CHECK_FALSE(host.UsingPack());
     }
 }
+
+TEST_CASE("shader system host: a dist data root with ONLY the pack under Shaders/ enters pack mode")
+{
+    namespace vfs = foundation::vfs;
+    rhi::null::NullDevice device{DefaultAllocator()};
+
+    // The layout every dist stages (export + the editor dist scripts): Data/Shaders/ holds the
+    // cooked pack and nothing else - no .hlsl sources. With DXC present (the editor dist ships
+    // it) the folder's existence must not read as "sources present": that put the shipped
+    // editor in dev mode over an empty corpus (2026-09-21).
+    const std::filesystem::path root = "host_dist_root";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "Shaders");
+    {
+        CookedShaderPack pack;
+        const byte blob[] = {byte{1}};
+        pack.Add(u8"x", ShaderStage::Vertex, ShaderFlags::None, CookedShaderFormat::SpirV,
+                 Span<const byte>(blob, 1));
+        FileStream out(u8"host_dist_root/Shaders/shaders.dpak", FileMode::Write);
+        REQUIRE(out.IsValid());
+        REQUIRE(pack.Write(out).IsOk());
+    }
+    vfs::NativeFileSystem dataFs(u8"host_dist_root", DefaultAllocator());
+    {
+        ShaderSystemHost host{DefaultAllocator()};
+        REQUIRE(host.Initialize(device, dataFs)); // Automatic
+        CHECK(host.UsingPack());
+        CHECK(host.PackVariantCount() == 1u);
+    }
+    // Is a compiler available on this machine? A root with ONE source and no pack initializes
+    // only through DXC.
+    bool haveCompiler = false;
+    {
+        std::filesystem::create_directories("host_dist_probe/Shaders");
+        std::ofstream f("host_dist_probe/Shaders/probe.vs.hlsl", std::ios::binary);
+        f << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+        f.close();
+        vfs::NativeFileSystem probeFs(u8"host_dist_probe", DefaultAllocator());
+        ShaderSystemHost host{DefaultAllocator()};
+        haveCompiler = host.Initialize(device, probeFs);
+    }
+    {
+        // A stage file beside the pack is a corpus again: dev-first (with a compiler), else the
+        // pack still serves.
+        std::ofstream f(root / "Shaders" / "hosted.vs.hlsl", std::ios::binary);
+        f << "float4 main(uint id : SV_VertexID) : SV_Position { return float4(0,0,0,1); }\n";
+        f.close();
+        ShaderSystemHost host{DefaultAllocator()};
+        REQUIRE(host.Initialize(device, dataFs));
+        CHECK(host.UsingPack() == !haveCompiler);
+    }
+}

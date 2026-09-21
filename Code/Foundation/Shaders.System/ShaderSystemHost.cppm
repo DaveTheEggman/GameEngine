@@ -81,7 +81,10 @@ export namespace foundation::shaders
                 m_compiler = nullptr;
             }
 
-            const bool haveSources = dataFileSystem.Exists(kShaderFolder);
+            // "Sources present" means stage files, not the folder: a dist stages ONLY the cooked
+            // pack under Shaders/ (Data/Shaders/shaders.dpak), and an editor dist ships DXC too -
+            // judging by the folder alone put that dist in dev mode over an empty corpus.
+            const bool haveSources = HasShaderSources(dataFileSystem);
             const bool devPossible = m_compiler != nullptr && haveSources;
 
             // DEV FIRST: a present pack must not silently take over a working dev setup
@@ -173,6 +176,39 @@ export namespace foundation::shaders
         }
 
     private:
+        // True when Shaders/ holds at least one .hlsl stage file or .hlsli include (the dev
+        // corpus); false for a missing folder or one holding only the cooked pack.
+        [[nodiscard]] static bool HasShaderSources(vfs::IFileSystem& dataFileSystem)
+        {
+            if (!dataFileSystem.Exists(kShaderFolder))
+            {
+                return false;
+            }
+            vfs::IEnumerableFileSystem* enumerable = dataFileSystem.AsEnumerable();
+            if (enumerable == nullptr)
+            {
+                return true; // a mount that cannot list: the folder is the only evidence
+            }
+            Array<vfs::DirEntry> entries;
+            if (!enumerable->Enumerate(kShaderFolder, entries).IsOk())
+            {
+                return false;
+            }
+            for (const vfs::DirEntry& entry : entries)
+            {
+                if (entry.isDirectory)
+                {
+                    continue;
+                }
+                const StringView name = entry.name.AsView();
+                if (name.EndsWith(u8".hlsl") || name.EndsWith(u8".hlsli"))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // The cooked pack at its one location under the data root.
         bool LoadPack()
         {

@@ -6,9 +6,10 @@
 # build-editor-dist.sh - assemble a portable, downloadable EDITOR distribution for Linux.
 #
 # The result is an unzip-and-run folder: the Tools.Editor executable, its runtime sidecars
-# (DXC - the editor cooks/recompiles shaders), a cooked engine shader pack (shaders.dpak, so
-# the editor runs in pack mode with no .hlsl source shipped), and the Data root (Assets + the
-# .dataroot marker) beside the exe. FindDataRoot() discovers Data/ beside the exe, and $ORIGIN
+# (DXC - the editor cooks/recompiles shaders), the Data root (Assets + the .dataroot marker)
+# beside the exe with a cooked engine shader pack INSIDE it (Data/Shaders/shaders.dpak - the path
+# the ShaderSystemHost opens through the data mount; pack mode, no .hlsl source shipped).
+# FindDataRoot() discovers Data/ beside the exe, and $ORIGIN
 # on the exe's RUNPATH finds the sidecars - so the folder relocates to any machine.
 #
 # NOT bundled: Vulkan (a system dependency - the target needs GPU drivers + the Vulkan loader,
@@ -81,12 +82,15 @@ fi
 [[ -f "$BIN/libdxcompiler.so" && ! -f "$DIST/libdxcompiler.so" ]] && cp "$BIN/libdxcompiler.so" "$DIST/"
 strip "$DIST/Tools.Editor" 2>/dev/null || true
 
-# 4. Cook the engine shader pack beside the exe -> pack mode, no source .hlsl shipped.
-log "Cooking shaders.dpak ($FORMATS)"
-"$BIN/Tools.ShaderPack" "Data/Shaders" "$DIST/shaders.dpak" $FORMATS
+# 4. Cook the engine shader pack INTO the dist's data root: Data/Shaders/shaders.dpak is the
+#    one path the runtime opens (ShaderSystemHost, kShaderPackPath) - a pack beside the exe is
+#    never found. Pack mode, no source .hlsl shipped.
+log "Cooking Data/Shaders/shaders.dpak ($FORMATS)"
+mkdir -p "$DIST/Data/Shaders"
+"$BIN/Tools.ShaderPack" "Data/Shaders" "$DIST/Data/Shaders/shaders.dpak" $FORMATS
 
-# 5. Stage the Data root: Assets + the marker. Skip Data/Output (build output) and Data/Shaders
-#    (source .hlsl - unneeded in pack mode).
+# 5. Stage the rest of the Data root: Assets + the marker. Skip Data/Output (build output) and
+#    the Data/Shaders sources (unneeded in pack mode - only the pack cooked above ships).
 cp -r "Data/Assets" "$DIST/Data/Assets"
 cp "Data/.dataroot" "$DIST/Data/.dataroot"
 

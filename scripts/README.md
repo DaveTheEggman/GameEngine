@@ -48,8 +48,9 @@ Bin/Release/Linux64-Clang/Tools.Export --template list
 ## build-editor-dist.{sh,ps1} - package the editor for download
 
 Assemble a portable, unzip-and-run **editor** distribution: `Tools.Editor` + its runtime
-sidecars (DXC - the editor cooks/recompiles shaders) + a cooked `shaders.dpak` (pack mode, no
-`.hlsl` source shipped) + the `Data` root (`Assets` + the `.dataroot` marker) beside the exe.
+sidecars (DXC - the editor cooks/recompiles shaders) + the `Data` root (`Assets` + the `.dataroot`
+marker) beside the exe, with the cooked pack inside it at `Data/Shaders/shaders.dpak` (pack mode,
+no `.hlsl` source shipped; that path is the one the runtime opens through the data mount).
 `FindDataRoot()` discovers `Data/` beside the executable and `$ORIGIN` on the RUNPATH finds the
 sidecars, so the folder relocates to any machine. This is distinct from the export TEMPLATES
 above: those package the game RUNTIME (`Engine.Player`); this packages the AUTHORING TOOL.

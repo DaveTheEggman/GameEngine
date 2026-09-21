@@ -62,8 +62,10 @@ below it knows where the root is - only what it reads relative to it:
 Consumers take `vfs::IFileSystem&` (the data mount), never a path:
 
 - `ShaderSystemHost::Initialize(device, dataFileSystem, policy)`: dev mode when a compiler
-  exists and `Shaders/` does (a `FileShaderSourceProvider` over the mount, hot reload through the
-  mount's change source), else the cooked `Shaders/shaders.dpak` read through the mount. No
+  exists and `Shaders/` holds stage sources (`.hlsl`/`.hlsli` - a `FileShaderSourceProvider`
+  over the mount, hot reload through the mount's change source), else the cooked
+  `Shaders/shaders.dpak` read through the mount. The folder alone is not "sources": a dist
+  stages only the pack under it, and an editor dist ships DXC too (2026-09-21 fix). No
   executable-dir or cwd probing for the pack any more.
 - `FileShaderSourceProvider::Initialize(fileSystem, folder)` is also the compiler's
   `IShaderIncludeResolver`: `#include`s resolve through the same mount (a custom DXC include

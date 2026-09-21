@@ -9,8 +9,8 @@
   The Windows counterpart of build-editor-dist.sh. Produces an unzip-and-run folder:
   Tools.Editor.exe + its runtime DLLs (dxcompiler.dll, SDL3.dll - staged by the build's
   util_copy_runtime_deps into Bin\...\ and listed in Tools.Editor.runtime-libs), a cooked
-  shaders.dpak (pack mode; no .hlsl source shipped), and the Data root (Assets + .dataroot)
-  beside the exe. FindDataRoot() discovers Data\ beside the exe; Windows searches the exe
+  Data root (Assets + .dataroot) beside the exe with the cooked shader pack INSIDE it
+  (Data\Shaders\shaders.dpak - the path the runtime opens; pack mode, no .hlsl source shipped). FindDataRoot() discovers Data\ beside the exe; Windows searches the exe
   directory for bare DLLs, so no rpath is needed.
 
   NOT bundled: the Vulkan/DX12 system runtime (the target machine's GPU drivers).
@@ -71,8 +71,11 @@ if (Test-Path $manifest) {
     }
 }
 
-Write-Host "== Cooking shaders.dpak ($Formats) =="
-& (Join-Path $Bin "Tools.ShaderPack.exe") "Data\Shaders" (Join-Path $Out "shaders.dpak") $Formats.Split(" ")
+# The pack goes INTO the dist's data root: Data\Shaders\shaders.dpak is the one path the runtime
+# opens (ShaderSystemHost, kShaderPackPath) - a pack beside the exe is never found.
+Write-Host "== Cooking Data\Shaders\shaders.dpak ($Formats) =="
+New-Item -ItemType Directory -Force -Path (Join-Path $Out "Data\Shaders") | Out-Null
+& (Join-Path $Bin "Tools.ShaderPack.exe") "Data\Shaders" (Join-Path $Out "Data\Shaders\shaders.dpak") $Formats.Split(" ")
 
 Copy-Item -Recurse "Data\Assets"   (Join-Path $Out "Data\Assets")
 Copy-Item          "Data\.dataroot" (Join-Path $Out "Data\.dataroot")
