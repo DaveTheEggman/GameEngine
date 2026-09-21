@@ -24,8 +24,10 @@ namespace engine::spline
         builder.Attribute("displayName", String(u8"Spline"))
             .Attribute("category", String(u8"Utility"))
             .DataVersion(1);
-        // Points are authored by the viewport spline tool, not the inspector; only the loop
-        // flag is a direct property.
+        // Points are authored by the viewport spline tool, not the inspector: the rows are the
+        // loop flag (through the curve, so its caches follow) and the point count, read-only.
+        builder.AccessorProperty<&SplineComponent::IsClosed, &SplineComponent::SetClosed>("closed")
+            .ComputedProperty<&SplineComponent::PointCount>("pointCount");
     }
 
     void PathFollowComponentManager::OnUpdate(foundation::scene::ScenePhase phase,

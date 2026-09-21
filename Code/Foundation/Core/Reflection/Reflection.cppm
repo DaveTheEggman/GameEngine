@@ -129,6 +129,36 @@ namespace foundation::core::detail
         return Status{ErrorCode::NotSupported}; // a computed getter is read-only
     }
 
+    // The setter half of an accessor property: a one-argument member taking the value by
+    // value or const reference. The Variant must carry exactly R (no coercion: an accessor
+    // guards an invariant, so it takes the type it declared).
+    template <typename Setter>
+    struct SetterTraits;
+    template <typename C, typename A>
+    struct SetterTraits<void (C::*)(A)>
+    {
+        using Class = C;
+        using Argument = std::remove_cv_t<std::remove_reference_t<A>>;
+    };
+    template <typename C, typename A>
+    struct SetterTraits<void (C::*)(A) noexcept>
+    {
+        using Class = C;
+        using Argument = std::remove_cv_t<std::remove_reference_t<A>>;
+    };
+
+    template <typename T, typename R, auto Setter>
+    Status SetterPropertySet(const Instance& instance, const Variant& value)
+    {
+        T* object = static_cast<T*>(instance.Pointer());
+        if (const R* typed = value.TryGet<R>())
+        {
+            (object->*Setter)(*typed);
+            return Status{};
+        }
+        return Status{ErrorCode::InvalidArgument};
+    }
+
     // A NESTED (structure) property: the member is itself a reflected type the tooling should
     // recurse INTO, not a leaf value. This is the escape hatch for members that cannot marshal
     // through a Variant - e.g. non-copyable Object members (RefCounted deletes its copy ctor).
@@ -1560,6 +1590,24 @@ export namespace foundation::core
             m_data.properties.PushBack(PropertyInfo{name, &TypeOf<R>(), PropertyFlags::ReadOnly,
                                                     &detail::GetterPropertyGet<T, R, Getter>,
                                                     &detail::GetterPropertySet<T, R, Getter>,
+                                                    nullptr});
+            return *this;
+        }
+
+        /// A WRITABLE computed property: a const zero-arg getter and a one-argument setter over
+        /// state the type keeps behind an invariant (a flag inside a nested value whose caches
+        /// must rebuild when it changes). Reflects as an ordinary editable property to tooling
+        /// and script, with `address` null (no in-place editing: every write goes through the
+        /// setter). The getter's return and the setter's argument must be the same type.
+        template <auto Getter, auto Setter>
+        TypeBuilder& AccessorProperty(const char* name)
+        {
+            using R = typename detail::GetterTraits<decltype(Getter)>::Return;
+            static_assert(std::is_same_v<R, typename detail::SetterTraits<decltype(Setter)>::Argument>,
+                          "AccessorProperty: the getter's return and the setter's argument differ");
+            m_data.properties.PushBack(PropertyInfo{name, &TypeOf<R>(), PropertyFlags::None,
+                                                    &detail::GetterPropertyGet<T, R, Getter>,
+                                                    &detail::SetterPropertySet<T, R, Setter>,
                                                     nullptr});
             return *this;
         }

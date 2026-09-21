@@ -28,6 +28,7 @@ namespace
             return legs;
         }
         int GetLegs() const { return legs; }
+        void AssignLegs(int n) { legs = n; } // the accessor property's setter (SetLegs below is a Method)
         static int DefaultLegs() { return 4; }
 
         // Object-argument forms: pointer and owning RefPtr.
@@ -87,6 +88,7 @@ REFLECT_MEMBERS(Animal, "rtti::test")
     builder.Method<&Animal::IsSame>("IsSame");           // takes RefPtr<Animal>
     builder.Method<&Animal::SetLegs>("SetLegs", {"front", "back"}); // A6: named params, in order
     builder.ComputedProperty<&Animal::GetLegs>("legsView"); // computed read-only getter property
+    builder.AccessorProperty<&Animal::GetLegs, &Animal::AssignLegs>("legsAccessor"); // getter + setter
     builder.Attribute("scriptName", "Critter");
     builder.Attribute("maxLegs", 8);
     builder.Constructor(); // default ctor -> RefPtr<Animal> via MakeRef
@@ -396,7 +398,7 @@ TEST_CASE("variant: Instance borrows without owning")
 
 TEST_CASE("rtti: reflected property is discoverable")
 {
-    CHECK(Properties(Animal::StaticType()).Size() == 2u); // "legs" (field) + "legsView" (computed)
+    CHECK(Properties(Animal::StaticType()).Size() == 3u); // "legs" (field) + "legsView" (computed) + "legsAccessor"
 
     const PropertyInfo* legs = FindProperty(Animal::StaticType(), "legs");
     REQUIRE(legs != nullptr);
@@ -427,6 +429,27 @@ TEST_CASE("rtti: property get/set through an Instance")
     CHECK_FALSE(bad.IsOk());
     CHECK(bad.Code() == ErrorCode::InvalidArgument);
     CHECK(animal->legs == 6);
+}
+
+TEST_CASE("rtti: an AccessorProperty reads through its getter and writes through its setter")
+{
+    const PropertyInfo* accessor = FindProperty(Animal::StaticType(), "legsAccessor");
+    REQUIRE(accessor != nullptr);
+    CHECK(accessor->type == &TypeOf<int>());
+    CHECK(accessor->address == nullptr); // no in-place editing: every write is the setter's
+    CHECK((static_cast<u32>(accessor->flags) & static_cast<u32>(PropertyFlags::ReadOnly)) == 0);
+
+    RefPtr<Animal> animal = MakeRef<Animal>(DefaultAllocator());
+    Instance inst = Instance::From(animal.Get());
+    animal->legs = 7;
+    CHECK(GetProperty(*accessor, inst).Get<int>() == 7);
+    CHECK(SetProperty(*accessor, inst, Variant::From<int>(3)).IsOk());
+    CHECK(animal->legs == 3);
+    // The declared type, exactly: a float is refused and the object untouched.
+    const Status wrong = SetProperty(*accessor, inst, Variant::From<f32>(2.0f));
+    CHECK_FALSE(wrong.IsOk());
+    CHECK(wrong.Code() == ErrorCode::InvalidArgument);
+    CHECK(animal->legs == 3);
 }
 
 TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")

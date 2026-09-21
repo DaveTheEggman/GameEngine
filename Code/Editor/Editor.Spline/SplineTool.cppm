@@ -47,6 +47,7 @@ export namespace editor
         i32 selectedPoint = -1;
         bool dragging = false;
         bool insertPreview = false;
+        bool placePreview = false; // Ctrl over a curve with no segment: a click appends here
     };
     [[nodiscard]] SplineEditToolState SplineEditToolStateOf(const IViewportTool& tool);
 }

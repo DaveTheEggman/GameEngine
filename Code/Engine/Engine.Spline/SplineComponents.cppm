@@ -28,7 +28,38 @@ export namespace engine::spline
     struct SplineComponent
     {
         fspline::SplineCurve curve;
+
+        // The inspector's rows (points are authored in the viewport by the spline tool): the
+        // loop flag, through the curve so its arc-length table follows, and the point count.
+        [[nodiscard]] bool IsClosed() const noexcept { return curve.closed; }
+        void SetClosed(bool closed)
+        {
+            if (curve.closed != closed)
+            {
+                curve.closed = closed;
+                curve.RebuildArcLength();
+            }
+        }
+        [[nodiscard]] u32 PointCount() const noexcept
+        {
+            return static_cast<u32>(curve.points.Size());
+        }
     };
+
+    /// What a spline added with no points starts as: a short segment along the entity's local
+    /// X, so the viewport tool has points to grab and the gizmo shows a curve at once. Also the
+    /// runtime's answer for a script that adds the component bare.
+    inline void SeedDefaultSpline(fspline::SplineCurve& curve)
+    {
+        fspline::SplinePoint a;
+        a.position = Float3{-1.0f, 0.0f, 0.0f};
+        fspline::SplinePoint b;
+        b.position = Float3{1.0f, 0.0f, 0.0f};
+        curve.points.PushBack(a);
+        curve.points.PushBack(b);
+        curve.UpdateAutoHandles();
+        curve.RebuildArcLength();
+    }
 
     inline void Serialize(ISerializer& ar, SplineComponent& c)
     {
@@ -48,6 +79,18 @@ export namespace engine::spline
         SplineComponentManager()
             : foundation::scene::SerializableComponentManager<SplineComponent>(u8"spline")
         {
+        }
+
+        /// A component that reaches its first Initialize phase with NO points was added bare
+        /// (the editor's Add Component, a script): it is seeded. A loaded or spawned one has its
+        /// points by then and is left alone.
+        void OnComponentInitialized(SplineComponent& component,
+                                    foundation::scene::EntityHandle) override
+        {
+            if (component.curve.points.IsEmpty())
+            {
+                SeedDefaultSpline(component.curve);
+            }
         }
     };
 

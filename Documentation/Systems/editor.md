@@ -193,6 +193,15 @@ service, status sink, and the registries:
  snap) drawn through the scene's debug-draw; drag = command group bracketing merged
  `SetTransformCommand`s; topmost-only selection filter so parents don't double-move children
  (Lumix lesson). Per-component gizmos via the `IGizmoRenderer` registry.
+- **Spline authoring (the flow, fixed 2026-09-20)**: Add Component > Spline puts a two-point
+ segment along the entity's local X on the entity at its first Initialize phase (a bare component
+ is seeded; a loaded one keeps its points), so the gizmo shows a curve at once; the inspector rows
+ are the loop flag and a read-only point count (points are viewport-authored). Select the entity,
+ pick the Spline tool: drag a point on a camera-facing plane, Ctrl+click a segment to insert at the
+ closest curve position, Ctrl+click off the curve while it has no segment to place a point (a
+ curve can be built from nothing, or after deleting down), Delete/X removes to a two-point floor,
+ the selected point shows its tangent handles (drag promotes Auto->Smooth, Shift breaks the pair).
+ One undo step per gesture. Points are entity-local; the transform places the curve.
 - **Viewport**: `ViewportView` per scene page + `EditorCamera` (fly controller on the gated
  `InputSurface`, hover-gated); the page's `OnRender` renders the scene via `foundation.render` into
  the viewport RT (the thin-slice/UISandbox wiring, with the real renderer).

@@ -98,7 +98,7 @@ namespace editor
             [[nodiscard]] SplineEditToolState State() const noexcept
             {
                 return SplineEditToolState{m_hoverPoint, m_selectedPoint, m_dragging,
-                                           m_hasInsertPreview};
+                                           m_hasInsertPreview, m_hasPlacePreview};
             }
 
             [[nodiscard]] bool IsAvailable() const override
@@ -112,6 +112,7 @@ namespace editor
             {
                 m_hoverPoint = -1;
                 m_hasInsertPreview = false;
+                m_hasPlacePreview = false;
                 SplineComponent* component = TargetComponent(&m_entity);
                 if (component == nullptr || m_scene == nullptr)
                 {
@@ -170,6 +171,29 @@ namespace editor
                 if (input.ctrl && m_hoverPoint < 0 && curve.SegmentCount() > 0)
                 {
                     FindRayClosest(curve, input.ray);
+                }
+                // Place preview: a curve with no segment yet (a component added bare, or cut
+                // down to one point) takes its points from Ctrl-clicks, on the camera-facing
+                // plane through the entity (through its last point once it has one), so a
+                // spline can be built from nothing.
+                if (input.ctrl && m_hoverPoint < 0 && curve.SegmentCount() == 0 && !m_dragging)
+                {
+                    const Float3 through =
+                        curve.points.IsEmpty()
+                            ? TransformPoint(Float3{}, m_world)
+                            : TransformPoint(curve.points[curve.points.Size() - 1].position, m_world);
+                    const Float3 normal = input.cameraForward * -1.0f;
+                    const f32 denominator = Dot(input.ray.direction, normal);
+                    if (Abs(denominator) > 0.0001f)
+                    {
+                        const f32 t = Dot(through - input.ray.origin, normal) / denominator;
+                        if (t > 0.0f)
+                        {
+                            const Float3 world = input.ray.origin + input.ray.direction * t;
+                            m_placeLocal = TransformPoint(world, Inverse(m_world));
+                            m_hasPlacePreview = true;
+                        }
+                    }
                 }
 
                 if (m_dragging)
@@ -293,6 +317,21 @@ namespace editor
                         CommitSnapshot(curve);
                         return true;
                     }
+                    if (input.ctrl && m_hasPlacePreview)
+                    {
+                        // Append (one undo step each): the first two clicks make the curve a
+                        // curve, after which Ctrl-click inserts on the segment under the pointer.
+                        BeginSnapshot(curve);
+                        fspline::SplinePoint point;
+                        point.position = m_placeLocal;
+                        curve.points.PushBack(point);
+                        curve.UpdateAutoHandles();
+                        curve.RebuildArcLength();
+                        CommitSnapshot(curve);
+                        m_selectedPoint = static_cast<i32>(curve.points.Size()) - 1;
+                        m_hasPlacePreview = false;
+                        return true;
+                    }
                 }
                 return m_hoverPoint >= 0;
             }
@@ -349,6 +388,11 @@ namespace editor
                                                 m_hoverHandle == h ? hoverColor : handleColor,
                                                 10);
                     }
+                }
+                if (m_hasPlacePreview)
+                {
+                    drawList.DrawWireSphere(TransformPoint(m_placeLocal, m_world), 0.08f,
+                                            Color{0.6f, 1.0f, 0.6f, 1.0f});
                 }
                 if (m_hasInsertPreview)
                 {
@@ -471,6 +515,8 @@ namespace editor
             Float3 m_dragPlaneNormal{0, 0, 1};
 
             bool m_hasInsertPreview = false;
+            bool m_hasPlacePreview = false; // Ctrl over an empty curve: the next point's spot
+            Float3 m_placeLocal{};
             f32 m_insertT = 0.0f;
             Float3 m_insertLocal{};
 

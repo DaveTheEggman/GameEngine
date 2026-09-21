@@ -149,6 +149,52 @@ TEST_CASE("spline tool: Ctrl-click on a segment inserts a point, undoably")
     CHECK(component.curve.points.Size() == 3u);
 }
 
+TEST_CASE("spline tool: an empty spline takes its first points from Ctrl-clicks, undoably")
+{
+    scene::Scene scene(DefaultAllocator(), u8"t");
+    editor::EditorCommandStack commands;
+    editor::Selection<Guid> selection;
+    // A component added bare, before its Initialize phase seeded it: no points at all.
+    auto* splines = scene.AddSystem<engine::spline::SplineComponentManager>();
+    const scene::EntityHandle entity = scene.CreateEntity(u8"Path");
+    engine::spline::SplineComponent& component = splines->Add(entity);
+    selection.Set(scene.GetEntityId(entity));
+    UniquePtr<editor::IViewportTool> tool = editor::CreateSplineEditTool(Host(scene, commands, selection));
+    CHECK(tool->IsAvailable()); // the component is there, even with nothing to draw
+
+    // Without Ctrl nothing happens; with Ctrl the place preview appears where the ray meets the
+    // camera-facing plane through the entity.
+    CHECK_FALSE(tool->Update(Frame(Float3{-1.0f, 0.0f, 0.0f}, false, false, false)));
+    CHECK_FALSE(editor::SplineEditToolStateOf(*tool).placePreview);
+    (void)tool->Update(Frame(Float3{-1.0f, 0.0f, 0.0f}, false, false, false, true));
+    CHECK(editor::SplineEditToolStateOf(*tool).placePreview);
+    CHECK_FALSE(editor::SplineEditToolStateOf(*tool).insertPreview);
+
+    // Two Ctrl-clicks: a two-point curve, each click one undo step, the last point selected.
+    CHECK(tool->Update(Frame(Float3{-1.0f, 0.0f, 0.0f}, true, true, false, true)));
+    REQUIRE(component.curve.points.Size() == 1u);
+    CHECK(Near(component.curve.points[0].position.x, -1.0f));
+    CHECK(editor::SplineEditToolStateOf(*tool).selectedPoint == 0);
+    (void)tool->Update(Frame(Float3{1.0f, 0.0f, 0.0f}, false, false, true, true)); // release
+    CHECK(tool->Update(Frame(Float3{1.0f, 0.0f, 0.0f}, true, true, false, true)));
+    REQUIRE(component.curve.points.Size() == 2u);
+    CHECK(Near(component.curve.points[1].position.x, 1.0f));
+    CHECK(component.curve.SegmentCount() == 1u);
+    (void)tool->Update(Frame(Float3{1.0f, 0.0f, 0.0f}, false, false, true, true));
+
+    // From here Ctrl-click is the insert-on-segment gesture, not placement.
+    (void)tool->Update(Frame(Float3{0.0f, 0.0f, 0.0f}, false, false, false, true));
+    CHECK(editor::SplineEditToolStateOf(*tool).insertPreview);
+    CHECK_FALSE(editor::SplineEditToolStateOf(*tool).placePreview);
+
+    commands.Undo();
+    CHECK(component.curve.points.Size() == 1u);
+    commands.Undo();
+    CHECK(component.curve.points.IsEmpty());
+    commands.Redo();
+    CHECK(component.curve.points.Size() == 1u);
+}
+
 TEST_CASE("spline tool: the provider adds the tool once, however often it registers")
 {
     scene::Scene scene(DefaultAllocator(), u8"t");

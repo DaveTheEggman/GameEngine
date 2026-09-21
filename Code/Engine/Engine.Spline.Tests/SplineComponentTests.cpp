@@ -7,6 +7,7 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
+#include <initializer_list>
 
 import foundation.core;
 import foundation.scene;
@@ -52,6 +53,45 @@ TEST_CASE("spline component: serialization round-trips points and rebuilds cache
     // Derived caches rebuilt on read: the loaded curve evaluates identically.
     CHECK(loaded.curve.Length() == doctest::Approx(authored.curve.Length()).epsilon(0.001));
     CHECK(Length(loaded.curve.Evaluate(1.5f) - authored.curve.Evaluate(1.5f)) < 0.0001f);
+}
+
+TEST_CASE("spline component: added bare it is seeded at its first Initialize; loaded points are kept")
+{
+    foundation::scene::Scene world(DefaultAllocator(), u8"t");
+    auto* splines = world.AddSystem<engine::spline::SplineComponentManager>();
+
+    // Add Component in the editor, or a script: no points until the Initialize phase runs.
+    const foundation::scene::EntityHandle bare = world.CreateEntity(u8"bare");
+    engine::spline::SplineComponent& added = splines->Add(bare);
+    CHECK(added.PointCount() == 0u);
+    // A component that already has its points (a load, a spawn) is not touched.
+    const foundation::scene::EntityHandle loaded = world.CreateEntity(u8"loaded");
+    engine::spline::SplineComponent& kept = splines->Add(loaded);
+    for (const f32 x : {0.0f, 1.0f, 2.0f})
+    {
+        SplinePoint point;
+        point.position = Float3{x, 0.0f, 0.0f};
+        kept.curve.points.PushBack(point);
+    }
+    world.InitializePendingComponents();
+    CHECK(splines->Get(bare)->PointCount() == 2u); // the seed: a segment along local X
+    CHECK(splines->Get(bare)->curve.points[0].position.x == -1.0f);
+    CHECK(splines->Get(bare)->curve.points[1].position.x == 1.0f);
+    CHECK(splines->Get(bare)->curve.Length() > 1.9f); // caches rebuilt with the seed
+    CHECK(splines->Get(loaded)->PointCount() == 3u);
+    CHECK(splines->Get(loaded)->curve.points[0].position.x == 0.0f);
+
+    // The inspector's rows: the loop flag goes through the curve and rebuilds its arc length.
+    engine::spline::SplineComponent& three = *splines->Get(loaded);
+    three.curve.UpdateAutoHandles();
+    three.curve.RebuildArcLength();
+    const f32 open = three.curve.Length();
+    CHECK_FALSE(three.IsClosed());
+    three.SetClosed(true);
+    CHECK(three.IsClosed());
+    CHECK(three.curve.Length() > open); // the closing segment is in the table now
+    three.SetClosed(false);
+    CHECK(three.curve.Length() == doctest::Approx(open));
 }
 
 TEST_CASE("spline facade: world-space queries through SceneSplines")
