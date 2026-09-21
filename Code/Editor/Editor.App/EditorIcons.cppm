@@ -83,6 +83,10 @@ export namespace editor::app
         /// Every icon, for the bake pass (UIHost::BakeSvgDrawables at startup/DPI change).
         [[nodiscard]] Array<ui::BakedSVGDrawable*> Bakeable() const;
 
+        /// Every icon slot, the one table Shutdown and Bakeable walk (kSlotCount entries).
+        static constexpr usize kSlotCount = 29;
+        [[nodiscard]] Array<RefPtr<ui::BakedSVGDrawable>*> Slots();
+
     private:
         bool m_initialized = false;
 

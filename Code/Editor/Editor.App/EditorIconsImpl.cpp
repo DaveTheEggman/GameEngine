@@ -16,6 +16,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <initializer_list>
 
 module editor.app;
 
@@ -71,57 +72,46 @@ namespace editor::app
         brushFlatten = ui::BakedSVGDrawable::FromString(editor::EditorRootAllocator(), kBrushFlatten);
     }
 
+    // The one slot table: Shutdown and Bakeable both walk it, so a slot added to the class
+    // cannot be missed by either (the `close` icon was missing from a hand-written Shutdown
+    // list and was released at process exit, after the allocator on main's stack was gone -
+    // ASan's stack-use-after-return, 2026-09-21).
+    Array<RefPtr<ui::BakedSVGDrawable>*> EditorIcons::Slots()
+    {
+        Array<RefPtr<ui::BakedSVGDrawable>*> slots;
+        for (RefPtr<ui::BakedSVGDrawable>* slot :
+             {&translate, &rotate,      &scale,       &worldSpace, &localSpace,  &grid,
+              &scene,     &prefab,      &mesh,        &skinnedMesh, &material,   &texture,
+              &particleFx, &animation,  &animGraph,   &skeleton,   &folder,      &unknown,
+              &close,     &add,         &remove,      &moveUp,     &moveDown,    &copy,
+              &edit,      &brushRaise,  &brushLower,  &brushSmooth, &brushFlatten})
+        {
+            slots.PushBack(slot);
+        }
+        return slots;
+    }
+
     void EditorIcons::Shutdown()
     {
-        translate = nullptr;
-        rotate = nullptr;
-        scale = nullptr;
-        worldSpace = nullptr;
-        localSpace = nullptr;
-        grid = nullptr;
-        scene = nullptr;
-        prefab = nullptr;
-        mesh = nullptr;
-        skinnedMesh = nullptr;
-        material = nullptr;
-        texture = nullptr;
-        particleFx = nullptr;
-        animation = nullptr;
-        animGraph = nullptr;
-        skeleton = nullptr;
-        folder = nullptr;
-        unknown = nullptr;
-        add = nullptr;
-        remove = nullptr;
-        moveUp = nullptr;
-        moveDown = nullptr;
-        copy = nullptr;
-        edit = nullptr;
-        brushRaise = nullptr;
-        brushLower = nullptr;
-        brushSmooth = nullptr;
-        brushFlatten = nullptr;
+        for (RefPtr<ui::BakedSVGDrawable>* slot : Slots())
+        {
+            *slot = nullptr;
+        }
         m_initialized = false;
     }
 
     Array<ui::BakedSVGDrawable*> EditorIcons::Bakeable() const
-{
-    Array<ui::BakedSVGDrawable*> icons;
-    const RefPtr<ui::BakedSVGDrawable>* all[] = {
-        &translate, &rotate,     &scale,    &worldSpace, &localSpace, &grid,   &scene,
-        &prefab,    &mesh,       &skinnedMesh, &material, &texture,   &particleFx,
-        &animation, &animGraph,  &skeleton, &folder,     &unknown,    &close,
-        &add,       &remove,     &moveUp,   &moveDown,   &copy,       &edit,
-        &brushRaise, &brushLower, &brushSmooth, &brushFlatten};
-    for (const RefPtr<ui::BakedSVGDrawable>* icon : all)
     {
-        if (icon->Get() != nullptr)
+        Array<ui::BakedSVGDrawable*> icons;
+        for (RefPtr<ui::BakedSVGDrawable>* slot : const_cast<EditorIcons*>(this)->Slots())
         {
-            icons.PushBack(icon->Get());
+            if (slot->Get() != nullptr)
+            {
+                icons.PushBack(slot->Get());
+            }
         }
+        return icons;
     }
-    return icons;
-}
 
 ui::SVGDrawable* EditorIcons::ForAssetType(StringView typeName) const
     {
