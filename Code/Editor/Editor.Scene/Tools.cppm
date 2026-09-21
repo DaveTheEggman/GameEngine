@@ -43,7 +43,7 @@ export namespace editor
 
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
 
-        void Draw(render::debug::DebugDraw& drawList) override { m_gizmos.Draw(drawList); }
+        void Draw(render::debug::DebugDraw& drawList) override;
 
         [[nodiscard]] StringView StatusText() const override
         {
@@ -62,12 +62,26 @@ export namespace editor
         void SetPicker(IViewportPicker* picker) noexcept { m_picker = picker; }
         [[nodiscard]] bool HasPendingPick() const noexcept { return m_pendingPick != 0; }
 
+        /// Marquee: a press on empty space dragged past kMarqueeThreshold pixels becomes a
+        /// rubber-band rect; release selects every entity drawn inside it (GPU rect pick), or
+        /// whose origin projects inside it without a picker. Ctrl adds to the selection. The
+        /// click that started it is undone (its pick cancelled, the selection at press restored).
+        static constexpr i32 kMarqueeThreshold = 4;
+        [[nodiscard]] bool IsMarqueeActive() const noexcept { return m_marquee.active; }
+        [[nodiscard]] bool HasPendingMarquee() const noexcept { return m_pendingMarquee != 0; }
+
     private:
         void PickOnClick(const ViewportToolInput& input);
         // The CPU pick: the entity whose ORIGIN is nearest the ray within a screen-ish radius.
         [[nodiscard]] Guid CpuPick(const ViewportToolInput& input) const;
         void ApplyPick(const Guid& picked, bool ctrl);
         void PollPick();
+        void UpdateMarquee(const ViewportToolInput& input);
+        void FinishMarquee(const ViewportToolInput& input);
+        void ApplyMarquee(Span<const Guid> picked, bool ctrl);
+        // Entities whose ORIGIN projects inside `rect` of the view (the no-picker marquee).
+        void CpuMarquee(const ViewportToolInput& input, i32 x0, i32 y0, i32 x1, i32 y1,
+                        Array<Guid>& out) const;
 
         SceneEditContext* m_edit; // borrowed (the page owns it; tool dies with the page)
         GizmoController m_gizmos;
@@ -75,5 +89,18 @@ export namespace editor
         u32 m_pendingPick = 0;               // the GPU request in flight (0 = none)
         Guid m_pendingCpuPick;               // the CPU answer for that click (GPU-miss fallback)
         bool m_pendingCtrl = false;          // the click's modifier, applied with the answer
+
+        struct Marquee
+        {
+            bool armed = false;  // a press on empty space, not yet dragged past the threshold
+            bool active = false; // dragging the rect
+            bool ctrl = false;
+            i32 pressX = 0, pressY = 0;
+            i32 currentX = 0, currentY = 0;
+            Array<Guid> selectionAtPress; // restored when the drag becomes a marquee
+        };
+        Marquee m_marquee;
+        u32 m_pendingMarquee = 0;   // the GPU rect request in flight (0 = none)
+        bool m_marqueeCtrl = false; // its modifier
     };
 }

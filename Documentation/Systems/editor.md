@@ -193,8 +193,13 @@ service, status sink, and the registries:
  entity origin within a screen-ish radius of the ray) is the fallback for a GPU miss, so lights,
  cameras and empties stay clickable. The newest click wins over an answer still in flight; Ctrl is
  captured with the click. Tools reach it through `ViewportToolHostContext::picker`
- (`IViewportPicker`) and the pointer pixel + view size on `ViewportToolInput`. Rect requests exist
- in the system; a marquee gesture is not wired yet.
+ (`IViewportPicker`) and the pointer pixel + view size on `ViewportToolInput`.
+- **Marquee (2026-09-21)**: a press on empty space dragged past 4 pixels becomes a rubber-band
+ rect (drawn through the view's screen-space debug draw); release asks the GPU for every entity
+ drawn inside it (one rect request; unique hits) and selects them - Ctrl adds. The click that
+ started the drag is undone (its pick dropped, the selection at press restored) so a marquee
+ never flickers through a click-select first. Without a picker the rect selects the entities
+ whose origins project inside it. A tool switch mid-drag drops the marquee.
 - **Gizmos**: `TransformGizmo` (translate/rotate/scale, world/local, screen-constant sizing, grid
  snap) drawn through the scene's debug-draw; drag = command group bracketing merged
  `SetTransformCommand`s; topmost-only selection filter so parents don't double-move children

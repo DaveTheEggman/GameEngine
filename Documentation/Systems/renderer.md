@@ -443,7 +443,7 @@ Which entity is under a pixel (or inside a rect) of a view, answered by the GPU 
   `Engine.Render.Tests` (subsystem API), `Editor.Scene.Tests` (the select tool's async pick).
 - **Editor.** The select tool asks the GPU for the pointer pixel on click and applies the answer
   when it lands; the CPU origin pick is the fallback for a GPU miss (lights, cameras, empties).
-  Rect requests are supported by the system; a marquee gesture is not wired yet.
+  A drag is a marquee: one rect request, every entity drawn inside it (editor.md 3.6).
 - Legacy Sedulous `PickPass.bf` rendered every mesh at full resolution into RGBA8 and copied one
   pixel after a fixed two-frame wait; this keeps its shape and drops the full-screen cost, the
   8-bit ids and the fixed wait.
