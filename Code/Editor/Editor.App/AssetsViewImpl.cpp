@@ -145,10 +145,7 @@ namespace editor::app
                 entry.described = true;
             }
         };
-        for (app::BatchImportDialog::FileEntry& entry : dialog->Files())
-        {
-            dialog->DescribeFile(entry);
-        }
+        dialog->DescribeAll(); // describes inline files AND refreshes the detail + Import gate
 
         // Worker prepares queue on the job service and stream into the open dialog.
         for (usize i = 0; i < dialog->Files().Size(); ++i)

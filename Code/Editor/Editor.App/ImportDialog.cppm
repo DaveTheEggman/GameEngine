@@ -532,6 +532,30 @@ export namespace editor::app
             SyncImportEnabled();
         }
 
+        /// Describe every file through DescribeFile (the owner assigns it AFTER construction, so
+        /// the constructor's detail + Import gate saw nothing described), then refresh both. The
+        /// owner calls this once before Show; worker-prepared files stay "Reading..." until their
+        /// OnFilePrepared. Without this refresh an inline importer (textures) left the dialog
+        /// gated forever: Import disabled, detail stuck on "Reading file..." (2026-09-21).
+        void DescribeAll()
+        {
+            if (DescribeFile)
+            {
+                for (FileEntry& entry : m_files)
+                {
+                    DescribeFile(entry);
+                }
+            }
+            QueueRebuildDetail();
+            SyncImportEnabled();
+        }
+
+        /// The Import gate as the button shows it (every enabled file described).
+        [[nodiscard]] bool ImportEnabled() const noexcept
+        {
+            return m_importButton != nullptr && m_importButton->IsEnabled;
+        }
+
     private:
         void BuildFileList(ui::FlexLayout& split)
         {
