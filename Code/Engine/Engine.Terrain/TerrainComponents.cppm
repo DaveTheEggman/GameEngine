@@ -175,6 +175,7 @@ export namespace engine::terrain
                     }
                     rd->category = render::RenderCategories::Opaque;
                     rd->rendererId = m_rendererId;
+                    rd->entityId = render::EntityTag::Pack(owner.index, owner.generation); // GPU pick
                     rd->chunks = chunkCopy.Data();
                     rd->nodes = nodeCopy.Data();
                     rd->chunkCount = static_cast<u32>(chunkCopy.Size());

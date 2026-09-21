@@ -7,10 +7,11 @@ add_executable(Render.Tests
     PipelineTests.cpp
     PoseSelectionTests.cpp
     LodSelectionTests.cpp
-    RetireQueueTests.cpp)
+    RetireQueueTests.cpp
+    PickingTests.cpp)
 
 target_link_libraries(Render.Tests PRIVATE Foundation::VFS
-    Foundation::Render Foundation::RHI.Null doctest::doctest)
+    Foundation::Render Foundation::RenderGraph Foundation::RHI.Null doctest::doctest)
 
 target_compile_definitions(Render.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

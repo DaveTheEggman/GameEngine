@@ -55,10 +55,25 @@ export namespace editor
         /// The toolbar drives mode/space through the controller directly (W/E/R/X parity).
         [[nodiscard]] GizmoController& Gizmos() noexcept { return m_gizmos; }
 
+        /// GPU pick seam (null = CPU-only picking). A click with a picker + a pixel position
+        /// asks the GPU for the surface under the pointer and applies the answer when it lands
+        /// (a few frames); the CPU origin pick is the fallback for entities no renderer draws
+        /// (lights, cameras, empties) and for a GPU miss.
+        void SetPicker(IViewportPicker* picker) noexcept { m_picker = picker; }
+        [[nodiscard]] bool HasPendingPick() const noexcept { return m_pendingPick != 0; }
+
     private:
         void PickOnClick(const ViewportToolInput& input);
+        // The CPU pick: the entity whose ORIGIN is nearest the ray within a screen-ish radius.
+        [[nodiscard]] Guid CpuPick(const ViewportToolInput& input) const;
+        void ApplyPick(const Guid& picked, bool ctrl);
+        void PollPick();
 
         SceneEditContext* m_edit; // borrowed (the page owns it; tool dies with the page)
         GizmoController m_gizmos;
+        IViewportPicker* m_picker = nullptr; // borrowed (host seam)
+        u32 m_pendingPick = 0;               // the GPU request in flight (0 = none)
+        Guid m_pendingCpuPick;               // the CPU answer for that click (GPU-miss fallback)
+        bool m_pendingCtrl = false;          // the click's modifier, applied with the answer
     };
 }

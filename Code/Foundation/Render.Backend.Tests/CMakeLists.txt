@@ -7,7 +7,8 @@ add_executable(Render.Backend.Tests
     TestsMain.cpp
     BackendOrientationTests.cpp
     MsaaProbeTests.cpp
-    ReverseZProbeTests.cpp)
+    ReverseZProbeTests.cpp
+    PickProbeTests.cpp)
 
 target_link_libraries(Render.Backend.Tests PRIVATE
     Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport

@@ -645,12 +645,30 @@ export namespace engine::terrain
         void ResolveDepthOnly(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items,
                               Array<render::ResolvedDraw>& out) override
         {
+            ResolveDepthLike(ctx, items, out, /*pick*/ false);
+        }
+
+        // GPU pick: the depth path's chunk cull/LOD with the `terrain_pick` PSO, whose fragment
+        // writes the terrain entity's id (from the PickView layout in the view slot) into the
+        // RG32Uint target (ctx.colorFormat). ctx.viewProj is the cropped camera VP, so the chunk
+        // frustum cull is the crop's - a click culls to the chunks under the pointer.
+        void ResolvePickIds(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items,
+                            Array<render::ResolvedDraw>& out) override
+        {
+            ResolveDepthLike(ctx, items, out, /*pick*/ true);
+        }
+
+        void ResolveDepthLike(const render::RenderRecordContext& ctx, Span<const render::DrawItem> items,
+                              Array<render::ResolvedDraw>& out, bool pick)
+        {
             if (items.IsEmpty())
             {
                 return;
             }
             m_depthFormat = ctx.depthFormat;
-            rhi::RenderPipeline* pso = EnsureDepthPipeline(ctx.depthFormat, /*biased*/ !ctx.depthPrepass);
+            rhi::RenderPipeline* pso =
+                pick ? EnsurePickPipeline(ctx.colorFormat, ctx.depthFormat)
+                     : EnsureDepthPipeline(ctx.depthFormat, /*biased*/ !ctx.depthPrepass);
             // The DEPTH-pass group binds the dummy shadow view (not the live cascade being written) -
             // a cascade-cast pass would otherwise sample its own render attachment (WebGPU hazard).
             rhi::BindGroup* viewBg = EnsureDepthViewBindGroup();
@@ -682,11 +700,24 @@ export namespace engine::terrain
                 {
                     continue;
                 }
-                // The depth VS reads only ChunkToWorld + ViewProj; the rest of the slot is unused.
-                ViewUBO ubo{};
-                ubo.chunkToWorld = data->chunkToWorld;
-                ubo.viewProj = ctx.viewProj; // camera VP (prepass) or cascade light VP (shadow)
-                MemCopy(vr.ptr, &ubo, sizeof(ubo));
+                if (pick)
+                {
+                    // The pick VS reads the PickView prefix: ChunkToWorld, the cropped VP, the id.
+                    PickViewUBO pu{};
+                    pu.chunkToWorld = data->chunkToWorld;
+                    pu.viewProj = ctx.viewProj;
+                    pu.pickIndex = render::EntityTag::Index(data->entityId) + 1u;
+                    pu.pickGeneration = render::EntityTag::Generation(data->entityId);
+                    MemCopy(vr.ptr, &pu, sizeof(pu));
+                }
+                else
+                {
+                    // The depth VS reads only ChunkToWorld + ViewProj; the rest of the slot is unused.
+                    ViewUBO ubo{};
+                    ubo.chunkToWorld = data->chunkToWorld;
+                    ubo.viewProj = ctx.viewProj; // camera VP (prepass) or cascade light VP (shadow)
+                    MemCopy(vr.ptr, &ubo, sizeof(ubo));
+                }
 
                 const BoundingFrustum frustum(data->chunkToWorld * ctx.viewProj);
                 const Span<const tmodel::TerrainChunk> chunks{data->chunks, data->chunkCount};
@@ -842,6 +873,24 @@ export namespace engine::terrain
         {
             rhi::RenderPipeline* pso = nullptr;
             rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0;
+        };
+
+        // The pick pass's view layout, written into the same TerrainView slot (the pick VS declares
+        // exactly this prefix; terrain_pick.vs.hlsl). Keep in lockstep.
+        struct PickViewUBO
+        {
+            Float4x4 chunkToWorld;
+            Float4x4 viewProj;
+            u32 pickIndex = 0, pickGeneration = 0, p0 = 0, p1 = 0;
+        };
+        static_assert(sizeof(PickViewUBO) == 144, "cbuffer TerrainView (pick prefix) layout drift");
+
+        struct PickPso
+        {
+            rhi::RenderPipeline* pso = nullptr;
+            rhi::TextureFormat colorFormat = rhi::TextureFormat::Undefined;
+            rhi::TextureFormat depthFormat = rhi::TextureFormat::Undefined;
             u64 shaderVersion = 0;
         };
 
@@ -1252,6 +1301,71 @@ export namespace engine::terrain
             return pso;
         }
 
+        // The pick PSO: the depth layout (3 sets) + the terrain_pick fragment writing the id target.
+        rhi::RenderPipeline* EnsurePickPipeline(rhi::TextureFormat colorFormat,
+                                                rhi::TextureFormat depthFormat)
+        {
+            const StringView shaderName = u8"terrain_pick";
+            PickPso& p = m_pickPso;
+            const u64 shaderVersion = m_shaders->Version(shaderName);
+            if (p.pso != nullptr && p.colorFormat == colorFormat && p.depthFormat == depthFormat &&
+                p.shaderVersion == shaderVersion)
+            {
+                return p.pso;
+            }
+            if (p.pso != nullptr)
+            {
+                m_device->DestroyRenderPipeline(p.pso);
+                p.pso = nullptr;
+            }
+            rhi::ShaderModule* vs = m_shaders->GetVariant(
+                shaderName, shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
+            rhi::ShaderModule* fs = m_shaders->GetVariant(
+                shaderName, shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+            if (vs == nullptr || fs == nullptr)
+            {
+                return nullptr;
+            }
+            const rhi::VertexAttribute attrs[] = {{rhi::VertexFormat::Float32x3, 0, 0}};
+            rhi::VertexBufferLayout vbl{};
+            vbl.stride = sizeof(Float3);
+            vbl.stepMode = rhi::VertexStepMode::Vertex;
+            vbl.attributes = Span<const rhi::VertexAttribute>{attrs, 1};
+
+            rhi::DepthStencilState ds{};
+            ds.format = depthFormat;
+            ds.depthTestEnabled = true;
+            ds.depthWriteEnabled = true;
+            ds.depthCompare = rhi::depth::Nearer(); // nearest surface owns the texel; no bias
+
+            rhi::ColorTargetState target{};
+            target.format = colorFormat; // RG32Uint: no blend
+            target.writeMask = rhi::ColorWriteMask::All;
+            rhi::FragmentState frag{};
+            frag.shader = rhi::ProgrammableStage{fs, u8"main", rhi::ShaderStage::Fragment};
+            frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
+
+            rhi::RenderPipelineDesc pd{};
+            pd.layout = m_depthPipelineLayout;
+            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
+            pd.fragment = frag;
+            pd.depthStencil = ds;
+            pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
+            pd.primitive.cullMode = rhi::CullMode::Back;
+            pd.label = u8"terrain.pick";
+            rhi::RenderPipeline* pso = nullptr;
+            if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
+            {
+                return nullptr;
+            }
+            p.pso = pso;
+            p.colorFormat = colorFormat;
+            p.depthFormat = depthFormat;
+            p.shaderVersion = shaderVersion;
+            return pso;
+        }
+
         void Shutdown()
         {
             for (auto& kv : m_heightBindGroups)
@@ -1297,6 +1411,11 @@ export namespace engine::terrain
                     m_device->DestroyRenderPipeline(dp.pso);
                     dp.pso = nullptr;
                 }
+            }
+            if (m_pickPso.pso != nullptr)
+            {
+                m_device->DestroyRenderPipeline(m_pickPso.pso);
+                m_pickPso.pso = nullptr;
             }
             for (LodMesh& lm : m_lodMeshes)
             {
@@ -1512,6 +1631,7 @@ export namespace engine::terrain
         rhi::TextureFormat m_psoFormat = rhi::TextureFormat::Undefined;
         u64 m_psoShaderVersion = 0;
         DepthPso m_depthPso[2]; // [0] = prepass (no bias), [1] = shadow cascade (biased)
+        PickPso m_pickPso;      // the GPU-pick id pass
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Undefined;
         Array<tmodel::ChunkDraw> m_draws; // scratch, reused each terrain (Resolve is single-threaded)
         u32 m_frameChunks = 0;      // color-pass visible chunks (the MaxChunksDrawn diagnostic)

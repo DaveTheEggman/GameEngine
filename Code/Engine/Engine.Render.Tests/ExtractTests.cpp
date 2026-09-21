@@ -887,3 +887,32 @@ TEST_CASE("EnvironmentSettings: the IBL lighting dimmers serialize with the scen
     CHECK(envB->Environment().iblDiffuseIntensity == doctest::Approx(0.35f));
     CHECK(envB->Environment().iblSpecularIntensity == doctest::Approx(0.8f));
 }
+
+TEST_CASE("render: RequestPick keys on the viewport, answers nothing without a key, cancels")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(), DefaultAllocator());
+    RenderSubsystem sub{DefaultAllocator(), device, 2, dataFs};
+
+    int viewportKey = 0;
+    // No key = no view could ever answer: refused up front (0), never pending.
+    CHECK(sub.RequestPick(nullptr, 5, 5) == kInvalidPickRequest);
+    CHECK_FALSE(sub.IsPickPending(kInvalidPickRequest));
+
+    const PickRequestId id = sub.RequestPick(&viewportKey, 5, 5);
+    REQUIRE(id != kInvalidPickRequest);
+    CHECK(sub.IsPickPending(id));
+    PickResult result;
+    CHECK_FALSE(sub.TryTakePickResult(id, result)); // nothing rendered yet
+
+    // Distinct requests get distinct ids; a rect request is accepted as-is (clamped at render).
+    const PickRequestId rect = sub.RequestPick(&viewportKey, -3, -3, 40, 40);
+    CHECK(rect != id);
+    CHECK(sub.IsPickPending(rect));
+
+    // The viewport goes away: its requests vanish (never answered, never pending).
+    sub.CancelPicks(&viewportKey);
+    CHECK_FALSE(sub.IsPickPending(id));
+    CHECK_FALSE(sub.IsPickPending(rect));
+    CHECK_FALSE(sub.TryTakePickResult(id, result));
+}

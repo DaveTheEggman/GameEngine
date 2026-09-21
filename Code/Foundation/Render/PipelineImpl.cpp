@@ -28,6 +28,7 @@ import :debug_draw;
 import :debug_pass;
 import :decal_pass;
 import :sky;
+import :picking;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;
@@ -43,6 +44,14 @@ namespace foundation::render
 
     void Renderer::ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items,
                                     Array<ResolvedDraw>& out)
+    {
+        (void)ctx;
+        (void)items;
+        (void)out;
+    }
+
+    void Renderer::ResolvePickIds(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                                  Array<ResolvedDraw>& out)
     {
         (void)ctx;
         (void)items;
@@ -560,6 +569,10 @@ namespace foundation::render
         m_pass.SetMotionNeeded(m_taaEnabled ||
                                (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal));
         m_pass.SetShadowFarFade(m_shadowFarFade);
+        if (m_pick != nullptr)
+        {
+            m_pick->BeginFrame(frameIndex); // retire + decode completed pick readbacks
+        }
         m_graph.BeginFrame(
             static_cast<i32>(frameIndex)); // one graph composes all this frame's views
     }
@@ -714,6 +727,73 @@ namespace foundation::render
             i = j;
         }
         for (const ResolvedDraw& d : m_prepassResolved)
+        {
+            EmitDraw(rp, d);
+        }
+    }
+
+    void RenderFrame::RecordPickIdsThunk(void* context, rhi::RenderPassEncoder& rp,
+                                         const Float4x4& viewProj, const PickRect& rect,
+                                         const void* viewContext)
+    {
+        (void)rect;
+        auto* self = static_cast<RenderFrame*>(context);
+        const auto* view = static_cast<const RenderView*>(viewContext);
+        if (self == nullptr || view == nullptr)
+        {
+            return;
+        }
+        u32 viewIndex = 0;
+        for (usize k = 0; k < self->m_views.ActiveCount(); ++k)
+        {
+            if (self->m_views.At(k) == view)
+            {
+                viewIndex = static_cast<u32>(k);
+                break;
+            }
+        }
+        self->RecordPickIds(rp, *view, *self->m_registry, viewIndex, viewProj);
+    }
+
+    void RenderFrame::RecordPickIds(rhi::RenderPassEncoder& rp, const RenderView& view,
+                                    const RendererRegistry& registry, u32 viewIndex,
+                                    const Float4x4& viewProj)
+    {
+        RenderRecordContext ctx{};
+        ctx.view = &view;
+        ctx.viewProj = viewProj; // the CROPPED camera projection (PickSystem)
+        ctx.viewMatrix = view.Camera().view; // per-view LOD selection, like the prepass
+        ctx.colorFormat = kPickIdFormat;
+        ctx.depthFormat = m_pass.DepthFormat();
+        ctx.sampleCount = 1;
+        ctx.depthPrepass = false;
+        ctx.frameIndex = m_frameIndex;
+        ctx.viewIndex = viewIndex;
+        ctx.fillInstanceCache = false; // never feeds the forward
+        ctx.needsMotion = false;
+
+        m_pickResolved.Clear();
+        const Span<const DrawItem> items = view.DrawList();
+        usize i = 0;
+        while (i < items.Size())
+        {
+            // Group by (category, RENDERER) - the prepass rule (a run never crosses renderers).
+            const RenderCategory cat = items[i].data->category;
+            const u16 rid = items[i].data->rendererId;
+            usize j = i + 1;
+            while (j < items.Size() && items[j].data->category == cat &&
+                   items[j].data->rendererId == rid)
+            {
+                ++j;
+            }
+            if (Renderer* r = registry.ById(rid))
+            {
+                r->ResolvePickIds(ctx, Span<const DrawItem>{items.Data() + i, j - i},
+                                  m_pickResolved);
+            }
+            i = j;
+        }
+        for (const ResolvedDraw& d : m_pickResolved)
         {
             EmitDraw(rp, d);
         }
@@ -1189,6 +1269,11 @@ namespace foundation::render
             for (Renderer* r : m_registry->Unique())
             {
                 r->SetCaptureFacePasses(captureFaces);
+            }
+            const u32 pickPasses = (m_pick != nullptr) ? m_pick->PendingTotal() : 0u;
+            for (Renderer* r : m_registry->Unique())
+            {
+                r->SetPickPasses(pickPasses);
             }
             // Reflection probes (multi-probe): upload this frame's records + bind the prefiltered cube-
             // array (t8) + the probe-metadata SRV (t9) + count. The forward loops + blends them. 0 -> no probe.
@@ -1694,6 +1779,19 @@ namespace foundation::render
                 // Per-view authored post (exposure/tonemap/bloom/AO/AA/SSR), resolved by the RenderSubsystem
                 // from the scene's PostProcessSettings (or the legacy global override). Read per view here.
                 const ViewPostConfig& post = v->Settings().post;
+
+                // GPU picking: a view whose viewport has pending pick requests re-emits its draws
+                // as id writers into per-request rect-sized targets. Declared BEFORE the TAA jitter
+                // below mutates the camera: a pick must see the unjittered pixel grid (a 1x1 crop
+                // would otherwise slide up to half a pixel).
+                if (m_pick != nullptr && v->Settings().viewportKey != nullptr &&
+                    m_pick->PendingCount(v->Settings().viewportKey) > 0)
+                {
+                    m_pick->DeclarePasses(m_graph, v->Settings().viewportKey, v->Camera().view,
+                                          v->Camera().projection, v->ViewportWidth(),
+                                          v->ViewportHeight(), m_pass.DepthFormat(), m_frameIndex,
+                                          &RenderFrame::RecordPickIdsThunk, this, v);
+                }
 
                 // TAA jitter: sub-pixel-offset the projection so the resolve accumulates supersamples. Applied
                 // BEFORE reading the view-proj, so the prepass + forward + sky all use the SAME jittered matrix

@@ -324,6 +324,7 @@ namespace engine::render
         m_frame->SetSsgi(m_ssgiPass.Get());
         m_frame->SetSsrParams(m_ssrEnabled, m_ssrParams);
         m_frame->SetMsaaResolve(m_msaaResolvePass.Get());
+        m_frame->SetPick(&EnsurePickSystem());
         m_frame->SetProbes(m_probeSystem.Get());
         if (m_probeSystem.Get() != nullptr)
         {
@@ -462,6 +463,7 @@ namespace engine::render
         {
             settings.debug = *debugView;
         }
+        settings.viewportKey = viewportKey; // pick requests bind to it
         // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
@@ -908,6 +910,7 @@ namespace engine::render
             m_overlayDsTexture = nullptr;
         }
         m_frame.Reset();          // releases the forward pass's per-frame GPU resources
+        m_pickSystem.Reset();     // pick readback buffers (device idle above)
         m_clusterSystem.Reset();  // before the ShaderSystem it borrows
         m_tonemapPass.Reset();    // before the ShaderSystem it borrows
         m_exposurePass.Reset();   // before the ShaderSystem it borrows (auto-exposure, with tonemap)
@@ -930,6 +933,44 @@ namespace engine::render
         m_psoCache.Reset();
         m_shaders = nullptr;      // borrowed from the host; the host owns/destroys the ShaderSystem
         m_shaderHost.Shutdown();  // after every pass that borrowed *m_shaders
+    }
+
+    PickSystem& RenderSubsystem::EnsurePickSystem()
+    {
+        if (m_pickSystem.Get() == nullptr)
+        {
+            m_pickSystem = MakeUnique<PickSystem>(m_allocator, m_allocator, *m_device, m_framesInFlight);
+            m_pickSystem->SetRetireQueue(&m_retireQueue);
+        }
+        return *m_pickSystem;
+    }
+
+    PickRequestId RenderSubsystem::RequestPick(const void* viewportKey, i32 x, i32 y, u32 width,
+                                               u32 height)
+    {
+        if (viewportKey == nullptr)
+        {
+            return kInvalidPickRequest; // nothing could ever answer it
+        }
+        return EnsurePickSystem().Request(viewportKey, PickRect{x, y, width, height});
+    }
+
+    bool RenderSubsystem::TryTakePickResult(PickRequestId id, PickResult& out)
+    {
+        return m_pickSystem.Get() != nullptr && m_pickSystem->TryTakeResult(id, out);
+    }
+
+    bool RenderSubsystem::IsPickPending(PickRequestId id) const noexcept
+    {
+        return m_pickSystem.Get() != nullptr && m_pickSystem->IsPending(id);
+    }
+
+    void RenderSubsystem::CancelPicks(const void* viewportKey)
+    {
+        if (m_pickSystem.Get() != nullptr)
+        {
+            m_pickSystem->Cancel(viewportKey);
+        }
     }
 
     ExtractedScene* RenderSubsystem::AcquireScene()

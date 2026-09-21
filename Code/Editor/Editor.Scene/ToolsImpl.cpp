@@ -44,6 +44,7 @@ namespace editor
         }
         const bool consumed = m_gizmos.Update(gizmoInput);
 
+        PollPick(); // a GPU answer from an earlier click lands here
         if (!consumed && input.pointerOver && input.leftPressed)
         {
             PickOnClick(input);
@@ -61,6 +62,73 @@ namespace editor
     }
 
     void SelectTransformTool::PickOnClick(const ViewportToolInput& input)
+    {
+        const Guid cpu = CpuPick(input);
+        const bool pixelValid = input.viewportWidth > 0 && input.viewportHeight > 0 &&
+                                input.pointerX >= 0 && input.pointerY >= 0 &&
+                                static_cast<u32>(input.pointerX) < input.viewportWidth &&
+                                static_cast<u32>(input.pointerY) < input.viewportHeight;
+        if (m_picker != nullptr && pixelValid)
+        {
+            const u32 request = m_picker->RequestPick(input.pointerX, input.pointerY, 1, 1);
+            if (request != 0)
+            {
+                // The newest click wins: an older answer still in flight is ignored when it lands.
+                m_pendingPick = request;
+                m_pendingCpuPick = cpu;
+                m_pendingCtrl = input.ctrl;
+                return;
+            }
+        }
+        ApplyPick(cpu, input.ctrl);
+    }
+
+    void SelectTransformTool::PollPick()
+    {
+        if (m_pendingPick == 0 || m_picker == nullptr)
+        {
+            return;
+        }
+        Array<scene::EntityHandle> hits;
+        if (!m_picker->TryTakePick(m_pendingPick, hits))
+        {
+            return;
+        }
+        m_pendingPick = 0;
+        scene::Scene& scene = m_edit->Scene();
+        Guid picked = m_pendingCpuPick; // the GPU saw nothing drawn there: the CPU answer stands
+        for (const scene::EntityHandle& h : hits)
+        {
+            if (scene.IsValid(h))
+            {
+                picked = scene.GetEntityId(h);
+                break;
+            }
+        }
+        ApplyPick(picked, m_pendingCtrl);
+    }
+
+    void SelectTransformTool::ApplyPick(const Guid& picked, bool ctrl)
+    {
+        Selection<Guid>& selection = m_edit->EntitySelection();
+        if (picked != Guid{})
+        {
+            if (ctrl)
+            {
+                selection.Toggle(picked);
+            }
+            else
+            {
+                selection.Set(picked);
+            }
+        }
+        else if (!ctrl)
+        {
+            selection.Clear();
+        }
+    }
+
+    Guid SelectTransformTool::CpuPick(const ViewportToolInput& input) const
     {
         scene::Scene& scene = m_edit->Scene();
         const Float3 origin = input.ray.origin;
@@ -89,22 +157,6 @@ namespace editor
                     best = scene.GetEntityId(e);
                 }
             });
-
-        Selection<Guid>& selection = m_edit->EntitySelection();
-        if (best != Guid{})
-        {
-            if (input.ctrl)
-            {
-                selection.Toggle(best);
-            }
-            else
-            {
-                selection.Set(best);
-            }
-        }
-        else if (!input.ctrl)
-        {
-            selection.Clear();
-        }
+        return best;
     }
 }

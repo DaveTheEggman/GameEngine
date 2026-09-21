@@ -198,11 +198,13 @@ export namespace editor
                     auto selectTool =
                         MakeUnique<SelectTransformTool>(Allocator(), *m_editContext);
                     m_selectTool = selectTool.Get();
+                    m_selectTool->SetPicker(&m_picker); // GPU pick over this page's viewport
                     m_viewportTools.Add(Move(selectTool)); // first added = the default tool
                     ViewportToolHostContext toolHost;
                     toolHost.scene = &m_editContext->Scene();
                     toolHost.commands = &m_editContext->Commands();
                     toolHost.entitySelection = &m_editContext->EntitySelection();
+                    toolHost.picker = &m_picker;
                     // Asset-edit persistence transport: a tool (terrain sculpt) that mutates a
                     // cooked product live registers a write-back-to-source closure on the context;
                     // the editor save flow drains it (see EditorContext::DrainAssetEdits).
@@ -605,6 +607,20 @@ export namespace editor
         };
         Array<ToolToggle> m_toolToggles;
         RefPtr<SceneInspectorView> m_inspector;
+        // The GPU pick seam the tools see: RenderSubsystem::RequestPick keyed by THIS page's
+        // viewport (the same key its RenderScene call carries), hits decoded to entity handles.
+        class ViewportPicker final : public IViewportPicker
+        {
+        public:
+            explicit ViewportPicker(SceneEditorPage& page) noexcept : m_page(&page) {}
+            [[nodiscard]] u32 RequestPick(i32 x, i32 y, u32 width, u32 height) override;
+            [[nodiscard]] bool TryTakePick(u32 request,
+                                           Array<foundation::scene::EntityHandle>& hits) override;
+
+        private:
+            SceneEditorPage* m_page;
+        };
+        ViewportPicker m_picker{*this};
         ViewportToolManager m_viewportTools;             // declared after m_editContext (tools borrow it)
         SelectTransformTool* m_selectTool = nullptr;     // borrowed (manager-owned default tool)
         GizmoRendererRegistry m_componentGizmos;

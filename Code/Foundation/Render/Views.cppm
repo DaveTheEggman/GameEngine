@@ -51,6 +51,9 @@ export namespace foundation::render
         ViewPostConfig post{};
         // Debug-view selection (editor "show me this texture"); resource empty = off.
         ViewDebugView debug{};
+        // The opaque per-viewport key the RenderScene call carried (null = unkeyed). Pick
+        // requests bind to it: only the view rendered with a matching key answers them.
+        const void* viewportKey = nullptr;
     };
 
     // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

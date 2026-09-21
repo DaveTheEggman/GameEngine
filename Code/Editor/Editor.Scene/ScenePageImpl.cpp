@@ -700,6 +700,10 @@ namespace editor
         }
         m_camera.ReleaseCapture(m_viewport ? m_viewport->Mouse() : nullptr); // never close captured
 
+        if (m_render != nullptr)
+        {
+            m_render->CancelPicks(m_viewport.Get()); // the key dies with the viewport
+        }
         // GPU targets + external-texture registration go while device + VGRenderer live.
         m_viewport->Shutdown();
         if (m_scene != nullptr)
@@ -711,6 +715,37 @@ namespace editor
         {
             m_scenes->UnregisterManager(&m_sceneManager);
         }
+    }
+
+    u32 SceneEditorPage::ViewportPicker::RequestPick(i32 x, i32 y, u32 width, u32 height)
+    {
+        SceneEditorPage& page = *m_page;
+        if (page.m_render == nullptr || !page.m_render->IsReady() || page.m_viewport.Get() == nullptr)
+        {
+            return 0;
+        }
+        return page.m_render->RequestPick(page.m_viewport.Get(), x, y, width, height);
+    }
+
+    bool SceneEditorPage::ViewportPicker::TryTakePick(u32 request,
+                                                      Array<foundation::scene::EntityHandle>& hits)
+    {
+        SceneEditorPage& page = *m_page;
+        if (page.m_render == nullptr)
+        {
+            return false;
+        }
+        render::PickResult result;
+        if (!page.m_render->TryTakePickResult(request, result))
+        {
+            return false;
+        }
+        hits.Clear();
+        for (const render::PickHit& hit : result.hits)
+        {
+            hits.PushBack(foundation::scene::EntityHandle{hit.entityIndex, hit.generation});
+        }
+        return true;
     }
 
     bool SceneEditorPage::MakeMouseRay(GizmoRay& out) const
@@ -845,6 +880,12 @@ namespace editor
 
         foundation::shell::IMouse* mouse = m_viewport->Mouse();
         foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
+        // The pointer's view pixel + the view's size: the GPU pick's input (same space as the
+        // RenderScene viewport rect: the full render target).
+        in.pointerX = static_cast<i32>(mouse->X());
+        in.pointerY = static_cast<i32>(mouse->Y());
+        in.viewportWidth = m_viewport->RenderWidth();
+        in.viewportHeight = m_viewport->RenderHeight();
 
         const bool cameraOwnsMouse =
             (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||

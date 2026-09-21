@@ -397,6 +397,57 @@ view-independent shadows is a later optimization, never a correctness requiremen
 
 ---
 
+### 9.x GPU picking (2026-09-21)
+
+Which entity is under a pixel (or inside a rect) of a view, answered by the GPU - `PickSystem`
+(`foundation.render:picking`), owned by the RenderSubsystem, driven by the RenderFrame.
+
+- **Request / poll, keyed by viewport.** `RenderSubsystem::RequestPick(viewportKey, x, y, w, h)`
+  returns an id; `TryTakePickResult(id, result)` answers a few frames later with unique
+  `PickHit{entityIndex, generation}` hits (an exact `EntityHandle`, not just an index). The key is
+  the same opaque `viewportKey` the `RenderScene` call carries (`ViewSettings::viewportKey`), so
+  only that viewport's view answers - split-screen views, the camera-preview inset and thumbnails
+  never do. A request whose view does not render within `kExpireFrames` answers `rendered=false`;
+  `CancelPicks(key)` when a viewport closes.
+- **An on-request pass, rect-sized.** A view with pending requests re-emits its draw list through
+  each renderer's `ResolvePickIds` (the depth-only caster path with an id-writing fragment) into an
+  `RG32Uint` target the size of the rect, with its own depth (nearest wins). The camera projection
+  is CROPPED so the rect fills the target (`CropProjectionToRect`): a click renders a 1x1 target,
+  vertex work only, and the terrain's chunk cull runs against the crop. Declared before the TAA
+  jitter mutates the camera (a 1x1 crop must see the unjittered pixel grid). x = entity index + 1
+  (0 = the clear = nothing), y = generation.
+- **Readback without a stall.** A graph copy pass copies the target into a `GpuToCpu` buffer
+  (256-byte rows, the WebGPU/D3D12 pitch); the slot retires when the device ring has LEFT and
+  RETURNED to the submitting frame index (the ThumbnailStage rule), then maps and decodes. Never
+  WaitIdle.
+- **Ids per draw kind.** Single objects: the `Object` cbuffer's two pad words (`PickIndex`,
+  `PickGeneration`). Instanced runs: the instance-stepped `DataOffsets.zw` - the pick pass fills
+  its own ramp, never the forward's. MultiMesh sets: one entity for all instances, so the id rides
+  a per-set `PickView` slot (the shadow-view ring; `kMaxPickMultiMeshSets` per pass). Terrain: a
+  `PickView` prefix in its view slot. Masked materials keep their cutout; a two-sided material
+  picks both faces (cull from the material). Sprites/particles do not implement it (the editor's
+  CPU origin pick covers their entities).
+- **Producers tag, the readback decodes.** `RenderData::entityId` (base, every producer) holds
+  the one `EntityTag` layout (index low, generation high); `engine::render::PackEntity` and the
+  terrain extract write it.
+- **Rings.** `Renderer::SetPickPasses(n)` before `PrepareFrame` sizes the object/instance/offset
+  rings for the extra re-emits, and the shadow-view ring for `n * (1 + kMaxPickMultiMeshSets)`
+  extra slots; that ring's bind range is the PickView size (80) so WebGPU's declared-size check
+  passes for both layouts.
+- **Shaders.** `pick_ids.vs/ps` (variants SKINNED INSTANCED ALPHA_TEST / ALPHA_TEST),
+  `terrain_pick.vs/ps`; in the cooked pack.
+- **Proof.** `Render.Tests` (tag, clamp, crop, decode, the request state machine on the Null
+  device), `Render.Backend.Tests` PickProbe (near over far by index and generation, three
+  instances answering distinctly, a corner answering nothing, a whole-view rect answering every
+  entity once, two requests one frame; Vulkan + WebGPU + the cooked WGSL path),
+  `Engine.Render.Tests` (subsystem API), `Editor.Scene.Tests` (the select tool's async pick).
+- **Editor.** The select tool asks the GPU for the pointer pixel on click and applies the answer
+  when it lands; the CPU origin pick is the fallback for a GPU miss (lights, cameras, empties).
+  Rect requests are supported by the system; a marquee gesture is not wired yet.
+- Legacy Sedulous `PickPass.bf` rendered every mesh at full resolution into RGBA8 and copied one
+  pixel after a fixed two-frame wait; this keeps its shape and drops the full-screen cost, the
+  8-bit ids and the fixed wait.
+
 ## 10. Materials & shaders
 
 - **Data-driven** - `MaterialSystem` infers the set-2 bind group from declared properties

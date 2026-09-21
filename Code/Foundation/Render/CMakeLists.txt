@@ -18,6 +18,7 @@ target_sources(Render
         SsgiPassImpl.cpp
         AoPassImpl.cpp
         MsaaResolvePassImpl.cpp
+        PickSystemImpl.cpp      # out-of-line PickSystem defs (see PickSystem.cppm)
         RenderDataImpl.cpp
         ShadowSystemImpl.cpp
         ClusterSystemImpl.cpp
@@ -48,6 +49,8 @@ target_sources(Render
             TaaPass.cppm
             AoPass.cppm
             MsaaResolvePass.cppm
+            PickSystem.cppm
+            PickSystem.cppm
             SsrPass.cppm
         SsgiPass.cppm
             FxaaPass.cppm

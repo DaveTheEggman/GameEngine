@@ -186,9 +186,15 @@ service, status sink, and the registries:
  Sedulous `SceneSnapshot` agrees).
 - **Selection**: editor-level sets - per-scene-page entity selection (element 0 = gizmo pivot) +
  global asset selection; change events drive inspector/hierarchy/gizmos.
-- **Picking**: CPU ray vs entity bounds first (bounds math suite exists; nearest-hit walk,
- Traktor `queryRay` shape); GPU pick pass later if scenes outgrow it (Sedulous `PickPass`
- precedent). Marquee via frustum test later.
+- **Picking (GPU, 2026-09-21)**: a click asks the renderer for the surface under the pointer
+ pixel (`RenderSubsystem::RequestPick` keyed by the page's viewport; renderer.md 9.x) and applies
+ the answer when it lands a few frames later - the entity whose mesh, instance, MultiMesh set or
+ terrain is actually drawn there, by handle (index + generation). The CPU origin pick (nearest
+ entity origin within a screen-ish radius of the ray) is the fallback for a GPU miss, so lights,
+ cameras and empties stay clickable. The newest click wins over an answer still in flight; Ctrl is
+ captured with the click. Tools reach it through `ViewportToolHostContext::picker`
+ (`IViewportPicker`) and the pointer pixel + view size on `ViewportToolInput`. Rect requests exist
+ in the system; a marquee gesture is not wired yet.
 - **Gizmos**: `TransformGizmo` (translate/rotate/scale, world/local, screen-constant sizing, grid
  snap) drawn through the scene's debug-draw; drag = command group bracketing merged
  `SetTransformCommand`s; topmost-only selection filter so parents don't double-move children

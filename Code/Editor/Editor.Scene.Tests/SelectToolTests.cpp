@@ -185,3 +185,209 @@ TEST_CASE("select-tool: OnDeactivate ends an in-flight drag - no half-applied co
     CHECK(f.scene.GetLocalTransform(f.edit.Resolve(boxId)).position.x == doctest::Approx(0.0f));
     CHECK_FALSE(f.commands.CanUndo());
 }
+
+namespace
+{
+    // A host picker that records requests and answers when the test says so.
+    class FakePicker final : public IViewportPicker
+    {
+    public:
+        u32 RequestPick(i32 x, i32 y, u32 width, u32 height) override
+        {
+            ++requests;
+            lastX = x;
+            lastY = y;
+            lastW = width;
+            lastH = height;
+            return refuse ? 0u : nextId++;
+        }
+        bool TryTakePick(u32 request, Array<foundation::scene::EntityHandle>& hits) override
+        {
+            if (!answerReady || request != answerFor)
+            {
+                return false;
+            }
+            hits = Move(answer);
+            answerReady = false;
+            return true;
+        }
+        void Answer(u32 request, Array<foundation::scene::EntityHandle> hits)
+        {
+            answerFor = request;
+            answer = Move(hits);
+            answerReady = true;
+        }
+        u32 requests = 0;
+        i32 lastX = -1, lastY = -1;
+        u32 lastW = 0, lastH = 0;
+        u32 nextId = 1;
+        bool refuse = false;
+
+    private:
+        u32 answerFor = 0;
+        bool answerReady = false;
+        Array<foundation::scene::EntityHandle> answer;
+    };
+
+    ViewportToolInput PixelFrame(Float3 through, bool pressed, i32 px, i32 py, bool ctrl = false)
+    {
+        ViewportToolInput in = Frame(through, pressed, pressed, !pressed, ctrl);
+        in.pointerX = px;
+        in.pointerY = py;
+        in.viewportWidth = 640;
+        in.viewportHeight = 360;
+        return in;
+    }
+}
+
+TEST_CASE("select-tool: with a picker a click asks the GPU for the pointer pixel and applies the answer")
+{
+    Fixture f;
+    FakePicker picker;
+    f.tool.SetPicker(&picker);
+    const Guid nearId = f.edit.CreateEntity(u8"Near");
+    const Guid farId = f.edit.CreateEntity(u8"Far");
+    {
+        core::Transform t;
+        t.position = Float3{0.0f, 0.0f, -5.0f};
+        f.scene.SetLocalTransform(f.edit.Resolve(farId), t);
+    }
+    Selection<Guid>& selection = f.edit.EntitySelection();
+    selection.Clear();
+
+    // Press: a 1x1 request at the pointer pixel; nothing selected until the answer lands.
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 123, 45)));
+    CHECK(picker.requests == 1u);
+    CHECK(picker.lastX == 123);
+    CHECK(picker.lastY == 45);
+    CHECK(picker.lastW == 1u);
+    CHECK(picker.lastH == 1u);
+    CHECK(f.tool.HasPendingPick());
+    CHECK(selection.IsEmpty());
+
+    // The GPU saw the FAR entity's surface (it is what is drawn under the pointer, whatever the
+    // CPU origin pick would say): the answer wins.
+    Array<foundation::scene::EntityHandle> hits;
+    hits.PushBack(f.edit.Resolve(farId));
+    picker.Answer(1, Move(hits));
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 123, 45));
+    CHECK_FALSE(f.tool.HasPendingPick());
+    CHECK(selection.Contains(farId));
+    CHECK(!selection.Contains(nearId));
+}
+
+TEST_CASE("select-tool: a GPU miss falls back to the CPU pick; Ctrl rides along; newest click wins")
+{
+    Fixture f;
+    FakePicker picker;
+    f.tool.SetPicker(&picker);
+    const Guid nearId = f.edit.CreateEntity(u8"Near");
+    const Guid farId = f.edit.CreateEntity(u8"Far");
+    {
+        core::Transform t;
+        t.position = Float3{0.0f, 0.0f, -5.0f};
+        f.scene.SetLocalTransform(f.edit.Resolve(farId), t);
+    }
+    Selection<Guid>& selection = f.edit.EntitySelection();
+    selection.Clear();
+
+    // Click through both origins: the GPU answers "nothing drawn there" (e.g. an empty or a
+    // light) -> the CPU origin pick's nearest entity is selected.
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 10, 10)));
+    picker.Answer(1, Array<foundation::scene::EntityHandle>{});
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 10, 10));
+    CHECK(selection.Contains(nearId));
+    CHECK(!selection.Contains(farId));
+
+    // Ctrl-click answered with the far entity: toggled INTO the selection (Ctrl was captured
+    // with the click, not read at answer time). The current selection is an entity OFF the
+    // click ray, so its gizmo does not consume the press (the gizmo-first rule is unchanged).
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 10, 10));
+    const Guid asideId = f.edit.CreateEntity(u8"Aside");
+    {
+        core::Transform t;
+        t.position = Float3{20.0f, 0.0f, 0.0f};
+        f.scene.SetLocalTransform(f.edit.Resolve(asideId), t);
+    }
+    selection.Set(asideId);
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 10, 10, /*ctrl*/ true)));
+    {
+        Array<foundation::scene::EntityHandle> hits;
+        hits.PushBack(f.edit.Resolve(farId));
+        picker.Answer(2, Move(hits));
+    }
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 10, 10)); // no Ctrl now
+    CHECK(selection.Contains(asideId));
+    CHECK(selection.Contains(farId));
+    CHECK(!selection.Contains(nearId));
+
+    // Two clicks before any answer: the FIRST request's answer is ignored, the second applies.
+    selection.Clear();
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 10, 10)));
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 10, 10));
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 11, 11)));
+    CHECK(picker.requests == 4u);
+    {
+        Array<foundation::scene::EntityHandle> hits;
+        hits.PushBack(f.edit.Resolve(farId));
+        picker.Answer(3, Move(hits)); // the stale one
+    }
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 11, 11));
+    CHECK(selection.IsEmpty());
+    CHECK(f.tool.HasPendingPick());
+    {
+        Array<foundation::scene::EntityHandle> hits;
+        hits.PushBack(f.edit.Resolve(nearId));
+        picker.Answer(4, Move(hits));
+    }
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 11, 11));
+    CHECK(selection.Contains(nearId));
+    CHECK(!selection.Contains(farId));
+
+    // A dead handle in the answer (entity destroyed while the pick was in flight) is skipped:
+    // the CPU answer stands.
+    selection.Clear();
+    const foundation::scene::EntityHandle farHandle = f.edit.Resolve(farId);
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 10, 10)));
+    f.scene.DestroyEntity(farHandle);
+    {
+        Array<foundation::scene::EntityHandle> hits;
+        hits.PushBack(farHandle);
+        picker.Answer(5, Move(hits));
+    }
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 10, 10));
+    CHECK(selection.Contains(nearId));
+}
+
+TEST_CASE("select-tool: no pixel position, or a picker that refuses, picks on the CPU at once")
+{
+    Fixture f;
+    FakePicker picker;
+    f.tool.SetPicker(&picker);
+    const Guid nearId = f.edit.CreateEntity(u8"Near");
+    Selection<Guid>& selection = f.edit.EntitySelection();
+    selection.Clear();
+
+    // No viewport size on the input (a host without pixels): immediate CPU pick, no request.
+    CHECK(!f.tool.Update(Frame(Float3{}, true, true, false)));
+    CHECK(picker.requests == 0u);
+    CHECK(selection.Contains(nearId));
+    (void)f.tool.Update(Frame(Float3{}, false, false, true));
+
+    // The picker refuses (renderer not ready): immediate CPU pick.
+    selection.Clear();
+    picker.refuse = true;
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 5, 5)));
+    CHECK(picker.requests == 1u);
+    CHECK_FALSE(f.tool.HasPendingPick());
+    CHECK(selection.Contains(nearId));
+
+    // A pointer outside the view never asks the GPU (selection cleared first: a selected
+    // entity under the ray would hand the press to its gizmo).
+    picker.refuse = false;
+    (void)f.tool.Update(PixelFrame(Float3{}, false, 5, 5));
+    selection.Clear();
+    CHECK(!f.tool.Update(PixelFrame(Float3{}, true, 640, 5)));
+    CHECK(picker.requests == 1u);
+    CHECK(selection.Contains(nearId)); // the CPU pick answered instead
+}

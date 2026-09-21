@@ -38,7 +38,7 @@ namespace engine::render
 
     u64 PackEntity(scene::EntityHandle e) noexcept
     {
-        return (static_cast<u64>(e.generation) << 32) | static_cast<u64>(e.index);
+        return EntityTag::Pack(e.index, e.generation); // the one layout the pick readback decodes
     }
 
     RenderCategory CategoryForMaterial(const materials::Material* m) noexcept

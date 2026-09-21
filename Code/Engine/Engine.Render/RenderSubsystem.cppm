@@ -233,6 +233,18 @@ export namespace engine::render
         [[nodiscard]] debug::DebugDraw& DebugView(const void* viewportKey);
         [[nodiscard]] debug::DebugDraw& DebugScreen() noexcept { return m_debugScreen; }
 
+        // ---- GPU picking (PickSystem) ----
+        // Ask which entities are under the `width` x `height` pixel rect at (x, y) of the view
+        // rendered with `viewportKey` (viewport pixels, y down). Answered a few frames later:
+        // poll TryTakePickResult with the id; hits decode to EntityHandle{entityIndex,
+        // generation}. Works only for views keyed by the RenderScene viewportKey.
+        [[nodiscard]] PickRequestId RequestPick(const void* viewportKey, i32 x, i32 y,
+                                                u32 width = 1, u32 height = 1);
+        [[nodiscard]] bool TryTakePickResult(PickRequestId id, PickResult& out);
+        [[nodiscard]] bool IsPickPending(PickRequestId id) const noexcept;
+        // Drop the requests of a viewport that is going away.
+        void CancelPicks(const void* viewportKey);
+
         // Publish this subsystem as the per-context render service, so the `DebugDraw` script facade
         // resolves it via CurrentScriptContext()->GetService(kRenderScriptService). Called by the app
         // for each run context (alongside Input/Audio/UI ExposeToScript).
@@ -346,6 +358,8 @@ export namespace engine::render
         UniquePtr<SsrPass> m_ssrPass;
         UniquePtr<SsgiPass> m_ssgiPass;
         UniquePtr<MsaaResolvePass> m_msaaResolvePass; // scene-pass MSAA depth+aux resolve
+        UniquePtr<PickSystem> m_pickSystem;           // GPU picking (lazily built; device-free until a pass)
+        PickSystem& EnsurePickSystem();
         UniquePtr<FxaaPass> m_fxaaPass;
         UniquePtr<DebugBlitPass> m_debugBlitPass;
         Array<DebugResourceInfo> m_debugResourceSnapshot; // last frame's graph textures

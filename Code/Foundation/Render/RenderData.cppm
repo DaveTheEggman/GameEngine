@@ -179,6 +179,29 @@ export namespace foundation::render
         // for view-frustum culling (every producer sets it: meshes from local bounds, sprites from size).
         f32 worldRadius = 0.0f;
         u32 sortBatchKey = 0;
+        // The producer's entity tag (EntityTag layout: index low, generation high) - what the
+        // GPU pick pass writes and its readback decodes. 0 = untagged. Set by every producer
+        // whose draws should be pickable (meshes, instanced sets, terrain).
+        u64 entityId = 0;
+    };
+
+    // The one layout of the `entityId` tag a producer stamps on RenderData for picking: the scene
+    // entity's slot index in the low word, its generation in the high word. Producers pack (the
+    // engine extract), the pick readback unpacks - nothing in between interprets it.
+    struct EntityTag
+    {
+        [[nodiscard]] static constexpr u64 Pack(u32 index, u32 generation) noexcept
+        {
+            return (static_cast<u64>(generation) << 32) | static_cast<u64>(index);
+        }
+        [[nodiscard]] static constexpr u32 Index(u64 tag) noexcept
+        {
+            return static_cast<u32>(tag & 0xFFFFFFFFull);
+        }
+        [[nodiscard]] static constexpr u32 Generation(u64 tag) noexcept
+        {
+            return static_cast<u32>(tag >> 32);
+        }
     };
 
     // One mesh draw: a mesh + material at a world transform. Pointers are borrowed for the
@@ -197,7 +220,7 @@ export namespace foundation::render
         // the renderer draws each submesh with submeshMaterials[matIdx]; else `material` covers the mesh.
         const RefPtr<materials::Material>* submeshMaterials = nullptr;
         u32 submeshMaterialCount = 0;
-        u64 entityId = 0;
+        // entityId lives on the RenderData base (generic pick tag); see it there.
         // GPU skinning: per-bone skinning matrices for a skinned mesh (borrowed for the frame, from an
         // AnimationPlayer). When non-null + the mesh IsSkinned(), the renderer uploads them to its bone
         // pool and draws the SKINNED permutation; otherwise the mesh draws static (bind pose).

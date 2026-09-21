@@ -38,6 +38,7 @@ import :taa;
 import :ao;
 import :ssr;
 import :ssgi;
+import :picking;
 import :msaa_resolve;
 import :fxaa;
 import :debug_blit;
@@ -296,6 +297,15 @@ export namespace foundation::render
         virtual void ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items,
                                       Array<ResolvedDraw>& out);
 
+        // Resolve the same draws as PICK-ID writers: `ctx.viewProj` is the pick view's (cropped)
+        // world->clip, `ctx.colorFormat` the RG32Uint id target and `ctx.depthFormat` its depth.
+        // Each draw's fragment writes (EntityTag index + 1, generation) of its RenderData
+        // entityId; nearest wins through the pass's own depth. Default no-op, so a renderer
+        // whose draws are not pickable (sprites, particles) costs nothing - the editor's CPU
+        // pick covers their entities.
+        virtual void ResolvePickIds(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                                    Array<ResolvedDraw>& out);
+
         // Hand this frame's directional shadow map (null = none) to a renderer that samples it in set 0,
         // with the ShadowSystem's generation (bumped on texture recreation) so the renderer's bind-group
         // cache invalidates on a reused-address view. Called once per frame before PrepareFrame. Default
@@ -311,6 +321,10 @@ export namespace foundation::render
         // pass per face). Lets it size its per-object rings for the extra draw-resolving passes. Called once
         // per frame before PrepareFrame. Default no-op.
         virtual void SetCaptureFacePasses(u32 passes) { (void)passes; }
+
+        // How many pick passes re-emit draws this frame (per-object ring sizing, like the
+        // capture faces). Called before PrepareFrame.
+        virtual void SetPickPasses(u32 passes) { (void)passes; }
 
         // This frame's reflection probes: the prefiltered cube-ARRAY (set-0 t8) + the probe-metadata SRV (t9)
         // + the active probe count (the forward loops Probes[0..count]). null => no probes. Called once per
@@ -612,6 +626,9 @@ export namespace foundation::render
         // Scene-pass MSAA first-sample resolve (borrowed pass); null = no MSAA support. Used only when
         // a view's post.msaaSamples > 1, to resolve the MSAA depth+aux to 1x for the post consumers.
         void SetMsaaResolve(MsaaResolvePass* pass) noexcept { m_msaaResolve = pass; }
+        // GPU picking (null = no pick passes). Begin() retires its readbacks; a view whose
+        // ViewSettings::viewportKey has pending requests declares its pick passes.
+        void SetPick(PickSystem* pick) noexcept { m_pick = pick; }
         // SSR enable + tunables (enabled=false leaves the scene HDR untouched).
         void SetSsrParams(bool enabled, const SsrPass::Params& params) noexcept;
 
@@ -662,6 +679,11 @@ export namespace foundation::render
         // depth-only shader can't alpha-discard); transparent doesn't write depth. Runs at graph execute.
         void RecordDepthPrepass(rhi::RenderPassEncoder& rp, const RenderView& view,
                                 const RendererRegistry& registry, u32 viewIndex);
+        // Re-emit `view`'s opaque/masked/blended draws as pick-id writers with the cropped
+        // `viewProj` (the PickSystem's record callback).
+        void RecordPickIds(rhi::RenderPassEncoder& rp, const RenderView& view,
+                           const RendererRegistry& registry, u32 viewIndex,
+                           const Float4x4& viewProj);
 
         // Resolve + emit the scene's casters as depth-only draws from the light's POV (the shadow depth
         // pass body). lightViewProj is the depth shader's "camera". Runs at graph execute time, before
@@ -784,6 +806,12 @@ export namespace foundation::render
         Array<ResolvedDraw>
             m_prepassResolved; // reused depth-draw buffer for the camera depth prepass
         Array<ResolvedDraw> m_shadowResolved; // reused depth-draw buffer for the shadow pass
+        Array<ResolvedDraw> m_pickResolved;   // reused id-draw buffer for the pick passes
+        PickSystem* m_pick = nullptr;         // borrowed (the subsystem owns it)
+        // The PickSystem's record entry (a plain function: `context` is this frame).
+        static void RecordPickIdsThunk(void* context, rhi::RenderPassEncoder& rp,
+                                       const Float4x4& viewProj, const PickRect& rect,
+                                       const void* viewContext);
         // Local-light (spot/point) shadows (5.3): per-frame caster matrices + their atlas tiles. Members
         // (not locals) so the atlas pass's execute lambda can reference the tiles for the frame's lifetime.
         Array<UniquePtr<SceneShadowCtx>>

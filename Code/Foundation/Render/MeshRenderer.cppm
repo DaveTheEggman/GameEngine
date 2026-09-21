@@ -107,6 +107,7 @@ export namespace foundation::render
 
         // Reflection-probe capture faces re-emit the draws (one forward pass each) - count them into the ring.
         void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
+        void SetPickPasses(u32 passes) override { m_pickPasses = passes; }
 
         // This frame's active reflection probe (single probe): the captured cube-ARRAY view (set-0 t8) +
         // the probe's box/slice/intensity/count for the forward's local-reflection path. null view => dummy
@@ -172,6 +173,13 @@ export namespace foundation::render
         void ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items,
                               Array<ResolvedDraw>& out) override;
 
+        // Re-emit this view's draws as PICK-ID writers (ctx.viewProj = the cropped camera VP,
+        // ctx.colorFormat = the RG32Uint id target): the depth-only path with the `pick_ids`
+        // shader, whose fragment writes each draw's (EntityTag index + 1, generation). Static,
+        // skinned, instanced and MultiMesh draws all pick; masked materials keep their cutout.
+        void ResolvePickIds(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                            Array<ResolvedDraw>& out) override;
+
         void FinishFrame() override;
 
         /// Wire the frames-in-flight retire queue (web-safe grows for the device buffers
@@ -231,7 +239,8 @@ export namespace foundation::render
             Float4x4 world;
             Float4x4 prevWorld;
             Color tint;
-            u32 boneBase = 0, prevBoneBase = 0, p1 = 0, p2 = 0;
+            u32 boneBase = 0, prevBoneBase = 0;
+            u32 pickIndex = 0, pickGeneration = 0; // pick pass only (EntityTag index + 1, generation)
         }; // 160 (cbuffer Object)
         struct InstanceData
         {
@@ -253,7 +262,18 @@ export namespace foundation::render
         static_assert(sizeof(ObjectData) == 160, "cbuffer Object layout drift");
         static_assert(sizeof(InstanceData) == 144,
                       "StructuredBuffer<InstanceData> element layout drift");
+        // The pick pass's set-0 view (cbuffer PickView in pick_ids.vs): the cropped VP plus a
+        // per-DRAW-GROUP id override (a MultiMesh set is one entity for all its instances, and its
+        // instance data is persistent - the id rides the view slot instead; 0 = per-object id).
+        struct PickViewData
+        {
+            Float4x4 viewProj;
+            u32 pickIndex = 0, pickGeneration = 0, p0 = 0, p1 = 0;
+        }; // 80  (cbuffer PickView; shares the shadow-view ring's 256B slots)
         static_assert(sizeof(ShadowViewData) == 64, "cbuffer ShadowView layout drift");
+        static_assert(sizeof(PickViewData) == 80, "cbuffer PickView layout drift");
+        // MultiMesh sets a pick pass can id per frame (each takes a shadow-view ring slot).
+        static constexpr u32 kMaxPickMultiMeshSets = 64;
 
         static constexpr u64 kViewSlot = 256; // dynamic UBO offset alignment (object/shadow-view)
         static constexpr u64 kViewDataSlot =
@@ -299,13 +319,17 @@ export namespace foundation::render
                               u32 count, const MeshRenderData& head, const GpuMesh& mesh,
                               Array<ResolvedDraw>& out);
 
+        // The shared body of ResolveDepthOnly (pick = false) and ResolvePickIds (pick = true).
+        void ResolveDepthLike(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                              Array<ResolvedDraw>& out, bool pick);
+
         void ResolveDepthSingle(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                 const MeshRenderData& md, const GpuMesh& mesh,
-                                Array<ResolvedDraw>& out);
+                                Array<ResolvedDraw>& out, bool pick);
 
         void ResolveDepthInstanced(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                    Span<const DrawItem> items, usize first, u32 count,
-                                   const GpuMesh& mesh, Array<ResolvedDraw>& out);
+                                   const GpuMesh& mesh, Array<ResolvedDraw>& out, bool pick);
 
         // Forward draw for a MultiMesh: bind THIS set's persistent InstanceData (set 1) + the shared DataOffsets
         // ramp, one instanced draw per submesh material. NO fill loop - the buffer already holds the instances
@@ -319,12 +343,17 @@ export namespace foundation::render
         // casters fold in the material set for the alpha test (like ResolveDepthInstanced).
         void ResolveMultiMeshDepth(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                    const MultiMeshRenderData& mm, const GpuMesh& mesh,
-                                   Array<ResolvedDraw>& out);
+                                   Array<ResolvedDraw>& out, bool pick);
 
         // Depth-only PSO config for the shadow pass. Back-face cull + a small depth bias/slope to push
         // shadow acne off lit surfaces (tuned on GPU; 5.2 refines with normal-offset bias in the shader).
         [[nodiscard]] static materials::PipelineConfig
         ShadowConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked = false);
+
+        // Pick-id PSO config: the depth-only layouts with the `pick_ids` fragment writing the
+        // RG32Uint id target (ctx.colorFormat), single-sample, no bias, masked = alpha-tested.
+        [[nodiscard]] static materials::PipelineConfig
+        PickConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked);
 
         [[nodiscard]] static materials::PipelineConfig
         ConfigFor(const MeshRenderData& md, const RenderRecordContext& ctx, bool instanced);
@@ -573,6 +602,7 @@ export namespace foundation::render
         u32 m_localShadowBase = 0;      // this frame's base into m_localShadowRing
         u32 m_localShadowPassCount = 0; // # atlas depth passes (caster re-emits) this frame
         u32 m_captureFacePasses = 0;    // # probe-capture face passes (caster re-emits) this frame
+        u32 m_pickPasses = 0;           // # pick passes (id re-emits) this frame
         u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
         // --- MultiMesh (instanced-mesh) persistent buffers ---

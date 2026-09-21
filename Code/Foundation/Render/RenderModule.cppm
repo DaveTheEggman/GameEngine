@@ -33,6 +33,7 @@ export import :bloom;
 export import :taa;
 export import :ao;
 export import :msaa_resolve;
+export import :picking;
 export import :ssr;
 export import :ssgi;
 export import :fxaa;

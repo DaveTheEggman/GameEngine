@@ -59,6 +59,13 @@ export namespace editor
         /// abort an in-flight gesture (the GizmoFrameInput contract).
         bool pointerValid = true;
 
+        // The pointer in VIEW pixels (y down, row 0 = top) + the view's size: what a GPU pick
+        // needs. Valid only when pointerValid and viewportWidth/Height are non-zero.
+        i32 pointerX = 0;
+        i32 pointerY = 0;
+        u32 viewportWidth = 0;
+        u32 viewportHeight = 0;
+
         /// Strictly "the pointer is over the viewport" (pointerValid also admits
         /// focused-but-not-hovered so gizmo hotkeys keep working); click-initiated gestures
         /// (selection pick, brush strokes) require THIS.
@@ -83,6 +90,23 @@ export namespace editor
 
     /// A modal interaction mode of a 3D viewport. Implementations live in domain editor libs
     /// (or the hosting page, for its default tool) and are OWNED by a ViewportToolManager.
+    // The host's GPU pick seam (RenderSubsystem::RequestPick over the page's viewport key): a
+    // tool asks for the entities under a pixel rect of the view and polls for the answer a few
+    // frames later. Null on the host context = no GPU picking (the tool's CPU pick stands alone).
+    class IViewportPicker
+    {
+    public:
+        virtual ~IViewportPicker() = default;
+
+        // Rect in view pixels. Returns 0 when nothing could answer (no renderer, no view).
+        [[nodiscard]] virtual u32 RequestPick(i32 x, i32 y, u32 width, u32 height) = 0;
+
+        // True once the request answered: `hits` are the live entities in the rect, nearest-first
+        // for a 1x1 rect (one hit at most). A request that expired answers with no hits.
+        [[nodiscard]] virtual bool TryTakePick(u32 request,
+                                               Array<foundation::scene::EntityHandle>& hits) = 0;
+    };
+
     class IViewportTool
     {
     public:
@@ -172,6 +196,9 @@ export namespace editor
         /// present asset-backed choices richly (e.g. the splat layer picker showing layer albedo
         /// thumbnails). Borrowed; null in headless hosts / tests.
         EditorContext* editorContext = nullptr;
+
+        /// GPU pick seam (null = CPU picking only). Borrowed; the page owns it.
+        IViewportPicker* picker = nullptr;
     };
 
     /// A domain editor lib's tool contribution ("Editor.Terrain adds sculpt + splat"). Static

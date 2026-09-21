@@ -237,8 +237,11 @@ namespace foundation::render
         // overflows the object/instance/offset rings at high draw counts -> Allocate() fails -> dropped
         // draws (was missing the prepass, so the stress tests lost their spheres).
         const u32 drawCap =
-            maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount + m_captureFacePasses);
-        if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(kMaxShadowPasses) ||
+            maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount + m_captureFacePasses +
+                        m_pickPasses);
+        // Pick passes take shadow-view slots too: one per pass + one per MultiMesh set they id.
+        const u32 shadowViewCap = kMaxShadowPasses + m_pickPasses * (1u + kMaxPickMultiMeshSets);
+        if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(shadowViewCap) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
             !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(m_boneSlotsWanted))
@@ -974,6 +977,18 @@ namespace foundation::render
     void MeshRenderer::ResolveDepthOnly(const RenderRecordContext& ctx, Span<const DrawItem> items,
                                         Array<ResolvedDraw>& out)
     {
+        ResolveDepthLike(ctx, items, out, /*pick*/ false);
+    }
+
+    void MeshRenderer::ResolvePickIds(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                                      Array<ResolvedDraw>& out)
+    {
+        ResolveDepthLike(ctx, items, out, /*pick*/ true);
+    }
+
+    void MeshRenderer::ResolveDepthLike(const RenderRecordContext& ctx, Span<const DrawItem> items,
+                                        Array<ResolvedDraw>& out, bool pick)
+    {
         if (!m_ready || items.IsEmpty())
         {
             return;
@@ -984,7 +999,17 @@ namespace foundation::render
         {
             return;
         }
-        *static_cast<ShadowViewData*>(sv.ptr) = ShadowViewData{ctx.viewProj};
+        if (pick)
+        {
+            // Pass-level view: the cropped VP, no group id (draws carry their own).
+            PickViewData pv{};
+            pv.viewProj = ctx.viewProj;
+            *static_cast<PickViewData*>(sv.ptr) = pv;
+        }
+        else
+        {
+            *static_cast<ShadowViewData*>(sv.ptr) = ShadowViewData{ctx.viewProj};
+        }
         const u32 shadowViewOffset = sv.byteOffset;
 
         usize i = 0;
@@ -1008,7 +1033,7 @@ namespace foundation::render
                 {
                     ResolveMultiMeshDepth(ctx, shadowViewOffset,
                                           *static_cast<const MultiMeshRenderData*>(head), *mmMesh,
-                                          out);
+                                          out, pick);
                 }
                 ++i;
                 continue;
@@ -1032,11 +1057,12 @@ namespace foundation::render
             {
                 if (runLen >= 2 || headSkinned)
                 {
-                    ResolveDepthInstanced(ctx, shadowViewOffset, items, i, runLen, *mesh, out);
+                    ResolveDepthInstanced(ctx, shadowViewOffset, items, i, runLen, *mesh, out,
+                                          pick);
                 }
                 else
                 {
-                    ResolveDepthSingle(ctx, shadowViewOffset, *head, *mesh, out);
+                    ResolveDepthSingle(ctx, shadowViewOffset, *head, *mesh, out, pick);
                 }
             }
             i = j;
@@ -1321,7 +1347,7 @@ namespace foundation::render
 
     void MeshRenderer::ResolveDepthSingle(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                           const MeshRenderData& md, const GpuMesh& mesh,
-                                          Array<ResolvedDraw>& out)
+                                          Array<ResolvedDraw>& out, bool pick)
     {
         u32 boneBase = 0;
         bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 && md.mesh != nullptr &&
@@ -1329,7 +1355,12 @@ namespace foundation::render
         // Masked casters cast holey shadows via the alpha-test fragment (needs the material set 2).
         const bool masked = md.material != nullptr &&
                             md.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ false, masked);
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ false, masked)
+                                                : ShadowConfigFor(ctx, /*instanced*/ false, masked);
+        if (pick && md.material != nullptr)
+        {
+            config.cullMode = md.material->pipeline.cullMode; // a two-sided material picks both faces
+        }
         if (skinned)
         {
             const BoneSlot* s = m_boneStart.Find(md.boneMatrices);
@@ -1355,11 +1386,11 @@ namespace foundation::render
             {
                 layout = m_shadowPipelineLayoutSingle;
                 matSet = nullptr;
-                config = ShadowConfigFor(ctx, false, false);
+                config = pick ? PickConfigFor(ctx, false, false) : ShadowConfigFor(ctx, false, false);
             }
         }
-        rhi::RenderPipeline* pso =
-            m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(
+            config, layout, pick ? ctx.colorFormat : rhi::TextureFormat::Undefined);
         if (pso == nullptr)
         {
             return;
@@ -1374,6 +1405,8 @@ namespace foundation::render
         od.prevWorld = md.world; // depth pass ignores prevWorld
         od.tint = md.color;
         od.boneBase = boneBase;
+        od.pickIndex = EntityTag::Index(md.entityId) + 1u; // pick pass: 0 = nothing
+        od.pickGeneration = EntityTag::Generation(md.entityId);
         *static_cast<ObjectData*>(obj.ptr) = od;
 
         ResolvedDraw d{};
@@ -1418,14 +1451,20 @@ namespace foundation::render
 
     void MeshRenderer::ResolveDepthInstanced(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                              Span<const DrawItem> items, usize first, u32 count,
-                                             const GpuMesh& mesh, Array<ResolvedDraw>& out)
+                                             const GpuMesh& mesh, Array<ResolvedDraw>& out,
+                                             bool pick)
     {
         const auto& head = *static_cast<const MeshRenderData*>(items[first].data);
         const bool skinned = head.boneMatrices != nullptr && head.mesh != nullptr &&
                              head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
         const bool masked = head.material != nullptr &&
                             head.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked)
+                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        if (pick && head.material != nullptr)
+        {
+            config.cullMode = head.material->pipeline.cullMode;
+        }
         if (skinned)
         {
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
@@ -1442,11 +1481,11 @@ namespace foundation::render
             {
                 layout = m_shadowPipelineLayoutInstanced;
                 matSet = nullptr;
-                config = ShadowConfigFor(ctx, true, false);
+                config = pick ? PickConfigFor(ctx, true, false) : ShadowConfigFor(ctx, true, false);
             }
         }
-        rhi::RenderPipeline* pso =
-            m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(
+            config, layout, pick ? ctx.colorFormat : rhi::TextureFormat::Undefined);
         if (pso == nullptr)
         {
             return;
@@ -1480,7 +1519,12 @@ namespace foundation::render
                     prevBase = s->prevBase;
                 }
             }
-            od[k] = DataOffsets{inst.slotIndex + k, boneBase, prevBase, 0};
+            // Pick pass: .z/.w carry the entity id (the fill is pick-private - never shared with
+            // the forward, which reads prevBase from .z).
+            od[k] = pick ? DataOffsets{inst.slotIndex + k, boneBase,
+                                       EntityTag::Generation(md->entityId),
+                                       EntityTag::Index(md->entityId) + 1u}
+                         : DataOffsets{inst.slotIndex + k, boneBase, prevBase, 0};
         }
         if (feedsForward)
         { // record this group's DataOffsets range for the forward to reuse
@@ -1639,7 +1683,7 @@ namespace foundation::render
 
     void MeshRenderer::ResolveMultiMeshDepth(const RenderRecordContext& ctx, u32 shadowViewOffset,
                                              const MultiMeshRenderData& mm, const GpuMesh& mesh,
-                                             Array<ResolvedDraw>& out)
+                                             Array<ResolvedDraw>& out, bool pick)
     {
         const MultiMeshSet* set = m_multiMeshSets.Find(mm.key);
         if (set == nullptr || set->activeInstanceBG == nullptr || set->count == 0)
@@ -1652,9 +1696,31 @@ namespace foundation::render
         {
             return;
         }
+        if (pick)
+        {
+            // The set is ONE entity: its id rides a private view slot (persistent instance data +
+            // the shared ramp carry no per-set id). Budgeted by kMaxPickMultiMeshSets; a set past
+            // the budget is not pickable this frame (the editor's CPU pick still finds it).
+            const DynamicUniformRing::Range sv = m_shadowViewRing.Allocate();
+            if (!sv.ok)
+            {
+                return;
+            }
+            PickViewData pv{};
+            pv.viewProj = ctx.viewProj;
+            pv.pickIndex = EntityTag::Index(mm.entityId) + 1u;
+            pv.pickGeneration = EntityTag::Generation(mm.entityId);
+            *static_cast<PickViewData*>(sv.ptr) = pv;
+            shadowViewOffset = sv.byteOffset;
+        }
         const bool masked = mm.material != nullptr &&
                             mm.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked)
+                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        if (pick && mm.material != nullptr)
+        {
+            config.cullMode = mm.material->pipeline.cullMode;
+        }
         if (skinned)
         {
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
@@ -1671,7 +1737,7 @@ namespace foundation::render
             {
                 layout = m_shadowPipelineLayoutInstanced;
                 matSet = nullptr;
-                config = ShadowConfigFor(ctx, true, false);
+                config = pick ? PickConfigFor(ctx, true, false) : ShadowConfigFor(ctx, true, false);
                 if (skinned)
                 {
                     config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
@@ -1679,8 +1745,8 @@ namespace foundation::render
                 }
             }
         }
-        rhi::RenderPipeline* pso =
-            m_psoCache->GetPipeline(config, layout, rhi::TextureFormat::Undefined);
+        rhi::RenderPipeline* pso = m_psoCache->GetPipeline(
+            config, layout, pick ? ctx.colorFormat : rhi::TextureFormat::Undefined);
         if (pso == nullptr)
         {
             return;
@@ -1773,6 +1839,34 @@ namespace foundation::render
             c.depthBias = static_cast<i16>(rhi::depth::BiasAwayFromViewer(50));
             c.depthBiasSlopeScale = rhi::depth::SlopeBiasAwayFromViewer(1.5f);
         }
+        return c;
+    }
+
+    materials::PipelineConfig MeshRenderer::PickConfigFor(const RenderRecordContext& ctx,
+                                                          bool instanced, bool masked)
+    {
+        materials::PipelineConfig c{};
+        c.shaderName = u8"pick_ids";
+        c.vertexLayout = materials::VertexLayoutType::Mesh;
+        c.instanced = instanced;
+        if (instanced)
+        {
+            c.shaderFlags |= shaders::ShaderFlags::Instanced;
+        }
+        if (masked)
+        {
+            c.shaderFlags |= shaders::ShaderFlags::AlphaTest; // cutouts are not pickable holes
+        }
+        c.depthOnly = false; // the id-writing fragment
+        c.colorTargetCount = 1;
+        c.colorFormats[0] = ctx.colorFormat; // RG32Uint (kPickIdFormat); overridden per build too
+        c.blendMode = materials::BlendMode::Opaque; // integer target: no blend
+        c.colorWriteMask = rhi::ColorWriteMask::All;
+        c.depthFormat = ctx.depthFormat;
+        c.sampleCount = 1;
+        c.depthMode = materials::DepthMode::ReadWrite;
+        c.depthCompare = rhi::depth::Nearer(); // nearest surface owns the texel
+        c.cullMode = materials::CullModeConfig::Back; // callers override from the material
         return c;
     }
 
@@ -2300,7 +2394,10 @@ namespace foundation::render
             return false;
         }
         rhi::BindGroupEntry be[] = {
-            rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(ShadowViewData)),
+            // Range = the larger of the two layouts that read this slot: ShadowView (64) and the
+            // pick pass's PickView (80). WebGPU validates the bound size against the shader's
+            // declared cbuffer, so the range must cover both; the slot (256) has room.
+            rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(PickViewData)),
             rhi::BindGroupEntry::BufferEntry(boneBuf, 0,
                                              m_boneDeviceBytes), // t4: skinning pool
         };
