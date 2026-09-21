@@ -32,7 +32,7 @@ jobs:
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 (or 1) if the modules build OOMs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The C++23-modules build writes a large volume of .pcm + object files and can exhaust the
       # runner's root disk (the previous run died at ~87% with "No space left on device"). Reclaim
@@ -132,7 +132,7 @@ jobs:
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 (or 1) if the modules build OOMs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The C++23-modules build writes a large volume of .pcm + object files and can exhaust the
       # runner's root disk (the previous run died at ~87% with "No space left on device"). Reclaim
@@ -231,7 +231,7 @@ jobs:
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '2' # a container job cannot add swap headroom; stay low
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install dependencies
         run: |
           apt-get update
@@ -264,12 +264,12 @@ jobs:
   # toolchain. Independent of the Linux job; a Windows failure does not cancel Linux.
   windows-msvc:
     name: Windows / MSVC / Debug
-    runs-on: windows-2022
+    runs-on: windows-latest
     timeout-minutes: 180
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 if the modules build OOMs on the 16 GB runner
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ilammy/msvc-dev-cmd@v1 # puts cl + the Windows SDK on PATH for the later steps
       - name: Install Ninja
         run: choco install ninja -y # the msvc preset uses the Ninja generator (C++20 modules)
@@ -291,12 +291,12 @@ jobs:
   # shared-libraries.md P5/W2.
   windows-msvc-shared:
     name: Windows / MSVC / Debug / shared libraries
-    runs-on: windows-2022
+    runs-on: windows-latest
     timeout-minutes: 180
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: '4' # lower to 2 if the modules build OOMs on the 16 GB runner
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ilammy/msvc-dev-cmd@v1 # puts cl + the Windows SDK on PATH for the later steps
       - name: Install Ninja
         run: choco install ninja -y # the msvc-shared preset uses the Ninja generator (C++20 modules)
@@ -308,3 +308,126 @@ jobs:
       # finds them next to the exe with no PATH setup; import libs live in that dir's lib/.
       - name: Test
         run: ctest --preset msvc-shared --output-on-failure --timeout 300 --no-tests=error
+  
+  # Debug builds are intentionally kept for build/test coverage, but their build
+  # directories are not uploaded because they are very large (1.4-2.2 GB).
+  # Instead, CI produces the packaged Release editor + deployment templates using
+  # the same distribution scripts as release.yml, so PRs have small downloadable builds for testing.
+  linux-release:
+    name: Linux / Release distribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang pkg-config \
+            libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+
+      - name: Install Clang 21
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 21
+
+      - name: Add swap headroom
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+      - name: Build editor distribution
+        run: |
+          CXX_COMPILER=clang++-21 \
+          C_COMPILER=clang-21 \
+          OUT=dist/Editor-Linux64 \
+          scripts/build-editor-dist.sh
+
+      - name: Build deployment template
+        run: |
+          CXX_COMPILER=clang++-21 \
+          C_COMPILER=clang-21 \
+          OUT=dist/templates \
+          scripts/build-export-templates.sh linux
+
+      - name: Package deployment template
+        run: |
+          VERSION="$(grep -oP '^\s*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt | head -1)"
+          tar -czf \
+            "dist/DeploymentTemplate-${VERSION}-Linux64.tar.gz" \
+            -C dist/templates \
+            linux64-release
+
+      - name: Upload Linux release build
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-release
+          path: |
+            dist/Editor-*-Linux64.tar.gz
+            dist/DeploymentTemplate-*-Linux64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+    
+  windows-release:
+    name: Windows / Release distribution
+    runs-on: windows-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Build editor distribution
+        run: pwsh scripts/build-editor-dist.ps1 -Out dist/Editor-Win64
+
+      - name: Build deployment template
+        shell: pwsh
+        run: |
+          $cmake = Get-Content CMakeLists.txt -Raw
+          $Version = if ($cmake -match 'project\(\s*GameEngine\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)') {
+            $Matches[1]
+          } else {
+            throw "Could not determine project version"
+          }
+
+          pwsh scripts/build-export-templates.ps1 -Out dist/templates
+
+          Compress-Archive `
+            -Path dist/templates/win64-release `
+            -DestinationPath "dist/DeploymentTemplate-$Version-Win64.zip"
+
+      - name: Upload Windows release build
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release
+          path: |
+            dist/Editor-*-Win64.zip
+            dist/DeploymentTemplate-*-Win64.zip
+          if-no-files-found: error
+          retention-days: 1
