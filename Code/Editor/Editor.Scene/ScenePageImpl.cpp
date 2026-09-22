@@ -1194,7 +1194,16 @@ namespace editor
                     {
                         if (value)
                         {
-                            m_viewportTools.ActivateById(id.AsView());
+                            // A refusal (the tool has nothing to work on here) is said, not
+                            // swallowed: the toggle snaps back through SyncToolbar below.
+                            if (!m_viewportTools.ActivateById(id.AsView()))
+                            {
+                                if (IViewportTool* tool = m_viewportTools.FindById(id.AsView()))
+                                {
+                                    m_context->Notify(editor::NoticeKind::Warning,
+                                                      tool->UnavailableReason());
+                                }
+                            }
                         }
                         else if (m_viewportTools.ActiveTool() != nullptr &&
                                  m_viewportTools.ActiveTool()->Id() == id.AsView())

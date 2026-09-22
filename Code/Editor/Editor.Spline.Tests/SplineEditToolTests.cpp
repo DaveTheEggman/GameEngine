@@ -80,6 +80,7 @@ TEST_CASE("spline tool: available only while a selected entity carries a spline"
     REQUIRE(tool);
     CHECK(tool->Id() == StringView(u8"spline.edit"));
     CHECK_FALSE(tool->IsAvailable());
+    CHECK(tool->UnavailableReason().Size() > 0); // the toolbar's refusal notice names the lack
     (void)Rig(scene, selection);
     CHECK(tool->IsAvailable());
     selection.Clear();

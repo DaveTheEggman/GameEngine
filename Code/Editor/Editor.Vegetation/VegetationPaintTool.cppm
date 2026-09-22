@@ -48,6 +48,11 @@ export namespace editor
         /// Relevant only when the scene has a vegetation component whose mask (and its terrain's
         /// heightfield, for the pick) resolves.
         [[nodiscard]] bool IsAvailable() const override;
+        [[nodiscard]] StringView UnavailableReason() const override
+        {
+            return u8"Paint Vegetation needs a Terrain Vegetation component with a Mask asset, "
+                   u8"on a terrain (Create > Terrain > Vegetation Mask, then pick it in Mask).";
+        }
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
         void Draw(foundation::render::debug::DebugDraw& drawList) override;
         void OnDeactivate() override;

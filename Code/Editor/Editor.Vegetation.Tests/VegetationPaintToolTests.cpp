@@ -186,6 +186,7 @@ TEST_CASE("vegetation paint: unavailable with no mask, and refuses edits while e
     editor::EditorCommandStack commands;
     editor::VegetationPaintTool none(bare.scene, commands, nullptr);
     CHECK(!none.IsAvailable());
+    CHECK(none.UnavailableReason().Size() > 0); // the toolbar's refusal notice names the lack
     editor::ViewportToolInput press = RayAt(0.0f, 0.0f);
     press.leftPressed = true;
     press.leftDown = true;

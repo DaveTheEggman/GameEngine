@@ -124,6 +124,14 @@ export namespace editor
         /// tool - the manager falls back to the default tool when this turns false.
         [[nodiscard]] virtual bool IsAvailable() const { return true; }
 
+        /// Why IsAvailable() is false, for the person who just clicked the tool: the host shows
+        /// it as a notice when it refuses the activation (a silent snap-back reads as a dead
+        /// button). One sentence naming what the scene lacks.
+        [[nodiscard]] virtual StringView UnavailableReason() const
+        {
+            return u8"This tool has nothing to work on in this scene.";
+        }
+
         virtual void OnActivate() {}
 
         /// Must end (finish or abort) any in-flight gesture so no half-applied command group

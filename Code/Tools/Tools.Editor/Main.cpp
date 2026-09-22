@@ -58,6 +58,7 @@ import foundation.image.resource;
 import geometry.pipeline;
 import heightfield.pipeline; // HeightfieldAsset (New Asset > Terrain > Heightfield)
 import terrain.pipeline;     // TerrainAsset + SplatmapAsset (New Asset > Terrain)
+import vegetation.pipeline;  // VegetationMaskAsset (New Asset > Terrain > Vegetation Mask)
 import animation.pipeline;
 import materials.pipeline;
 import shaders.pipeline;
@@ -865,6 +866,39 @@ int main(int argc, char** argv)
             };
             app.Context().RegisterCreator(
                 static_cast<editor::EditorContext::AssetCreator&&>(splatmapCreator));
+        }
+        {
+            // The painted vegetation mask: an empty 1024 x 1024 single-plane mask the Paint
+            // Vegetation brush fills (set Planes on its page before painting more layers).
+            editor::EditorContext::AssetCreator maskCreator;
+            maskCreator.label = String(u8"Vegetation Mask");
+            maskCreator.category = String(u8"Terrain");
+            maskCreator.create =
+                [](editor::EditorContext& ctx,
+                   foundation::content::Group* group) -> foundation::content::Instance*
+            {
+                if (ctx.Project() == nullptr)
+                {
+                    return nullptr;
+                }
+                foundation::content::Group* target =
+                    group != nullptr ? group : ctx.Project()->SourceDb().RootGroup();
+                foundation::content::Instance* instance = target->CreateInstance(
+                    target->UniqueInstanceName(u8"VegetationMask").AsView(),
+                    pipeline::VegetationMaskAsset::StaticType());
+                if (instance == nullptr)
+                {
+                    return nullptr;
+                }
+                pipeline::VegetationMaskAsset asset; // 1024 x 1024, one plane, all zero
+                if (!instance->WriteObject(asset).IsOk())
+                {
+                    return nullptr;
+                }
+                return instance;
+            };
+            app.Context().RegisterCreator(
+                static_cast<editor::EditorContext::AssetCreator&&>(maskCreator));
         }
         RegisterEditorBuilders(app.Builders()); // the cook service routes through this set
 

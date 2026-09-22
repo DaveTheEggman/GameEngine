@@ -45,6 +45,10 @@ export namespace editor
         /// Relevant only when the scene has a terrain whose splatmap (and heightfield, for the pick)
         /// resolves.
         [[nodiscard]] bool IsAvailable() const override;
+        [[nodiscard]] StringView UnavailableReason() const override
+        {
+            return u8"Paint Splat needs a terrain whose splatmap and heightfield resolve.";
+        }
 
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
         void Draw(foundation::render::debug::DebugDraw& drawList) override;

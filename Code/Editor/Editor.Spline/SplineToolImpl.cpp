@@ -105,6 +105,10 @@ namespace editor
             {
                 return TargetComponent() != nullptr;
             }
+            [[nodiscard]] StringView UnavailableReason() const override
+            {
+                return u8"Edit Spline needs a selected entity with a Spline component.";
+            }
 
             void OnDeactivate() override { EndDrag(/*commit*/ true); }
 

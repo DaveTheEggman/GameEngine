@@ -171,8 +171,9 @@ the list ("Layers 1: Grass"), titled by the layer's **Name**. Per layer:
 - **Visible** hides one layer; the component's own Visible hides them all.
 
 **Painting where a layer grows.** For ground cover the splat does not describe (flowers in a
-meadow, a road carved through grass), create a **Vegetation Mask** asset (Create, Terrain
-category; set its plane count to the number of layers that will paint), pick it in the
+meadow, a road carved through grass), create a **Vegetation Mask** asset (Create > Terrain >
+Vegetation Mask, or Import a PNG as one plane per channel; set **Planes** on its page to the
+number of layers that will paint - a later change keeps the planes that still exist), pick it in the
 component's **Mask** field, and give the layer **Placement** Mask with **Mask Plane** = its
 plane. Select the **Paint Vegetation** tool in the scene viewport: the panel lists the planes
 (keys 1-9), E erases (key 0), S smooths (key minus); Radius, Strength, Spacing and Airbrush work
@@ -182,7 +183,7 @@ regrow only the chunks under the brush; Save writes the planes back to the mask 
 
 **Props.** Rocks, stumps and other scattered things are a layer with **Placement** Scattered:
 its instances are placed by hand rather than grown from a source. Select the **Paint Props**
-tool, pick the layer in its panel (keys 1-9; 0 is the eraser), and paint: each stamp tries
+tool (it refuses with a notice until a Scattered layer exists), pick the layer in its panel (keys 1-9; 0 is the eraser), and paint: each stamp tries
 **Density** props per square metre over the brush disc, keeps the layer's slope, height, scale
 and alignment rules, leaves **Spacing** (in multiples of the mesh's size) between props, and
 skips any spot inside a physics body of the scene. **Strength** scales how many a stamp places,

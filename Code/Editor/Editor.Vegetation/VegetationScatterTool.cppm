@@ -44,6 +44,11 @@ export namespace editor
         /// Relevant only when the scene has a vegetation component over a terrain with at least
         /// one Scattered layer.
         [[nodiscard]] bool IsAvailable() const override;
+        [[nodiscard]] StringView UnavailableReason() const override
+        {
+            return u8"Paint Props needs a Terrain Vegetation component with a layer whose "
+                   u8"Placement is Scattered, on a terrain.";
+        }
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
         void Draw(foundation::render::debug::DebugDraw& drawList) override;
         void OnDeactivate() override;

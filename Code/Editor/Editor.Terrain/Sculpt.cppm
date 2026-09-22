@@ -53,6 +53,10 @@ export namespace editor
 
         /// Relevant only when the scene actually has a terrain whose heightfield resolves.
         [[nodiscard]] bool IsAvailable() const override;
+        [[nodiscard]] StringView UnavailableReason() const override
+        {
+            return u8"Sculpt needs a terrain with a heightfield in the scene.";
+        }
 
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
         void Draw(foundation::render::debug::DebugDraw& drawList) override;

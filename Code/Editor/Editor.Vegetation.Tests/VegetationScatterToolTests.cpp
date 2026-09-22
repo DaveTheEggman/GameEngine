@@ -247,6 +247,7 @@ TEST_CASE("vegetation scatter: unavailable without a Scattered layer; refuses a 
     editor::EditorCommandStack commands;
     editor::VegetationScatterTool none(bare.scene, commands);
     CHECK(!none.IsAvailable());
+    CHECK(none.UnavailableReason().Size() > 0); // the toolbar's refusal notice names the lack
 
     Fixture fx;
     editor::VegetationScatterTool tool(fx.scene, commands);

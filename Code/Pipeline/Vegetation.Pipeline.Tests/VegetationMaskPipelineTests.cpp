@@ -99,6 +99,49 @@ TEST_CASE("vegetation.pipeline: an embedded mask cooks its planes and restores t
     RemoveDb(u8"scratch_vegmask_db", u8"mask");
 }
 
+TEST_CASE("vegetation.pipeline: a plane-count change on a painted mask keeps the planes that still exist")
+{
+    RegisterVegetationMaskAsset();
+    RegisterVegetationMaskResourceTypes();
+    RemoveDb(u8"scratch_vegmask_planes", u8"mask");
+    NativeFileSystem outMount(u8"scratch_vegmask_planes", DefaultAllocator());
+    RefPtr<VegetationMask> painted = MakeRef<VegetationMask>(DefaultAllocator(), 8, 8, 2);
+    (void)PaintMask(*painted, 0, 0.5f, 0.5f, 0.4f, 0.4f, 1.0f);
+    (void)PaintMask(*painted, 1, 0.5f, 0.5f, 0.2f, 0.2f, 1.0f);
+    Guid maskId;
+    {
+        foundation::content::ContentDatabase db(DefaultAllocator(), outMount,
+                                                BinarySerializerFactory(), u8".rasset");
+        auto* inst = db.RootGroup()->CreateInstance(u8"mask", VegetationMaskSource::StaticType());
+        maskId = inst->Id();
+        REQUIRE(inst->WriteData(kVegetationMaskStream, VegetationMaskSource::DensityBlob(*painted))
+                    .IsOk());
+        VegetationMaskAsset ma; // the author raised the plane count to 3 after painting 2
+        ma.width = 8;
+        ma.height = 8;
+        ma.planeCount = 3;
+        VegetationMaskAssetBuilder builder;
+        NativeFileSystem srcMount(u8".", DefaultAllocator());
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &srcMount;
+        ctx.source = inst;
+        ctx.output = inst;
+        REQUIRE(builder.Build(ma, ctx).IsOk());
+    }
+    foundation::content::ContentDatabase db(DefaultAllocator(), outMount, BinarySerializerFactory(),
+                                            u8".rasset");
+    VegetationMaskFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+    Proxy<VegetationMask> loaded = manager.Bind<VegetationMask>(maskId);
+    REQUIRE(loaded);
+    CHECK(loaded->PlaneCount() == 3u);
+    CHECK(loaded->DensityAt(0, 4, 4) == painted->DensityAt(0, 4, 4)); // kept
+    CHECK(loaded->DensityAt(1, 4, 4) == painted->DensityAt(1, 4, 4)); // kept
+    CHECK(loaded->DensityAt(2, 4, 4) == 0);                            // fresh
+    RemoveDb(u8"scratch_vegmask_planes", u8"mask");
+}
+
 TEST_CASE("vegetation.pipeline: no sidecar cooks all-zero planes; a size mismatch fails the cook")
 {
     RegisterVegetationMaskAsset();

@@ -130,6 +130,7 @@ export namespace pipeline
                 {
                     densities = ReadStream(*ctx.source, kVegetationMaskStream);
                 }
+                const usize planeBytes = static_cast<usize>(w) * static_cast<usize>(h);
                 if (densities.Size() == expected)
                 {
                     mask = MakeRef<VegetationMask>(*ctx.allocator, w, h, planes);
@@ -139,9 +140,18 @@ export namespace pipeline
                 {
                     mask = MakeRef<VegetationMask>(*ctx.allocator, w, h, planes); // all zero
                 }
+                else if (densities.Size() % planeBytes == 0)
+                {
+                    // The plane count changed on a painted asset: keep the planes that still
+                    // exist (fresh ones start empty; dropped ones are gone) rather than fail.
+                    const usize had = densities.Size() / planeBytes;
+                    mask = MakeRef<VegetationMask>(*ctx.allocator, w, h, planes);
+                    MemCopy(mask->Densities().Data(), densities.Data(),
+                            Min(had, static_cast<usize>(planes)) * planeBytes);
+                }
                 else
                 {
-                    return Status{ErrorCode::NotSupported}; // a size mismatch
+                    return Status{ErrorCode::NotSupported}; // a size mismatch (dims changed)
                 }
             }
             if (mask.Get() == nullptr || mask->IsEmpty())

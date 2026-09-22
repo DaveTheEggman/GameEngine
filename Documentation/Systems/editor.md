@@ -226,6 +226,12 @@ service, status sink, and the registries:
  `InputSurface`, hover-gated); the page's `OnRender` renders the scene via `foundation.render` into
  the viewport RT (the thin-slice/UISandbox wiring, with the real renderer).
 
+- **Viewport tool refusals are said, not swallowed (2026-09-22):** every `IViewportTool` has an
+ `IsAvailable()` predicate (a terrain brush needs a terrain) and now an `UnavailableReason()`;
+ when the toolbar toggle's activation is refused, the scene page notifies the reason as a
+ warning (the log + the toast) and the toggle snaps back. A brush that has nothing to work on
+ says what the scene lacks, never plays dead.
+
 ### 3.7 Asset pipeline + browser
 
 - **Source DB (XML factory)** = Traktor's source database; **cooked DB (binary factory)** =
