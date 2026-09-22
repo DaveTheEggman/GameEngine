@@ -4,6 +4,7 @@
 // DDS container parse + write: the two header forms and the payload layout.
 
 module;
+#define _CRT_SECURE_NO_WARNINGS
 #include "Core/Prelude.h"
 #include <cstdio>
 #include <cstring>
