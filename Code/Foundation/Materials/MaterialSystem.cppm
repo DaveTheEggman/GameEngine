@@ -101,8 +101,9 @@ export namespace foundation::materials
             }
             if (hasUniforms && material.UniformDataSize() > 0)
             {
-                entries.PushBack(
-                    rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Fragment));
+                // Vertex too: the WIND vertex variant reads the material's Wind* lanes.
+                entries.PushBack(rhi::BindGroupLayoutEntry::UniformBuffer(
+                    0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment));
             }
 
             u32 texBinding = 0, sampBinding = 0;

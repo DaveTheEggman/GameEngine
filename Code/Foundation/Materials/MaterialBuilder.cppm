@@ -196,10 +196,17 @@ export namespace foundation::materials
             .Color(u8"BaseColor", baseColor)
             .Float(u8"Metallic", metallic)
             .Float(u8"Roughness", roughness)
+            // Wind (offsets 24 / 28 / 60 - the cbuffer's spare lanes, so the block stays 64 bytes
+            // and a material without them reads zeros = no sway): metres of sway at full height,
+            // radians per second, and the local height where the sway is full. A strength above 0
+            // selects the WIND vertex variant (MeshRenderer::MaterialWantsWind).
+            .Float(u8"WindStrength", 0.0f)
+            .Float(u8"WindSpeed", 0.0f)
             .Color(u8"EmissiveColor", Float4{0, 0, 0, 1}) // black = none (rgb x EmissiveMap)
             .Float(u8"OcclusionStrength", 1.0f)
             .Float(u8"NormalScale", 1.0f)
             .Float(u8"AlphaCutoff", 0.5f)
+            .Float(u8"WindHeight", 1.0f)
             .Texture(u8"AlbedoMap")
             .Texture(u8"NormalMap")
             .Texture(u8"MetallicRoughnessMap")

@@ -334,6 +334,8 @@ namespace foundation::render
                                      u32 probeBase, u32 probeCount)
     {
         RenderRecordContext ctx{};
+        ctx.timeSeconds = m_timeSeconds;
+        ctx.prevTimeSeconds = m_prevTimeSeconds;
         ctx.view = &view;
         ctx.viewProj =
             drawViewProj; // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
@@ -569,6 +571,7 @@ namespace foundation::render
         m_pass.SetMotionNeeded(m_taaEnabled ||
                                (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal));
         m_pass.SetShadowFarFade(m_shadowFarFade);
+        m_pass.SetTime(m_timeSeconds, m_prevTimeSeconds);
         if (m_pick != nullptr)
         {
             m_pick->BeginFrame(frameIndex); // retire + decode completed pick readbacks
@@ -672,6 +675,8 @@ namespace foundation::render
                                          const RendererRegistry& registry, u32 viewIndex)
     {
         RenderRecordContext ctx{};
+        ctx.timeSeconds = m_timeSeconds;
+        ctx.prevTimeSeconds = m_prevTimeSeconds;
         ctx.view =
             &view; // instance-share cache is keyed by view pointer (prepass fills, forward reuses)
         ctx.viewProj = view.Camera().ViewProjection();
@@ -760,6 +765,8 @@ namespace foundation::render
                                     const Float4x4& viewProj)
     {
         RenderRecordContext ctx{};
+        ctx.timeSeconds = m_timeSeconds;
+        ctx.prevTimeSeconds = m_prevTimeSeconds;
         ctx.view = &view;
         ctx.viewProj = viewProj; // the CROPPED camera projection (PickSystem)
         ctx.viewMatrix = view.Camera().view; // per-view LOD selection, like the prepass
@@ -806,6 +813,8 @@ namespace foundation::render
                                           Span<const Float4> cullBounds, const RenderView* lodView)
     {
         RenderRecordContext ctx{};
+        ctx.timeSeconds = m_timeSeconds;
+        ctx.prevTimeSeconds = m_prevTimeSeconds;
         ctx.view = lodView; // LOD coupling only (null = coarsest); light matrices come below
         if (lodView != nullptr)
         {

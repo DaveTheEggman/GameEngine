@@ -30,6 +30,7 @@ export namespace foundation::shaders
         VertexColors = 1u << 5,   // -> #define VERTEX_COLORS
         ReceiveShadows = 1u << 6, // -> #define RECEIVE_SHADOWS
         GBuffer = 1u << 7, // -> #define GBUFFER (forward MRT: also output view-normal + motion)
+        Wind = 1u << 8,    // -> #define WIND (vertex sway from the material's Wind* properties)
     };
 
     [[nodiscard]] constexpr ShaderFlags operator|(ShaderFlags a, ShaderFlags b) noexcept
@@ -67,6 +68,7 @@ export namespace foundation::shaders
         {ShaderFlags::Emissive, u8"EMISSIVE"},
         {ShaderFlags::VertexColors, u8"VERTEX_COLORS"},
         {ShaderFlags::ReceiveShadows, u8"RECEIVE_SHADOWS"},
+        {ShaderFlags::Wind, u8"WIND"},
     };
 
     // Append a `#define NAME 1` for each set flag (static-literal names - safe to

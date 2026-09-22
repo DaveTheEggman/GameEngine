@@ -287,6 +287,7 @@ namespace engine::render
         m_renderCtx.BeginFrame(slotCount);
         m_retireQueue.Tick(); // free retired GPU resources that have aged past all in-flight frames
         m_frame->SetExposure(m_exposure);
+        m_frame->SetTime(m_timeSeconds); // the WIND sway clock (prev = last frame's)
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
         m_frame->SetShadowParams(m_shadowDistance, m_shadowFarFade);

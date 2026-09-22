@@ -196,6 +196,10 @@ namespace samples
                 layer.mesh = geometry::Primitives::Cone(AppRoot(), 0.24f, 1.4f); // a tuft
                 layer.material = materials::CreatePBR(u8"grass", core::Float4{0.25f, 0.62f, 0.18f, 1.0f},
                                                       0.0f, 0.85f);
+                // Wind: the tufts sway (their tips; the cone's base sits at local y = -0.7).
+                layer.material->SetDefaultFloat(u8"WindStrength", 0.18f);
+                layer.material->SetDefaultFloat(u8"WindSpeed", 2.4f);
+                layer.material->SetDefaultFloat(u8"WindHeight", 0.7f);
                 layer.placement = foundation::vegetation::VegetationPlacement::Splat;
                 layer.splatLayer = 0;
                 layer.density = m_grassDensity;

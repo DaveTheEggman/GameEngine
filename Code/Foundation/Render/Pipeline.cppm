@@ -147,6 +147,8 @@ export namespace foundation::render
             40.0f; // CSM far-fade width in world units (SampleCSM dissolves shadows over the last cascade's far edge)
         u8 debugSemantic =
             0; // editor semantic debug view (ViewDebugSemantic): forward outputs the term, not the lit result
+        f32 timeSeconds = 0.0f;     // the frame's time (RenderFrame::SetTime): the WIND sway phase
+        f32 prevTimeSeconds = 0.0f; // last frame's time (the previous position sways with it)
         // Sky-lighting dimmers from the scene environment (SkySnapshot): scale the forward's
         // IBL diffuse/specular terms without touching the visible sky.
         f32 iblDiffuseIntensity = 1.0f;
@@ -391,6 +393,12 @@ export namespace foundation::render
         // the forward resolve skips the per-instance prev-world lookup (velocity written as 0). Set per frame.
         void SetMotionNeeded(bool needed) noexcept { m_motionNeeded = needed; }
         void SetShadowFarFade(f32 v) noexcept { m_shadowFarFade = v; }
+        // The frame clock (this frame's + last frame's seconds): the WIND sway phase. Set per frame.
+        void SetTime(f32 seconds, f32 prevSeconds) noexcept
+        {
+            m_timeSeconds = seconds;
+            m_prevTimeSeconds = prevSeconds;
+        }
 
         // Once per frame, before composing views: provision + reset this frame's per-worker command
         // pools (used for parallel emit). Reset happens ONCE per frame - a worker bundle's secondary
@@ -484,6 +492,8 @@ export namespace foundation::render
             rhi::TextureFormat::Depth32Float; // depth texture is a graph transient
         bool m_motionNeeded = true;  // per-frame: does any temporal effect read velocity this frame
         f32 m_shadowFarFade = 40.0f; // CSM far-fade width (world units)
+        f32 m_timeSeconds = 0.0f;     // the WIND sway clock (this frame)
+        f32 m_prevTimeSeconds = 0.0f; // ...and last frame's
         Array<ResolvedDraw> m_resolved;      // reused resolve buffer (drained each pass)
         Array<rhi::RenderBundle*> m_bundles; // per-chunk bundles (draw order)
         // Per-(frameIndex, slot) worker command pools for parallel bundle emit.
@@ -642,6 +652,14 @@ export namespace foundation::render
 
         // Linear exposure multiplier applied in the tonemap pass (scene/camera setting).
         void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
+        // The frame's time in seconds (the app's run clock): the WIND vertex sway phase. Set once
+        // per frame before Begin; the previous frame's value rides along for motion vectors.
+        void SetTime(f32 seconds) noexcept
+        {
+            m_prevTimeSeconds = m_timeSeconds;
+            m_timeSeconds = seconds;
+        }
+        [[nodiscard]] f32 TimeSeconds() const noexcept { return m_timeSeconds; }
         // Bloom composite strength + soft-knee prefilter (intensity 0 = off).
         void SetBloom(f32 intensity, f32 threshold, f32 knee) noexcept;
         // Temporal AA: jitters the projection + resolves against per-view history (off = no jitter, no resolve).
@@ -768,6 +786,8 @@ export namespace foundation::render
         rhi::TextureFormat m_overlayStencilFormat = rhi::TextureFormat::Undefined;
         bool m_overlayStencilProbed = false;
         f32 m_exposure = 1.0f; // linear exposure multiplier (tonemap input)
+        f32 m_timeSeconds = 0.0f;     // SetTime: this frame's clock (WIND sway)
+        f32 m_prevTimeSeconds = 0.0f; // last frame's clock
         bool m_fxaaEnabled = false;
         f32 m_fxaaSubpixel = 0.75f;
         bool m_instanceSharing = true; // share prepass->forward instance data (A/B toggle)

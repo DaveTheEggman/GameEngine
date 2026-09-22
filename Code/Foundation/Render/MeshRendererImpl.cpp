@@ -945,7 +945,8 @@ namespace foundation::render
         // would collapse every local lookup onto one atlas row.
         vd.shadowParams.y = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
         vd.debugParams.x = static_cast<f32>(ctx.debugSemantic);
-        vd.iblParams = Float4{ctx.iblDiffuseIntensity, ctx.iblSpecularIntensity, 0.0f, 0.0f};
+        vd.iblParams = Float4{ctx.iblDiffuseIntensity, ctx.iblSpecularIntensity, ctx.timeSeconds,
+                              ctx.prevTimeSeconds}; // zw = the WIND sway clock
         // Ring base + THIS view's scene's entry base (scenes' entries are concatenated per frame;
         // lights carry scene-relative shadowIndex values).
         vd.localShadowBase = m_localShadowBase + ctx.localShadowEntryBase;
@@ -1052,11 +1053,15 @@ namespace foundation::render
             // Pass-level view: the cropped VP, no group id (draws carry their own).
             PickViewData pv{};
             pv.viewProj = ctx.viewProj;
+            pv.windTime = ctx.timeSeconds;
             *static_cast<PickViewData*>(sv.ptr) = pv;
         }
         else
         {
-            *static_cast<ShadowViewData*>(sv.ptr) = ShadowViewData{ctx.viewProj};
+            ShadowViewData svd{};
+            svd.lightViewProj = ctx.viewProj;
+            svd.wind.x = ctx.timeSeconds;
+            *static_cast<ShadowViewData*>(sv.ptr) = svd;
         }
         const u32 shadowViewOffset = sv.byteOffset;
 
@@ -1403,8 +1408,9 @@ namespace foundation::render
         // Masked casters cast holey shadows via the alpha-test fragment (needs the material set 2).
         const bool masked = md.material != nullptr &&
                             md.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ false, masked)
-                                                : ShadowConfigFor(ctx, /*instanced*/ false, masked);
+        const bool wind = MaterialWantsWind(md.material); // set 2 too
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ false, masked, wind)
+                                                : ShadowConfigFor(ctx, /*instanced*/ false, masked, wind);
         if (pick && md.material != nullptr)
         {
             config.cullMode = md.material->pipeline.cullMode; // a two-sided material picks both faces
@@ -1425,7 +1431,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutSingle;
-        if (masked)
+        if (masked || wind)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*md.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ false);
@@ -1507,8 +1513,9 @@ namespace foundation::render
                              head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
         const bool masked = head.material != nullptr &&
                             head.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked)
-                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        const bool wind = MaterialWantsWind(head.material); // set 2 too
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked, wind)
+                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked, wind);
         if (pick && head.material != nullptr)
         {
             config.cullMode = head.material->pipeline.cullMode;
@@ -1520,7 +1527,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
-        if (masked)
+        if (masked || wind)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*head.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
@@ -1756,6 +1763,7 @@ namespace foundation::render
             }
             PickViewData pv{};
             pv.viewProj = ctx.viewProj;
+            pv.windTime = ctx.timeSeconds;
             pv.pickIndex = EntityTag::Index(mm.entityId) + 1u;
             pv.pickGeneration = EntityTag::Generation(mm.entityId);
             *static_cast<PickViewData*>(sv.ptr) = pv;
@@ -1763,8 +1771,9 @@ namespace foundation::render
         }
         const bool masked = mm.material != nullptr &&
                             mm.material->pipeline.blendMode == materials::BlendMode::Masked;
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked)
-                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked);
+        const bool wind = MaterialWantsWind(mm.material); // set 2 too
+        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked, wind)
+                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked, wind);
         if (pick && mm.material != nullptr)
         {
             config.cullMode = mm.material->pipeline.cullMode;
@@ -1776,7 +1785,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
-        if (masked)
+        if (masked || wind)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mm.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
@@ -1845,10 +1854,15 @@ namespace foundation::render
     }
 
     materials::PipelineConfig MeshRenderer::ShadowConfigFor(const RenderRecordContext& ctx,
-                                                            bool instanced, bool masked)
+                                                            bool instanced, bool masked,
+                                                            bool wind)
     {
         materials::PipelineConfig c{};
         c.shaderName = u8"shadow_depth";
+        if (wind)
+        {
+            c.shaderFlags |= shaders::ShaderFlags::Wind; // the caster sways with the card
+        }
         c.vertexLayout = materials::VertexLayoutType::Mesh;
         c.instanced = instanced;
         if (instanced)
@@ -1891,10 +1905,14 @@ namespace foundation::render
     }
 
     materials::PipelineConfig MeshRenderer::PickConfigFor(const RenderRecordContext& ctx,
-                                                          bool instanced, bool masked)
+                                                          bool instanced, bool masked, bool wind)
     {
         materials::PipelineConfig c{};
         c.shaderName = u8"pick_ids";
+        if (wind)
+        {
+            c.shaderFlags |= shaders::ShaderFlags::Wind; // the pick follows the swayed card
+        }
         c.vertexLayout = materials::VertexLayoutType::Mesh;
         c.instanced = instanced;
         if (instanced)
@@ -1934,6 +1952,10 @@ namespace foundation::render
         if (instanced)
         {
             config.shaderFlags |= shaders::ShaderFlags::Instanced;
+        }
+        if (MaterialWantsWind(md.material))
+        {
+            config.shaderFlags |= shaders::ShaderFlags::Wind; // the material's Wind* lanes sway it
         }
         // Opaque + masked render the MRT G-buffer pass: target 0 = shaded color (format overridden
         // per-view at build); targets 1/2 = view-space normal + motion vector (the GBUFFER permutation
@@ -2037,6 +2059,27 @@ namespace foundation::render
         m_instanceStorage.PushBack(Move(created));       // owns the instance
         m_instances.InsertOrAssign(material->uid, inst); // lookup (storage owns the instance)
         return inst;
+    }
+
+    bool MeshRenderer::MaterialWantsWind(const materials::Material* material) noexcept
+    {
+        if (material == nullptr)
+        {
+            return false;
+        }
+        const materials::MaterialPropertyDef* strength = material->FindProperty(u8"WindStrength");
+        if (strength == nullptr || strength->type != materials::MaterialPropertyType::Float)
+        {
+            return false;
+        }
+        const Span<const u8> defaults = material->DefaultUniformData();
+        if (static_cast<usize>(strength->offset) + sizeof(f32) > defaults.Size())
+        {
+            return false;
+        }
+        f32 value = 0.0f;
+        MemCopy(&value, defaults.Data() + strength->offset, sizeof(f32));
+        return value > 0.0f;
     }
 
     rhi::BindGroup* MeshRenderer::MaterialBindGroup(materials::Material* material)
@@ -2442,10 +2485,10 @@ namespace foundation::render
             return false;
         }
         rhi::BindGroupEntry be[] = {
-            // Range = the larger of the two layouts that read this slot: ShadowView (64) and the
+            // Range = the larger of the two layouts that read this slot: ShadowView (80) and the
             // pick pass's PickView (80). WebGPU validates the bound size against the shader's
             // declared cbuffer, so the range must cover both; the slot (256) has room.
-            rhi::BindGroupEntry::BufferEntry(buf, 0, sizeof(PickViewData)),
+            rhi::BindGroupEntry::BufferEntry(buf, 0, Max(sizeof(PickViewData), sizeof(ShadowViewData))),
             rhi::BindGroupEntry::BufferEntry(boneBuf, 0,
                                              m_boneDeviceBytes), // t4: skinning pool
         };

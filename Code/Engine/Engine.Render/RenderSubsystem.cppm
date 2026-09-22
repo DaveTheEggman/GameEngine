@@ -166,6 +166,11 @@ export namespace engine::render
         // values over the scene's authored ones for exposure/bloom/AO. Untouched (the editor path), the
         // scene's authored settings drive. (AO debug below stays a pure frame-global renderer toggle.)
 
+        // The app's run clock in seconds, handed to the frame every BeginRendering: the WIND
+        // vertex sway phase (DefaultApplication feeds it from its OnUpdate accumulator).
+        void SetTime(f32 seconds) noexcept { m_timeSeconds = seconds; }
+        [[nodiscard]] f32 TimeSeconds() const noexcept { return m_timeSeconds; }
+
         // Linear exposure multiplier applied in the tonemap (default 1.0).
         void SetExposure(f32 exposure) noexcept;
         [[nodiscard]] f32 Exposure() const noexcept { return m_exposure; }
@@ -373,6 +378,7 @@ export namespace engine::render
         RenderScriptBinding m_scriptBinding;                   // published by ExposeToScript (DebugDraw facade)
         bool m_globalPostActive = false; // a post setter was called => global override wins
         f32 m_exposure = 1.0f;
+        f32 m_timeSeconds = 0.0f; // SetTime (the WIND sway clock)
         bool m_bloomEnabled = true;
         AoMode m_aoMode = AoMode::Off; // AO off by default (UI combo)
         i32 m_aoDebug = 0;             // AO debug view (0=off)

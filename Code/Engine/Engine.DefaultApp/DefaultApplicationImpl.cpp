@@ -100,6 +100,10 @@ namespace engine::runtime
             }
         }
         m_runSeconds += deltaTime;
+        if (m_render != nullptr)
+        {
+            m_render->SetTime(m_runSeconds); // the WIND sway clock
+        }
         if (m_exitAfterSeconds > 0.0f && m_runSeconds >= m_exitAfterSeconds)
         {
             host.RequestExit(0);

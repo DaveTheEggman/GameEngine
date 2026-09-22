@@ -9,7 +9,7 @@ add_executable(Render.Tests
     LodSelectionTests.cpp
     RetireQueueTests.cpp
     PickingTests.cpp
-    MultiMeshLifecycleTests.cpp)
+    MultiMeshLifecycleTests.cpp WindTests.cpp)
 
 target_link_libraries(Render.Tests PRIVATE Foundation::VFS
     Foundation::Render Foundation::RenderGraph Foundation::RHI.Null Foundation::Geometry Foundation::Materials Foundation::Materials.PipelineCache Foundation::Shaders.System doctest::doctest)

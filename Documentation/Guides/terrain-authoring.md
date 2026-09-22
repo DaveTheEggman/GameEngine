@@ -180,6 +180,12 @@ like the splat brush. Placement **SplatTimesMask** grows only where BOTH the spl
 mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
 regrow only the chunks under the brush; Save writes the planes back to the mask asset.
 
+**Wind.** A layer's material sways when its **Wind Strength** (metres at the card's top) is above
+zero; set **Wind Speed** (radians per second) and **Wind Height** (the local height, in the
+mesh's own units, where the sway is full - roots at or below the mesh origin stay put). Card and
+tuft meshes authored with their root at the origin sway naturally; a rock material leaves the
+strength at zero and never moves. The sway follows the card into its shadow and its selection.
+
 Reorder layers with the list's arrows and remove one with its cross; every edit is one undo
 step. Sculpting or painting regrows only the touched chunks; the chunks build as the camera
 reaches them, a few per frame, so a cold scene fills in over the first frames rather than

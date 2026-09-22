@@ -503,8 +503,22 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   plane with the splat brush's stroke model, one command per stroke, the source written back on
   Save; every stamp hands the manager the footprint rect it touched
   (`InvalidateFootprint`), so only those chunks regrow while painting.
-- **Deferred.** Wind (P1b: the `WIND` vertex variant off a view time lane and material
-  properties), the prop scatter brush (P2), impostors and GPU-driven scatter, per-view fade
+- **Wind (P1, 2026-09-22).** `ShaderFlags::Wind` (`WIND`, declared in the forward, shadow-depth
+  and pick vertex shaders' `variants:` lines, so the cooked pack carries the lattice): a
+  world-space sway in `wind.hlsli`, `sin(time * WindSpeed + hash(world XZ)) * WindStrength *
+  mask^2` with `mask = saturate(localY / WindHeight)` (roots at local y <= 0 stay, tips move),
+  applied to the current and the previous-frame position so motion vectors follow it. The three
+  parameters are MATERIAL properties in the forward set-2 cbuffer's spare lanes (offsets 24, 28
+  and 60 - the block stays 64 bytes, `CreatePBR` declares them at 0 / 0 / 1), so a material
+  without them reads zeros; the renderer selects the variant only when a material's
+  `WindStrength` default is above zero (`MeshRenderer::MaterialWantsWind`), binding set 2 to the
+  depth and pick passes for it as it does for masked casters, so every other material is
+  byte-identical to before. Time: `RenderFrame::SetTime` (fed by `RenderSubsystem::SetTime`
+  from the default application's run clock) rides `IblParams.zw` (this and last frame's seconds),
+  `ShadowView.ShadowWind.x` (the ShadowView cbuffer grew to 80 bytes) and `PickView.WindTime`.
+  `Render.Backend.Tests` WindProbe: a segmented card's tips shift between two frame times while
+  its root rows stay, and a still material renders byte-identical; Vulkan + WebGPU.
+- **Deferred.** The prop scatter brush (P2), impostors and GPU-driven scatter, per-view fade
   prefixes (P3).
 
 ## 10. Materials & shaders

@@ -153,6 +153,11 @@ export namespace foundation::render
         // buffer for the rest of the run.
         static constexpr u32 kMultiMeshEvictFrames = 120;
 
+        // Whether a material opts into the WIND vertex variant: it declares a "WindStrength"
+        // float whose default is above zero. Every other material keeps the variant it had, so
+        // a scene without wind materials renders byte-identical to before the flag existed.
+        [[nodiscard]] static bool MaterialWantsWind(const materials::Material* material) noexcept;
+
         // Instances a set's per-frame region holds for `count` live instances: rounded up to a
         // multiple of 16 so every region's byte offset (capacity x 144-byte InstanceData) is a
         // multiple of 2304 = 9 x 256, the strictest storage-buffer offset alignment any backend
@@ -278,7 +283,8 @@ export namespace foundation::render
         struct ShadowViewData
         {
             Float4x4 lightViewProj;
-        }; // 64  (cbuffer ShadowView)
+            Float4 wind = Float4{0, 0, 0, 0}; // x = time (s) for the WIND sway
+        }; // 80  (cbuffer ShadowView)
         // GPU-layout contract: these mirror HLSL cbuffer/StructuredBuffer elements and use the PACKED
         // Float4x4 (64B, tight). A stray SIMD Matrix4 (also 64B but 16-byte aligned) would still trip the
         // size math via padding shifts - the guards pin the exact byte layout the shaders expect.
@@ -291,9 +297,11 @@ export namespace foundation::render
         struct PickViewData
         {
             Float4x4 viewProj;
-            u32 pickIndex = 0, pickGeneration = 0, p0 = 0, p1 = 0;
+            u32 pickIndex = 0, pickGeneration = 0;
+            f32 windTime = 0.0f; // time (s) for the WIND sway (the pick follows the swayed card)
+            u32 p1 = 0;
         }; // 80  (cbuffer PickView; shares the shadow-view ring's 256B slots)
-        static_assert(sizeof(ShadowViewData) == 64, "cbuffer ShadowView layout drift");
+        static_assert(sizeof(ShadowViewData) == 80, "cbuffer ShadowView layout drift");
         static_assert(sizeof(PickViewData) == 80, "cbuffer PickView layout drift");
         // MultiMesh sets a pick pass can id per frame (each takes a shadow-view ring slot).
         static constexpr u32 kMaxPickMultiMeshSets = 64;
@@ -371,12 +379,14 @@ export namespace foundation::render
         // Depth-only PSO config for the shadow pass. Back-face cull + a small depth bias/slope to push
         // shadow acne off lit surfaces (tuned on GPU; 5.2 refines with normal-offset bias in the shader).
         [[nodiscard]] static materials::PipelineConfig
-        ShadowConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked = false);
+        ShadowConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked = false,
+                        bool wind = false);
 
         // Pick-id PSO config: the depth-only layouts with the `pick_ids` fragment writing the
         // RG32Uint id target (ctx.colorFormat), single-sample, no bias, masked = alpha-tested.
         [[nodiscard]] static materials::PipelineConfig
-        PickConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked);
+        PickConfigFor(const RenderRecordContext& ctx, bool instanced, bool masked,
+                      bool wind = false);
 
         [[nodiscard]] static materials::PipelineConfig
         ConfigFor(const MeshRenderData& md, const RenderRecordContext& ctx, bool instanced);
