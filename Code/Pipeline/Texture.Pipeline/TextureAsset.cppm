@@ -18,6 +18,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 #include <initializer_list>
 
@@ -31,6 +32,7 @@ import foundation.texture;
 import foundation.texture.resource;
 import foundation.image;
 import foundation.image.io;
+import foundation.image.dds;
 import foundation.content;
 import texture.compression;
 
@@ -405,16 +407,28 @@ export namespace pipeline{
             {
                 return Status{bytes.Error()};
             }
+            const Span<const u8> raw(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                     bytes.Value().Size());
+            // A DDS is GPU-ready already: its levels pass through when they fit, else level 0
+            // decodes and cooks like any image (sniffed by magic, never by extension).
+            if (image::dds::IsDds(raw))
+            {
+                return BuildDds(ta, ctx, raw);
+            }
             image::Image image;
-            const Status loaded = image::io::LoadImageFromMemory(
-                Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
-                               bytes.Value().Size()),
-                image);
+            const Status loaded = image::io::LoadImageFromMemory(raw, image);
             if (!loaded.IsOk())
             {
                 return loaded;
             }
+            return BuildFromImage(ta, ctx, image);
+        }
 
+    private:
+        // The image path: a decoded 2D image -> mips by the asset's flag -> the policy's format.
+        [[nodiscard]] Status BuildFromImage(const TextureAsset& ta, pipeline::AssetBuildContext& ctx,
+                                            const image::Image& image)
+        {
             TextureResource resource;
             resource.width = image.Width();
             resource.height = image.Height();
@@ -470,7 +484,138 @@ export namespace pipeline{
                 u8"data", Span<const byte>(mipPixels.Data(), mipPixels.Size()));
         }
 
-    private:
+        // === DDS sources ========================================================================
+        // A DDS carries GPU-ready levels (BC blocks, a mip chain). They pass through UNTOUCHED -
+        // lossless against the package, no encode - when: the authored compression is not None,
+        // the target reads BC, the block format fits the asset's usage by the policy table's own
+        // rules (Colour = BC1/BC2/BC3/BC7; Normal = BC7 only - never BC5, until the shaders
+        // reconstruct Z; Mask = BC4 or BC7; HDR = BC6H), and the file carries the mip chain the
+        // asset asks for. Otherwise level 0 decodes and cooks as a plain image (mips generated,
+        // format by policy): the decode-only fallback, also the ASTC / uncompressed route.
+        [[nodiscard]] static rhi::TextureFormat DdsFormatToRhi(image::dds::DdsFormat format,
+                                                                bool srgb)
+        {
+            using D = image::dds::DdsFormat;
+            using F = rhi::TextureFormat;
+            switch (image::dds::WithSrgb(format, srgb))
+            {
+            case D::BC1: return F::BC1RGBAUnorm;
+            case D::BC1Srgb: return F::BC1RGBAUnormSrgb;
+            case D::BC2: return F::BC2RGBAUnorm;
+            case D::BC2Srgb: return F::BC2RGBAUnormSrgb;
+            case D::BC3: return F::BC3RGBAUnorm;
+            case D::BC3Srgb: return F::BC3RGBAUnormSrgb;
+            case D::BC4: return F::BC4RUnorm;
+            case D::BC4Snorm: return F::BC4RSnorm;
+            case D::BC5: return F::BC5RGUnorm;
+            case D::BC5Snorm: return F::BC5RGSnorm;
+            case D::BC6HUf: return F::BC6HRGBUfloat;
+            case D::BC6HSf: return F::BC6HRGBFloat;
+            case D::BC7: return F::BC7RGBAUnorm;
+            case D::BC7Srgb: return F::BC7RGBAUnormSrgb;
+            default: return F::RGBA8Unorm; // uncompressed formats never pass through
+            }
+        }
+
+        [[nodiscard]] static bool DdsFitsUsage(image::dds::DdsFormat format,
+                                               texcomp::TextureUsage usage)
+        {
+            using D = image::dds::DdsFormat;
+            const D f = image::dds::WithSrgb(format, false); // the twin is the asset's call
+            switch (usage)
+            {
+            case texcomp::TextureUsage::Color:
+                return f == D::BC1 || f == D::BC2 || f == D::BC3 || f == D::BC7;
+            case texcomp::TextureUsage::Normal:
+                return f == D::BC7;
+            case texcomp::TextureUsage::Mask:
+                return f == D::BC4 || f == D::BC7;
+            case texcomp::TextureUsage::HDR:
+                return f == D::BC6HUf || f == D::BC6HSf;
+            }
+            return false;
+        }
+
+        [[nodiscard]] static bool DdsPassesThrough(const TextureAsset& ta,
+                                                   const image::dds::DdsImage& dds,
+                                                   const texcomp::TargetProfile& profile)
+        {
+            if (ta.compression == texcomp::CompressionChoice::None || !profile.bc)
+            {
+                return false;
+            }
+            if (!image::dds::IsBlockCompressed(dds.format) || !DdsFitsUsage(dds.format, ta.usage))
+            {
+                return false;
+            }
+            // Mips wanted but not in the file: decode and generate them.
+            const bool hasSize = dds.width > 1 || dds.height > 1;
+            if (ta.generateMipmaps && dds.mipLevels < 2 && hasSize)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        [[nodiscard]] Status BuildDds(const TextureAsset& ta, pipeline::AssetBuildContext& ctx,
+                                      Span<const u8> raw)
+        {
+            image::dds::DdsImage dds;
+            const Status loaded = image::dds::LoadDds(raw, dds);
+            if (!loaded.IsOk())
+            {
+                LOG_ERROR(u8"Texture", u8"{}: DDS not readable ({})", ta.fileName.View(),
+                          loaded.Code() == ErrorCode::NotSupported ? u8"a volume or a format outside the engine's set"
+                                                                    : u8"truncated or malformed");
+                return loaded;
+            }
+            if (dds.cubemap || dds.arrayLayers != 1 || ta.shape != TextureShape::Texture2D)
+            {
+                LOG_ERROR(u8"Texture", u8"{}: only 2D DDS sources cook (cubemap / array DDS: not yet)",
+                          ta.fileName.View());
+                return ErrorCode::NotSupported;
+            }
+            if (!DdsPassesThrough(ta, dds, ProfileFor(ctx)))
+            {
+                image::Image image;
+                const Status decoded = image::dds::DecodeLevel(dds, 0, 0, image);
+                if (!decoded.IsOk())
+                {
+                    return decoded;
+                }
+                return BuildFromImage(ta, ctx, image);
+            }
+
+            const u32 levels = ta.generateMipmaps ? dds.mipLevels : 1u; // no mips asked: level 0
+            usize payload = 0;
+            for (u32 level = 0; level < levels; ++level)
+            {
+                payload += dds.LevelSize(level);
+            }
+            TextureResource resource;
+            resource.width = dds.width;
+            resource.height = dds.height;
+            resource.depthOrArrayLayers = 1;
+            resource.mipLevels = levels;
+            resource.format =
+                DdsFormatToRhi(dds.format, ta.colorSpace == image::ImageColorSpace::Srgb);
+            resource.shape = ta.shape;
+            resource.minFilter = ta.minFilter;
+            resource.magFilter = ta.magFilter;
+            resource.wrapU = ta.wrapU;
+            resource.wrapV = ta.wrapV;
+            resource.wrapW = ta.wrapW;
+            resource.generateMipmaps = ta.generateMipmaps;
+            resource.anisotropy = ta.anisotropy;
+            const Status wrote = ctx.output->WriteObject(resource);
+            if (!wrote.IsOk())
+            {
+                return wrote;
+            }
+            return ctx.output->WriteData(
+                u8"data", Span<const byte>(reinterpret_cast<const byte*>(dds.data.Data()), payload));
+        }
+
         // === Block compression ==================================================================
         // Resolve the cooked format from the asset's authored usage/compression + this cook's target
         // profile (the always-BC desktop host), then, when the policy picks a BC format, encode
@@ -874,7 +1019,7 @@ export namespace pipeline{
 
         [[nodiscard]] bool Accepts(StringView extension) const override
         {
-            for (StringView ext : {u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr"})
+            for (StringView ext : {u8"png", u8"jpg", u8"jpeg", u8"tga", u8"bmp", u8"hdr", u8"dds"})
             {
                 if (extension == ext)
                 {
@@ -882,6 +1027,65 @@ export namespace pipeline{
                 }
             }
             return false;
+        }
+
+        // Usage inference from the universal texture-pack name tokens: the result is just the
+        // stored fields - the page shows what was inferred and the author corrects it like any
+        // edit. Unrecognized names keep the Color default.
+        static void SetupForInferredUsage(TextureAsset& asset, StringView stem)
+        {
+            switch (InferTextureUsage(stem))
+            {
+            case texcomp::TextureUsage::Normal:
+                asset.SetupForNormalMap();
+                break;
+            case texcomp::TextureUsage::Mask:
+                asset.SetupForDataMask();
+                break;
+            default:
+                asset.SetupFor3D();
+                break;
+            }
+        }
+
+        // A DDS names its own facts: BC5 is a normal map, BC4 a data mask, a float format an
+        // HDR environment, and a DX10 header settles the colour space for a colour map. The
+        // name tokens decide the rest. (An unreadable DDS imports like any file; the cook says why.)
+        static void SetupForDds(TextureAsset& asset, StringView sourcePath, StringView stem)
+        {
+            Result<Array<byte>> bytes = ReadFile(sourcePath);
+            image::dds::DdsImage dds;
+            if (!bytes.HasValue() ||
+                !image::dds::LoadDds(Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                                    bytes.Value().Size()),
+                                     dds)
+                     .IsOk())
+            {
+                SetupForInferredUsage(asset, stem);
+                return;
+            }
+            using D = image::dds::DdsFormat;
+            if (image::dds::IsHdr(dds.format))
+            {
+                asset.SetupForEquirectangularSkybox();
+            }
+            else if (dds.format == D::BC5 || dds.format == D::BC5Snorm)
+            {
+                asset.SetupForNormalMap();
+            }
+            else if (dds.format == D::BC4 || dds.format == D::BC4Snorm)
+            {
+                asset.SetupForDataMask();
+            }
+            else
+            {
+                SetupForInferredUsage(asset, stem);
+            }
+            if (dds.colorSpaceKnown && asset.usage == texcomp::TextureUsage::Color)
+            {
+                asset.colorSpace = image::dds::IsSrgb(dds.format) ? image::ImageColorSpace::Srgb
+                                                                  : image::ImageColorSpace::Linear;
+            }
         }
 
         [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
@@ -941,27 +1145,18 @@ export namespace pipeline{
 
             TextureAsset asset;
             asset.fileName = foundation::vfs::SourcePath(fileName.Value().AsView());
-            if (pipeline::FileExtensionLower(sourcePath) == u8"hdr")
+            const String extension = pipeline::FileExtensionLower(sourcePath);
+            if (extension == u8"hdr")
             {
                 asset.SetupForEquirectangularSkybox(); // .hdr = an environment, not a surface map
             }
+            else if (extension == u8"dds")
+            {
+                SetupForDds(asset, sourcePath, stem);
+            }
             else
             {
-                // Usage inference from the universal texture-pack name tokens: the result is
-                // just the stored fields - the page shows what was inferred and the author
-                // corrects it like any edit. Unrecognized names keep the Color default.
-                switch (InferTextureUsage(stem))
-                {
-                case texcomp::TextureUsage::Normal:
-                    asset.SetupForNormalMap();
-                    break;
-                case texcomp::TextureUsage::Mask:
-                    asset.SetupForDataMask();
-                    break;
-                default:
-                    asset.SetupFor3D();
-                    break;
-                }
+                SetupForInferredUsage(asset, stem);
             }
             const Status written = instance->WriteObject(asset);
             if (!written.IsOk())

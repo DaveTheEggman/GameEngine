@@ -224,8 +224,9 @@ add_library(bc7enc STATIC
     bc7enc/bc7decomp.cpp)
 add_library(ThirdParty::Bc7enc ALIAS bc7enc)
 
-# bcdec - vendored single-header BCn DECODER (github.com/iOrange/bcdec, MIT/Unlicense). Test-only:
-# the reference the engine's BC6H encoder is checked against. Header-only interface target.
+# bcdec - vendored single-header BCn DECODER (github.com/iOrange/bcdec, MIT/Unlicense). Implemented
+# ONCE in Foundation::Image.DDS (the DDS level decoder); the compression tests include it a second
+# time as the reference the engine's BC6H encoder is checked against. Header-only interface target.
 add_library(bcdec INTERFACE)
 add_library(ThirdParty::Bcdec ALIAS bcdec)
 target_include_directories(bcdec SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/bcdec)

@@ -471,6 +471,22 @@ namespace pipeline
         // metal-rough / occlusion) must stay LINEAR - sRGB-decoding them corrupts the values (a flat
         // normal 0.5 would linearize to ~0.21). Color maps (albedo, emissive) are sRGB-encoded.
         // A texture referenced both ways classifies as linear (data correctness wins; rare).
+        // Which textures a material binds in its NORMAL slot (the usage a file-backed texture
+        // asset carries; the other linear slots - MR / rough / metal / AO - are data masks).
+        inline void ClassifyNormalTextures(const model::Model& mdl, Array<bool>& outNormal)
+        {
+            outNormal.Clear();
+            outNormal.Resize(mdl.textures().Size(), false);
+            for (const model::ModelMaterial* m : mdl.materials())
+            {
+                if (m != nullptr && m->normalTextureIndex >= 0 &&
+                    static_cast<usize>(m->normalTextureIndex) < outNormal.Size())
+                {
+                    outNormal[static_cast<usize>(m->normalTextureIndex)] = true;
+                }
+            }
+        }
+
         inline void ClassifyLinearTextures(const model::Model& mdl, Array<bool>& outLinear)
         {
             outLinear.Clear();

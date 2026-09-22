@@ -28,6 +28,7 @@ import foundation.model;
 import foundation.model.io;
 import foundation.image;
 import foundation.image.io;
+import foundation.image.dds;
 namespace image = foundation::image;
 
 export namespace foundation::model::fbx
@@ -455,6 +456,28 @@ export namespace foundation::model::fbx
 
                     bool loaded = false;
                     std::string resolvedPath;
+                    // Take the file at `path`: a DDS stays undecoded (GPU-ready; the pipeline
+                    // passes its levels through from the file), anything else decodes.
+                    auto takeFile = [&](const std::string& path) -> bool
+                    {
+                        const String utf8 = Utf8FromC(path.c_str());
+                        if (image::dds::IsDdsFile(utf8.AsView()))
+                        {
+                            modelTex->setSourceFile(utf8.AsView());
+                            resolvedPath = path;
+                            loaded = true;
+                            return true;
+                        }
+                        foundation::image::Image img;
+                        if (image::io::LoadImage(utf8.AsView(), img) == ErrorCode::Ok)
+                        {
+                            storeImageData(img, modelTex);
+                            resolvedPath = path;
+                            loaded = true;
+                            return true;
+                        }
+                        return false;
+                    };
 
                     if (!relPath.empty())
                     {
@@ -470,14 +493,7 @@ export namespace foundation::model::fbx
 
                         if (std::filesystem::exists(imagePath))
                         {
-                            foundation::image::Image img;
-                            if (image::io::LoadImage(Utf8FromC(imagePath.c_str()), img) ==
-                                ErrorCode::Ok)
-                            {
-                                storeImageData(img, modelTex);
-                                resolvedPath = imagePath;
-                                loaded = true;
-                            }
+                            takeFile(imagePath);
                         }
                         else
                         {
@@ -492,14 +508,7 @@ export namespace foundation::model::fbx
                                 auto candidatePath = (parentDir / relPath).string();
                                 if (std::filesystem::exists(candidatePath))
                                 {
-                                    foundation::image::Image img;
-                                    if (image::io::LoadImage(Utf8FromC(candidatePath.c_str()),
-                                                             img) == ErrorCode::Ok)
-                                    {
-                                        storeImageData(img, modelTex);
-                                        resolvedPath = candidatePath;
-                                        loaded = true;
-                                    }
+                                    takeFile(candidatePath);
                                 }
                                 searchDir = parentDir;
                             }
@@ -510,13 +519,7 @@ export namespace foundation::model::fbx
                     if (!loaded && tex->filename.data && tex->filename.length > 0)
                     {
                         std::string absPath(tex->filename.data, tex->filename.length);
-                        foundation::image::Image img;
-                        if (image::io::LoadImage(Utf8FromC(absPath.c_str()), img) == ErrorCode::Ok)
-                        {
-                            storeImageData(img, modelTex);
-                            resolvedPath = absPath;
-                            loaded = true;
-                        }
+                        takeFile(absPath);
                     }
 
                     if (loaded)

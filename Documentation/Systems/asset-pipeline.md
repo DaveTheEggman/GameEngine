@@ -109,7 +109,27 @@ The bridge from cooked products to live scenes:
   cooked DB + `ResolveSceneResources` on scene open, and inspector resource-ref picker rows
   (exact `Ref<T>` TypeInfo match, undoable). Import: `IShell::DrainDroppedFiles` (SDL3 drop
   events) -> `ImporterRegistry` (by extension) -> copy into `Sources/` + a typed Asset (e.g.
-  `TextureFileImporter` for png/jpg/tga/bmp/hdr).
+  `TextureFileImporter` for png/jpg/tga/bmp/hdr/dds).
+- **DDS sources** (`foundation.image.dds`, 2026-09-22): a DDS is a GPU-ready container
+  (BC1-BC7 / BC6H blocks, a mip chain, legacy FourCC or DX10 header). The module reads it as-is
+  (`LoadDds` keeps the payload bytes), decodes any level through bcdec (`DecodeLevel`: RGBA8,
+  or RGBA32F for the float formats; BC5 / RG8 get a reconstructed Z so a two-channel normal
+  reads whole), and writes the DX10 form. Every generic image loader sniffs the magic and
+  hands back level 0, so thumbnails, pages and model loaders read DDS without knowing it.
+  The texture builder PASSES THE LEVELS THROUGH untouched when the target reads BC, the
+  authored compression is not None, the block format fits the asset's usage by the policy
+  table's own rules (Colour = BC1/BC2/BC3/BC7; Normal = BC7 only - never BC5, until the shaders
+  reconstruct Z; Mask = BC4/BC7; HDR = BC6H) and the file carries the mip chain the asset asks
+  for; otherwise level 0 decodes and cooks like any image (the ASTC route, the None escape hatch,
+  a BC5 normal, a chain-less file wanting mips). The sRGB / linear twin of a block format is the
+  asset's colour space (same bytes, another GPU view); a DX10 header settles it at import for a
+  colour map, and BC5 / BC4 / float headers pick the normal / mask / HDR presets. A model that
+  references DDS files (Bistro) keeps them on disk: the loaders leave a DDS undecoded
+  (`ModelTexture::sourceFile`), the model importer copies it into Sources/ and creates a
+  FILE-BACKED TextureAsset with the material slot's usage, and the cook passes it through.
+  The glTF loader prefers the `MSFT_texture_dds` image over a texture's PNG `source` and maps
+  `KHR_materials_pbrSpecularGlossiness` (diffuse -> base colour, 1 - glossiness -> roughness).
+  Cubemap / array / volume DDS: not yet (the cook refuses with NotSupported).
 - **Asset browser** (`AssetsView`): source-DB-backed - a `Group` tree + a filtered instance
   grid/list with cook badges and a context menu (New / Import File / Cook / Rebuild / Rename /
   Delete / New Group); double-click opens a page (scene) or a properties popup; instances carry a

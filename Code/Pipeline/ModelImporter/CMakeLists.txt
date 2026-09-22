@@ -11,7 +11,7 @@ target_link_libraries(ModelImporter
         Foundation::Model     Foundation::Model.IO  Foundation::Model.GLTF  Foundation::Model.FBX
         Foundation::Geometry  Foundation::Geometry.Resource     Pipeline::Geometry
         Foundation::Materials Foundation::Materials.Resource Pipeline::Materials
-        Foundation::Texture.Resource  Pipeline::Texture  Foundation::Image
+        Foundation::Texture.Resource  Pipeline::Texture  Foundation::Image Foundation::Image.IO
         Foundation::Animation Foundation::Animation.Resource Pipeline::Animation
         Foundation::Content   Foundation::Resource   Pipeline::Core
         Foundation::Model.Resource

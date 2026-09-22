@@ -80,7 +80,8 @@ export namespace foundation::model
             : mimeType(static_cast<String&&>(other.mimeType)), samplerIndex(other.samplerIndex),
               width(other.width), height(other.height), pixelFormat(other.pixelFormat),
               m_name(static_cast<String&&>(other.m_name)),
-              m_uri(static_cast<String&&>(other.m_uri)), m_data(other.m_data),
+              m_uri(static_cast<String&&>(other.m_uri)),
+              m_sourceFile(static_cast<String&&>(other.m_sourceFile)), m_data(other.m_data),
               m_dataSize(other.m_dataSize)
         {
             other.m_data = nullptr;
@@ -93,6 +94,7 @@ export namespace foundation::model
                 delete[] m_data;
                 m_name = static_cast<String&&>(other.m_name);
                 m_uri = static_cast<String&&>(other.m_uri);
+                m_sourceFile = static_cast<String&&>(other.m_sourceFile);
                 m_data = other.m_data;
                 m_dataSize = other.m_dataSize;
                 mimeType = static_cast<String&&>(other.mimeType);
@@ -113,6 +115,16 @@ export namespace foundation::model
 
         void setName(StringView n) { m_name = String(n); }
         void setUri(StringView u) { m_uri = String(u); }
+
+        /// The resolved on-disk file when the loader left the texture UNDECODED because it is a
+        /// GPU-ready container (a DDS: block-compressed levels a pipeline passes through rather
+        /// than re-encodes); empty when the loader decoded the pixels (or found nothing). A
+        /// consumer that needs pixels loads this file through the generic image loader.
+        [[nodiscard]] StringView sourceFile() const
+        {
+            return StringView(m_sourceFile.Data(), m_sourceFile.Size());
+        }
+        void setSourceFile(StringView path) { m_sourceFile = String(path); }
 
         /// Set embedded image data (copies).
         void setData(const u8* ptr, usize length)
@@ -168,6 +180,7 @@ export namespace foundation::model
     private:
         String m_name;
         String m_uri;
+        String m_sourceFile;
         u8* m_data = nullptr;
         i32 m_dataSize = 0;
     };

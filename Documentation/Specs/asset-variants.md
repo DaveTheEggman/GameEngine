@@ -294,6 +294,20 @@ Next: P2 - the per-target variant axis (Variance() + lazy per-target DBs +
 invariant copy-forward). That is the prerequisite for the web export to
 PRODUCE the BC + ASTC paks and for boot-time selection (Decision 4).
 
+### DDS sources (2026-09-22) - pass-through + decode fallback
+
+Packages that ship BC-compressed DDS (Bistro) import without a re-encode:
+`foundation.image.dds` reads the container (both header forms; bcdec is its
+one implementation site, no longer test-only) and the texture builder passes
+the levels through byte-for-byte when they fit the asset + target (the rules
+above: format-by-usage, BC target, compression not None, the chain present
+when mips are wanted). Everything else decodes level 0 and takes the image
+path - so the ASTC variant of a DDS-backed asset still cooks (decode + astcenc),
+None still means raw, and a BC5 normal re-encodes BC7-linear per the shader
+rule. The model importer keeps referenced DDS files file-backed (no embedded
+decode: a 2K BC1 stays 2.7 MB on disk instead of a 16 MB RGBA8 sidecar). Tests:
+Image.DDS.Tests (10), texture.pipeline DDS cases (4), model-import DDS (1).
+
 ## Design questions for Fable - P2f + P3 (export + dist + web boot) - RESOLVED
 
 Fable ruled 2026-08-15 (notes inline below). BUILD PLAN adopted from the rulings:

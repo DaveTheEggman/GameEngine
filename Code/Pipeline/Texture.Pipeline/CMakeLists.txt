@@ -2,7 +2,7 @@
 util_add_engine_library(Texture.Pipeline ALIAS Pipeline::Texture)
 target_link_libraries(Texture.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Pipeline::Importer Foundation::RHI Foundation::Texture Foundation::Texture.Resource
-    Foundation::Image Foundation::Image.IO Foundation::Content Foundation::Policy Pipeline::Texture.Compression)
+    Foundation::Image Foundation::Image.IO Foundation::Image.DDS Foundation::Content Foundation::Policy Pipeline::Texture.Compression)
 target_sources(Texture.Pipeline
     PRIVATE
         TextureAssetImpl.cpp

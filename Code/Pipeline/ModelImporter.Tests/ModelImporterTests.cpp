@@ -19,6 +19,9 @@ import foundation.animation;
 import foundation.animation.resource;
 import foundation.model;
 import foundation.model.io;
+import foundation.model.gltf;
+import foundation.image;
+import foundation.image.dds;
 import modelimporter;
 import physics.pipeline;
 import pipeline.core;
@@ -28,6 +31,7 @@ import pipeline.cook;
 
 using namespace pipeline;
 import texture.pipeline;
+import texture.compression;
 import geometry.pipeline;
 import materials.pipeline;
 import animation.pipeline;
@@ -1626,3 +1630,230 @@ TEST_CASE("model-import: nested-subfolder sidecars survive the DEFERRED write pa
     REQUIRE(texAsset != nullptr);
     CHECK(texAsset->sourceHint == u8"textures/Texture.png");
 }
+
+// DDS textures referenced by a model (2026-09-22: the Bistro package ships BC-compressed DDS)
+// are NOT decoded and embedded: the loader leaves them on disk, the importer copies the file
+// into Sources/ and creates a FILE-BACKED TextureAsset with the slot's usage, and the cook
+// passes the GPU-ready levels through (or decodes when they do not fit the policy).
+namespace
+{
+    void PutF32(Array<byte>& out, f32 v)
+    {
+        byte b[4];
+        MemCopy(b, &v, 4);
+        for (byte x : b)
+        {
+            out.PushBack(x);
+        }
+    }
+    void PutU16(Array<byte>& out, u16 v)
+    {
+        out.PushBack(static_cast<byte>(v & 0xFFu));
+        out.PushBack(static_cast<byte>(v >> 8));
+    }
+    // Solid BC1 (RGB565 endpoints, every index 0) and BC5 (two solid BC4 halves) blocks.
+    void Bc1Solid(Array<u8>& out, u16 rgb565)
+    {
+        out.PushBack(static_cast<u8>(rgb565 & 0xFFu));
+        out.PushBack(static_cast<u8>(rgb565 >> 8));
+        out.PushBack(static_cast<u8>(rgb565 & 0xFFu));
+        out.PushBack(static_cast<u8>(rgb565 >> 8));
+        for (u32 i = 0; i < 4; ++i)
+        {
+            out.PushBack(0);
+        }
+    }
+    void Bc4Solid(Array<u8>& out, u8 v)
+    {
+        out.PushBack(v);
+        out.PushBack(v);
+        for (u32 i = 0; i < 6; ++i)
+        {
+            out.PushBack(0);
+        }
+    }
+    void WriteDdsFile(const foundation::image::dds::DdsImage& image, StringView path)
+    {
+        Array<u8> file;
+        REQUIRE(foundation::image::dds::WriteDds(image, file).IsOk());
+        REQUIRE(WriteFile(path, Span<const byte>(reinterpret_cast<const byte*>(file.Data()), file.Size())).IsOk());
+    }
+
+    // A one-triangle glTF in `dir` whose material binds albedo.dds (BC1 sRGB, 3 levels) in the
+    // base-colour slot and normal.dds (BC5, one level) in the normal slot.
+    void WriteDdsTriangle(StringView dir)
+    {
+        (void)CreateDirectory(dir);
+        Array<byte> bin;
+        const f32 positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
+        const f32 normals[9] = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+        const f32 uvs[6] = {0, 0, 1, 0, 0, 1};
+        for (f32 v : positions) PutF32(bin, v);
+        for (f32 v : normals) PutF32(bin, v);
+        for (f32 v : uvs) PutF32(bin, v);
+        PutU16(bin, 0);
+        PutU16(bin, 1);
+        PutU16(bin, 2);
+        REQUIRE(bin.Size() == 102u);
+        REQUIRE(WriteFile(PathJoin(dir, u8"tri.bin").AsView(), Span<const byte>(bin.Data(), bin.Size())).IsOk());
+        const StringView json =
+            u8"{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"nodes\":[0]}],"
+            u8"\"nodes\":[{\"mesh\":0,\"name\":\"Tri\"}],"
+            u8"\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1,\"TEXCOORD_0\":2},\"indices\":3,\"material\":0}]}],"
+            // Bistro's shape: spec-gloss materials, textures whose `source` is a PNG (absent
+            // here) with the DDS under MSFT_texture_dds.
+            u8"\"extensionsUsed\":[\"KHR_materials_pbrSpecularGlossiness\",\"MSFT_texture_dds\"],"
+            u8"\"materials\":[{\"name\":\"Mat\",\"extensions\":{\"KHR_materials_pbrSpecularGlossiness\":{\"diffuseTexture\":{\"index\":0},\"glossinessFactor\":0.25}},\"normalTexture\":{\"index\":1}}],"
+            u8"\"textures\":[{\"source\":2,\"extensions\":{\"MSFT_texture_dds\":{\"source\":0}}},{\"source\":3,\"extensions\":{\"MSFT_texture_dds\":{\"source\":1}}}],"
+            u8"\"images\":[{\"uri\":\"tex/albedo.dds\"},{\"uri\":\"tex/normal.dds\"},{\"uri\":\"tex/albedo.png\"},{\"uri\":\"tex/normal.png\"}],"
+            u8"\"buffers\":[{\"uri\":\"tri.bin\",\"byteLength\":102}],"
+            u8"\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36},"
+            u8"{\"buffer\":0,\"byteOffset\":72,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":6}],"
+            u8"\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"min\":[0,0,0],\"max\":[1,1,0]},"
+            u8"{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+            u8"{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
+            u8"{\"bufferView\":3,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}";
+        REQUIRE(WriteFile(PathJoin(dir, u8"tri.gltf").AsView(),
+                          Span<const byte>(reinterpret_cast<const byte*>(json.Data()), json.Size()))
+                    .IsOk());
+
+        foundation::image::dds::DdsImage albedo;
+        albedo.width = 4;
+        albedo.height = 4;
+        albedo.mipLevels = 3;
+        albedo.format = foundation::image::dds::DdsFormat::BC1Srgb;
+        albedo.colorSpaceKnown = true;
+        for (u32 level = 0; level < 3; ++level)
+        {
+            Bc1Solid(albedo.data, 0xF800);
+        }
+        (void)CreateDirectory(PathJoin(dir, u8"tex").AsView());
+        WriteDdsFile(albedo, PathJoin(dir, u8"tex/albedo.dds").AsView());
+
+        foundation::image::dds::DdsImage normal;
+        normal.width = 4;
+        normal.height = 4;
+        normal.mipLevels = 1;
+        normal.format = foundation::image::dds::DdsFormat::BC5;
+        normal.colorSpaceKnown = true;
+        Bc4Solid(normal.data, 128);
+        Bc4Solid(normal.data, 128);
+        WriteDdsFile(normal, PathJoin(dir, u8"tex/normal.dds").AsView());
+    }
+}
+
+TEST_CASE("model-import: DDS textures stay on disk as file-backed assets and pass through the cook")
+{
+    using namespace editor;
+    using namespace pipeline;
+
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterTextureAsset();
+    pipeline::RegisterMeshAssets();
+    pipeline::RegisterMaterialAsset();
+    pipeline::RegisterAnimationAssets();
+    foundation::texture::RegisterTextureResource();
+
+    const StringView src = u8"scratch_dds_model_src";
+    const StringView dir = u8"scratch_dds_model_project";
+    (void)RemoveDirectoryRecursive(src);
+    (void)RemoveDirectoryRecursive(dir);
+    WriteDdsTriangle(src);
+
+    // The loader leaves both DDS files undecoded and remembers where they are.
+    {
+        model::gltf::GltfLoader gltfLoader;
+        model::io::registerLoader(&gltfLoader);
+        model::Model loaded;
+        REQUIRE(model::io::loadModel(PathJoin(src, u8"tri.gltf").AsView(), loaded) ==
+                model::ModelLoadResult::Ok);
+        REQUIRE(loaded.textures().Size() == 2u);
+        CHECK(loaded.textures()[0]->getData() == nullptr);
+        CHECK_FALSE(loaded.textures()[0]->sourceFile().IsEmpty());
+        CHECK(loaded.textures()[1]->uri() == StringView(u8"tex/normal.dds")); // the DDS, not the PNG
+        REQUIRE(loaded.materials().Size() == 1u);
+        CHECK(loaded.materials()[0]->baseColorTextureIndex == 0); // spec-gloss diffuse -> base colour
+        CHECK(loaded.materials()[0]->normalTextureIndex == 1);
+        CHECK(loaded.materials()[0]->roughnessFactor == doctest::Approx(0.75f));
+        CHECK(loaded.materials()[0]->metallicFactor == doctest::Approx(0.0f));
+        model::io::unregisterLoader(&gltfLoader); // the registry keeps raw pointers
+    }
+
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+
+    pipeline::ModelFileImporter importer;
+    Result<foundation::content::Instance*> imported = importer.Import(
+        PathJoin(src, u8"tri.gltf").AsView(),
+        pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
+        *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(imported.HasValue());
+    REQUIRE(imported.Value() != nullptr);
+    // One copy each, at the model-relative path the sidecar pass uses - never a second flat copy.
+    CHECK(FileExists(PathJoin(dir, u8"Sources/tex/albedo.dds").AsView()));
+    CHECK(FileExists(PathJoin(dir, u8"Sources/tex/normal.dds").AsView()));
+    CHECK_FALSE(FileExists(PathJoin(dir, u8"Sources/albedo.dds").AsView()));
+
+    foundation::content::Group* modelGroup = project->SourceDb().RootGroup()->GetGroup(u8"tri");
+    REQUIRE(modelGroup != nullptr);
+    foundation::content::Instance* albedoInst = modelGroup->GetInstance(u8"albedo");
+    foundation::content::Instance* normalInst = modelGroup->GetInstance(u8"normal");
+    REQUIRE(albedoInst != nullptr);
+    REQUIRE(normalInst != nullptr);
+    {
+        RefPtr<ISerializable> object = albedoInst->ReadObject();
+        auto* asset = Cast<pipeline::TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->fileName == StringView(u8"tex/albedo.dds")); // file-backed, not embedded
+        CHECK(asset->embeddedWidth == 0u);
+        CHECK(asset->usage == ::texcomp::TextureUsage::Color);
+        CHECK(asset->colorSpace == foundation::image::ImageColorSpace::Srgb); // the DX10 fact
+        CHECK(asset->sourceHint == StringView(u8"tex/albedo.dds"));
+    }
+    {
+        RefPtr<ISerializable> object = normalInst->ReadObject();
+        auto* asset = Cast<pipeline::TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->fileName == StringView(u8"tex/normal.dds"));
+        CHECK(asset->usage == ::texcomp::TextureUsage::Normal); // the slot
+        CHECK(asset->colorSpace == foundation::image::ImageColorSpace::Linear);
+    }
+
+    // Cook through the driver: the albedo's BC1 chain passes through untouched; the BC5 normal
+    // decodes (the shaders read rgb) and cooks by policy (small: raw RGBA8, generated mips).
+    BuilderRegistry builders{DefaultAllocator()};
+    auto add = [&](auto* builder)
+    { builders.Register(UniquePtr<IAssetBuilder>(builder, DefaultAllocator())); };
+    add(DefaultAllocator().New<pipeline::TextureAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::StaticMeshAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::SkinnedMeshAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::MaterialAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::SkeletonAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::AnimationClipAssetBuilder>());
+    add(DefaultAllocator().New<pipeline::ModelManifestAssetBuilder>());
+    foundation::vfs::NativeFileSystem sourcesFs(project->SourcesRoot().AsView(), DefaultAllocator());
+    foundation::vfs::NativeFileSystem cacheFs(project->CacheRoot().AsView(), DefaultAllocator());
+    CookDriver driver(DefaultAllocator(), project->SourceDb(), project->CookedDb(), builders, &sourcesFs, &cacheFs);
+    CookPlan plan = driver.Plan();
+    CookStats stats = driver.Execute(plan);
+    CHECK(stats.failed == 0u);
+    {
+        RefPtr<ISerializable> product = project->CookedDb().ReadObject(albedoInst->Id());
+        auto* res = Cast<foundation::texture::TextureResource>(product.Get());
+        REQUIRE(res != nullptr);
+        CHECK(res->format == foundation::rhi::TextureFormat::BC1RGBAUnormSrgb);
+        CHECK(res->mipLevels == 3u);
+    }
+    {
+        RefPtr<ISerializable> product = project->CookedDb().ReadObject(normalInst->Id());
+        auto* res = Cast<foundation::texture::TextureResource>(product.Get());
+        REQUIRE(res != nullptr);
+        CHECK(res->format == foundation::rhi::TextureFormat::RGBA8Unorm);
+        CHECK(res->mipLevels == 3u);
+    }
+    project.Reset();
+    (void)RemoveDirectoryRecursive(dir);
+    (void)RemoveDirectoryRecursive(src);
+}
+

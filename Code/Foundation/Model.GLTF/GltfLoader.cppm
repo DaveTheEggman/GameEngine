@@ -26,6 +26,7 @@ import foundation.model;
 import foundation.model.io;
 import foundation.image;
 import foundation.image.io;
+import foundation.image.dds;
 namespace image = foundation::image;
 
 export namespace foundation::model::gltf
@@ -213,6 +214,22 @@ export namespace foundation::model::gltf
                         material->metallicRoughnessTextureIndex = static_cast<i32>(
                             cgltf_texture_index(m_data, pbr->metallic_roughness_texture.texture));
                 }
+                // KHR_materials_pbrSpecularGlossiness (Bistro and other Lumberyard exports): the
+                // diffuse map / factor stand in for base colour, glossiness inverts to roughness,
+                // and the surface is treated as dielectric (the specular map is not converted -
+                // a true spec-gloss to metal-rough conversion is a later step). Only when the
+                // material carries no metallic-roughness block of its own.
+                else if (mat->has_pbr_specular_glossiness)
+                {
+                    const cgltf_pbr_specular_glossiness* sg = &mat->pbr_specular_glossiness;
+                    material->baseColorFactor = Float4(sg->diffuse_factor[0], sg->diffuse_factor[1],
+                                                       sg->diffuse_factor[2], sg->diffuse_factor[3]);
+                    if (sg->diffuse_texture.texture)
+                        material->baseColorTextureIndex = static_cast<i32>(
+                            cgltf_texture_index(m_data, sg->diffuse_texture.texture));
+                    material->metallicFactor = 0.0f;
+                    material->roughnessFactor = 1.0f - sg->glossiness_factor;
+                }
 
                 // Normal texture.
                 if (mat->normal_texture.texture)
@@ -314,6 +331,27 @@ export namespace foundation::model::gltf
             }
         }
 
+        // The `source` integer of a `{"source": N}` extension body (cgltf hands extensions over
+        // as raw JSON). Returns SIZE_MAX when there is none.
+        static cgltf_size parseExtensionSource(const char* json)
+        {
+            const char* key = std::strstr(json, "\"source\"");
+            if (key == nullptr)
+                return static_cast<cgltf_size>(-1);
+            const char* p = key + 8;
+            while (*p == ' ' || *p == ':' || *p == '\t' || *p == '\n' || *p == '\r')
+                ++p;
+            if (*p < '0' || *p > '9')
+                return static_cast<cgltf_size>(-1);
+            cgltf_size value = 0;
+            while (*p >= '0' && *p <= '9')
+            {
+                value = value * 10 + static_cast<cgltf_size>(*p - '0');
+                ++p;
+            }
+            return value;
+        }
+
         void loadTextures(Model& model)
         {
 
@@ -331,9 +369,23 @@ export namespace foundation::model::gltf
                     texture->samplerIndex =
                         static_cast<i32>(cgltf_sampler_index(m_data, tex->sampler));
 
-                if (tex->image)
+                // MSFT_texture_dds: the texture names a PNG/JPG `source` for readers without
+                // DDS and the GPU-ready DDS in the extension. Prefer the DDS (Bistro ships both).
+                cgltf_image* preferredImage = tex->image;
+                for (cgltf_size e = 0; e < tex->extensions_count; ++e)
                 {
-                    cgltf_image* gltfImage = tex->image;
+                    const cgltf_extension& ext = tex->extensions[e];
+                    if (ext.name == nullptr || ext.data == nullptr ||
+                        std::strcmp(ext.name, "MSFT_texture_dds") != 0)
+                        continue;
+                    const cgltf_size ddsIndex = parseExtensionSource(ext.data);
+                    if (ddsIndex < m_data->images_count)
+                        preferredImage = &m_data->images[ddsIndex];
+                }
+
+                if (preferredImage)
+                {
+                    cgltf_image* gltfImage = preferredImage;
 
                     if (gltfImage->mime_type)
                         texture->mimeType = Utf8FromC(gltfImage->mime_type);
@@ -352,14 +404,23 @@ export namespace foundation::model::gltf
                         }
                         else
                         {
-                            // External image file.
+                            // External image file. A DDS stays undecoded: it is GPU-ready,
+                            // and the pipeline passes its levels through from the file.
                             std::filesystem::path imagePath =
                                 std::filesystem::path(m_basePath) / uriC;
                             const std::string imgPath = imagePath.string();
-                            foundation::image::Image img;
-                            if (image::io::LoadImage(Utf8FromC(imgPath.c_str()), img) ==
-                                ErrorCode::Ok)
-                                storeImageData(img, texture);
+                            const String imgPathUtf8 = Utf8FromC(imgPath.c_str());
+                            if (image::dds::IsDdsFile(imgPathUtf8.AsView()))
+                            {
+                                texture->setSourceFile(imgPathUtf8.AsView());
+                            }
+                            else
+                            {
+                                foundation::image::Image img;
+                                if (image::io::LoadImage(imgPathUtf8.AsView(), img) ==
+                                    ErrorCode::Ok)
+                                    storeImageData(img, texture);
+                            }
                         }
                     }
                     else if (gltfImage->buffer_view)

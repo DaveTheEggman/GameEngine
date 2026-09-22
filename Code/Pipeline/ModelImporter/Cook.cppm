@@ -28,6 +28,8 @@ import foundation.materials;
 import foundation.materials.resource;
 import materials.pipeline;
 import foundation.texture.resource;
+import foundation.image;
+import foundation.image.io;
 import foundation.animation;
 import foundation.animation.resource;
 import animation.pipeline;
@@ -81,10 +83,32 @@ export namespace pipeline
         {
             const model::ModelTexture& t = *textures[i];
             const u8* data = t.getData();
-            const i32 size = t.getDataSize();
+            i32 size = t.getDataSize();
+            u32 width = t.width > 0 ? static_cast<u32>(t.width) : 0u;
+            u32 height = t.height > 0 ? static_cast<u32>(t.height) : 0u;
+            // A texture the loader left on disk (a DDS) decodes here: this direct path has no
+            // pass-through (that is the asset pipeline's), so level 0 cooks as RGBA8.
+            foundation::image::Image decoded;
+            if (data == nullptr && !t.sourceFile().IsEmpty())
+            {
+                Result<Array<byte>> bytes = ReadFile(t.sourceFile());
+                if (bytes.HasValue() &&
+                    foundation::image::io::LoadImageFromMemory(
+                        Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                       bytes.Value().Size()),
+                        decoded)
+                        .IsOk() &&
+                    decoded.Format() == foundation::image::PixelFormat::RGBA8)
+                {
+                    data = decoded.PixelData().Data();
+                    size = static_cast<i32>(decoded.PixelData().Size());
+                    width = decoded.Width();
+                    height = decoded.Height();
+                }
+            }
             // The loaders decode to RGBA8 (4 bpp); guard against any other layout.
-            const bool rgba8 =
-                (data != nullptr && t.width > 0 && t.height > 0 && size == t.width * t.height * 4);
+            const bool rgba8 = (data != nullptr && width > 0 && height > 0 &&
+                                static_cast<u64>(size) == static_cast<u64>(width) * height * 4);
             if (!rgba8)
             {
                 outGuids.PushBack(Guid{});
@@ -92,8 +116,8 @@ export namespace pipeline
             }
 
             texture::TextureResource res;
-            res.width = static_cast<u32>(t.width);
-            res.height = static_cast<u32>(t.height);
+            res.width = width;
+            res.height = height;
             // Color space follows USAGE: data maps (normal/MR/AO) stay linear (sRGB-decoding
             // corrupts them); color maps (albedo/emissive) are sRGB-encoded.
             res.format = (i < linear.Size() && linear[i]) ? rhi::TextureFormat::RGBA8Unorm

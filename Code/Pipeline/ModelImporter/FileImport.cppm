@@ -430,7 +430,9 @@ export namespace pipeline
 
             // .gltf: copy the referenced sidecars (buffers/images by relative uri) into
             // Sources/ so the imported source set is complete.
-            if (pipeline::FileExtensionLower(sourcePath) == StringView(u8"gltf"))
+            const bool sidecarsCopied =
+                pipeline::FileExtensionLower(sourcePath) == StringView(u8"gltf");
+            if (sidecarsCopied)
             {
                 CopyGltfSidecars(sourcePath, context, deferredWrites);
             }
@@ -453,7 +455,8 @@ export namespace pipeline
             Array<Guid> textureGuids;
             if (opt.importTextures)
             {
-                ImportTextures(model, *modelGroup, textureGuids, claimed, deferredWrites, opt);
+                ImportTextures(model, context, sidecarsCopied, *modelGroup, textureGuids, claimed,
+                               deferredWrites, opt);
             }
             else
             {
@@ -667,8 +670,111 @@ export namespace pipeline
             }
         }
 
-        static void ImportTextures(const foundation::model::Model& model, content::Group& group,
-                                   Array<Guid>& outGuids, Array<String>& claimed,
+        // A texture the loader left on disk (a DDS): copied into Sources/ and referenced by a
+        // FILE-BACKED asset, so the cook passes its GPU-ready levels through instead of embedding
+        // decoded pixels. Usage comes from the material slot (normal / data mask), the rest from
+        // the file's own header facts. Returns the instance (null = deselected or failed).
+        // A model-relative uri ("textures/shared/x.dds": no root, no drive, no "..") keeps its
+        // path under Sources/, the way the glTF sidecar copy lays files out; anything else
+        // (an FBX's resolved absolute path) lands flat by file name.
+        [[nodiscard]] static bool IsModelRelativeUri(StringView uri)
+        {
+            if (uri.IsEmpty() || uri[0] == utf8char('/') || uri[0] == utf8char('\\'))
+            {
+                return false;
+            }
+            if (uri.Size() >= 2 && uri[1] == utf8char(':'))
+            {
+                return false; // a drive
+            }
+            for (usize k = 0; k + 1 < uri.Size(); ++k)
+            {
+                if (uri[k] == utf8char('.') && uri[k + 1] == utf8char('.'))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        static content::Instance* ImportFileBackedTexture(
+            const foundation::model::ModelTexture& t, usize index, bool normalSlot, bool linear,
+            const pipeline::ImportContext& context, bool sidecarsCopied, content::Group& group,
+            Array<String>& claimed, Array<pipeline::DeferredImportWrite>* deferredWrites,
+            const pipeline::ImportOptions& sel)
+        {
+            const StringView sourceFile = t.sourceFile();
+            const bool relative = IsModelRelativeUri(t.uri());
+            // The name the asset references under Sources/: the model-relative uri, else the file.
+            const StringView fileName = relative ? t.uri() : pipeline::FileNameOf(sourceFile);
+            if (fileName.IsEmpty())
+            {
+                return nullptr;
+            }
+            const String texBase = ImportedTextureName(t, index);
+            if (!sel.SelectionEnabled(pipeline::ImportResourceKind::Texture, texBase.AsView()))
+            {
+                return nullptr;
+            }
+            // The .gltf sidecar pass already copies every relative uri (the same bytes to the
+            // same place): copying again here doubled a 2 GB package. Only what it did not
+            // cover is copied - an absolute reference, or a container with no sidecar pass.
+            if (!(relative && sidecarsCopied))
+            {
+                if (deferredWrites != nullptr)
+                {
+                    pipeline::DeferredImportWrite copy;
+                    copy.copyFrom = String(sourceFile);
+                    copy.copyTo = PathJoin(context.sourcesRoot.AsView(), fileName);
+                    deferredWrites->PushBack(static_cast<pipeline::DeferredImportWrite&&>(copy));
+                }
+                else
+                {
+                    Result<Array<byte>> bytes = ReadFile(sourceFile);
+                    if (!bytes.HasValue())
+                    {
+                        return nullptr;
+                    }
+                    foundation::vfs::NativeFileSystem sources(context.sourcesRoot.AsView(),
+                                                              *context.allocator);
+                    if (!sources.AsWritable()
+                             ->Save(fileName, Span<const byte>(bytes.Value().Data(),
+                                                               bytes.Value().Size()))
+                             .IsOk())
+                    {
+                        return nullptr;
+                    }
+                }
+            }
+            pipeline::TextureAsset asset;
+            asset.fileName = foundation::vfs::SourcePath(fileName);
+            asset.sourceHint = String(t.uri());
+            // The file's facts first (BC5 = normal, BC4 = mask, a DX10 colour space), then the
+            // slot, which knows what the material does with the map.
+            pipeline::TextureFileImporter::SetupForDds(asset, sourceFile,
+                                                       pipeline::FileStemOf(fileName));
+            if (normalSlot)
+            {
+                asset.SetupForNormalMap();
+            }
+            else if (linear)
+            {
+                asset.SetupForDataMask();
+            }
+            content::Instance* inst = ClaimInstance(
+                group, sel.SelectionName(pipeline::ImportResourceKind::Texture, texBase.AsView()),
+                pipeline::TextureAsset::StaticType(), claimed);
+            if (inst == nullptr || !inst->WriteObject(asset).IsOk())
+            {
+                return nullptr;
+            }
+            return inst;
+        }
+
+        static void ImportTextures(const foundation::model::Model& model,
+                                   const pipeline::ImportContext& context, bool sidecarsCopied,
+                                   content::Group& group, Array<Guid>& outGuids,
+                                   Array<String>& claimed,
                                    Array<pipeline::DeferredImportWrite>* deferredWrites,
                                    const pipeline::ImportOptions& sel)
         {
@@ -676,6 +782,8 @@ export namespace pipeline
             // them corrupts the values (a flat normal 0.5 would linearize to ~0.21).
             Array<bool> linear;
             ClassifyLinearTextures(model, linear);
+            Array<bool> normal;
+            ClassifyNormalTextures(model, normal);
 
             const Span<foundation::model::ModelTexture* const> textures = model.textures();
             for (usize i = 0; i < textures.Size(); ++i)
@@ -687,7 +795,14 @@ export namespace pipeline
                                     size == t.width * t.height * 4);
                 if (!rgba8)
                 {
-                    outGuids.PushBack(Guid{});
+                    content::Instance* fileBacked =
+                        t.sourceFile().IsEmpty()
+                            ? nullptr
+                            : ImportFileBackedTexture(t, i, i < normal.Size() && normal[i],
+                                                      i < linear.Size() && linear[i], context,
+                                                      sidecarsCopied, group, claimed,
+                                                      deferredWrites, sel);
+                    outGuids.PushBack(fileBacked != nullptr ? fileBacked->Id() : Guid{});
                     continue;
                 }
 

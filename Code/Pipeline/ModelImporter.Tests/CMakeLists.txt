@@ -6,11 +6,11 @@ add_executable(ModelImporter.Tests
 
 target_link_libraries(ModelImporter.Tests PRIVATE
     Pipeline::ModelImporter Foundation::VFS Foundation::Content Foundation::Resource
-    Foundation::Geometry Foundation::Geometry.Resource Foundation::Model
+    Foundation::Geometry Foundation::Geometry.Resource Foundation::Model Foundation::Model.GLTF
     Foundation::Animation Foundation::Animation.Resource
     Editor::Core Pipeline::Cook
     Foundation::RHI Foundation::RHI.Null Foundation::Texture.Resource Foundation::Materials.Resource
-    Pipeline::Texture Pipeline::Geometry Pipeline::Materials
+    Pipeline::Texture Pipeline::Geometry Pipeline::Materials Foundation::Image Foundation::Image.DDS
     Pipeline::Animation doctest::doctest)
 
 target_compile_definitions(ModelImporter.Tests PRIVATE

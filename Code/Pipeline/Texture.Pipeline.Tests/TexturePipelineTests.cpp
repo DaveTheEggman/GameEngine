@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include "Core/Reflection/Reflect.h"
 import foundation.core;
 import foundation.vfs;
@@ -23,6 +24,7 @@ import foundation.xml.serialization;
 import pipeline.importer;
 import foundation.image;
 import foundation.image.io;
+import foundation.image.dds;
 import foundation.texture;
 import foundation.texture.resource;
 import texture.pipeline;
@@ -830,5 +832,299 @@ TEST_CASE("texture.pipeline: an HDR source cooks to BC6H on the desktop (BC) tar
 
     std::remove(srcPath);
     (void)RemoveDirectoryRecursive(u8"scratch_texpipe_hdr_db");
+}
+
+// ===================================================================================
+// DDS sources (2026-09-22): GPU-ready levels pass through untouched when they fit the
+// asset + target; otherwise level 0 decodes and cooks like any image.
+// ===================================================================================
+namespace
+{
+    namespace dds = foundation::image::dds;
+
+    // A procedural RGBA8 level (a gradient that differs per level size).
+    Array<u8> GradientLevel(u32 w, u32 h)
+    {
+        Array<u8> px;
+        px.Resize(static_cast<usize>(w) * h * 4);
+        for (u32 y = 0; y < h; ++y)
+        {
+            for (u32 x = 0; x < w; ++x)
+            {
+                u8* p = px.Data() + (static_cast<usize>(y) * w + x) * 4;
+                p[0] = static_cast<u8>((x * 255u) / (w > 1 ? w - 1 : 1));
+                p[1] = static_cast<u8>((y * 255u) / (h > 1 ? h - 1 : 1));
+                p[2] = static_cast<u8>(((x + y) * 7u) & 0xFFu);
+                p[3] = 255;
+            }
+        }
+        return px;
+    }
+
+    // A DDS whose every level is the gradient encoded to `blockFormat` by the engine's encoder.
+    dds::DdsImage EncodedDds(u32 size, u32 levels, rhi::TextureFormat blockFormat,
+                             dds::DdsFormat ddsFormat)
+    {
+        dds::DdsImage out;
+        out.width = size;
+        out.height = size;
+        out.mipLevels = levels;
+        out.format = ddsFormat;
+        out.colorSpaceKnown = true;
+        u32 w = size;
+        for (u32 level = 0; level < levels; ++level)
+        {
+            const Array<u8> px = GradientLevel(w, w);
+            const Array<byte> blocks = texcomp::EncodeBlockCompressed(px.Data(), w, w, blockFormat, 128);
+            REQUIRE(blocks.Size() == rhi::CompressedLevelBytes(blockFormat, w, w));
+            for (byte b : blocks)
+            {
+                out.data.PushBack(static_cast<u8>(b));
+            }
+            w = w > 1 ? w / 2 : 1;
+        }
+        REQUIRE(out.data.Size() == out.LayerSize());
+        return out;
+    }
+
+    void WriteDdsFile(const dds::DdsImage& image, StringView path)
+    {
+        Array<u8> file;
+        REQUIRE(dds::WriteDds(image, file).IsOk());
+        REQUIRE(WriteFile(path, Span<const byte>(reinterpret_cast<const byte*>(file.Data()), file.Size())).IsOk());
+    }
+
+    // What a cook produced: the record's facts (the record itself is not copyable) + the "data" payload.
+    struct Cooked
+    {
+        rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm;
+        u32 width = 0;
+        u32 mipLevels = 0;
+    };
+
+    // Cook a file-backed asset against `target` (null = the desktop host).
+    Status CookFile(const TextureAsset& asset, const pipeline::CookTarget* target, StringView dbDir,
+                    Cooked& outResource, Array<u8>& outPayload)
+    {
+        (void)RemoveDirectoryRecursive(dbDir);
+        NativeFileSystem outMount(dbDir, DefaultAllocator());
+        foundation::content::ContentDatabase outDb(DefaultAllocator(), outMount,
+                                                   foundation::core::BinarySerializerFactory(), u8".rasset");
+        auto* inst = outDb.RootGroup()->CreateInstance(u8"out", TextureResource::StaticType());
+        REQUIRE(inst != nullptr);
+        TextureAssetBuilder builder;
+        foundation::vfs::NativeFileSystem srcMount(u8".", DefaultAllocator());
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &srcMount;
+        ctx.output = inst;
+        ctx.target = target;
+        const Status built = builder.Build(asset, ctx);
+        if (!built.IsOk())
+        {
+            (void)RemoveDirectoryRecursive(dbDir);
+            return built;
+        }
+        RefPtr<ISerializable> object = inst->ReadObject();
+        auto* res = Cast<TextureResource>(object.Get());
+        REQUIRE(res != nullptr);
+        outResource.format = res->format;
+        outResource.width = res->width;
+        outResource.mipLevels = res->mipLevels;
+        UniquePtr<IStream> data = inst->ReadData(u8"data");
+        REQUIRE(data);
+        outPayload.Resize(static_cast<usize>(data->Size()));
+        REQUIRE(data->Read(outPayload.Data(), static_cast<u64>(outPayload.Size())) ==
+                static_cast<u64>(outPayload.Size()));
+        (void)RemoveDirectoryRecursive(dbDir);
+        return built;
+    }
+}
+
+TEST_CASE("texture.pipeline: a BC7 DDS with its mip chain passes through byte-for-byte on a BC target")
+{
+    RegisterTextureResource();
+    RegisterTextureAsset();
+    const dds::DdsImage src = EncodedDds(8, 4, rhi::TextureFormat::BC7RGBAUnorm, dds::DdsFormat::BC7Srgb);
+    WriteDdsFile(src, u8"scratch_texpipe_bc7.dds");
+
+    TextureAsset asset;
+    asset.fileName = foundation::vfs::SourcePath(u8"scratch_texpipe_bc7.dds");
+    asset.SetupFor3D(); // Colour, sRGB, mips
+    Cooked res;
+    Array<u8> payload;
+    REQUIRE(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.format == rhi::TextureFormat::BC7RGBAUnormSrgb);
+    CHECK(res.width == 8u);
+    CHECK(res.mipLevels == 4u);
+    REQUIRE(payload.Size() == src.data.Size());
+    CHECK(std::memcmp(payload.Data(), src.data.Data(), payload.Size()) == 0);
+
+    // The asset's colour space picks the format twin: the same bytes, the linear view.
+    asset.colorSpace = image::ImageColorSpace::Linear;
+    REQUIRE(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.format == rhi::TextureFormat::BC7RGBAUnorm);
+    CHECK(payload.Size() == src.data.Size());
+
+    // No mips asked (the UI preset): level 0 alone passes through.
+    asset.SetupForUI();
+    REQUIRE(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.mipLevels == 1u);
+    CHECK(payload.Size() == src.LevelSize(0));
+    CHECK(res.format == rhi::TextureFormat::BC7RGBAUnormSrgb);
+
+    // Compression None is the escape hatch: the blocks decode and cook raw (with generated mips).
+    asset.SetupFor3D();
+    asset.compression = texcomp::CompressionChoice::None;
+    REQUIRE(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.format == rhi::TextureFormat::RGBA8UnormSrgb);
+    CHECK(res.mipLevels == 4u);
+    CHECK(payload.Size() == (64u + 16u + 4u + 1u) * 4u);
+    FileDelete(u8"scratch_texpipe_bc7.dds");
+}
+
+TEST_CASE("texture.pipeline: a BC5 normal-map DDS decodes and re-encodes by the policy (BC7-linear, generated mips)")
+{
+    RegisterTextureResource();
+    RegisterTextureAsset();
+    // 128 px: above the policy's small-texture cutoff, so the re-encode is visible.
+    dds::DdsImage src;
+    src.width = 128;
+    src.height = 128;
+    src.mipLevels = 1; // a package normal without a chain
+    src.format = dds::DdsFormat::BC5;
+    src.colorSpaceKnown = true;
+    {
+        Array<u8> flat;
+        flat.Resize(128u * 128u * 4u);
+        for (usize i = 0; i < 128u * 128u; ++i)
+        {
+            flat[i * 4 + 0] = 128;
+            flat[i * 4 + 1] = 128;
+            flat[i * 4 + 2] = 255;
+            flat[i * 4 + 3] = 255;
+        }
+        const Array<byte> blocks =
+            texcomp::EncodeBlockCompressed(flat.Data(), 128, 128, rhi::TextureFormat::BC5RGUnorm, 128);
+        REQUIRE(blocks.Size() == rhi::CompressedLevelBytes(rhi::TextureFormat::BC5RGUnorm, 128, 128));
+        for (byte b : blocks)
+        {
+            src.data.PushBack(static_cast<u8>(b));
+        }
+    }
+    WriteDdsFile(src, u8"scratch_texpipe_bc5.dds");
+
+    TextureAsset asset;
+    asset.fileName = foundation::vfs::SourcePath(u8"scratch_texpipe_bc5.dds");
+    asset.SetupForNormalMap();
+    Cooked res;
+    Array<u8> payload;
+    REQUIRE(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.format == rhi::TextureFormat::BC7RGBAUnorm); // never BC5 (the shaders read rgb)
+    CHECK(res.mipLevels == 8u);                             // 128 -> 1
+    usize expected = 0;
+    for (u32 level = 0, w = 128; level < 8; ++level, w = w > 1 ? w / 2 : 1)
+    {
+        expected += rhi::CompressedLevelBytes(rhi::TextureFormat::BC7RGBAUnorm, w, w);
+    }
+    CHECK(payload.Size() == expected);
+    FileDelete(u8"scratch_texpipe_bc5.dds");
+}
+
+TEST_CASE("texture.pipeline: on an ASTC-only target a BC DDS decodes and cooks ASTC; a cubemap DDS is refused")
+{
+    RegisterTextureResource();
+    RegisterTextureAsset();
+    const dds::DdsImage src = EncodedDds(128, 1, rhi::TextureFormat::BC1RGBAUnorm, dds::DdsFormat::BC1Srgb);
+    WriteDdsFile(src, u8"scratch_texpipe_bc1.dds");
+    TextureAsset asset;
+    asset.fileName = foundation::vfs::SourcePath(u8"scratch_texpipe_bc1.dds");
+    asset.SetupFor3D();
+    const pipeline::CookTarget mobile{String(u8"web-astc"), false, true, false};
+    Cooked res;
+    Array<u8> payload;
+    REQUIRE(CookFile(asset, &mobile, u8"scratch_texpipe_dds_db", res, payload).IsOk());
+    CHECK(res.format == rhi::TextureFormat::ASTC4x4UnormSrgb);
+    CHECK(res.mipLevels == 8u);
+    FileDelete(u8"scratch_texpipe_bc1.dds");
+
+    dds::DdsImage cube = EncodedDds(4, 1, rhi::TextureFormat::BC1RGBAUnorm, dds::DdsFormat::BC1);
+    cube.cubemap = true;
+    cube.arrayLayers = 6;
+    for (u32 face = 1; face < 6; ++face)
+    {
+        for (u32 i = 0; i < 8; ++i)
+        {
+            const u8 b = cube.data[i]; // a copy: the push may reallocate the array
+            cube.data.PushBack(b);
+        }
+    }
+    WriteDdsFile(cube, u8"scratch_texpipe_cube.dds");
+    asset.fileName = foundation::vfs::SourcePath(u8"scratch_texpipe_cube.dds");
+    CHECK(CookFile(asset, nullptr, u8"scratch_texpipe_dds_db", res, payload).Code() == ErrorCode::NotSupported);
+    FileDelete(u8"scratch_texpipe_cube.dds");
+}
+
+TEST_CASE("texture-import: a DDS imports with the facts its header names")
+{
+    RegisterTextureAsset();
+    const StringView dir = u8"scratch_tex_import_dds_project";
+    (void)RemoveDirectoryRecursive(dir);
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    TextureFileImporter importer;
+    CHECK(importer.Accepts(u8"dds"));
+
+    auto importOne = [&](StringView file) -> RefPtr<ISerializable>
+    {
+        Result<foundation::content::Instance*> imported = importer.Import(
+            file, pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
+            *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+        REQUIRE(imported.HasValue());
+        return imported.Value()->ReadObject();
+    };
+
+    // BC5 = a normal map, whatever the name says.
+    WriteDdsFile(EncodedDds(4, 1, rhi::TextureFormat::BC5RGUnorm, dds::DdsFormat::BC5), u8"thing.dds");
+    {
+        RefPtr<ISerializable> object = importOne(u8"thing.dds");
+        auto* asset = Cast<TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->usage == texcomp::TextureUsage::Normal);
+        CHECK(asset->colorSpace == image::ImageColorSpace::Linear);
+        CHECK(asset->fileName == StringView(u8"thing.dds"));
+        CHECK(FileExists(PathJoin(dir, u8"Sources/thing.dds").AsView()));
+    }
+    // BC4 = a data mask.
+    WriteDdsFile(EncodedDds(4, 1, rhi::TextureFormat::BC4RUnorm, dds::DdsFormat::BC4), u8"stuff.dds");
+    {
+        RefPtr<ISerializable> object = importOne(u8"stuff.dds");
+        auto* asset = Cast<TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->usage == texcomp::TextureUsage::Mask);
+    }
+    // A DX10 colour format settles the colour space: BC7_UNORM is linear, BC1_UNORM_SRGB is sRGB.
+    WriteDdsFile(EncodedDds(4, 1, rhi::TextureFormat::BC7RGBAUnorm, dds::DdsFormat::BC7), u8"wall.dds");
+    WriteDdsFile(EncodedDds(4, 1, rhi::TextureFormat::BC1RGBAUnorm, dds::DdsFormat::BC1Srgb), u8"brick.dds");
+    {
+        RefPtr<ISerializable> object = importOne(u8"wall.dds");
+        auto* asset = Cast<TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->usage == texcomp::TextureUsage::Color);
+        CHECK(asset->colorSpace == image::ImageColorSpace::Linear);
+        CHECK(asset->generateMipmaps); // the 3D preset
+    }
+    {
+        RefPtr<ISerializable> object = importOne(u8"brick.dds");
+        auto* asset = Cast<TextureAsset>(object.Get());
+        REQUIRE(asset != nullptr);
+        CHECK(asset->colorSpace == image::ImageColorSpace::Srgb);
+    }
+    for (StringView f : {u8"thing.dds", u8"stuff.dds", u8"wall.dds", u8"brick.dds"})
+    {
+        FileDelete(f);
+    }
+    project.Reset();
+    (void)RemoveDirectoryRecursive(dir);
 }
 

@@ -20,6 +20,7 @@ export module foundation.image.io;
 
 import foundation.core;
 import foundation.image;
+import foundation.image.dds;
 
 using namespace foundation::core;
 
@@ -34,10 +35,30 @@ export namespace foundation::image::io
         BMP
     };
 
-    /// Load an image from a file path. Returns RGBA8 for LDR, RGBA32F for HDR.
+    /// Load an image from a memory buffer.
+    [[nodiscard]] inline Status LoadImageFromMemory(Span<const u8> buffer, Image& out);
+
+    /// Load an image from a file path. Returns RGBA8 for LDR, RGBA32F for HDR. A DDS file
+    /// (sniffed by magic, not extension) hands back its level 0 decoded.
     [[nodiscard]] inline Status LoadImage(StringView path, Image& out)
     {
         const std::string cPath(reinterpret_cast<const char*>(path.Data()), path.Size());
+        {
+            // A DDS is sniffed by its magic (a four-byte probe; stb still streams a PNG/JPG
+            // from the path itself); an unreadable file falls through for stb to report.
+            if (dds::IsDdsFile(path))
+            {
+                Result<Array<byte>> bytes = ReadFile(path);
+                if (!bytes.HasValue())
+                {
+                    return bytes.Error();
+                }
+                return dds::LoadDdsAsImage(
+                    Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
+                                   bytes.Value().Size()),
+                    out);
+            }
+        }
         int x = 0, y = 0, channels = 0;
         constexpr int desired = 4;
 
@@ -62,9 +83,12 @@ export namespace foundation::image::io
         return ErrorCode::Ok;
     }
 
-    /// Load an image from a memory buffer.
-    [[nodiscard]] inline Status LoadImageFromMemory(Span<const u8> buffer, Image& out)
+    inline Status LoadImageFromMemory(Span<const u8> buffer, Image& out)
     {
+        if (dds::IsDds(buffer))
+        {
+            return dds::LoadDdsAsImage(buffer, out); // level 0, decoded
+        }
         int x = 0, y = 0, channels = 0;
         constexpr int desired = 4;
 
