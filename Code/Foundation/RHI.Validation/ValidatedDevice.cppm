@@ -93,7 +93,7 @@ export namespace foundation::rhi::validation
                 out = nullptr; return ErrorCode::InvalidArgument;
             }
             Status r = m_inner->CreateBuffer(d, out);
-            if (r == ErrorCode::Ok && out) m_liveBuffers.PushBack(out);
+            if (r == ErrorCode::Ok && out) { m_liveBuffers.PushBack(out); Remember(out, d.label); }
             return r;
         }
 
@@ -102,7 +102,7 @@ export namespace foundation::rhi::validation
             if (!checkAlive("CreateTexture", out)) return ErrorCode::Unknown;
             if (d.width == 0 || d.height == 0) { LogError("[Validation] CreateTexture: width or height is 0"); out = nullptr; return ErrorCode::InvalidArgument; }
             Status r = m_inner->CreateTexture(d, out);
-            if (r == ErrorCode::Ok && out) m_liveTextures.PushBack(out);
+            if (r == ErrorCode::Ok && out) { m_liveTextures.PushBack(out); Remember(out, d.label); }
             return r;
         }
 
@@ -262,7 +262,11 @@ export namespace foundation::rhi::validation
             }
             Status r = m_inner->CreateTextureView(tex, d, out);
             if (r == ErrorCode::Ok && out)
+            {
                 m_liveTextureViews.PushBack(out);
+                // A view is named after its texture: a leaked view then says whose it is.
+                Remember(out, Format(u8"{}/view", LabelOf(tex)).AsView());
+            }
             return r;
         }
 
@@ -406,6 +410,7 @@ export namespace foundation::rhi::validation
         if (!x) return;                                                                            \
         if (!removeFromList(list, x))                                                              \
             LogWarning("[Validation] " #method ": resource was not tracked (double-destroy or wrong device?)"); \
+        (void)m_labels.Remove(static_cast<const void*>(x));                                        \
         m_inner->method(x);                                                                        \
         x = nullptr;                                                                               \
     }
@@ -526,6 +531,18 @@ export namespace foundation::rhi::validation
             return false;
         }
 
+        // The creation label of a tracked resource (buffers, textures, views), so a leak report
+        // names what leaked instead of a handle nobody can chase.
+        void Remember(const void* resource, StringView label)
+        {
+            m_labels.InsertOrAssign(resource, label.IsEmpty() ? String(u8"(unlabelled)") : String(label));
+        }
+        [[nodiscard]] StringView LabelOf(const void* resource) const
+        {
+            const String* label = m_labels.Find(resource);
+            return label != nullptr ? label->AsView() : StringView(u8"(unlabelled)");
+        }
+
         void reportLeaks()
         {
             auto report = [](const char* name, usize count)
@@ -533,9 +550,19 @@ export namespace foundation::rhi::validation
                 if (count > 0)
                     LogWarningf("[Validation] Device destroyed with %zu live %s(s)", count, name);
             };
+            // Name every leaked buffer, texture and view: the label is what a reader can grep.
+            auto names = [this](const char* name, const auto& list)
+            {
+                for (usize i = 0; i < list.Size(); ++i)
+                    LogWarningf("[Validation]   live %s: %s", name,
+                                reinterpret_cast<const char*>(LabelOf(list[i]).Data()));
+            };
             report("Buffer", m_liveBuffers.Size());
+            names("Buffer", m_liveBuffers);
             report("Texture", m_liveTextures.Size());
+            names("Texture", m_liveTextures);
             report("TextureView", m_liveTextureViews.Size());
+            names("TextureView", m_liveTextureViews);
             report("Sampler", m_liveSamplers.Size());
             report("ShaderModule", m_liveShaderModules.Size());
             report("BindGroupLayout", m_liveBindGroupLayouts.Size());
@@ -567,6 +594,7 @@ export namespace foundation::rhi::validation
         Array<Buffer*> m_liveBuffers;
         Array<Texture*> m_liveTextures;
         Array<TextureView*> m_liveTextureViews;
+        HashMap<const void*, String> m_labels; // creation labels of the three above (leak reports)
         Array<Sampler*> m_liveSamplers;
         Array<ShaderModule*> m_liveShaderModules;
         Array<BindGroupLayout*> m_liveBindGroupLayouts;

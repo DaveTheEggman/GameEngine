@@ -125,3 +125,59 @@ TEST_CASE("rhi.validation: a fenced submit without a fence is reported on BOTH f
     vb->Destroy();
 }
 
+namespace
+{
+    // Captures every log line (any level) holding a needle: leak reports are warnings.
+    struct LineCapture
+    {
+        int matching = 0;
+        const char* needle = "";
+        static bool Sink(void* context, bool, const char* utf8)
+        {
+            auto* self = static_cast<LineCapture*>(context);
+            if (std::strstr(utf8, self->needle) != nullptr)
+                ++self->matching;
+            return true;
+        }
+    };
+}
+
+TEST_CASE("rhi.validation: a device destroyed with live textures names them by their creation label")
+{
+    Backend* inner = nullptr;
+    REQUIRE(null::CreateNullBackend(inner).IsOk());
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
+    Device* device = nullptr;
+    REQUIRE(vb->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+
+    TextureDesc td{};
+    td.width = 4;
+    td.height = 4;
+    td.format = TextureFormat::RGBA8Unorm;
+    td.usage = TextureUsage::Sampled;
+    td.label = u8"leak.probe.texture";
+    Texture* leaked = nullptr;
+    REQUIRE(device->CreateTexture(td, leaked).IsOk());
+    TextureView* leakedView = nullptr;
+    REQUIRE(device->CreateTextureView(leaked, TextureViewDesc{}, leakedView).IsOk());
+    Texture* freed = nullptr;
+    td.label = u8"freed.texture";
+    REQUIRE(device->CreateTexture(td, freed).IsOk());
+    device->DestroyTexture(freed); // a destroyed one is forgotten, never reported
+
+    LineCapture capture;
+    capture.needle = "leak.probe.texture";
+    SetLogSink(&LineCapture::Sink, &capture);
+    device->Destroy(); // the texture AND its view are still alive: both named
+    SetLogSink(nullptr, nullptr);
+    CHECK(capture.matching == 2);
+    // The leak was deliberate; hand the two null objects back to their allocator through a
+    // sibling null device so the sanitizer lanes stay quiet.
+    Device* janitor = nullptr;
+    REQUIRE(inner->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, janitor).IsOk());
+    janitor->DestroyTextureView(leakedView);
+    janitor->DestroyTexture(leaked);
+    janitor->Destroy();
+    vb->Destroy();
+}
