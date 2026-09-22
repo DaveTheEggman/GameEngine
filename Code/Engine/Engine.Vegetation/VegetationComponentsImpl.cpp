@@ -500,13 +500,25 @@ namespace engine::vegetation
             }
             if (set.dirty)
             {
-                if (budget == 0)
+                // Authored props re-bucket in one copy - outside the budget, which exists for the
+                // procedural scatter; a stroke lands whole. A procedural set past the budget
+                // waits for a later frame, but a set that was ALREADY built keeps drawing its
+                // previous instances meanwhile (a dropped frame under the brush is a flicker).
+                const bool scattered = layer.placement == VegetationPlacement::Scattered;
+                if (scattered || budget > 0)
                 {
-                    continue; // next frame (the build budget spreads a cold start)
+                    BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds,
+                             Span<const Float4x4>{authored.instances.Data(),
+                                                  authored.instances.Size()});
+                    if (!scattered)
+                    {
+                        --budget;
+                    }
                 }
-                BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds,
-                         Span<const Float4x4>{authored.instances.Data(), authored.instances.Size()});
-                --budget;
+                else if (!set.built)
+                {
+                    continue; // never built: nothing stale to show until its turn
+                }
             }
             if (set.world.IsEmpty())
             {

@@ -667,3 +667,55 @@ TEST_CASE("engine.vegetation: a Scattered layer draws its authored instances buc
     sets = f.Extract(snapshot, &far);
     CHECK(sets.IsEmpty());
 }
+
+TEST_CASE("engine.vegetation: an invalidated set keeps drawing its old instances until its rebuild lands; props rebuild whole")
+{
+    Fixture f(/*withSplat*/ false);
+    f.mgr->SetBuildBudget(100);
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == 4u); // warm
+    CHECK(f.mgr->BuildCount() == 4u);
+
+    // A sculpt (every chunk dirty) under a budget of one: every frame still draws all four
+    // sets - the three not yet rebuilt show their previous instances - while one rebuilds
+    // per extraction, so nothing blinks under the brush.
+    f.mgr->SetBuildBudget(1);
+    f.grid->BumpVersion();
+    for (u32 frame = 1; frame <= 4; ++frame)
+    {
+        sets = f.Extract(snapshot, nullptr);
+        CHECK(sets.Size() == 4u);
+        CHECK(f.mgr->BuildCount() == 4u + frame);
+    }
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(f.mgr->BuildCount() == 8u); // all caught up
+    // A cold set (never built) still waits its turn: a fresh layer under the same budget.
+    VegetationLayer flowers = f.Layer();
+    flowers.name = String(u8"Flowers");
+    f.Component().layers.PushBack(flowers);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 5u); // the four grass sets + the one flower chunk built this frame
+
+    // Authored props re-bucket outside the budget: a stroke lands whole in one extraction.
+    f.Component().layers.RemoveAt(1);
+    f.Layer().placement = veg::VegetationPlacement::Scattered;
+    for (i32 i = 0; i < 4; ++i)
+    {
+        f.Layer().instances.PushBack(Float4x4::Translation(
+            Float3{(i % 2 == 0) ? -30.0f : 30.0f, 2.0f, (i < 2) ? -30.0f : 30.0f}));
+    }
+    sets = f.Extract(snapshot, nullptr); // the placement change reset the layer: 4 rebuilds
+    REQUIRE(sets.Size() == 4u);
+    const u64 builds = f.mgr->BuildCount();
+    f.Layer().instances.PushBack(Float4x4::Translation(Float3{-31.0f, 2.0f, -31.0f}));
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
+    CHECK(f.mgr->BuildCount() == builds + 4u); // every chunk re-bucketed this frame, budget 1
+    u32 total = 0;
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        total += s->instanceCount;
+    }
+    CHECK(total == 5u);
+}

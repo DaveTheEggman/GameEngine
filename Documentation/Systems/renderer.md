@@ -476,7 +476,10 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   layer. Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
   invalidated by the heightfield and splat uid + version, the entity world matrix (recompose,
   no rescatter) and the layer's scatter hash; `InvalidateRegion` (the editor brushes, P1)
-  regrows only the touched chunks. Frustum visibility is NOT known at extraction (one snapshot
+  regrows only the touched chunks. An invalidated set that was already built keeps drawing
+  its previous instances until its rebuild's turn comes (a dropped frame under a brush is a
+  flicker); only a never-built set waits unseen. A Scattered layer re-buckets its authored
+  instances outside the budget (a copy, not a scatter), so a prop stroke lands whole. Frustum visibility is NOT known at extraction (one snapshot
   per scene); distance gates the build, the renderer culls the sets per view.
 - **Renderer prerequisites (this phase).** `RenderData::castShadows` (default true) gates the
   sun-cascade caster list, so grass casts nothing unless asked; `MeshRenderer` evicts a
