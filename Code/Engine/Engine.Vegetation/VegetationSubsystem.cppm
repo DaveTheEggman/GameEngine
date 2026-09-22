@@ -4,7 +4,7 @@
 // engine.vegetation:subsystem - the Context-level VegetationSubsystem.
 //
 // The TerrainSubsystem pattern without a renderer of its own: per scene it registers the
-// VegetationLayerComponentManager (injected by scene composition) as an IRenderDataProvider on
+// TerrainVegetationComponentManager (injected by scene composition) as an IRenderDataProvider on
 // RenderSubsystem, so its instanced sets ride the shared MeshRenderer. No GPU state lives in the
 // manager (the renderer owns the instance buffers and evicts them), so nothing tears down here.
 
@@ -32,7 +32,7 @@ export namespace engine::vegetation
     public:
         void OnSystemsReady(scene::Scene& scene) override
         {
-            auto* mgr = scene.GetSystem<VegetationLayerComponentManager>();
+            auto* mgr = scene.GetSystem<TerrainVegetationComponentManager>();
             if (mgr == nullptr || m_render == nullptr)
             {
                 return;

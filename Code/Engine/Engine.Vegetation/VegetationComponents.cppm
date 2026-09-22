@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// engine.vegetation:components - the VegetationLayerComponent + its manager.
+// engine.vegetation:components - the TerrainVegetationComponent + its manager.
 //
-// ONE LAYER PER COMPONENT: a grass layer, a rock layer and a flower layer are three entities
-// under (or on) the terrain entity, each with a VegetationLayerComponent. The manager finds the
-// terrain by walking the entity's ancestry for a TerrainComponent, so the entity's name is the
-// layer's name, its active flag toggles the layer, the hierarchy orders it and a prefab can carry
-// it. (The spec's first cut kept an Array<layer> on one component; the reflected inspector edits
-// leaf fields, not struct elements inside a list, so the flat per-entity layer is the shape that
-// authors today.)
+// ONE component on the terrain entity holds the layers (`Array<VegetationLayer>`: a grass layer, a
+// rock layer, a flower layer), exactly the spec's data model. The reflected inspector edits each
+// layer in place (the generic list editor builds a per-slot expander of leaf rows through a
+// ComponentPropertyPath, the pickers included), so a layer is a list slot, not an entity. The
+// manager finds the terrain on the component's entity or the nearest ancestor with a
+// TerrainComponent.
 //
 // The manager is the scene's IRenderDataProvider for vegetation: per (layer, chunk) it scatters
 // on demand (Foundation::Vegetation, a pure function of the seed), keeps the set's terrain-local
@@ -32,7 +31,7 @@ import foundation.materials;        // Material
 import foundation.heightfield;      // Heightfield + HeightfieldRegion
 import foundation.terrain;          // TerrainChunk + BuildChunks
 import foundation.terrain.resource; // SplatWeights
-import foundation.vegetation;       // VegetationLayer + ScatterChunk + fade
+import foundation.vegetation;       // VegetationLayer (scatter params) + ScatterChunk + fade
 import foundation.render;           // IRenderDataProvider, ExtractedScene, MultiMeshRenderData
 
 using namespace foundation::core;
@@ -48,11 +47,12 @@ export namespace engine::vegetation
     using foundation::vegetation::VegetationPlacement;
     using foundation::vegetation::kSplatBaseLayer;
 
-    // One vegetation layer. The scatter parameters mirror foundation::vegetation::VegetationLayer
-    // FLAT (the inspector edits leaf fields); ToLayer() is the bridge to the pure scatter.
-    struct VegetationLayerComponent
+    // One authored layer. The scatter parameters mirror foundation::vegetation::VegetationLayer
+    // FLAT (the inspector edits leaf fields); ToScatterLayer() is the bridge to the pure scatter.
+    struct VegetationLayer
     {
-        foundation::resource::Ref<foundation::geometry::StaticMesh> mesh;  // a card, a tuft, a rock
+        String name; // the inspector's slot label ("Grass")
+        foundation::resource::Ref<foundation::geometry::StaticMesh> mesh;   // a card, a tuft, a rock
         foundation::resource::Ref<foundation::materials::Material> material; // nil = the mesh's own
         VegetationPlacement placement = VegetationPlacement::Splat;
         u32 splatLayer = 0;         // Splat: palette index; kSplatBaseLayer = the unpainted base
@@ -69,7 +69,7 @@ export namespace engine::vegetation
         u32 maxInstancesPerChunk = 4096;
         bool visible = true;
 
-        [[nodiscard]] veg::VegetationLayer ToLayer() const noexcept
+        [[nodiscard]] veg::VegetationLayer ToScatterLayer() const noexcept
         {
             veg::VegetationLayer layer;
             layer.placement = placement;
@@ -89,43 +89,60 @@ export namespace engine::vegetation
         }
     };
 
-    inline void Serialize(ISerializer& ar, VegetationLayerComponent& c)
+    inline void Serialize(ISerializer& ar, VegetationLayer& l)
     {
-        foundation::core::Serialize(ar, "mesh", c.mesh);
-        foundation::core::Serialize(ar, "material", c.material);
-        foundation::core::Serialize(ar, "placement", c.placement);
-        foundation::core::Serialize(ar, "splatLayer", c.splatLayer);
-        foundation::core::Serialize(ar, "splatThreshold", c.splatThreshold);
-        foundation::core::Serialize(ar, "maskPlane", c.maskPlane);
-        foundation::core::Serialize(ar, "density", c.density);
-        foundation::core::Serialize(ar, "scaleRange", c.scaleRange);
-        foundation::core::Serialize(ar, "maxSlopeDegrees", c.maxSlopeDegrees);
-        foundation::core::Serialize(ar, "heightRange", c.heightRange);
-        foundation::core::Serialize(ar, "alignToNormal", c.alignToNormal);
-        foundation::core::Serialize(ar, "fadeStart", c.fadeStart);
-        foundation::core::Serialize(ar, "fadeEnd", c.fadeEnd);
-        foundation::core::Serialize(ar, "castShadows", c.castShadows);
-        foundation::core::Serialize(ar, "maxInstancesPerChunk", c.maxInstancesPerChunk);
+        foundation::core::Serialize(ar, "name", l.name);
+        foundation::core::Serialize(ar, "mesh", l.mesh);
+        foundation::core::Serialize(ar, "material", l.material);
+        foundation::core::Serialize(ar, "placement", l.placement);
+        foundation::core::Serialize(ar, "splatLayer", l.splatLayer);
+        foundation::core::Serialize(ar, "splatThreshold", l.splatThreshold);
+        foundation::core::Serialize(ar, "maskPlane", l.maskPlane);
+        foundation::core::Serialize(ar, "density", l.density);
+        foundation::core::Serialize(ar, "scaleRange", l.scaleRange);
+        foundation::core::Serialize(ar, "maxSlopeDegrees", l.maxSlopeDegrees);
+        foundation::core::Serialize(ar, "heightRange", l.heightRange);
+        foundation::core::Serialize(ar, "alignToNormal", l.alignToNormal);
+        foundation::core::Serialize(ar, "fadeStart", l.fadeStart);
+        foundation::core::Serialize(ar, "fadeEnd", l.fadeEnd);
+        foundation::core::Serialize(ar, "castShadows", l.castShadows);
+        foundation::core::Serialize(ar, "maxInstancesPerChunk", l.maxInstancesPerChunk);
+        foundation::core::Serialize(ar, "visible", l.visible);
+    }
+
+    // The vegetation over one terrain: its layers, on the TerrainComponent's entity.
+    struct TerrainVegetationComponent
+    {
+        Array<VegetationLayer> layers;
+        bool visible = true;
+    };
+
+    inline void Serialize(ISerializer& ar, TerrainVegetationComponent& c)
+    {
+        foundation::core::Serialize(ar, "layers", c.layers);
         foundation::core::Serialize(ar, "visible", c.visible);
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
-                                 VegetationLayerComponent& c)
+                                 TerrainVegetationComponent& c)
     {
-        c.mesh.Bind(manager);
-        c.material.Bind(manager);
+        for (VegetationLayer& layer : c.layers)
+        {
+            layer.mesh.Bind(manager);
+            layer.material.Bind(manager);
+        }
     }
 
-    class VegetationLayerComponentManager final
-        : public foundation::scene::SerializableComponentManager<VegetationLayerComponent>,
+    class TerrainVegetationComponentManager final
+        : public foundation::scene::SerializableComponentManager<TerrainVegetationComponent>,
           public render::IRenderDataProvider
     {
     public:
-        // Chunks scattered per extraction, per layer (a cold start spreads over frames).
+        // Chunks scattered per extraction (a cold start spreads over frames).
         static constexpr u32 kDefaultBuildBudget = 4;
 
-        VegetationLayerComponentManager()
-            : SerializableComponentManager<VegetationLayerComponent>(u8"vegetationLayer")
+        TerrainVegetationComponentManager()
+            : SerializableComponentManager<TerrainVegetationComponent>(u8"terrainVegetation")
         {
         }
 
@@ -152,20 +169,22 @@ export namespace engine::vegetation
     private:
         struct ChunkSet
         {
-            u64 key = 0;             // ChunkSeed - the renderer's persistent-buffer key
-            u32 version = 0;         // bumps per rebuild (the renderer re-uploads on change)
+            u64 key = 0;           // ChunkSeed - the renderer's persistent-buffer key
+            u32 version = 0;       // bumps per rebuild (the renderer re-uploads on change)
             bool built = false;
-            bool dirty = true;       // needs a (re)scatter before it can draw
-            Array<Float4x4> world;   // composed instances (terrain-local x entity world)
-            Array<Float4x4> local;   // the scatter (kept: a moved entity recomposes, no rescatter)
+            bool dirty = true;     // needs a (re)scatter before it can draw
+            Array<Float4x4> world; // composed instances (terrain-local x entity world)
+            Array<Float4x4> local; // the scatter (kept: a moved entity recomposes, no rescatter)
             AABB localBounds = AABB::Empty();
             Float3 worldCenter = Float3{0.0f, 0.0f, 0.0f};
             f32 worldRadius = 0.0f;
         };
 
+        // The cached sets of one (component entity, layer index).
         struct LayerCache
         {
-            Guid layerId;
+            Guid ownerId;
+            u32 layerIndex = 0;
             u64 heightfieldUid = 0;
             u64 heightfieldVersion = 0;
             u64 splatUid = 0;
@@ -181,18 +200,24 @@ export namespace engine::vegetation
             bool warnedClamp = false; // the over-budget warning fires once per layer
         };
 
-        [[nodiscard]] LayerCache& CacheFor(scene::EntityHandle layerEntity);
-        void ResetCache(LayerCache& cache, const heightfield::Heightfield& hf, const Guid& layerId);
+        [[nodiscard]] static u64 CacheKey(scene::EntityHandle owner, u32 layerIndex) noexcept;
+        [[nodiscard]] LayerCache& CacheFor(scene::EntityHandle owner, u32 layerIndex);
+        void ResetCache(LayerCache& cache, const heightfield::Heightfield& hf, const Guid& ownerId,
+                        u32 layerIndex);
         void DirtyAll(LayerCache& cache);
         void BuildSet(LayerCache& cache, u32 chunkIndex, const heightfield::Heightfield& hf,
                       const tmodel::SplatWeights* splat, const veg::VegetationLayer& layer,
                       const AABB& meshBounds);
         void Compose(LayerCache& cache, ChunkSet& set);
+        void ExtractLayer(render::ExtractedScene& snapshot, scene::EntityHandle owner,
+                          const Guid& ownerId, u32 layerIndex, const VegetationLayer& authored,
+                          const heightfield::Heightfield& hf, const tmodel::SplatWeights* splat,
+                          const Float4x4& entityWorld, u32& budget);
 
         scene::Scene* m_scene = nullptr;
         u32 m_buildBudget = kDefaultBuildBudget;
         u64 m_builds = 0;
-        HashMap<u64, LayerCache> m_caches; // key = EntityTag of the layer entity
+        HashMap<u64, LayerCache> m_caches; // key = CacheKey(entity, layer index)
         Array<heightfield::HeightfieldRegion> m_pendingRegions;
     };
 

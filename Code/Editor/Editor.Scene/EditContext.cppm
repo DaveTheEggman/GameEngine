@@ -35,6 +35,36 @@ export namespace editor
 {
     namespace scene = foundation::scene;
 
+    /// Where a reflected property lives on a component: on the component itself (`container`
+    /// null) or on element `index` of a reflected container property of it (a struct inside an
+    /// `Array<Struct>` - a vegetation layer's density). Every property command and inspector
+    /// row builder takes one, so a struct element in a list edits exactly like a component
+    /// field: by name, undoable, merged per (entity, component, path, property).
+    struct ComponentPropertyPath
+    {
+        const char* container = nullptr; // static string from PropertyInfo::name
+        usize index = 0;
+
+        [[nodiscard]] bool IsEmpty() const noexcept { return container == nullptr; }
+        [[nodiscard]] bool operator==(const ComponentPropertyPath& other) const noexcept
+        {
+            if ((container == nullptr) != (other.container == nullptr))
+            {
+                return false;
+            }
+            if (container == nullptr)
+            {
+                return true;
+            }
+            usize i = 0;
+            while (container[i] != 0 && container[i] == other.container[i])
+            {
+                ++i;
+            }
+            return container[i] == other.container[i] && index == other.index;
+        }
+    };
+
     class SceneEditContext
     {
     public:
@@ -133,6 +163,10 @@ export namespace editor
         /// entity+component+property MERGE.
         void SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
                                   const char* property, const Variant& value);
+        /// The same, on the property owner `path` addresses (a struct element in a list).
+        void SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
+                                  const ComponentPropertyPath& path, const char* property,
+                                  const Variant& value);
 
         /// Point a component's resource::Ref<T> property at a new asset (the inspector's
         /// picker): writes the Guid through PropertyInfo::address and rebinds through the
@@ -143,9 +177,18 @@ export namespace editor
                                      const char* property, const Guid& value,
                                      foundation::resource::ResourceManager* resources)
         {
+            SetComponentResourceRef<T>(entity, componentType, ComponentPropertyPath{}, property,
+                                       value, resources);
+        }
+        template <typename T>
+        void SetComponentResourceRef(const Guid& entity, const TypeInfo* componentType,
+                                     const ComponentPropertyPath& path, const char* property,
+                                     const Guid& value,
+                                     foundation::resource::ResourceManager* resources)
+        {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                editor::EditorRootAllocator().New<SetResourceRefCommand<T>>(*this, entity, componentType,
-                                                                 property, value, resources),
+                editor::EditorRootAllocator().New<SetResourceRefCommand<T>>(
+                    *this, entity, componentType, path, property, value, resources),
                 editor::EditorRootAllocator()));
         }
 
@@ -154,9 +197,15 @@ export namespace editor
         void SetComponentEntityRef(const Guid& entity, const TypeInfo* componentType,
                                    const char* property, const Guid& target)
         {
+            SetComponentEntityRef(entity, componentType, ComponentPropertyPath{}, property, target);
+        }
+        void SetComponentEntityRef(const Guid& entity, const TypeInfo* componentType,
+                                   const ComponentPropertyPath& path, const char* property,
+                                   const Guid& target)
+        {
             (void)m_commands->Execute(UniquePtr<IEditorCommand>(
-                editor::EditorRootAllocator().New<SetEntityRefCommand>(*this, entity, componentType, property,
-                                                            target),
+                editor::EditorRootAllocator().New<SetEntityRefCommand>(*this, entity, componentType,
+                                                                       path, property, target),
                 editor::EditorRootAllocator()));
         }
 
@@ -165,6 +214,9 @@ export namespace editor
         /// PropertyInfo::address. Merges like SetComponentProperty.
         void SetComponentPropertyRaw(const Guid& entity, const TypeInfo* componentType,
                                      const char* property, i64 value);
+        void SetComponentPropertyRaw(const Guid& entity, const TypeInfo* componentType,
+                                     const ComponentPropertyPath& path, const char* property,
+                                     i64 value);
 
         /// Set a reflected property on a SCENE SYSTEM's settings block (the scene inspector,
         /// shown when no entity is selected). Same merge semantics as SetComponentProperty
@@ -210,6 +262,16 @@ export namespace editor
 
         /// The scene manager whose component type is `type` (null if none).
         [[nodiscard]] scene::ComponentManagerBase* FindManager(const TypeInfo* type);
+
+        /// The instance a property path addresses: the entity's component of `componentType`
+        /// (an empty path) or the element of its reflected container property at `path.index`.
+        /// `outOwnerType` (optional) receives the type whose properties apply - the component
+        /// type or the container's element type. Empty when anything along the path is missing
+        /// (no component, no such container, index out of range); re-derived on every call, so
+        /// it never holds a pointer across a pool move.
+        [[nodiscard]] Instance ResolvePropertyOwner(const Guid& entity, const TypeInfo* componentType,
+                                                    const ComponentPropertyPath& path,
+                                                    const TypeInfo** outOwnerType = nullptr);
 
         /// True if `possibleAncestor` is `entity` itself or one of its ancestors.
         [[nodiscard]] bool IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor);
@@ -1100,10 +1162,10 @@ export namespace editor
         {
         public:
             SetResourceRefCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
-                                  const char* property, const Guid& value,
-                                  foundation::resource::ResourceManager* resources)
-                : m_ctx(&ctx), m_entity(entity), m_type(type), m_property(property), m_new(value),
-                  m_resources(resources)
+                                  const ComponentPropertyPath& path, const char* property,
+                                  const Guid& value, foundation::resource::ResourceManager* resources)
+                : m_ctx(&ctx), m_entity(entity), m_type(type), m_path(path), m_property(property),
+                  m_new(value), m_resources(resources)
             {
             }
 
@@ -1137,17 +1199,14 @@ export namespace editor
             // Component pools move on add/remove, so the address re-derives every apply.
             [[nodiscard]] foundation::resource::Ref<T>* ResolveRef()
             {
-                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
-                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
-                if (!e.IsAssigned() || mgr == nullptr)
-                {
-                    return nullptr;
-                }
-                const Instance component = mgr->GetComponentInstance(e);
-                const PropertyInfo* prop =
-                    component.IsEmpty() ? nullptr : FindProperty(*m_type, m_property);
+                const TypeInfo* ownerType = nullptr;
+                const Instance owner =
+                    m_ctx->ResolvePropertyOwner(m_entity, m_type, m_path, &ownerType);
+                const PropertyInfo* prop = (owner.IsEmpty() || ownerType == nullptr)
+                                               ? nullptr
+                                               : FindProperty(*ownerType, m_property);
                 void* address = (prop != nullptr && prop->address != nullptr)
-                                    ? prop->address(component)
+                                    ? prop->address(owner)
                                     : nullptr;
                 return static_cast<foundation::resource::Ref<T>*>(address);
             }
@@ -1155,6 +1214,7 @@ export namespace editor
             SceneEditContext* m_ctx;
             Guid m_entity;
             const TypeInfo* m_type;
+            ComponentPropertyPath m_path;
             const char* m_property;
             Guid m_new;
             Guid m_old;
@@ -1169,8 +1229,10 @@ export namespace editor
         {
         public:
             SetEntityRefCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
-                                const char* property, const Guid& value)
-                : m_ctx(&ctx), m_entity(entity), m_type(type), m_property(property), m_new(value)
+                                const ComponentPropertyPath& path, const char* property,
+                                const Guid& value)
+                : m_ctx(&ctx), m_entity(entity), m_type(type), m_path(path), m_property(property),
+                  m_new(value)
             {
             }
 
@@ -1201,17 +1263,14 @@ export namespace editor
         private:
             [[nodiscard]] foundation::scene::EntityRef* ResolveRef()
             {
-                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
-                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_type);
-                if (!e.IsAssigned() || mgr == nullptr)
-                {
-                    return nullptr;
-                }
-                const Instance component = mgr->GetComponentInstance(e);
-                const PropertyInfo* prop =
-                    component.IsEmpty() ? nullptr : FindProperty(*m_type, m_property);
+                const TypeInfo* ownerType = nullptr;
+                const Instance owner =
+                    m_ctx->ResolvePropertyOwner(m_entity, m_type, m_path, &ownerType);
+                const PropertyInfo* prop = (owner.IsEmpty() || ownerType == nullptr)
+                                               ? nullptr
+                                               : FindProperty(*ownerType, m_property);
                 void* address = (prop != nullptr && prop->address != nullptr)
-                                    ? prop->address(component)
+                                    ? prop->address(owner)
                                     : nullptr;
                 return static_cast<foundation::scene::EntityRef*>(address);
             }
@@ -1219,6 +1278,7 @@ export namespace editor
             SceneEditContext* m_ctx;
             Guid m_entity;
             const TypeInfo* m_type;
+            ComponentPropertyPath m_path;
             const char* m_property;
             Guid m_new;
             Guid m_old;
@@ -1516,17 +1576,19 @@ export namespace editor
         {
         public:
             SetComponentPropertyCommand(SceneEditContext& ctx, const Guid& entity,
-                                        const TypeInfo* componentType, const char* property,
+                                        const TypeInfo* componentType,
+                                        const ComponentPropertyPath& path, const char* property,
                                         const Variant& value)
-                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType),
+                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType), m_path(path),
                   m_property(property), m_new(value)
             {
             }
 
             SetComponentPropertyCommand(SceneEditContext& ctx, const Guid& entity,
-                                        const TypeInfo* componentType, const char* property,
+                                        const TypeInfo* componentType,
+                                        const ComponentPropertyPath& path, const char* property,
                                         i64 rawValue)
-                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType),
+                : m_ctx(&ctx), m_entity(entity), m_componentType(componentType), m_path(path),
                   m_property(property), m_newRaw(rawValue), m_raw(true)
             {
             }
@@ -1591,7 +1653,8 @@ export namespace editor
             {
                 auto& prev = static_cast<SetComponentPropertyCommand&>(previous);
                 if (prev.m_entity != m_entity || prev.m_componentType != m_componentType ||
-                    prev.m_raw != m_raw || !detail_CStrEq(prev.m_property, m_property))
+                    prev.m_raw != m_raw || !(prev.m_path == m_path) ||
+                    !detail_CStrEq(prev.m_property, m_property))
                 {
                     return false;
                 }
@@ -1645,28 +1708,23 @@ export namespace editor
 
             [[nodiscard]] Instance ResolveComponent(const PropertyInfo** outProperty)
             {
-                const scene::EntityHandle e = m_ctx->Resolve(m_entity);
-                if (!e.IsAssigned())
+                // The owner the path addresses: the component, or a struct element of one of
+                // its container properties (re-derived every time - pools move).
+                const TypeInfo* ownerType = nullptr;
+                const Instance owner =
+                    m_ctx->ResolvePropertyOwner(m_entity, m_componentType, m_path, &ownerType);
+                if (owner.IsEmpty() || ownerType == nullptr)
                 {
                     return {};
                 }
-                scene::ComponentManagerBase* mgr = m_ctx->FindManager(m_componentType);
-                if (mgr == nullptr)
-                {
-                    return {};
-                }
-                const Instance component = mgr->GetComponentInstance(e);
-                if (component.IsEmpty())
-                {
-                    return {};
-                }
-                *outProperty = FindProperty(*m_componentType, m_property);
-                return component;
+                *outProperty = FindProperty(*ownerType, m_property);
+                return owner;
             }
 
             SceneEditContext* m_ctx;
             Guid m_entity;
             const TypeInfo* m_componentType;
+            ComponentPropertyPath m_path;
             const char* m_property; // static string from PropertyInfo::name
             Variant m_new;
             Variant m_old;

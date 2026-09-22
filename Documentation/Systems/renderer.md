@@ -453,14 +453,15 @@ Which entity is under a pixel (or inside a rect) of a view, answered by the GPU 
 Grass and props over a terrain are per-chunk INSTANCED SETS through the MeshRenderer's
 MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-vegetation.md`.
 
-- **Data.** `VegetationLayerComponent` (Engine.Vegetation) on the terrain entity or a child of
-  it: one layer per component (mesh, optional material, placement Uniform / Splat / Mask (P1) /
+- **Data.** `TerrainVegetationComponent` (Engine.Vegetation) on the terrain entity (or a child
+  of it; the manager walks the ancestry for the `TerrainComponent`): `Array<VegetationLayer>`,
+  each layer a name, a mesh, an optional material, placement Uniform / Splat / Mask (P1) /
   Scattered (P2), splat layer + threshold, density, scale and slope and height rules,
-  alignToNormal, fade start / end, castShadows, maxInstancesPerChunk). The manager finds the
-  terrain by walking the entity's ancestry for a `TerrainComponent`.
+  alignToNormal, fade start / end, castShadows, maxInstancesPerChunk, visible. The inspector
+  edits each layer in its own expander under the list (editor.md 3.5).
 - **Scatter.** `foundation.vegetation::ScatterChunk` is a pure function of (seed, chunk,
-  heightfield, splat, layer): the seed hashes the layer entity's persistent id and the chunk
-  index, so the same inputs give byte-identical terrain-local instances on any machine. The
+  heightfield, splat, layer): the seed hashes the owner entity's persistent id, the layer index
+  and the chunk index, so the same inputs give byte-identical terrain-local instances on any machine. The
   output ORDER is a uniformly random sequence, so distance fade is a draw-count PREFIX
   (`DensityAtDistance` x count via `FadePrefix`): the GPU buffer holds the full chunk once,
   only `instanceCount` moves with distance, no re-upload, no per-instance culling, no chunk

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// engine.vegetation - the component's reflection + wire, and the manager's contract: sets built
-// only for chunks in range, one MultiMeshRenderData per (layer, chunk) with the fade prefix as its
-// count, region-scoped regrow on a version bump, the build budget, and nothing extra without a
-// layer.
+// engine.vegetation - the component's reflection + wire (an array of layers), and the manager's
+// contract: sets built only for chunks in range, one MultiMeshRenderData per (layer, chunk) with
+// the fade prefix as its count, region-scoped regrow on a version bump, the build budget, and
+// nothing extra without a layer.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -28,8 +28,9 @@ namespace tmodel = foundation::terrain;
 namespace veg = foundation::vegetation;
 namespace render = foundation::render;
 namespace geometry = foundation::geometry;
-using engine::vegetation::VegetationLayerComponent;
-using engine::vegetation::VegetationLayerComponentManager;
+using engine::vegetation::TerrainVegetationComponent;
+using engine::vegetation::TerrainVegetationComponentManager;
+using engine::vegetation::VegetationLayer;
 
 namespace
 {
@@ -71,7 +72,7 @@ namespace
         return sw;
     }
 
-    // A scene with a terrain entity and one grass layer entity under it.
+    // A scene with a terrain entity carrying the vegetation component with one grass layer.
     struct Fixture
     {
         scene::Scene scene{DefaultAllocator()};
@@ -80,14 +81,13 @@ namespace
         RefPtr<tmodel::TerrainResource> resource;
         RefPtr<geometry::StaticMesh> mesh;
         scene::EntityHandle terrain{};
-        scene::EntityHandle grass{};
-        VegetationLayerComponentManager* mgr = nullptr;
+        TerrainVegetationComponentManager* mgr = nullptr;
 
         explicit Fixture(bool withSplat = true)
         {
             engine::terrain::AddTerrainSceneManagers(scene);
             engine::vegetation::AddVegetationSceneManagers(scene);
-            mgr = scene.GetSystem<VegetationLayerComponentManager>();
+            mgr = scene.GetSystem<TerrainVegetationComponentManager>();
             REQUIRE(mgr != nullptr);
 
             grid = MakeFlat(2.0f);
@@ -103,21 +103,23 @@ namespace
                 resource.Get();
 
             mesh = geometry::Primitives::Cube(DefaultAllocator(), 0.5f);
-            grass = scene.CreateEntity(u8"grass");
-            scene.SetParent(grass, terrain);
-            VegetationLayerComponent& c = mgr->Add(grass);
-            c.mesh = mesh.Get();
-            c.placement = withSplat ? veg::VegetationPlacement::Splat
-                                    : veg::VegetationPlacement::Uniform;
-            c.splatLayer = 0;
-            c.density = 0.25f; // 1024 candidates per chunk
-            c.maxSlopeDegrees = 90.0f;
-            c.fadeStart = 40.0f;
-            c.fadeEnd = 80.0f;
+            TerrainVegetationComponent& c = mgr->Add(terrain);
+            VegetationLayer grass;
+            grass.name = String(u8"Grass");
+            grass.mesh = mesh.Get();
+            grass.placement = withSplat ? veg::VegetationPlacement::Splat
+                                        : veg::VegetationPlacement::Uniform;
+            grass.splatLayer = 0;
+            grass.density = 0.25f; // 1024 candidates per chunk
+            grass.maxSlopeDegrees = 90.0f;
+            grass.fadeStart = 40.0f;
+            grass.fadeEnd = 80.0f;
+            c.layers.PushBack(grass);
             scene.Start();
         }
 
-        VegetationLayerComponent& Layer() { return *mgr->Get(grass); }
+        TerrainVegetationComponent& Component() { return *mgr->Get(terrain); }
+        VegetationLayer& Layer(usize i = 0) { return Component().layers[i]; }
 
         // Extract with the view at `origin` (or headless), returning the emitted sets.
         Array<const render::MultiMeshRenderData*> Extract(render::ExtractedScene& snapshot,
@@ -152,40 +154,57 @@ namespace
     }
 }
 
-TEST_CASE("engine.vegetation: the component reflects with the inspector attributes and round-trips its wire")
+TEST_CASE("engine.vegetation: the component reflects (layers as a container of reflected layers) and round-trips its wire")
 {
     engine::vegetation::RegisterVegetationComponentReflection();
     engine::vegetation::RegisterVegetationComponentReflection(); // idempotent
-    const TypeInfo& type = TypeOf<VegetationLayerComponent>();
-    for (const char* name : {"mesh", "material", "placement", "splatLayer", "splatThreshold",
-                             "maskPlane", "density", "scaleRange", "maxSlopeDegrees",
-                             "heightRange", "alignToNormal", "fadeStart", "fadeEnd",
-                             "castShadows", "maxInstancesPerChunk", "visible"})
-    {
-        INFO(name);
-        CHECK(FindProperty(type, name) != nullptr);
-    }
+    const TypeInfo& type = TypeOf<TerrainVegetationComponent>();
+    const PropertyInfo* layers = FindProperty(type, "layers");
+    REQUIRE(layers != nullptr);
+    REQUIRE(layers->type != nullptr);
+    REQUIRE(layers->type->container != nullptr); // the list editor's contract
+    CHECK(layers->type->container->elementType == &TypeOf<VegetationLayer>());
+    CHECK(FindProperty(type, "visible") != nullptr);
     const Variant* display = FindAttribute(type, "displayName");
     REQUIRE(display != nullptr);
-    CHECK(*display->TryGet<String>() == String(u8"Vegetation Layer"));
+    CHECK(*display->TryGet<String>() == String(u8"Terrain Vegetation"));
     const Variant* category = FindAttribute(type, "category");
     REQUIRE(category != nullptr);
     CHECK(*category->TryGet<String>() == String(u8"Terrain"));
 
-    VegetationLayerComponent authored;
-    authored.placement = veg::VegetationPlacement::Uniform;
-    authored.splatLayer = 3;
-    authored.splatThreshold = 0.5f;
-    authored.density = 7.5f;
-    authored.scaleRange = Float2{0.5f, 2.5f};
-    authored.maxSlopeDegrees = 12.0f;
-    authored.heightRange = Float2{-3.0f, 30.0f};
-    authored.alignToNormal = true;
-    authored.fadeStart = 10.0f;
-    authored.fadeEnd = 20.0f;
-    authored.castShadows = true;
-    authored.maxInstancesPerChunk = 512;
+    const TypeInfo& layerType = TypeOf<VegetationLayer>();
+    for (const char* name : {"name", "mesh", "material", "placement", "splatLayer",
+                             "splatThreshold", "maskPlane", "density", "scaleRange",
+                             "maxSlopeDegrees", "heightRange", "alignToNormal", "fadeStart",
+                             "fadeEnd", "castShadows", "maxInstancesPerChunk", "visible"})
+    {
+        INFO(name);
+        CHECK(FindProperty(layerType, name) != nullptr);
+    }
+
+    TerrainVegetationComponent authored;
     authored.visible = false;
+    VegetationLayer grass;
+    grass.name = String(u8"Grass");
+    grass.placement = veg::VegetationPlacement::Uniform;
+    grass.splatLayer = 3;
+    grass.splatThreshold = 0.5f;
+    grass.density = 7.5f;
+    grass.scaleRange = Float2{0.5f, 2.5f};
+    grass.maxSlopeDegrees = 12.0f;
+    grass.heightRange = Float2{-3.0f, 30.0f};
+    grass.alignToNormal = true;
+    grass.fadeStart = 10.0f;
+    grass.fadeEnd = 20.0f;
+    grass.castShadows = true;
+    grass.maxInstancesPerChunk = 512;
+    grass.visible = false;
+    authored.layers.PushBack(grass);
+    VegetationLayer rocks;
+    rocks.name = String(u8"Rocks");
+    rocks.density = 0.05f;
+    rocks.castShadows = true;
+    authored.layers.PushBack(rocks);
 
     MemoryStream buffer;
     {
@@ -193,30 +212,36 @@ TEST_CASE("engine.vegetation: the component reflects with the inspector attribut
         Serialize(writer, authored);
     }
     (void)buffer.Seek(0, SeekOrigin::Begin);
-    VegetationLayerComponent loaded;
+    TerrainVegetationComponent loaded;
     {
         BinarySerializer reader(buffer, SerializeMode::Read);
         Serialize(reader, loaded);
     }
-    CHECK(loaded.placement == veg::VegetationPlacement::Uniform);
-    CHECK(loaded.splatLayer == 3u);
-    CHECK(loaded.splatThreshold == 0.5f);
-    CHECK(loaded.density == 7.5f);
-    CHECK(loaded.scaleRange.y == 2.5f);
-    CHECK(loaded.maxSlopeDegrees == 12.0f);
-    CHECK(loaded.heightRange.x == -3.0f);
-    CHECK(loaded.alignToNormal);
-    CHECK(loaded.fadeStart == 10.0f);
-    CHECK(loaded.fadeEnd == 20.0f);
-    CHECK(loaded.castShadows);
-    CHECK(loaded.maxInstancesPerChunk == 512u);
     CHECK(!loaded.visible);
+    REQUIRE(loaded.layers.Size() == 2u);
+    const VegetationLayer& g = loaded.layers[0];
+    CHECK(g.name == String(u8"Grass"));
+    CHECK(g.placement == veg::VegetationPlacement::Uniform);
+    CHECK(g.splatLayer == 3u);
+    CHECK(g.splatThreshold == 0.5f);
+    CHECK(g.density == 7.5f);
+    CHECK(g.scaleRange.y == 2.5f);
+    CHECK(g.maxSlopeDegrees == 12.0f);
+    CHECK(g.heightRange.x == -3.0f);
+    CHECK(g.alignToNormal);
+    CHECK(g.fadeStart == 10.0f);
+    CHECK(g.fadeEnd == 20.0f);
+    CHECK(g.castShadows);
+    CHECK(g.maxInstancesPerChunk == 512u);
+    CHECK(!g.visible);
+    CHECK(loaded.layers[1].name == String(u8"Rocks"));
+    CHECK(loaded.layers[1].density == 0.05f);
 
-    // ToLayer mirrors the scatter fields.
-    const veg::VegetationLayer layer = loaded.ToLayer();
+    // ToScatterLayer mirrors the scatter fields.
+    const veg::VegetationLayer layer = g.ToScatterLayer();
     CHECK(layer.density == 7.5f);
     CHECK(layer.castShadows);
-    CHECK(veg::LayerScatterHash(layer) == veg::LayerScatterHash(authored.ToLayer()));
+    CHECK(veg::LayerScatterHash(layer) == veg::LayerScatterHash(grass.ToScatterLayer()));
 }
 
 TEST_CASE("engine.vegetation: one set per (layer, chunk) in range; the splat picks the chunks; shadows follow the layer")
@@ -244,7 +269,7 @@ TEST_CASE("engine.vegetation: one set per (layer, chunk) in range; the splat pic
         CHECK(s->category == render::RenderCategories::Opaque);
         CHECK(s->worldCenter.x < 0.0f); // the painted (x < 0) chunks
         CHECK(s->worldRadius > 32.0f);
-        CHECK(render::EntityTag::Index(s->entityId) == f.grass.index);
+        CHECK(render::EntityTag::Index(s->entityId) == f.terrain.index);
         for (u32 i = 0; i < s->instanceCount; ++i)
         {
             CHECK(s->transforms[i].m[3][0] < 0.0f);
@@ -403,12 +428,73 @@ TEST_CASE("engine.vegetation: the build budget spreads a cold start over extract
     CHECK(f.mgr->BuildCount() == 4u); // warm: no more builds
 }
 
-TEST_CASE("engine.vegetation: no layer, a hidden layer, a layer off any terrain, or no mesh extracts nothing")
+TEST_CASE("engine.vegetation: two layers are two families of sets; a removed slot drops its sets")
+{
+    Fixture f(/*withSplat*/ false);
+    f.mgr->SetBuildBudget(100);
+    RefPtr<geometry::StaticMesh> rockMesh = geometry::Primitives::Cube(DefaultAllocator(), 1.5f);
+    VegetationLayer rocks;
+    rocks.name = String(u8"Rocks");
+    rocks.mesh = rockMesh.Get();
+    rocks.placement = veg::VegetationPlacement::Uniform;
+    rocks.density = 0.01f; // ~41 per chunk
+    rocks.maxSlopeDegrees = 90.0f;
+    rocks.castShadows = true;
+    f.Component().layers.PushBack(rocks);
+
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == 8u); // 4 chunks x 2 layers
+    CHECK(f.mgr->BuildCount() == 8u);
+    u32 grassSets = 0;
+    u32 rockSets = 0;
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        if (s->mesh == f.mesh.Get())
+        {
+            ++grassSets;
+            CHECK(!s->castShadows);
+            CHECK(s->instanceCount == 1024u);
+        }
+        else
+        {
+            REQUIRE(s->mesh == rockMesh.Get());
+            ++rockSets;
+            CHECK(s->castShadows);
+            CHECK(s->instanceCount == 41u);
+        }
+        // Every set's key is unique across layers and chunks.
+        for (const render::MultiMeshRenderData* other : sets)
+        {
+            CHECK((other == s || other->key != s->key));
+        }
+    }
+    CHECK(grassSets == 4u);
+    CHECK(rockSets == 4u);
+
+    // A hidden layer draws nothing but keeps its sets; unhiding costs no rebuild.
+    f.Layer(1).visible = false;
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
+    CHECK(f.mgr->BuiltSetCount() == 8u);
+    f.Layer(1).visible = true;
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 8u);
+    CHECK(f.mgr->BuildCount() == 8u);
+
+    // Removing the rock slot drops its sets on the next extraction.
+    f.Component().layers.RemoveAt(1);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
+    CHECK(f.mgr->BuiltSetCount() == 4u);
+}
+
+TEST_CASE("engine.vegetation: no component, a hidden component, one off any terrain, or a layer without a mesh extracts nothing")
 {
     scene::Scene bare{DefaultAllocator()};
     engine::terrain::AddTerrainSceneManagers(bare);
     engine::vegetation::AddVegetationSceneManagers(bare);
-    auto* mgr = bare.GetSystem<VegetationLayerComponentManager>();
+    auto* mgr = bare.GetSystem<TerrainVegetationComponentManager>();
     REQUIRE(mgr != nullptr);
     bare.Start();
     render::ExtractedScene snapshot{DefaultAllocator()};
@@ -417,35 +503,47 @@ TEST_CASE("engine.vegetation: no layer, a hidden layer, a layer off any terrain,
 
     Fixture f(/*withSplat*/ false);
     f.mgr->SetBuildBudget(100);
-    f.Layer().visible = false;
+    f.Component().visible = false;
     Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
-    f.Layer().visible = true;
+    f.Component().visible = true;
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
 
-    // An inactive entity is absent; so is a layer whose entity has no terrain above it.
-    f.scene.SetActive(f.grass, false);
+    // An inactive entity is absent.
+    f.scene.SetActive(f.terrain, false);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
-    f.scene.SetActive(f.grass, true);
-    f.scene.SetParent(f.grass, scene::EntityHandle{});
+    f.scene.SetActive(f.terrain, true);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
+
+    // The component on a CHILD of the terrain entity grows on the parent's terrain; on an
+    // entity with no terrain above it, nothing.
+    const scene::EntityHandle child = f.scene.CreateEntity(u8"dressing");
+    f.scene.SetParent(child, f.terrain);
+    TerrainVegetationComponent moved = f.Component();
+    f.mgr->Remove(f.terrain);
+    f.mgr->Add(child) = moved;
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
+    f.scene.SetParent(child, scene::EntityHandle{});
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
-    f.scene.SetParent(f.grass, f.terrain);
+    f.scene.SetParent(child, f.terrain);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
 
     // No mesh: nothing to instance.
-    f.Layer().mesh = nullptr;
+    f.mgr->Get(child)->layers[0].mesh = nullptr;
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
 
-    // A removed layer drops its cache.
-    f.Layer().mesh = f.mesh.Get();
+    // A removed component drops its caches.
+    f.mgr->Get(child)->layers[0].mesh = f.mesh.Get();
     sets = f.Extract(snapshot, nullptr);
     CHECK(f.mgr->BuiltSetCount() == 4u);
-    f.mgr->Remove(f.grass);
+    f.mgr->Remove(child);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
     CHECK(f.mgr->BuiltSetCount() == 0u);

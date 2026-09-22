@@ -149,9 +149,10 @@ updates occasionally bump cook versions - the first open after one re-cooks auto
 
 ## 6. Vegetation
 
-Grass, flowers and rocks grow from the splat you painted. Add a child entity under the
-terrain entity (right-click the terrain in the hierarchy, Create Empty), name it after the
-layer ("Grass"), and add a **Vegetation Layer** component (Terrain category). Set:
+Grass, flowers and rocks grow from the splat you painted. Select the terrain entity and add a
+**Terrain Vegetation** component (Terrain category). Its **Layers** list holds one entry per
+kind of ground cover; the add icon appends a layer, and each layer gets its own section under
+the list ("Layers 1: Grass"), titled by the layer's **Name**. Per layer:
 
 - **Mesh** and optionally **Material**: a grass card, a tuft, a rock. Grass cards want a
   double-sided, masked material; the alpha test already runs in the depth, shadow and pick
@@ -167,11 +168,12 @@ layer ("Grass"), and add a **Vegetation Layer** component (Terrain category). Se
   beyond the end. Thinning is per instance and stable, so nothing pops.
 - **Cast Shadows** stays off for grass (the single most expensive thing a grass layer can do);
   turn it on for rocks and props.
+- **Visible** hides one layer; the component's own Visible hides them all.
 
-One layer per entity: three kinds of ground cover are three child entities. Toggling the
-entity's active flag hides the layer, the hierarchy orders them, and a prefab carries them.
-Sculpting or painting regrows only the touched chunks; the chunks build as the camera reaches
-them, a few per frame, so a cold scene fills in over the first frames rather than stalling one.
+Reorder layers with the list's arrows and remove one with its cross; every edit is one undo
+step. Sculpting or painting regrows only the touched chunks; the chunks build as the camera
+reaches them, a few per frame, so a cold scene fills in over the first frames rather than
+stalling one.
 
 ## Troubleshooting
 

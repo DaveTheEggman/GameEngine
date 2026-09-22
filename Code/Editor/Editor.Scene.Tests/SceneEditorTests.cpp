@@ -20,6 +20,7 @@ import editor.app; // ContainerListEditor (the generic reflected-list row)
 import editor.core;
 import editor.scene;
 import engine.animation;
+import engine.vegetation; // TerrainVegetationComponent: a reflected list of structs
 import foundation.shell;
 import foundation.settings;
 import foundation.xml.serialization;
@@ -493,4 +494,80 @@ TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
     CHECK(list->slotNames[0] == u8"Body");      // named, never "<value>"
     CHECK(list->slotNames[1] == u8"None");      // nil ref
     CHECK(list->slotNames[2] == u8"(missing)"); // guid that resolves to no entity
+}
+
+TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of leaf rows addressed by path")
+{
+    using engine::vegetation::TerrainVegetationComponent;
+    using engine::vegetation::VegetationLayer;
+    engine::vegetation::RegisterVegetationComponentReflection();
+    scene::Scene scene{DefaultAllocator()};
+    engine::vegetation::AddVegetationSceneManagers(scene);
+    auto* mgr = scene.GetSystem<engine::vegetation::TerrainVegetationComponentManager>();
+    REQUIRE(mgr != nullptr);
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    EditorContext editor{DefaultAllocator()};
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
+
+    const Guid terrain = edit.CreateEntity(u8"Terrain");
+    TerrainVegetationComponent& c = mgr->Add(scene.FindEntity(terrain));
+    VegetationLayer grass;
+    grass.name = String(u8"Grass");
+    grass.density = 2.0f;
+    c.layers.PushBack(grass);
+    c.layers.PushBack(VegetationLayer{}); // unnamed: falls back to the type label
+
+    edit.EntitySelection().Set(terrain);
+    inspector.Refresh();
+    auto* list = foundation::core::Cast<editor::app::ContainerListEditor>(
+        inspector.Grid()->GetProperty(u8"Layers"));
+    REQUIRE(list != nullptr);
+    REQUIRE(list->slotNames.Size() == 2u);
+    CHECK(list->slotNames[0] == u8"Grass"); // the element's own name, not "<value>"
+    CHECK(list->slotNames[1] != u8"Grass");
+
+    // Every leaf field of each slot is a row in that slot's expander; the named slot titles
+    // its expander with the name.
+    const usize layerFields = Properties(TypeOf<VegetationLayer>()).Size();
+    usize slot1Rows = 0;
+    usize slot2Rows = 0;
+    bool slot1Density = false;
+    bool slot1Mesh = false;
+    for (usize i = 0; i < inspector.Grid()->PropertyCount(); ++i)
+    {
+        const foundation::ui::toolkit::PropertyEditor* row = inspector.Grid()->PropertyAt(i);
+        if (row->Category() == u8"Layers 1: Grass")
+        {
+            ++slot1Rows;
+            slot1Density |= row->Name() == u8"density";
+            slot1Mesh |= row->Name() == u8"mesh";
+        }
+        else if (row->Category() == u8"Layers 2")
+        {
+            ++slot2Rows;
+        }
+    }
+    CHECK(slot1Rows == layerFields);
+    CHECK(slot2Rows == layerFields);
+    CHECK(slot1Density);
+    CHECK(slot1Mesh);
+
+    // A path edit shows up on the next refresh through the same rows (the refresher pulls the
+    // owner by path), and removing a slot rebuilds the grid without its expander.
+    edit.SetComponentProperty(terrain, &TypeOf<TerrainVegetationComponent>(),
+                              ComponentPropertyPath{"layers", 0}, "density",
+                              Variant::From<f32>(9.0f));
+    CHECK(mgr->Get(scene.FindEntity(terrain))->layers[0].density == 9.0f);
+    mgr->Get(scene.FindEntity(terrain))->layers.RemoveAt(1);
+    inspector.Refresh(); // the list refresher sees the count change and forces a rebuild
+    inspector.Refresh();
+    bool slot2Present = false;
+    for (usize i = 0; i < inspector.Grid()->PropertyCount(); ++i)
+    {
+        slot2Present |= inspector.Grid()->PropertyAt(i)->Category() == u8"Layers 2";
+    }
+    CHECK(!slot2Present);
 }

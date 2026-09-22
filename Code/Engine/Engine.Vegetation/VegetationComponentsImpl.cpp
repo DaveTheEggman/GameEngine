@@ -31,10 +31,10 @@ namespace engine::vegetation
 {
     namespace
     {
-        // The terrain a layer entity grows on: its own TerrainComponent, else the nearest
+        // The terrain a vegetation entity grows on: its own TerrainComponent, else the nearest
         // ancestor's. Returns null (and leaves `terrainEntity` unassigned) when there is none.
         engine::terrain::TerrainComponent* FindTerrainFor(scene::Scene& scene,
-                                                          scene::EntityHandle layerEntity,
+                                                          scene::EntityHandle owner,
                                                           scene::EntityHandle& terrainEntity)
         {
             auto* terrains = scene.GetSystem<engine::terrain::TerrainComponentManager>();
@@ -42,7 +42,7 @@ namespace engine::vegetation
             {
                 return nullptr;
             }
-            scene::EntityHandle e = layerEntity;
+            scene::EntityHandle e = owner;
             for (u32 depth = 0; depth < 64 && e.IsAssigned(); ++depth)
             {
                 if (engine::terrain::TerrainComponent* tc = terrains->Get(e))
@@ -75,67 +75,79 @@ namespace engine::vegetation
         builder.Value("Scattered", VegetationPlacement::Scattered);
     }
 
-    REFLECT_VALUE(VegetationLayerComponent, "rtti::engine::vegetation")
+    REFLECT_VALUE(VegetationLayer, "rtti::engine::vegetation")
     {
         builder.Attribute("displayName", String(u8"Vegetation Layer"))
-            .Attribute("category", String(u8"Terrain"))
-            .DataVersion(1)
-            .Property<&VegetationLayerComponent::mesh>("mesh")
+            .Property<&VegetationLayer::name>("name")
+            .PropAttribute("description", String(u8"The layer's label in the list."))
+            .Property<&VegetationLayer::mesh>("mesh")
             .PropAttribute("description",
                            String(u8"The instanced mesh: a grass card, a tuft, a rock."))
-            .Property<&VegetationLayerComponent::material>("material")
+            .Property<&VegetationLayer::material>("material")
             .PropAttribute("description", String(u8"Optional override; none = the mesh's own."))
-            .Property<&VegetationLayerComponent::placement>("placement")
+            .Property<&VegetationLayer::placement>("placement")
             .PropAttribute("description",
                            String(u8"Where it grows: everywhere (Uniform), where a terrain splat "
                                   u8"layer is painted (Splat), a painted mask (Mask), or authored "
                                   u8"instances (Scattered)."))
-            .Property<&VegetationLayerComponent::splatLayer>("splatLayer")
+            .Property<&VegetationLayer::splatLayer>("splatLayer")
             .PropAttribute("displayName", String(u8"Splat Layer"))
             .PropAttribute("description",
                            String(u8"Splat placement: the terrain palette index to follow."))
-            .Property<&VegetationLayerComponent::splatThreshold>("splatThreshold")
+            .Property<&VegetationLayer::splatThreshold>("splatThreshold")
             .PropAttribute("displayName", String(u8"Splat Threshold"))
             .PropAttribute("description",
                            String(u8"Splat placement: the painted share (0..1) below which "
                                   u8"nothing grows."))
-            .Property<&VegetationLayerComponent::maskPlane>("maskPlane")
+            .Property<&VegetationLayer::maskPlane>("maskPlane")
             .PropAttribute("displayName", String(u8"Mask Plane"))
-            .Property<&VegetationLayerComponent::density>("density")
+            .Property<&VegetationLayer::density>("density")
             .PropAttribute("description", String(u8"Instances per square metre."))
-            .Property<&VegetationLayerComponent::scaleRange>("scaleRange")
+            .Property<&VegetationLayer::scaleRange>("scaleRange")
             .PropAttribute("displayName", String(u8"Scale Range"))
-            .Property<&VegetationLayerComponent::maxSlopeDegrees>("maxSlopeDegrees")
+            .Property<&VegetationLayer::maxSlopeDegrees>("maxSlopeDegrees")
             .PropAttribute("displayName", String(u8"Max Slope"))
             .PropAttribute("description",
                            String(u8"Degrees from flat above which nothing grows."))
-            .Property<&VegetationLayerComponent::heightRange>("heightRange")
+            .Property<&VegetationLayer::heightRange>("heightRange")
             .PropAttribute("displayName", String(u8"Height Range"))
             .PropAttribute("description", String(u8"Terrain-local Y window the layer grows in."))
-            .Property<&VegetationLayerComponent::alignToNormal>("alignToNormal")
+            .Property<&VegetationLayer::alignToNormal>("alignToNormal")
             .PropAttribute("displayName", String(u8"Align To Normal"))
-            .Property<&VegetationLayerComponent::fadeStart>("fadeStart")
+            .Property<&VegetationLayer::fadeStart>("fadeStart")
             .PropAttribute("displayName", String(u8"Fade Start"))
             .PropAttribute("description", String(u8"Metres from the camera: full density inside."))
-            .Property<&VegetationLayerComponent::fadeEnd>("fadeEnd")
+            .Property<&VegetationLayer::fadeEnd>("fadeEnd")
             .PropAttribute("displayName", String(u8"Fade End"))
             .PropAttribute("description", String(u8"Metres from the camera: nothing beyond."))
-            .Property<&VegetationLayerComponent::castShadows>("castShadows")
+            .Property<&VegetationLayer::castShadows>("castShadows")
             .PropAttribute("displayName", String(u8"Cast Shadows"))
             .PropAttribute("description",
                            String(u8"Off for grass (the single most expensive thing a grass layer "
                                   u8"can do); on for rocks and props."))
-            .Property<&VegetationLayerComponent::maxInstancesPerChunk>("maxInstancesPerChunk")
+            .Property<&VegetationLayer::maxInstancesPerChunk>("maxInstancesPerChunk")
             .PropAttribute("displayName", String(u8"Max Per Chunk"))
             .PropAttribute("description",
                            String(u8"Instances per 64 x 64 quad terrain chunk; a denser layer "
                                   u8"scales its density down to fit."))
-            .Property<&VegetationLayerComponent::visible>("visible");
+            .Property<&VegetationLayer::visible>("visible");
+    }
+
+    REFLECT_VALUE(TerrainVegetationComponent, "rtti::engine::vegetation")
+    {
+        builder.Attribute("displayName", String(u8"Terrain Vegetation"))
+            .Attribute("category", String(u8"Terrain"))
+            .DataVersion(1)
+            .Property<&TerrainVegetationComponent::layers>("layers")
+            .PropAttribute("description",
+                           String(u8"The layers over this terrain: grass from a splat layer, "
+                                  u8"rocks from another. Each slot edits below the list."))
+            .Property<&TerrainVegetationComponent::visible>("visible");
     }
 
     void AddVegetationSceneManagers(foundation::scene::Scene& scene)
     {
-        scene.AddSystem<VegetationLayerComponentManager>();
+        scene.AddSystem<TerrainVegetationComponentManager>();
     }
 
     void RegisterVegetationComponentReflection()
@@ -143,7 +155,9 @@ namespace engine::vegetation
         static const bool once = []()
         {
             RttiRegisterEnum_VegetationPlacement();
-            RttiRegisterValue_VegetationLayerComponent();
+            RttiRegisterValue_VegetationLayer();
+            RegisterArrayType<VegetationLayer>(); // the layers container (list editor + scripts)
+            RttiRegisterValue_TerrainVegetationComponent();
             return true;
         }();
         (void)once;
@@ -151,7 +165,7 @@ namespace engine::vegetation
 
     // ---- the manager ---------------------------------------------------------------------------
 
-    void VegetationLayerComponentManager::InvalidateRegion(
+    void TerrainVegetationComponentManager::InvalidateRegion(
         const heightfield::HeightfieldRegion& region)
     {
         if (!region.IsEmpty())
@@ -160,7 +174,7 @@ namespace engine::vegetation
         }
     }
 
-    usize VegetationLayerComponentManager::BuiltSetCount() const noexcept
+    usize TerrainVegetationComponentManager::BuiltSetCount() const noexcept
     {
         usize n = 0;
         for (const auto& entry : m_caches)
@@ -173,7 +187,7 @@ namespace engine::vegetation
         return n;
     }
 
-    usize VegetationLayerComponentManager::InstanceCount() const noexcept
+    usize TerrainVegetationComponentManager::InstanceCount() const noexcept
     {
         usize n = 0;
         for (const auto& entry : m_caches)
@@ -186,22 +200,32 @@ namespace engine::vegetation
         return n;
     }
 
-    VegetationLayerComponentManager::LayerCache& VegetationLayerComponentManager::CacheFor(
-        scene::EntityHandle layerEntity)
+    u64 TerrainVegetationComponentManager::CacheKey(scene::EntityHandle owner,
+                                                    u32 layerIndex) noexcept
     {
-        const u64 key = engine::render::PackEntity(layerEntity);
+        const u64 entity = engine::render::PackEntity(owner);
+        return HashBytes(&layerIndex, sizeof(layerIndex), entity);
+    }
+
+    TerrainVegetationComponentManager::LayerCache& TerrainVegetationComponentManager::CacheFor(
+        scene::EntityHandle owner, u32 layerIndex)
+    {
+        const u64 key = CacheKey(owner, layerIndex);
         if (LayerCache* found = m_caches.Find(key))
         {
             return *found;
         }
-        return m_caches.InsertOrAssign(key, LayerCache{});
+        LayerCache fresh;
+        fresh.layerIndex = layerIndex;
+        return m_caches.InsertOrAssign(key, Move(fresh));
     }
 
-    void VegetationLayerComponentManager::ResetCache(LayerCache& cache,
-                                                     const heightfield::Heightfield& hf,
-                                                     const Guid& layerId)
+    void TerrainVegetationComponentManager::ResetCache(LayerCache& cache,
+                                                       const heightfield::Heightfield& hf,
+                                                       const Guid& ownerId, u32 layerIndex)
     {
-        cache.layerId = layerId;
+        cache.ownerId = ownerId;
+        cache.layerIndex = layerIndex;
         cache.heightfieldUid = hf.uid;
         cache.heightfieldVersion = hf.Version();
         cache.splatUid = 0;
@@ -214,12 +238,12 @@ namespace engine::vegetation
         cache.sets.Resize(cache.chunks.Size());
         for (usize i = 0; i < cache.chunks.Size(); ++i)
         {
-            cache.sets[i].key =
-                veg::ChunkSeed(layerId, cache.chunks[i].chunkX, cache.chunks[i].chunkZ);
+            cache.sets[i].key = veg::ChunkSeed(ownerId, layerIndex, cache.chunks[i].chunkX,
+                                               cache.chunks[i].chunkZ);
         }
     }
 
-    void VegetationLayerComponentManager::DirtyAll(LayerCache& cache)
+    void TerrainVegetationComponentManager::DirtyAll(LayerCache& cache)
     {
         for (ChunkSet& set : cache.sets)
         {
@@ -227,7 +251,7 @@ namespace engine::vegetation
         }
     }
 
-    void VegetationLayerComponentManager::Compose(LayerCache& cache, ChunkSet& set)
+    void TerrainVegetationComponentManager::Compose(LayerCache& cache, ChunkSet& set)
     {
         set.world.Resize(set.local.Size());
         for (usize i = 0; i < set.local.Size(); ++i)
@@ -249,11 +273,11 @@ namespace engine::vegetation
         ++set.version; // the renderer re-uploads the set's buffer on a version change
     }
 
-    void VegetationLayerComponentManager::BuildSet(LayerCache& cache, u32 chunkIndex,
-                                                   const heightfield::Heightfield& hf,
-                                                   const tmodel::SplatWeights* splat,
-                                                   const veg::VegetationLayer& layer,
-                                                   const AABB& meshBounds)
+    void TerrainVegetationComponentManager::BuildSet(LayerCache& cache, u32 chunkIndex,
+                                                     const heightfield::Heightfield& hf,
+                                                     const tmodel::SplatWeights* splat,
+                                                     const veg::VegetationLayer& layer,
+                                                     const AABB& meshBounds)
     {
         ChunkSet& set = cache.sets[chunkIndex];
         veg::ScatterResult result;
@@ -262,9 +286,10 @@ namespace engine::vegetation
         {
             cache.warnedClamp = true;
             LOG_WARNING(u8"Vegetation",
-                        u8"layer over budget: {} instances/m2 wanted, {} used (maxInstancesPerChunk "
-                        u8"= {})",
-                        layer.density, result.effectiveDensity, layer.maxInstancesPerChunk);
+                        u8"layer {} over budget: {} instances/m2 wanted, {} used "
+                        u8"(maxInstancesPerChunk = {})",
+                        cache.layerIndex, layer.density, result.effectiveDensity,
+                        layer.maxInstancesPerChunk);
         }
         // Build into a FRESH array and swap: the previous array may be borrowed by a snapshot
         // still being recorded (the instanced-mesh borrow rule).
@@ -276,7 +301,149 @@ namespace engine::vegetation
         ++m_builds;
     }
 
-    void VegetationLayerComponentManager::ExtractRenderData(render::ExtractedScene& snapshot)
+    void TerrainVegetationComponentManager::ExtractLayer(
+        render::ExtractedScene& snapshot, scene::EntityHandle owner, const Guid& ownerId,
+        u32 layerIndex, const VegetationLayer& authored, const heightfield::Heightfield& hf,
+        const tmodel::SplatWeights* splat, const Float4x4& entityWorld, u32& budget)
+    {
+        LayerCache& cache = CacheFor(owner, layerIndex);
+        cache.seenThisFrame = true; // a hidden layer keeps its sets (unhide = no regrow)
+        if (!authored.visible)
+        {
+            return;
+        }
+        foundation::geometry::StaticMesh* mesh = authored.mesh.Get();
+        if (mesh == nullptr)
+        {
+            return;
+        }
+        const veg::VegetationLayer layer = authored.ToScatterLayer();
+        const u64 layerHash = veg::LayerScatterHash(layer);
+
+        // Identity changes rebuild the whole cache: another heightfield (or its size), the
+        // owner's persistent id, the mesh, or any scatter parameter.
+        if (cache.chunks.IsEmpty() || cache.heightfieldUid != hf.uid ||
+            !(cache.ownerId == ownerId) || cache.meshUid != mesh->uid ||
+            cache.layerHash != layerHash)
+        {
+            ResetCache(cache, hf, ownerId, layerIndex);
+            cache.layerHash = layerHash;
+            cache.meshUid = mesh->uid;
+            cache.warnedClamp = false;
+        }
+        // Content changes (a sculpt, a paint) regrow the touched chunks when the editor said
+        // which (InvalidateRegion), else every chunk.
+        const u64 splatUid = splat != nullptr ? splat->uid : 0;
+        const u64 splatVersion = splat != nullptr ? splat->Version() : 0;
+        if (cache.heightfieldVersion != hf.Version() || cache.splatUid != splatUid ||
+            cache.splatVersion != splatVersion)
+        {
+            if (m_pendingRegions.IsEmpty())
+            {
+                DirtyAll(cache);
+            }
+            else
+            {
+                Array<u32> touched;
+                for (const heightfield::HeightfieldRegion& region : m_pendingRegions)
+                {
+                    veg::ChunksTouchedBy(region, cache.chunksPerSide, touched);
+                }
+                for (u32 index : touched)
+                {
+                    if (index < cache.sets.Size())
+                    {
+                        cache.sets[index].dirty = true;
+                    }
+                }
+            }
+            cache.heightfieldVersion = hf.Version();
+            cache.splatUid = splatUid;
+            cache.splatVersion = splatVersion;
+        }
+        // The terrain entity's world matrix places the terrain-local instances; a move
+        // recomposes the built sets (no rescatter).
+        if (!cache.composed || !(cache.entityWorld == entityWorld))
+        {
+            cache.entityWorld = entityWorld;
+            cache.composed = true;
+            for (ChunkSet& set : cache.sets)
+            {
+                if (set.built)
+                {
+                    Compose(cache, set);
+                }
+            }
+        }
+
+        const bool hasOrigin = snapshot.HasViewOrigin();
+        const Float3 origin = snapshot.ViewOrigin();
+        const f32 entityScale = MaxAxisScale(entityWorld);
+        foundation::materials::Material* material = authored.material.Get();
+        for (u32 i = 0; i < cache.sets.Size(); ++i)
+        {
+            ChunkSet& set = cache.sets[i];
+            // Distance from the view to the chunk (its built bounds, else the terrain's).
+            f32 distance = 0.0f;
+            if (hasOrigin)
+            {
+                Float3 center = set.worldCenter;
+                f32 radius = set.worldRadius;
+                if (!set.built)
+                {
+                    const tmodel::TerrainChunk& chunk = cache.chunks[i];
+                    center = TransformPoint(chunk.bounds.Center(), entityWorld);
+                    radius = Length(chunk.bounds.Extents()) * entityScale;
+                }
+                distance = Max(0.0f, Length(origin - center) - radius);
+                if (distance >= layer.fadeEnd)
+                {
+                    continue; // out of range: absent from the snapshot (renderer evicts)
+                }
+            }
+            if (set.dirty)
+            {
+                if (budget == 0)
+                {
+                    continue; // next frame (the build budget spreads a cold start)
+                }
+                BuildSet(cache, i, hf, splat, layer, mesh->bounds);
+                --budget;
+            }
+            if (set.world.IsEmpty())
+            {
+                continue;
+            }
+            const f32 density =
+                hasOrigin ? veg::DensityAtDistance(distance, layer.fadeStart, layer.fadeEnd) : 1.0f;
+            const u32 count = veg::FadePrefix(static_cast<u32>(set.world.Size()), density);
+            if (count == 0)
+            {
+                continue;
+            }
+
+            render::MultiMeshRenderData* rd = snapshot.Add<render::MultiMeshRenderData>();
+            if (rd == nullptr)
+            {
+                return;
+            }
+            rd->multiMesh = true;
+            rd->key = set.key;
+            rd->transforms = set.world.Data(); // borrowed for the frame (immutable snapshot)
+            rd->instanceCount = count;         // the fade prefix (per frame)
+            rd->version = set.version;         // the scatter (re-upload only on change)
+            rd->mesh = mesh;
+            rd->material = material;
+            rd->worldCenter = set.worldCenter;
+            rd->worldRadius = set.worldRadius;
+            rd->entityId = engine::render::PackEntity(owner);
+            rd->category = engine::render::CategoryForMaterial(material);
+            rd->sortBatchKey = render::BatchKey(mesh, material);
+            rd->castShadows = layer.castShadows;
+        }
+    }
+
+    void TerrainVegetationComponentManager::ExtractRenderData(render::ExtractedScene& snapshot)
     {
         PROFILE_SCOPE("Vegetation.Extract");
         if (m_scene == nullptr)
@@ -287,169 +454,39 @@ namespace engine::vegetation
         {
             entry.value.seenThisFrame = false;
         }
-        const bool hasOrigin = snapshot.HasViewOrigin();
-        const Float3 origin = snapshot.ViewOrigin();
         u32 budget = m_buildBudget;
 
         ForEach(
-            [&](VegetationLayerComponent& c, scene::EntityHandle e)
+            [&](TerrainVegetationComponent& c, scene::EntityHandle owner)
             {
-                LayerCache& cache = CacheFor(e);
-                cache.seenThisFrame = true; // a hidden layer keeps its sets (unhide = no regrow)
-                if (!c.visible || !m_scene->IsEffectivelyActive(e))
-                {
-                    return;
-                }
-                foundation::geometry::StaticMesh* mesh = c.mesh.Get();
-                if (mesh == nullptr)
-                {
-                    return;
-                }
+                // Hidden or inactive: the layers keep their caches (mark them seen), draw nothing.
+                const bool active = c.visible && m_scene->IsEffectivelyActive(owner);
                 scene::EntityHandle terrainEntity{};
-                engine::terrain::TerrainComponent* tc = FindTerrainFor(*m_scene, e, terrainEntity);
-                if (tc == nullptr)
-                {
-                    return;
-                }
-                foundation::terrain::TerrainResource* res = tc->terrain.Get();
-                if (res == nullptr)
-                {
-                    return;
-                }
-                heightfield::Heightfield* hf = res->heightfield.Get();
+                engine::terrain::TerrainComponent* tc =
+                    active ? FindTerrainFor(*m_scene, owner, terrainEntity) : nullptr;
+                foundation::terrain::TerrainResource* res =
+                    tc != nullptr ? tc->terrain.Get() : nullptr;
+                heightfield::Heightfield* hf = res != nullptr ? res->heightfield.Get() : nullptr;
                 if (hf == nullptr || hf->IsEmpty())
                 {
+                    for (u32 li = 0; li < c.layers.Size(); ++li)
+                    {
+                        CacheFor(owner, static_cast<u32>(li)).seenThisFrame = true;
+                    }
                     return;
                 }
                 const tmodel::SplatWeights* splat = res->weights.Get();
-                const Guid layerId = m_scene->GetEntityId(e);
-                const veg::VegetationLayer layer = c.ToLayer();
-                const u64 layerHash = veg::LayerScatterHash(layer);
-
-                // Identity changes rebuild the whole cache: another heightfield (or its size), the
-                // layer's persistent id, the mesh, or any scatter parameter.
-                if (cache.chunks.IsEmpty() || cache.heightfieldUid != hf->uid ||
-                    !(cache.layerId == layerId) || cache.meshUid != mesh->uid ||
-                    cache.layerHash != layerHash)
-                {
-                    ResetCache(cache, *hf, layerId);
-                    cache.layerHash = layerHash;
-                    cache.meshUid = mesh->uid;
-                    cache.warnedClamp = false;
-                }
-                // Content changes (a sculpt, a paint) regrow the touched chunks when the editor
-                // said which (InvalidateRegion), else every chunk.
-                const u64 splatUid = splat != nullptr ? splat->uid : 0;
-                const u64 splatVersion = splat != nullptr ? splat->Version() : 0;
-                if (cache.heightfieldVersion != hf->Version() || cache.splatUid != splatUid ||
-                    cache.splatVersion != splatVersion)
-                {
-                    if (m_pendingRegions.IsEmpty())
-                    {
-                        DirtyAll(cache);
-                    }
-                    else
-                    {
-                        Array<u32> touched;
-                        for (const heightfield::HeightfieldRegion& region : m_pendingRegions)
-                        {
-                            veg::ChunksTouchedBy(region, cache.chunksPerSide, touched);
-                        }
-                        for (u32 index : touched)
-                        {
-                            if (index < cache.sets.Size())
-                            {
-                                cache.sets[index].dirty = true;
-                            }
-                        }
-                    }
-                    cache.heightfieldVersion = hf->Version();
-                    cache.splatUid = splatUid;
-                    cache.splatVersion = splatVersion;
-                }
-                // The terrain entity's world matrix places the terrain-local instances; a move
-                // recomposes the built sets (no rescatter).
+                const Guid ownerId = m_scene->GetEntityId(owner);
                 const Float4x4 entityWorld = m_scene->GetWorldMatrix(terrainEntity);
-                if (!cache.composed || !(cache.entityWorld == entityWorld))
+                for (u32 li = 0; li < c.layers.Size(); ++li)
                 {
-                    cache.entityWorld = entityWorld;
-                    cache.composed = true;
-                    for (ChunkSet& set : cache.sets)
-                    {
-                        if (set.built)
-                        {
-                            Compose(cache, set);
-                        }
-                    }
-                }
-
-                const f32 entityScale = MaxAxisScale(entityWorld);
-                foundation::materials::Material* material = c.material.Get();
-                for (u32 i = 0; i < cache.sets.Size(); ++i)
-                {
-                    ChunkSet& set = cache.sets[i];
-                    // Distance from the view to the chunk (its built bounds, else the terrain's).
-                    f32 distance = 0.0f;
-                    if (hasOrigin)
-                    {
-                        Float3 center = set.worldCenter;
-                        f32 radius = set.worldRadius;
-                        if (!set.built)
-                        {
-                            const tmodel::TerrainChunk& chunk = cache.chunks[i];
-                            center = TransformPoint(chunk.bounds.Center(), entityWorld);
-                            radius = Length(chunk.bounds.Extents()) * entityScale;
-                        }
-                        distance = Max(0.0f, Length(origin - center) - radius);
-                        if (distance >= layer.fadeEnd)
-                        {
-                            continue; // out of range: absent from the snapshot (renderer evicts)
-                        }
-                    }
-                    if (set.dirty)
-                    {
-                        if (budget == 0)
-                        {
-                            continue; // next frame (the build budget spreads a cold start)
-                        }
-                        BuildSet(cache, i, *hf, splat, layer, mesh->bounds);
-                        --budget;
-                    }
-                    if (set.world.IsEmpty())
-                    {
-                        continue;
-                    }
-                    const f32 density = hasOrigin ? veg::DensityAtDistance(distance, layer.fadeStart,
-                                                                           layer.fadeEnd)
-                                                  : 1.0f;
-                    const u32 count = veg::FadePrefix(static_cast<u32>(set.world.Size()), density);
-                    if (count == 0)
-                    {
-                        continue;
-                    }
-
-                    render::MultiMeshRenderData* rd = snapshot.Add<render::MultiMeshRenderData>();
-                    if (rd == nullptr)
-                    {
-                        return;
-                    }
-                    rd->multiMesh = true;
-                    rd->key = set.key;
-                    rd->transforms = set.world.Data(); // borrowed for the frame (immutable snapshot)
-                    rd->instanceCount = count;         // the fade prefix (per frame)
-                    rd->version = set.version;         // the scatter (re-upload only on change)
-                    rd->mesh = mesh;
-                    rd->material = material;
-                    rd->worldCenter = set.worldCenter;
-                    rd->worldRadius = set.worldRadius;
-                    rd->entityId = engine::render::PackEntity(e);
-                    rd->category = engine::render::CategoryForMaterial(material);
-                    rd->sortBatchKey = render::BatchKey(mesh, material);
-                    rd->castShadows = layer.castShadows;
+                    ExtractLayer(snapshot, owner, ownerId, li, c.layers[li], *hf, splat,
+                                 entityWorld, budget);
                 }
             });
 
-        // Layers that no longer exist drop their caches (the renderer evicts their buffers).
+        // Layers that no longer exist (removed slots, removed components, destroyed entities)
+        // drop their caches; the renderer evicts their buffers.
         Array<u64> stale;
         for (const auto& entry : m_caches)
         {

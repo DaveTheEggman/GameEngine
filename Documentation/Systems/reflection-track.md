@@ -36,7 +36,8 @@ version). Property attributes drive tooling: `displayName`, `range` (sliders), `
 3. **Bespoke inspectors** (particle modules, graph data) - reflected instead of hand-built `Cast<T>`
    dispatches.
 4. **The generic list editor** (`Editor.Scene` `InspectorView`) - reflected containers get add/remove/
-   reorder rows.
+   reorder rows, and (2026-09-21) a struct element gets a per-slot expander of its leaf rows edited
+   through a `ComponentPropertyPath` (editor.md 3.5).
 
 ## Coverage phases
 

@@ -481,8 +481,10 @@ export namespace editor
             }
         }
 
+        // `path` addresses the property's owner: the component (empty) or a struct element of one
+        // of its reflected container properties (BuildContainerRows' per-slot rows).
         void BuildPropertyRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
-                              StringView category);
+                              StringView category, ComponentPropertyPath path = {});
 
         // Generic reflected CONTAINER property (a reflected list member): one grid row whose editor is
         // a ContainerListEditor - a header add + a slot row per element (an asset-picker slot + move /
@@ -501,18 +503,15 @@ export namespace editor
 
         // Current target Guid of a Ref<T> property (nil when unset/unresolvable).
         template <typename T>
-        [[nodiscard]] Guid RefTarget(const Guid& id, const TypeInfo* type, const char* propName)
+        [[nodiscard]] Guid RefTarget(const Guid& id, const TypeInfo* type, const char* propName,
+                                     const ComponentPropertyPath& path = {})
         {
-            scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
-            const scene::EntityHandle e = m_edit->Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned())
-            {
-                return Guid{};
-            }
-            const Instance component = mgr->GetComponentInstance(e);
-            const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
-            void* address =
-                (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+            const TypeInfo* ownerType = nullptr;
+            const Instance owner = m_edit->ResolvePropertyOwner(id, type, path, &ownerType);
+            const PropertyInfo* p = (owner.IsEmpty() || ownerType == nullptr)
+                                        ? nullptr
+                                        : FindProperty(*ownerType, propName);
+            void* address = (p != nullptr && p->address != nullptr) ? p->address(owner) : nullptr;
             return (address != nullptr) ? static_cast<foundation::resource::Ref<T>*>(address)->id
                                         : Guid{};
         }
@@ -701,7 +700,8 @@ export namespace editor
         template <typename T>
         void BuildResourceRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                                  StringView category,
-                                 std::initializer_list<StringView> assetTypeNames)
+                                 std::initializer_list<StringView> assetTypeNames,
+                                 ComponentPropertyPath path = {})
         {
             SceneInspectorView* self = this;
             SceneEditContext* edit = m_edit;
@@ -709,14 +709,15 @@ export namespace editor
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
             auto editor = MakeRef<ResourceRefEditor>(
-                MemoryAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName)), category);
+                MemoryAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName, path)),
+                category);
             ResourceRefEditor* raw = editor.Get();
             Array<String> assetTypes;
             for (StringView typeName : assetTypeNames)
             {
                 assetTypes.PushBack(String(typeName));
             }
-            raw->OnPick = [self, edit, id, type, propName, assetTypes]()
+            raw->OnPick = [self, edit, id, type, propName, path, assetTypes]()
             {
                 if (self->Context == nullptr || self->m_editor->Project() == nullptr)
                 {
@@ -728,8 +729,8 @@ export namespace editor
                 Array<String> typeNames = assetTypes;
                 auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                     self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [edit, id, type, propName, resources](const Guid& target)
-                { edit->SetComponentResourceRef<T>(id, type, propName, target, resources); };
+                dialog->OnPicked = [edit, id, type, propName, path, resources](const Guid& target)
+                { edit->SetComponentResourceRef<T>(id, type, path, propName, target, resources); };
                 dialog->Show(self->Context);
             };
             if (assetTypes.Size() > 0)
@@ -737,39 +738,39 @@ export namespace editor
                 raw->SetPreviewIcon(
                     editor::app::EditorIcons::Get().ForAssetType(assetTypes[0].AsView()));
             }
-            raw->OnClear = [self, edit, id, type, propName]()
+            raw->OnClear = [self, edit, id, type, propName, path]()
             {
                 if (self->Context == nullptr || self->m_editor->Project() == nullptr)
                 {
                     return;
                 }
-                edit->SetComponentResourceRef<T>(id, type, propName, Guid{},
+                edit->SetComponentResourceRef<T>(id, type, path, propName, Guid{},
                                                  self->m_editor->Resources());
             };
-            raw->OnEdit = [self, id, type, propName]()
+            raw->OnEdit = [self, id, type, propName, path]()
             {
-                const Guid target = self->RefTarget<T>(id, type, propName);
+                const Guid target = self->RefTarget<T>(id, type, propName, path);
                 if (!target.IsNil() && self->m_editor->OpenAsset)
                 {
                     self->m_editor->OpenAsset(target);
                 }
             };
-            raw->OnReveal = [self, id, type, propName]()
+            raw->OnReveal = [self, id, type, propName, path]()
             {
-                const Guid target = self->RefTarget<T>(id, type, propName);
+                const Guid target = self->RefTarget<T>(id, type, propName, path);
                 if (!target.IsNil() && self->m_editor->RevealAsset)
                 {
                     self->m_editor->RevealAsset(target);
                 }
             };
             raw->SetAcceptedTypes(assetTypes);
-            raw->OnAssignDropped = [self, edit, id, type, propName](const Guid& target)
+            raw->OnAssignDropped = [self, edit, id, type, propName, path](const Guid& target)
             {
                 if (self->Context == nullptr || self->m_editor->Project() == nullptr)
                 {
                     return;
                 }
-                edit->SetComponentResourceRef<T>(id, type, propName, target,
+                edit->SetComponentResourceRef<T>(id, type, path, propName, target,
                                                  self->m_editor->Resources());
             };
             raw->OnRejectedDrop = [self, assetTypes](StringView assetName, StringView typeName)
@@ -781,9 +782,9 @@ export namespace editor
                         .AsView());
             };
             AddEditor(raw,
-                      [self, id, type, propName, raw]()
+                      [self, id, type, propName, path, raw]()
                       {
-                          const Guid target = self->RefTarget<T>(id, type, propName);
+                          const Guid target = self->RefTarget<T>(id, type, propName, path);
                           raw->SetValueText(self->AssetNameFor(target));
                           raw->SetPreviewThumbnail(
                               (!target.IsNil() && self->m_editor->Thumbnails() != nullptr)
@@ -796,7 +797,7 @@ export namespace editor
         // widget, but the pick menu lists the CURRENT scene's entities (names; "(none)" clears) and
         // the choice writes the component's EntityRef via SetComponentEntityRef. Defined in the impl.
         void BuildEntityRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
-                               StringView category);
+                               StringView category, ComponentPropertyPath path = {});
 
         // The "range" attribute's {min, max, step} payload, or null when absent/mistyped.
         [[nodiscard]] static const Float4* RangeOf(const PropertyInfo& prop);

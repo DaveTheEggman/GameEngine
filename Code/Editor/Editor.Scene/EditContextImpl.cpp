@@ -279,9 +279,16 @@ namespace editor
     void SceneEditContext::SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
                                                 const char* property, const Variant& value)
     {
+        SetComponentProperty(entity, componentType, ComponentPropertyPath{}, property, value);
+    }
+
+    void SceneEditContext::SetComponentProperty(const Guid& entity, const TypeInfo* componentType,
+                                                const ComponentPropertyPath& path,
+                                                const char* property, const Variant& value)
+    {
         (void)m_commands->Execute(
             UniquePtr<IEditorCommand>(m_scene->Allocator().New<SetComponentPropertyCommand>(
-                                          *this, entity, componentType, property, value),
+                                          *this, entity, componentType, path, property, value),
                                       m_scene->Allocator()));
     }
 
@@ -289,10 +296,70 @@ namespace editor
                                                    const TypeInfo* componentType,
                                                    const char* property, i64 value)
     {
+        SetComponentPropertyRaw(entity, componentType, ComponentPropertyPath{}, property, value);
+    }
+
+    void SceneEditContext::SetComponentPropertyRaw(const Guid& entity,
+                                                   const TypeInfo* componentType,
+                                                   const ComponentPropertyPath& path,
+                                                   const char* property, i64 value)
+    {
         (void)m_commands->Execute(
             UniquePtr<IEditorCommand>(m_scene->Allocator().New<SetComponentPropertyCommand>(
-                                          *this, entity, componentType, property, value),
+                                          *this, entity, componentType, path, property, value),
                                       m_scene->Allocator()));
+    }
+
+    Instance SceneEditContext::ResolvePropertyOwner(const Guid& entity,
+                                                    const TypeInfo* componentType,
+                                                    const ComponentPropertyPath& path,
+                                                    const TypeInfo** outOwnerType)
+    {
+        if (outOwnerType != nullptr)
+        {
+            *outOwnerType = nullptr;
+        }
+        const scene::EntityHandle e = Resolve(entity);
+        scene::ComponentManagerBase* mgr = FindManager(componentType);
+        if (!e.IsAssigned() || mgr == nullptr || componentType == nullptr)
+        {
+            return {};
+        }
+        const Instance component = mgr->GetComponentInstance(e);
+        if (component.IsEmpty())
+        {
+            return {};
+        }
+        if (path.IsEmpty())
+        {
+            if (outOwnerType != nullptr)
+            {
+                *outOwnerType = componentType;
+            }
+            return component;
+        }
+        const PropertyInfo* containerProp = FindProperty(*componentType, path.container);
+        if (containerProp == nullptr || containerProp->type == nullptr ||
+            containerProp->type->container == nullptr || containerProp->address == nullptr)
+        {
+            return {};
+        }
+        const ContainerInfo& ci = *containerProp->type->container;
+        const Instance container(containerProp->address(component), containerProp->type);
+        if (container.Pointer() == nullptr || path.index >= ContainerSize(ci, container))
+        {
+            return {};
+        }
+        const Instance element = ContainerAddressAt(ci, container, path.index);
+        if (element.IsEmpty() || element.Type() == nullptr)
+        {
+            return {};
+        }
+        if (outOwnerType != nullptr)
+        {
+            *outOwnerType = element.Type();
+        }
+        return element;
     }
 
     void SceneEditContext::SetSceneSettingProperty(const TypeInfo* settingsType,

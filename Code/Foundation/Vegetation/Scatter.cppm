@@ -42,12 +42,14 @@ export namespace foundation::vegetation
         bool densityClamped = false;     // true when maxInstancesPerChunk scaled the density
     };
 
-    // The seed of one (layer, chunk) set: a hash over the layer's PERSISTENT identity and the
-    // chunk index - never a pointer, never a frame counter. The renderer keys its persistent
-    // instance buffer on the same value.
-    [[nodiscard]] inline u64 ChunkSeed(const Guid& layerId, i32 chunkX, i32 chunkZ) noexcept
+    // The seed of one (layer, chunk) set: a hash over the owning entity's PERSISTENT id, the
+    // layer's index and the chunk index - never a pointer, never a frame counter. The renderer
+    // keys its persistent instance buffer on the same value.
+    [[nodiscard]] inline u64 ChunkSeed(const Guid& ownerId, u32 layerIndex, i32 chunkX,
+                                       i32 chunkZ) noexcept
     {
-        u64 h = HashBytes(&layerId, sizeof(layerId));
+        u64 h = HashBytes(&ownerId, sizeof(ownerId));
+        h = HashBytes(&layerIndex, sizeof(layerIndex), h);
         h = HashBytes(&chunkX, sizeof(chunkX), h);
         h = HashBytes(&chunkZ, sizeof(chunkZ), h);
         return h == 0 ? 1 : h; // 0 is the "no set" key downstream

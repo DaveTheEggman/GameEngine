@@ -1223,7 +1223,8 @@ namespace editor
     }
 
     void SceneInspectorView::BuildPropertyRow(const Guid& id, const TypeInfo* type,
-                                              const PropertyInfo& prop, StringView category)
+                                              const PropertyInfo& prop, StringView category,
+                                              ComponentPropertyPath path)
     {
         SceneEditContext* edit = m_edit;
         const StringView name(reinterpret_cast<const utf8char*>(prop.name));
@@ -1239,38 +1240,38 @@ namespace editor
             // SkinnedMeshAsset too: SkinnedMesh IS-A StaticMesh (bind pose when drawn
             // through the static path), so both asset types are valid targets.
             BuildResourceRefRow<foundation::geometry::StaticMesh>(
-                id, type, prop, category, {u8"StaticMeshAsset", u8"SkinnedMeshAsset"});
+                id, type, prop, category, {u8"StaticMeshAsset", u8"SkinnedMeshAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::materials::Material>>())
         {
             BuildResourceRefRow<foundation::materials::Material>(id, type, prop, category,
-                                                               {u8"MaterialAsset"});
+                                                               {u8"MaterialAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::Skeleton>>())
         {
             BuildResourceRefRow<foundation::animation::Skeleton>(id, type, prop, category,
-                                                               {u8"SkeletonAsset"});
+                                                               {u8"SkeletonAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::AnimationClip>>())
         {
             BuildResourceRefRow<foundation::animation::AnimationClip>(id, type, prop, category,
-                                                                    {u8"AnimationClipAsset"});
+                                                                    {u8"AnimationClipAsset"}, path);
             return;
         }
         if (prop.type ==
             &TypeOf<foundation::resource::Ref<foundation::navigation::NavigationZoneResource>>())
         {
             BuildResourceRefRow<foundation::navigation::NavigationZoneResource>(id, type, prop, category,
-                                                                       {u8"NavigationZoneAsset"});
+                                                                       {u8"NavigationZoneAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::animation::AnimationGraph>>())
         {
             BuildResourceRefRow<foundation::animation::AnimationGraph>(id, type, prop, category,
-                                                                     {u8"AnimationGraphAsset"});
+                                                                     {u8"AnimationGraphAsset"}, path);
             return;
         }
         if (prop.type ==
@@ -1278,90 +1279,88 @@ namespace editor
                 foundation::propertyanimation::PropertyAnimationClipResource>>())
         {
             BuildResourceRefRow<foundation::propertyanimation::PropertyAnimationClipResource>(
-                id, type, prop, category, {u8"PropertyAnimationClipAsset"});
+                id, type, prop, category, {u8"PropertyAnimationClipAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
         {
             BuildResourceRefRow<foundation::texture::Texture>(id, type, prop, category,
-                                                            {u8"TextureAsset"});
+                                                            {u8"TextureAsset"}, path);
             return;
         }
         if (prop.type ==
             &TypeOf<foundation::resource::Ref<foundation::particles::ParticleEffectResource>>())
         {
             BuildResourceRefRow<foundation::particles::ParticleEffectResource>(
-                id, type, prop, category, {u8"ParticleEffectAsset"});
+                id, type, prop, category, {u8"ParticleEffectAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::physics::CollisionShape>>())
         {
             BuildResourceRefRow<foundation::physics::CollisionShape>(id, type, prop, category,
-                                                                   {u8"CollisionShapeAsset"});
+                                                                   {u8"CollisionShapeAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::physics::PhysicalMaterial>>())
         {
             BuildResourceRefRow<foundation::physics::PhysicalMaterial>(id, type, prop, category,
-                                                                     {u8"PhysicalMaterialAsset"});
+                                                                     {u8"PhysicalMaterialAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::heightfield::Heightfield>>())
         {
             BuildResourceRefRow<foundation::heightfield::Heightfield>(id, type, prop, category,
-                                                                    {u8"HeightfieldAsset"});
+                                                                    {u8"HeightfieldAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::terrain::TerrainResource>>())
         {
             BuildResourceRefRow<foundation::terrain::TerrainResource>(id, type, prop, category,
-                                                                    {u8"TerrainAsset"});
+                                                                    {u8"TerrainAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::AudioClip>>())
         {
             BuildResourceRefRow<foundation::audio::AudioClip>(id, type, prop, category,
-                                                            {u8"AudioClipAsset"});
+                                                            {u8"AudioClipAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::SoundCue>>())
         {
             BuildResourceRefRow<foundation::audio::SoundCue>(id, type, prop, category,
-                                                           {u8"SoundCueAsset"});
+                                                           {u8"SoundCueAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::ui::UIDocument>>())
         {
             BuildResourceRefRow<foundation::ui::UIDocument>(id, type, prop, category,
-                                                          {u8"UIDocumentAsset"});
+                                                          {u8"UIDocumentAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::ui::UITheme>>())
         {
             BuildResourceRefRow<foundation::ui::UITheme>(id, type, prop, category,
-                                                       {u8"UIThemeAsset"});
+                                                       {u8"UIThemeAsset"}, path);
             return;
         }
         // Entity reference: a picker over the CURRENT scene's entities (the typed EntityRef field -
         // e.g. JointComponent::targetEntity). A bare Guid would have no editor here.
         if (prop.type == &TypeOf<foundation::scene::EntityRef>())
         {
-            BuildEntityRefRow(id, type, prop, category);
+            BuildEntityRefRow(id, type, prop, category, path);
             return;
         }
 
         // Pulls the current Variant (empty component -> default Variant guards below).
-        auto getVariant = [edit, id, type, propName]() -> Variant
+        // The owner (component or list element) re-derives on every read: pools move.
+        auto getVariant = [edit, id, type, propName, path]() -> Variant
         {
-            scene::ComponentManagerBase* mgr = edit->FindManager(type);
-            const scene::EntityHandle e = edit->Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned())
-            {
-                return {};
-            }
-            const Instance component = mgr->GetComponentInstance(e);
-            const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
-            return (p != nullptr) ? GetProperty(*p, component) : Variant{};
+            const TypeInfo* ownerType = nullptr;
+            const Instance owner = edit->ResolvePropertyOwner(id, type, path, &ownerType);
+            const PropertyInfo* p = (owner.IsEmpty() || ownerType == nullptr)
+                                        ? nullptr
+                                        : FindProperty(*ownerType, propName);
+            return (p != nullptr) ? GetProperty(*p, owner) : Variant{};
         };
 
         if (IsEnum(*prop.type))
@@ -1373,19 +1372,15 @@ namespace editor
                 items.PushBack(StringView(reinterpret_cast<const utf8char*>(v.name)));
             }
 
-            auto rawRead = [edit, id, type, propName]() -> i64
+            auto rawRead = [edit, id, type, propName, path]() -> i64
             {
-                scene::ComponentManagerBase* mgr = edit->FindManager(type);
-                const scene::EntityHandle e = edit->Resolve(id);
-                if (mgr == nullptr || !e.IsAssigned())
-                {
-                    return 0;
-                }
-                const Instance component = mgr->GetComponentInstance(e);
-                const PropertyInfo* p =
-                    component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+                const TypeInfo* ownerType = nullptr;
+                const Instance owner = edit->ResolvePropertyOwner(id, type, path, &ownerType);
+                const PropertyInfo* p = (owner.IsEmpty() || ownerType == nullptr)
+                                            ? nullptr
+                                            : FindProperty(*ownerType, propName);
                 void* address =
-                    (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+                    (p != nullptr && p->address != nullptr) ? p->address(owner) : nullptr;
                 if (address == nullptr)
                 {
                     return 0;
@@ -1418,13 +1413,12 @@ namespace editor
                 MemoryAllocator(), name, indexOf(rawRead()),
                 Span<const StringView>{items.Data(), items.Size()},
                 readOnly ? Function<void(i32)>{}
-                         : Function<void(i32)>{[edit, id, type, propName, values](i32 index)
+                         : Function<void(i32)>{[edit, id, type, propName, path, values](i32 index)
                                                {
                                                    if (index >= 0 &&
                                                        index < static_cast<i32>(values.Size()))
                                                    {
-                                                       edit->SetComponentPropertyRaw(
-                                                           id, type, propName,
+                                                       edit->SetComponentPropertyRaw(id, type, path, propName,
                                                            values[static_cast<usize>(index)].value);
                                                    }
                                                }},
@@ -1450,9 +1444,9 @@ namespace editor
                     range->z,
                     readOnly
                         ? Function<void(f32)>{}
-                        : Function<void(f32)>{[edit, id, type, propName](f32 v)
+                        : Function<void(f32)>{[edit, id, type, propName, path](f32 v)
                                               {
-                                                  edit->SetComponentProperty(id, type, propName,
+                                                  edit->SetComponentProperty(id, type, path, propName,
                                                                              Variant::From<f32>(v));
                                               }},
                     category);
@@ -1463,10 +1457,9 @@ namespace editor
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
                 MemoryAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
                 readOnly ? Function<void(f64)>{}
-                         : Function<void(f64)>{[edit, id, type, propName](f64 v)
+                         : Function<void(f64)>{[edit, id, type, propName, path](f64 v)
                                                {
-                                                   edit->SetComponentProperty(
-                                                       id, type, propName,
+                                                   edit->SetComponentProperty(id, type, path, propName,
                                                        Variant::From<f32>(static_cast<f32>(v)));
                                                }},
                 category);
@@ -1485,10 +1478,9 @@ namespace editor
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
                 MemoryAllocator(), name, value(),
                 readOnly ? Function<void(bool)>{}
-                         : Function<void(bool)>{[edit, id, type, propName](bool v)
+                         : Function<void(bool)>{[edit, id, type, propName, path](bool v)
                                                 {
-                                                    edit->SetComponentProperty(
-                                                        id, type, propName, Variant::From<bool>(v));
+                                                    edit->SetComponentProperty(id, type, path, propName, Variant::From<bool>(v));
                                                 }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -1545,46 +1537,46 @@ namespace editor
                 const i64* p = v.TryGet<i64>();
                 return p ? *p : 0;
             };
-            auto setter = [edit, id, type, propName, intType](i64 v)
+            auto setter = [edit, id, type, propName, path, intType](i64 v)
             {
                 if (intType == &TypeOf<i8>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<i8>(static_cast<i8>(v)));
                 }
                 else if (intType == &TypeOf<u8>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<u8>(static_cast<u8>(v)));
                 }
                 else if (intType == &TypeOf<i16>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<i16>(static_cast<i16>(v)));
                 }
                 else if (intType == &TypeOf<u16>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<u16>(static_cast<u16>(v)));
                 }
                 else if (intType == &TypeOf<i32>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<i32>(static_cast<i32>(v)));
                 }
                 else if (intType == &TypeOf<u32>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<u32>(static_cast<u32>(v)));
                 }
                 else if (intType == &TypeOf<u64>())
                 {
-                    edit->SetComponentProperty(id, type, propName,
+                    edit->SetComponentProperty(id, type, path, propName,
                                                Variant::From<u64>(static_cast<u64>(v)));
                 }
                 else
                 {
-                    edit->SetComponentProperty(id, type, propName, Variant::From<i64>(v));
+                    edit->SetComponentProperty(id, type, path, propName, Variant::From<i64>(v));
                 }
             };
             auto editor = MakeRef<ui::toolkit::IntEditor>(
@@ -1606,10 +1598,9 @@ namespace editor
             auto editor = MakeRef<ui::toolkit::StringEditor>(
                 MemoryAllocator(), name, value().AsView(),
                 readOnly ? Function<void(StringView)>{}
-                         : Function<void(StringView)>{[edit, id, type, propName](StringView v)
+                         : Function<void(StringView)>{[edit, id, type, propName, path](StringView v)
                                                       {
-                                                          edit->SetComponentProperty(
-                                                              id, type, propName,
+                                                          edit->SetComponentProperty(id, type, path, propName,
                                                               Variant::From<String>(String(v)));
                                                       }},
                 category);
@@ -1630,10 +1621,9 @@ namespace editor
                 MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float3)>{}
-                    : Function<void(Float3)>{[edit, id, type, propName](Float3 v)
+                    : Function<void(Float3)>{[edit, id, type, propName, path](Float3 v)
                                              {
-                                                 edit->SetComponentProperty(
-                                                     id, type, propName, Variant::From<Float3>(v));
+                                                 edit->SetComponentProperty(id, type, path, propName, Variant::From<Float3>(v));
                                              }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -1652,9 +1642,9 @@ namespace editor
                 MemoryAllocator(), name, value(),
                 readOnly
                     ? Function<void(Color)>{}
-                    : Function<void(Color)>{[edit, id, type, propName](Color v)
+                    : Function<void(Color)>{[edit, id, type, propName, path](Color v)
                                             {
-                                                edit->SetComponentProperty(id, type, propName,
+                                                edit->SetComponentProperty(id, type, path, propName,
                                                                            Variant::From<Color>(v));
                                             }},
                 category);
@@ -1674,10 +1664,9 @@ namespace editor
                 MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float2)>{}
-                    : Function<void(Float2)>{[edit, id, type, propName](Float2 v)
+                    : Function<void(Float2)>{[edit, id, type, propName, path](Float2 v)
                                              {
-                                                 edit->SetComponentProperty(
-                                                     id, type, propName, Variant::From<Float2>(v));
+                                                 edit->SetComponentProperty(id, type, path, propName, Variant::From<Float2>(v));
                                              }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -1696,10 +1685,9 @@ namespace editor
                 MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly
                     ? Function<void(Float4)>{}
-                    : Function<void(Float4)>{[edit, id, type, propName](Float4 v)
+                    : Function<void(Float4)>{[edit, id, type, propName, path](Float4 v)
                                              {
-                                                 edit->SetComponentProperty(
-                                                     id, type, propName, Variant::From<Float4>(v));
+                                                 edit->SetComponentProperty(id, type, path, propName, Variant::From<Float4>(v));
                                              }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -2370,7 +2358,8 @@ namespace editor
     // SCRIPT entity properties), but reading/writing a reflected component field via its property
     // address + an undoable SetComponentEntityRef.
     void SceneInspectorView::BuildEntityRefRow(const Guid& id, const TypeInfo* type,
-                                               const PropertyInfo& prop, StringView category)
+                                               const PropertyInfo& prop, StringView category,
+                                               ComponentPropertyPath path)
     {
         SceneInspectorView* self = this;
         SceneEditContext* edit = m_edit;
@@ -2378,18 +2367,15 @@ namespace editor
         const StringView name(reinterpret_cast<const utf8char*>(prop.name));
 
         // Current EntityRef.id via the re-derived property address (component pools move).
-        auto currentTarget = [edit, id, type, propName]() -> Guid
+        auto currentTarget = [edit, id, type, propName, path]() -> Guid
         {
-            scene::ComponentManagerBase* mgr = edit->FindManager(type);
-            const scene::EntityHandle e = edit->Resolve(id);
-            if (mgr == nullptr || !e.IsAssigned())
-            {
-                return Guid{};
-            }
-            const Instance component = mgr->GetComponentInstance(e);
-            const PropertyInfo* p = component.IsEmpty() ? nullptr : FindProperty(*type, propName);
+            const TypeInfo* ownerType = nullptr;
+            const Instance owner = edit->ResolvePropertyOwner(id, type, path, &ownerType);
+            const PropertyInfo* p = (owner.IsEmpty() || ownerType == nullptr)
+                                        ? nullptr
+                                        : FindProperty(*ownerType, propName);
             void* address =
-                (p != nullptr && p->address != nullptr) ? p->address(component) : nullptr;
+                (p != nullptr && p->address != nullptr) ? p->address(owner) : nullptr;
             return (address != nullptr) ? static_cast<foundation::scene::EntityRef*>(address)->id
                                         : Guid{};
         };
@@ -2407,7 +2393,7 @@ namespace editor
         auto editor =
             MakeRef<ResourceRefEditor>(MemoryAllocator(), name, nameOf(currentTarget()), category);
         ResourceRefEditor* raw = editor.Get();
-        raw->OnPick = [self, edit, id, type, propName, currentTarget]()
+        raw->OnPick = [self, edit, id, type, propName, path, currentTarget]()
         {
             if (self->Context == nullptr)
             {
@@ -2417,8 +2403,8 @@ namespace editor
             // the flat menu that was unusable in large scenes. Pre-selects the current target.
             auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(), edit->Scene(),
                                                              currentTarget());
-            dialog->OnPicked = [edit, id, type, propName](const Guid& target)
-            { edit->SetComponentEntityRef(id, type, propName, target); };
+            dialog->OnPicked = [edit, id, type, propName, path](const Guid& target)
+            { edit->SetComponentEntityRef(id, type, path, propName, target); };
             dialog->Show(self->Context);
         };
         AddEditor(raw, [currentTarget, nameOf, raw]() { raw->SetValueText(nameOf(currentTarget())); });
@@ -2688,7 +2674,19 @@ namespace editor
                 }
                 else if (el.Type() != nullptr)
                 {
-                    names.PushBack(ContainerElementLabel(el.Type()));
+                    // A struct element: its own "name" String property when it has one (a
+                    // vegetation layer's name), else the type label.
+                    const PropertyInfo* nameProp = FindProperty(*el.Type(), "name");
+                    const String* elementName = nullptr;
+                    Variant nameValue;
+                    if (nameProp != nullptr && nameProp->type == &TypeOf<String>())
+                    {
+                        nameValue = GetProperty(*nameProp, el);
+                        elementName = nameValue.TryGet<String>();
+                    }
+                    names.PushBack((elementName != nullptr && !elementName->IsEmpty())
+                                       ? String(*elementName)
+                                       : ContainerElementLabel(el.Type()));
                 }
                 else
                 {
@@ -2888,6 +2886,34 @@ namespace editor
                           }
                       }
                   });
+
+        // A struct element (a reflected value type with properties - a vegetation layer): every
+        // slot gets its own expander of leaf rows right after the list, "<List> N: <name>", each
+        // row addressed through the slot path so it reads, writes and undoes like a component
+        // field (the pickers included). Nested containers inside the element wait for a need.
+        const TypeInfo* elementType = prop.type->container->elementType;
+        const bool structElement = elementType != nullptr && elementType != &TypeOf<MatRef>() &&
+                                   elementType != &TypeOf<foundation::scene::EntityRef>() &&
+                                   !Properties(*elementType).IsEmpty();
+        if (structElement)
+        {
+            for (usize i = 0; i < rawList->slotNames.Size(); ++i)
+            {
+                const String slotCategory =
+                    rawList->slotNames[i] == ContainerElementLabel(elementType)
+                        ? Format(u8"{} {}", label, i + 1)
+                        : Format(u8"{} {}: {}", label, i + 1, rawList->slotNames[i]);
+                for (const PropertyInfo& sub : Properties(*elementType))
+                {
+                    if ((sub.type != nullptr && IsContainer(*sub.type)) || IsNested(sub))
+                    {
+                        continue;
+                    }
+                    BuildPropertyRow(id, type, sub, slotCategory.AsView(),
+                                     ComponentPropertyPath{prop.name, i});
+                }
+            }
+        }
     }
 
     Float3 SceneInspectorView::EulerDegrees(Quaternion q)

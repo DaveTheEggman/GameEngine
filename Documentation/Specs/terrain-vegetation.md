@@ -1,6 +1,6 @@
 # Terrain vegetation (grass, then scattered props)
 
-> STATUS: P0 BUILT 2026-09-21 (splat-driven grass, four lanes green; see the P0 ruling under
+> STATUS: P0 BUILT 2026-09-21 (splat-driven grass, four lanes green; see the P0 note under
 > Decision 1 and the Phases section). P1 (mask + wind) and P2 (prop scatter) not scheduled.
 > Sized L; lands in phases with a green four-lane build after each. Origin: the backlog seed "grass / vegetation /
 > foliage for terrain" (weekly_backlog.md, user 2026-08-26) and the Lumix parity doc,
@@ -77,18 +77,15 @@ trees as skinned or wind-animated hero assets, physics for grass.
 - Two scenes can dress one terrain asset differently (a winter and a summer level over
   one heightfield), which asset-level layers cannot express.
 
-**P0 ruling (2026-09-21): one layer per component, on the terrain entity OR a child of it.**
-The generic list editor edits a `Ref<>` slot or an `EntityRef` slot and shows a struct
-element only as its type label - it cannot edit the fields of a struct inside an
-`Array<VegetationLayer>`, so the first cut's `Array<layer>` on one component would have had
-no inspector without a nested-struct row builder the spec never priced. `VegetationLayerComponent`
-(Engine.Vegetation) carries ONE layer with its scatter fields flat (every field is a leaf row
-today; the `Ref<StaticMesh>` / `Ref<Material>` pickers already dispatch); the manager finds
-the terrain by walking the entity's ancestry for a `TerrainComponent`. A grass layer, a rock
-layer and a flower layer are three child entities of the terrain: the entity's name is the
-layer's name, its active flag toggles it, the hierarchy orders it, a prefab carries it, and
-the persistent entity id is the scatter seed's identity. The mask reference (P1) sits on the
-layer too. Everything else in this decision stands.
+**P0 note (2026-09-21): built as specified, after one inspector extension.** The generic list
+editor edited a `Ref<>` or `EntityRef` slot and showed a struct element only as its type label,
+so an `Array<VegetationLayer>` had no per-field rows. The user chose to extend the editor rather
+than change the data model: the list editor now builds a per-slot expander of the element's leaf
+rows ("Layers 1: Grass", the layer's `name` titles it), every row and command addressing the
+element through a `ComponentPropertyPath` (editor.md 3.5). `TerrainVegetationComponent` holds
+`Array<VegetationLayer>` (each layer: name, mesh, material, the flat scatter fields, visible);
+the manager also accepts the component on a child of the terrain entity (it walks the ancestry
+for the `TerrainComponent`). The seed hashes (owner entity persistent id, layer index, chunk).
 
 The alternative (layers on `TerrainAsset`, cooked into `TerrainResource` like the splat
 palette) was rejected for P0 on cost: a builder change, a data version bump, and bespoke
@@ -282,8 +279,9 @@ move it to a sidecar, priced then.
 
 ## Phases
 
-**P0 - procedural grass from the splat (static). BUILT 2026-09-21.** As specified, with the
-Decision 1 ruling (one layer per component), the snapshot's first-view origin as the fade
+**P0 - procedural grass from the splat (static). BUILT 2026-09-21.** As specified (the
+Decision 1 data model, once the inspector's list editor learned struct elements), the
+snapshot's first-view origin as the fade
 distance (`ExtractedScene::ViewOrigin`, set by RenderSubsystem before the providers run;
 distance gates the build, the renderer frustum-culls the sets per view), the fade order as
 the generator's own uniformly random sequence (equivalent to a rank sort, no sort), and one

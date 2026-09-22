@@ -170,6 +170,15 @@ service, status sink, and the registries:
  `ApplySerializer` writes edits back. One `Serialize()` impl ⇒ save + inspector + snapshot-undo.
 - **Overrides:** `IPropertyEditor` per property type; per-component custom sections after the
  reflected pass (how terrain tools / bake buttons appear, per Lumix).
+- **Lists of structs (2026-09-21):** a reflected container property whose element is a value type
+ with properties (`Array<VegetationLayer>`) gets, after its `ContainerListEditor` row, one expander
+ per slot ("Layers 1: Grass" - the element's own `name` String property titles it, else the type
+ label) holding the element's leaf rows: every editor the component rows use, the `Ref<>` and
+ `EntityRef` pickers included. Rows and commands address the element through a
+ `ComponentPropertyPath` (container property name + slot index) that `SceneEditContext::
+ ResolvePropertyOwner` re-derives on every read and write (pools move), so a slot field is set,
+ merged and undone exactly like a component field; a removed or reordered slot rebuilds the grid
+ through the list's content-diff refresher. Nested containers inside an element wait for a need.
 
 ### 3.6 Scene editing, selection, picking, gizmos
 

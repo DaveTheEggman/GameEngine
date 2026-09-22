@@ -2,7 +2,7 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 // Vegetation pixel-level ground truth on REAL devices: a scene with a flat terrain, a splat painted
-// on one half and a grass layer following it goes through the manager (scatter + cache + snapshot)
+// on one half and a grass layer following it (on the terrain's vegetation component) goes through the manager (scatter + cache + snapshot)
 // and the shared MeshRenderer's instanced path; the pixels prove grass draws on the painted half
 // and not on the other, and that a far view origin thins it (the fade prefix). Vulkan is the
 // reference, WebGPU must match; skips with no GPU.
@@ -142,7 +142,7 @@ namespace
             scene::Scene world{DefaultAllocator()};
             engine::terrain::AddTerrainSceneManagers(world);
             engine::vegetation::AddVegetationSceneManagers(world);
-            auto* mgr = world.GetSystem<engine::vegetation::VegetationLayerComponentManager>();
+            auto* mgr = world.GetSystem<engine::vegetation::TerrainVegetationComponentManager>();
             REQUIRE(mgr != nullptr);
             mgr->SetBuildBudget(100);
             RefPtr<hf::Heightfield> grid = MakeFlat();
@@ -156,9 +156,9 @@ namespace
             RefPtr<geometry::StaticMesh> tuft = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
             RefPtr<materials::Material> green =
                 materials::CreatePBR(u8"grass", Float4{0.1f, 0.9f, 0.1f, 1.0f}, 0.0f, 0.9f);
-            const scene::EntityHandle grass = world.CreateEntity(u8"grass");
-            world.SetParent(grass, terrain);
-            engine::vegetation::VegetationLayerComponent& layer = mgr->Add(grass);
+            engine::vegetation::TerrainVegetationComponent& vegetation = mgr->Add(terrain);
+            engine::vegetation::VegetationLayer layer;
+            layer.name = String(u8"Grass");
             layer.mesh = tuft.Get();
             layer.material = green.Get();
             layer.placement = veg::VegetationPlacement::Splat;
@@ -167,6 +167,7 @@ namespace
             layer.maxSlopeDegrees = 90.0f;
             layer.fadeStart = fadeStart;
             layer.fadeEnd = fadeEnd;
+            vegetation.layers.PushBack(layer);
             world.Start();
 
             ExtractedScene snapshot{DefaultAllocator()};

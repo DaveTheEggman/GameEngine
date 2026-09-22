@@ -122,7 +122,7 @@ TEST_CASE("vegetation scatter: a seed gives byte-identical instances; another ch
     const tmodel::TerrainChunk chunk = ChunkOf(*grid);
     const veg::VegetationLayer layer = Uniform(0.25f);
     const Guid layerId{0x1234u, 0x5678u};
-    const u64 seed = veg::ChunkSeed(layerId, 0, 0);
+    const u64 seed = veg::ChunkSeed(layerId, 0, 0, 0);
 
     veg::ScatterResult a;
     veg::ScatterResult b;
@@ -140,13 +140,15 @@ TEST_CASE("vegetation scatter: a seed gives byte-identical instances; another ch
         CHECK(m.m[3][2] <= chunk.bounds.max.z);
     }
 
-    // The seed is the identity: a neighbouring chunk or another layer scatters differently.
-    CHECK(veg::ChunkSeed(layerId, 1, 0) != seed);
-    CHECK(veg::ChunkSeed(layerId, 0, 1) != seed);
-    CHECK(veg::ChunkSeed(Guid{0x1234u, 0x5679u}, 0, 0) != seed);
+    // The seed is the identity: a neighbouring chunk, another layer index or another owner
+    // scatters differently.
+    CHECK(veg::ChunkSeed(layerId, 0, 1, 0) != seed);
+    CHECK(veg::ChunkSeed(layerId, 0, 0, 1) != seed);
+    CHECK(veg::ChunkSeed(layerId, 1, 0, 0) != seed);
+    CHECK(veg::ChunkSeed(Guid{0x1234u, 0x5679u}, 0, 0, 0) != seed);
     veg::ScatterResult c;
-    veg::ScatterChunk(veg::ChunkSeed(layerId, 1, 0), chunk, *grid, nullptr, layer, AABB::Empty(),
-                      c);
+    veg::ScatterChunk(veg::ChunkSeed(layerId, 0, 1, 0), chunk, *grid, nullptr, layer,
+                      AABB::Empty(), c);
     CHECK(!SameTransforms(a.transforms, c.transforms));
 }
 

@@ -184,14 +184,15 @@ namespace samples
                 tc.lodBias = m_lodBias;
             }
 
-            // The grass: a vegetation layer entity under the terrain, following splat layer 0 -
-            // grass on the painted half, none on the other, thinning to nothing at fadeEnd.
-            m_grass = m_scene->CreateEntity(u8"grass");
-            m_scene->SetParent(m_grass, m_terrain);
-            if (auto* layers =
-                    m_scene->GetSystem<engine::vegetation::VegetationLayerComponentManager>())
+            // The grass: the terrain's vegetation component with one layer following splat
+            // layer 0 - grass on the painted half, none on the other, thinning to nothing at
+            // fadeEnd.
+            if (auto* vegetation =
+                    m_scene->GetSystem<engine::vegetation::TerrainVegetationComponentManager>())
             {
-                engine::vegetation::VegetationLayerComponent& layer = layers->Add(m_grass);
+                engine::vegetation::TerrainVegetationComponent& c = vegetation->Add(m_terrain);
+                engine::vegetation::VegetationLayer layer;
+                layer.name = core::String(u8"Grass");
                 layer.mesh = geometry::Primitives::Cone(AppRoot(), 0.24f, 1.4f); // a tuft
                 layer.material = materials::CreatePBR(u8"grass", core::Float4{0.25f, 0.62f, 0.18f, 1.0f},
                                                       0.0f, 0.85f);
@@ -203,6 +204,7 @@ namespace samples
                 layer.fadeStart = m_grassFadeStart;
                 layer.fadeEnd = m_grassFadeEnd;
                 layer.castShadows = false;
+                c.layers.PushBack(layer);
             }
 
             // A floating sphere that orbits over the terrain - a moving shadow caster so the CSM is
@@ -333,10 +335,11 @@ namespace samples
 
                 ImGui::Separator();
                 ImGui::TextDisabled("Grass (splat layer 0: the x < 0 half)");
-                if (auto* layers =
-                        m_scene->GetSystem<engine::vegetation::VegetationLayerComponentManager>())
+                if (auto* vegetation =
+                        m_scene->GetSystem<engine::vegetation::TerrainVegetationComponentManager>())
                 {
-                    if (auto* layer = layers->Get(m_grass))
+                    auto* c = vegetation->Get(m_terrain);
+                    if (auto* layer = (c != nullptr && !c->layers.IsEmpty()) ? &c->layers[0] : nullptr)
                     {
                         bool changed = ImGui::SliderFloat("density /m2", &m_grassDensity, 0.0f,
                                                           4.0f, "%.2f");
@@ -353,8 +356,8 @@ namespace samples
                             layer->fadeEnd = core::Max(m_grassFadeEnd, m_grassFadeStart + 1.0f);
                         }
                         ImGui::Text("sets built %u, instances %u",
-                                    static_cast<unsigned>(layers->BuiltSetCount()),
-                                    static_cast<unsigned>(layers->InstanceCount()));
+                                    static_cast<unsigned>(vegetation->BuiltSetCount()),
+                                    static_cast<unsigned>(vegetation->InstanceCount()));
                     }
                 }
 
@@ -375,7 +378,6 @@ namespace samples
         scene::EntityHandle m_sun{};
         scene::EntityHandle m_terrain{};
         scene::EntityHandle m_caster{};
-        scene::EntityHandle m_grass{};
         RefPtr<hf::Heightfield> m_heightfield;
         RefPtr<terrain::SplatWeights> m_splat;
         RefPtr<terrain::TerrainResource> m_terrainResource;

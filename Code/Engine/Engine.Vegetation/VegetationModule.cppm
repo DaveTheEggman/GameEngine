@@ -7,5 +7,5 @@
 
 export module engine.vegetation;
 
-export import :components; // VegetationLayerComponent + manager (IRenderDataProvider)
+export import :components; // TerrainVegetationComponent + manager (IRenderDataProvider)
 export import :subsystem;  // VegetationSubsystem (registers the provider per scene)
