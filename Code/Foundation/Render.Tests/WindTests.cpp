@@ -54,3 +54,16 @@ TEST_CASE("wind: the PBR template's Wind lanes are the cbuffer's spare slots; th
     // The flag names its #define, so a stage's `variants:` line can declare it.
     CHECK(shaders::FlagFromName(u8"WIND") == shaders::ShaderFlags::Wind);
 }
+
+TEST_CASE("wind: the snapshot carries its scene's clock; a reset clears it (the frame clock stands in)")
+{
+    ExtractedScene scene{DefaultAllocator()};
+    CHECK(!scene.HasTime());
+    scene.SetTime(12.5f, 12.4f);
+    CHECK(scene.HasTime());
+    CHECK(scene.TimeSeconds() == 12.5f);
+    CHECK(scene.PrevTimeSeconds() == 12.4f);
+    scene.Reset();
+    CHECK(!scene.HasTime());
+    CHECK(scene.TimeSeconds() == 0.0f);
+}

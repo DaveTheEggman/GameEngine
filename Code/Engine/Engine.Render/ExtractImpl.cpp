@@ -479,6 +479,7 @@ namespace engine::render
         if (auto* env = scene.GetSystem<EnvironmentSystem>())
         {
             const EnvironmentSettings& e = env->Environment();
+            out.SetTime(env->TimeSeconds(), env->PrevTimeSeconds()); // the scene clock (WIND)
             out.SetAmbient(Float3{e.ambientColor.r, e.ambientColor.g, e.ambientColor.b} *
                            e.ambientIntensity);
             SkySnapshot s{};

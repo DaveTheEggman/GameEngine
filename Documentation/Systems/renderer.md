@@ -513,9 +513,15 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   without them reads zeros; the renderer selects the variant only when a material's
   `WindStrength` default is above zero (`MeshRenderer::MaterialWantsWind`), binding set 2 to the
   depth and pick passes for it as it does for masked casters, so every other material is
-  byte-identical to before. Time: `RenderFrame::SetTime` (fed by `RenderSubsystem::SetTime`
-  from the default application's run clock) rides `IblParams.zw` (this and last frame's seconds),
-  `ShadowView.ShadowWind.x` (the ShadowView cbuffer grew to 80 bytes) and `PickView.WindTime`.
+  byte-identical to before. Time: the SCENE's clock - `EnvironmentSystem` accumulates the
+  scene's own dt (the context, group and scene time scales the scene manager composes), so a
+  paused or slowed scene's grass pauses or slows with it and the editor's Simulate (which ticks
+  the editing scene) sways it; the environment extraction stamps it on the snapshot
+  (`ExtractedScene::SetTime`), and every record context reads its view's (or its casters')
+  scene clock, falling back to `RenderFrame::SetTime` (the app's run clock via
+  `RenderSubsystem::SetTime`) only for a snapshot no scene stamped (the probes). It rides
+  `IblParams.zw` (this and last frame's seconds), `ShadowView.ShadowWind.x` (the ShadowView
+  cbuffer grew to 80 bytes) and `PickView.WindTime`.
   `Render.Backend.Tests` WindProbe: a segmented card's tips shift between two frame times while
   its root rows stay, and a still material renders byte-identical; Vulkan + WebGPU.
 - **Props (P2, 2026-09-22).** A layer with Scattered placement draws its authored

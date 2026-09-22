@@ -305,7 +305,9 @@ refinements: the height mask needs no mesh bounds - a third material property, `
 (the local y at which the sway is full; roots at y <= 0 stay), sits in the cbuffer's last
 spare lane alongside `WindStrength` / `WindSpeed` at 24 / 28, and the variant is selected by
 the material's `WindStrength` default being above zero rather than an authored flag, so no
-material page toggle is needed and every existing material is byte-identical. The mask half as
+material page toggle is needed and every existing material is byte-identical. The time is the
+SCENE's clock (EnvironmentSystem, from the scene's composed dt), not the app's: a paused scene's
+grass stands still, Simulate sways the editing scene; the frame clock stands in for probes. The mask half as
 specified, with one addition: the
 placement enum gained `SplatTimesMask` (the "splat multiplied in" combination as its own mode,
 so a plain Mask layer needs no splat and a carved road is an erase stroke); the mask reference

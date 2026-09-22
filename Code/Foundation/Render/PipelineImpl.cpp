@@ -334,8 +334,14 @@ namespace foundation::render
                                      u32 probeBase, u32 probeCount)
     {
         RenderRecordContext ctx{};
+        // The WIND clock: the view's SCENE clock (scaled, pausable), else the frame's fallback.
         ctx.timeSeconds = m_timeSeconds;
         ctx.prevTimeSeconds = m_prevTimeSeconds;
+        if (view.Scene() != nullptr && view.Scene()->HasTime())
+        {
+            ctx.timeSeconds = view.Scene()->TimeSeconds();
+            ctx.prevTimeSeconds = view.Scene()->PrevTimeSeconds();
+        }
         ctx.view = &view;
         ctx.viewProj =
             drawViewProj; // opaque = jittered (TAA), transparent = unjittered (drawn post-TAA)
@@ -675,8 +681,13 @@ namespace foundation::render
                                          const RendererRegistry& registry, u32 viewIndex)
     {
         RenderRecordContext ctx{};
-        ctx.timeSeconds = m_timeSeconds;
+        ctx.timeSeconds = m_timeSeconds; // the WIND clock: the view's scene's, else the frame's
         ctx.prevTimeSeconds = m_prevTimeSeconds;
+        if (view.Scene() != nullptr && view.Scene()->HasTime())
+        {
+            ctx.timeSeconds = view.Scene()->TimeSeconds();
+            ctx.prevTimeSeconds = view.Scene()->PrevTimeSeconds();
+        }
         ctx.view =
             &view; // instance-share cache is keyed by view pointer (prepass fills, forward reuses)
         ctx.viewProj = view.Camera().ViewProjection();
@@ -765,8 +776,14 @@ namespace foundation::render
                                     const Float4x4& viewProj)
     {
         RenderRecordContext ctx{};
+        // The WIND clock: the view's SCENE clock (scaled, pausable), else the frame's fallback.
         ctx.timeSeconds = m_timeSeconds;
         ctx.prevTimeSeconds = m_prevTimeSeconds;
+        if (view.Scene() != nullptr && view.Scene()->HasTime())
+        {
+            ctx.timeSeconds = view.Scene()->TimeSeconds();
+            ctx.prevTimeSeconds = view.Scene()->PrevTimeSeconds();
+        }
         ctx.view = &view;
         ctx.viewProj = viewProj; // the CROPPED camera projection (PickSystem)
         ctx.viewMatrix = view.Camera().view; // per-view LOD selection, like the prepass
@@ -810,11 +827,17 @@ namespace foundation::render
                                           const RendererRegistry& registry,
                                           const Float4x4& lightViewProj, Float3 cullCenter,
                                           f32 cullRadius, bool frustumCull,
-                                          Span<const Float4> cullBounds, const RenderView* lodView)
+                                          Span<const Float4> cullBounds, const RenderView* lodView,
+                                          const ExtractedScene* scene)
     {
         RenderRecordContext ctx{};
-        ctx.timeSeconds = m_timeSeconds;
+        ctx.timeSeconds = m_timeSeconds; // the WIND clock: the casters' scene's, else the frame's
         ctx.prevTimeSeconds = m_prevTimeSeconds;
+        if (scene != nullptr && scene->HasTime())
+        {
+            ctx.timeSeconds = scene->TimeSeconds();
+            ctx.prevTimeSeconds = scene->PrevTimeSeconds();
+        }
         ctx.view = lodView; // LOD coupling only (null = coarsest); light matrices come below
         if (lodView != nullptr)
         {
@@ -1421,7 +1444,9 @@ namespace foundation::render
                                         rp.SetScissor(static_cast<i32>(t.x), static_cast<i32>(t.y),
                                                       t.w, t.h);
                                         RecordShadowCasters(rp, casters, *reg, t.viewProj,
-                                                            t.cullCenter, t.cullRadius);
+                                                            t.cullCenter, t.cullRadius,
+                                                            /*frustumCull*/ false, {}, nullptr,
+                                                            d.ctx->scene);
                                     }
                                 });
                         });
@@ -1514,7 +1539,8 @@ namespace foundation::render
                                     // Cascades follow their OWNING view's LOD selection:
                                     // shadow matches what the view draws.
                                     RecordShadowCasters(rp, casters, *reg, cascadeVP, {}, 0.0f,
-                                                        /*frustumCull*/ true, bounds, v);
+                                                        /*frustumCull*/ true, bounds, v,
+                                                        sctx->scene);
                                 });
                         });
                 }

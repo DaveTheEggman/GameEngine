@@ -780,6 +780,21 @@ export namespace foundation::render
         [[nodiscard]] const Float3& ViewOrigin() const noexcept { return m_viewOrigin; }
         [[nodiscard]] bool HasViewOrigin() const noexcept { return m_hasViewOrigin; }
 
+        // The SCENE's clock (this and last frame's seconds), stamped by the scene's environment
+        // extraction from a clock that accumulates the scene's own dt - so the context, group and
+        // scene time scales and a pause all apply (a paused world's grass stands still; the
+        // editor's Simulate ticks the editing scene, so it sways there). The WIND sway phase.
+        // HasTime() is false for a snapshot no scene stamped (a probe): the frame clock stands in.
+        void SetTime(f32 seconds, f32 prevSeconds) noexcept
+        {
+            m_timeSeconds = seconds;
+            m_prevTimeSeconds = prevSeconds;
+            m_hasTime = true;
+        }
+        [[nodiscard]] f32 TimeSeconds() const noexcept { return m_timeSeconds; }
+        [[nodiscard]] f32 PrevTimeSeconds() const noexcept { return m_prevTimeSeconds; }
+        [[nodiscard]] bool HasTime() const noexcept { return m_hasTime; }
+
         // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
         void Reset() noexcept;
 
@@ -800,6 +815,9 @@ export namespace foundation::render
         DirectionalShadow m_shadow;                     // active directional shadow caster
         Float3 m_viewOrigin = Float3{0.0f, 0.0f, 0.0f}; // first view's camera position (see above)
         bool m_hasViewOrigin = false;
+        f32 m_timeSeconds = 0.0f;     // the scene clock (see SetTime)
+        f32 m_prevTimeSeconds = 0.0f;
+        bool m_hasTime = false;
     };
 
     // Extension seam (scene-agnostic, à la Sedulous's IRenderDataProvider): a downstream system - e.g.

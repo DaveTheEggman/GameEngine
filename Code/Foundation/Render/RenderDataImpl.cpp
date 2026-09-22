@@ -154,6 +154,9 @@ namespace foundation::render
         m_shadow = {};
         m_viewOrigin = Float3{0.0f, 0.0f, 0.0f};
         m_hasViewOrigin = false;
+        m_timeSeconds = 0.0f;
+        m_prevTimeSeconds = 0.0f;
+        m_hasTime = false;
         m_arena.Reset();
     }
 

@@ -515,6 +515,22 @@ export namespace engine::render
         [[nodiscard]] EnvironmentSettings& Environment() noexcept { return m_env; }
         [[nodiscard]] const EnvironmentSettings& Environment() const noexcept { return m_env; }
 
+        // The scene's render clock: seconds accumulated from the scene's OWN dt (the context,
+        // group and scene time scales composed by the scene manager), so a paused or slowed
+        // scene's time-driven shading (the WIND sway) pauses or slows with it. Advances once per
+        // frame in the Update phase; the previous frame's value rides along for motion vectors.
+        // Runtime state: never serialized.
+        void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
+        {
+            if (phase == scene::ScenePhase::Update)
+            {
+                m_prevTimeSeconds = m_timeSeconds;
+                m_timeSeconds += deltaTime;
+            }
+        }
+        [[nodiscard]] f32 TimeSeconds() const noexcept { return m_timeSeconds; }
+        [[nodiscard]] f32 PrevTimeSeconds() const noexcept { return m_prevTimeSeconds; }
+
         // Scene-level settings seam: the editor's scene inspector edits m_env through the
         // reflected type; SerializeScene persists it (wrapped in the type's versioned payload -
         // bump the reflected dataVersion whenever a field is added).
@@ -524,6 +540,7 @@ export namespace engine::render
         }
         [[nodiscard]] void* SettingsInstance() noexcept override { return &m_env; }
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"environment"; }
+        // (the clock members sit with the settings below)
         void ResolveResources(foundation::resource::ResourceManager& manager) override
         {
             m_env.skyTexture.Bind(manager);
@@ -554,6 +571,8 @@ export namespace engine::render
         }
 
     private:
+        f32 m_timeSeconds = 0.0f;     // the scene render clock (OnUpdate)
+        f32 m_prevTimeSeconds = 0.0f;
         EnvironmentSettings m_env;
     };
 

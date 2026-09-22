@@ -916,3 +916,38 @@ TEST_CASE("render: RequestPick keys on the viewport, answers nothing without a k
     CHECK_FALSE(sub.IsPickPending(rect));
     CHECK_FALSE(sub.TryTakePickResult(id, result));
 }
+
+TEST_CASE("EnvironmentSystem keeps the scene's render clock from the scene's own dt and stamps it on the snapshot")
+{
+    scene::Scene scene{DefaultAllocator()};
+    engine::render::AddRenderSceneManagers(scene);
+    auto* env = scene.GetSystem<engine::render::EnvironmentSystem>();
+    REQUIRE(env != nullptr);
+    scene.Start();
+    CHECK(env->TimeSeconds() == 0.0f);
+
+    // The scene's dt is what the scene manager composed (context x group x scene scales): the
+    // clock adds exactly that, once per frame, keeping last frame's value for motion vectors.
+    scene.Update(0.5f);
+    CHECK(env->TimeSeconds() == 0.5f);
+    CHECK(env->PrevTimeSeconds() == 0.0f);
+    scene.Update(0.25f);
+    CHECK(env->TimeSeconds() == 0.75f);
+    CHECK(env->PrevTimeSeconds() == 0.5f);
+    // A paused scene (scale 0 -> dt 0) holds still.
+    scene.Update(0.0f);
+    CHECK(env->TimeSeconds() == 0.75f);
+    CHECK(env->PrevTimeSeconds() == 0.75f);
+
+    // Extraction stamps the clock on the snapshot; a snapshot of a scene without the
+    // environment system carries none (the frame clock stands in).
+    ExtractedScene snapshot{DefaultAllocator()};
+    engine::render::ExtractEnvironmentInto(scene, snapshot);
+    CHECK(snapshot.HasTime());
+    CHECK(snapshot.TimeSeconds() == 0.75f);
+    CHECK(snapshot.PrevTimeSeconds() == 0.75f);
+    scene::Scene bare{DefaultAllocator()};
+    ExtractedScene none{DefaultAllocator()};
+    engine::render::ExtractEnvironmentInto(bare, none);
+    CHECK(!none.HasTime());
+}

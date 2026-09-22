@@ -718,7 +718,8 @@ export namespace foundation::render
                                  const RendererRegistry& registry, const Float4x4& lightViewProj,
                                  Float3 cullCenter = {}, f32 cullRadius = 0.0f,
                                  bool frustumCull = false, Span<const Float4> cullBounds = {},
-                                 const RenderView* lodView = nullptr);
+                                 const RenderView* lodView = nullptr,
+                                 const ExtractedScene* scene = nullptr);
 
         // Build the camera-independent shadow-caster list from a scene (opaque + masked meshes), grouped by
         // (mesh, material) so the depth pass batches them. Used by BOTH the directional cascades and the
