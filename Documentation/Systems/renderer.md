@@ -514,9 +514,10 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   `WindStrength` default is above zero (`MeshRenderer::MaterialWantsWind`), binding set 2 to the
   depth and pick passes for it as it does for masked casters, so every other material is
   byte-identical to before. Time: the SCENE's clock - `EnvironmentSystem` accumulates the
-  scene's own dt (the context, group and scene time scales the scene manager composes), so a
-  paused or slowed scene's grass pauses or slows with it and the editor's Simulate (which ticks
-  the editing scene) sways it; the environment extraction stamps it on the snapshot
+  scene's own dt (the context, group and scene time scales the scene manager composes) and
+  only while the scene simulates (`Scene::SimulationEnabled`: the editing scene ticks every
+  frame with simulation off, Simulate turns it on), so a paused or slowed scene's grass pauses
+  or slows with it, the frozen editing scene's stands still, and Simulate sways it; the environment extraction stamps it on the snapshot
   (`ExtractedScene::SetTime`), and every record context reads its view's (or its casters')
   scene clock, falling back to `RenderFrame::SetTime` (the app's run clock via
   `RenderSubsystem::SetTime`) only for a snapshot no scene stamped (the probes). It rides

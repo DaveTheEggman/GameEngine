@@ -217,7 +217,8 @@ export namespace engine::vegetation
             Array<tmodel::TerrainChunk> chunks;
             Array<ChunkSet> sets; // one per chunk, row-major
             bool seenThisFrame = false;
-            bool warnedClamp = false; // the over-budget warning fires once per layer
+            bool warnedClamp = false;  // the over-budget warning fires once per layer
+            bool warnedNoMesh = false; // the unresolved-mesh warning fires once per layer
         };
 
         [[nodiscard]] static u64 CacheKey(scene::EntityHandle owner, u32 layerIndex) noexcept;

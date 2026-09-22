@@ -117,6 +117,7 @@ export namespace editor
         bool m_hasHover = false;
         Float3 m_hoverWorld{};
         Float3 m_hoverNormal{0.0f, 1.0f, 0.0f};
+        bool m_layerHasMesh = true; // the picked component's selected layer resolves its mesh
 
         // Stroke state (one command per press..release).
         bool m_stroking = false;

@@ -188,7 +188,9 @@ tool (it refuses with a notice until a Scattered layer exists), pick the layer i
 and alignment rules, leaves **Spacing** (in multiples of the mesh's size) between props, and
 skips any spot inside a physics body of the scene. **Strength** scales how many a stamp places,
 so a scrub builds a field up gently. The eraser removes the props under the brush. Every stroke
-is one undo step, and the props save with the scene.
+is one undo step, and the props save with the scene. A layer whose mesh does not resolve (a
+deleted or stale asset) draws nothing: the panel marks it "(no mesh)", the status bar says so
+while it is selected, and the log warns once.
 
 **Wind.** A layer's material sways when its **Wind Strength** (metres at the card's top) is above
 zero; set **Wind Speed** (radians per second) and **Wind Height** (the local height, in the

@@ -138,6 +138,8 @@ namespace editor
             m_hasHover = true;
             m_hoverWorld = fp.worldHit;
             m_hoverNormal = fp.worldNormal;
+            m_layerHasMesh = fp.component == nullptr || m_layer >= fp.component->layers.Size() ||
+                             fp.component->layers[m_layer].mesh.Get() != nullptr;
         }
         bool consumed = m_stroking;
         if (!input.editingLocked) // Simulate: the props feed the live scene - no edits
@@ -336,5 +338,10 @@ namespace editor
                                     radius)
                            : Format(u8"Paint Props [layer {}]  radius {}  (1-9 layer, 0 eraser, wheel size)",
                                     static_cast<i32>(m_layer), radius);
+        if (!m_erase && !m_layerHasMesh)
+        {
+            m_status = Format(u8"{}  - layer {} has no mesh: props place but nothing draws",
+                              m_status.AsView(), static_cast<i32>(m_layer));
+        }
     }
 }

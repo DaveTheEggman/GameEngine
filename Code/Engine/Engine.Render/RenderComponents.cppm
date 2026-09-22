@@ -518,11 +518,15 @@ export namespace engine::render
         // The scene's render clock: seconds accumulated from the scene's OWN dt (the context,
         // group and scene time scales composed by the scene manager), so a paused or slowed
         // scene's time-driven shading (the WIND sway) pauses or slows with it. Advances once per
-        // frame in the Update phase; the previous frame's value rides along for motion vectors.
-        // Runtime state: never serialized.
+        // frame in the Update phase and ONLY while the scene simulates: the editor's editing
+        // scene ticks every frame with simulation disabled (Simulate enables it), and a frozen
+        // world's grass must stand still there. The previous frame's value rides along for
+        // motion vectors. Runtime state: never serialized.
+        void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase == scene::ScenePhase::Update)
+            if (phase == scene::ScenePhase::Update &&
+                (m_scene == nullptr || m_scene->SimulationEnabled()))
             {
                 m_prevTimeSeconds = m_timeSeconds;
                 m_timeSeconds += deltaTime;
@@ -571,7 +575,8 @@ export namespace engine::render
         }
 
     private:
-        f32 m_timeSeconds = 0.0f;     // the scene render clock (OnUpdate)
+        scene::Scene* m_scene = nullptr; // borrowed (the scene owns its systems)
+        f32 m_timeSeconds = 0.0f;        // the scene render clock (OnUpdate)
         f32 m_prevTimeSeconds = 0.0f;
         EnvironmentSettings m_env;
     };

@@ -938,13 +938,24 @@ TEST_CASE("EnvironmentSystem keeps the scene's render clock from the scene's own
     scene.Update(0.0f);
     CHECK(env->TimeSeconds() == 0.75f);
     CHECK(env->PrevTimeSeconds() == 0.75f);
+    // The editor's editing scene ticks with simulation DISABLED (Simulate enables it): the
+    // clock does not advance there, so a frozen world's grass stands still.
+    scene.SetSimulationEnabled(false);
+    scene.Update(0.5f);
+    CHECK(env->TimeSeconds() == 0.75f);
+    CHECK(env->PrevTimeSeconds() == 0.75f);
+    scene.SetSimulationEnabled(true);
+    scene.Update(0.5f);
+    CHECK(env->TimeSeconds() == 1.25f);
+    scene.SetSimulationEnabled(false); // the extraction below expects 1.25 / 0.75
+    scene.Update(0.5f);
 
     // Extraction stamps the clock on the snapshot; a snapshot of a scene without the
     // environment system carries none (the frame clock stands in).
     ExtractedScene snapshot{DefaultAllocator()};
     engine::render::ExtractEnvironmentInto(scene, snapshot);
     CHECK(snapshot.HasTime());
-    CHECK(snapshot.TimeSeconds() == 0.75f);
+    CHECK(snapshot.TimeSeconds() == 1.25f);
     CHECK(snapshot.PrevTimeSeconds() == 0.75f);
     scene::Scene bare{DefaultAllocator()};
     ExtractedScene none{DefaultAllocator()};

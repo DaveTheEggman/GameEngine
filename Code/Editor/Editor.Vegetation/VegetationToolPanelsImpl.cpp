@@ -143,6 +143,7 @@ namespace editor
         {
             Array<String> names;
             Array<bool> scattered;
+            Array<bool> hasMesh; // the mesh reference resolves (a stale asset does not)
         };
         [[nodiscard]] LayerNames ResolveLayerNames(scene::Scene& sc)
         {
@@ -169,6 +170,7 @@ namespace editor
                                                                       : c.layers[i].name);
                         out.scattered.PushBack(c.layers[i].placement ==
                                                foundation::vegetation::VegetationPlacement::Scattered);
+                        out.hasMesh.PushBack(c.layers[i].mesh.Get() != nullptr);
                     }
                 });
             return out;
@@ -203,12 +205,17 @@ namespace editor
                 auto choices = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
                 choices->Build(
                     count + 1,
-                    [count, names = layers.names, scattered = layers.scattered](i32 i) -> RefPtr<ui::View>
+                    [count, names = layers.names, scattered = layers.scattered,
+                     hasMesh = layers.hasMesh](i32 i) -> RefPtr<ui::View>
                     {
                         String text = i == count ? String(u8"E") : names[static_cast<usize>(i)];
                         if (i < count && !scattered[static_cast<usize>(i)])
                         {
                             text = Format(u8"{} (not scattered)", text.AsView());
+                        }
+                        else if (i < count && !hasMesh[static_cast<usize>(i)])
+                        {
+                            text = Format(u8"{} (no mesh)", text.AsView()); // nothing would draw
                         }
                         auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text.AsView());
                         label->FontSize.SetValue(Optional<f32>{12.0f});

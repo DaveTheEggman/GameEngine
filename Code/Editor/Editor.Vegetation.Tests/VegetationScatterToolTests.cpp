@@ -292,3 +292,28 @@ TEST_CASE("vegetation scatter panel: the provider registers for the brush id and
     tool.SetRadius(9.0f);
     CHECK(tool.Radius() == 9.0f);
 }
+
+TEST_CASE("vegetation scatter: a layer whose mesh does not resolve is named in the status (nothing would draw)")
+{
+    Fixture fx;
+    fx.vegetation->Get(fx.terrain)->layers[1].mesh = nullptr; // the reference resolves to nothing
+    editor::EditorCommandStack commands;
+    editor::VegetationScatterTool tool(fx.scene, commands);
+    tool.SetLayer(1);
+    (void)tool.Update(RayAt(0.0f, 0.0f)); // a hover resolves the layer's mesh state
+    const StringView status = tool.StatusText();
+    bool named = false;
+    for (usize i = 0; i + 7 <= status.Size(); ++i)
+    {
+        named |= status.SubStr(i, 7) == StringView(u8"no mesh");
+    }
+    CHECK(named);
+    fx.vegetation->Get(fx.terrain)->layers[1].mesh = fx.mesh.Get();
+    (void)tool.Update(RayAt(0.0f, 0.0f));
+    named = false;
+    for (usize i = 0; i + 7 <= tool.StatusText().Size(); ++i)
+    {
+        named |= tool.StatusText().SubStr(i, 7) == StringView(u8"no mesh");
+    }
+    CHECK(!named);
+}

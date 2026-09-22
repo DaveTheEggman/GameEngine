@@ -377,8 +377,20 @@ namespace engine::vegetation
         foundation::geometry::StaticMesh* mesh = authored.mesh.Get();
         if (mesh == nullptr)
         {
+            // A reference that names an asset but resolves to nothing (deleted, uncooked, a stale
+            // db) draws nothing - say so once, because a silent empty layer reads as a broken
+            // brush. A nil reference is simply an unfinished layer: quiet.
+            if (!authored.mesh.id.IsNil() && !cache.warnedNoMesh)
+            {
+                cache.warnedNoMesh = true;
+                LOG_WARNING(u8"Vegetation",
+                            u8"layer {} ('{}'): its mesh reference does not resolve (a deleted, "
+                            u8"uncooked or stale asset) - nothing will draw",
+                            layerIndex, authored.name);
+            }
             return;
         }
+        cache.warnedNoMesh = false;
         const veg::VegetationLayer layer = authored.ToScatterLayer();
         const u64 layerHash = veg::LayerScatterHash(layer);
 
