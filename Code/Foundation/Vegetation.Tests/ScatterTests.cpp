@@ -509,3 +509,94 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
     other.maskPlane = 0;
     CHECK(veg::LayerScatterHash(other) != veg::LayerScatterHash(flowers));
 }
+
+TEST_CASE("vegetation stamp: a seeded stamp places a deterministic count inside the disc; slope, spacing and a blocked query reject; erase removes")
+{
+    RefPtr<hf::Heightfield> grid = MakeFlat(2.0f);
+    veg::VegetationLayer rocks = Uniform(0.0f);
+    rocks.placement = veg::VegetationPlacement::Scattered;
+    rocks.scaleRange = Float2{1.0f, 1.0f};
+    rocks.maxSlopeDegrees = 90.0f;
+    const AABB rock = AABB::FromCenterExtents(Float3{0, 0.5f, 0}, Float3{0.5f, 0.5f, 0.5f});
+
+    Array<Float4x4> a;
+    const veg::StampResult ra = veg::ScatterStamp(99, *grid, rocks, rock, 4.0f, -3.0f, 6.0f,
+                                                  0.5f, 1.0f, 0.0f, {}, {}, a);
+    CHECK(ra.candidates == 57u); // 0.5 x pi x 36 = 56.5
+    CHECK(ra.placed == 57u);     // flat, no spacing, nothing blocked: every candidate lands
+    REQUIRE(a.Size() == 57u);
+    for (const Float4x4& m : a)
+    {
+        const f32 dx = m.m[3][0] - 4.0f;
+        const f32 dz = m.m[3][2] + 3.0f;
+        CHECK(dx * dx + dz * dz <= 36.0f + 1e-3f);
+        CHECK(m.m[3][1] == doctest::Approx(2.0f).epsilon(0.01));
+    }
+    // The same seed places the same instances; another seed differs; amount scales the count.
+    Array<Float4x4> b;
+    (void)veg::ScatterStamp(99, *grid, rocks, rock, 4.0f, -3.0f, 6.0f, 0.5f, 1.0f, 0.0f, {}, {}, b);
+    CHECK(SameTransforms(a, b));
+    Array<Float4x4> c;
+    (void)veg::ScatterStamp(100, *grid, rocks, rock, 4.0f, -3.0f, 6.0f, 0.5f, 1.0f, 0.0f, {}, {}, c);
+    CHECK(!SameTransforms(a, c));
+    Array<Float4x4> half;
+    CHECK(veg::ScatterStamp(99, *grid, rocks, rock, 4.0f, -3.0f, 6.0f, 0.5f, 0.5f, 0.0f, {}, {}, half)
+              .candidates == 28u);
+
+    // Spacing: a rock of radius ~0.87 with spacing 2 keeps ~1.7 m apart - far fewer land, and
+    // the ones that do are never within reach of each other or of the existing ones.
+    Array<Float4x4> spaced;
+    const veg::StampResult rs = veg::ScatterStamp(
+        99, *grid, rocks, rock, 4.0f, -3.0f, 6.0f, 2.0f, 1.0f, 2.0f,
+        Span<const Float4x4>{a.Data(), a.Size()}, {}, spaced);
+    CHECK(rs.rejectedSpacing > 0u);
+    CHECK(rs.placed + rs.rejectedSpacing == rs.candidates);
+    const f32 reach = 2.0f * Length(rock.Extents());
+    for (const Float4x4& m : spaced)
+    {
+        for (const Float4x4& e : a)
+        {
+            const f32 dx = m.m[3][0] - e.m[3][0];
+            const f32 dz = m.m[3][2] - e.m[3][2];
+            CHECK(dx * dx + dz * dz >= reach * reach - 1e-3f);
+        }
+    }
+
+    // A blocked query (the physics world's overlap in the editor) rejects where it says so.
+    Array<Float4x4> blocked;
+    const veg::StampResult rb = veg::ScatterStamp(
+        99, *grid, rocks, rock, 4.0f, -3.0f, 6.0f, 0.5f, 1.0f, 0.0f, {},
+        [](Float3 p, f32) { return p.x > 4.0f; }, blocked);
+    CHECK(rb.rejectedBlocked > 0u);
+    CHECK(rb.placed + rb.rejectedBlocked == rb.candidates);
+    for (const Float4x4& m : blocked)
+    {
+        CHECK(m.m[3][0] <= 4.0f);
+    }
+
+    // The slope rule: a steep ramp with a tight limit places nothing.
+    RefPtr<hf::Heightfield> ramp = MakeRamp(32.0f);
+    veg::VegetationLayer gentle = rocks;
+    gentle.maxSlopeDegrees = 10.0f;
+    Array<Float4x4> none;
+    const veg::StampResult rr =
+        veg::ScatterStamp(5, *ramp, gentle, rock, 0.0f, 0.0f, 6.0f, 0.5f, 1.0f, 0.0f, {}, {}, none);
+    CHECK(none.IsEmpty());
+    CHECK(rr.rejectedRules == rr.candidates);
+
+    // Erase: the instances inside the disc go, the rest keep their order.
+    Array<Float4x4> field = a;
+    const u32 removed = veg::EraseInstancesInDisc(field, 4.0f, -3.0f, 3.0f);
+    CHECK(removed > 0u);
+    CHECK(field.Size() + removed == a.Size());
+    for (const Float4x4& m : field)
+    {
+        const f32 dx = m.m[3][0] - 4.0f;
+        const f32 dz = m.m[3][2] + 3.0f;
+        CHECK(dx * dx + dz * dz > 9.0f);
+    }
+    CHECK(veg::EraseInstancesInDisc(field, 100.0f, 100.0f, 1.0f) == 0u);
+    // Degenerate inputs place nothing.
+    CHECK(veg::ScatterStamp(1, *grid, rocks, rock, 0, 0, 0.0f, 1.0f, 1.0f, 0.0f, {}, {}, none).candidates == 0u);
+    CHECK(veg::ScatterStamp(1, *grid, rocks, rock, 0, 0, 5.0f, 0.0f, 1.0f, 0.0f, {}, {}, none).candidates == 0u);
+}

@@ -16,6 +16,7 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import foundation.scene;               // Scene, ComponentManagerBase, EntityHandle
 import foundation.vegetation.resource; // VegetationMask (the plane count)
+import foundation.vegetation;          // VegetationPlacement (which layers are Scattered)
 import engine.vegetation;              // TerrainVegetationComponent(Manager)
 import editor.core;
 import editor.app;                     // IViewportToolPanelProvider, ViewportToolPanelRegistry, the widget kit
@@ -135,9 +136,127 @@ namespace editor
         };
     }
 
+    namespace
+    {
+        // The names of the scene's first vegetation component's layers, with which are Scattered.
+        struct LayerNames
+        {
+            Array<String> names;
+            Array<bool> scattered;
+        };
+        [[nodiscard]] LayerNames ResolveLayerNames(scene::Scene& sc)
+        {
+            LayerNames out;
+            scene::ComponentManagerBase* base = sc.FindManagerByComponentType(
+                TypeOf<engine::vegetation::TerrainVegetationComponent>());
+            auto* mgr = static_cast<engine::vegetation::TerrainVegetationComponentManager*>(base);
+            if (mgr == nullptr)
+            {
+                return out;
+            }
+            bool taken = false;
+            mgr->ForEach(
+                [&](engine::vegetation::TerrainVegetationComponent& c, scene::EntityHandle)
+                {
+                    if (taken || c.layers.IsEmpty())
+                    {
+                        return;
+                    }
+                    taken = true;
+                    for (usize i = 0; i < c.layers.Size(); ++i)
+                    {
+                        out.names.PushBack(c.layers[i].name.IsEmpty() ? Format(u8"Layer {}", i + 1)
+                                                                      : c.layers[i].name);
+                        out.scattered.PushBack(c.layers[i].placement ==
+                                               foundation::vegetation::VegetationPlacement::Scattered);
+                    }
+                });
+            return out;
+        }
+
+        // ---- Paint Props panel: the Scattered layer choices + E, then radius / density /
+        // strength / spacing ---------------------------------------------------------------
+        class VegetationScatterPanelProvider final : public IViewportToolPanelProvider
+        {
+        public:
+            [[nodiscard]] StringView ToolId() const override { return u8"vegetation.scatter"; }
+            [[nodiscard]] ToolPanelPlacement Placement() const override
+            {
+                return ToolPanelPlacement::Float;
+            }
+            [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
+                                                       const ViewportToolHostContext& ctx) override
+            {
+                VegetationScatterTool* t = static_cast<VegetationScatterTool*>(&tool);
+                const LayerNames layers =
+                    (ctx.scene != nullptr) ? ResolveLayerNames(*ctx.scene) : LayerNames{};
+                const i32 count = static_cast<i32>(layers.names.Size());
+
+                auto root = app::MakeToolPanelRoot();
+                root->AddView(app::MakeToolPanelRow(u8"Prop layer (Scattered)", 12.0f).Get());
+                if (count == 0)
+                {
+                    root->AddView(app::MakeToolPanelRow(
+                                      u8"No vegetation layers here - add a Scattered layer", 11.0f)
+                                      .Get());
+                }
+                auto choices = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
+                choices->Build(
+                    count + 1,
+                    [count, names = layers.names, scattered = layers.scattered](i32 i) -> RefPtr<ui::View>
+                    {
+                        String text = i == count ? String(u8"E") : names[static_cast<usize>(i)];
+                        if (i < count && !scattered[static_cast<usize>(i)])
+                        {
+                            text = Format(u8"{} (not scattered)", text.AsView());
+                        }
+                        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text.AsView());
+                        label->FontSize.SetValue(Optional<f32>{12.0f});
+                        return RefPtr<ui::View>(label.Get());
+                    },
+                    [t, count](i32 i)
+                    {
+                        if (i == count)
+                        {
+                            t->SetEraser(true);
+                        }
+                        else
+                        {
+                            t->SetLayer(static_cast<u32>(i));
+                        }
+                    },
+                    [t, count]() -> i32
+                    { return t->IsEraser() ? count : static_cast<i32>(t->Layer()); },
+                    [count](i32 i) -> StringView
+                    {
+                        return i == count ? StringView(u8"Eraser (removes props under the brush)")
+                                          : StringView(u8"Paint this layer's props");
+                    });
+                root->AddView(choices.Get());
+
+                auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
+                RefPtr<ui::toolkit::FloatEditor> radiusField = app::AddToolPanelFloat(
+                    *grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
+                    [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
+                app::AddToolPanelFloat(*grid, u8"Density /m2", static_cast<f64>(t->Density()), 0.0,
+                                       64.0, 0.05, 2, [t](f64 v) { t->SetDensity(static_cast<f32>(v)); });
+                app::AddToolPanelFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0,
+                                       0.05, 2, [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
+                app::AddToolPanelFloat(*grid, u8"Spacing (x radius)", static_cast<f64>(t->Spacing()),
+                                       0.0, 8.0, 0.1, 1, [t](f64 v) { t->SetSpacing(static_cast<f32>(v)); });
+                t->OnRadiusChanged = [radiusField](f32 r)
+                { radiusField->SetValue(static_cast<f64>(r)); };
+                app::AddToolPanelGrid(*root, grid);
+                return root;
+            }
+        };
+    }
+
     void RegisterVegetationToolPanels()
     {
         static VegetationPaintPanelProvider paintPanel;
+        static VegetationScatterPanelProvider scatterPanel;
         ViewportToolPanelRegistry::Get().Register(&paintPanel);
+        ViewportToolPanelRegistry::Get().Register(&scatterPanel);
     }
 }

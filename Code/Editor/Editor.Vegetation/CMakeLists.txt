@@ -10,8 +10,11 @@ target_link_libraries(Editor.Vegetation PUBLIC
     Editor::Core Editor::App Editor::ViewportTools
     Pipeline::Vegetation Foundation::Vegetation.Resource Foundation::Vegetation Engine::Vegetation
     Foundation::Terrain.Resource Engine::Terrain
+    Foundation::Physics Engine::Physics
     Foundation::Heightfield Foundation::Resource Foundation::Policy)
 target_sources(Editor.Vegetation
-    PRIVATE VegetationPaintToolImpl.cpp VegetationToolPanelsImpl.cpp
+    PRIVATE VegetationPickImpl.cpp VegetationPaintToolImpl.cpp VegetationScatterToolImpl.cpp
+            VegetationToolPanelsImpl.cpp
     PUBLIC FILE_SET editorvegetation_modules TYPE CXX_MODULES FILES
-        VegetationPaintTool.cppm VegetationEditorModule.cppm)
+        VegetationPick.cppm VegetationPaintTool.cppm VegetationScatterTool.cppm
+        VegetationEditorModule.cppm)

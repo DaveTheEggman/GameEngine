@@ -107,6 +107,40 @@ export namespace foundation::vegetation
                       const VegetationLayer& layer, const AABB& meshLocalBounds,
                       ScatterResult& out);
 
+    // ---- the prop scatter brush (Scattered layers) ----------------------------------------
+    //
+    // A brush STAMP places authored instances into a Scattered layer: `density` per square metre
+    // over the disc of `radius` at terrain-local (`centreX`, `centreZ`), scaled by `amount`
+    // (0..1). Each candidate takes a uniform point in the disc and the layer's rules (slope,
+    // height, scale, alignment) like the procedural scatter, then two rejections: the SPACING
+    // rule (no instance within `spacing` x the mesh's radius x its scale of an existing or
+    // already-placed instance - the bounds test against scattered props) and an optional
+    // `blocked` query (the editor wires the physics world's ShapeOverlap: nothing inside an
+    // existing body). Deterministic for a seed: a scripted stroke places the same count.
+    struct StampResult
+    {
+        u32 candidates = 0;   // points tried
+        u32 placed = 0;       // instances appended to `out`
+        u32 rejectedSpacing = 0;
+        u32 rejectedBlocked = 0;
+        u32 rejectedRules = 0; // slope / height
+    };
+
+    // `blocked(localPosition, worldRadius)` returns true where an instance may not go (null =
+    // never). `existing` are the layer's current instances (terrain-local); `out` receives the
+    // new ones (appended; the spacing test sees them too).
+    using BlockedQuery = Function<bool(Float3 localPosition, f32 radius)>;
+
+    StampResult ScatterStamp(u64 seed, const heightfield::Heightfield& heightfield,
+                             const VegetationLayer& layer, const AABB& meshLocalBounds,
+                             f32 centreX, f32 centreZ, f32 radius, f32 density, f32 amount,
+                             f32 spacing, Span<const Float4x4> existing,
+                             const BlockedQuery& blocked, Array<Float4x4>& out);
+
+    // Remove every instance whose terrain-local XZ lies inside the disc; returns how many.
+    u32 EraseInstancesInDisc(Array<Float4x4>& instances, f32 centreX, f32 centreZ,
+                             f32 radius) noexcept;
+
     // The chunk indices (row-major, chunkZ * chunksPerSide + chunkX) whose grass a sculpt or
     // paint over `region` (sample-grid coordinates) can change. Chunks share edge samples, so a
     // region on a boundary sample touches both neighbours. Appends unique indices, ascending.

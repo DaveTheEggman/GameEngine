@@ -25,6 +25,8 @@ import foundation.render;              // debug::DebugDraw (the Draw override si
 import foundation.vegetation.resource; // VegetationMask (RefPtr kept alive across a stroke), MaskRegion
 import editor.core;                    // EditorCommandStack, IAssetEditSink
 import editor.viewporttools;           // IViewportTool, IViewportToolProvider, ViewportToolInput
+import :pick;                          // FootprintPick (the shared terrain pick)
+import :scatter;                       // VegetationScatterTool (the provider creates both brushes)
 
 using namespace foundation::core;
 

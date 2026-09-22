@@ -306,12 +306,43 @@ namespace engine::vegetation
                                                      const tmodel::SplatWeights* splat,
                                                      const veg::VegetationMask* mask,
                                                      const veg::VegetationLayer& layer,
-                                                     const AABB& meshBounds)
+                                                     const AABB& meshBounds,
+                                                     Span<const Float4x4> authored)
     {
         ChunkSet& set = cache.sets[chunkIndex];
         veg::ScatterResult result;
-        veg::ScatterChunk(set.key, cache.chunks[chunkIndex], hf, splat, mask, layer, meshBounds,
-                          result);
+        if (layer.placement == VegetationPlacement::Scattered)
+        {
+            // Authored props: the chunk's share of the layer's instances (each instance maps
+            // to exactly one chunk by its terrain-local XZ), bounds grown like the scatter's.
+            const tmodel::TerrainChunk& chunk = cache.chunks[chunkIndex];
+            const tmodel::TerrainChunk& origin = cache.chunks[0];
+            const f32 chunkWidth = Max(chunk.bounds.max.x - chunk.bounds.min.x, 1e-6f);
+            const f32 chunkDepth = Max(chunk.bounds.max.z - chunk.bounds.min.z, 1e-6f);
+            const i32 last = cache.chunksPerSide - 1;
+            for (const Float4x4& m : authored)
+            {
+                const i32 cx = Clamp(static_cast<i32>(Floor((m.m[3][0] - origin.bounds.min.x) / chunkWidth)), 0, last);
+                const i32 cz = Clamp(static_cast<i32>(Floor((m.m[3][2] - origin.bounds.min.z) / chunkDepth)), 0, last);
+                if (cx == chunk.chunkX && cz == chunk.chunkZ)
+                {
+                    result.transforms.PushBack(m);
+                }
+            }
+            result.localBounds = chunk.bounds;
+            if (!result.transforms.IsEmpty() && meshBounds.max.x >= meshBounds.min.x)
+            {
+                const f32 grow = (Length(meshBounds.Extents()) + Length(meshBounds.Center())) *
+                                 Max(layer.scaleRange.x, layer.scaleRange.y);
+                result.localBounds.min = result.localBounds.min - Float3{grow, grow, grow};
+                result.localBounds.max = result.localBounds.max + Float3{grow, grow, grow};
+            }
+        }
+        else
+        {
+            veg::ScatterChunk(set.key, cache.chunks[chunkIndex], hf, splat, mask, layer,
+                              meshBounds, result);
+        }
         if (result.densityClamped && !cache.warnedClamp)
         {
             cache.warnedClamp = true;
@@ -368,6 +399,24 @@ namespace engine::vegetation
         const u64 splatVersion = splat != nullptr ? splat->Version() : 0;
         const u64 maskUid = mask != nullptr ? mask->uid : 0;
         const u64 maskVersion = mask != nullptr ? mask->Version() : 0;
+        // Scattered: the authored instances are the content; a brush stroke (or an undo) is a
+        // hash change, and the whole layer re-buckets (props are few; a sculpt regrows too).
+        u64 instancesHash = 0;
+        if (layer.placement == VegetationPlacement::Scattered)
+        {
+            const usize count = authored.instances.Size();
+            instancesHash = HashBytes(&count, sizeof(count), 0x9E3779B97F4A7C15ull);
+            if (count > 0)
+            {
+                instancesHash = HashBytes(authored.instances.Data(), count * sizeof(Float4x4),
+                                          instancesHash);
+            }
+        }
+        if (cache.instancesHash != instancesHash)
+        {
+            DirtyAll(cache);
+            cache.instancesHash = instancesHash;
+        }
         if (cache.heightfieldVersion != hf.Version() || cache.splatUid != splatUid ||
             cache.splatVersion != splatVersion || cache.maskUid != maskUid ||
             cache.maskVersion != maskVersion)
@@ -443,7 +492,8 @@ namespace engine::vegetation
                 {
                     continue; // next frame (the build budget spreads a cold start)
                 }
-                BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds);
+                BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds,
+                         Span<const Float4x4>{authored.instances.Data(), authored.instances.Size()});
                 --budget;
             }
             if (set.world.IsEmpty())

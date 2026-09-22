@@ -3,7 +3,9 @@
 > STATUS: P0 BUILT 2026-09-21 (splat-driven grass); P1 BUILT 2026-09-22 (the VegetationMask
 > resource + asset + importer + builder, Mask and SplatTimesMask placement, the Paint
 > Vegetation brush with region-scoped regrow and persist; the WIND vertex variant off the frame
-> clock and three material properties); P2 (prop scatter) not scheduled.
+> clock and three material properties); P2 BUILT 2026-09-22 (Scattered layers hold authored
+> instances, bucketed per chunk; the Paint Props brush stamps and erases them with the layer's
+> rules, a spacing rule and physics collision rejection). P3 items stay their own seeds.
 > Sized L; lands in phases with a green four-lane build after each. Origin: the backlog seed "grass / vegetation /
 > foliage for terrain" (weekly_backlog.md, user 2026-08-26) and the Lumix parity doc,
 > section 2 (vegetation is the largest gap in the terrain domain). Written after a
@@ -317,7 +319,14 @@ variants too. Acceptance: a stroke regrows only the touched chunks; the persist 
 round-trips through a re-cook; wind moves tips and not roots (a vertex probe), and a
 material without the property is bit-identical to P0.
 
-**P2 - prop scatter brush.**
+**P2 - prop scatter brush.** BUILT 2026-09-22 as specified: `VegetationLayer::instances`
+(terrain-local, serialized with the layer, no inspector row - the brush is the editor) feed the
+same per-chunk sets (each instance maps to one chunk by its XZ; a content hash re-buckets the
+layer); `foundation.vegetation::ScatterStamp` is the pure stamp (density x disc area candidates
+under the layer's rules, a spacing rule against existing props, a blocked query) and
+`EraseInstancesInDisc` the eraser; `VegetationScatterTool` ("vegetation.scatter", Paint Props)
+wires the physics world's `ShapeOverlap` (the terrain's own body excluded) when the scene has
+one, else the spacing rule alone; one command per stroke.
 Layer kind `Scattered`; the brush places instances with density, jitter, scale and slope
 rules and collision rejection; erase removes instances under the brush; undo per stroke;
 the instances persist on the component. Acceptance: a scripted stroke places a

@@ -6,4 +6,6 @@
 
 export module editor.vegetation;
 
-export import :paint; // VegetationPaintTool + RegisterVegetationViewportTools / ToolPanels
+export import :pick;    // FootprintPick: the terrain footprint under the cursor (both brushes)
+export import :paint;   // VegetationPaintTool + RegisterVegetationViewportTools / ToolPanels
+export import :scatter; // VegetationScatterTool (Paint Props)

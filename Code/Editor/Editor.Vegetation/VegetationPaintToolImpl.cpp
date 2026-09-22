@@ -18,11 +18,8 @@ import foundation.render;              // debug::DebugDraw
 import foundation.shell;               // IKeyboard (plane hotkeys)
 import foundation.content;             // ContentDatabase, Instance (the persist closure)
 import foundation.resource;            // Ref<>
-import foundation.heightfield;         // Heightfield (ray-pick for the UV mapping)
-import foundation.terrain.resource;    // TerrainResource
 import foundation.vegetation.resource; // VegetationMask + PaintMask/EraseMask/SmoothMask + source
 import vegetation.pipeline;            // VegetationMaskAsset (the SOURCE envelope the persist rewrites)
-import engine.terrain;                 // TerrainComponent(Manager): the heightfield under the mask
 import engine.vegetation;              // TerrainVegetationComponent(Manager): the mask + regrow notices
 import editor.core;
 import editor.viewporttools;
@@ -32,7 +29,6 @@ using namespace foundation::core;
 namespace editor
 {
     namespace scene = foundation::scene;
-    namespace hf = foundation::heightfield;
     namespace render = foundation::render;
     namespace content = foundation::content;
     namespace veg = foundation::vegetation;
@@ -41,42 +37,6 @@ namespace editor
 
     namespace
     {
-        [[nodiscard]] TerrainVegetationComponentManager* VegetationManager(scene::Scene& scene)
-        {
-            scene::ComponentManagerBase* base =
-                scene.FindManagerByComponentType(TypeOf<TerrainVegetationComponent>());
-            return static_cast<TerrainVegetationComponentManager*>(base);
-        }
-
-        // The heightfield under a vegetation component: its entity's terrain, else the nearest
-        // ancestor's (the manager's rule).
-        [[nodiscard]] hf::Heightfield* HeightfieldFor(scene::Scene& scene, scene::EntityHandle owner,
-                                                      scene::EntityHandle& terrainEntity)
-        {
-            auto* terrains = scene.GetSystem<engine::terrain::TerrainComponentManager>();
-            if (terrains == nullptr)
-            {
-                return nullptr;
-            }
-            scene::EntityHandle e = owner;
-            for (u32 depth = 0; depth < 64 && e.IsAssigned(); ++depth)
-            {
-                if (engine::terrain::TerrainComponent* tc = terrains->Get(e))
-                {
-                    foundation::terrain::TerrainResource* res = tc->terrain.Get();
-                    hf::Heightfield* grid = res != nullptr ? res->heightfield.Get() : nullptr;
-                    if (grid != nullptr && !grid->IsEmpty())
-                    {
-                        terrainEntity = e;
-                        return grid;
-                    }
-                    return nullptr;
-                }
-                e = scene.GetParent(e);
-            }
-            return nullptr;
-        }
-
         // Tell the manager which footprint rect a texel region of the mask covers.
         void NotifyRegion(TerrainVegetationComponentManager* manager, const veg::VegetationMask& mask,
                           const veg::MaskRegion& region, i32 gridSize)
@@ -181,86 +141,30 @@ namespace editor
 
     bool VegetationPaintTool::IsAvailable() const
     {
-        TerrainVegetationComponentManager* mgr = VegetationManager(*m_scene);
-        if (mgr == nullptr)
-        {
-            return false;
-        }
-        bool any = false;
-        mgr->ForEach(
-            [&](TerrainVegetationComponent& c, scene::EntityHandle owner)
-            {
-                if (any)
-                {
-                    return;
-                }
-                veg::VegetationMask* mask = c.mask.Get();
-                scene::EntityHandle terrainEntity{};
-                if (mask != nullptr && !mask->IsEmpty() &&
-                    HeightfieldFor(*m_scene, owner, terrainEntity) != nullptr)
-                {
-                    any = true;
-                }
-            });
-        return any;
+        return AnyVegetationFootprint(*m_scene, /*requireMask*/ true);
     }
 
     VegetationPaintTool::Pick VegetationPaintTool::ResolvePick(const ViewportToolInput& input) const
     {
-        Pick best;
-        TerrainVegetationComponentManager* mgr = VegetationManager(*m_scene);
-        if (mgr == nullptr)
+        Pick pick;
+        const FootprintPick fp =
+            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ true);
+        if (!fp.valid || fp.mask == nullptr)
         {
-            return best;
+            return pick;
         }
-        f32 bestDist = kFloatMax;
-        mgr->ForEach(
-            [&](TerrainVegetationComponent& c, scene::EntityHandle owner)
-            {
-                veg::VegetationMask* mask = c.mask.Get();
-                if (mask == nullptr || mask->IsEmpty())
-                {
-                    return;
-                }
-                scene::EntityHandle terrainEntity{};
-                hf::Heightfield* grid = HeightfieldFor(*m_scene, owner, terrainEntity);
-                if (grid == nullptr)
-                {
-                    return;
-                }
-                const Float4x4 world = m_scene->GetWorldMatrix(terrainEntity);
-                const Float4x4 inv = Inverse(world);
-                const Float3 localOrigin = TransformPoint(input.ray.origin, inv);
-                const Float3 localDir = TransformDirection(input.ray.direction, inv);
-                f32 t = 0.0f;
-                if (!grid->QueryRay(localOrigin, localDir, t))
-                {
-                    return;
-                }
-                const Float3 localHit = localOrigin + Normalized(localDir) * t;
-                const Float3 worldHit = TransformPoint(localHit, world);
-                const f32 dist = Length(worldHit - input.ray.origin);
-                if (dist >= bestDist)
-                {
-                    return;
-                }
-                // The local XZ hit -> the 0..1 footprint UV the mask covers (the splat mapping).
-                const Float2 ws = grid->WorldSize();
-                best.worldSizeX = ws.x != 0.0f ? ws.x : 1.0f;
-                best.worldSizeY = ws.y != 0.0f ? ws.y : 1.0f;
-                bestDist = dist;
-                best.mask = mask;
-                best.maskId = c.mask.id;
-                best.manager = mgr;
-                best.gridSize = grid->Size();
-                best.uvX = localHit.x / best.worldSizeX + 0.5f;
-                best.uvY = localHit.z / best.worldSizeY + 0.5f;
-                best.worldHit = worldHit;
-                best.worldNormal =
-                    Normalized(TransformDirection(grid->GetNormalAt(localHit.x, localHit.z), world));
-                best.valid = true;
-            });
-        return best;
+        pick.mask = fp.mask;
+        pick.maskId = fp.maskId;
+        pick.manager = fp.manager;
+        pick.gridSize = fp.gridSize;
+        pick.uvX = fp.uvX;
+        pick.uvY = fp.uvY;
+        pick.worldSizeX = fp.worldSizeX;
+        pick.worldSizeY = fp.worldSizeY;
+        pick.worldHit = fp.worldHit;
+        pick.worldNormal = fp.worldNormal;
+        pick.valid = true;
+        return pick;
     }
 
     bool VegetationPaintTool::Update(const ViewportToolInput& input)
@@ -513,6 +417,10 @@ namespace editor
         manager.Add(UniquePtr<IViewportTool>(
             editor::EditorRootAllocator().New<VegetationPaintTool>(*context.scene, *context.commands,
                                                                    context.assetEdits),
+            editor::EditorRootAllocator()));
+        manager.Add(UniquePtr<IViewportTool>(
+            editor::EditorRootAllocator().New<VegetationScatterTool>(*context.scene,
+                                                                     *context.commands),
             editor::EditorRootAllocator()));
     }
 

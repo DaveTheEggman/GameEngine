@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
+// Editor::Vegetation - :pick partition.
+//
+// The footprint pick both vegetation brushes share: the terrain under the cursor whose entity
+// (or an ancestor's) carries the TerrainVegetationComponent, ray-picked on its heightfield, with
+// the hit mapped to the 0..1 footprint UV (the splat mapping) and to terrain-local space.
+
+module;
+#include "Core/Prelude.h"
+
+export module editor.vegetation:pick;
+
+import foundation.core;
+import foundation.scene;
+import foundation.heightfield;         // Heightfield
+import foundation.vegetation.resource; // VegetationMask
+import engine.vegetation;              // TerrainVegetationComponent(Manager)
+
+using namespace foundation::core;
+
+export namespace editor
+{
+    struct FootprintPick
+    {
+        engine::vegetation::TerrainVegetationComponent* component = nullptr;
+        engine::vegetation::TerrainVegetationComponentManager* manager = nullptr;
+        foundation::scene::EntityHandle owner{};         // the component's entity
+        foundation::scene::EntityHandle terrainEntity{}; // the TerrainComponent's entity
+        foundation::heightfield::Heightfield* heightfield = nullptr;
+        foundation::vegetation::VegetationMask* mask = nullptr; // the component's, when resolved
+        Guid maskId;                                             // its source asset guid (may be nil)
+        i32 gridSize = 0;    // heightfield samples per side (footprint -> grid regions)
+        f32 uvX = 0.0f;      // hit in the 0..1 footprint UV
+        f32 uvY = 0.0f;
+        f32 worldSizeX = 1.0f;
+        f32 worldSizeY = 1.0f;
+        Float3 localHit{};   // terrain-local (the space the instances live in)
+        Float3 worldHit{};
+        Float3 worldNormal{0.0f, 1.0f, 0.0f};
+        Float4x4 terrainWorld = Float4x4::Identity();
+        bool valid = false;
+    };
+
+    /// The nearest vegetation footprint under the ray. `requireMask` = only components whose
+    /// mask resolves (the mask brush); otherwise any component over a terrain (the prop brush).
+    [[nodiscard]] FootprintPick ResolveFootprintPick(foundation::scene::Scene& scene, Float3 rayOrigin,
+                                                     Float3 rayDirection, bool requireMask);
+
+    /// Whether any vegetation footprint exists in the scene (the brushes' IsAvailable).
+    [[nodiscard]] bool AnyVegetationFootprint(foundation::scene::Scene& scene, bool requireMask);
+}

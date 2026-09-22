@@ -202,6 +202,123 @@ namespace foundation::vegetation
         }
     }
 
+    StampResult ScatterStamp(u64 seed, const heightfield::Heightfield& heightfield,
+                             const VegetationLayer& layer, const AABB& meshLocalBounds,
+                             f32 centreX, f32 centreZ, f32 radius, f32 density, f32 amount,
+                             f32 spacing, Span<const Float4x4> existing,
+                             const BlockedQuery& blocked, Array<Float4x4>& out)
+    {
+        StampResult result;
+        if (heightfield.IsEmpty() || radius <= 0.0f || density <= 0.0f || amount <= 0.0f)
+        {
+            return result;
+        }
+        const f32 area = kPi * radius * radius;
+        const u32 candidates = static_cast<u32>(density * area * Clamp(amount, 0.0f, 1.0f) + 0.5f);
+        result.candidates = candidates;
+        if (candidates == 0)
+        {
+            return result;
+        }
+        const f32 scaleMin = Min(layer.scaleRange.x, layer.scaleRange.y);
+        const f32 scaleMax = Max(layer.scaleRange.x, layer.scaleRange.y);
+        const f32 minNormalY = Cos(Clamp(layer.maxSlopeDegrees, 0.0f, 90.0f) * (kPi / 180.0f));
+        const f32 heightMin = Min(layer.heightRange.x, layer.heightRange.y);
+        const f32 heightMax = Max(layer.heightRange.x, layer.heightRange.y);
+        const bool hasBounds = meshLocalBounds.max.x >= meshLocalBounds.min.x;
+        const f32 meshRadius = hasBounds ? Length(meshLocalBounds.Extents()) : 0.5f;
+        const usize firstNew = out.Size();
+
+        // The spacing test against the existing instances near the disc (their XZ) and the
+        // ones this stamp placed.
+        const auto tooClose = [&](f32 x, f32 z, f32 reach) -> bool
+        {
+            const auto near = [&](const Float4x4& m) -> bool
+            {
+                const f32 dx = m.m[3][0] - x;
+                const f32 dz = m.m[3][2] - z;
+                return dx * dx + dz * dz < reach * reach;
+            };
+            for (const Float4x4& m : existing)
+            {
+                if (near(m))
+                {
+                    return true;
+                }
+            }
+            for (usize i = firstNew; i < out.Size(); ++i)
+            {
+                if (near(out[i]))
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        Random rng(seed);
+        for (u32 i = 0; i < candidates; ++i)
+        {
+            // Every random number a candidate CAN use is drawn up front (a rejection never
+            // shifts the ones after it).
+            const f32 angle = rng.NextFloat() * kTwoPi;
+            const f32 r = radius * Sqrt(rng.NextFloat()); // uniform over the disc
+            const f32 yaw = rng.NextFloat() * kTwoPi;
+            const f32 scale = scaleMin + rng.NextFloat() * (scaleMax - scaleMin);
+            const f32 x = centreX + Cos(angle) * r;
+            const f32 z = centreZ + Sin(angle) * r;
+
+            const Float3 normal = heightfield.GetNormalAt(x, z);
+            const f32 y = heightfield.GetHeightAt(x, z);
+            if (normal.y < minNormalY || y < heightMin || y > heightMax)
+            {
+                ++result.rejectedRules;
+                continue;
+            }
+            const f32 reach = Max(spacing, 0.0f) * meshRadius * scale;
+            if (reach > 0.0f && tooClose(x, z, reach))
+            {
+                ++result.rejectedSpacing;
+                continue;
+            }
+            if (blocked && blocked(Float3{x, y, z}, meshRadius * scale))
+            {
+                ++result.rejectedBlocked;
+                continue;
+            }
+            const Float4x4 rotation = layer.alignToNormal ? FrameFromUp(normal, yaw)
+                                                          : Float4x4::RotationY(yaw);
+            out.PushBack(Float4x4::Scale(Float3{scale, scale, scale}) * rotation *
+                         Float4x4::Translation(Float3{x, y, z}));
+            ++result.placed;
+        }
+        return result;
+    }
+
+    u32 EraseInstancesInDisc(Array<Float4x4>& instances, f32 centreX, f32 centreZ,
+                             f32 radius) noexcept
+    {
+        u32 removed = 0;
+        usize w = 0;
+        for (usize i = 0; i < instances.Size(); ++i)
+        {
+            const f32 dx = instances[i].m[3][0] - centreX;
+            const f32 dz = instances[i].m[3][2] - centreZ;
+            if (dx * dx + dz * dz <= radius * radius)
+            {
+                ++removed;
+                continue;
+            }
+            if (w != i)
+            {
+                instances[w] = instances[i];
+            }
+            ++w;
+        }
+        instances.Resize(w);
+        return removed;
+    }
+
     void ChunksTouchedBy(const heightfield::HeightfieldRegion& region, i32 chunksPerSide,
                          Array<u32>& outChunkIndices)
     {

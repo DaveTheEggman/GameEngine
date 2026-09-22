@@ -69,6 +69,10 @@ export namespace engine::vegetation
         bool castShadows = false;
         u32 maxInstancesPerChunk = 4096;
         bool visible = true;
+        // Scattered placement: the authored instances (TERRAIN-LOCAL, like the procedural
+        // scatter's), painted by the Paint Props brush; the manager buckets them per chunk.
+        // Not an inspector row (a list of matrices has no editor); the brush is the editor.
+        Array<Float4x4> instances;
 
         [[nodiscard]] veg::VegetationLayer ToScatterLayer() const noexcept
         {
@@ -109,6 +113,7 @@ export namespace engine::vegetation
         foundation::core::Serialize(ar, "castShadows", l.castShadows);
         foundation::core::Serialize(ar, "maxInstancesPerChunk", l.maxInstancesPerChunk);
         foundation::core::Serialize(ar, "visible", l.visible);
+        foundation::core::Serialize(ar, "instances", l.instances);
     }
 
     // The vegetation over one terrain: its layers, on the TerrainComponent's entity.
@@ -203,6 +208,7 @@ export namespace engine::vegetation
             u64 splatVersion = 0;
             u64 maskUid = 0;
             u64 maskVersion = 0;
+            u64 instancesHash = 0; // Scattered: the authored instances' content
             u64 layerHash = 0;
             u64 meshUid = 0;
             Float4x4 entityWorld = Float4x4::Identity();
@@ -221,7 +227,8 @@ export namespace engine::vegetation
         void DirtyAll(LayerCache& cache);
         void BuildSet(LayerCache& cache, u32 chunkIndex, const heightfield::Heightfield& hf,
                       const tmodel::SplatWeights* splat, const veg::VegetationMask* mask,
-                      const veg::VegetationLayer& layer, const AABB& meshBounds);
+                      const veg::VegetationLayer& layer, const AABB& meshBounds,
+                      Span<const Float4x4> authored);
         void Compose(LayerCache& cache, ChunkSet& set);
         void ExtractLayer(render::ExtractedScene& snapshot, scene::EntityHandle owner,
                           const Guid& ownerId, u32 layerIndex, const VegetationLayer& authored,

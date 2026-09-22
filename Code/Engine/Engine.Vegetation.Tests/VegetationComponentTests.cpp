@@ -207,6 +207,9 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     rocks.name = String(u8"Rocks");
     rocks.density = 0.05f;
     rocks.castShadows = true;
+    rocks.placement = veg::VegetationPlacement::Scattered;
+    rocks.instances.PushBack(Float4x4::Translation(Float3{1.0f, 2.0f, 3.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{7.0f, 2.0f, 3.0f}));
     authored.layers.PushBack(rocks);
 
     MemoryStream buffer;
@@ -240,6 +243,8 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     CHECK(!g.visible);
     CHECK(loaded.layers[1].name == String(u8"Rocks"));
     CHECK(loaded.layers[1].density == 0.05f);
+    REQUIRE(loaded.layers[1].instances.Size() == 2u); // the authored props ride the wire
+    CHECK(loaded.layers[1].instances[1].m[3][0] == 7.0f);
 
     // ToScatterLayer mirrors the scatter fields.
     const veg::VegetationLayer layer = g.ToScatterLayer();
@@ -604,5 +609,61 @@ TEST_CASE("engine.vegetation: a Mask layer follows the component's painted plane
     CHECK(sets.Size() == 3u);
     f.Component().mask = nullptr;
     sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.IsEmpty());
+}
+
+TEST_CASE("engine.vegetation: a Scattered layer draws its authored instances bucketed per chunk; a change re-buckets")
+{
+    Fixture f(/*withSplat*/ false);
+    f.mgr->SetBuildBudget(100);
+    VegetationLayer& rocks = f.Layer();
+    rocks.placement = veg::VegetationPlacement::Scattered;
+    rocks.scaleRange = Float2{1.0f, 1.0f};
+    // Three props in the (-x, -z) chunk, one in the (+x, +z) chunk, none elsewhere.
+    rocks.instances.PushBack(Float4x4::Translation(Float3{-40.0f, 2.0f, -40.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{-10.0f, 2.0f, -50.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{-30.0f, 2.0f, -1.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{20.0f, 2.0f, 20.0f}));
+
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == 2u);
+    u32 three = 0, one = 0;
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        if (s->instanceCount == 3u)
+        {
+            ++three;
+            CHECK(s->worldCenter.x < 0.0f);
+            CHECK(s->worldCenter.z < 0.0f);
+            for (u32 i = 0; i < 3; ++i)
+            {
+                CHECK(s->transforms[i].m[3][0] < 0.0f);
+            }
+        }
+        else if (s->instanceCount == 1u)
+        {
+            ++one;
+            CHECK(s->transforms[0].m[3][0] == 20.0f);
+        }
+    }
+    CHECK(three == 1u);
+    CHECK(one == 1u);
+    CHECK(f.mgr->BuildCount() == 4u);
+
+    // Unchanged instances: no rebuild. A brush stroke (a new instance) re-buckets the layer.
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(f.mgr->BuildCount() == 4u);
+    f.Layer().instances.PushBack(Float4x4::Translation(Float3{50.0f, 2.0f, -50.0f}));
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(f.mgr->BuildCount() == 8u);
+    CHECK(sets.Size() == 3u);
+    // Erasing back to the old content is another hash: another re-bucket, two sets again.
+    f.Layer().instances.RemoveAt(4);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 2u);
+    // The fade prefix applies like any set: a far origin thins the props.
+    const Float3 far{2000.0f, 5.0f, 0.0f};
+    sets = f.Extract(snapshot, &far);
     CHECK(sets.IsEmpty());
 }

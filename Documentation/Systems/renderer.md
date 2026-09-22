@@ -518,8 +518,17 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   `ShadowView.ShadowWind.x` (the ShadowView cbuffer grew to 80 bytes) and `PickView.WindTime`.
   `Render.Backend.Tests` WindProbe: a segmented card's tips shift between two frame times while
   its root rows stay, and a still material renders byte-identical; Vulkan + WebGPU.
-- **Deferred.** The prop scatter brush (P2), impostors and GPU-driven scatter, per-view fade
-  prefixes (P3).
+- **Props (P2, 2026-09-22).** A layer with Scattered placement draws its authored
+  `instances` (terrain-local matrices on the layer, serialized with it) through the same
+  per-chunk sets: each instance maps to one chunk by its XZ, and a content hash of the array
+  re-buckets the layer on any change (a stroke, an undo). The Paint Props brush (Editor/
+  Editor.Vegetation, tool id `vegetation.scatter`) stamps `foundation.vegetation::ScatterStamp`
+  (density x disc area candidates under the layer's slope / height / scale / alignment rules,
+  a spacing rule against existing props, and a collision query: the scene's physics world's
+  `ShapeOverlap` with the terrain's own body excluded when a world exists) or erases the props
+  under the disc, one command per stroke; stamps seed from the stroke so a scripted stroke is
+  deterministic. Both vegetation brushes share one footprint pick (`editor.vegetation:pick`).
+- **Deferred.** Impostors and GPU-driven scatter, per-view fade prefixes (P3).
 
 ## 10. Materials & shaders
 

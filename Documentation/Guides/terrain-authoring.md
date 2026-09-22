@@ -180,6 +180,15 @@ like the splat brush. Placement **SplatTimesMask** grows only where BOTH the spl
 mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
 regrow only the chunks under the brush; Save writes the planes back to the mask asset.
 
+**Props.** Rocks, stumps and other scattered things are a layer with **Placement** Scattered:
+its instances are placed by hand rather than grown from a source. Select the **Paint Props**
+tool, pick the layer in its panel (keys 1-9; 0 is the eraser), and paint: each stamp tries
+**Density** props per square metre over the brush disc, keeps the layer's slope, height, scale
+and alignment rules, leaves **Spacing** (in multiples of the mesh's size) between props, and
+skips any spot inside a physics body of the scene. **Strength** scales how many a stamp places,
+so a scrub builds a field up gently. The eraser removes the props under the brush. Every stroke
+is one undo step, and the props save with the scene.
+
 **Wind.** A layer's material sways when its **Wind Strength** (metres at the card's top) is above
 zero; set **Wind Speed** (radians per second) and **Wind Height** (the local height, in the
 mesh's own units, where the sway is full - roots at or below the mesh origin stay put). Card and
