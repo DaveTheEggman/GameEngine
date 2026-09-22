@@ -1854,6 +1854,29 @@ TEST_CASE("model-import: DDS textures stay on disk as file-backed assets and pas
     }
     project.Reset();
     (void)RemoveDirectoryRecursive(dir);
+
+    // The editor's path defers the bulk writes to a worker: every queued write must succeed.
+    // The PNG twins the glTF names but the package does not ship are warnings, not writes
+    // (a failed write fails the whole import in the editor: the Bistro report of 2026-09-22).
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    Array<pipeline::DeferredImportWrite> deferred;
+    imported = importer.Import(PathJoin(src, u8"tri.gltf").AsView(),
+                               pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
+                               *project->SourceDb().RootGroup(), nullptr, nullptr, &deferred);
+    REQUIRE(imported.HasValue());
+    CHECK_FALSE(deferred.IsEmpty());
+    for (const pipeline::DeferredImportWrite& write : deferred)
+    {
+        CHECK_MESSAGE(write.Execute().IsOk(), write.Label());
+    }
+    CHECK(FileExists(PathJoin(dir, u8"Sources/tex/albedo.dds").AsView()));
+    CHECK(FileExists(PathJoin(dir, u8"Sources/tex/normal.dds").AsView()));
+    CHECK(FileExists(PathJoin(dir, u8"Sources/tri.bin").AsView()));
+    CHECK_FALSE(FileExists(PathJoin(dir, u8"Sources/tex/albedo.png").AsView()));
+    project.Reset();
+    (void)RemoveDirectoryRecursive(dir);
     (void)RemoveDirectoryRecursive(src);
 }
 

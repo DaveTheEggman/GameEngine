@@ -606,6 +606,14 @@ export namespace pipeline
 
                 String from(dir);
                 from.Append(uri);
+                // A uri the package does not ship (Bistro names a PNG twin for every DDS it
+                // never included) is a warning, never a failed write: the deferred flush
+                // must not fail the whole import over it, same as the inline copy below.
+                if (!FileExists(from.AsView()))
+                {
+                    LOG_WARNING(u8"Import", u8"gltf sidecar missing: {}", uri);
+                    continue;
+                }
                 if (deferredWrites != nullptr)
                 {
                     pipeline::DeferredImportWrite copy;
