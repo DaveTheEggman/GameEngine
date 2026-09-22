@@ -21,6 +21,7 @@ import engine.animation;
 import engine.particles;
 import engine.physics;
 import engine.terrain;
+import engine.vegetation;
 import engine.navigation;
 import engine.audio;
 import engine.script;
@@ -52,6 +53,9 @@ namespace
         kTerrainModule{u8"terrain", &engine::terrain::AddTerrainSceneManagers,
                        &engine::terrain::RegisterTerrainComponentReflection};
     const scene::SceneModule
+        kVegetationModule{u8"vegetation", &engine::vegetation::AddVegetationSceneManagers,
+                          &engine::vegetation::RegisterVegetationComponentReflection};
+    const scene::SceneModule
         kNavigationModule{u8"navigation", &engine::navigation::AddNavigationSceneManagers,
                           &engine::navigation::RegisterNavigationComponentReflection};
     const scene::SceneModule kAudioModule{u8"audio", &engine::audio::AddAudioSceneManagers,
@@ -70,9 +74,9 @@ namespace
     const scene::SceneModule kPrefabModule{u8"prefabs", &scene::AddPrefabSpawnSceneManagers, nullptr};
 
     const scene::SceneModule* kAllModules[] = {
-        &kRenderModule,   &kAnimationModule, &kParticleModule, &kPhysicsModule, &kTerrainModule,
-        &kNavigationModule, &kAudioModule,   &kScriptModule,   &kUiModule,      &kNetModule,
-        &kSplineModule,   &kPrefabModule,
+        &kRenderModule,     &kAnimationModule, &kParticleModule, &kPhysicsModule, &kTerrainModule,
+        &kVegetationModule, &kNavigationModule, &kAudioModule,   &kScriptModule,  &kUiModule,
+        &kNetModule,        &kSplineModule,    &kPrefabModule,
     };
 }
 

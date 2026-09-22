@@ -26,6 +26,8 @@ set(_terrain_common_libs
     Foundation::Heightfield
     Foundation::Terrain.Resource
     Engine::Terrain
+    Engine::Vegetation
+    Foundation::Vegetation
     Foundation::Policy)
 
 if(EMSCRIPTEN)

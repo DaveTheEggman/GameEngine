@@ -487,9 +487,54 @@ namespace foundation::render
             scene); // per-instance bone base into each skinned set's DataOffsets
     }
 
+    void MeshRenderer::ReleaseMultiMeshSet(MultiMeshSet& set)
+    {
+        for (u32 r = 0; r < kMultiMeshMaxFiF; ++r)
+        {
+            if (set.instanceBG[r] != nullptr)
+            {
+                if (m_retire != nullptr)
+                {
+                    m_retire->Retire(set.instanceBG[r]);
+                }
+                else
+                {
+                    m_device->DestroyBindGroup(set.instanceBG[r]);
+                }
+                set.instanceBG[r] = nullptr;
+            }
+        }
+        set.activeInstanceBG = nullptr;
+        RetireOrDrainBuffer(set.instanceBuf);
+        RetireOrDrainBuffer(set.offsetsBuf);
+        set.capacity = 0;
+        set.offsetsCapacity = 0;
+    }
+
+    void MeshRenderer::EvictStaleMultiMeshSets()
+    {
+        Array<u64> stale;
+        for (auto& kv : m_multiMeshSets)
+        {
+            if (m_multiMeshFrame - kv.value.lastFrame > kMultiMeshEvictFrames)
+            {
+                stale.PushBack(kv.key);
+            }
+        }
+        for (const u64 key : stale)
+        {
+            if (MultiMeshSet* set = m_multiMeshSets.Find(key))
+            {
+                ReleaseMultiMeshSet(*set);
+            }
+            m_multiMeshSets.Remove(key);
+        }
+    }
+
     void MeshRenderer::UploadMultiMeshes(const ExtractedScene& scene)
     {
         ++m_multiMeshFrame;
+        EvictStaleMultiMeshSets(); // before the early return: a frame with no sets still ages them
         u32 maxCount = 0;
         for (RenderData* data : scene.Items())
         {
@@ -635,7 +680,10 @@ namespace foundation::render
                 set->instanceBuf = nullptr;
             }
             rhi::BufferDesc bd{};
-            const u64 regionBytes = static_cast<u64>(mm.instanceCount) * sizeof(InstanceData);
+            // The region capacity is rounded (MultiMeshRegionCapacity) so region r's byte offset
+            // meets every backend's storage-buffer offset alignment.
+            const u32 capacity = MultiMeshRegionCapacity(mm.instanceCount);
+            const u64 regionBytes = static_cast<u64>(capacity) * sizeof(InstanceData);
             bd.size = static_cast<u64>(fif) * regionBytes; // one region per frame-in-flight
             bd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
             bd.memory = rhi::MemoryLocation::CpuToGpu;
@@ -678,7 +726,7 @@ namespace foundation::render
                 set->capacity = 0;
                 return;
             }
-            set->capacity = mm.instanceCount;
+            set->capacity = capacity;
             set->uploadedVersion = 0; // force a re-upload after (re)allocation
             set->dirtyFrames = fif;   // write every region
         }

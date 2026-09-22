@@ -93,16 +93,22 @@ export namespace engine::terrain
         }
 
     private:
-        void OnShutdown() override
+        void OnPrepareShutdown() override
         {
-            // Scenes still alive at shutdown clear their GPU state here, while the device is
-            // (terrain shuts down before render - reverse-add order); their destructors later
-            // find nothing to leak.
+            // Scenes still alive at shutdown clear their GPU state HERE, in the prepare phase:
+            // every subsystem's PrepareShutdown runs before any Shutdown, so the caches' retired
+            // textures land in the render subsystem's queue before it flushes. (Shutdown runs in
+            // reverse UPDATE order - render, at 1000, shuts down first - so a clear in OnShutdown
+            // retired into an already-flushed queue: the playground's three leaked images.)
             for (TerrainComponentManager* mgr : m_managers)
             {
                 mgr->ClearGpu();
             }
             m_managers.Clear();
+        }
+
+        void OnShutdown() override
+        {
             if (foundation::runtime::Context* ctx = GetContext())
             {
                 if (auto* scenes = ctx->GetSubsystem<engine::scene::SceneSubsystem>())

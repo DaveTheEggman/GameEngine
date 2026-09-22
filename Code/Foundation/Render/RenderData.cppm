@@ -179,6 +179,9 @@ export namespace foundation::render
         // for view-frustum culling (every producer sets it: meshes from local bounds, sprites from size).
         f32 worldRadius = 0.0f;
         u32 sortBatchKey = 0;
+        // Whether this item is a shadow caster (the sun cascades and the local-light tiles).
+        // Producers that draw dense fillers (vegetation) opt out; everything else casts.
+        bool castShadows = true;
         // The producer's entity tag (EntityTag layout: index low, generation high) - what the
         // GPU pick pass writes and its readback decodes. 0 = untagged. Set by every producer
         // whose draws should be pickable (meshes, instanced sets, terrain).
@@ -764,6 +767,19 @@ export namespace foundation::render
         void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
         [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept;
 
+        // The world position of the FIRST view that renders this snapshot, set by the render
+        // subsystem before the scene's providers extract (a producer that thins by distance -
+        // vegetation's fade prefix - reads it). One snapshot serves every view of the scene, so
+        // a second view sees the first view's thinning; per-view prefixes are a follow-on.
+        // HasViewOrigin() is false for a headless extraction (nothing is thinned).
+        void SetViewOrigin(const Float3& origin) noexcept
+        {
+            m_viewOrigin = origin;
+            m_hasViewOrigin = true;
+        }
+        [[nodiscard]] const Float3& ViewOrigin() const noexcept { return m_viewOrigin; }
+        [[nodiscard]] bool HasViewOrigin() const noexcept { return m_hasViewOrigin; }
+
         // Reset for a new frame: drop the item + light lists, rewind the (internal) arena.
         void Reset() noexcept;
 
@@ -782,6 +798,8 @@ export namespace foundation::render
         Float3 m_ambient = Float3{0.03f, 0.03f, 0.03f}; // default dim ambient
         SkySnapshot m_sky;                              // sky/IBL environment for this frame
         DirectionalShadow m_shadow;                     // active directional shadow caster
+        Float3 m_viewOrigin = Float3{0.0f, 0.0f, 0.0f}; // first view's camera position (see above)
+        bool m_hasViewOrigin = false;
     };
 
     // Extension seam (scene-agnostic, à la Sedulous's IRenderDataProvider): a downstream system - e.g.

@@ -147,6 +147,32 @@ assigning textures, changing tile scales, or adding layers re-cooks the terrain 
 texture arrays are rebuilt); painting and sculpting update live and persist on Save. Engine
 updates occasionally bump cook versions - the first open after one re-cooks automatically.
 
+## 6. Vegetation
+
+Grass, flowers and rocks grow from the splat you painted. Add a child entity under the
+terrain entity (right-click the terrain in the hierarchy, Create Empty), name it after the
+layer ("Grass"), and add a **Vegetation Layer** component (Terrain category). Set:
+
+- **Mesh** and optionally **Material**: a grass card, a tuft, a rock. Grass cards want a
+  double-sided, masked material; the alpha test already runs in the depth, shadow and pick
+  passes.
+- **Placement** Splat with **Splat Layer** = the palette index of the layer you painted for
+  it (the terrain page lists them in order; 0 is the first palette layer). **Splat Threshold**
+  is the painted share below which nothing grows; above it, denser paint means denser grass.
+  Placement Uniform grows everywhere the slope and height rules allow.
+- **Density** in instances per square metre (2 is a full lawn with small tufts; keep it low
+  for rocks). A layer denser than **Max Per Chunk** allows scales itself down and logs once.
+- **Scale Range**, **Max Slope**, **Height Range**, **Align To Normal**: the per-instance rules.
+- **Fade Start / Fade End** in metres from the camera: full density inside the start, nothing
+  beyond the end. Thinning is per instance and stable, so nothing pops.
+- **Cast Shadows** stays off for grass (the single most expensive thing a grass layer can do);
+  turn it on for rocks and props.
+
+One layer per entity: three kinds of ground cover are three child entities. Toggling the
+entity's active flag hides the layer, the hierarchy orders them, and a prefab carries them.
+Sculpting or painting regrows only the touched chunks; the chunks build as the camera reaches
+them, a few per frame, so a cold scene fills in over the first frames rather than stalling one.
+
 ## Troubleshooting
 
 - **Painting shows white/gray instead of my texture**: hover the layer swatch and check the asset

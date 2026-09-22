@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
+// foundation.vegetation:scatter - the deterministic per-chunk scatter and the distance fade.
+//
+// ScatterChunk is a PURE function of (seed, chunk, heightfield, splat, layer): the same inputs give
+// byte-identical instances frame to frame and on any machine. Candidates are uniform XZ points in
+// the chunk's footprint, accepted by the placement source (rejection sampling against its share),
+// the slope limit and the height window; each accepted point gets Y from the heightfield, a random
+// yaw, a uniform scale, and optionally the surface-normal frame. The output ORDER is the fade
+// order: the generator emits a uniformly random sequence, so the first N entries are a uniform
+// thinning of the whole set - distance fade is a draw-count PREFIX (FadePrefix), never a
+// re-upload, and an instance's rank never changes, so a chunk thins per instance instead of
+// popping as a whole. Transforms are TERRAIN-LOCAL (the heightfield's frame, footprint centred on
+// the origin); the terrain entity's world matrix places them.
+
+module;
+#include "Core/Prelude.h"
+
+export module foundation.vegetation:scatter;
+
+import foundation.core;
+import foundation.heightfield;      // Heightfield + HeightfieldRegion
+import foundation.terrain;          // TerrainChunk, kChunkQuads, ChunksPerSide
+import foundation.terrain.resource; // SplatWeights
+import :layer;
+
+using namespace foundation::core;
+
+export namespace foundation::vegetation
+{
+    namespace heightfield = foundation::heightfield;
+    namespace terrain = foundation::terrain;
+
+    // One scattered chunk: the instances in fade order + what the scatter had to do to fit.
+    struct ScatterResult
+    {
+        Array<Float4x4> transforms;      // terrain-local, in fade order
+        AABB localBounds = AABB::Empty(); // the chunk's terrain AABB grown by the mesh extent
+        u32 candidateCount = 0;          // points tried (density x area, capped)
+        f32 effectiveDensity = 0.0f;     // the density actually used (scaled to the cap)
+        bool densityClamped = false;     // true when maxInstancesPerChunk scaled the density
+    };
+
+    // The seed of one (layer, chunk) set: a hash over the layer's PERSISTENT identity and the
+    // chunk index - never a pointer, never a frame counter. The renderer keys its persistent
+    // instance buffer on the same value.
+    [[nodiscard]] inline u64 ChunkSeed(const Guid& layerId, i32 chunkX, i32 chunkZ) noexcept
+    {
+        u64 h = HashBytes(&layerId, sizeof(layerId));
+        h = HashBytes(&chunkX, sizeof(chunkX), h);
+        h = HashBytes(&chunkZ, sizeof(chunkZ), h);
+        return h == 0 ? 1 : h; // 0 is the "no set" key downstream
+    }
+
+    // Density multiplier at `distance` metres: 1 inside fadeStart, a smooth fall to 0 at fadeEnd,
+    // 0 beyond. A degenerate window (fadeEnd <= fadeStart) is a hard cut at fadeEnd.
+    [[nodiscard]] inline f32 DensityAtDistance(f32 distance, f32 fadeStart, f32 fadeEnd) noexcept
+    {
+        if (distance >= fadeEnd)
+        {
+            return 0.0f;
+        }
+        if (distance <= fadeStart || fadeEnd <= fadeStart)
+        {
+            return 1.0f;
+        }
+        const f32 t = (distance - fadeStart) / (fadeEnd - fadeStart); // 0..1 across the fade
+        const f32 s = t * t * (3.0f - 2.0f * t);                     // smoothstep
+        return 1.0f - s;
+    }
+
+    // The draw-count prefix of a `count`-instance set at density multiplier `density` (0..1).
+    [[nodiscard]] inline u32 FadePrefix(u32 count, f32 density) noexcept
+    {
+        if (density <= 0.0f)
+        {
+            return 0;
+        }
+        if (density >= 1.0f)
+        {
+            return count;
+        }
+        const f32 n = static_cast<f32>(count) * density;
+        const u32 prefix = static_cast<u32>(n + 0.5f);
+        return prefix > count ? count : prefix;
+    }
+
+    // The placement source's share (0..1) at a terrain-local XZ point: 1 for Uniform (and Mask
+    // until P1), the splat layer's painted weight for Splat (0 with no splat), 0 for Scattered.
+    [[nodiscard]] f32 PlacementShareAt(const VegetationLayer& layer,
+                                       const heightfield::Heightfield& heightfield,
+                                       const terrain::SplatWeights* splat, f32 localX,
+                                       f32 localZ) noexcept;
+
+    // Scatter one chunk. `meshLocalBounds` is the instanced mesh's own AABB (its extent grows the
+    // chunk's bounds by the maximum scale); Empty() leaves the terrain bounds as they are.
+    void ScatterChunk(u64 seed, const terrain::TerrainChunk& chunk,
+                      const heightfield::Heightfield& heightfield,
+                      const terrain::SplatWeights* splat, const VegetationLayer& layer,
+                      const AABB& meshLocalBounds, ScatterResult& out);
+
+    // The chunk indices (row-major, chunkZ * chunksPerSide + chunkX) whose grass a sculpt or
+    // paint over `region` (sample-grid coordinates) can change. Chunks share edge samples, so a
+    // region on a boundary sample touches both neighbours. Appends unique indices, ascending.
+    void ChunksTouchedBy(const heightfield::HeightfieldRegion& region, i32 chunksPerSide,
+                         Array<u32>& outChunkIndices);
+}

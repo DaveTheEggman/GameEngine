@@ -359,6 +359,21 @@ namespace engine::render
             }
         }
         const bool firstSight = (snapshot == nullptr);
+
+        // The view's camera, resolved BEFORE extraction: the first view's position rides on the
+        // snapshot for producers that thin by distance (vegetation's fade prefix).
+        ViewCamera camera;
+        Color clearColor{0.392f, 0.584f, 0.929f, 1.0f}; // cornflower fallback (no primary camera)
+        if (cameraOverride != nullptr)
+        {
+            camera = cameraOverride->camera;
+            clearColor = cameraOverride->clearColor;
+        }
+        else
+        {
+            (void)ExtractPrimaryCamera(scene, camera, &clearColor);
+        } // clear comes from the camera
+
         if (firstSight)
         {
             snapshot = AcquireScene();
@@ -373,6 +388,7 @@ namespace engine::render
             PROFILE_SCOPE("Render.Extract");
             ExtractSceneInto(scene, *snapshot,
                              m_renderCtx); // parallel when the job system is up (resets snapshot)
+            snapshot->SetViewOrigin(camera.position); // after the reset, before the providers
             ExtractInstancedMeshesInto(
                 scene, *snapshot); // instanced sets (MultiMesh): one item each, O(1)/frame
             if (m_spriteRenderer.Get() != nullptr)
@@ -399,18 +415,6 @@ namespace engine::render
                 m_probeSystem->Assign(snapshot, snapshot->ReflectionProbes());
             }
         }
-
-        ViewCamera camera;
-        Color clearColor{0.392f, 0.584f, 0.929f, 1.0f}; // cornflower fallback (no primary camera)
-        if (cameraOverride != nullptr)
-        {
-            camera = cameraOverride->camera;
-            clearColor = cameraOverride->clearColor;
-        }
-        else
-        {
-            (void)ExtractPrimaryCamera(scene, camera, &clearColor);
-        } // clear comes from the camera
 
         ViewSettings settings;
         settings.clear = rhi::ClearColor{clearColor.r, clearColor.g, clearColor.b, clearColor.a};

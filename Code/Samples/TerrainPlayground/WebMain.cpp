@@ -32,6 +32,8 @@ import foundation.materials; // CreatePBR
 import foundation.heightfield;
 import foundation.terrain.resource;
 import engine.terrain;
+import foundation.vegetation; // VegetationPlacement
+import engine.vegetation;     // VegetationLayerComponent (the grass layer over the dome)
 
 #include "Runtime.Client/AppMain.h"
 #include "TerrainPlaygroundApp.h"

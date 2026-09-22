@@ -932,6 +932,10 @@ namespace foundation::render
             {
                 continue;
             }
+            if (!data->castShadows)
+            {
+                continue; // the producer opted out (vegetation fillers)
+            }
             // The caster list is heterogeneous: any renderer - terrain, an external one - can produce
             // Opaque/Masked casters. Read only the GENERIC base fields (worldCenter/worldRadius +
             // sortBatchKey, which every producer sets at extraction with the same BatchKey the

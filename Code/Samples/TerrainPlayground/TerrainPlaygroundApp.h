@@ -94,6 +94,25 @@ namespace samples
         grid.BumpVersion();
     }
 
+    constexpr core::i32 kSplatSize = 128;
+
+    // Palette layer 0 one-hot on the x < 0 half; the base owns the rest.
+    inline void PaintHalfSplat(terrain::SplatWeights& splat)
+    {
+        core::Span<core::u8> idx = splat.Indices();
+        core::Span<core::u8> wts = splat.Weights();
+        for (core::i32 y = 0; y < splat.Height(); ++y)
+        {
+            for (core::i32 x = 0; x < splat.Width() / 2; ++x)
+            {
+                const core::usize at = splat.TexelOffset(x, y);
+                idx[at + 0] = 0;
+                wts[at + 0] = 255;
+            }
+        }
+        splat.BumpVersion();
+    }
+
     class TerrainPlaygroundApp final : public engine::runtime::DefaultApplication
     {
     public:
@@ -151,6 +170,11 @@ namespace samples
 
             m_terrainResource = MakeRef<terrain::TerrainResource>(AppRoot());
             m_terrainResource->heightfield = m_heightfield; // Ref direct product (no proxy/guid)
+            // A splat with palette layer 0 painted on the x < 0 half (no palette textures: the
+            // terrain itself still shades from the height ramp; the paint drives the GRASS).
+            m_splat = MakeRef<terrain::SplatWeights>(AppRoot(), kSplatSize, kSplatSize);
+            PaintHalfSplat(*m_splat);
+            m_terrainResource->weights = m_splat;
 
             m_terrain = m_scene->CreateEntity(u8"terrain");
             if (auto* mgr = m_scene->GetSystem<engine::terrain::TerrainComponentManager>())
@@ -158,6 +182,27 @@ namespace samples
                 engine::terrain::TerrainComponent& tc = mgr->Add(m_terrain);
                 tc.terrain = m_terrainResource;
                 tc.lodBias = m_lodBias;
+            }
+
+            // The grass: a vegetation layer entity under the terrain, following splat layer 0 -
+            // grass on the painted half, none on the other, thinning to nothing at fadeEnd.
+            m_grass = m_scene->CreateEntity(u8"grass");
+            m_scene->SetParent(m_grass, m_terrain);
+            if (auto* layers =
+                    m_scene->GetSystem<engine::vegetation::VegetationLayerComponentManager>())
+            {
+                engine::vegetation::VegetationLayerComponent& layer = layers->Add(m_grass);
+                layer.mesh = geometry::Primitives::Cone(AppRoot(), 0.24f, 1.4f); // a tuft
+                layer.material = materials::CreatePBR(u8"grass", core::Float4{0.25f, 0.62f, 0.18f, 1.0f},
+                                                      0.0f, 0.85f);
+                layer.placement = foundation::vegetation::VegetationPlacement::Splat;
+                layer.splatLayer = 0;
+                layer.density = m_grassDensity;
+                layer.scaleRange = core::Float2{0.7f, 1.4f};
+                layer.maxSlopeDegrees = 40.0f;
+                layer.fadeStart = m_grassFadeStart;
+                layer.fadeEnd = m_grassFadeEnd;
+                layer.castShadows = false;
             }
 
             // A floating sphere that orbits over the terrain - a moving shadow caster so the CSM is
@@ -287,6 +332,33 @@ namespace samples
                 }
 
                 ImGui::Separator();
+                ImGui::TextDisabled("Grass (splat layer 0: the x < 0 half)");
+                if (auto* layers =
+                        m_scene->GetSystem<engine::vegetation::VegetationLayerComponentManager>())
+                {
+                    if (auto* layer = layers->Get(m_grass))
+                    {
+                        bool changed = ImGui::SliderFloat("density /m2", &m_grassDensity, 0.0f,
+                                                          4.0f, "%.2f");
+                        changed |= ImGui::SliderFloat("fade start", &m_grassFadeStart, 0.0f,
+                                                      300.0f, "%.0f");
+                        changed |= ImGui::SliderFloat("fade end", &m_grassFadeEnd, 10.0f, 400.0f,
+                                                      "%.0f");
+                        changed |= ImGui::Checkbox("grass casts shadows", &layer->castShadows);
+                        changed |= ImGui::Checkbox("grass visible", &layer->visible);
+                        if (changed)
+                        {
+                            layer->density = m_grassDensity;
+                            layer->fadeStart = m_grassFadeStart;
+                            layer->fadeEnd = core::Max(m_grassFadeEnd, m_grassFadeStart + 1.0f);
+                        }
+                        ImGui::Text("sets built %u, instances %u",
+                                    static_cast<unsigned>(layers->BuiltSetCount()),
+                                    static_cast<unsigned>(layers->InstanceCount()));
+                    }
+                }
+
+                ImGui::Separator();
                 ImGui::TextDisabled("Shadow caster (watch its shadow sweep the terrain)");
                 ImGui::Checkbox("orbit", &m_orbit);
                 ImGui::SliderFloat("caster height", &m_casterHeight, 12.0f, 130.0f, "%.0f");
@@ -303,7 +375,9 @@ namespace samples
         scene::EntityHandle m_sun{};
         scene::EntityHandle m_terrain{};
         scene::EntityHandle m_caster{};
+        scene::EntityHandle m_grass{};
         RefPtr<hf::Heightfield> m_heightfield;
+        RefPtr<terrain::SplatWeights> m_splat;
         RefPtr<terrain::TerrainResource> m_terrainResource;
         FlyCamera m_fly;
         core::f32 m_frameSmooth = 0.016f;
@@ -320,6 +394,9 @@ namespace samples
         core::f32 m_orbitSpeed = 0.6f;   // radians/sec
         core::f32 m_casterHeight = 70.0f;
         core::f32 m_orbitRadius = 75.0f;
+        core::f32 m_grassDensity = 1.5f;
+        core::f32 m_grassFadeStart = 90.0f;
+        core::f32 m_grassFadeEnd = 180.0f;
     };
 }
 

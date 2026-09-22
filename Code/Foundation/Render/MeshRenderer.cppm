@@ -147,6 +147,23 @@ export namespace foundation::render
         // sets fall through instantly after their first upload - that O(1)/frame path is the whole point.
         void UploadMultiMeshes(const ExtractedScene& scene);
 
+        // A MultiMesh set not extracted for this many upload frames releases its GPU buffers and
+        // bind groups (through the retire queue when wired) and leaves the pool: per-chunk
+        // vegetation sets come and go with the camera, and a set seen once must not pin its
+        // buffer for the rest of the run.
+        static constexpr u32 kMultiMeshEvictFrames = 120;
+
+        // Instances a set's per-frame region holds for `count` live instances: rounded up to a
+        // multiple of 16 so every region's byte offset (capacity x 144-byte InstanceData) is a
+        // multiple of 2304 = 9 x 256, the strictest storage-buffer offset alignment any backend
+        // asks for (WebGPU validates 32/256, D3D12 256; Vulkan happened to accept anything). An
+        // odd count (941 grass tufts) bound region 1 at 135504 and WebGPU refused the bind group.
+        [[nodiscard]] static constexpr u32 MultiMeshRegionCapacity(u32 count) noexcept
+        {
+            return (count + 15u) & ~15u;
+        }
+        [[nodiscard]] usize MultiMeshSetCount() const noexcept { return m_multiMeshSets.Size(); }
+
         // Grow the shared DataOffsets ramp to at least `count` slots: [{0,0,0,0},{1,0,0,0},...]. Filled once
         // per (re)allocation (values are static per index - never rewritten). .x is each instance's index into
         // its set's own StructuredBuffer<InstanceData>; .y/.z (bone bases) stay 0 - MultiMesh v1 is non-skinned.
@@ -199,6 +216,12 @@ export namespace foundation::render
 
     private:
         void RetireOrDrainBuffer(rhi::Buffer*& buffer);
+        struct MultiMeshSet; // defined with the pool below
+        // Release one set's GPU objects: retired when the queue is wired, destroyed in place
+        // otherwise (Null-device tests, shutdown after the device idled).
+        void ReleaseMultiMeshSet(MultiMeshSet& set);
+        // Sweep sets whose lastFrame is older than kMultiMeshEvictFrames.
+        void EvictStaleMultiMeshSets();
         GpuRetireQueue* m_retire = nullptr; // borrowed; null = WaitIdle on grow
         struct ViewData
         {                                // 560 (matches the View cbuffer)

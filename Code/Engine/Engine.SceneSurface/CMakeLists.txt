@@ -8,7 +8,7 @@
 util_add_engine_library(Engine.SceneSurface ALIAS Engine::SceneSurface)
 target_link_libraries(Engine.SceneSurface PUBLIC
     Foundation::Core Foundation::Scene Foundation::Scene.Resource
-    Engine::Render Engine::Animation Engine::Particles Engine::Physics Engine::Terrain Engine::Spline Engine::Navigation
+    Engine::Render Engine::Animation Engine::Particles Engine::Physics Engine::Terrain Engine::Vegetation Engine::Spline Engine::Navigation
     Engine::Audio Engine::Script Engine::UI
     Foundation::Net.Replication Engine::Net
     Foundation::Policy)

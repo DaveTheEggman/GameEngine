@@ -1,7 +1,8 @@
 # Terrain vegetation (grass, then scattered props)
 
-> STATUS: SPEC PREPARED 2026-09-21. Not scheduled. Sized L; lands in phases with a
-> green four-lane build after each. Origin: the backlog seed "grass / vegetation /
+> STATUS: P0 BUILT 2026-09-21 (splat-driven grass, four lanes green; see the P0 ruling under
+> Decision 1 and the Phases section). P1 (mask + wind) and P2 (prop scatter) not scheduled.
+> Sized L; lands in phases with a green four-lane build after each. Origin: the backlog seed "grass / vegetation /
 > foliage for terrain" (weekly_backlog.md, user 2026-08-26) and the Lumix parity doc,
 > section 2 (vegetation is the largest gap in the terrain domain). Written after a
 > full read of the terrain stack (Foundation/Heightfield + Terrain + Terrain.Resource,
@@ -75,6 +76,19 @@ trees as skinned or wind-animated hero assets, physics for grass.
   untouched, so no re-cook of existing terrains.
 - Two scenes can dress one terrain asset differently (a winter and a summer level over
   one heightfield), which asset-level layers cannot express.
+
+**P0 ruling (2026-09-21): one layer per component, on the terrain entity OR a child of it.**
+The generic list editor edits a `Ref<>` slot or an `EntityRef` slot and shows a struct
+element only as its type label - it cannot edit the fields of a struct inside an
+`Array<VegetationLayer>`, so the first cut's `Array<layer>` on one component would have had
+no inspector without a nested-struct row builder the spec never priced. `VegetationLayerComponent`
+(Engine.Vegetation) carries ONE layer with its scatter fields flat (every field is a leaf row
+today; the `Ref<StaticMesh>` / `Ref<Material>` pickers already dispatch); the manager finds
+the terrain by walking the entity's ancestry for a `TerrainComponent`. A grass layer, a rock
+layer and a flower layer are three child entities of the terrain: the entity's name is the
+layer's name, its active flag toggles it, the hierarchy orders it, a prefab carries it, and
+the persistent entity id is the scatter seed's identity. The mask reference (P1) sits on the
+layer too. Everything else in this decision stands.
 
 The alternative (layers on `TerrainAsset`, cooked into `TerrainResource` like the splat
 palette) was rejected for P0 on cost: a builder change, a data version bump, and bespoke
@@ -268,7 +282,13 @@ move it to a sidecar, priced then.
 
 ## Phases
 
-**P0 - procedural grass from the splat (static).**
+**P0 - procedural grass from the splat (static). BUILT 2026-09-21.** As specified, with the
+Decision 1 ruling (one layer per component), the snapshot's first-view origin as the fade
+distance (`ExtractedScene::ViewOrigin`, set by RenderSubsystem before the providers run;
+distance gates the build, the renderer frustum-culls the sets per view), the fade order as
+the generator's own uniformly random sequence (equivalent to a rank sort, no sort), and one
+renderer fix the WebGPU probe forced: a MultiMesh set's region capacity rounds to 16 so its
+per-frame region offsets meet every backend's storage-buffer alignment.
 Foundation/Vegetation with tests; Engine.Vegetation component + manager + subsystem +
 module registration; RenderData::castShadows + shadow list gating; MultiMesh eviction;
 inspector picker entries; TerrainPlayground gains a grass layer over its generated dome

@@ -448,6 +448,53 @@ Which entity is under a pixel (or inside a rect) of a view, answered by the GPU 
   pixel after a fixed two-frame wait; this keeps its shape and drops the full-screen cost, the
   8-bit ids and the fixed wait.
 
+### 9.y Terrain vegetation (2026-09-21)
+
+Grass and props over a terrain are per-chunk INSTANCED SETS through the MeshRenderer's
+MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-vegetation.md`.
+
+- **Data.** `VegetationLayerComponent` (Engine.Vegetation) on the terrain entity or a child of
+  it: one layer per component (mesh, optional material, placement Uniform / Splat / Mask (P1) /
+  Scattered (P2), splat layer + threshold, density, scale and slope and height rules,
+  alignToNormal, fade start / end, castShadows, maxInstancesPerChunk). The manager finds the
+  terrain by walking the entity's ancestry for a `TerrainComponent`.
+- **Scatter.** `foundation.vegetation::ScatterChunk` is a pure function of (seed, chunk,
+  heightfield, splat, layer): the seed hashes the layer entity's persistent id and the chunk
+  index, so the same inputs give byte-identical terrain-local instances on any machine. The
+  output ORDER is a uniformly random sequence, so distance fade is a draw-count PREFIX
+  (`DensityAtDistance` x count via `FadePrefix`): the GPU buffer holds the full chunk once,
+  only `instanceCount` moves with distance, no re-upload, no per-instance culling, no chunk
+  pop. `maxInstancesPerChunk` (4096 x 144 B = 590 KB per set) bounds memory; a denser layer
+  scales down and warns once.
+- **Extraction.** `VegetationLayerComponentManager` (an `IRenderDataProvider`, registered per
+  scene by `VegetationSubsystem`) emits ONE `MultiMeshRenderData` per (layer, chunk) within
+  `fadeEnd` of the snapshot's first-view origin (`ExtractedScene::ViewOrigin`, set by
+  RenderSubsystem before the providers run; a headless extraction thins nothing): `key` = the
+  chunk seed (the renderer's persistent-buffer slot), `transforms` borrowed from the cache for
+  the frame, `version` = the scatter build (re-upload only on change), `castShadows` from the
+  layer. Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
+  invalidated by the heightfield and splat uid + version, the entity world matrix (recompose,
+  no rescatter) and the layer's scatter hash; `InvalidateRegion` (the editor brushes, P1)
+  regrows only the touched chunks. Frustum visibility is NOT known at extraction (one snapshot
+  per scene); distance gates the build, the renderer culls the sets per view.
+- **Renderer prerequisites (this phase).** `RenderData::castShadows` (default true) gates the
+  sun-cascade caster list, so grass casts nothing unless asked; `MeshRenderer` evicts a
+  MultiMesh set unseen for `kMultiMeshEvictFrames` (120) through the retire queue (before
+  this nothing was ever freed); a set's per-frame region capacity is rounded to 16 instances
+  (`MultiMeshRegionCapacity`) so region offsets meet every backend's storage-buffer offset
+  alignment (an odd count - 941 tufts - bound region 1 at an unaligned byte and WebGPU refused
+  the bind group; Vulkan had accepted it).
+- **Tests.** `Vegetation.Tests` (seed determinism, density -> count and the cap, the splat /
+  slope / height rules, normal alignment, bounds growth, fade math, `ChunksTouchedBy`),
+  `Engine.Vegetation.Tests` (reflection + wire, one set per painted chunk with the fade prefix,
+  out-of-range absent, region-scoped regrow, the build budget, nothing without a layer),
+  `Render.Tests` (eviction, castShadows gate, region alignment),
+  `Engine.Vegetation.Backend.Tests` (a splat-driven grass layer draws on the painted half only
+  and thins with distance; Vulkan + WebGPU). `TerrainPlayground` grows a grass layer over the
+  x < 0 half of its dome with HUD density / fade / shadow controls.
+- **Deferred.** Painted mask + wind (P1), the prop scatter brush (P2), impostors and
+  GPU-driven scatter, per-view fade prefixes (P3).
+
 ## 10. Materials & shaders
 
 - **Data-driven** - `MaterialSystem` infers the set-2 bind group from declared properties

@@ -27,6 +27,7 @@ import engine.render;     // RenderSubsystem (the standard renderer)
 import engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import engine.particles; // ParticleSubsystem (scene-driven CPU sim)
 import engine.terrain;   // TerrainSubsystem (chunked geo-mipmap terrain renderer)
+import engine.vegetation; // VegetationSubsystem (per-chunk instanced grass/props over the terrain)
 import foundation.physics;             // ContactKind/EntityContact (the contact bridge)
 import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import engine.navigation; // NavigationSubsystem + script facade
@@ -200,6 +201,9 @@ namespace engine::runtime
             // The chunked geo-mipmap terrain renderer: registers itself on Opaque + wires the
             // TerrainComponentManager (already injected by scene composition) as the render provider.
             host.Ctx().AddSubsystem<engine::terrain::TerrainSubsystem>();
+            // Terrain vegetation: wires the VegetationLayerComponentManager (scene composition)
+            // as a render provider; its sets ride the shared MeshRenderer's instanced path.
+            host.Ctx().AddSubsystem<engine::vegetation::VegetationSubsystem>();
         }
         m_physics = host.Ctx().AddSubsystem<engine::physics::PhysicsSubsystem>();
         host.Ctx().AddSubsystem<engine::navigation::NavigationSubsystem>();

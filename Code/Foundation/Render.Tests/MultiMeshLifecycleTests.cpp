@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+
+// MultiMesh set lifecycle + the per-item shadow opt-out, the two renderer contracts
+// vegetation stands on: a set unseen for kMultiMeshEvictFrames leaves the renderer's pool
+// (its buffers and bind groups through the retire queue when one is wired), and a RenderData
+// with castShadows = false is absent from the shadow caster list.
+#include <doctest/doctest.h>
+#include "Core/Prelude.h"
+
+#include <initializer_list>
+
+import foundation.core;
+import foundation.vfs;
+import foundation.rhi;
+import foundation.rhi.null;
+import foundation.geometry;
+import foundation.materials;
+import foundation.materials.pipelinecache;
+import foundation.shaders;
+import foundation.shaders.system;
+import foundation.render;
+
+using namespace foundation::core;
+using namespace foundation::render;
+namespace rhi = foundation::rhi;
+namespace geometry = foundation::geometry;
+namespace materials = foundation::materials;
+namespace shaders = foundation::shaders;
+
+namespace
+{
+    struct Systems
+    {
+        shaders::Compiler* compiler = nullptr;
+        rhi::null::NullDevice device{DefaultAllocator()};
+        bool Init()
+        {
+            return shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk();
+        }
+        ~Systems()
+        {
+            if (compiler != nullptr)
+            {
+                compiler->Destroy();
+            }
+        }
+    };
+
+    void AddSet(ExtractedScene& scene, u64 key, geometry::StaticMesh* mesh,
+                materials::Material* material, Span<const Float4x4> transforms, u16 rendererId)
+    {
+        MultiMeshRenderData* rd = scene.Add<MultiMeshRenderData>();
+        REQUIRE(rd != nullptr);
+        rd->multiMesh = true;
+        rd->key = key;
+        rd->transforms = transforms.Data();
+        rd->instanceCount = static_cast<u32>(transforms.Size());
+        rd->version = 1;
+        rd->mesh = mesh;
+        rd->material = material;
+        rd->rendererId = rendererId;
+        rd->category = RenderCategories::Opaque;
+        rd->worldRadius = 2.0f;
+    }
+}
+
+TEST_CASE("multimesh: a set unseen for kMultiMeshEvictFrames leaves the pool, retired when a queue is wired")
+{
+    Systems s;
+    if (!s.Init())
+    {
+        MESSAGE("no shader compiler; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*s.compiler, s.device);
+    materials::PipelineStateCache psoCache(shaderSystem, s.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(s.device).IsOk());
+    MeshRenderer renderer(s.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+    GpuRetireQueue retire;
+    retire.Initialize(&s.device, 2);
+    renderer.SetRetireQueue(&retire);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    Array<Float4x4> transforms;
+    transforms.Resize(3, Float4x4::Identity());
+
+    ExtractedScene seen{DefaultAllocator()};
+    AddSet(seen, 0x11u, cube.Get(), material.Get(), Span<const Float4x4>{transforms.Data(), 3},
+           renderer.RendererId());
+    AddSet(seen, 0x22u, cube.Get(), material.Get(), Span<const Float4x4>{transforms.Data(), 3},
+           renderer.RendererId());
+    renderer.PrepareFrame(2, 0);
+    renderer.UploadMultiMeshes(seen);
+    CHECK(renderer.MultiMeshSetCount() == 2u);
+    const usize pendingAfterUpload = retire.PendingCount();
+
+    // Set 0x22 keeps being extracted; 0x11 vanishes (its chunk left the camera's range).
+    ExtractedScene partial{DefaultAllocator()};
+    AddSet(partial, 0x22u, cube.Get(), material.Get(), Span<const Float4x4>{transforms.Data(), 3},
+           renderer.RendererId());
+    for (u32 f = 0; f < MeshRenderer::kMultiMeshEvictFrames; ++f)
+    {
+        renderer.PrepareFrame(2, f % 2);
+        renderer.UploadMultiMeshes(partial);
+        CHECK(renderer.MultiMeshSetCount() == 2u); // not yet: exactly the window
+    }
+    renderer.PrepareFrame(2, 0);
+    renderer.UploadMultiMeshes(partial); // one past the window
+    CHECK(renderer.MultiMeshSetCount() == 1u);
+    // Its buffer + the two region bind groups went through the queue, not vkDestroy in place.
+    CHECK(retire.PendingCount() >= pendingAfterUpload + 3u);
+
+    // An empty frame still ages: the survivor goes too once unseen long enough.
+    ExtractedScene empty{DefaultAllocator()};
+    for (u32 f = 0; f <= MeshRenderer::kMultiMeshEvictFrames; ++f)
+    {
+        renderer.PrepareFrame(2, f % 2);
+        renderer.UploadMultiMeshes(empty);
+    }
+    CHECK(renderer.MultiMeshSetCount() == 0u);
+
+    // A returning key rebuilds a fresh set.
+    renderer.PrepareFrame(2, 0);
+    renderer.UploadMultiMeshes(seen);
+    CHECK(renderer.MultiMeshSetCount() == 2u);
+    retire.Flush();
+    renderer.SetRetireQueue(nullptr);
+}
+
+TEST_CASE("shadows: castShadows = false keeps an Opaque item out of the caster list")
+{
+    Systems s;
+    if (!s.Init())
+    {
+        MESSAGE("no shader compiler; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*s.compiler, s.device);
+    materials::PipelineStateCache psoCache(shaderSystem, s.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(s.device).IsOk());
+    MeshRenderer renderer(s.device, shaderSystem, psoCache, materialSystem, 2);
+    REQUIRE(renderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&renderer);
+    ShadowSystem shadows(s.device, 2);
+    REQUIRE(shadows.Initialize().IsOk());
+    RenderFrame frame(DefaultAllocator(), s.device, registry, 2, nullptr, nullptr, &shadows);
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    ExtractedScene scene{DefaultAllocator()};
+    for (int i = 0; i < 3; ++i)
+    {
+        MeshRenderData* rd = scene.Add<MeshRenderData>();
+        rd->mesh = cube.Get();
+        rd->material = material.Get();
+        rd->category = RenderCategories::Opaque;
+        rd->rendererId = renderer.RendererId();
+        rd->worldCenter = Float3{static_cast<f32>(i) * 3.0f, 0, 0};
+        rd->worldRadius = 1.0f;
+        rd->castShadows = (i != 1); // the middle one is a filler that casts nothing
+    }
+    DirectionalShadow ds;
+    ds.direction = Normalized(Float3{0.3f, -1.0f, 0.2f});
+    ds.valid = true;
+    scene.SetDirectionalShadow(ds);
+
+    rhi::CommandPool* pool = nullptr;
+    REQUIRE(s.device.CreateCommandPool(rhi::QueueType::Graphics, pool).IsOk());
+    rhi::CommandEncoder* encoder = nullptr;
+    REQUIRE(pool->CreateEncoder(encoder).IsOk());
+    rhi::Texture* color = nullptr;
+    REQUIRE(s.device
+                .CreateTexture(rhi::TextureDesc::RenderTarget(rhi::TextureFormat::BGRA8Unorm, 64, 64),
+                               color)
+                .IsOk());
+    rhi::TextureView* colorView = nullptr;
+    REQUIRE(s.device.CreateTextureView(color, rhi::TextureViewDesc{}, colorView).IsOk());
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0, 0, 10}, Float3{0, 0, 0}, Float3{0, 1, 0});
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+    frame.Begin(*encoder, 0);
+    frame.AddView(scene, camera, settings, colorView, rhi::TextureFormat::BGRA8Unorm, 64, 64);
+    frame.End();
+    CHECK(frame.ShadowCasterCount(&scene) == 2u);
+
+    (void)encoder->Finish();
+    s.device.WaitIdle();
+    s.device.DestroyTextureView(colorView);
+    s.device.DestroyTexture(color);
+    pool->DestroyEncoder(encoder);
+    s.device.DestroyCommandPool(pool);
+}
+
+TEST_CASE("multimesh: a set's region capacity keeps every region offset storage-aligned on every backend")
+{
+    // 144-byte InstanceData x a multiple of 16 = a multiple of 2304 = 9 x 256: the strictest
+    // storage-buffer offset alignment (WebGPU + D3D12) holds for region 1, 2, ... at any count.
+    for (const u32 count : {1u, 15u, 16u, 17u, 941u, 1024u, 2048u, 4095u, 4096u})
+    {
+        const u32 capacity = MeshRenderer::MultiMeshRegionCapacity(count);
+        INFO(count);
+        CHECK(capacity >= count);
+        CHECK(capacity < count + 16u);
+        CHECK(capacity % 16u == 0u);
+        CHECK((static_cast<u64>(capacity) * 144u) % 256u == 0u);
+    }
+    CHECK(MeshRenderer::MultiMeshRegionCapacity(0) == 0u);
+}
