@@ -215,7 +215,7 @@ struct VegetationLayer
     String name;                                   // inspector label
     Ref<geometry::StaticMesh> mesh;                // the instanced mesh (a card, a tuft, a rock)
     Ref<materials::Material> material;             // optional override (else the mesh's)
-    VegetationPlacement placement = Splat;
+    VegetationPlacement placement = Scattered; // a NEW layer is manual (ruling 2026-09-22)
     u32 splatLayer = 0;                            // Splat: palette index; kBase = the base layer
     f32 splatThreshold = 0.25f;                    // Splat: share below which nothing grows
     u32 maskPlane = 0;                             // Mask: plane index in the mask asset

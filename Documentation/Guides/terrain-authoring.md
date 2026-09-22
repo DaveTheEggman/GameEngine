@@ -152,7 +152,8 @@ updates occasionally bump cook versions - the first open after one re-cooks auto
 Grass, flowers and rocks grow from the splat you painted. Select the terrain entity and add a
 **Terrain Vegetation** component (Terrain category). Its **Layers** list holds one entry per
 kind of ground cover; the add icon appends a layer, and each layer gets its own section under
-the list ("Layers 1: Grass"), titled by the layer's **Name**. Per layer:
+the list ("Layers 1: Grass"), titled by the layer's **Name**. A new layer is manual (Placement
+Scattered): it grows nothing until you paint props into it or pick a source. Per layer:
 
 - **Mesh** and optionally **Material**: a grass card, a tuft, a rock. Grass cards want a
   double-sided, masked material; the alpha test already runs in the depth, shadow and pick

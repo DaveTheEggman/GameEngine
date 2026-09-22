@@ -55,7 +55,10 @@ export namespace engine::vegetation
         String name; // the inspector's slot label ("Grass")
         foundation::resource::Ref<foundation::geometry::StaticMesh> mesh;   // a card, a tuft, a rock
         foundation::resource::Ref<foundation::materials::Material> material; // nil = the mesh's own
-        VegetationPlacement placement = VegetationPlacement::Splat;
+        // A NEW layer is manual (Scattered): nothing grows until the author paints it or picks
+        // a procedural source (Splat / Mask / Uniform) - a procedural default would grow the
+        // moment a mesh is assigned, which reads as an unasked-for scatter (user, 2026-09-22).
+        VegetationPlacement placement = VegetationPlacement::Scattered;
         u32 splatLayer = 0;         // Splat: palette index; kSplatBaseLayer = the unpainted base
         f32 splatThreshold = 0.25f; // Splat: share below which nothing grows
         u32 maskPlane = 0;          // Mask (P1)

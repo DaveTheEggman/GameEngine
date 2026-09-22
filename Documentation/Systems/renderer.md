@@ -457,7 +457,8 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   of it; the manager walks the ancestry for the `TerrainComponent`): `Array<VegetationLayer>`,
   each layer a name, a mesh, an optional material, placement Uniform / Splat / Mask (P1) /
   Scattered (P2), splat layer + threshold, density, scale and slope and height rules,
-  alignToNormal, fade start / end, castShadows, maxInstancesPerChunk, visible. The inspector
+  alignToNormal, fade start / end, castShadows, maxInstancesPerChunk, visible. A new layer
+  defaults to Scattered (manual): nothing grows until painted or given a source. The inspector
   edits each layer in its own expander under the list (editor.md 3.5).
 - **Scatter.** `foundation.vegetation::ScatterChunk` is a pure function of (seed, chunk,
   heightfield, splat, layer): the seed hashes the owner entity's persistent id, the layer index

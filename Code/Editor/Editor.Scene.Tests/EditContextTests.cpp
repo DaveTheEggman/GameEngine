@@ -1054,7 +1054,7 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
         static_cast<i64>(foundation::vegetation::VegetationPlacement::Uniform));
     CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Uniform);
     commands.Undo();
-    CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Splat);
+    CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Scattered); // the default
     edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 0}, "name",
                               Variant::From<String>(String(u8"Lawn")));
     CHECK(layer(0).name == String(u8"Lawn"));

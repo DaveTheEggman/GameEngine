@@ -91,7 +91,8 @@ namespace engine::vegetation
             .PropAttribute("description",
                            String(u8"Where it grows: everywhere (Uniform), where a terrain splat "
                                   u8"layer is painted (Splat), a painted mask (Mask), or authored "
-                                  u8"instances (Scattered)."))
+                                  u8"instances (Scattered - the default: paint them with Paint "
+                                  u8"Props, or pick a source and the layer grows on its own)."))
             .Property<&VegetationLayer::splatLayer>("splatLayer")
             .PropAttribute("displayName", String(u8"Splat Layer"))
             .PropAttribute("description",

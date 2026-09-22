@@ -174,6 +174,10 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     REQUIRE(category != nullptr);
     CHECK(*category->TryGet<String>() == String(u8"Terrain"));
 
+    // A new layer (the inspector's add button default-constructs one) is MANUAL: it grows
+    // nothing until painted or given a source.
+    CHECK(VegetationLayer{}.placement == veg::VegetationPlacement::Scattered);
+    CHECK(VegetationLayer{}.ToScatterLayer().placement == veg::VegetationPlacement::Scattered);
     const TypeInfo& layerType = TypeOf<VegetationLayer>();
     for (const char* name : {"name", "mesh", "material", "placement", "splatLayer",
                              "splatThreshold", "maskPlane", "density", "scaleRange",
@@ -718,4 +722,28 @@ TEST_CASE("engine.vegetation: an invalidated set keeps drawing its old instances
         total += s->instanceCount;
     }
     CHECK(total == 5u);
+}
+
+TEST_CASE("engine.vegetation: a freshly added layer with a mesh grows nothing until it is painted or given a source")
+{
+    Fixture f(/*withSplat*/ true); // the splat has palette 0 painted: a Splat default would grow
+    f.mgr->SetBuildBudget(100);
+    VegetationLayer fresh; // exactly what the inspector's add button makes, plus a mesh
+    fresh.mesh = f.mesh.Get();
+    f.Component().layers.PushBack(fresh);
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        CHECK(render::EntityTag::Index(s->entityId) == f.terrain.index);
+    }
+    CHECK(sets.Size() == 2u); // only the fixture's grass (the two painted chunks); nothing new
+    // Painting one prop into it draws it; choosing Splat makes it grow like the grass.
+    f.Component().layers[1].instances.PushBack(Float4x4::Translation(Float3{10.0f, 2.0f, 10.0f}));
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 3u);
+    f.Component().layers[1].instances.Clear();
+    f.Component().layers[1].placement = veg::VegetationPlacement::Splat;
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.Size() == 4u);
 }
