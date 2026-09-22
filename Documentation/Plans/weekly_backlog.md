@@ -1430,3 +1430,28 @@ command recording only).
 - The per-phase lists are a separate, smaller commit; do it first, it changes no semantics.
 - Scope decision for the user: transform update only, or also the AsyncUpdate promise (a
   parallel per-depth-level pass is the natural first use of it).
+
+## Seeded: vegetation distance fade is per CHUNK - visible quads thin and vanish (user 2026-09-22)
+
+Observed: zooming out, vegetation thins and disappears one sharp chunk-shaped quad at a time.
+Cause (read, not fixed - the Beef port references the current code; HOLD): the fade is
+evaluated once per (layer, chunk) set in `TerrainVegetationComponentManager::ExtractLayer`
+(`VegetationComponentsImpl.cpp:496`): `distance = max(0, |origin - chunkCenter| - radius)`,
+`DensityAtDistance(distance, fadeStart 40, fadeEnd 80)` -> `FadePrefix` draw count, and the
+whole set is dropped past fadeEnd. Every instance in a chunk shares that one density, and
+neighbouring chunks differ, so the seam between a 30% chunk and a 100% chunk is a straight
+line; with a 64-sample chunk of 1 m cells (RaptorUAT: 257 samples over 256 m) the chunk is 64 m
+wide against a 40 m fade window, so a single chunk spans the entire fade. The prefix design is
+right (no re-upload, stable ranks); the granularity of the DISTANCE is the bug. Terrain's own
+chunk LOD went through the same lesson and moved to a per-chunk coverage metric with
+hysteresis and skirts; vegetation needs per-instance, not per-chunk.
+
+Fix sketch: keep the CPU prefix as the coarse upper bound (it uses the chunk's NEAREST
+distance, so it never removes an instance a finer test would keep - the prefix is exactly the
+ranks below `f(nearest)`), and move the real fade into the instanced vertex shader: each
+instance's own distance to the camera, the instance's own rank (store the scatter rank in
+`InstanceData.Tint.a`, or hash the world position when a producer has no rank), collapse the
+instance to zero scale when `rank > DensityAtDistance(d_i)`. fadeStart/fadeEnd ride a per-draw
+constant (the wind lanes are the precedent for per-material data; a per-layer pair is the
+cleaner home). Chunk-level drop past fadeEnd stays. Cost: a few ALU per vertex, no CPU or
+upload change; result: a smooth per-instance dissolve with no chunk seams at any window.
