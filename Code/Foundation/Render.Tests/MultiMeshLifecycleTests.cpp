@@ -48,7 +48,8 @@ namespace
     };
 
     void AddSet(ExtractedScene& scene, u64 key, geometry::StaticMesh* mesh,
-                materials::Material* material, Span<const Float4x4> transforms, u16 rendererId)
+                materials::Material* material, Span<const Float4x4> transforms, u16 rendererId,
+                u32 version = 1, u32 uploadCount = 0)
     {
         MultiMeshRenderData* rd = scene.Add<MultiMeshRenderData>();
         REQUIRE(rd != nullptr);
@@ -56,7 +57,8 @@ namespace
         rd->key = key;
         rd->transforms = transforms.Data();
         rd->instanceCount = static_cast<u32>(transforms.Size());
-        rd->version = 1;
+        rd->uploadCount = uploadCount;
+        rd->version = version;
         rd->mesh = mesh;
         rd->material = material;
         rd->rendererId = rendererId;
@@ -215,4 +217,123 @@ TEST_CASE("multimesh: a set's region capacity keeps every region offset storage-
         CHECK((static_cast<u64>(capacity) * 144u) % 256u == 0u);
     }
     CHECK(MeshRenderer::MultiMeshRegionCapacity(0) == 0u);
+}
+
+TEST_CASE("multimesh: a draw count that grows within the capacity rewrites the region it outgrew")
+{
+    // The vegetation fade draws a PREFIX of a set's instances that changes with the camera's
+    // distance, under one unchanged version. A region written with a short prefix and then drawn
+    // with a longer one showed stale bytes for the tail - per region, so the tail blinked between
+    // frames-in-flight (the loaded-scene prop flicker of 2026-09-22).
+    Systems s;
+    if (!s.Init())
+    {
+        MESSAGE("no shader compiler; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*s.compiler, s.device);
+    materials::PipelineStateCache psoCache(shaderSystem, s.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(s.device).IsOk());
+    MeshRenderer renderer(s.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    Array<Float4x4> transforms; // eight distinct translations, one set
+    for (u32 i = 0; i < 8; ++i)
+    {
+        transforms.PushBack(Float4x4::Translation(Float3{static_cast<f32>(i), 0.0f, 0.0f}));
+    }
+    auto frame = [&](u32 index, u32 count, u32 version)
+    {
+        ExtractedScene scene{DefaultAllocator()};
+        AddSet(scene, 0x77u, cube.Get(), material.Get(),
+               Span<const Float4x4>{transforms.Data(), count}, renderer.RendererId(), version);
+        renderer.PrepareFrame(2, index % 2);
+        renderer.UploadMultiMeshes(scene);
+    };
+    Float4x4 world;
+
+    // Frame 0 draws three (far away), frame 1 all eight (region 1 holds them all)...
+    frame(0, 3, 1);
+    frame(1, 8, 1);
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 1, 7, world));
+    CHECK(world.m[3][0] == doctest::Approx(7.0f));
+    // ...and frame 2 draws eight from region 0, which only ever held three: it is rewritten.
+    frame(2, 8, 1);
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 0, 7, world));
+    CHECK(world.m[3][0] == doctest::Approx(7.0f));
+
+    // A new version rewrites each region on its next frame, even at the same count.
+    for (Float4x4& m : transforms)
+    {
+        m.m[3][2] = 5.0f;
+    }
+    frame(3, 8, 2);
+    frame(4, 8, 2);
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 0, 0, world));
+    CHECK(world.m[3][2] == doctest::Approx(5.0f));
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 1, 0, world));
+    CHECK(world.m[3][2] == doctest::Approx(5.0f));
+
+    // A shrink under the same version writes nothing: the regions already hold the longer prefix.
+    transforms[7].m[3][1] = 9.0f; // a change the renderer was NOT told about (no version bump)
+    frame(5, 4, 2);
+    frame(6, 4, 2);
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 1, 7, world));
+    CHECK(world.m[3][1] == doctest::Approx(0.0f)); // untouched, as a static set must be
+    REQUIRE(renderer.ReadMultiMeshInstance(0x77u, 0, 7, world));
+    CHECK(world.m[3][1] == doctest::Approx(0.0f));
+}
+
+TEST_CASE("multimesh: a set with an uploadCount holds its whole list from the first frame, the draw prefix never re-uploads")
+{
+    // The vegetation contract (renderer.md): the GPU buffer holds the full chunk once; only the
+    // draw count moves with distance.
+    Systems s;
+    if (!s.Init())
+    {
+        MESSAGE("no shader compiler; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*s.compiler, s.device);
+    materials::PipelineStateCache psoCache(shaderSystem, s.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(s.device).IsOk());
+    MeshRenderer renderer(s.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    Array<Float4x4> transforms;
+    for (u32 i = 0; i < 8; ++i)
+    {
+        transforms.PushBack(Float4x4::Translation(Float3{static_cast<f32>(i), 0.0f, 0.0f}));
+    }
+    auto frame = [&](u32 index, u32 drawCount)
+    {
+        ExtractedScene scene{DefaultAllocator()};
+        AddSet(scene, 0x99u, cube.Get(), material.Get(),
+               Span<const Float4x4>{transforms.Data(), drawCount}, renderer.RendererId(),
+               /*version*/ 1, /*uploadCount*/ 8);
+        renderer.PrepareFrame(2, index % 2);
+        renderer.UploadMultiMeshes(scene);
+    };
+    Float4x4 world;
+    frame(0, 3); // far: draws three, holds eight
+    REQUIRE(renderer.ReadMultiMeshInstance(0x99u, 0, 7, world));
+    CHECK(world.m[3][0] == doctest::Approx(7.0f));
+    frame(1, 3);
+    // The camera comes closer: the prefix grows to eight under the same version. Nothing is
+    // rewritten - a change the renderer was not told about stays invisible to it.
+    transforms[7].m[3][1] = 9.0f;
+    frame(2, 8);
+    frame(3, 8);
+    REQUIRE(renderer.ReadMultiMeshInstance(0x99u, 0, 7, world));
+    CHECK(world.m[3][1] == doctest::Approx(0.0f));
+    REQUIRE(renderer.ReadMultiMeshInstance(0x99u, 1, 7, world));
+    CHECK(world.m[3][1] == doctest::Approx(0.0f));
 }

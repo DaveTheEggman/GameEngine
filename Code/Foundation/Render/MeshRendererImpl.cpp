@@ -642,8 +642,10 @@ namespace foundation::render
 
         const u32 fif = Min(m_framesInFlight, kMultiMeshMaxFiF);
         const u32 region = m_frameIndex % fif; // this frame's InstanceData region
+        // The whole list when the item carries one (a faded set draws a prefix of it).
+        const u32 uploadCount = Max(mm.instanceCount, mm.uploadCount);
 
-        if (set->instanceBuf == nullptr || mm.instanceCount > set->capacity)
+        if (set->instanceBuf == nullptr || uploadCount > set->capacity)
         {
             // An in-flight frame may still reference the old buffer/bind groups: retire
             // when wired (web-safe), else drain once for the whole replacement.
@@ -682,7 +684,7 @@ namespace foundation::render
             rhi::BufferDesc bd{};
             // The region capacity is rounded (MultiMeshRegionCapacity) so region r's byte offset
             // meets every backend's storage-buffer offset alignment.
-            const u32 capacity = MultiMeshRegionCapacity(mm.instanceCount);
+            const u32 capacity = MultiMeshRegionCapacity(uploadCount);
             const u64 regionBytes = static_cast<u64>(capacity) * sizeof(InstanceData);
             bd.size = static_cast<u64>(fif) * regionBytes; // one region per frame-in-flight
             bd.usage = rhi::BufferUsage::StorageRead | rhi::BufferUsage::CopyDst;
@@ -727,34 +729,36 @@ namespace foundation::render
                 return;
             }
             set->capacity = capacity;
-            set->uploadedVersion = 0; // force a re-upload after (re)allocation
-            set->dirtyFrames = fif;   // write every region
+            for (u32 r = 0; r < kMultiMeshMaxFiF; ++r) // fresh bytes: every region is behind
+            {
+                set->regionVersion[r] = 0;
+                set->regionCount[r] = 0;
+            }
         }
         set->count = mm.instanceCount;
         set->activeInstanceBG = set->instanceBG[region];
 
-        // A version change re-uploads for `fif` frames so every region ends up current, then stops - static
-        // sets write only once (fif frames), per-frame-dynamic sets write every frame, both hazard-free
-        // (each frame writes ONLY its own region while the GPU reads the previous one).
-        if (set->uploadedVersion != mm.version)
-        {
-            set->uploadedVersion = mm.version;
-            set->dirtyFrames = fif;
-        }
-        if (set->dirtyFrames > 0 && set->instanceBuf != nullptr && mm.transforms != nullptr)
+        // Each frame writes ONLY its own region while the GPU reads the previous one (hazard-free),
+        // and only when that region is behind the item: a new version (a static set thus writes
+        // once per region, a per-frame-dynamic set every frame) or a draw count above what the
+        // region was last written with (the tail would otherwise be stale bytes, per region).
+        const bool behind = set->regionVersion[region] != mm.version ||
+                            set->regionCount[region] < uploadCount;
+        if (behind && set->instanceBuf != nullptr && mm.transforms != nullptr)
         {
             if (auto* dst = static_cast<InstanceData*>(set->instanceBuf->Map()))
             {
                 InstanceData* r = dst + static_cast<usize>(region) * set->capacity;
-                for (u32 i = 0; i < mm.instanceCount; ++i)
+                for (u32 i = 0; i < uploadCount; ++i)
                 {
                     const Color tint =
                         (mm.tints != nullptr) ? mm.tints[i] : mm.color; // per-instance or shared
                     r[i] = InstanceData{mm.transforms[i], mm.transforms[i], tint};
                 }
                 set->instanceBuf->Unmap();
+                set->regionVersion[region] = mm.version;
+                set->regionCount[region] = uploadCount;
             }
-            --set->dirtyFrames;
         }
 
         // Skinned crowds need a per-set DataOffsets buffer (dynamic per-instance bone bases). Allocate/grow
@@ -782,6 +786,24 @@ namespace foundation::render
             }
             set->offsetsCapacity = mm.instanceCount;
         }
+    }
+
+    bool MeshRenderer::ReadMultiMeshInstance(u64 key, u32 region, u32 index, Float4x4& out)
+    {
+        MultiMeshSet* set = m_multiMeshSets.Find(key);
+        if (set == nullptr || set->instanceBuf == nullptr || region >= kMultiMeshMaxFiF ||
+            index >= set->capacity)
+        {
+            return false;
+        }
+        auto* data = static_cast<const InstanceData*>(set->instanceBuf->Map());
+        if (data == nullptr)
+        {
+            return false;
+        }
+        out = data[static_cast<usize>(region) * set->capacity + index].world;
+        set->instanceBuf->Unmap();
+        return true;
     }
 
     void MeshRenderer::FillSkinnedMultiMeshOffsets(const ExtractedScene& scene)

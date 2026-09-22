@@ -269,6 +269,10 @@ export namespace foundation::render
         const Color* tints =
             nullptr; // optional borrowed per-instance tint (instanceCount entries); null => use `color`
         u32 instanceCount = 0;
+        // Instances to UPLOAD when more than instanceCount are borrowed (0 = instanceCount): a
+        // distance-faded set uploads its whole list once and draws a prefix that moves with the
+        // camera without re-uploading (`transforms`/`tints` then hold uploadCount entries).
+        u32 uploadCount = 0;
         u32 version = 0; // bumps when `transforms` change; the renderer re-uploads only on a change
         // GPU-skinned crowds (SS7): a shared pose pool of `poseCount` palettes (each `boneCount` matrices),
         // borrowed for the frame. When non-null the set draws SKINNED with instance i using pose (i % poseCount).

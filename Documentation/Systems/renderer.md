@@ -473,8 +473,11 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   `fadeEnd` of the snapshot's first-view origin (`ExtractedScene::ViewOrigin`, set by
   RenderSubsystem before the providers run; a headless extraction thins nothing): `key` = the
   chunk seed (the renderer's persistent-buffer slot), `transforms` borrowed from the cache for
-  the frame, `version` = the scatter build (re-upload only on change), `castShadows` from the
-  layer. Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
+  the frame, `instanceCount` = the fade prefix, `uploadCount` = the whole set (uploaded once;
+  the prefix moves with the camera without a re-upload), `version` = the scatter build
+  (re-upload only on change), `castShadows` from the layer. The renderer keeps a per-region
+  (frame-in-flight) version + written count and rewrites a region only when it is behind the
+  item, so a region never draws a tail it was not written with. Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
   invalidated by the heightfield and splat uid + version, the entity world matrix (recompose,
   no rescatter) and the layer's scatter hash; `InvalidateRegion` (the editor brushes, P1)
   regrows only the touched chunks. An invalidated set that was already built keeps drawing

@@ -168,6 +168,10 @@ export namespace foundation::render
             return (count + 15u) & ~15u;
         }
         [[nodiscard]] usize MultiMeshSetCount() const noexcept { return m_multiMeshSets.Size(); }
+        // Test read-back: the world matrix uploaded for instance `index` of region `region` of the
+        // set keyed `key` (false when there is no such set, region or slot). Maps the buffer, so it
+        // is for host-visible test devices.
+        [[nodiscard]] bool ReadMultiMeshInstance(u64 key, u32 region, u32 index, Float4x4& out);
 
         // Grow the shared DataOffsets ramp to at least `count` slots: [{0,0,0,0},{1,0,0,0},...]. Filled once
         // per (re)allocation (values are static per index - never rewritten). .x is each instance's index into
@@ -659,10 +663,14 @@ export namespace foundation::render
                 nullptr;      // this frame's region bind group (set in EnsureMultiMeshSet)
             u32 capacity = 0; // instances per region
             u32 count = 0;    // live instance count this frame
-            u32 uploadedVersion =
-                0; // last component version being written (0 = never; versions start at 1)
-            u32 dirtyFrames = 0; // regions still to write after a version change (FiF countdown)
-            u32 lastFrame = 0;   // last frame this set was extracted (for eviction)
+            // Per region: the version its bytes hold and how many instances were written with it.
+            // A region is rewritten when either falls behind the frame's item (a new version, OR
+            // a draw count that grew past what this region holds - a distance fade opening up
+            // within the rounded capacity - else the tail draws whatever the region held before,
+            // which differs per region: a flicker).
+            u32 regionVersion[kMultiMeshMaxFiF] = {};
+            u32 regionCount[kMultiMeshMaxFiF] = {};
+            u32 lastFrame = 0; // last frame this set was extracted (for eviction)
             // Skinned crowds: a PER-SET DataOffsets buffer (dynamic, refilled each frame with per-instance bone
             // bases) - replaces the shared static ramp, whose .y is always 0. Only allocated for skinned sets.
             rhi::Buffer* offsetsBuf =

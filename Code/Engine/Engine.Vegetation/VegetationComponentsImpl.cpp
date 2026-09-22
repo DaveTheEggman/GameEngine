@@ -542,6 +542,7 @@ namespace engine::vegetation
             rd->key = set.key;
             rd->transforms = set.world.Data(); // borrowed for the frame (immutable snapshot)
             rd->instanceCount = count;         // the fade prefix (per frame)
+            rd->uploadCount = static_cast<u32>(set.world.Size()); // the whole set, uploaded once
             rd->version = set.version;         // the scatter (re-upload only on change)
             rd->mesh = mesh;
             rd->material = material;
