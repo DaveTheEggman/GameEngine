@@ -15,6 +15,9 @@
   heightfield extras) and holed cells. SEQUENCING RULE: holes must EXCLUDE
   their cells from the nav bake (nav-terrain integration shipped 2026-08-31 -
   CollectNavigationGeometry triangulates the heightfield; holes subtract there).
+  HOLES SPEC PREPARED 2026-09-22: `Specs/terrain-holes.md` (a per-SAMPLE flag
+  plane on the heightfield, Jolt's own rule everywhere, holed chunks draw their
+  own index buffers, a `terrain.hole` brush); erosion stays its own seed.
 - **Grass / vegetation** - phase-3; renders through the instanced-mesh path
   with per-layer distance/density rules, NOT mesh-LOD chains (a terrain-wide
   set's aggregate bounds degenerate per-set selection; per-instance bucketing
