@@ -28,6 +28,7 @@ implementing agent's work).
 | [property-animation.md](property-animation.md) | #129 | L |
 | [asset-variants.md](asset-variants.md) | #133 | L (variants axis + texture compression) |
 | [mesh-lod.md](mesh-lod.md) | - | M (spec prepared, not scheduled) |
+| [terrain-vegetation.md](terrain-vegetation.md) | - | L (spec prepared 2026-09-21, not scheduled: P0 splat-driven grass, P1 mask + wind, P2 prop scatter) |
 | [ui-theme-migration.md](ui-theme-migration.md) | #135 | L (P0 shipped; P1-P4 phased) |
 | [ui-layout-and-style-model.md](ui-layout-and-style-model.md) | - | XL (PROPOSED: uniform LayoutStyle, real cascade, box model, transitions; P0-P4) |
 | [paperkid.md](paperkid.md) | - | game plan |
