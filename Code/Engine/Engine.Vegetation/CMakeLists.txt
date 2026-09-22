@@ -9,7 +9,8 @@ target_link_libraries(Engine.Vegetation
     PUBLIC
         Foundation::Core Foundation::Scene Foundation::Resource
         Foundation::Geometry Foundation::Materials
-        Foundation::Heightfield Foundation::Terrain Foundation::Terrain.Resource Foundation::Vegetation
+        Foundation::Heightfield Foundation::Terrain Foundation::Terrain.Resource
+        Foundation::Vegetation.Resource Foundation::Vegetation
         Foundation::Render Engine::Render Engine::Terrain Engine::Scene
         Foundation::Runtime Foundation::Profiler Foundation::Policy)
 

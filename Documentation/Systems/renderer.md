@@ -493,8 +493,19 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   `Engine.Vegetation.Backend.Tests` (a splat-driven grass layer draws on the painted half only
   and thins with distance; Vulkan + WebGPU). `TerrainPlayground` grows a grass layer over the
   x < 0 half of its dome with HUD density / fade / shadow controls.
-- **Deferred.** Painted mask + wind (P1), the prop scatter brush (P2), impostors and
-  GPU-driven scatter, per-view fade prefixes (P3).
+- **Painted mask (P1, 2026-09-22).** `VegetationMask` (Foundation/Vegetation.Resource): u8
+  density planes over the terrain footprint, one plane per layer that chooses Mask placement
+  (`SplatTimesMask` multiplies the splat share in, so erasing the mask carves a road through
+  splat grass). The component references it (`Ref<VegetationMask>`); the scatter samples the
+  plane like the splat. Cooked as `VegetationMaskAsset` -> metadata + one "densities" sidecar
+  (Pipeline/Vegetation.Pipeline; a PNG imports as one plane per channel). The Paint Vegetation
+  brush (Editor/Editor.Vegetation, tool id `vegetation.paint`) paints, erases and smooths a
+  plane with the splat brush's stroke model, one command per stroke, the source written back on
+  Save; every stamp hands the manager the footprint rect it touched
+  (`InvalidateFootprint`), so only those chunks regrow while painting.
+- **Deferred.** Wind (P1b: the `WIND` vertex variant off a view time lane and material
+  properties), the prop scatter brush (P2), impostors and GPU-driven scatter, per-view fade
+  prefixes (P3).
 
 ## 10. Materials & shaders
 

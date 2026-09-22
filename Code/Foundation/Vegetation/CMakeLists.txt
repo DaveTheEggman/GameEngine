@@ -7,7 +7,7 @@
 util_add_engine_library(Vegetation ALIAS Foundation::Vegetation)
 target_link_libraries(Vegetation PUBLIC
     Foundation::Core Foundation::Heightfield Foundation::Terrain Foundation::Terrain.Resource
-    Foundation::Policy)
+    Foundation::Vegetation.Resource Foundation::Policy)
 
 target_sources(Vegetation
     PRIVATE

@@ -29,6 +29,7 @@ target_sources(Editor.App
             UIPage.cppm
             PageToolbar.cppm
             ToolPanel.cppm
+            ToolPanelWidgets.cppm
             AssetsView.cppm
             AssetPickerDialog.cppm
             AssetCreateDialog.cppm

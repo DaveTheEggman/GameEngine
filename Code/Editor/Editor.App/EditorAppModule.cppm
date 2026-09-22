@@ -16,6 +16,7 @@ export import :log_view;
 export import :ui_page;
 export import :page_toolbar;
 export import :tool_panel;
+export import :tool_panel_widgets;
 export import :assets_view;
 export import :asset_picker_dialog;
 export import :asset_create_dialog;

@@ -62,7 +62,8 @@ import foundation.physics.resource;    // collision-shape/physical-material fact
 import foundation.navigation.resource; // navmesh-zone factory
 import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.heightfield.resource; // heightfield factory (CPU grid)
-import foundation.terrain.resource;     // terrain + splatmap factories (CPU)
+import foundation.terrain.resource;
+import foundation.vegetation.resource; // VegetationMaskFactory (the painted mask planes)     // terrain + splatmap factories (CPU)
 import foundation.image.resource;      // image resource registration
 import foundation.model.resource;      // cooked-model family types + registration
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
@@ -304,6 +305,7 @@ export namespace engine::runtime
         core::UniquePtr<foundation::heightfield::HeightfieldFactory> m_heightfieldFactory;
         core::UniquePtr<foundation::terrain::TerrainFactory> m_terrainFactory;
         core::UniquePtr<foundation::terrain::SplatWeightsFactory> m_splatmapFactory;
+        core::UniquePtr<foundation::vegetation::VegetationMaskFactory> m_vegetationMaskFactory;
         core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;

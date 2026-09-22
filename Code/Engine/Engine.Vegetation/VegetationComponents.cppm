@@ -31,7 +31,8 @@ import foundation.materials;        // Material
 import foundation.heightfield;      // Heightfield + HeightfieldRegion
 import foundation.terrain;          // TerrainChunk + BuildChunks
 import foundation.terrain.resource; // SplatWeights
-import foundation.vegetation;       // VegetationLayer (scatter params) + ScatterChunk + fade
+import foundation.vegetation.resource; // VegetationMask (the painted density planes)
+import foundation.vegetation;          // VegetationLayer (scatter params) + ScatterChunk + fade
 import foundation.render;           // IRenderDataProvider, ExtractedScene, MultiMeshRenderData
 
 using namespace foundation::core;
@@ -114,12 +115,16 @@ export namespace engine::vegetation
     struct TerrainVegetationComponent
     {
         Array<VegetationLayer> layers;
+        // The painted mask (density planes over the footprint); nil = no Mask placement grows.
+        // A layer with Mask / SplatTimesMask placement names its plane.
+        foundation::resource::Ref<foundation::vegetation::VegetationMask> mask;
         bool visible = true;
     };
 
     inline void Serialize(ISerializer& ar, TerrainVegetationComponent& c)
     {
         foundation::core::Serialize(ar, "layers", c.layers);
+        foundation::core::Serialize(ar, "mask", c.mask);
         foundation::core::Serialize(ar, "visible", c.visible);
     }
 
@@ -131,6 +136,7 @@ export namespace engine::vegetation
             layer.mesh.Bind(manager);
             layer.material.Bind(manager);
         }
+        c.mask.Bind(manager);
     }
 
     class TerrainVegetationComponentManager final
@@ -154,8 +160,14 @@ export namespace engine::vegetation
 
         /// A sculpt or paint over `region` (sample-grid coordinates of the heightfield the layers
         /// grow on) - only the chunks it touches regrow on the next extraction. Without a notice,
-        /// a heightfield or splat version bump regrows every chunk (the conservative fallback).
+        /// a heightfield, splat or mask version bump regrows every chunk (the conservative
+        /// fallback). A mask or splat brush maps its texel rect through InvalidateFootprint.
         void InvalidateRegion(const heightfield::HeightfieldRegion& region);
+
+        /// The same notice from a 0..1 FOOTPRINT rect (a mask or splat texel rect over the
+        /// terrain footprint, `u0..u1 x v0..v1`), mapped to the heightfield's sample grid of
+        /// `gridSize` samples per side.
+        void InvalidateFootprint(f32 u0, f32 v0, f32 u1, f32 v1, i32 gridSize);
 
         /// render::IRenderDataProvider: one MultiMeshRenderData per (layer, chunk) in range of
         /// the snapshot's view origin (every chunk when the snapshot has none - headless).
@@ -189,6 +201,8 @@ export namespace engine::vegetation
             u64 heightfieldVersion = 0;
             u64 splatUid = 0;
             u64 splatVersion = 0;
+            u64 maskUid = 0;
+            u64 maskVersion = 0;
             u64 layerHash = 0;
             u64 meshUid = 0;
             Float4x4 entityWorld = Float4x4::Identity();
@@ -206,13 +220,14 @@ export namespace engine::vegetation
                         u32 layerIndex);
         void DirtyAll(LayerCache& cache);
         void BuildSet(LayerCache& cache, u32 chunkIndex, const heightfield::Heightfield& hf,
-                      const tmodel::SplatWeights* splat, const veg::VegetationLayer& layer,
-                      const AABB& meshBounds);
+                      const tmodel::SplatWeights* splat, const veg::VegetationMask* mask,
+                      const veg::VegetationLayer& layer, const AABB& meshBounds);
         void Compose(LayerCache& cache, ChunkSet& set);
         void ExtractLayer(render::ExtractedScene& snapshot, scene::EntityHandle owner,
                           const Guid& ownerId, u32 layerIndex, const VegetationLayer& authored,
                           const heightfield::Heightfield& hf, const tmodel::SplatWeights* splat,
-                          const Float4x4& entityWorld, u32& budget);
+                          const veg::VegetationMask* mask, const Float4x4& entityWorld,
+                          u32& budget);
 
         scene::Scene* m_scene = nullptr;
         u32 m_buildBudget = kDefaultBuildBudget;

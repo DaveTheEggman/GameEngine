@@ -40,6 +40,7 @@ import foundation.physics;
 import foundation.physics.resource;
 import foundation.heightfield; // Ref<Heightfield> picker (heightfield collider)
 import foundation.terrain.resource; // Ref<TerrainResource> picker (TerrainComponent)
+import foundation.vegetation.resource; // Ref<VegetationMask> picker (TerrainVegetationComponent)
 import engine.physics;
 import foundation.navigation.resource;
 import engine.navigation;
@@ -1317,6 +1318,13 @@ namespace editor
         {
             BuildResourceRefRow<foundation::terrain::TerrainResource>(id, type, prop, category,
                                                                     {u8"TerrainAsset"}, path);
+            return;
+        }
+        if (prop.type ==
+            &TypeOf<foundation::resource::Ref<foundation::vegetation::VegetationMask>>())
+        {
+            BuildResourceRefRow<foundation::vegetation::VegetationMask>(
+                id, type, prop, category, {u8"VegetationMaskAsset"}, path);
             return;
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::audio::AudioClip>>())

@@ -22,7 +22,8 @@ export module foundation.vegetation:scatter;
 import foundation.core;
 import foundation.heightfield;      // Heightfield + HeightfieldRegion
 import foundation.terrain;          // TerrainChunk, kChunkQuads, ChunksPerSide
-import foundation.terrain.resource; // SplatWeights
+import foundation.terrain.resource;    // SplatWeights
+import foundation.vegetation.resource; // VegetationMask
 import :layer;
 
 using namespace foundation::core;
@@ -88,19 +89,23 @@ export namespace foundation::vegetation
         return prefix > count ? count : prefix;
     }
 
-    // The placement source's share (0..1) at a terrain-local XZ point: 1 for Uniform (and Mask
-    // until P1), the splat layer's painted weight for Splat (0 with no splat), 0 for Scattered.
+    // The placement source's share (0..1) at a terrain-local XZ point: 1 for Uniform, the splat
+    // layer's painted weight for Splat (0 with no splat), the mask plane's density for Mask (0
+    // with no mask), their product for SplatTimesMask, 0 for Scattered. Both rasters span the
+    // terrain footprint like the shader's splat uv (local / worldSize + 0.5).
     [[nodiscard]] f32 PlacementShareAt(const VegetationLayer& layer,
                                        const heightfield::Heightfield& heightfield,
-                                       const terrain::SplatWeights* splat, f32 localX,
+                                       const terrain::SplatWeights* splat,
+                                       const VegetationMask* mask, f32 localX,
                                        f32 localZ) noexcept;
 
     // Scatter one chunk. `meshLocalBounds` is the instanced mesh's own AABB (its extent grows the
     // chunk's bounds by the maximum scale); Empty() leaves the terrain bounds as they are.
     void ScatterChunk(u64 seed, const terrain::TerrainChunk& chunk,
                       const heightfield::Heightfield& heightfield,
-                      const terrain::SplatWeights* splat, const VegetationLayer& layer,
-                      const AABB& meshLocalBounds, ScatterResult& out);
+                      const terrain::SplatWeights* splat, const VegetationMask* mask,
+                      const VegetationLayer& layer, const AABB& meshLocalBounds,
+                      ScatterResult& out);
 
     // The chunk indices (row-major, chunkZ * chunksPerSide + chunkX) whose grass a sculpt or
     // paint over `region` (sample-grid coordinates) can change. Chunks share edge samples, so a

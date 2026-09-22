@@ -81,6 +81,7 @@ import editor.texture;
 import editor.image;
 import editor.heightfield;
 import editor.terrain;
+import editor.vegetation; // the Paint Vegetation brush + its panel
 import editor.spline;
 import editor.fonts;
 import editor.physics;
@@ -464,6 +465,8 @@ int main(int argc, char** argv)
         editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt + splat brushes
         editor::RegisterSplineViewportTools(); // the scene-viewport spline control-point editor
         editor::RegisterTerrainToolPanels();    // their bottom-dock brush settings panels
+        editor::RegisterVegetationViewportTools(); // the scene-viewport vegetation mask brush
+        editor::RegisterVegetationToolPanels();    // its brush settings panel
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every

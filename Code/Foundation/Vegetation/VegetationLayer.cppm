@@ -20,10 +20,12 @@ export namespace foundation::vegetation
     // The placement source: what decides whether a candidate point grows.
     enum class VegetationPlacement : u8
     {
-        Uniform,   // everywhere on the terrain (slope + height rules still apply)
-        Splat,     // where the terrain's painted splat layer `splatLayer` clears `splatThreshold`
-        Mask,      // a painted vegetation mask plane (P1; grows like Uniform until the mask lands)
-        Scattered, // authored instances (P2); no procedural scatter
+        Uniform,        // everywhere on the terrain (slope + height rules still apply)
+        Splat,          // where the terrain's painted splat layer `splatLayer` clears `splatThreshold`
+        Mask,           // where the painted vegetation mask plane `maskPlane` has density
+        Scattered,      // authored instances (P2); no procedural scatter
+        SplatTimesMask, // the splat share times the mask density (a painted mask carves a road
+                        // through splat-driven grass: erase the mask along it)
     };
 
     // The base (unpainted) terrain layer as a `splatLayer` value: grows where NO palette layer is
@@ -35,7 +37,7 @@ export namespace foundation::vegetation
         VegetationPlacement placement = VegetationPlacement::Splat;
         u32 splatLayer = 0;          // Splat: palette index, or kSplatBaseLayer
         f32 splatThreshold = 0.25f;  // Splat: share (0..1) below which nothing grows
-        u32 maskPlane = 0;           // Mask: plane index in the mask asset (P1)
+        u32 maskPlane = 0;           // Mask / SplatTimesMask: plane index in the component's mask
         f32 density = 2.0f;          // instances per square metre (Uniform / Splat / Mask)
         Float2 scaleRange{0.8f, 1.2f};
         f32 maxSlopeDegrees = 35.0f; // reject where the surface tilts more than this

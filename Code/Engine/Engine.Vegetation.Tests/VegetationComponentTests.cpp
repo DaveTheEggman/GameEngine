@@ -16,6 +16,7 @@ import foundation.geometry;
 import foundation.heightfield;
 import foundation.terrain;
 import foundation.terrain.resource;
+import foundation.vegetation.resource;
 import foundation.vegetation;
 import foundation.render;
 import engine.terrain;
@@ -165,6 +166,7 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     REQUIRE(layers->type->container != nullptr); // the list editor's contract
     CHECK(layers->type->container->elementType == &TypeOf<VegetationLayer>());
     CHECK(FindProperty(type, "visible") != nullptr);
+    CHECK(FindProperty(type, "mask") != nullptr);
     const Variant* display = FindAttribute(type, "displayName");
     REQUIRE(display != nullptr);
     CHECK(*display->TryGet<String>() == String(u8"Terrain Vegetation"));
@@ -184,6 +186,7 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
 
     TerrainVegetationComponent authored;
     authored.visible = false;
+    authored.mask.SetId(Guid{0x77u, 0x88u});
     VegetationLayer grass;
     grass.name = String(u8"Grass");
     grass.placement = veg::VegetationPlacement::Uniform;
@@ -218,6 +221,7 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
         Serialize(reader, loaded);
     }
     CHECK(!loaded.visible);
+    CHECK(loaded.mask.id == Guid{0x77u, 0x88u});
     REQUIRE(loaded.layers.Size() == 2u);
     const VegetationLayer& g = loaded.layers[0];
     CHECK(g.name == String(u8"Grass"));
@@ -547,4 +551,58 @@ TEST_CASE("engine.vegetation: no component, a hidden component, one off any terr
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
     CHECK(f.mgr->BuiltSetCount() == 0u);
+}
+
+TEST_CASE("engine.vegetation: a Mask layer follows the component's painted plane; a mask edit regrows the touched chunks")
+{
+    Fixture f(/*withSplat*/ false);
+    f.mgr->SetBuildBudget(100);
+    // Plane 0 painted on the z < 0 half of the footprint.
+    auto mask = MakeRef<veg::VegetationMask>(DefaultAllocator(), 64, 64, 1);
+    for (i32 y = 0; y < 32; ++y)
+    {
+        for (i32 x = 0; x < 64; ++x)
+        {
+            mask->SetDensity(0, x, y, 255);
+        }
+    }
+    f.Component().mask = mask.Get();
+    f.Layer().placement = veg::VegetationPlacement::Mask;
+    f.Layer().maskPlane = 0;
+
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == 2u); // the two z < 0 chunks
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        CHECK(s->worldCenter.z < 0.0f);
+        CHECK(s->instanceCount == 1024u);
+    }
+    CHECK(f.mgr->BuildCount() == 4u);
+
+    // A brush stroke over one chunk's footprint quarter, with the footprint notice: only that
+    // chunk regrows (its instance count follows the new paint).
+    for (i32 y = 32; y < 64; ++y)
+    {
+        for (i32 x = 32; x < 64; ++x)
+        {
+            mask->SetDensity(0, x, y, 255); // paint the (+x, +z) quadrant
+        }
+    }
+    mask->BumpVersion();
+    // The notice stays inside the chunk: a rect touching the shared boundary sample (u = 0.5)
+    // would rightly regrow both neighbours.
+    f.mgr->InvalidateFootprint(0.6f, 0.6f, 0.9f, 0.9f, kGrid);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(f.mgr->BuildCount() == 5u);
+    REQUIRE(sets.Size() == 3u);
+
+    // A bump with no notice regrows everything; dropping the mask empties the Mask layer.
+    mask->BumpVersion();
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(f.mgr->BuildCount() == 9u);
+    CHECK(sets.Size() == 3u);
+    f.Component().mask = nullptr;
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(sets.IsEmpty());
 }

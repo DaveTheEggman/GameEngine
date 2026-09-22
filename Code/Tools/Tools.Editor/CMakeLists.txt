@@ -32,7 +32,7 @@ target_link_libraries(Tools.Editor PRIVATE
     # Script backends + cooks (angelscript | luau) come transitively from Pipeline::Registration
     # above; only the EDITOR-side lexer/UI libs (${SCRIPTLIB_*_EDITOR}, not in the composition root)
     # are named here, symmetric across both backends.
-    Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR} Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Heightfield Editor::Terrain Editor::Spline Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
+    Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_EDITOR} ${SCRIPTLIB_LUAU_EDITOR} Engine::Script Editor::Script Foundation::UI.Resource Pipeline::UI Editor::GameUI Editor::Audio Editor::Texture Editor::Image Editor::Heightfield Editor::Terrain Editor::Vegetation Editor::Spline Editor::Fonts Editor::Physics Editor::Generic Pipeline::ModelImporter Foundation::Image.Resource
     Foundation::Animation.Resource)
 # Stage the editor's runtime deps beside it + emit Tools.Editor.runtime-libs (the editor packaging
 # script reads that list for its sidecars). SDL3 rides in as EXTRA (a no-op when unset, e.g. Linux).

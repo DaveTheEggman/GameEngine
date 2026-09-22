@@ -165,101 +165,13 @@ namespace editor
             return out;
         }
 
-        RefPtr<ui::View> MakeRow(StringView title, f32 fontSize)
-        {
-            auto lbl = MakeRef<ui::Label>(editor::EditorRootAllocator(), title);
-            lbl->FontSize.SetValue(Optional<f32>{fontSize});
-            return lbl;
-        }
-
-        RefPtr<ui::FlexLayout> MakePanelRoot()
-        {
-            auto root = MakeRef<ui::FlexLayout>(editor::EditorRootAllocator());
-            root->Direction = ui::Orientation::Vertical;
-            root->Spacing = 4.0f;
-            return root;
-        }
-
-        // A segmented row of exclusive toggle buttons - exactly one lit. contentFor(i) supplies each
-        // button's content (icon or label); onSelect(i) applies the choice to the tool; current()
-        // returns the selected index for the lit state. Re-lights via SetSilent + Invalidate (no
-        // OnCheckedChanged recursion). The buttons capture `this` (this row owns them, so it outlives
-        // their closures); the move-only callbacks live as members (never copied into the closures).
-        class SegmentedToggle final : public ui::FlexLayout
-        {
-        public:
-            SegmentedToggle()
-            {
-                Direction = ui::Orientation::Horizontal;
-                Spacing = 3.0f;
-            }
-
-            void Build(i32 count, Function<RefPtr<ui::View>(i32)> contentFor,
-                       Function<void(i32)> onSelect, Function<i32()> current,
-                       Function<StringView(i32)> tooltipFor = {})
-            {
-                m_onSelect = Move(onSelect);
-                m_current = Move(current);
-                for (i32 i = 0; i < count; ++i)
-                {
-                    auto btn = MakeRef<ui::ToggleButton>(MemoryAllocator());
-                    btn->SetContent(contentFor(i));
-                    if (tooltipFor)
-                    {
-                        btn->TooltipText = String(tooltipFor(i));
-                    }
-                    SegmentedToggle* self = this;
-                    btn->OnCheckedChanged.Add(
-                        [self, i](ui::ToggleButton*, bool) { self->Choose(i); });
-                    AddView(btn.Get());
-                }
-                Refresh();
-            }
-
-            void Choose(i32 i)
-            {
-                if (m_onSelect)
-                {
-                    m_onSelect(i);
-                }
-                Refresh();
-            }
-            void Refresh()
-            {
-                const i32 sel = m_current ? m_current() : -1;
-                for (usize k = 0; k < ChildCount(); ++k)
-                {
-                    if (auto* tb = Cast<ui::ToggleButton>(GetChildAt(k)))
-                    {
-                        tb->IsChecked.SetSilent(static_cast<i32>(k) == sel);
-                        tb->Invalidate();
-                    }
-                }
-            }
-
-        private:
-            Function<void(i32)> m_onSelect;
-            Function<i32()> m_current;
-        };
-
-        RefPtr<ui::toolkit::FloatEditor> AddFloat(ui::toolkit::PropertyGrid& grid, StringView label,
-                                                  f64 value, f64 lo, f64 hi, f64 step, i32 decimals,
-                                                  Function<void(f64)> onChange)
-        {
-            auto fe = MakeRef<ui::toolkit::FloatEditor>(editor::EditorRootAllocator(), label, value, lo, hi, step,
-                                                        decimals, Move(onChange));
-            grid.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
-            return fe;
-        }
-
-        // The property grid fills the panel body so it resizes with the FloatingPanel.
-        void AddGrid(ui::FlexLayout& root, RefPtr<ui::toolkit::PropertyGrid> grid)
-        {
-            ui::LayoutStyle glp;
-            glp.Width = ui::SizeSpec::Match();
-            glp.FlexGrow = 1.0f;
-            root.AddView(grid.Get(), glp);
-        }
+        // The panel widget kit lives in editor.app:tool_panel_widgets (shared with the
+        // vegetation brush); the terrain-only pieces above (swatches, the layer set) stay here.
+        using app::SegmentedToggle;
+        using app::MakeToolPanelRoot;
+        using app::MakeToolPanelRow;
+        using app::AddToolPanelFloat;
+        using app::AddToolPanelGrid;
 
         // ---- Sculpt panel: mode icon toggles + radius + strength ---------------------------------
         class SculptPanelProvider final : public IViewportToolPanelProvider
@@ -279,8 +191,8 @@ namespace editor
                 ui::SVGDrawable* modeIcons[4] = {icons.brushRaise.Get(), icons.brushLower.Get(),
                                                  icons.brushSmooth.Get(), icons.brushFlatten.Get()};
 
-                auto root = MakePanelRoot();
-                root->AddView(MakeRow(u8"Sculpt mode", 12.0f).Get());
+                auto root = MakeToolPanelRoot();
+                root->AddView(MakeToolPanelRow(u8"Sculpt mode", 12.0f).Get());
 
                 auto modes = MakeRef<SegmentedToggle>(editor::EditorRootAllocator());
                 modes->Build(
@@ -300,15 +212,15 @@ namespace editor
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =
-                    AddFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
+                    AddToolPanelFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
-                AddFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 50.0, 0.5, 1,
+                AddToolPanelFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 50.0, 0.5, 1,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
                 // The wheel resizes the brush; mirror it into the field. SetValue is edit-guarded, so
                 // this won't re-fire the setter. The RefPtr keeps the field alive for the callback.
                 t->OnRadiusChanged = [radiusFe](f32 r) { radiusFe->SetValue(static_cast<f64>(r)); };
 
-                AddGrid(*root, grid);
+                AddToolPanelGrid(*root, grid);
                 return root;
             }
         };
@@ -345,16 +257,16 @@ namespace editor
                     layerNames.PushBack(SwatchAssetName(ectx, ls.ids[li]));
                 }
 
-                auto root = MakePanelRoot();
+                auto root = MakeToolPanelRoot();
                 if (thumbs != nullptr && ls.count > 0)
                 {
-                    root->AddView(MakeRow(u8"Base (erase to reveal)", 11.0f).Get());
+                    root->AddView(MakeToolPanelRow(u8"Base (erase to reveal)", 11.0f).Get());
                     auto baseSwatch = MakeRef<LayerSwatch>(editor::EditorRootAllocator(), thumbs, ls.baseId,
                                                            fallbackIcon, 24.0f);
                     baseSwatch->TooltipText = SwatchAssetName(ectx, ls.baseId);
                     root->AddView(baseSwatch.Get());
                 }
-                root->AddView(MakeRow(u8"Paint layer", 12.0f).Get());
+                root->AddView(MakeToolPanelRow(u8"Paint layer", 12.0f).Get());
 
                 // Slots 0..N-1 = palette layers; slot N = the eraser; slot N+1 = smooth (blur).
                 // The palette is UNBOUNDED: the resolved terrain's real count always wins
@@ -422,13 +334,13 @@ namespace editor
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusFe =
-                    AddFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
+                    AddToolPanelFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
-                AddFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0, 0.05, 2,
+                AddToolPanelFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0, 0.05, 2,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
                 // Spacing = stamp density along the stroke (fraction of the radius): low + low
                 // strength = smooth soft blending; high = discrete dabs.
-                AddFloat(*grid, u8"Spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0, 0.05, 2,
+                AddToolPanelFloat(*grid, u8"Spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0, 0.05, 2,
                          [t](f64 v) { t->SetSpacing(static_cast<f32>(v)); });
                 // Airbrush = time-cadence stamps while HOLDING (build-up by hovering).
                 {
@@ -439,7 +351,7 @@ namespace editor
                 }
                 t->OnRadiusChanged = [radiusFe](f32 r) { radiusFe->SetValue(static_cast<f64>(r)); };
 
-                AddGrid(*root, grid);
+                AddToolPanelGrid(*root, grid);
                 return root;
             }
         };

@@ -12,6 +12,7 @@ import foundation.core;
 import foundation.heightfield;
 import foundation.terrain;
 import foundation.terrain.resource;
+import foundation.vegetation.resource;
 
 using namespace foundation::core;
 
@@ -41,6 +42,17 @@ namespace foundation::vegetation
             return static_cast<f32>(w) / 255.0f;
         }
 
+        // The mask plane's density (0..1) under a terrain-local XZ point (nearest texel; the
+        // same footprint mapping as the splat).
+        f32 MaskShare(const VegetationMask& mask, const heightfield::Heightfield& heightfield,
+                      u32 plane, f32 localX, f32 localZ) noexcept
+        {
+            const Float2 size = heightfield.WorldSize();
+            const f32 u = localX / Max(size.x, 1e-6f) + 0.5f;
+            const f32 v = localZ / Max(size.y, 1e-6f) + 0.5f;
+            return mask.ShareAt(plane, u, v);
+        }
+
         // A right-handed frame whose Y axis is `up` (row-vector convention: rows = axes).
         Float4x4 FrameFromUp(Float3 up, f32 yaw) noexcept
         {
@@ -66,16 +78,24 @@ namespace foundation::vegetation
     }
 
     f32 PlacementShareAt(const VegetationLayer& layer, const heightfield::Heightfield& heightfield,
-                         const terrain::SplatWeights* splat, f32 localX, f32 localZ) noexcept
+                         const terrain::SplatWeights* splat, const VegetationMask* mask,
+                         f32 localX, f32 localZ) noexcept
     {
         switch (layer.placement)
         {
         case VegetationPlacement::Uniform:
-        case VegetationPlacement::Mask: // P1: the mask plane multiplies in here
             return 1.0f;
         case VegetationPlacement::Splat:
             return splat != nullptr ? SplatShare(*splat, heightfield, layer.splatLayer, localX, localZ)
                                     : 0.0f;
+        case VegetationPlacement::Mask:
+            return mask != nullptr ? MaskShare(*mask, heightfield, layer.maskPlane, localX, localZ)
+                                   : 0.0f;
+        case VegetationPlacement::SplatTimesMask:
+            return (splat != nullptr && mask != nullptr)
+                       ? SplatShare(*splat, heightfield, layer.splatLayer, localX, localZ) *
+                             MaskShare(*mask, heightfield, layer.maskPlane, localX, localZ)
+                       : 0.0f;
         case VegetationPlacement::Scattered:
         default:
             return 0.0f;
@@ -84,8 +104,9 @@ namespace foundation::vegetation
 
     void ScatterChunk(u64 seed, const terrain::TerrainChunk& chunk,
                       const heightfield::Heightfield& heightfield,
-                      const terrain::SplatWeights* splat, const VegetationLayer& layer,
-                      const AABB& meshLocalBounds, ScatterResult& out)
+                      const terrain::SplatWeights* splat, const VegetationMask* mask,
+                      const VegetationLayer& layer, const AABB& meshLocalBounds,
+                      ScatterResult& out)
     {
         out.transforms.Clear();
         out.localBounds = chunk.bounds;
@@ -146,8 +167,10 @@ namespace foundation::vegetation
             const f32 yaw = rng.NextFloat() * kTwoPi;
             const f32 scale = scaleMin + rng.NextFloat() * (scaleMax - scaleMin);
 
-            const f32 share = PlacementShareAt(layer, heightfield, splat, x, z);
-            if (share <= 0.0f || share < layer.splatThreshold || keep >= share)
+            const f32 share = PlacementShareAt(layer, heightfield, splat, mask, x, z);
+            const bool thresholded = layer.placement == VegetationPlacement::Splat ||
+                                     layer.placement == VegetationPlacement::SplatTimesMask;
+            if (share <= 0.0f || (thresholded && share < layer.splatThreshold) || keep >= share)
             {
                 continue;
             }

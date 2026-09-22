@@ -12,7 +12,7 @@ target_link_libraries(Editor.Scene
         Foundation::PropertyAnimation.Resource
         Pipeline::ModelImporter Foundation::Texture.Resource
         Foundation::Particles Foundation::Particles.Resource Pipeline::Particles Engine::Particles
-        Foundation::Physics Foundation::Physics.Resource Engine::Physics Foundation::Heightfield Foundation::Terrain.Resource
+        Foundation::Physics Foundation::Physics.Resource Engine::Physics Foundation::Heightfield Foundation::Terrain.Resource Foundation::Vegetation.Resource
         Engine::Navigation Foundation::Navigation.Resource Editor::Navigation
         Engine::Spline Foundation::Spline
         Foundation::UI.Resource Engine::UI Foundation::Audio Foundation::Audio.Resource Engine::Audio

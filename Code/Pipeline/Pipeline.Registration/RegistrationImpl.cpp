@@ -30,6 +30,8 @@ import heightfield.pipeline;
 import foundation.heightfield.resource;
 import terrain.pipeline;
 import foundation.terrain.resource;
+import vegetation.pipeline;
+import foundation.vegetation.resource;
 import foundation.image.resource;
 import geometry.pipeline;
 import animation.pipeline;
@@ -105,6 +107,8 @@ namespace pipeline
         foundation::terrain::RegisterTerrainResourceTypes(); // Terrain product + source
         RegisterSplatmapAsset();
         foundation::terrain::RegisterSplatmapResourceTypes(); // Splatmap product + source
+        RegisterVegetationMaskAsset();
+        foundation::vegetation::RegisterVegetationMaskResourceTypes(); // Vegetation mask product + source
         RegisterMeshAssets();
         RegisterAnimationAssets();
         RegisterPropertyAnimationAssets();
@@ -156,6 +160,7 @@ namespace pipeline
         AddBuilder<HeightfieldAssetBuilder>(registry);
         AddBuilder<TerrainAssetBuilder>(registry);
         AddBuilder<SplatmapAssetBuilder>(registry);
+        AddBuilder<VegetationMaskAssetBuilder>(registry);
         AddBuilder<StaticMeshAssetBuilder>(registry);
         AddBuilder<SkinnedMeshAssetBuilder>(registry);
         AddBuilder<SkeletonAssetBuilder>(registry);
@@ -189,5 +194,6 @@ namespace pipeline
         AddImporter<ImageFileImporter>(registry);
         AddImporter<HeightfieldFileImporter>(registry);
         AddImporter<SplatmapFileImporter>(registry);
+        AddImporter<VegetationMaskFileImporter>(registry);
     }
 }

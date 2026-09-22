@@ -20,6 +20,7 @@ import foundation.materials;
 import foundation.heightfield;
 import foundation.terrain;
 import foundation.terrain.resource;
+import foundation.vegetation.resource;
 import foundation.vegetation;
 import foundation.render;
 import engine.render;  // PackEntity, CategoryForMaterial (the instanced-mesh emitter's helpers)
@@ -73,6 +74,7 @@ namespace engine::vegetation
         builder.Value("Splat", VegetationPlacement::Splat);
         builder.Value("Mask", VegetationPlacement::Mask);
         builder.Value("Scattered", VegetationPlacement::Scattered);
+        builder.Value("SplatTimesMask", VegetationPlacement::SplatTimesMask);
     }
 
     REFLECT_VALUE(VegetationLayer, "rtti::engine::vegetation")
@@ -101,6 +103,9 @@ namespace engine::vegetation
                                   u8"nothing grows."))
             .Property<&VegetationLayer::maskPlane>("maskPlane")
             .PropAttribute("displayName", String(u8"Mask Plane"))
+            .PropAttribute("description",
+                           String(u8"Mask placement: the plane of the component's mask this "
+                                  u8"layer follows (the Paint Vegetation brush paints it)."))
             .Property<&VegetationLayer::density>("density")
             .PropAttribute("description", String(u8"Instances per square metre."))
             .Property<&VegetationLayer::scaleRange>("scaleRange")
@@ -142,6 +147,11 @@ namespace engine::vegetation
             .PropAttribute("description",
                            String(u8"The layers over this terrain: grass from a splat layer, "
                                   u8"rocks from another. Each slot edits below the list."))
+            .Property<&TerrainVegetationComponent::mask>("mask")
+            .PropAttribute("description",
+                           String(u8"The painted vegetation mask (one density plane per layer "
+                                  u8"that uses Mask placement); paint it with the Paint "
+                                  u8"Vegetation brush."))
             .Property<&TerrainVegetationComponent::visible>("visible");
     }
 
@@ -172,6 +182,22 @@ namespace engine::vegetation
         {
             m_pendingRegions.PushBack(region);
         }
+    }
+
+    void TerrainVegetationComponentManager::InvalidateFootprint(f32 u0, f32 v0, f32 u1, f32 v1,
+                                                                i32 gridSize)
+    {
+        if (gridSize <= 1 || u1 < u0 || v1 < v0)
+        {
+            return;
+        }
+        const f32 span = static_cast<f32>(gridSize - 1);
+        heightfield::HeightfieldRegion region;
+        region.minX = Clamp(static_cast<i32>(Floor(Clamp(u0, 0.0f, 1.0f) * span)), 0, gridSize - 1);
+        region.maxX = Clamp(static_cast<i32>(Ceil(Clamp(u1, 0.0f, 1.0f) * span)), 0, gridSize - 1);
+        region.minZ = Clamp(static_cast<i32>(Floor(Clamp(v0, 0.0f, 1.0f) * span)), 0, gridSize - 1);
+        region.maxZ = Clamp(static_cast<i32>(Ceil(Clamp(v1, 0.0f, 1.0f) * span)), 0, gridSize - 1);
+        InvalidateRegion(region);
     }
 
     usize TerrainVegetationComponentManager::BuiltSetCount() const noexcept
@@ -230,6 +256,8 @@ namespace engine::vegetation
         cache.heightfieldVersion = hf.Version();
         cache.splatUid = 0;
         cache.splatVersion = 0;
+        cache.maskUid = 0;
+        cache.maskVersion = 0;
         cache.composed = false;
         cache.chunks.Clear();
         tmodel::BuildChunks(hf, cache.chunks);
@@ -276,12 +304,14 @@ namespace engine::vegetation
     void TerrainVegetationComponentManager::BuildSet(LayerCache& cache, u32 chunkIndex,
                                                      const heightfield::Heightfield& hf,
                                                      const tmodel::SplatWeights* splat,
+                                                     const veg::VegetationMask* mask,
                                                      const veg::VegetationLayer& layer,
                                                      const AABB& meshBounds)
     {
         ChunkSet& set = cache.sets[chunkIndex];
         veg::ScatterResult result;
-        veg::ScatterChunk(set.key, cache.chunks[chunkIndex], hf, splat, layer, meshBounds, result);
+        veg::ScatterChunk(set.key, cache.chunks[chunkIndex], hf, splat, mask, layer, meshBounds,
+                          result);
         if (result.densityClamped && !cache.warnedClamp)
         {
             cache.warnedClamp = true;
@@ -304,7 +334,8 @@ namespace engine::vegetation
     void TerrainVegetationComponentManager::ExtractLayer(
         render::ExtractedScene& snapshot, scene::EntityHandle owner, const Guid& ownerId,
         u32 layerIndex, const VegetationLayer& authored, const heightfield::Heightfield& hf,
-        const tmodel::SplatWeights* splat, const Float4x4& entityWorld, u32& budget)
+        const tmodel::SplatWeights* splat, const veg::VegetationMask* mask,
+        const Float4x4& entityWorld, u32& budget)
     {
         LayerCache& cache = CacheFor(owner, layerIndex);
         cache.seenThisFrame = true; // a hidden layer keeps its sets (unhide = no regrow)
@@ -335,8 +366,11 @@ namespace engine::vegetation
         // which (InvalidateRegion), else every chunk.
         const u64 splatUid = splat != nullptr ? splat->uid : 0;
         const u64 splatVersion = splat != nullptr ? splat->Version() : 0;
+        const u64 maskUid = mask != nullptr ? mask->uid : 0;
+        const u64 maskVersion = mask != nullptr ? mask->Version() : 0;
         if (cache.heightfieldVersion != hf.Version() || cache.splatUid != splatUid ||
-            cache.splatVersion != splatVersion)
+            cache.splatVersion != splatVersion || cache.maskUid != maskUid ||
+            cache.maskVersion != maskVersion)
         {
             if (m_pendingRegions.IsEmpty())
             {
@@ -360,6 +394,8 @@ namespace engine::vegetation
             cache.heightfieldVersion = hf.Version();
             cache.splatUid = splatUid;
             cache.splatVersion = splatVersion;
+            cache.maskUid = maskUid;
+            cache.maskVersion = maskVersion;
         }
         // The terrain entity's world matrix places the terrain-local instances; a move
         // recomposes the built sets (no rescatter).
@@ -407,7 +443,7 @@ namespace engine::vegetation
                 {
                     continue; // next frame (the build budget spreads a cold start)
                 }
-                BuildSet(cache, i, hf, splat, layer, mesh->bounds);
+                BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds);
                 --budget;
             }
             if (set.world.IsEmpty())
@@ -476,11 +512,12 @@ namespace engine::vegetation
                     return;
                 }
                 const tmodel::SplatWeights* splat = res->weights.Get();
+                const veg::VegetationMask* mask = c.mask.Get();
                 const Guid ownerId = m_scene->GetEntityId(owner);
                 const Float4x4 entityWorld = m_scene->GetWorldMatrix(terrainEntity);
                 for (u32 li = 0; li < c.layers.Size(); ++li)
                 {
-                    ExtractLayer(snapshot, owner, ownerId, li, c.layers[li], *hf, splat,
+                    ExtractLayer(snapshot, owner, ownerId, li, c.layers[li], *hf, splat, mask,
                                  entityWorld, budget);
                 }
             });

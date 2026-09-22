@@ -79,7 +79,8 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     // 23 = +Heightfield/Terrain/Splatmap factories (creating a Terrain in the
     // editor warned "host is missing an AddFactory for TerrainResource" - the factories existed +
     // were pipeline-tested, but no host registered them; the SAME incident class as the font one).
-    constexpr usize kStandardHeadlessFactoryCount = 23;
+    // 24 = +VegetationMaskFactory (the painted vegetation mask planes, vegetation P1).
+    constexpr usize kStandardHeadlessFactoryCount = 24;
     CHECK(resources.FactoryCount() == kStandardHeadlessFactoryCount);
 
     // The incident pin: the cooked default-UI font product MUST be constructible in every

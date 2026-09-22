@@ -1,7 +1,9 @@
 # Terrain vegetation (grass, then scattered props)
 
-> STATUS: P0 BUILT 2026-09-21 (splat-driven grass, four lanes green; see the P0 note under
-> Decision 1 and the Phases section). P1 (mask + wind) and P2 (prop scatter) not scheduled.
+> STATUS: P0 BUILT 2026-09-21 (splat-driven grass); P1 mask half BUILT 2026-09-22 (the
+> VegetationMask resource + asset + importer + builder, Mask and SplatTimesMask placement, the
+> Paint Vegetation brush with region-scoped regrow and persist); P1 wind IN PROGRESS; P2 (prop
+> scatter) not scheduled.
 > Sized L; lands in phases with a green four-lane build after each. Origin: the backlog seed "grass / vegetation /
 > foliage for terrain" (weekly_backlog.md, user 2026-08-26) and the Lumix parity doc,
 > section 2 (vegetation is the largest gap in the terrain domain). Written after a
@@ -296,7 +298,11 @@ nothing at `fadeEnd`; a headless scatter is byte-identical for a seed; a set out
 for 120 frames has no GPU buffer; grass casts no shadow by default and a rock layer does;
 four lanes green; `scatter-off` (no component) renders byte-identical to today.
 
-**P1 - painted mask + wind.**
+**P1 - painted mask + wind.** Mask half BUILT 2026-09-22 as specified, with one addition: the
+placement enum gained `SplatTimesMask` (the "splat multiplied in" combination as its own mode,
+so a plain Mask layer needs no splat and a carved road is an erase stroke); the mask reference
+sits on the component, the plane index on the layer; the brush maps its texel rect to the
+heightfield grid through `TerrainVegetationComponentManager::InvalidateFootprint`.
 VegetationMask resource + asset + importer + builder; the Paint Vegetation brush (paint,
 erase, smooth over a plane; radius, strength, spacing, airbrush; one command per stroke;
 mask write-back on Save) and its panel; mask-driven placement with the splat multiplied

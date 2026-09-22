@@ -170,6 +170,16 @@ the list ("Layers 1: Grass"), titled by the layer's **Name**. Per layer:
   turn it on for rocks and props.
 - **Visible** hides one layer; the component's own Visible hides them all.
 
+**Painting where a layer grows.** For ground cover the splat does not describe (flowers in a
+meadow, a road carved through grass), create a **Vegetation Mask** asset (Create, Terrain
+category; set its plane count to the number of layers that will paint), pick it in the
+component's **Mask** field, and give the layer **Placement** Mask with **Mask Plane** = its
+plane. Select the **Paint Vegetation** tool in the scene viewport: the panel lists the planes
+(keys 1-9), E erases (key 0), S smooths (key minus); Radius, Strength, Spacing and Airbrush work
+like the splat brush. Placement **SplatTimesMask** grows only where BOTH the splat layer and the
+mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
+regrow only the chunks under the brush; Save writes the planes back to the mask asset.
+
 Reorder layers with the list's arrows and remove one with its cross; every edit is one undo
 step. Sculpting or painting regrows only the touched chunks; the chunks build as the camera
 reaches them, a few per frame, so a cold scene fills in over the first frames rather than

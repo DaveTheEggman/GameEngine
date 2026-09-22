@@ -641,6 +641,10 @@ namespace engine::runtime
         resources.AddFactory(m_heightfieldFactory.Get());
         resources.AddFactory(m_terrainFactory.Get());
         resources.AddFactory(m_splatmapFactory.Get());
+        m_vegetationMaskFactory =
+            core::MakeUnique<foundation::vegetation::VegetationMaskFactory>(factoryAllocator,
+                                                                          factoryAllocator);
+        resources.AddFactory(m_vegetationMaskFactory.Get());
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
             if (!m_textureFactory)
