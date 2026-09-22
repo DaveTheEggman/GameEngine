@@ -171,7 +171,43 @@ TEST_CASE("engine.terrain: a version-bump rebuild RETIRES the old texture (in-fl
     retire.Tick();
     CHECK(retire.PendingCount() == 0u);
 
-    cache.Clear(device); // shutdown path stays direct (device idled)
+    cache.Clear(device); // with a queue wired, Clear retires too (see the next case)
+    retire.Flush();
+}
+
+TEST_CASE("engine.terrain: Clear RETIRES live entries when a queue is wired (scene destroy mid frame)")
+{
+    // Stopping play-in-editor destroys the run's scenes from a toolbar click, mid frame loop:
+    // the terrain's height texture is still bound by a submitted frame's descriptor set, and
+    // ClearGpu destroyed it in place - the Vulkan validation error on every PIE stop
+    // (VUID-vkDestroyImageView-imageView-01026, 2026-09-21). Clear now routes through the
+    // frame-aged queue like the version-bump rebuild; without a queue it stays direct.
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::render::GpuRetireQueue retire;
+    retire.Initialize(&device, /*framesInFlight*/ 2);
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    {
+        TerrainHeightTextureCache cache;
+        cache.SetRetireQueue(&retire);
+        REQUIRE(cache.GetOrCreate(device, *grid, grid->Version()) != nullptr);
+        CHECK(retire.PendingCount() == 0u);
+        cache.Clear(device);
+        CHECK(cache.Size() == 0u);
+        CHECK(retire.PendingCount() == 2u); // the view + the texture aged, NOT destroyed in place
+        retire.Tick();
+        retire.Tick();
+        CHECK(retire.PendingCount() == 2u);
+        retire.Tick();
+        CHECK(retire.PendingCount() == 0u); // freed once every in-flight frame cycled
+    }
+    {
+        TerrainHeightTextureCache cache; // no queue: direct destroy (tests, device idled)
+        REQUIRE(cache.GetOrCreate(device, *grid, grid->Version()) != nullptr);
+        cache.Clear(device);
+        CHECK(cache.Size() == 0u);
+        CHECK(retire.PendingCount() == 0u);
+    }
 }
 
 TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device is alive")

@@ -95,11 +95,16 @@ export namespace engine::terrain
         }
 
         /// Destroy every cached texture/view (call before the device dies).
+        /// Drop every entry. Runs at SCENE DESTROY as well as at shutdown (stopping
+        /// play-in-editor destroys the run's scenes mid frame loop), so a live entry may still
+        /// sit in a submitted frame's descriptor set: with a retire queue wired the GPU objects
+        /// age past every in-flight frame before they are freed (VUID 01026); without one
+        /// (Null-device tests) they are destroyed in place.
         void Clear(rhi::Device& device)
         {
             for (Entry& entry : m_entries)
             {
-                Destroy(device, entry);
+                RetireOrDestroy(device, entry);
             }
             m_entries.Clear();
         }
@@ -288,11 +293,16 @@ export namespace engine::terrain
             return MakeGpu(m_entries[m_entries.Size() - 1]);
         }
 
+        /// Drop every entry. Runs at SCENE DESTROY as well as at shutdown (stopping
+        /// play-in-editor destroys the run's scenes mid frame loop), so a live entry may still
+        /// sit in a submitted frame's descriptor set: with a retire queue wired the GPU objects
+        /// age past every in-flight frame before they are freed (VUID 01026); without one
+        /// (Null-device tests) they are destroyed in place.
         void Clear(rhi::Device& device)
         {
             for (Entry& entry : m_entries)
             {
-                Destroy(device, entry);
+                RetireOrDestroy(device, entry);
             }
             m_entries.Clear();
         }

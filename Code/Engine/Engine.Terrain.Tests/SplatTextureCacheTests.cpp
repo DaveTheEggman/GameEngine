@@ -73,7 +73,11 @@ TEST_CASE("splat cache: GetOrCreate caches the PAIR by uid+version; a bump retir
     CHECK(cache.Size() == 1u);          // still one entry (rebuilt in place)
     CHECK(retire.PendingCount() == 4u); // 2 textures + 2 views queued, not freed
 
-    cache.Clear(device); // teardown: free the live entry + drain the retired set (ASAN)
+    // Clear with the queue wired RETIRES the live pair too (a scene destroy mid frame is the
+    // same in-flight hazard as the rebuild); the drain frees everything (ASAN).
+    cache.Clear(device);
+    CHECK(retire.PendingCount() == 8u); // the rebuilt pair joins the retired pair
+    retire.Flush();
     retire.Flush();
 }
 
@@ -158,8 +162,11 @@ TEST_CASE("palette cache: keyed by data uid + the tile-scale hash; a scale edit 
     CHECK(p3.arrayView != p2.arrayView);
     CHECK(cache.Size() == 2u);
 
+    // Clear with the queue wired retires both live entries (3 objects each) behind the 3
+    // already aging - a scene destroy mid frame must never free a bound array texture.
     cache.Clear(device);
     CHECK(cache.Size() == 0u);
+    CHECK(retire.PendingCount() == 9u);
     retire.Flush();
 }
 
