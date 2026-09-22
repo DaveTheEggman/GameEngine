@@ -172,8 +172,22 @@ TEST_CASE("vegetation scatter: a scripted stroke places a deterministic count in
     CHECK(SameInstances(fx.Rocks(), placed));
 
     // The eraser removes the props under the brush and nothing else; a stroke that changes
-    // nothing pushes no command.
+    // nothing pushes no command. The layer stays selected in erase mode (erase is per layer)
+    // and the status names both.
     tool.SetEraser(true);
+    tool.SetLayer(1);
+    CHECK(tool.IsEraser());
+    {
+        const StringView status = tool.StatusText();
+        (void)tool.Update(RayAt(0.0f, 0.0f));
+        bool named = false;
+        for (usize i = 0; i + 13 <= tool.StatusText().Size(); ++i)
+        {
+            named |= tool.StatusText().SubStr(i, 13) == StringView(u8"ERASE layer 1");
+        }
+        CHECK(named);
+        (void)status;
+    }
     Stroke(tool, -20.0f, 10.0f, -10.0f, 10.0f, 4);
     REQUIRE(fx.Rocks().Size() < placed.Size());
     for (const Float4x4& m : fx.Rocks())

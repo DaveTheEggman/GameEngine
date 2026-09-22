@@ -334,10 +334,9 @@ namespace editor
     void VegetationScatterTool::UpdateStatus()
     {
         const i32 radius = static_cast<i32>(m_radius + 0.5f);
-        m_status = m_erase ? Format(u8"Paint Props [ERASER]  radius {}  (1-9 layer, 0 eraser, wheel size)",
-                                    radius)
-                           : Format(u8"Paint Props [layer {}]  radius {}  (1-9 layer, 0 eraser, wheel size)",
-                                    static_cast<i32>(m_layer), radius);
+        m_status = Format(u8"Paint Props [{} layer {}]  radius {}  (1-9 layer, 0 erase, wheel size)",
+                          m_erase ? StringView(u8"ERASE") : StringView(u8"paint"),
+                          static_cast<i32>(m_layer), radius);
         if (!m_erase && !m_layerHasMesh)
         {
             m_status = Format(u8"{}  - layer {} has no mesh: props place but nothing draws",

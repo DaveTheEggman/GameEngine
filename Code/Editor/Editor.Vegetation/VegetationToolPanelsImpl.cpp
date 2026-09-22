@@ -69,54 +69,50 @@ namespace editor
                 const i32 planeCount = resolved > 0 ? static_cast<i32>(resolved) : 4;
 
                 auto root = app::MakeToolPanelRoot();
+                // Two rows: the PLANE the brush works on (always lit, erase included - erase is
+                // per plane) and the MODE.
                 root->AddView(app::MakeToolPanelRow(u8"Mask plane", 12.0f).Get());
-                // Slots 0..N-1 = the planes; slot N = the eraser; slot N+1 = smooth.
                 auto planes = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
                 planes->Build(
-                    planeCount + 2,
-                    [planeCount](i32 i) -> RefPtr<ui::View>
+                    planeCount,
+                    [](i32 i) -> RefPtr<ui::View>
                     {
-                        const String text = i == planeCount       ? String(u8"E")
-                                            : i == planeCount + 1 ? String(u8"S")
-                                                                  : Format(u8"{}", i);
+                        const String text = Format(u8"{}", i);
                         auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text.AsView());
                         label->FontSize.SetValue(Optional<f32>{12.0f});
                         return RefPtr<ui::View>(label.Get());
                     },
-                    [t, planeCount](i32 i)
-                    {
-                        if (i == planeCount)
-                        {
-                            t->SetEraser(true);
-                        }
-                        else if (i == planeCount + 1)
-                        {
-                            t->SetSmooth(true);
-                        }
-                        else
-                        {
-                            t->SetPlane(static_cast<u32>(i));
-                        }
-                    },
-                    [t, planeCount]() -> i32
-                    {
-                        return t->IsEraser()   ? planeCount
-                               : t->IsSmooth() ? planeCount + 1
-                                               : static_cast<i32>(t->Plane());
-                    },
-                    [planeCount](i32 i) -> StringView
-                    {
-                        if (i == planeCount)
-                        {
-                            return u8"Eraser (nothing grows)";
-                        }
-                        if (i == planeCount + 1)
-                        {
-                            return u8"Smooth (feathers a painted edge)";
-                        }
-                        return u8"Paint this plane (a layer with Mask placement names it)";
-                    });
+                    [t](i32 i) { t->SetPlane(static_cast<u32>(i)); },
+                    [t]() -> i32 { return static_cast<i32>(t->Plane()); },
+                    [](i32) -> StringView
+                    { return u8"The plane the brush works on (a layer with Mask placement names it)"; });
                 root->AddView(planes.Get());
+                root->AddView(app::MakeToolPanelRow(u8"Mode", 12.0f).Get());
+                auto modes = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
+                modes->Build(
+                    3,
+                    [](i32 i) -> RefPtr<ui::View>
+                    {
+                        const StringView text = i == 0 ? StringView(u8"Paint")
+                                                : i == 1 ? StringView(u8"Erase")
+                                                         : StringView(u8"Smooth");
+                        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
+                        label->FontSize.SetValue(Optional<f32>{12.0f});
+                        return RefPtr<ui::View>(label.Get());
+                    },
+                    [t](i32 i)
+                    {
+                        t->SetEraser(i == 1);
+                        t->SetSmooth(i == 2);
+                    },
+                    [t]() -> i32 { return t->IsSmooth() ? 2 : t->IsEraser() ? 1 : 0; },
+                    [](i32 i) -> StringView
+                    {
+                        return i == 0   ? StringView(u8"Paint the plane (density up)")
+                               : i == 1 ? StringView(u8"Erase the plane under the brush (nothing grows)")
+                                        : StringView(u8"Smooth (feathers a painted edge)");
+                    });
+                root->AddView(modes.Get());
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusField = app::AddToolPanelFloat(
@@ -195,6 +191,8 @@ namespace editor
                 const i32 count = static_cast<i32>(layers.names.Size());
 
                 auto root = app::MakeToolPanelRoot();
+                // Two rows: the LAYER the brush works on (always lit, erase included - erase is
+                // per layer) and the MODE.
                 root->AddView(app::MakeToolPanelRow(u8"Prop layer (Scattered)", 12.0f).Get());
                 if (count == 0)
                 {
@@ -204,16 +202,16 @@ namespace editor
                 }
                 auto choices = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
                 choices->Build(
-                    count + 1,
-                    [count, names = layers.names, scattered = layers.scattered,
+                    count,
+                    [names = layers.names, scattered = layers.scattered,
                      hasMesh = layers.hasMesh](i32 i) -> RefPtr<ui::View>
                     {
-                        String text = i == count ? String(u8"E") : names[static_cast<usize>(i)];
-                        if (i < count && !scattered[static_cast<usize>(i)])
+                        String text = names[static_cast<usize>(i)];
+                        if (!scattered[static_cast<usize>(i)])
                         {
                             text = Format(u8"{} (not scattered)", text.AsView());
                         }
-                        else if (i < count && !hasMesh[static_cast<usize>(i)])
+                        else if (!hasMesh[static_cast<usize>(i)])
                         {
                             text = Format(u8"{} (no mesh)", text.AsView()); // nothing would draw
                         }
@@ -221,25 +219,29 @@ namespace editor
                         label->FontSize.SetValue(Optional<f32>{12.0f});
                         return RefPtr<ui::View>(label.Get());
                     },
-                    [t, count](i32 i)
-                    {
-                        if (i == count)
-                        {
-                            t->SetEraser(true);
-                        }
-                        else
-                        {
-                            t->SetLayer(static_cast<u32>(i));
-                        }
-                    },
-                    [t, count]() -> i32
-                    { return t->IsEraser() ? count : static_cast<i32>(t->Layer()); },
-                    [count](i32 i) -> StringView
-                    {
-                        return i == count ? StringView(u8"Eraser (removes props under the brush)")
-                                          : StringView(u8"Paint this layer's props");
-                    });
+                    [t](i32 i) { t->SetLayer(static_cast<u32>(i)); },
+                    [t]() -> i32 { return static_cast<i32>(t->Layer()); },
+                    [](i32) -> StringView { return u8"The layer the brush works on"; });
                 root->AddView(choices.Get());
+                root->AddView(app::MakeToolPanelRow(u8"Mode", 12.0f).Get());
+                auto modes = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
+                modes->Build(
+                    2,
+                    [](i32 i) -> RefPtr<ui::View>
+                    {
+                        const StringView text = i == 0 ? StringView(u8"Paint") : StringView(u8"Erase");
+                        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
+                        label->FontSize.SetValue(Optional<f32>{12.0f});
+                        return RefPtr<ui::View>(label.Get());
+                    },
+                    [t](i32 i) { t->SetEraser(i == 1); },
+                    [t]() -> i32 { return t->IsEraser() ? 1 : 0; },
+                    [](i32 i) -> StringView
+                    {
+                        return i == 0 ? StringView(u8"Place props into the layer")
+                                      : StringView(u8"Remove the layer's props under the brush");
+                    });
+                root->AddView(modes.Get());
 
                 auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
                 RefPtr<ui::toolkit::FloatEditor> radiusField = app::AddToolPanelFloat(

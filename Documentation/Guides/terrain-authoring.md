@@ -176,15 +176,18 @@ meadow, a road carved through grass), create a **Vegetation Mask** asset (Create
 Vegetation Mask, or Import a PNG as one plane per channel; set **Planes** on its page to the
 number of layers that will paint - a later change keeps the planes that still exist), pick it in the
 component's **Mask** field, and give the layer **Placement** Mask with **Mask Plane** = its
-plane. Select the **Paint Vegetation** tool in the scene viewport: the panel lists the planes
-(keys 1-9), E erases (key 0), S smooths (key minus); Radius, Strength, Spacing and Airbrush work
-like the splat brush. Placement **SplatTimesMask** grows only where BOTH the splat layer and the
+plane. Select the **Paint Vegetation** tool in the scene viewport: the panel's first row is the plane
+the brush works on (keys 1-9), its second the mode - Paint, Erase (key 0) or Smooth (key
+minus); erase is per plane, so the plane stays selected while you erase and the status bar
+names both. Radius, Strength, Spacing and Airbrush work like the splat brush. Placement **SplatTimesMask** grows only where BOTH the splat layer and the
 mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
 regrow only the chunks under the brush; Save writes the planes back to the mask asset.
 
 **Props.** Rocks, stumps and other scattered things are a layer with **Placement** Scattered:
 its instances are placed by hand rather than grown from a source. Select the **Paint Props**
-tool (it refuses with a notice until a Scattered layer exists), pick the layer in its panel (keys 1-9; 0 is the eraser), and paint: each stamp tries
+tool (it refuses with a notice until a Scattered layer exists), pick the layer in its panel's
+first row (keys 1-9) and the mode in its second (Paint, or Erase with key 0 - erase is per
+layer, so the layer stays selected while you erase and the status bar names both), and paint: each stamp tries
 **Density** props per square metre over the brush disc, keeps the layer's slope, height, scale
 and alignment rules, leaves **Spacing** (in multiples of the mesh's size) between props, and
 skips any spot inside a physics body of the scene. **Strength** scales how many a stamp places,

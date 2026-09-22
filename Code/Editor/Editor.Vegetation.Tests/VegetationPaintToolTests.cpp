@@ -173,11 +173,27 @@ TEST_CASE("vegetation paint: a stroke raises the selected plane along the drag; 
     CHECK(fx.mask->DensityAt(1, 16, 16) == 0);
     commands.Undo();
     CHECK(fx.mask->DensityAt(1, 16, 16) == 255);
-    tool.SetPlane(1); // leaves eraser mode
+    // The plane and the mode are separate choices: picking a plane while erasing keeps
+    // erasing (that plane), and the status names both.
+    tool.SetPlane(0);
+    CHECK(tool.IsEraser());
+    CHECK(tool.Plane() == 0u);
+    {
+        const StringView status = tool.StatusText();
+        bool named = false;
+        for (usize i = 0; i + 13 <= status.Size(); ++i)
+        {
+            named |= status.SubStr(i, 13) == StringView(u8"ERASE plane 0");
+        }
+        CHECK(named);
+    }
+    tool.SetEraser(false);
     CHECK(!tool.IsEraser());
     tool.SetSmooth(true);
     CHECK(tool.IsSmooth());
     CHECK(!tool.IsEraser());
+    tool.SetEraser(true); // erase and smooth exclude each other
+    CHECK(!tool.IsSmooth());
 }
 
 TEST_CASE("vegetation paint: unavailable with no mask, and refuses edits while editingLocked")

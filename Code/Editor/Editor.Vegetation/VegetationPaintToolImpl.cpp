@@ -398,13 +398,9 @@ namespace editor
     void VegetationPaintTool::UpdateStatus()
     {
         const i32 radius = static_cast<i32>(m_radius + 0.5f);
-        m_status =
-            m_smooth ? Format(u8"Paint Vegetation [SMOOTH]  radius {}  (1-9 plane, 0 eraser, - smooth, wheel size)",
-                              radius)
-            : m_erase ? Format(u8"Paint Vegetation [ERASER]  radius {}  (1-9 plane, 0 eraser, - smooth, wheel size)",
-                               radius)
-                      : Format(u8"Paint Vegetation [plane {}]  radius {}  (1-9 plane, 0 eraser, - smooth, wheel size)",
-                               static_cast<i32>(m_plane), radius);
+        const StringView mode = m_smooth ? StringView(u8"SMOOTH") : m_erase ? StringView(u8"ERASE") : StringView(u8"paint");
+        m_status = Format(u8"Paint Vegetation [{} plane {}]  radius {}  (1-9 plane, 0 erase, - smooth, wheel size)",
+                          mode, static_cast<i32>(m_plane), radius);
     }
 
     void VegetationViewportToolProvider::CreateTools(ViewportToolManager& manager,

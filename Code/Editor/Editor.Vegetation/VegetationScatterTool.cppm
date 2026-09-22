@@ -55,14 +55,20 @@ export namespace editor
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
         // ---- brush parameters ----
-        /// The layer index (into the component's layers) to paint; must be a Scattered layer.
-        void SetLayer(u32 index) noexcept
+        /// The layer index (into the component's layers) the brush works on; must be a
+        /// Scattered layer. The MODE (paint / erase) is a separate choice and stays: erase is
+        /// per layer, so "layer 2 while erasing" erases layer 2.
+        void SetLayer(u32 index)
         {
             m_layer = index;
-            m_erase = false;
+            UpdateStatus(); // the status bar names the layer + mode without waiting for a frame
         }
         [[nodiscard]] u32 Layer() const noexcept { return m_layer; }
-        void SetEraser(bool erase) noexcept { m_erase = erase; }
+        void SetEraser(bool erase)
+        {
+            m_erase = erase;
+            UpdateStatus();
+        }
         [[nodiscard]] bool IsEraser() const noexcept { return m_erase; }
         void SetRadius(f32 r)
         {

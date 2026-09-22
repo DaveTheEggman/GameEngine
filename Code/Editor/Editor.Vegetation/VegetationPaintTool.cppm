@@ -59,32 +59,35 @@ export namespace editor
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
         // ---- brush parameters (the tool panel drives these) ----
-        /// Select the mask PLANE to paint (a layer with Mask placement names its plane).
-        void SetPlane(u32 plane) noexcept
+        /// Select the mask PLANE the brush works on (a layer with Mask placement names its
+        /// plane). The MODE (paint / erase / smooth) is a separate choice and stays: erase is
+        /// per plane, so "plane 2 while erasing" erases plane 2.
+        void SetPlane(u32 plane)
         {
             m_plane = plane;
-            m_erase = false;
-            m_smooth = false;
+            UpdateStatus(); // the status bar names the plane + mode without waiting for a frame
         }
         [[nodiscard]] u32 Plane() const noexcept { return m_plane; }
         /// Eraser mode: fades the plane toward 0 (nothing grows).
-        void SetEraser(bool erase) noexcept
+        void SetEraser(bool erase)
         {
             m_erase = erase;
             if (erase)
             {
                 m_smooth = false;
             }
+            UpdateStatus();
         }
         [[nodiscard]] bool IsEraser() const noexcept { return m_erase; }
         /// Smooth mode: blurs the plane toward its neighbourhood average (feathers an edge).
-        void SetSmooth(bool smooth) noexcept
+        void SetSmooth(bool smooth)
         {
             m_smooth = smooth;
             if (smooth)
             {
                 m_erase = false;
             }
+            UpdateStatus();
         }
         [[nodiscard]] bool IsSmooth() const noexcept { return m_smooth; }
         void SetRadius(f32 r)
