@@ -31,6 +31,7 @@ implementing agent's work).
 | [terrain-vegetation.md](terrain-vegetation.md) | - | L (P0 splat-driven grass BUILT 2026-09-21; P1 mask + wind and P2 prop scatter not scheduled) |
 | [ui-theme-migration.md](ui-theme-migration.md) | #135 | L (P0 shipped; P1-P4 phased) |
 | [ui-layout-and-style-model.md](ui-layout-and-style-model.md) | - | XL (PROPOSED: uniform LayoutStyle, real cascade, box model, transitions; P0-P4) |
+| [whiteboxing.md](whiteboxing.md) | - | M (PROPOSED: parametric blockout pieces driving mesh + collider; P0-P3) |
 | [paperkid.md](paperkid.md) | - | game plan |
 | [documentation-system.md](documentation-system.md) | - | process |
 | [scene-prefab-unification.md](scene-prefab-unification.md) | - | WIP design question (needs Fable) |
