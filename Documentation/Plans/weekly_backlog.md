@@ -22,18 +22,18 @@
   stack - the UI mutation-queue rule, `MutationQueueRef().QueueAction`); (2) make the fatal
   handler's backtrace useful: start the unwind from the signal context's instruction pointer
   (`ucontext_t` `REG_RIP`) so the faulting frame is the first line, not the handler.
-- **Editor: splat-placed procedural grass stays inside a fresh hole cut** (user, editor, no
-  save). Headless the manager is right: `engine.vegetation: cutting a hole after the first
-  growth regrows the layer with nothing inside the cut` (uniform AND splat) passes - CutHoles
-  bumps the version, every set regrows through PlacementShareAt's cut-cell reject, and the
-  renderer draws the new count. So the difference is around the manager in the editor: the
-  next step is a scripted reproduction against the user's project (which scene, where the
-  terrain lives under Sources), watching `BuildCount()` and the extracted sets after a stroke.
-  The test is in the tree, uncommitted until it rides a lane run.
-- **Stamped props stay over a cut** (expected today: `ScatterStamp` rejects a NEW prop over a
-  cut cell, nothing revisits placed instances). Build: the cut evicts stamped instances whose
-  cell became a hole, `HoleStrokeCommand` keeps them for undo, Fill does not resurrect them; a
-  brush test.
+- **Props over a cut, two halves (user, project RTHoles1, 2026-09-23)**. The "grass stays"
+  report was the props layer: no vegetation had been painted. (1) Stamped props stay where a
+  hole is cut - expected today: `ScatterStamp` rejects a NEW prop over a cut cell, nothing
+  revisits placed instances. Build: the cut evicts stamped instances whose cell became a hole,
+  `HoleStrokeCommand` keeps them for undo, Fill does not resurrect them; a brush test. (2) The
+  prop brush's ERASE does not activate over the hole: its footprint pick is `QueryRay`, which
+  skips a crossing inside a cut cell (the P0 rule), so there is no surface to pick and the
+  props under the cut cannot be erased. Build: a hole-ignoring pick for the erase (and for the
+  hole tool's Fill, which today needs a click on the rim) - a `QueryRay` flag or a
+  `QueryRaySolid` that treats the cut samples as surface. The headless regrow test
+  (`engine.vegetation: cutting a hole after the first growth regrows the layer...`, uniform AND
+  splat) stays as the guard that procedural layers are right; uncommitted until a lane run.
 - **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0
   = Min Height, and the lower brush (SculptRaise with a negative strength) clamps at sample 0;
   editing Min Height moves the whole plane. Build: a base height on blank creation (a fresh
