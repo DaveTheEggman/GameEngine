@@ -167,6 +167,7 @@ namespace samples
                 MakeRef<hf::Heightfield>(AppRoot(), kGridSize,
                                          core::Float2{kWorldSize, kWorldSize}, 0.0f, kMaxHeight);
             GenerateHeightfield(*m_heightfield, m_type, m_amplitude, m_frequency);
+            ApplyHole();
 
             m_terrainResource = MakeRef<terrain::TerrainResource>(AppRoot());
             m_terrainResource->heightfield = m_heightfield; // Ref direct product (no proxy/guid)
@@ -336,6 +337,14 @@ namespace samples
                         GenerateHeightfield(*m_heightfield, m_type, m_amplitude, m_frequency);
                     }
                 }
+                // A hole (Specs/terrain-holes.md): a cut disc off-centre; nothing draws, casts,
+                // collides or grows there, and the sky shows through from above.
+                bool holeChanged = ImGui::Checkbox("hole (a cut disc at -30, 70)", &m_hole);
+                holeChanged |= ImGui::SliderFloat("hole radius", &m_holeRadius, 2.0f, 40.0f, "%.0f");
+                if (holeChanged)
+                {
+                    ApplyHole();
+                }
 
                 ImGui::Separator();
                 ImGui::TextDisabled("Grass (splat layer 0: the x < 0 half)");
@@ -388,7 +397,27 @@ namespace samples
         FlyCamera m_fly;
         core::f32 m_frameSmooth = 0.016f;
 
+        // The hole: the whole plane solid, then one cut disc when enabled (the sample kept
+        // separate from GenerateHeightfield so a regenerate keeps the cut where it is).
+        void ApplyHole()
+        {
+            if (!m_heightfield)
+            {
+                return;
+            }
+            core::Array<core::u8> solid;
+            solid.Resize(m_heightfield->Holes().Size());
+            (void)m_heightfield->SetHoles(core::Span<const core::u8>(solid.Data(), solid.Size()));
+            if (m_hole)
+            {
+                (void)hf::CutHoles(*m_heightfield, -30.0f, 70.0f, m_holeRadius);
+            }
+            m_heightfield->BumpVersion();
+        }
+
         // HUD state.
+        bool m_hole = true;
+        core::f32 m_holeRadius = 16.0f;
         core::f32 m_sunAzimuth = 0.7f;
         core::f32 m_sunElevation = 0.9f;
         core::f32 m_lodBias = 0.0f;
