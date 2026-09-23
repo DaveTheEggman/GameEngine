@@ -1397,13 +1397,18 @@ export namespace engine::terrain
         // zoomed-out banding bug). The extra interpolants are discarded (no fragment stage) and
         // the VS touches sets 0-2 only, so the 3-set depth layout still fits. Shadow passes keep
         // the cheap terrain_depth VS - cascade depth never depth-tests against the color pass.
-        // `holes` = the HOLES twin: the same vertex module family plus terrain_depth's fragment
-        // stage discarding by the hole mask, so the prepass depth and the cascades open with the
-        // colour pass (a holed chunk's prepass + colour draws share the HOLES "terrain" VS module).
+        // `holes` = the HOLES twin: the "terrain" VS module for BOTH the prepass and the cascades
+        // (terrain_depth.ps's input is terrain.vs's VSOut; a holed chunk is rare, so the cascade's
+        // extra interpolants cost nothing that matters) plus terrain_depth's fragment stage
+        // discarding by the hole mask, so the prepass depth and the cascades open with the colour
+        // pass, whose draws share the same HOLES "terrain" VS module.
         rhi::RenderPipeline* EnsureDepthPipeline(rhi::TextureFormat depthFormat, bool biased,
                                                  bool holes = false)
         {
-            const StringView shaderName = biased ? u8"terrain_depth" : u8"terrain";
+            // The HOLES twin always takes the "terrain" VS module: terrain_depth.ps declares
+            // terrain.vs's full VSOut (the stage interface is matched by location), and a holed
+            // chunk's prepass + cascades then share the colour pass's vertex bytecode.
+            const StringView shaderName = (biased && !holes) ? u8"terrain_depth" : u8"terrain";
             DepthPso& p = (holes ? m_holeDepthPso : m_depthPso)[biased ? 1u : 0u];
             const u64 shaderVersion = m_shaders->Version(shaderName);
             if (p.pso != nullptr && p.format == depthFormat && p.shaderVersion == shaderVersion)

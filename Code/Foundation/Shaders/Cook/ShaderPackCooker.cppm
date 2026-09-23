@@ -347,6 +347,7 @@ export namespace foundation::shaders
         co.optimizationLevel = 3;
         co.defines = Span<const ShaderDefine>(defines.Data(), defines.Size());
         co.includePaths = includePaths;
+        co.preserveInterface = ParsePreserveInterfaceDirective(source);
 
         ShaderTarget target = ShaderTarget::SPIRV;
         if (format == CookedShaderFormat::SpirV)

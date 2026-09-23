@@ -258,8 +258,10 @@ holes belong to the heightfield asset, the thing that IS the surface.
   sample centres with `HoleCoverage > 0.5`). The rim is then the 0.5 iso-line of the mask at
   every LOD, one smooth curve instead of a per-sample stair, and a coarse level no longer
   drops a 64 x 64-cell quad for one cut sample. Mechanism: `ShaderFlags::Holes` -> `HOLES`
-  variants of terrain.vs/ps, terrain_depth.vs/ps (the depth pass gains a fragment stage under
-  HOLES only) and terrain_pick.vs/ps; the renderer keeps a second colour / depth / pick PSO
+  variants of terrain.vs/ps, terrain_depth.ps (a fragment stage the depth pass gains under HOLES
+  only; its vertex stage is the colour pass's `terrain` module for BOTH the prepass and the
+  cascades, so it declares terrain.vs's full VSOut under `// preserve-interface` - see
+  Systems/shaders.md) and terrain_pick.vs/ps; the renderer keeps a second colour / depth / pick PSO
   and a `(height, mask, sampler)` bind group per holed heightfield, chosen per chunk by
   `hasHoles`. Solid chunks and solid terrains are untouched (no mask, no fragment stage, no
   discard). Trade: the visible rim sits up to half a cell INSIDE the collision hole, so a

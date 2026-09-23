@@ -10,6 +10,7 @@ module;
 
 #include "VkIncludes.h"
 
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -79,8 +80,22 @@ using PFN_vkCreateWaylandSurfaceKHR = VkResult(VKAPI_PTR*)(VkInstance,
                                                            VkSurfaceKHR*);
 #endif // __linux__
 
+namespace foundation::rhi::vk
+{
+    // Every validation ERROR the debug messenger saw, process-wide (the messenger is per backend
+    // but the count is one: tests read it around a probe, so a stage-interface or layout mistake
+    // that the driver tolerates still fails the test instead of only printing).
+    std::atomic<u32> g_validationErrorCount{0};
+} // namespace foundation::rhi::vk
+
 export namespace foundation::rhi::vk
 {
+    /// The number of Vulkan validation-layer ERRORS reported so far in this process (0 when
+    /// validation is off or the layer is not installed). Tests: snapshot before, compare after.
+    [[nodiscard]] u32 ValidationErrorCount() noexcept
+    {
+        return g_validationErrorCount.load(std::memory_order_relaxed);
+    }
 
     /// Configuration for VK backend creation.
     struct VkBackendDesc
@@ -363,6 +378,7 @@ export namespace foundation::rhi::vk
             // is actually visible in dev builds - the point of running with it on.
             if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
             {
+                g_validationErrorCount.fetch_add(1, std::memory_order_relaxed);
                 std::fprintf(stderr, "[Vulkan ERROR] %s\n", data->pMessage);
                 LogErrorf("[Vulkan ERROR] %s", data->pMessage);
             }

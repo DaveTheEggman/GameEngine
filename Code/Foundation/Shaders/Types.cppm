@@ -88,6 +88,9 @@ export namespace foundation::shaders
         IShaderIncludeResolver* includeResolver = nullptr;
         BindingShifts bindingShifts;
         u32 bindingShiftSets = 1;
+        /// SPIR-V only: keep unused stage-interface variables (-fspv-preserve-interface). Set from
+        /// a stage's `// preserve-interface` directive (ParsePreserveInterfaceDirective).
+        bool preserveInterface = false;
     };
 
     struct CompileResult

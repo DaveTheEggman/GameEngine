@@ -50,6 +50,17 @@ flag space; the cooker compiles each `(name, stage, variant, backend)` to a `Sha
 DXIL bytecode, or WGSL text), binary + versioned + self-describing (carries the name table so the
 runtime provider resolves by name). A shipped dist reads the pack and carries no DXC or naga.
 
+Two source directives, parsed from the stage file by every compile site (the runtime system, the
+pack cooker, the WGSL translator): `// variants: A B C` declares the flag lattice; `//
+preserve-interface` keeps every declared stage input / output in the SPIR-V interface (DXC's
+`-fspv-preserve-interface`; `-O3` otherwise strips unread inputs). The second exists for a
+fragment stage that is paired with another shader's vertex module and declares that module's
+full output struct while reading one member - terrain_depth.ps under HOLES, whose vertex stage is
+the colour pass's `terrain` module so the prepass depth stays bit-identical. Vulkan matches a
+stage interface by location and treats a shorter input list as an error (or, when the locations
+happen to line up, a silent garbage read), never as a subset; the terrain holes probe runs with
+validation ON and counts `rhi::vk::ValidationErrorCount()` around the render for exactly this.
+
 ## WGSL target (naga)
 
 `WgslTranslator` cooks HLSL -> (DXC, vulkan1.1 target env + engine Standard binding shifts) -> SPIR-V ->

@@ -363,6 +363,81 @@ TEST_CASE("variants: directive parse maps flag names to a mask")
     CHECK(none.mask == ShaderFlags::None);
 }
 
+TEST_CASE("variants: the preserve-interface directive is a per-stage flag")
+{
+    CHECK(ParsePreserveInterfaceDirective(Hlsl("// variants: HOLES\n// preserve-interface\nvoid main(){}\n")));
+    CHECK_FALSE(ParsePreserveInterfaceDirective(Hlsl("// variants: HOLES\nvoid main(){}\n")));
+}
+
+namespace
+{
+    // Count the `OpDecorate <id> Location <n>` instructions in a SPIR-V blob: one per stage
+    // interface variable (inputs AND outputs) that survived compilation.
+    u32 CountLocationDecorations(const u8* words, usize bytes)
+    {
+        constexpr u32 kOpDecorate = 71;
+        constexpr u32 kDecorationLocation = 30;
+        u32 count = 0;
+        usize w = 5; // past the 5-word header
+        const usize n = bytes / 4;
+        while (w < n)
+        {
+            u32 word = 0;
+            std::memcpy(&word, words + w * 4, 4);
+            const u32 wordCount = word >> 16;
+            const u32 opcode = word & 0xFFFFu;
+            if (wordCount == 0)
+            {
+                break;
+            }
+            if (opcode == kOpDecorate && wordCount >= 4 && w + 2 < n)
+            {
+                u32 decoration = 0;
+                std::memcpy(&decoration, words + (w + 2) * 4, 4);
+                if (decoration == kDecorationLocation)
+                {
+                    ++count;
+                }
+            }
+            w += wordCount;
+        }
+        return count;
+    }
+} // namespace
+
+TEST_CASE("shaders: preserveInterface keeps an unread fragment input in the SPIR-V interface")
+{
+    // A fragment stage declaring two inputs and reading one: -O3 strips the unread one (the read
+    // input + the colour output = two Locations), preserveInterface keeps it (three) - the exact
+    // pairing the Vulkan validation wants when the vertex stage is another family's full output list.
+    Compiler* compiler = nullptr;
+    if (!createCompiler(CompilerDesc{}, compiler).IsOk() || compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping preserve-interface test");
+        return;
+    }
+    const char* ps = "struct In { float4 pos : SV_Position; float3 a : TEXCOORD0; float2 b : TEXCOORD1; };\n"
+                     "float4 main(In i) : SV_Target0 { return float4(i.b, 0, 1); }\n";
+    const auto* source = reinterpret_cast<const u8*>(ps);
+    const usize size = std::strlen(ps);
+    u32 locations[2] = {0, 0};
+    for (u32 pass = 0; pass < 2; ++pass)
+    {
+        CompileOptions opts{};
+        opts.preserveInterface = (pass == 1);
+        CompileResult result{};
+        const Status status = compiler->compile(source, size, ShaderStage::Fragment, u8"main",
+                                                ShaderTarget::SPIRV, opts, result);
+        REQUIRE(status.IsOk());
+        REQUIRE(result.success);
+        locations[pass] = CountLocationDecorations(result.bytecode, result.bytecodeSize);
+        compiler->freeResult(result);
+    }
+    compiler->Destroy();
+    CHECK(locations[0] == 2u); // stripped: TEXCOORD1 + SV_Target0
+    CHECK(locations[1] == 3u); // preserved: TEXCOORD0 too
+}
+
 TEST_CASE("variants: canonicalize keeps only declared bits")
 {
     const ShaderFlags requested = ShaderFlags::Skinned | ShaderFlags::GBuffer;

@@ -313,6 +313,10 @@ namespace foundation::shaders
         if (target == ShaderTarget::SPIRV)
         {
             push(L"-spirv");
+            if (options.preserveInterface)
+            {
+                push(L"-fspv-preserve-interface");
+            }
             std::wstring targetEnv = L"-fspv-target-env=";
             targetEnv.append(widen(options.spirvTargetEnvironment));
             pushS(std::move(targetEnv));

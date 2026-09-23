@@ -1766,11 +1766,17 @@ TEST_CASE("terrain holes probe: a cut at the dome's centre shows the clear colou
         CHECK(geometryOnly.centerLuma == 0.0); // the centre block is inside the dropped quads
         CHECK(geometryOnly.filled > cut.filled + 64u); // the rim ring only the mask can remove
     };
+    // Vulkan runs WITH validation here: the HOLES depth PSO pairs the "terrain" VS with
+    // terrain_depth.ps, and a stage-interface mismatch between them is a validation ERROR the
+    // driver otherwise tolerates (the prepass then discards by garbage). Zero errors, or fail.
     rhi::Backend* vulkan = nullptr;
-    if (rhi::Device* device = MakeVulkan(vulkan))
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{.enableValidation = true}, vulkan);
+    if (rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr)
     {
+        const u32 errorsBefore = rhi::vk::ValidationErrorCount();
         probeOn(*device);
         device->Destroy();
+        CHECK(rhi::vk::ValidationErrorCount() == errorsBefore);
     }
     else
     {

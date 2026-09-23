@@ -25,6 +25,7 @@ import foundation.core;
 import :types;
 import :compiler;
 import :flags;
+import :variants;
 
 using namespace foundation::core;
 
@@ -105,6 +106,7 @@ export namespace foundation::shaders
             opts.bindingShiftSets = 4;
             opts.defines = Span<const ShaderDefine>(defines.Data(), defines.Size());
             opts.includePaths = includePaths;
+            opts.preserveInterface = ParsePreserveInterfaceDirective(hlsl);
 
             CompileResult cr{};
             const Status st =

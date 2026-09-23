@@ -93,6 +93,25 @@ export namespace foundation::shaders
         return out;
     }
 
+    // `// preserve-interface`: the stage keeps EVERY declared stage-input / output in its SPIR-V
+    // interface even when unused (DXC's -fspv-preserve-interface; -O3 otherwise strips unused
+    // inputs). For a fragment stage that declares another shader family's full VSOut and reads one
+    // member - terrain_depth.ps under HOLES - so the pairing is exact and Vulkan's interface
+    // validation sees a match, not a shorter input list. Absent = the default (strip).
+    [[nodiscard]] inline bool ParsePreserveInterfaceDirective(StringView source)
+    {
+        constexpr StringView kTag = u8"preserve-interface";
+        const usize n = source.Size();
+        for (usize i = 0; i + kTag.Size() <= n; ++i)
+        {
+            if (source.SubStr(i, kTag.Size()) == kTag)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // The canonical variant for a request: only the bits the stage declared survive. Applied in dev
     // AND dist identically, so runtime dedupes (a PS that ignores SKINNED stops recompiling per skin)
     // and dev == dist behaviour.

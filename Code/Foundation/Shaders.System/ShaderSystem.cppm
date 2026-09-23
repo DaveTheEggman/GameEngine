@@ -367,6 +367,7 @@ export namespace foundation::shaders
             opts.optimizationLevel = 3;
             opts.defines = core::Span<const ShaderDefine>(defines.Data(), defines.Size());
             opts.includeResolver = m_includeResolver;
+            opts.preserveInterface = ParsePreserveInterfaceDirective(source);
             if (!isDX12)
             {
                 // Vulkan: shift register spaces so HLSL b/t/u/s registers don't collide
