@@ -108,12 +108,15 @@ violating them fails review even if the feature works.
 - New components need displayName + category attributes (editor component menu).
 - Wire formats: keep write/read symmetric; guard counts on read
   (snapshot-prefab lesson).
-- ONE supported layout per serialized type: the CURRENT data version. The
-  versioned-payload reader refuses any other stored version (no migration
-  branches, no `ar.Version()` gates, no legacy readers or name remaps); a
+- ONE supported layout per serialized type is the norm: the CURRENT data
+  version. The versioned-payload reader refuses any other stored version; a
   wire change bumps `dataVersion` and the data is re-saved / re-imported /
   re-cooked. Same for stream headers (scene stream, navmesh blob) and section
-  mode tags: the current value or a failed read.
+  mode tags. A legacy reader for the previous layout IS allowed when a re-save
+  is impractical (user 2026-09-23: the 2026-09-08 purge was about the ~60
+  gates that had piled up for the project's state, not a ban) - one version
+  back, opened per type in the versioned-payload reader, named in the commit,
+  and removed once the data has moved. Never a silent pile.
 - sRGB decode lives in the SHADER (vg.vs), never CPU-side; `ToColor` is a plain
   /255. Never decode twice.
 
