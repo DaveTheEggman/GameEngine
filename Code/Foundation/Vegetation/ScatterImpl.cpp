@@ -106,7 +106,6 @@ namespace foundation::vegetation
                        ? SplatShare(*splat, heightfield, layer.splatLayer, localX, localZ) *
                              MaskShare(*mask, heightfield, layer.maskPlane, localX, localZ)
                        : 0.0f;
-        case VegetationPlacement::Scattered:
         default:
             return 0.0f;
         }
@@ -123,8 +122,7 @@ namespace foundation::vegetation
         out.candidateCount = 0;
         out.effectiveDensity = 0.0f;
         out.densityClamped = false;
-        if (heightfield.IsEmpty() || layer.placement == VegetationPlacement::Scattered ||
-            layer.density <= 0.0f || layer.maxInstancesPerChunk == 0)
+        if (heightfield.IsEmpty() || layer.density <= 0.0f || layer.maxInstancesPerChunk == 0)
         {
             return;
         }

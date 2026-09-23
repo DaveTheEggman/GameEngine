@@ -97,7 +97,7 @@ export namespace foundation::vegetation
 
     // The placement source's share (0..1) at a terrain-local XZ point: 1 for Uniform, the splat
     // layer's painted weight for Splat (0 with no splat), the mask plane's density for Mask (0
-    // with no mask), their product for SplatTimesMask, 0 for Scattered. Both rasters span the
+    // with no mask), their product for SplatTimesMask. Both rasters span the
     // terrain footprint like the shader's splat uv (local / worldSize + 0.5).
     [[nodiscard]] f32 PlacementShareAt(const ScatterLayer& layer,
                                        const heightfield::Heightfield& heightfield,
@@ -113,9 +113,9 @@ export namespace foundation::vegetation
                       const ScatterLayer& layer, const AABB& meshLocalBounds,
                       ScatterResult& out);
 
-    // ---- the prop scatter brush (Scattered layers) ----------------------------------------
+    // ---- the prop scatter brush (prop layers) ---------------------------------------------
     //
-    // A brush STAMP places authored instances into a Scattered layer: `density` per square metre
+    // A brush STAMP places authored instances into a prop layer: `density` per square metre
     // over the disc of `radius` at terrain-local (`centreX`, `centreZ`), scaled by `amount`
     // (0..1). Each candidate takes a uniform point in the disc and the layer's rules (slope,
     // height, scale, alignment) like the procedural scatter, then two rejections: the SPACING

@@ -30,7 +30,7 @@ namespace editor
     namespace veg = foundation::vegetation;
     using engine::vegetation::TerrainVegetationComponent;
     using engine::vegetation::TerrainVegetationComponentManager;
-    using engine::vegetation::VegetationLayer;
+    using engine::vegetation::PropVegetationLayer;
 
     namespace
     {
@@ -62,11 +62,11 @@ namespace editor
             {
                 TerrainVegetationComponentManager* mgr = VegetationManagerOf(*m_scene);
                 TerrainVegetationComponent* c = mgr != nullptr ? mgr->Get(m_owner) : nullptr;
-                if (c == nullptr || m_layer >= c->layers.Size())
+                if (c == nullptr || m_layer >= c->propLayers.Size())
                 {
                     return false;
                 }
-                c->layers[m_layer].instances = instances;
+                c->propLayers[m_layer].instances = instances;
                 return true;
             }
 
@@ -88,7 +88,7 @@ namespace editor
     struct VegetationScatterTool::Pick
     {
         VegetationPick fp;
-        VegetationLayer* layer = nullptr;
+        PropVegetationLayer* layer = nullptr;
     };
 
     bool VegetationScatterTool::IsAvailable() const
@@ -99,14 +99,8 @@ namespace editor
             return false;
         }
         bool any = false;
-        mgr->ForEach(
-            [&](TerrainVegetationComponent& c, scene::EntityHandle)
-            {
-                for (const VegetationLayer& layer : c.layers)
-                {
-                    any |= layer.placement == veg::VegetationPlacement::Scattered;
-                }
-            });
+        mgr->ForEach([&](TerrainVegetationComponent& c, scene::EntityHandle)
+                     { any |= !c.propLayers.IsEmpty(); });
         return any;
     }
 
@@ -141,16 +135,14 @@ namespace editor
             m_hasHover = true;
             m_hoverWorld = fp.worldHit;
             m_hoverNormal = fp.worldNormal;
-            m_layerHasMesh = fp.component == nullptr || m_layer >= fp.component->layers.Size() ||
-                             fp.component->layers[m_layer].mesh.Get() != nullptr;
+            m_layerHasMesh = fp.component == nullptr || m_layer >= fp.component->propLayers.Size() ||
+                             fp.component->propLayers[m_layer].mesh.Get() != nullptr;
         }
         bool consumed = m_stroking;
         if (!input.editingLocked) // Simulate: the props feed the live scene - no edits
         {
-            const bool paintable = fp.valid && fp.component != nullptr &&
-                                   m_layer < fp.component->layers.Size() &&
-                                   fp.component->layers[m_layer].placement ==
-                                       veg::VegetationPlacement::Scattered;
+            const bool paintable =
+                fp.valid && fp.component != nullptr && m_layer < fp.component->propLayers.Size();
             if (!m_stroking && paintable && input.pointerOver && input.leftPressed)
             {
                 BeginStroke(input);
@@ -178,7 +170,7 @@ namespace editor
     {
         const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
                                                           /*requireMask*/ false, /*ignoreHoles*/ true);
-        if (!fp.valid || fp.component == nullptr || m_layer >= fp.component->layers.Size())
+        if (!fp.valid || fp.component == nullptr || m_layer >= fp.component->propLayers.Size())
         {
             return;
         }
@@ -187,7 +179,7 @@ namespace editor
         m_strokeTerrain = fp.terrainEntity;
         m_strokeLayer = m_layer;
         m_strokeStamps = 0;
-        m_before = fp.component->layers[m_layer].instances;
+        m_before = fp.component->propLayers[m_layer].instances;
         ApplyStamp(fp.localHit, input);
         m_lastStampLocal = fp.localHit;
     }
@@ -224,11 +216,11 @@ namespace editor
     {
         const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
                                                           /*requireMask*/ false, /*ignoreHoles*/ true);
-        if (!fp.valid || fp.component == nullptr || m_strokeLayer >= fp.component->layers.Size())
+        if (!fp.valid || fp.component == nullptr || m_strokeLayer >= fp.component->propLayers.Size())
         {
             return;
         }
-        VegetationLayer& layer = fp.component->layers[m_strokeLayer];
+        PropVegetationLayer& layer = fp.component->propLayers[m_strokeLayer];
         if (m_erase)
         {
             (void)veg::EraseInstancesInDisc(layer.instances, localCentre.x, localCentre.z, m_radius);
@@ -290,9 +282,9 @@ namespace editor
         {
             TerrainVegetationComponentManager* mgr = VegetationManagerOf(*m_scene);
             TerrainVegetationComponent* c = mgr != nullptr ? mgr->Get(m_strokeOwner) : nullptr;
-            if (c != nullptr && m_strokeLayer < c->layers.Size())
+            if (c != nullptr && m_strokeLayer < c->propLayers.Size())
             {
-                const Array<Float4x4>& after = c->layers[m_strokeLayer].instances;
+                const Array<Float4x4>& after = c->propLayers[m_strokeLayer].instances;
                 const bool changed = after.Size() != m_before.Size() ||
                                      (!after.IsEmpty() &&
                                       MemCompare(after.Data(), m_before.Data(),

@@ -23,8 +23,9 @@ export namespace foundation::vegetation
         Uniform,        // everywhere on the terrain (slope + height rules still apply)
         Splat,          // where the terrain's painted splat layer `splatLayer` clears `splatThreshold`
         Mask,           // where the painted vegetation mask plane `maskPlane` has density
-        Scattered,      // authored instances (P2); no procedural scatter
-        SplatTimesMask, // the splat share times the mask density (a painted mask carves a road
+        // (3 was Scattered - authored instances - until 2026-09-23: props are their own layer
+        // list on the component now, not a placement; the enumerator is retired, not reused.)
+        SplatTimesMask = 4, // the splat share times the mask density (a painted mask carves a road
                         // through splat-driven grass: erase the mask along it)
     };
 

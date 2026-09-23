@@ -54,11 +54,16 @@ export namespace foundation::core
         u32 constantCount = 0;
         const ConstructorInfo* constructors = nullptr; // reflected constructors (overloads)
         u32 constructorCount = 0;
-        // DATA version of the serialized layout: bump when it changes. The reader accepts
-        // exactly the current version (BeginVersionedPayload) - there is no migration.
-        // 0 = never versioned. Set via RTTI_DEFINE_OBJECT_VERSIONED or
-        // TypeBuilder::DataVersion.
+        // DATA version of the serialized layout: bump when it changes. The reader accepts the
+        // current version (BeginVersionedPayload), and older ones only down to
+        // `minReadDataVersion` when a type keeps a legacy reader (its Serialize body branches
+        // on ar.Version() for those). 0 = never versioned. Set via RTTI_DEFINE_OBJECT_VERSIONED
+        // or TypeBuilder::DataVersion.
         u32 dataVersion = 0;
+        // The oldest stored data version the reader still accepts (0 = the current one only).
+        // TypeBuilder::ReadsDataVersionsFrom; a legacy reader is one version back, named in its
+        // commit and removed once the data has moved (Process/CONVENTIONS.md).
+        u32 minReadDataVersion = 0;
     };
 
     // Stable 64-bit identity from the fully-qualified name.

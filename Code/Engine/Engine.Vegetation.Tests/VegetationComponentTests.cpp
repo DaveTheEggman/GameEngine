@@ -17,6 +17,8 @@ import foundation.heightfield;
 import foundation.terrain;
 import foundation.terrain.resource;
 import foundation.vegetation.resource;
+import foundation.resource;
+import foundation.materials;
 import foundation.vegetation;
 import foundation.render;
 import engine.terrain;
@@ -31,7 +33,8 @@ namespace render = foundation::render;
 namespace geometry = foundation::geometry;
 using engine::vegetation::TerrainVegetationComponent;
 using engine::vegetation::TerrainVegetationComponentManager;
-using engine::vegetation::VegetationLayer;
+using engine::vegetation::ProceduralVegetationLayer;
+using engine::vegetation::PropVegetationLayer;
 
 namespace
 {
@@ -105,7 +108,7 @@ namespace
 
             mesh = geometry::Primitives::Cube(DefaultAllocator(), 0.5f);
             TerrainVegetationComponent& c = mgr->Add(terrain);
-            VegetationLayer grass;
+            ProceduralVegetationLayer grass;
             grass.name = String(u8"Grass");
             grass.mesh = mesh.Get();
             grass.placement = withSplat ? veg::VegetationPlacement::Splat
@@ -115,12 +118,27 @@ namespace
             grass.maxSlopeDegrees = 90.0f;
             grass.fadeStart = 40.0f;
             grass.fadeEnd = 80.0f;
-            c.layers.PushBack(grass);
+            c.proceduralLayers.PushBack(grass);
             scene.Start();
         }
 
         TerrainVegetationComponent& Component() { return *mgr->Get(terrain); }
-        VegetationLayer& Layer(usize i = 0) { return Component().layers[i]; }
+        ProceduralVegetationLayer& Layer(usize i = 0) { return Component().proceduralLayers[i]; }
+        PropVegetationLayer& Prop(usize i = 0) { return Component().propLayers[i]; }
+        // Swap the fixture's grass for one prop layer with the same mesh (the prop tests).
+        PropVegetationLayer& MakePropsOnly()
+        {
+            Component().proceduralLayers.Clear();
+            PropVegetationLayer rocks;
+            rocks.name = String(u8"Rocks");
+            rocks.mesh = mesh.Get();
+            rocks.scaleRange = Float2{1.0f, 1.0f};
+            rocks.maxSlopeDegrees = 90.0f;
+            rocks.fadeStart = 40.0f;
+            rocks.fadeEnd = 80.0f;
+            Component().propLayers.PushBack(rocks);
+            return Prop();
+        }
 
         // Extract with the view at `origin` (or headless), returning the emitted sets.
         Array<const render::MultiMeshRenderData*> Extract(render::ExtractedScene& snapshot,
@@ -155,16 +173,20 @@ namespace
     }
 }
 
-TEST_CASE("engine.vegetation: the component reflects (layers as a container of reflected layers) and round-trips its wire")
+TEST_CASE("engine.vegetation: the component reflects (two lists of reflected layers) and round-trips its wire")
 {
     engine::vegetation::RegisterVegetationComponentReflection();
     engine::vegetation::RegisterVegetationComponentReflection(); // idempotent
     const TypeInfo& type = TypeOf<TerrainVegetationComponent>();
-    const PropertyInfo* layers = FindProperty(type, "layers");
-    REQUIRE(layers != nullptr);
-    REQUIRE(layers->type != nullptr);
-    REQUIRE(layers->type->container != nullptr); // the list editor's contract
-    CHECK(layers->type->container->elementType == &TypeOf<VegetationLayer>());
+    const PropertyInfo* grownList = FindProperty(type, "proceduralLayers");
+    REQUIRE(grownList != nullptr);
+    REQUIRE(grownList->type != nullptr);
+    REQUIRE(grownList->type->container != nullptr); // the list editor's contract
+    CHECK(grownList->type->container->elementType == &TypeOf<ProceduralVegetationLayer>());
+    const PropertyInfo* propList = FindProperty(type, "propLayers");
+    REQUIRE(propList != nullptr);
+    REQUIRE(propList->type->container != nullptr);
+    CHECK(propList->type->container->elementType == &TypeOf<PropVegetationLayer>());
     CHECK(FindProperty(type, "visible") != nullptr);
     CHECK(FindProperty(type, "mask") != nullptr);
     const Variant* display = FindAttribute(type, "displayName");
@@ -174,24 +196,42 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     REQUIRE(category != nullptr);
     CHECK(*category->TryGet<String>() == String(u8"Terrain"));
 
-    // A new layer (the inspector's add button default-constructs one) is MANUAL: it grows
-    // nothing until painted or given a source.
-    CHECK(VegetationLayer{}.placement == veg::VegetationPlacement::Scattered);
-    CHECK(VegetationLayer{}.ToScatterLayer().placement == veg::VegetationPlacement::Scattered);
-    const TypeInfo& layerType = TypeOf<VegetationLayer>();
+    // A new procedural layer (the inspector's add button default-constructs one) follows the
+    // MASK: it grows nothing until the component has a mask with paint on its plane (a Uniform
+    // default would grow the moment a mesh is assigned - the 2026-09-22 ruling, kept).
+    CHECK(ProceduralVegetationLayer{}.placement == veg::VegetationPlacement::Mask);
+    CHECK(ProceduralVegetationLayer{}.ToScatterLayer().placement == veg::VegetationPlacement::Mask);
+    CHECK(PropVegetationLayer{}.ToScatterLayer().density == 0.0f); // rules only, no scatter
+    const TypeInfo& grownType = TypeOf<ProceduralVegetationLayer>();
     for (const char* name : {"name", "mesh", "material", "placement", "splatLayer",
                              "splatThreshold", "maskPlane", "density", "scaleRange",
                              "maxSlopeDegrees", "heightRange", "alignToNormal", "fadeStart",
                              "fadeEnd", "castShadows", "maxInstancesPerChunk", "visible"})
     {
         INFO(name);
-        CHECK(FindProperty(layerType, name) != nullptr);
+        CHECK(FindProperty(grownType, name) != nullptr);
     }
+    const TypeInfo& propType = TypeOf<PropVegetationLayer>();
+    for (const char* name : {"name", "mesh", "material", "scaleRange", "maxSlopeDegrees",
+                             "heightRange", "alignToNormal", "fadeStart", "fadeEnd",
+                             "castShadows", "maxInstancesPerChunk", "visible"})
+    {
+        INFO(name);
+        CHECK(FindProperty(propType, name) != nullptr);
+    }
+    CHECK(FindProperty(propType, "placement") == nullptr); // a prop layer has no source
+    CHECK(FindProperty(propType, "density") == nullptr);
+    CHECK(FindProperty(propType, "instances") == nullptr); // the brush is its editor
+    CHECK(FindProperty(type, "proceduralLayers") != nullptr);
+    CHECK(FindProperty(type, "propLayers") != nullptr);
+    CHECK(FindProperty(type, "layers") == nullptr); // the one list is gone (data version 2)
+    CHECK(type.dataVersion == 2u);
+    CHECK(type.minReadDataVersion == 1u); // the legacy reader for the one-list layout
 
     TerrainVegetationComponent authored;
     authored.visible = false;
     authored.mask.SetId(Guid{0x77u, 0x88u});
-    VegetationLayer grass;
+    ProceduralVegetationLayer grass;
     grass.name = String(u8"Grass");
     grass.placement = veg::VegetationPlacement::Uniform;
     grass.splatLayer = 3;
@@ -206,15 +246,13 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     grass.castShadows = true;
     grass.maxInstancesPerChunk = 512;
     grass.visible = false;
-    authored.layers.PushBack(grass);
-    VegetationLayer rocks;
+    authored.proceduralLayers.PushBack(grass);
+    PropVegetationLayer rocks;
     rocks.name = String(u8"Rocks");
-    rocks.density = 0.05f;
     rocks.castShadows = true;
-    rocks.placement = veg::VegetationPlacement::Scattered;
     rocks.instances.PushBack(Float4x4::Translation(Float3{1.0f, 2.0f, 3.0f}));
     rocks.instances.PushBack(Float4x4::Translation(Float3{7.0f, 2.0f, 3.0f}));
-    authored.layers.PushBack(rocks);
+    authored.propLayers.PushBack(rocks);
 
     MemoryStream buffer;
     {
@@ -229,8 +267,8 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     }
     CHECK(!loaded.visible);
     CHECK(loaded.mask.id == Guid{0x77u, 0x88u});
-    REQUIRE(loaded.layers.Size() == 2u);
-    const VegetationLayer& g = loaded.layers[0];
+    REQUIRE(loaded.proceduralLayers.Size() == 1u);
+    const ProceduralVegetationLayer& g = loaded.proceduralLayers[0];
     CHECK(g.name == String(u8"Grass"));
     CHECK(g.placement == veg::VegetationPlacement::Uniform);
     CHECK(g.splatLayer == 3u);
@@ -245,16 +283,153 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     CHECK(g.castShadows);
     CHECK(g.maxInstancesPerChunk == 512u);
     CHECK(!g.visible);
-    CHECK(loaded.layers[1].name == String(u8"Rocks"));
-    CHECK(loaded.layers[1].density == 0.05f);
-    REQUIRE(loaded.layers[1].instances.Size() == 2u); // the authored props ride the wire
-    CHECK(loaded.layers[1].instances[1].m[3][0] == 7.0f);
+    REQUIRE(loaded.propLayers.Size() == 1u);
+    CHECK(loaded.propLayers[0].name == String(u8"Rocks"));
+    CHECK(loaded.propLayers[0].castShadows);
+    REQUIRE(loaded.propLayers[0].instances.Size() == 2u); // the authored props ride the wire
+    CHECK(loaded.propLayers[0].instances[1].m[3][0] == 7.0f);
+}
 
-    // ToScatterLayer mirrors the scatter fields.
-    const veg::ScatterLayer layer = g.ToScatterLayer();
-    CHECK(layer.density == 7.5f);
-    CHECK(layer.castShadows);
-    CHECK(veg::LayerScatterHash(layer) == veg::LayerScatterHash(grass.ToScatterLayer()));
+namespace
+{
+    // The data-version-1 layout of a layer (one list, every field, `placement` 3 = Scattered),
+    // written the way a 2026-09-22 build wrote it: the legacy reader's fixture.
+    struct LayerV1Fixture
+    {
+        String name;
+        Guid meshId;
+        u8 placement = 3;
+        f32 density = 2.0f;
+        u32 maskPlane = 0;
+        Array<Float4x4> instances;
+    };
+    void Serialize(ISerializer& ar, LayerV1Fixture& l)
+    {
+        foundation::resource::Ref<geometry::StaticMesh> mesh;
+        mesh.SetId(l.meshId);
+        foundation::resource::Ref<foundation::materials::Material> material;
+        u32 splatLayer = 0;
+        f32 splatThreshold = 0.25f;
+        Float2 scaleRange{0.8f, 1.2f};
+        f32 maxSlopeDegrees = 35.0f;
+        Float2 heightRange{-1.0e6f, 1.0e6f};
+        bool alignToNormal = false;
+        f32 fadeStart = 40.0f;
+        f32 fadeEnd = 80.0f;
+        bool castShadows = false;
+        u32 maxInstancesPerChunk = 4096;
+        bool visible = true;
+        foundation::core::Serialize(ar, "name", l.name);
+        foundation::core::Serialize(ar, "mesh", mesh);
+        foundation::core::Serialize(ar, "material", material);
+        foundation::core::Serialize(ar, "placement", l.placement);
+        foundation::core::Serialize(ar, "splatLayer", splatLayer);
+        foundation::core::Serialize(ar, "splatThreshold", splatThreshold);
+        foundation::core::Serialize(ar, "maskPlane", l.maskPlane);
+        foundation::core::Serialize(ar, "density", l.density);
+        foundation::core::Serialize(ar, "scaleRange", scaleRange);
+        foundation::core::Serialize(ar, "maxSlopeDegrees", maxSlopeDegrees);
+        foundation::core::Serialize(ar, "heightRange", heightRange);
+        foundation::core::Serialize(ar, "alignToNormal", alignToNormal);
+        foundation::core::Serialize(ar, "fadeStart", fadeStart);
+        foundation::core::Serialize(ar, "fadeEnd", fadeEnd);
+        foundation::core::Serialize(ar, "castShadows", castShadows);
+        foundation::core::Serialize(ar, "maxInstancesPerChunk", maxInstancesPerChunk);
+        foundation::core::Serialize(ar, "visible", visible);
+        foundation::core::Serialize(ar, "instances", l.instances);
+    }
+}
+
+TEST_CASE("engine.vegetation: the legacy reader splits a data-version-1 one-list payload into the two lists")
+{
+    // A component record as a 2026-09-22 scene stored it: the chain stamped version 1, then
+    // `layers` (Cube: Scattered with two instances; Grass: Mask on plane 0), `mask`, `visible`.
+    // The reader (ReadsDataVersionsFrom(1)) accepts it, the body branches on ar.Version() == 1
+    // and splits by placement; a re-save writes version 2 (the RTHomes1 scene's path).
+    engine::vegetation::RegisterVegetationComponentReflection();
+    const TypeInfo& type = TypeOf<TerrainVegetationComponent>();
+    MemoryStream stream;
+    {
+        BinarySerializer ar(stream, SerializeMode::Write);
+        const SerializedDataVersion chain[] = {{type.id, 1u}};
+        u32 n = 1;
+        ar.Key("dataVersions");
+        ar.BeginArray(n);
+        SerializedDataVersion entry = chain[0];
+        ar.Key("type");
+        ar.Scalar(&entry.typeId, ScalarKind::UInt64);
+        ar.Key("version");
+        ar.Scalar(&entry.version, ScalarKind::UInt32);
+        ar.EndArray();
+        ar.PushVersionScope(chain, 1);
+        Array<LayerV1Fixture> layers;
+        LayerV1Fixture cube;
+        cube.name = String(u8"Cube");
+        cube.meshId = Guid{0x11u, 0x22u};
+        cube.placement = 3; // Scattered
+        cube.instances.PushBack(Float4x4::Translation(Float3{5.0f, 1.0f, 5.0f}));
+        cube.instances.PushBack(Float4x4::Translation(Float3{-5.0f, 1.0f, 5.0f}));
+        layers.PushBack(cube);
+        LayerV1Fixture grass;
+        grass.name = String(u8"Grass");
+        grass.meshId = Guid{0x33u, 0x44u};
+        grass.placement = 2; // Mask
+        grass.density = 2.0f;
+        grass.maskPlane = 0;
+        layers.PushBack(grass);
+        foundation::core::Serialize(ar, "layers", layers);
+        foundation::resource::Ref<veg::VegetationMask> mask;
+        mask.SetId(Guid{0x55u, 0x66u});
+        foundation::core::Serialize(ar, "mask", mask);
+        bool visible = true;
+        foundation::core::Serialize(ar, "visible", visible);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(stream.Seek(0, SeekOrigin::Begin) == 0);
+    TerrainVegetationComponent loaded;
+    {
+        BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, type);
+        CHECK(ar.Version() == 1u);
+        Serialize(ar, loaded);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(loaded.proceduralLayers.Size() == 1u);
+    CHECK(loaded.proceduralLayers[0].name == String(u8"Grass"));
+    CHECK(loaded.proceduralLayers[0].placement == veg::VegetationPlacement::Mask);
+    CHECK(loaded.proceduralLayers[0].density == 2.0f);
+    CHECK(loaded.proceduralLayers[0].mesh.id == Guid{0x33u, 0x44u});
+    REQUIRE(loaded.propLayers.Size() == 1u);
+    CHECK(loaded.propLayers[0].name == String(u8"Cube"));
+    CHECK(loaded.propLayers[0].mesh.id == Guid{0x11u, 0x22u});
+    REQUIRE(loaded.propLayers[0].instances.Size() == 2u);
+    CHECK(loaded.propLayers[0].instances[1].m[3][0] == -5.0f);
+    CHECK(loaded.mask.id == Guid{0x55u, 0x66u});
+    CHECK(loaded.visible);
+    // The same body under the CURRENT version writes and reads the two lists (version 2).
+    MemoryStream again;
+    {
+        BinarySerializer ar(again, SerializeMode::Write);
+        BeginVersionedPayload(ar, type);
+        Serialize(ar, loaded);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(again.Seek(0, SeekOrigin::Begin) == 0);
+    TerrainVegetationComponent resaved;
+    {
+        BinarySerializer ar(again, SerializeMode::Read);
+        BeginVersionedPayload(ar, type);
+        CHECK(ar.Version() == 2u);
+        Serialize(ar, resaved);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(resaved.proceduralLayers.Size() == 1u);
+    CHECK(resaved.propLayers.Size() == 1u);
+    CHECK(resaved.propLayers[0].instances.Size() == 2u);
 }
 
 TEST_CASE("engine.vegetation: one set per (layer, chunk) in range; the splat picks the chunks; shadows follow the layer")
@@ -448,14 +623,14 @@ TEST_CASE("engine.vegetation: two layers are two families of sets; a removed slo
     Fixture f(/*withSplat*/ false);
     f.mgr->SetBuildBudget(100);
     RefPtr<geometry::StaticMesh> rockMesh = geometry::Primitives::Cube(DefaultAllocator(), 1.5f);
-    VegetationLayer rocks;
+    ProceduralVegetationLayer rocks;
     rocks.name = String(u8"Rocks");
     rocks.mesh = rockMesh.Get();
     rocks.placement = veg::VegetationPlacement::Uniform;
     rocks.density = 0.01f; // ~41 per chunk
     rocks.maxSlopeDegrees = 90.0f;
     rocks.castShadows = true;
-    f.Component().layers.PushBack(rocks);
+    f.Component().proceduralLayers.PushBack(rocks);
 
     render::ExtractedScene snapshot{DefaultAllocator()};
     Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
@@ -498,7 +673,7 @@ TEST_CASE("engine.vegetation: two layers are two families of sets; a removed slo
     CHECK(f.mgr->BuildCount() == 8u);
 
     // Removing the rock slot drops its sets on the next extraction.
-    f.Component().layers.RemoveAt(1);
+    f.Component().proceduralLayers.RemoveAt(1);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
     CHECK(f.mgr->BuiltSetCount() == 4u);
@@ -550,12 +725,12 @@ TEST_CASE("engine.vegetation: no component, a hidden component, one off any terr
     CHECK(sets.Size() == 4u);
 
     // No mesh: nothing to instance.
-    f.mgr->Get(child)->layers[0].mesh = nullptr;
+    f.mgr->Get(child)->proceduralLayers[0].mesh = nullptr;
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.IsEmpty());
 
     // A removed component drops its caches.
-    f.mgr->Get(child)->layers[0].mesh = f.mesh.Get();
+    f.mgr->Get(child)->proceduralLayers[0].mesh = f.mesh.Get();
     sets = f.Extract(snapshot, nullptr);
     CHECK(f.mgr->BuiltSetCount() == 4u);
     f.mgr->Remove(child);
@@ -618,13 +793,11 @@ TEST_CASE("engine.vegetation: a Mask layer follows the component's painted plane
     CHECK(sets.IsEmpty());
 }
 
-TEST_CASE("engine.vegetation: a Scattered layer draws its authored instances bucketed per chunk; a change re-buckets")
+TEST_CASE("engine.vegetation: a prop layer draws its authored instances bucketed per chunk; a change re-buckets")
 {
     Fixture f(/*withSplat*/ false);
     f.mgr->SetBuildBudget(100);
-    VegetationLayer& rocks = f.Layer();
-    rocks.placement = veg::VegetationPlacement::Scattered;
-    rocks.scaleRange = Float2{1.0f, 1.0f};
+    PropVegetationLayer& rocks = f.MakePropsOnly();
     // Three props in the (-x, -z) chunk, one in the (+x, +z) chunk, none elsewhere.
     rocks.instances.PushBack(Float4x4::Translation(Float3{-40.0f, 2.0f, -40.0f}));
     rocks.instances.PushBack(Float4x4::Translation(Float3{-10.0f, 2.0f, -50.0f}));
@@ -660,12 +833,12 @@ TEST_CASE("engine.vegetation: a Scattered layer draws its authored instances buc
     // Unchanged instances: no rebuild. A brush stroke (a new instance) re-buckets the layer.
     sets = f.Extract(snapshot, nullptr);
     CHECK(f.mgr->BuildCount() == 4u);
-    f.Layer().instances.PushBack(Float4x4::Translation(Float3{50.0f, 2.0f, -50.0f}));
+    f.Prop().instances.PushBack(Float4x4::Translation(Float3{50.0f, 2.0f, -50.0f}));
     sets = f.Extract(snapshot, nullptr);
     CHECK(f.mgr->BuildCount() == 8u);
     CHECK(sets.Size() == 3u);
     // Erasing back to the old content is another hash: another re-bucket, two sets again.
-    f.Layer().instances.RemoveAt(4);
+    f.Prop().instances.RemoveAt(4);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 2u);
     // The fade prefix applies like any set: a far origin thins the props.
@@ -697,24 +870,24 @@ TEST_CASE("engine.vegetation: an invalidated set keeps drawing its old instances
     sets = f.Extract(snapshot, nullptr);
     CHECK(f.mgr->BuildCount() == 8u); // all caught up
     // A cold set (never built) still waits its turn: a fresh layer under the same budget.
-    VegetationLayer flowers = f.Layer();
+    ProceduralVegetationLayer flowers = f.Layer();
     flowers.name = String(u8"Flowers");
-    f.Component().layers.PushBack(flowers);
+    f.Component().proceduralLayers.PushBack(flowers);
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 5u); // the four grass sets + the one flower chunk built this frame
 
     // Authored props re-bucket outside the budget: a stroke lands whole in one extraction.
-    f.Component().layers.RemoveAt(1);
-    f.Layer().placement = veg::VegetationPlacement::Scattered;
+    f.Component().proceduralLayers.RemoveAt(1);
+    PropVegetationLayer& rocks = f.MakePropsOnly();
     for (i32 i = 0; i < 4; ++i)
     {
-        f.Layer().instances.PushBack(Float4x4::Translation(
+        rocks.instances.PushBack(Float4x4::Translation(
             Float3{(i % 2 == 0) ? -30.0f : 30.0f, 2.0f, (i < 2) ? -30.0f : 30.0f}));
     }
-    sets = f.Extract(snapshot, nullptr); // the placement change reset the layer: 4 rebuilds
+    sets = f.Extract(snapshot, nullptr); // a new layer: 4 builds
     REQUIRE(sets.Size() == 4u);
     const u64 builds = f.mgr->BuildCount();
-    f.Layer().instances.PushBack(Float4x4::Translation(Float3{-31.0f, 2.0f, -31.0f}));
+    f.Prop().instances.PushBack(Float4x4::Translation(Float3{-31.0f, 2.0f, -31.0f}));
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
     CHECK(f.mgr->BuildCount() == builds + 4u); // every chunk re-bucketed this frame, budget 1
@@ -730,9 +903,12 @@ TEST_CASE("engine.vegetation: a freshly added layer with a mesh grows nothing un
 {
     Fixture f(/*withSplat*/ true); // the splat has palette 0 painted: a Splat default would grow
     f.mgr->SetBuildBudget(100);
-    VegetationLayer fresh; // exactly what the inspector's add button makes, plus a mesh
+    ProceduralVegetationLayer fresh; // exactly what the inspector's add button makes, plus a mesh
     fresh.mesh = f.mesh.Get();
-    f.Component().layers.PushBack(fresh);
+    f.Component().proceduralLayers.PushBack(fresh); // Mask placement, and no mask: nothing
+    PropVegetationLayer props;                       // and a fresh prop layer holds nothing
+    props.mesh = f.mesh.Get();
+    f.Component().propLayers.PushBack(props);
     render::ExtractedScene snapshot{DefaultAllocator()};
     Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
     for (const render::MultiMeshRenderData* s : sets)
@@ -740,12 +916,13 @@ TEST_CASE("engine.vegetation: a freshly added layer with a mesh grows nothing un
         CHECK(render::EntityTag::Index(s->entityId) == f.terrain.index);
     }
     CHECK(sets.Size() == 2u); // only the fixture's grass (the two painted chunks); nothing new
-    // Painting one prop into it draws it; choosing Splat makes it grow like the grass.
-    f.Component().layers[1].instances.PushBack(Float4x4::Translation(Float3{10.0f, 2.0f, 10.0f}));
+    // Painting one prop into the prop layer draws it; giving the procedural one the splat as
+    // its source makes it grow like the grass.
+    f.Prop().instances.PushBack(Float4x4::Translation(Float3{10.0f, 2.0f, 10.0f}));
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 3u);
-    f.Component().layers[1].instances.Clear();
-    f.Component().layers[1].placement = veg::VegetationPlacement::Splat;
+    f.Prop().instances.Clear();
+    f.Layer(1).placement = veg::VegetationPlacement::Splat;
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
 }
@@ -817,9 +994,7 @@ TEST_CASE("engine.vegetation: a stamped prop over a cut cell does not draw and c
     // the bucketed set simply leaves it out while its cell is cut.
     Fixture f(/*withSplat*/ false);
     f.mgr->SetBuildBudget(100);
-    VegetationLayer& rocks = f.Layer();
-    rocks.placement = veg::VegetationPlacement::Scattered;
-    rocks.scaleRange = Float2{1.0f, 1.0f};
+    PropVegetationLayer& rocks = f.MakePropsOnly();
     rocks.instances.PushBack(Float4x4::Translation(Float3{-40.0f, 2.0f, -40.0f}));
     rocks.instances.PushBack(Float4x4::Translation(Float3{-20.0f, 2.0f, -20.0f}));
     rocks.instances.PushBack(Float4x4::Translation(Float3{20.0f, 2.0f, 20.0f}));
@@ -831,7 +1006,7 @@ TEST_CASE("engine.vegetation: a stamped prop over a cut cell does not draw and c
     (void)hf::CutHoles(*f.grid, -20.0f, -20.0f, 3.0f); // under the second prop only
     sets = f.Extract(snapshot, nullptr);
     CHECK(TotalInstances(sets) == 2u);
-    CHECK(f.Layer().instances.Size() == 3u); // the data keeps it
+    CHECK(f.Prop().instances.Size() == 3u); // the data keeps it
     for (const render::MultiMeshRenderData* s : sets)
     {
         for (u32 i = 0; i < s->instanceCount; ++i)

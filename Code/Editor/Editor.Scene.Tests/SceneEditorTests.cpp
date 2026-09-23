@@ -499,7 +499,7 @@ TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")
 TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of leaf rows addressed by path")
 {
     using engine::vegetation::TerrainVegetationComponent;
-    using engine::vegetation::VegetationLayer;
+    using engine::vegetation::ProceduralVegetationLayer;
     engine::vegetation::RegisterVegetationComponentReflection();
     scene::Scene scene{DefaultAllocator()};
     engine::vegetation::AddVegetationSceneManagers(scene);
@@ -514,16 +514,16 @@ TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of le
 
     const Guid terrain = edit.CreateEntity(u8"Terrain");
     TerrainVegetationComponent& c = mgr->Add(scene.FindEntity(terrain));
-    VegetationLayer grass;
+    ProceduralVegetationLayer grass;
     grass.name = String(u8"Grass");
     grass.density = 2.0f;
-    c.layers.PushBack(grass);
-    c.layers.PushBack(VegetationLayer{}); // unnamed: falls back to the type label
+    c.proceduralLayers.PushBack(grass);
+    c.proceduralLayers.PushBack(ProceduralVegetationLayer{}); // unnamed: falls back to the type label
 
     edit.EntitySelection().Set(terrain);
     inspector.Refresh();
     auto* list = foundation::core::Cast<editor::app::ContainerListEditor>(
-        inspector.Grid()->GetProperty(u8"Layers"));
+        inspector.Grid()->GetProperty(u8"Procedural Layers"));
     REQUIRE(list != nullptr);
     REQUIRE(list->slotNames.Size() == 2u);
     CHECK(list->slotNames[0] == u8"Grass"); // the element's own name, not "<value>"
@@ -531,7 +531,7 @@ TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of le
 
     // Every leaf field of each slot is a row in that slot's expander; the named slot titles
     // its expander with the name.
-    const usize layerFields = Properties(TypeOf<VegetationLayer>()).Size();
+    const usize layerFields = Properties(TypeOf<ProceduralVegetationLayer>()).Size();
     usize slot1Rows = 0;
     usize slot2Rows = 0;
     bool slot1Density = false;
@@ -539,13 +539,13 @@ TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of le
     for (usize i = 0; i < inspector.Grid()->PropertyCount(); ++i)
     {
         const foundation::ui::toolkit::PropertyEditor* row = inspector.Grid()->PropertyAt(i);
-        if (row->Category() == u8"Layers 1: Grass")
+        if (row->Category() == u8"Procedural Layers 1: Grass")
         {
             ++slot1Rows;
             slot1Density |= row->Name() == u8"density";
             slot1Mesh |= row->Name() == u8"mesh";
         }
-        else if (row->Category() == u8"Layers 2")
+        else if (row->Category() == u8"Procedural Layers 2")
         {
             ++slot2Rows;
         }
@@ -558,10 +558,10 @@ TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of le
     // A path edit shows up on the next refresh through the same rows (the refresher pulls the
     // owner by path), and removing a slot rebuilds the grid without its expander.
     edit.SetComponentProperty(terrain, &TypeOf<TerrainVegetationComponent>(),
-                              ComponentPropertyPath{"layers", 0}, "density",
+                              ComponentPropertyPath{"proceduralLayers", 0}, "density",
                               Variant::From<f32>(9.0f));
-    CHECK(mgr->Get(scene.FindEntity(terrain))->layers[0].density == 9.0f);
-    mgr->Get(scene.FindEntity(terrain))->layers.RemoveAt(1);
+    CHECK(mgr->Get(scene.FindEntity(terrain))->proceduralLayers[0].density == 9.0f);
+    mgr->Get(scene.FindEntity(terrain))->proceduralLayers.RemoveAt(1);
     inspector.Refresh(); // the list refresher sees the count change and forces a rebuild
     inspector.Refresh();
     bool slot2Present = false;

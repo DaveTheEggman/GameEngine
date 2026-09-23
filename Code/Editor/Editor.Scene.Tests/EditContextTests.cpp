@@ -979,7 +979,7 @@ TEST_CASE("scene-edit: revert component to prefab baseline is undoable")
 TEST_CASE("scene-edit: a property path edits a struct element inside a reflected list - set, undo, merge, refs")
 {
     using engine::vegetation::TerrainVegetationComponent;
-    using engine::vegetation::VegetationLayer;
+    using engine::vegetation::ProceduralVegetationLayer;
     engine::vegetation::RegisterVegetationComponentReflection();
     scene::Scene scene(DefaultAllocator(), u8"t");
     engine::vegetation::AddVegetationSceneManagers(scene);
@@ -991,31 +991,32 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
 
     const Guid id = edit.CreateEntity(u8"Terrain");
     TerrainVegetationComponent& c = mgr->Add(scene.FindEntity(id));
-    VegetationLayer grass;
+    ProceduralVegetationLayer grass;
     grass.name = String(u8"Grass");
     grass.density = 2.0f;
-    c.layers.PushBack(grass);
-    VegetationLayer rocks;
+    c.proceduralLayers.PushBack(grass);
+    ProceduralVegetationLayer rocks;
     rocks.name = String(u8"Rocks");
     rocks.density = 0.1f;
-    c.layers.PushBack(rocks);
-    const auto layer = [&](usize i) -> VegetationLayer& { return mgr->Get(scene.FindEntity(id))->layers[i]; };
+    c.proceduralLayers.PushBack(rocks);
+    const auto layer = [&](usize i) -> ProceduralVegetationLayer&
+    { return mgr->Get(scene.FindEntity(id))->proceduralLayers[i]; };
 
     // The owner a path resolves: the component for an empty path, the element otherwise.
     const TypeInfo* ownerType = nullptr;
     CHECK(!edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{}, &ownerType).IsEmpty());
     CHECK(ownerType == type);
     const Instance slot1 =
-        edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"layers", 1}, &ownerType);
+        edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"proceduralLayers", 1}, &ownerType);
     REQUIRE(!slot1.IsEmpty());
-    CHECK(ownerType == &TypeOf<VegetationLayer>());
+    CHECK(ownerType == &TypeOf<ProceduralVegetationLayer>());
     CHECK(slot1.Pointer() == &layer(1));
-    CHECK(edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"layers", 7}).IsEmpty());
+    CHECK(edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"proceduralLayers", 7}).IsEmpty());
     CHECK(edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"nothing", 0}).IsEmpty());
     CHECK(edit.ResolvePropertyOwner(id, type, ComponentPropertyPath{"visible", 0}).IsEmpty());
 
     // A Variant set on slot 1 leaves slot 0 alone; undo and redo walk it back and forth.
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 1}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 1}, "density",
                               Variant::From<f32>(5.0f));
     CHECK(layer(1).density == 5.0f);
     CHECK(layer(0).density == 2.0f);
@@ -1026,9 +1027,9 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
 
     // Consecutive edits of the SAME path merge into the entry on top of the stack (the redone
     // 5.0 write, whose original old value is 0.1): one undo reverts the whole scrub.
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 1}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 1}, "density",
                               Variant::From<f32>(6.0f));
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 1}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 1}, "density",
                               Variant::From<f32>(7.0f));
     CHECK(layer(1).density == 7.0f);
     commands.Undo();
@@ -1036,9 +1037,9 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
     commands.Redo();
     CHECK(layer(1).density == 7.0f);
     // Another slot is another entry: it never merges into a neighbour's scrub.
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 0}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 0}, "density",
                               Variant::From<f32>(3.0f));
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 1}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 1}, "density",
                               Variant::From<f32>(8.0f));
     CHECK(layer(0).density == 3.0f);
     CHECK(layer(1).density == 8.0f);
@@ -1050,19 +1051,19 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
 
     // A raw (enum) write and a String write through the path.
     edit.SetComponentPropertyRaw(
-        id, type, ComponentPropertyPath{"layers", 0}, "placement",
+        id, type, ComponentPropertyPath{"proceduralLayers", 0}, "placement",
         static_cast<i64>(foundation::vegetation::VegetationPlacement::Uniform));
     CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Uniform);
     commands.Undo();
-    CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Scattered); // the default
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 0}, "name",
+    CHECK(layer(0).placement == foundation::vegetation::VegetationPlacement::Mask); // the default
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 0}, "name",
                               Variant::From<String>(String(u8"Lawn")));
     CHECK(layer(0).name == String(u8"Lawn"));
 
     // A resource reference inside the element: the picker's path (no manager: id only).
     const Guid meshId{0xABCDu, 0x1234u};
     edit.SetComponentResourceRef<foundation::geometry::StaticMesh>(
-        id, type, ComponentPropertyPath{"layers", 1}, "mesh", meshId, nullptr);
+        id, type, ComponentPropertyPath{"proceduralLayers", 1}, "mesh", meshId, nullptr);
     CHECK(layer(1).mesh.id == meshId);
     CHECK(layer(0).mesh.id.IsNil());
     commands.Undo();
@@ -1070,7 +1071,7 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
 
     // An out-of-range slot is a refused command: nothing changes and nothing lands on the
     // undo stack (the next undo reverts the earlier name edit).
-    edit.SetComponentProperty(id, type, ComponentPropertyPath{"layers", 9}, "density",
+    edit.SetComponentProperty(id, type, ComponentPropertyPath{"proceduralLayers", 9}, "density",
                               Variant::From<f32>(1.0f));
     CHECK(layer(0).density == 2.0f);
     CHECK(layer(1).density == 7.0f); // the merged scrub, still applied

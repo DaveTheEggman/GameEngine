@@ -42,12 +42,12 @@ export namespace editor
         [[nodiscard]] StringView Id() const override { return u8"vegetation.scatter"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Paint Props"; }
         /// Relevant only when the scene has a vegetation component over a terrain with at least
-        /// one Scattered layer.
+        /// one prop layer.
         [[nodiscard]] bool IsAvailable() const override;
         [[nodiscard]] StringView UnavailableReason() const override
         {
-            return u8"Paint Props needs a Terrain Vegetation component with a layer whose "
-                   u8"Placement is Scattered, on a terrain.";
+            return u8"Paint Props needs a Terrain Vegetation component with a prop layer, on a "
+                   u8"terrain.";
         }
         [[nodiscard]] bool Update(const ViewportToolInput& input) override;
         void Draw(foundation::render::debug::DebugDraw& drawList) override;
@@ -55,9 +55,9 @@ export namespace editor
         [[nodiscard]] StringView StatusText() const override { return m_status.AsView(); }
 
         // ---- brush parameters ----
-        /// The layer index (into the component's layers) the brush works on; must be a
-        /// Scattered layer. The MODE (paint / erase) is a separate choice and stays: erase is
-        /// per layer, so "layer 2 while erasing" erases layer 2.
+        /// The prop layer index (into the component's propLayers) the brush works on. The MODE
+        /// (paint / erase) is a separate choice and stays: erase is per layer, so "layer 2 while
+        /// erasing" erases layer 2.
         void SetLayer(u32 index)
         {
             m_layer = index;

@@ -1568,6 +1568,15 @@ export namespace foundation::core
             return *this;
         }
 
+        /// Keep a legacy reader: a payload stored under any version from `oldest` up to the
+        /// current one is accepted, and the Serialize body branches on ar.Version() for the old
+        /// layouts. One version back, removed once the data has moved.
+        TypeBuilder& ReadsDataVersionsFrom(u32 oldest)
+        {
+            m_minReadDataVersion = oldest;
+            return *this;
+        }
+
         template <auto Member>
         TypeBuilder& Property(const char* name, PropertyFlags flags = PropertyFlags::None)
         {
@@ -1791,6 +1800,7 @@ export namespace foundation::core
         [[nodiscard]] TypeData Build()
         {
             m_data.info = MakeTypeInfo<T>(m_name, m_namespace, m_base, m_dataVersion);
+            m_data.info.minReadDataVersion = m_minReadDataVersion;
             // Wire per-property attribute spans (the inner Array buffers survive TypeData's
             // move - only the outer array's control block moves).
             while (m_data.propertyAttributes.Size() < m_data.properties.Size())
@@ -1838,6 +1848,7 @@ export namespace foundation::core
         const char* m_namespace;
         const TypeInfo* m_base;
         u32 m_dataVersion = 0;
+        u32 m_minReadDataVersion = 0;
         TypeData m_data;
     };
 }

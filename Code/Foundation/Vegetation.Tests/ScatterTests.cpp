@@ -222,13 +222,9 @@ TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk
         CHECK(m.m[3][2] < 0.0f);
     }
 
-    // Nothing to do: zero density, an empty heightfield, or an authored (Scattered) layer.
+    // Nothing to do: zero density.
     veg::ScatterResult none;
     veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, Uniform(0.0f), AABB::Empty(), none);
-    CHECK(none.transforms.IsEmpty());
-    veg::ScatterLayer authored = Uniform(1.0f);
-    authored.placement = veg::VegetationPlacement::Scattered;
-    veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, authored, AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
 }
 
@@ -556,8 +552,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
 TEST_CASE("vegetation stamp: a seeded stamp places a deterministic count inside the disc; slope, spacing and a blocked query reject; erase removes")
 {
     RefPtr<hf::Heightfield> grid = MakeFlat(2.0f);
-    veg::ScatterLayer rocks = Uniform(0.0f);
-    rocks.placement = veg::VegetationPlacement::Scattered;
+    veg::ScatterLayer rocks = Uniform(0.0f); // a prop layer's rules: placement is not consulted
     rocks.scaleRange = Float2{1.0f, 1.0f};
     rocks.maxSlopeDegrees = 90.0f;
     const AABB rock = AABB::FromCenterExtents(Float3{0, 0.5f, 0}, Float3{0.5f, 0.5f, 0.5f});

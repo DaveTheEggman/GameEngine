@@ -73,86 +73,108 @@ namespace engine::vegetation
         builder.Value("Uniform", VegetationPlacement::Uniform);
         builder.Value("Splat", VegetationPlacement::Splat);
         builder.Value("Mask", VegetationPlacement::Mask);
-        builder.Value("Scattered", VegetationPlacement::Scattered);
         builder.Value("SplatTimesMask", VegetationPlacement::SplatTimesMask);
     }
 
-    REFLECT_VALUE(VegetationLayer, "rtti::engine::vegetation")
+    // The base fields, declared on each layer type (the inspector lists a type's own
+    // properties; the two lists share the rows through this helper, not through the RTTI base).
+    template <typename Layer>
+    void ReflectLayerBase(TypeBuilder<Layer>& builder)
     {
-        builder.Attribute("displayName", String(u8"Vegetation Layer"))
-            .Property<&VegetationLayer::name>("name")
+        builder.template Property<&Layer::name>("name")
             .PropAttribute("description", String(u8"The layer's label in the list."))
-            .Property<&VegetationLayer::mesh>("mesh")
+            .template Property<&Layer::mesh>("mesh")
             .PropAttribute("description",
                            String(u8"The instanced mesh: a grass card, a tuft, a rock."))
-            .Property<&VegetationLayer::material>("material")
+            .template Property<&Layer::material>("material")
             .PropAttribute("description", String(u8"Optional override; none = the mesh's own."))
-            .Property<&VegetationLayer::placement>("placement")
-            .PropAttribute("description",
-                           String(u8"Where it grows: everywhere (Uniform), where a terrain splat "
-                                  u8"layer is painted (Splat), a painted mask (Mask), or authored "
-                                  u8"instances (Scattered - the default: paint them with Paint "
-                                  u8"Props, or pick a source and the layer grows on its own)."))
-            .Property<&VegetationLayer::splatLayer>("splatLayer")
-            .PropAttribute("displayName", String(u8"Splat Layer"))
-            .PropAttribute("description",
-                           String(u8"Splat placement: the terrain palette index to follow."))
-            .Property<&VegetationLayer::splatThreshold>("splatThreshold")
-            .PropAttribute("displayName", String(u8"Splat Threshold"))
-            .PropAttribute("description",
-                           String(u8"Splat placement: the painted share (0..1) below which "
-                                  u8"nothing grows."))
-            .Property<&VegetationLayer::maskPlane>("maskPlane")
-            .PropAttribute("displayName", String(u8"Mask Plane"))
-            .PropAttribute("description",
-                           String(u8"Mask placement: the plane of the component's mask this "
-                                  u8"layer follows (the Paint Vegetation brush paints it)."))
-            .Property<&VegetationLayer::density>("density")
-            .PropAttribute("description", String(u8"Instances per square metre."))
-            .Property<&VegetationLayer::scaleRange>("scaleRange")
+            .template Property<&Layer::scaleRange>("scaleRange")
             .PropAttribute("displayName", String(u8"Scale Range"))
-            .Property<&VegetationLayer::maxSlopeDegrees>("maxSlopeDegrees")
+            .template Property<&Layer::maxSlopeDegrees>("maxSlopeDegrees")
             .PropAttribute("displayName", String(u8"Max Slope"))
             .PropAttribute("description",
-                           String(u8"Degrees from flat above which nothing grows."))
-            .Property<&VegetationLayer::heightRange>("heightRange")
+                           String(u8"Degrees from flat above which nothing grows or stands."))
+            .template Property<&Layer::heightRange>("heightRange")
             .PropAttribute("displayName", String(u8"Height Range"))
-            .PropAttribute("description", String(u8"Terrain-local Y window the layer grows in."))
-            .Property<&VegetationLayer::alignToNormal>("alignToNormal")
+            .PropAttribute("description", String(u8"Terrain-local Y window the layer lives in."))
+            .template Property<&Layer::alignToNormal>("alignToNormal")
             .PropAttribute("displayName", String(u8"Align To Normal"))
-            .Property<&VegetationLayer::fadeStart>("fadeStart")
+            .template Property<&Layer::fadeStart>("fadeStart")
             .PropAttribute("displayName", String(u8"Fade Start"))
             .PropAttribute("description", String(u8"Metres from the camera: full density inside."))
-            .Property<&VegetationLayer::fadeEnd>("fadeEnd")
+            .template Property<&Layer::fadeEnd>("fadeEnd")
             .PropAttribute("displayName", String(u8"Fade End"))
             .PropAttribute("description", String(u8"Metres from the camera: nothing beyond."))
-            .Property<&VegetationLayer::castShadows>("castShadows")
+            .template Property<&Layer::castShadows>("castShadows")
             .PropAttribute("displayName", String(u8"Cast Shadows"))
             .PropAttribute("description",
                            String(u8"Off for grass (the single most expensive thing a grass layer "
                                   u8"can do); on for rocks and props."))
-            .Property<&VegetationLayer::maxInstancesPerChunk>("maxInstancesPerChunk")
+            .template Property<&Layer::maxInstancesPerChunk>("maxInstancesPerChunk")
             .PropAttribute("displayName", String(u8"Max Per Chunk"))
             .PropAttribute("description",
-                           String(u8"Instances per 64 x 64 quad terrain chunk; a denser layer "
-                                  u8"scales its density down to fit."))
-            .Property<&VegetationLayer::visible>("visible");
+                           String(u8"Instances one 64 x 64 quad terrain chunk holds; a chunk that "
+                                  u8"fills stops placing and logs once."))
+            .template Property<&Layer::visible>("visible");
+    }
+
+    REFLECT_VALUE(ProceduralVegetationLayer, "rtti::engine::vegetation")
+    {
+        builder.Attribute("displayName", String(u8"Procedural Layer"));
+        ReflectLayerBase(builder);
+        builder.Property<&ProceduralVegetationLayer::placement>("placement")
+            .PropAttribute("description",
+                           String(u8"Where it grows: everywhere (Uniform), where a terrain splat "
+                                  u8"layer is painted (Splat), where a plane of the component's "
+                                  u8"mask is painted (Mask - the default; paint it with Paint "
+                                  u8"Vegetation), or both (SplatTimesMask)."))
+            .Property<&ProceduralVegetationLayer::splatLayer>("splatLayer")
+            .PropAttribute("displayName", String(u8"Splat Layer"))
+            .PropAttribute("description",
+                           String(u8"Splat placement: the terrain palette index to follow."))
+            .Property<&ProceduralVegetationLayer::splatThreshold>("splatThreshold")
+            .PropAttribute("displayName", String(u8"Splat Threshold"))
+            .PropAttribute("description",
+                           String(u8"Splat placement: the painted share (0..1) below which "
+                                  u8"nothing grows."))
+            .Property<&ProceduralVegetationLayer::maskPlane>("maskPlane")
+            .PropAttribute("displayName", String(u8"Mask Plane"))
+            .PropAttribute("description",
+                           String(u8"Mask placement: the plane of the component's mask this "
+                                  u8"layer follows (the Paint Vegetation brush paints it)."))
+            .Property<&ProceduralVegetationLayer::density>("density")
+            .PropAttribute("description", String(u8"Instances per square metre."));
+    }
+
+    REFLECT_VALUE(PropVegetationLayer, "rtti::engine::vegetation")
+    {
+        builder.Attribute("displayName", String(u8"Prop Layer"));
+        ReflectLayerBase(builder);
+        // `instances` is deliberately not a row: the Paint Props brush is its editor.
     }
 
     REFLECT_VALUE(TerrainVegetationComponent, "rtti::engine::vegetation")
     {
         builder.Attribute("displayName", String(u8"Terrain Vegetation"))
             .Attribute("category", String(u8"Terrain"))
-            .DataVersion(1)
-            .Property<&TerrainVegetationComponent::layers>("layers")
+            .DataVersion(2)          // 2026-09-23: two layer lists (was one list + placement)
+            .ReadsDataVersionsFrom(1) // the legacy reader splits a V1 list (remove after re-saves)
+            .Property<&TerrainVegetationComponent::proceduralLayers>("proceduralLayers")
+            .PropAttribute("displayName", String(u8"Procedural Layers"))
             .PropAttribute("description",
-                           String(u8"The layers over this terrain: grass from a splat layer, "
-                                  u8"rocks from another. Each slot edits below the list."))
+                           String(u8"Layers the scatter grows from a source: grass from a splat "
+                                  u8"layer, flowers from a painted mask plane. Each slot edits "
+                                  u8"below the list."))
+            .Property<&TerrainVegetationComponent::propLayers>("propLayers")
+            .PropAttribute("displayName", String(u8"Prop Layers"))
+            .PropAttribute("description",
+                           String(u8"Layers of placed props: rocks, stumps. Paint them with the "
+                                  u8"Paint Props brush; each slot edits its rules below the list."))
             .Property<&TerrainVegetationComponent::mask>("mask")
             .PropAttribute("description",
-                           String(u8"The painted vegetation mask (one density plane per layer "
-                                  u8"that uses Mask placement); paint it with the Paint "
-                                  u8"Vegetation brush."))
+                           String(u8"The painted vegetation mask (one density plane per "
+                                  u8"procedural layer that uses Mask placement); paint it with "
+                                  u8"the Paint Vegetation brush."))
             .Property<&TerrainVegetationComponent::visible>("visible");
     }
 
@@ -166,8 +188,10 @@ namespace engine::vegetation
         static const bool once = []()
         {
             RttiRegisterEnum_VegetationPlacement();
-            RttiRegisterValue_VegetationLayer();
-            RegisterArrayType<VegetationLayer>(); // the layers container (list editor + scripts)
+            RttiRegisterValue_ProceduralVegetationLayer();
+            RttiRegisterValue_PropVegetationLayer();
+            RegisterArrayType<ProceduralVegetationLayer>(); // the list containers (list editor + scripts)
+            RegisterArrayType<PropVegetationLayer>();
             RttiRegisterValue_TerrainVegetationComponent();
             return true;
         }();
@@ -227,32 +251,39 @@ namespace engine::vegetation
         return n;
     }
 
-    u64 TerrainVegetationComponentManager::CacheKey(scene::EntityHandle owner,
-                                                    u32 layerIndex) noexcept
+    u64 TerrainVegetationComponentManager::CacheKey(scene::EntityHandle owner, u32 slot) noexcept
     {
         const u64 entity = engine::render::PackEntity(owner);
-        return HashBytes(&layerIndex, sizeof(layerIndex), entity);
+        return HashBytes(&slot, sizeof(slot), entity);
     }
 
     TerrainVegetationComponentManager::LayerCache& TerrainVegetationComponentManager::CacheFor(
-        scene::EntityHandle owner, u32 layerIndex)
+        scene::EntityHandle owner, u32 slot)
     {
-        const u64 key = CacheKey(owner, layerIndex);
+        const u64 key = CacheKey(owner, slot);
         if (LayerCache* found = m_caches.Find(key))
         {
             return *found;
         }
         LayerCache fresh;
-        fresh.layerIndex = layerIndex;
+        fresh.slot = slot;
         return m_caches.InsertOrAssign(key, Move(fresh));
+    }
+
+    // A slot's log name: "prop layer 1" / "procedural layer 0".
+    static String SlotName(u32 slot)
+    {
+        const bool props = (slot & TerrainVegetationComponentManager::kPropSlotBit) != 0;
+        return Format(u8"{} layer {}", props ? StringView(u8"prop") : StringView(u8"procedural"),
+                      slot & ~TerrainVegetationComponentManager::kPropSlotBit);
     }
 
     void TerrainVegetationComponentManager::ResetCache(LayerCache& cache,
                                                        const heightfield::Heightfield& hf,
-                                                       const Guid& ownerId, u32 layerIndex)
+                                                       const Guid& ownerId, u32 slot)
     {
         cache.ownerId = ownerId;
-        cache.layerIndex = layerIndex;
+        cache.slot = slot;
         cache.heightfieldUid = hf.uid;
         cache.heightfieldVersion = hf.Version();
         cache.splatUid = 0;
@@ -267,7 +298,7 @@ namespace engine::vegetation
         cache.sets.Resize(cache.chunks.Size());
         for (usize i = 0; i < cache.chunks.Size(); ++i)
         {
-            cache.sets[i].key = veg::ChunkSeed(ownerId, layerIndex, cache.chunks[i].chunkX,
+            cache.sets[i].key = veg::ChunkSeed(ownerId, slot, cache.chunks[i].chunkX,
                                                cache.chunks[i].chunkZ);
         }
     }
@@ -307,12 +338,12 @@ namespace engine::vegetation
                                                      const tmodel::SplatWeights* splat,
                                                      const veg::VegetationMask* mask,
                                                      const veg::ScatterLayer& layer,
-                                                     const AABB& meshBounds,
+                                                     const AABB& meshBounds, bool props,
                                                      Span<const Float4x4> authored)
     {
         ChunkSet& set = cache.sets[chunkIndex];
         veg::ScatterResult result;
-        if (layer.placement == VegetationPlacement::Scattered)
+        if (props)
         {
             // Authored props: the chunk's share of the layer's instances (each instance maps
             // to exactly one chunk by its terrain-local XZ), bounds grown like the scatter's.
@@ -363,9 +394,9 @@ namespace engine::vegetation
         {
             cache.warnedClamp = true;
             LOG_WARNING(u8"Vegetation",
-                        u8"layer {} over budget: {} instances/m2 wanted, {} used "
+                        u8"{} over budget: {} instances/m2 wanted, {} used "
                         u8"(maxInstancesPerChunk = {})",
-                        cache.layerIndex, layer.density, result.effectiveDensity,
+                        SlotName(cache.slot), layer.density, result.effectiveDensity,
                         layer.maxInstancesPerChunk);
         }
         // Build into a FRESH array and swap: the previous array may be borrowed by a snapshot
@@ -380,34 +411,31 @@ namespace engine::vegetation
 
     void TerrainVegetationComponentManager::ExtractLayer(
         render::ExtractedScene& snapshot, scene::EntityHandle owner, const Guid& ownerId,
-        u32 layerIndex, const VegetationLayer& authored, const heightfield::Heightfield& hf,
+        u32 slot, const VegetationLayerBase& base, const veg::ScatterLayer& layer, bool props,
+        Span<const Float4x4> authored, const heightfield::Heightfield& hf,
         const tmodel::SplatWeights* splat, const veg::VegetationMask* mask,
         const Float4x4& entityWorld, u32& budget)
     {
-        LayerCache& cache = CacheFor(owner, layerIndex);
+        LayerCache& cache = CacheFor(owner, slot);
         cache.seenThisFrame = true; // a hidden layer keeps its sets (unhide = no regrow)
-        if (!authored.visible)
+        if (!base.visible)
         {
             return;
         }
-        foundation::geometry::StaticMesh* mesh = authored.mesh.Get();
+        foundation::geometry::StaticMesh* mesh = base.mesh.Get();
         if (mesh == nullptr)
         {
-            // A reference that names an asset but resolves to nothing (deleted, uncooked, a stale
-            // db) draws nothing - say so once, because a silent empty layer reads as a broken
-            // brush. A nil reference is simply an unfinished layer: quiet.
-            if (!authored.mesh.id.IsNil() && !cache.warnedNoMesh)
+            if (!base.mesh.id.IsNil() && !cache.warnedNoMesh)
             {
                 cache.warnedNoMesh = true;
                 LOG_WARNING(u8"Vegetation",
-                            u8"layer {} ('{}'): its mesh reference does not resolve (a deleted, "
+                            u8"{} ('{}'): its mesh reference does not resolve (a deleted, "
                             u8"uncooked or stale asset) - nothing will draw",
-                            layerIndex, authored.name);
+                            SlotName(slot), base.name);
             }
             return;
         }
         cache.warnedNoMesh = false;
-        const veg::ScatterLayer layer = authored.ToScatterLayer();
         const u64 layerHash = veg::LayerScatterHash(layer);
 
         // Identity changes rebuild the whole cache: another heightfield (or its size), the
@@ -416,7 +444,7 @@ namespace engine::vegetation
             !(cache.ownerId == ownerId) || cache.meshUid != mesh->uid ||
             cache.layerHash != layerHash)
         {
-            ResetCache(cache, hf, ownerId, layerIndex);
+            ResetCache(cache, hf, ownerId, slot);
             cache.layerHash = layerHash;
             cache.meshUid = mesh->uid;
             cache.warnedClamp = false;
@@ -427,17 +455,16 @@ namespace engine::vegetation
         const u64 splatVersion = splat != nullptr ? splat->Version() : 0;
         const u64 maskUid = mask != nullptr ? mask->uid : 0;
         const u64 maskVersion = mask != nullptr ? mask->Version() : 0;
-        // Scattered: the authored instances are the content; a brush stroke (or an undo) is a
+        // Props: the authored instances are the content; a brush stroke (or an undo) is a
         // hash change, and the whole layer re-buckets (props are few; a sculpt regrows too).
         u64 instancesHash = 0;
-        if (layer.placement == VegetationPlacement::Scattered)
+        if (props)
         {
-            const usize count = authored.instances.Size();
+            const usize count = authored.Size();
             instancesHash = HashBytes(&count, sizeof(count), 0x9E3779B97F4A7C15ull);
             if (count > 0)
             {
-                instancesHash = HashBytes(authored.instances.Data(), count * sizeof(Float4x4),
-                                          instancesHash);
+                instancesHash = HashBytes(authored.Data(), count * sizeof(Float4x4), instancesHash);
             }
         }
         if (cache.instancesHash != instancesHash)
@@ -492,7 +519,7 @@ namespace engine::vegetation
         const bool hasOrigin = snapshot.HasViewOrigin();
         const Float3 origin = snapshot.ViewOrigin();
         const f32 entityScale = MaxAxisScale(entityWorld);
-        foundation::materials::Material* material = authored.material.Get();
+        foundation::materials::Material* material = base.material.Get();
         for (u32 i = 0; i < cache.sets.Size(); ++i)
         {
             ChunkSet& set = cache.sets[i];
@@ -520,13 +547,10 @@ namespace engine::vegetation
                 // procedural scatter; a stroke lands whole. A procedural set past the budget
                 // waits for a later frame, but a set that was ALREADY built keeps drawing its
                 // previous instances meanwhile (a dropped frame under the brush is a flicker).
-                const bool scattered = layer.placement == VegetationPlacement::Scattered;
-                if (scattered || budget > 0)
+                if (props || budget > 0)
                 {
-                    BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds,
-                             Span<const Float4x4>{authored.instances.Data(),
-                                                  authored.instances.Size()});
-                    if (!scattered)
+                    BuildSet(cache, i, hf, splat, mask, layer, mesh->bounds, props, authored);
+                    if (!props)
                     {
                         --budget;
                     }
@@ -598,9 +622,13 @@ namespace engine::vegetation
                 heightfield::Heightfield* hf = res != nullptr ? res->heightfield.Get() : nullptr;
                 if (hf == nullptr || hf->IsEmpty())
                 {
-                    for (u32 li = 0; li < c.layers.Size(); ++li)
+                    for (u32 li = 0; li < c.proceduralLayers.Size(); ++li)
                     {
-                        CacheFor(owner, static_cast<u32>(li)).seenThisFrame = true;
+                        CacheFor(owner, ProceduralSlot(li)).seenThisFrame = true;
+                    }
+                    for (u32 li = 0; li < c.propLayers.Size(); ++li)
+                    {
+                        CacheFor(owner, PropSlot(li)).seenThisFrame = true;
                     }
                     return;
                 }
@@ -608,10 +636,21 @@ namespace engine::vegetation
                 const veg::VegetationMask* mask = c.mask.Get();
                 const Guid ownerId = m_scene->GetEntityId(owner);
                 const Float4x4 entityWorld = m_scene->GetWorldMatrix(terrainEntity);
-                for (u32 li = 0; li < c.layers.Size(); ++li)
+                for (u32 li = 0; li < c.proceduralLayers.Size(); ++li)
                 {
-                    ExtractLayer(snapshot, owner, ownerId, li, c.layers[li], *hf, splat, mask,
+                    const ProceduralVegetationLayer& grown = c.proceduralLayers[li];
+                    ExtractLayer(snapshot, owner, ownerId, ProceduralSlot(li), grown,
+                                 grown.ToScatterLayer(), /*props*/ false, {}, *hf, splat, mask,
                                  entityWorld, budget);
+                }
+                for (u32 li = 0; li < c.propLayers.Size(); ++li)
+                {
+                    const PropVegetationLayer& placed = c.propLayers[li];
+                    ExtractLayer(snapshot, owner, ownerId, PropSlot(li), placed,
+                                 placed.ToScatterLayer(), /*props*/ true,
+                                 Span<const Float4x4>{placed.instances.Data(),
+                                                      placed.instances.Size()},
+                                 *hf, splat, mask, entityWorld, budget);
                 }
             });
 

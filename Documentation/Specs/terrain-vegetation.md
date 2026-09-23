@@ -5,7 +5,10 @@
 > Vegetation brush with region-scoped regrow and persist; the WIND vertex variant off the frame
 > clock and three material properties); P2 BUILT 2026-09-22 (Scattered layers hold authored
 > instances, bucketed per chunk; the Paint Props brush stamps and erases them with the layer's
-> rules, a spacing rule and physics collision rejection). P3 items stay their own seeds.
+> rules, a spacing rule and physics collision rejection). SPLIT 2026-09-23: the one layer list
+> became two on the same component - `proceduralLayers` (grown from a source) and `propLayers`
+> (placed) over a shared base; `VegetationPlacement::Scattered` retired; data version 2 with a
+> legacy reader for version 1 (Systems/renderer.md "Data"). P3 items stay their own seeds.
 > Sized L; lands in phases with a green four-lane build after each. Origin: the backlog seed "grass / vegetation /
 > foliage for terrain" (weekly_backlog.md, user 2026-08-26) and the Lumix parity doc,
 > section 2 (vegetation is the largest gap in the terrain domain). Written after a

@@ -67,9 +67,11 @@ export namespace foundation::core
         // A scope is pushed around each versioned payload (content envelopes, scene component
         // records) with the version chain the data carries. BeginVersionedPayload REFUSES a
         // stored chain that differs from the type's current one, so inside a payload Version()
-        // always reports the current data version - Serialize bodies read one layout, never
-        // branch on it. Version() = the payload's concrete type; Version(typeId) = a base class
-        // in the chain (0 when absent - unversioned data reads as version 0).
+        // reports the current data version and Serialize bodies read one layout - except for a
+        // type that keeps a legacy reader (TypeInfo::minReadDataVersion), whose scope carries
+        // the STORED version so the body can branch on it for the old layout. Version() = the
+        // payload's concrete type; Version(typeId) = a base class in the chain (0 when absent -
+        // unversioned data reads as version 0).
         [[nodiscard]] virtual u32 Version() const noexcept = 0;
         [[nodiscard]] virtual u32 Version(u64 typeId) const noexcept = 0;
         virtual void PushVersionScope(const SerializedDataVersion* chain, usize count) = 0;

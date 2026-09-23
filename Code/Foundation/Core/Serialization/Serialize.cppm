@@ -234,8 +234,10 @@ export namespace foundation::core
 //     EndVersionedPayload(ar);
 // Write: emits the type's data-version chain (concrete first, then every versioned base).
 // Read: parses the stored chain and REQUIRES it to equal the current chain - a payload written
-// under any other version fails (ErrorCode::NotSupported). There is no migration: bump
-// dataVersion whenever the wire changes and re-save / re-import / re-cook the data.
+// under any other version fails (ErrorCode::NotSupported) - with one allowance: a type that
+// keeps a legacy reader (TypeInfo::minReadDataVersion, TypeBuilder::ReadsDataVersionsFrom)
+// accepts an older CONCRETE version down to that floor, and the pushed scope then reports the
+// STORED version so its Serialize body can branch (ar.Version()). Bases stay exact.
 export namespace foundation::core
 {
     inline void BeginVersionedPayload(ISerializer& ar, const TypeInfo& type)
@@ -278,8 +280,11 @@ export namespace foundation::core
             bool matches = count == currentCount;
             for (u32 i = 0; matches && i < read; ++i)
             {
+                const bool legacy = i == 0 && type.minReadDataVersion != 0 &&
+                                    chain[i].version >= type.minReadDataVersion &&
+                                    chain[i].version < current[i].version;
                 matches = chain[i].typeId == current[i].typeId &&
-                          chain[i].version == current[i].version;
+                          (chain[i].version == current[i].version || legacy);
             }
             if (!matches)
             {

@@ -53,6 +53,47 @@ namespace editor
             return planes;
         }
 
+        // The procedural layers that read each mask plane, "Grass, Flowers" per plane ("-" for
+        // none): the mask brush paints a PLANE, and a layer is what gives the plane meaning, so
+        // the panel says which layers a stroke will grow (user, 2026-09-23).
+        [[nodiscard]] Array<String> ResolvePlaneReaders(scene::Scene& sc, u32 planeCount)
+        {
+            Array<String> readers;
+            for (u32 plane = 0; plane < planeCount; ++plane)
+            {
+                readers.PushBack(String(u8"-"));
+            }
+            scene::ComponentManagerBase* base = sc.FindManagerByComponentType(
+                TypeOf<engine::vegetation::TerrainVegetationComponent>());
+            auto* mgr = static_cast<engine::vegetation::TerrainVegetationComponentManager*>(base);
+            if (mgr == nullptr)
+            {
+                return readers;
+            }
+            mgr->ForEach(
+                [&](engine::vegetation::TerrainVegetationComponent& c, scene::EntityHandle)
+                {
+                    for (usize i = 0; i < c.proceduralLayers.Size(); ++i)
+                    {
+                        const engine::vegetation::ProceduralVegetationLayer& layer =
+                            c.proceduralLayers[i];
+                        using foundation::vegetation::VegetationPlacement;
+                        const bool reads = layer.placement == VegetationPlacement::Mask ||
+                                           layer.placement == VegetationPlacement::SplatTimesMask;
+                        if (!reads || layer.maskPlane >= planeCount)
+                        {
+                            continue;
+                        }
+                        String& line = readers[layer.maskPlane];
+                        const String name =
+                            layer.name.IsEmpty() ? Format(u8"Procedural layer {}", i + 1) : layer.name;
+                        line = (line == String(u8"-")) ? name
+                                                       : Format(u8"{}, {}", line.AsView(), name.AsView());
+                    }
+                });
+            return readers;
+        }
+
         class VegetationPaintPanelProvider final : public IViewportToolPanelProvider
         {
         public:
@@ -85,8 +126,25 @@ namespace editor
                     [t](i32 i) { t->SetPlane(static_cast<u32>(i)); },
                     [t]() -> i32 { return static_cast<i32>(t->Plane()); },
                     [](i32) -> StringView
-                    { return u8"The plane the brush works on (a layer with Mask placement names it)"; });
+                    { return u8"The plane the brush works on (a procedural layer with Mask placement names it)"; });
                 root->AddView(planes.Get());
+                // Which layers each plane grows: the stroke's meaning, on the panel.
+                {
+                    const Array<String> readers =
+                        (ctx.scene != nullptr)
+                            ? ResolvePlaneReaders(*ctx.scene, static_cast<u32>(planeCount))
+                            : Array<String>{};
+                    String line(u8"Grows:");
+                    for (usize i = 0; i < readers.Size(); ++i)
+                    {
+                        line = Format(u8"{}  {}: {}", line.AsView(), i, readers[i].AsView());
+                    }
+                    if (readers.IsEmpty())
+                    {
+                        line = String(u8"Grows: no procedural layer reads a plane yet");
+                    }
+                    root->AddView(app::MakeToolPanelRow(line.AsView(), 11.0f).Get());
+                }
                 root->AddView(app::MakeToolPanelRow(u8"Mode", 12.0f).Get());
                 auto modes = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
                 modes->Build(
@@ -138,9 +196,9 @@ namespace editor
         struct LayerNames
         {
             Array<String> names;
-            Array<bool> scattered;
             Array<bool> hasMesh; // the mesh reference resolves (a stale asset does not)
         };
+
         [[nodiscard]] LayerNames ResolveLayerNames(scene::Scene& sc)
         {
             LayerNames out;
@@ -155,18 +213,17 @@ namespace editor
             mgr->ForEach(
                 [&](engine::vegetation::TerrainVegetationComponent& c, scene::EntityHandle)
                 {
-                    if (taken || c.layers.IsEmpty())
+                    if (taken || c.propLayers.IsEmpty())
                     {
                         return;
                     }
                     taken = true;
-                    for (usize i = 0; i < c.layers.Size(); ++i)
+                    for (usize i = 0; i < c.propLayers.Size(); ++i)
                     {
-                        out.names.PushBack(c.layers[i].name.IsEmpty() ? Format(u8"Layer {}", i + 1)
-                                                                      : c.layers[i].name);
-                        out.scattered.PushBack(c.layers[i].placement ==
-                                               foundation::vegetation::VegetationPlacement::Scattered);
-                        out.hasMesh.PushBack(c.layers[i].mesh.Get() != nullptr);
+                        out.names.PushBack(c.propLayers[i].name.IsEmpty()
+                                               ? Format(u8"Prop layer {}", i + 1)
+                                               : c.propLayers[i].name);
+                        out.hasMesh.PushBack(c.propLayers[i].mesh.Get() != nullptr);
                     }
                 });
             return out;
@@ -193,25 +250,21 @@ namespace editor
                 auto root = app::MakeToolPanelRoot();
                 // Two rows: the LAYER the brush works on (always lit, erase included - erase is
                 // per layer) and the MODE.
-                root->AddView(app::MakeToolPanelRow(u8"Prop layer (Scattered)", 12.0f).Get());
+                root->AddView(app::MakeToolPanelRow(u8"Prop layer", 12.0f).Get());
                 if (count == 0)
                 {
-                    root->AddView(app::MakeToolPanelRow(
-                                      u8"No vegetation layers here - add a Scattered layer", 11.0f)
+                    root->AddView(app::MakeToolPanelRow(u8"No prop layers here - add one to the "
+                                                        u8"Terrain Vegetation component",
+                                                        11.0f)
                                       .Get());
                 }
                 auto choices = MakeRef<app::SegmentedToggle>(editor::EditorRootAllocator());
                 choices->Build(
                     count,
-                    [names = layers.names, scattered = layers.scattered,
-                     hasMesh = layers.hasMesh](i32 i) -> RefPtr<ui::View>
+                    [names = layers.names, hasMesh = layers.hasMesh](i32 i) -> RefPtr<ui::View>
                     {
                         String text = names[static_cast<usize>(i)];
-                        if (!scattered[static_cast<usize>(i)])
-                        {
-                            text = Format(u8"{} (not scattered)", text.AsView());
-                        }
-                        else if (!hasMesh[static_cast<usize>(i)])
+                        if (!hasMesh[static_cast<usize>(i)])
                         {
                             text = Format(u8"{} (no mesh)", text.AsView()); // nothing would draw
                         }

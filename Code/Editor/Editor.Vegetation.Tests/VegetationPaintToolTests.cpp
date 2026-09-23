@@ -93,14 +93,14 @@ namespace
                 res.Get();
             mesh = foundation::geometry::Primitives::Cube(DefaultAllocator(), 0.5f);
             engine::vegetation::TerrainVegetationComponent& c = vegetation->Add(terrain);
-            engine::vegetation::VegetationLayer flowers;
+            engine::vegetation::ProceduralVegetationLayer flowers;
             flowers.name = String(u8"Flowers");
             flowers.mesh = mesh.Get();
             flowers.placement = veg::VegetationPlacement::Mask;
             flowers.maskPlane = 0;
             flowers.density = 0.25f;
             flowers.maxSlopeDegrees = 90.0f;
-            c.layers.PushBack(flowers);
+            c.proceduralLayers.PushBack(flowers);
             if (withMask)
             {
                 mask = MakeRef<veg::VegetationMask>(DefaultAllocator(), 32, 32, 2);

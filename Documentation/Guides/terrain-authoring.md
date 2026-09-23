@@ -174,10 +174,13 @@ updates occasionally bump cook versions - the first open after one re-cooks auto
 ## 6. Vegetation
 
 Grass, flowers and rocks grow from the splat you painted. Select the terrain entity and add a
-**Terrain Vegetation** component (Terrain category). Its **Layers** list holds one entry per
-kind of ground cover; the add icon appends a layer, and each layer gets its own section under
-the list ("Layers 1: Grass"), titled by the layer's **Name**. A new layer is manual (Placement
-Scattered): it grows nothing until you paint props into it or pick a source. Per layer:
+**Terrain Vegetation** component (Terrain category). It has two lists. **Procedural Layers**
+hold the ground cover the engine grows from a source (a splat layer, a mask plane, or
+everywhere); **Prop Layers** hold the things you place by hand with the Paint Props brush
+(rocks, stumps). The add icon appends a layer to its list, and each layer gets its own section
+under the list ("Procedural Layers 1: Grass"), titled by the layer's **Name**. A new procedural
+layer follows the mask (Placement Mask): it grows nothing until the component's mask has paint
+on its plane. A new prop layer holds nothing until you paint into it. Per procedural layer:
 
 - **Mesh** and optionally **Material**: a grass card, a tuft, a rock. Grass cards want a
   double-sided, masked material; the alpha test already runs in the depth, shadow and pick
@@ -203,7 +206,8 @@ component's **Mask** field, and give the layer **Placement** Mask with **Mask Pl
 plane. Select the **Paint Vegetation** tool in the scene viewport: the panel's first row is the plane
 the brush works on (keys 1-9), its second the mode - Paint, Erase (key 0) or Smooth (key
 minus); erase is per plane, so the plane stays selected while you erase and the status bar
-names both. Radius, Strength, Stamp spacing and Airbrush work like the splat brush (Stamp
+names both, and a "Grows:" line names the procedural layers that read each plane, so you know
+what a stroke on plane 0 will grow. Radius, Strength, Stamp spacing and Airbrush work like the splat brush (Stamp
 spacing is how often the stroke stamps, not a distance between plants: density is the layer's
 **Density**, and **maxInstancesPerChunk** is what one 64-cell chunk can hold - a chunk that fills
 stops placing and the log says so once; a painted patch inside a chunk still grows at the full
@@ -211,9 +215,10 @@ density). Placement **SplatTimesMask** grows only where BOTH the splat layer and
 mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
 regrow only the chunks under the brush; Save writes the planes back to the mask asset.
 
-**Props.** Rocks, stumps and other scattered things are a layer with **Placement** Scattered:
-its instances are placed by hand rather than grown from a source. Select the **Paint Props**
-tool (it refuses with a notice until a Scattered layer exists), pick the layer in its panel's
+**Props.** Rocks, stumps and other placed things are a **Prop Layer**: its instances are placed
+by hand rather than grown from a source, with the same mesh, scale, slope, height, fade and
+shadow fields as a procedural layer and none of the source fields. Select the **Paint Props**
+tool (it refuses with a notice until a prop layer exists), pick the layer in its panel's
 first row (keys 1-9) and the mode in its second (Paint, or Erase with key 0 - erase is per
 layer, so the layer stays selected while you erase and the status bar names both), and paint: each stamp tries
 **Density** props per square metre over the brush disc, keeps the layer's slope, height, scale

@@ -144,3 +144,38 @@ TEST_CASE("versioning: a chain of a different SHAPE (extra or foreign entries) i
     BeginVersionedPayload(ar2, TypeOf<Soldier>());
     CHECK(!ar2.IsOk());
 }
+
+TEST_CASE("versioning: a type with a legacy reader accepts an older concrete version down to its floor, and reports it")
+{
+    // TypeInfo::minReadDataVersion (TypeBuilder::ReadsDataVersionsFrom): the one allowance in
+    // the strict reader (Process/CONVENTIONS.md, user 2026-09-23). Versions below the floor and
+    // above the current one are still refused; a base entry must still match exactly.
+    TypeInfo aware = MakeTypeInfo<Soldier>("SoldierLegacyAware", "rtti::test", nullptr, 3);
+    aware.minReadDataVersion = 2;
+    Soldier value;
+    value.health = 12.0f;
+
+    const auto readWith = [&](u32 storedVersion, u32& reportedVersion) -> bool
+    {
+        const SerializedDataVersion chain[] = {{aware.id, storedVersion}};
+        MemoryStream stream;
+        WriteWithChain(stream, chain, 1, value);
+        REQUIRE(stream.Seek(0, SeekOrigin::Begin) == 0);
+        BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, aware);
+        reportedVersion = ar.Version();
+        Soldier loaded;
+        Serialize(ar, loaded);
+        EndVersionedPayload(ar);
+        return ar.IsOk() && loaded.health == 12.0f;
+    };
+    u32 reported = 0;
+    CHECK(readWith(3, reported)); // current
+    CHECK(reported == 3u);
+    CHECK(readWith(2, reported)); // the floor: accepted, and the body sees the STORED version
+    CHECK(reported == 2u);
+    CHECK_FALSE(readWith(1, reported)); // below the floor
+    CHECK_FALSE(readWith(4, reported)); // a newer build's data
+    aware.minReadDataVersion = 0;       // no legacy reader: the current version only
+    CHECK_FALSE(readWith(2, reported));
+}

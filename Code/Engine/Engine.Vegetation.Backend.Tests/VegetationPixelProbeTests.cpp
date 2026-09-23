@@ -157,7 +157,7 @@ namespace
             RefPtr<materials::Material> green =
                 materials::CreatePBR(u8"grass", Float4{0.1f, 0.9f, 0.1f, 1.0f}, 0.0f, 0.9f);
             engine::vegetation::TerrainVegetationComponent& vegetation = mgr->Add(terrain);
-            engine::vegetation::VegetationLayer layer;
+            engine::vegetation::ProceduralVegetationLayer layer;
             layer.name = String(u8"Grass");
             layer.mesh = tuft.Get();
             layer.material = green.Get();
@@ -167,7 +167,7 @@ namespace
             layer.maxSlopeDegrees = 90.0f;
             layer.fadeStart = fadeStart;
             layer.fadeEnd = fadeEnd;
-            vegetation.layers.PushBack(layer);
+            vegetation.proceduralLayers.PushBack(layer);
             world.Start();
 
             ExtractedScene snapshot{DefaultAllocator()};

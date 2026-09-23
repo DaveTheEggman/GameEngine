@@ -192,7 +192,7 @@ namespace samples
                     m_scene->GetSystem<engine::vegetation::TerrainVegetationComponentManager>())
             {
                 engine::vegetation::TerrainVegetationComponent& c = vegetation->Add(m_terrain);
-                engine::vegetation::VegetationLayer layer;
+                engine::vegetation::ProceduralVegetationLayer layer;
                 layer.name = core::String(u8"Grass");
                 layer.mesh = geometry::Primitives::Cone(AppRoot(), 0.24f, 1.4f); // a tuft
                 layer.material = materials::CreatePBR(u8"grass", core::Float4{0.25f, 0.62f, 0.18f, 1.0f},
@@ -209,7 +209,7 @@ namespace samples
                 layer.fadeStart = m_grassFadeStart;
                 layer.fadeEnd = m_grassFadeEnd;
                 layer.castShadows = false;
-                c.layers.PushBack(layer);
+                c.proceduralLayers.PushBack(layer);
             }
 
             // A floating sphere that orbits over the terrain - a moving shadow caster so the CSM is
@@ -352,7 +352,7 @@ namespace samples
                         m_scene->GetSystem<engine::vegetation::TerrainVegetationComponentManager>())
                 {
                     auto* c = vegetation->Get(m_terrain);
-                    if (auto* layer = (c != nullptr && !c->layers.IsEmpty()) ? &c->layers[0] : nullptr)
+                    if (auto* layer = (c != nullptr && !c->proceduralLayers.IsEmpty()) ? &c->proceduralLayers[0] : nullptr)
                     {
                         bool changed = ImGui::SliderFloat("density /m2", &m_grassDensity, 0.0f,
                                                           4.0f, "%.2f");
