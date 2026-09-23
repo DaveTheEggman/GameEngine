@@ -1,7 +1,14 @@
 # Terrain holes (cut-outs for caves, wells, doorways)
 
-> STATUS: SPEC PREPARED 2026-09-22, not scheduled. Sized M (P0 headless + P1 brush; a
-> green four-lane build after each). Origin: the backlog seed "erosion + hole cutting for
+> STATUS: P0 BUILT 2026-09-23 (the sample plane + the "holes" stream, HeightfieldSource 2 /
+> builder 3; holed chunks' own index buffers through TerrainHoledMeshCache; Jolt's no-collision
+> sample; the nav bake's block skip; QueryRay's crossing skip; vegetation's cell reject; probed
+> at the texel on Vulkan + WebGPU). P1 BUILT 2026-09-23 (the `terrain.hole` brush, Cut / Fill,
+> HoleStrokeCommand, a persist that writes BOTH sidecars, its panel). Departures from the text
+> below: the heightfield page previews only image-backed sources, so the hole overlay there has
+> nothing to draw on for a painted heightfield and was left out; the brush does not call
+> InvalidateRegion (like sculpt, a version bump regrows every set of a layer - the cost, not
+> the correctness, of a cut under grass); a fill over solid ground pushes no command. Sized M. Origin: the backlog seed "erosion + hole cutting for
 > terrain" (weekly_backlog.md, user 2026-08-26; terrain-backlog.md carries the one standing
 > rule: holes must EXCLUDE their cells from the nav bake). Written after a full read of the
 > terrain stack (Foundation/Heightfield + Terrain + Terrain.Resource, Engine/Engine.Terrain,

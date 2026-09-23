@@ -441,6 +441,10 @@ namespace editor
             editor::EditorRootAllocator().New<TerrainSplatTool>(*context.scene, *context.commands,
                                                      context.assetEdits),
             editor::EditorRootAllocator()));
+        manager.Add(UniquePtr<IViewportTool>(
+            editor::EditorRootAllocator().New<TerrainHoleTool>(*context.scene, *context.commands,
+                                                               context.assetEdits),
+            editor::EditorRootAllocator()));
     }
 
     void RegisterTerrainViewportTools()

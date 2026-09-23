@@ -39,6 +39,7 @@ import editor.preview; // PreviewViewport (shared viewport + preview scene + cam
 
 export import :sculpt; // the scene-viewport terrain sculpt brush (IViewportTool) + the provider
 export import :splat;  // the scene-viewport terrain splat (layer-weight) brush
+export import :hole;   // the scene-viewport terrain hole brush (Specs/terrain-holes.md)
 
 using namespace foundation::core;
 

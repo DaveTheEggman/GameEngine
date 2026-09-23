@@ -31,8 +31,10 @@ TEST_CASE("terrain tool panels: providers register + build a panel for each brus
     editor::ViewportToolPanelRegistry& reg = editor::ViewportToolPanelRegistry::Get();
     editor::IViewportToolPanelProvider* sculptP = reg.FindByToolId(u8"terrain.sculpt");
     editor::IViewportToolPanelProvider* splatP = reg.FindByToolId(u8"terrain.splat");
+    editor::IViewportToolPanelProvider* holeP = reg.FindByToolId(u8"terrain.hole");
     REQUIRE(sculptP != nullptr);
     REQUIRE(splatP != nullptr);
+    REQUIRE(holeP != nullptr);
     CHECK(reg.FindByToolId(u8"select") == nullptr); // the default tool has no panel
 
     // Build the tools the panels drive - over an in-memory terrain with a SIX-layer palette +
@@ -67,6 +69,9 @@ TEST_CASE("terrain tool panels: providers register + build a panel for each brus
 
     RefPtr<foundation::ui::View> sculptPanel = sculptP->CreatePanel(sculpt, ctx);
     RefPtr<foundation::ui::View> splatPanel = splatP->CreatePanel(splat, ctx);
+    editor::TerrainHoleTool hole(sceneObj, commands, nullptr);
+    RefPtr<foundation::ui::View> holePanel = holeP->CreatePanel(hole, ctx);
+    CHECK(holePanel.Get() != nullptr);
     CHECK(sculptPanel.Get() != nullptr);
     CHECK(splatPanel.Get() != nullptr); // built the base swatch + 6 palette slots + eraser
 

@@ -1,5 +1,5 @@
 add_executable(Editor.Terrain.Tests TestsMain.cpp TerrainEditorPageTests.cpp SculptToolTests.cpp
-    SplatToolTests.cpp PanelProviderTests.cpp SplatmapThumbnailTests.cpp)
+    HoleToolTests.cpp SplatToolTests.cpp PanelProviderTests.cpp SplatmapThumbnailTests.cpp)
 target_link_libraries(Editor.Terrain.Tests PRIVATE
     Editor::Terrain Editor::Core Editor::ViewportTools Editor::App
     Pipeline::Terrain Pipeline::Heightfield Pipeline::Core

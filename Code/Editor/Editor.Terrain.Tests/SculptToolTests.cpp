@@ -233,6 +233,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
     const StringView cookedDir = u8"scratch_sculpt_persist_cooked";
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.rasset");
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.heights.bin");
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.holes.bin");
     RemoveDirectory(cookedDir);
     NativeFileSystem cookedMount(cookedDir, DefaultAllocator());
     {
@@ -277,6 +278,7 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
     }
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.rasset");
     FileDelete(u8"scratch_sculpt_persist_cooked/hf.heights.bin");
+    FileDelete(u8"scratch_sculpt_persist_cooked/hf.holes.bin");
     RemoveDirectory(cookedDir);
 
     FileDelete(u8"scratch_sculpt_persist_db/hf.rasset");

@@ -140,6 +140,23 @@ asset name), and the **E** slot = the eraser.
   and index rasters) and re-cooks. A painted weights asset becomes *embedded* - a re-cook keeps
   your paint; re-importing its source PNG explicitly resets it.
 
+## 4b. Holes
+
+Cut Holes is the third terrain brush in the scene viewport, beside Sculpt and Paint Splat. Cut
+removes the terrain under a hard-edged disc; Fill puts it back. A hole is a set of cut samples,
+and the one rule everywhere is that any triangle touching a cut sample is gone: it does not
+draw, cast or receive a shadow, collide, count as walkable in the nav bake, or grow grass and
+props. A ray from a brush or a gameplay trace passes through a hole to whatever sits below,
+which is what lets you place a cave mesh or a well under it, and it is also why the brush cannot
+pick inside a hole: to fill one, click on the rim with a radius that covers the cut.
+
+Cut at least a few samples wide. At distance a coarse chunk level drops a whole quad when any
+sample in it is cut, so a one-sample hole reads larger far away than close up; it never reads
+smaller. One stroke is one undo step. Saving writes the heightfield's `heights` and `holes`
+sidecars into the source asset, so a cut survives a re-cook, and every heightfield re-cooks once
+after this feature lands because the cooked form carries the second stream. Cubemap-style
+overlays on the heightfield page and hole cutting from an imported image are not there yet.
+
 ## 5. Cooking and hot reload
 
 The editor cooks in the background after edits and hot-swaps the products into open scenes:

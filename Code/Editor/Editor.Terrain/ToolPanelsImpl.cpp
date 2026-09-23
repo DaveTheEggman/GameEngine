@@ -225,6 +225,51 @@ namespace editor
             }
         };
 
+        // ---- Hole panel: Cut / Fill + radius (Specs/terrain-holes.md) ----------------------------
+        class HolePanelProvider final : public IViewportToolPanelProvider
+        {
+        public:
+            [[nodiscard]] StringView ToolId() const override { return u8"terrain.hole"; }
+            [[nodiscard]] ToolPanelPlacement Placement() const override
+            {
+                return ToolPanelPlacement::Float;
+            }
+
+            [[nodiscard]] RefPtr<ui::View> CreatePanel(IViewportTool& tool,
+                                                       const ViewportToolHostContext&) override
+            {
+                TerrainHoleTool* t = static_cast<TerrainHoleTool*>(&tool); // id matched -> type known
+                auto root = MakeToolPanelRoot();
+                root->AddView(MakeToolPanelRow(u8"Mode", 12.0f).Get());
+                auto modes = MakeRef<SegmentedToggle>(editor::EditorRootAllocator());
+                modes->Build(
+                    2,
+                    [](i32 i) -> RefPtr<ui::View>
+                    {
+                        const StringView text = i == 0 ? StringView(u8"Cut") : StringView(u8"Fill");
+                        auto label = MakeRef<ui::Label>(editor::EditorRootAllocator(), text);
+                        label->FontSize.SetValue(Optional<f32>{12.0f});
+                        return RefPtr<ui::View>(label.Get());
+                    },
+                    [t](i32 i) { t->SetMode(i == 0 ? TerrainHoleTool::Mode::Cut : TerrainHoleTool::Mode::Fill); },
+                    [t]() -> i32 { return t->GetMode() == TerrainHoleTool::Mode::Cut ? 0 : 1; },
+                    [](i32 i) -> StringView
+                    {
+                        return i == 0 ? StringView(u8"Cut the surface under the brush: nothing draws, "
+                                                   u8"collides, walks or grows there")
+                                      : StringView(u8"Fill a cut back in");
+                    });
+                root->AddView(modes.Get());
+                auto grid = MakeRef<ui::toolkit::PropertyGrid>(editor::EditorRootAllocator());
+                RefPtr<ui::toolkit::FloatEditor> radiusFe =
+                    AddToolPanelFloat(*grid, u8"Radius", static_cast<f64>(t->Radius()), 0.5, 128.0, 1.0, 1,
+                                      [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
+                t->OnRadiusChanged = [radiusFe](f32 r) { radiusFe->SetValue(static_cast<f64>(r)); };
+                AddToolPanelGrid(*root, grid);
+                return root;
+            }
+        };
+
         // ---- Splat panel: layer toggles + radius + strength --------------------------------------
         class SplatPanelProvider final : public IViewportToolPanelProvider
         {
@@ -361,7 +406,9 @@ namespace editor
     {
         static SculptPanelProvider sculptPanel;
         static SplatPanelProvider splatPanel;
+        static HolePanelProvider holePanel;
         ViewportToolPanelRegistry::Get().Register(&sculptPanel);
         ViewportToolPanelRegistry::Get().Register(&splatPanel);
+        ViewportToolPanelRegistry::Get().Register(&holePanel);
     }
 }
