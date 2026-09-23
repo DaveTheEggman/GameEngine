@@ -70,9 +70,11 @@ float4 main(VSInput input) : SV_Position {
                                       Instances[input.dataOffsets.x].Tint.a, ShadowWind.yz);
 #else
     float4x4 world = World;
-    float fadeKeep = 1.0;
 #endif
-    float3 lp = input.position * fadeKeep; // a faded-out instance casts nothing
+    float3 lp = input.position;
+#ifdef INSTANCED
+    lp *= fadeKeep; // a faded-out instance casts nothing
+#endif
 #ifdef SKINNED
   #ifdef INSTANCED
     uint boneBase = input.dataOffsets.y;

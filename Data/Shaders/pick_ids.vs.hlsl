@@ -83,9 +83,11 @@ PickVSOut main(VSInput input) {
 #else
     float4x4 world = World;
     uint2 drawId = uint2(PickIndex, PickGeneration);
-    float fadeKeep = 1.0;
 #endif
-    float3 lp = input.position * fadeKeep; // a faded-out instance cannot be picked
+    float3 lp = input.position;
+#ifdef INSTANCED
+    lp *= fadeKeep; // a faded-out instance cannot be picked
+#endif
 #ifdef SKINNED
   #ifdef INSTANCED
     uint boneBase = input.dataOffsets.y;
