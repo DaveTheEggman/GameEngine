@@ -12,16 +12,6 @@
 
 ## Queued 2026-09-23 (user, during the terrain holes work)
 
-- **View > Reset Layout crashes the editor** (SIGSEGV; user report with a resource report as
-  the last log line). The pasted backtrace holds only the fatal handler's own two frames
-  (`WriteBacktrace` / `FatalSignalHandler`, LinuxSystem.cpp:910 / :938): the handler's
-  `backtrace()` does not unwind past libc's signal trampoline, and apport kept no report for
-  Tools.Editor. Two items: (1) reproduce under gdb (`gdb --args ./Tools.Editor <project>`, View >
-  Reset Layout, `bt`) and fix `Shell::ResetLayout` -> `DockDefaults()` (Editor.App/Shell.cppm:137;
-  the likely shape is a dock rebuild while views the menu action came from are still on the
-  stack - the UI mutation-queue rule, `MutationQueueRef().QueueAction`); (2) make the fatal
-  handler's backtrace useful: start the unwind from the signal context's instruction pointer
-  (`ucontext_t` `REG_RIP`) so the faulting frame is the first line, not the handler.
 - **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0
   = Min Height, and the lower brush (SculptRaise with a negative strength) clamps at sample 0;
   editing Min Height moves the whole plane. Build: a base height on blank creation (a fresh
