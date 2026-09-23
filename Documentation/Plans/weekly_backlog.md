@@ -10,6 +10,35 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
+## Queued 2026-09-23 (user, during the terrain holes work)
+
+- **View > Reset Layout crashes the editor** (SIGSEGV; user report with a resource report as
+  the last log line). The pasted backtrace holds only the fatal handler's own two frames
+  (`WriteBacktrace` / `FatalSignalHandler`, LinuxSystem.cpp:910 / :938): the handler's
+  `backtrace()` does not unwind past libc's signal trampoline, and apport kept no report for
+  Tools.Editor. Two items: (1) reproduce under gdb (`gdb --args ./Tools.Editor <project>`, View >
+  Reset Layout, `bt`) and fix `Shell::ResetLayout` -> `DockDefaults()` (Editor.App/Shell.cppm:137;
+  the likely shape is a dock rebuild while views the menu action came from are still on the
+  stack - the UI mutation-queue rule, `MutationQueueRef().QueueAction`); (2) make the fatal
+  handler's backtrace useful: start the unwind from the signal context's instruction pointer
+  (`ucontext_t` `REG_RIP`) so the faulting frame is the first line, not the handler.
+- **Editor: splat-placed procedural grass stays inside a fresh hole cut** (user, editor, no
+  save). Headless the manager is right: `engine.vegetation: cutting a hole after the first
+  growth regrows the layer with nothing inside the cut` (uniform AND splat) passes - CutHoles
+  bumps the version, every set regrows through PlacementShareAt's cut-cell reject, and the
+  renderer draws the new count. So the difference is around the manager in the editor: the
+  next step is a scripted reproduction against the user's project (which scene, where the
+  terrain lives under Sources), watching `BuildCount()` and the extracted sets after a stroke.
+  The test is in the tree, uncommitted until it rides a lane run.
+- **Stamped props stay over a cut** (expected today: `ScatterStamp` rejects a NEW prop over a
+  cut cell, nothing revisits placed instances). Build: the cut evicts stamped instances whose
+  cell became a hole, `HoleStrokeCommand` keeps them for undo, Fill does not resurrect them; a
+  brush test.
+- **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0
+  = Min Height, and the lower brush (SculptRaise with a negative strength) clamps at sample 0;
+  editing Min Height moves the whole plane. Build: a base height on blank creation (a fresh
+  flat sits mid-range), or a "base height" field on the heightfield page that re-quantizes.
+
 ## Open follow-ups filed during week 2026-09-05 (moved 2026-09-12)
 
 Small items left open inside that week's DONE/audit sections; the full write-ups are in
