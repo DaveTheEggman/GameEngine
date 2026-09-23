@@ -2,6 +2,7 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 #pragma pack_matrix(row_major)
+// variants: HOLES
 
 // Terrain DEPTH-only VS (camera depth prepass + CSM cascade passes). Replays terrain.vs's exact height
 // displacement + world placement, but outputs ONLY clip position (no fragment stage - opaque casters
@@ -34,12 +35,29 @@ float SampleHeightY(int2 texel) {
     return HeightRange.x + ((float)s / 65535.0) * (HeightRange.y - HeightRange.x);
 }
 
+#ifdef HOLES
+// A holed chunk's caster needs the fragment stage (terrain_depth.ps discards by the hole mask),
+// so this variant carries the footprint UV the mask is sampled with.
+struct DepthVSOut {
+    float4 pos     : SV_Position;
+    float2 splatUV : TEXCOORD6;
+};
+DepthVSOut main(float3 grid : TEXCOORD0) {
+#else
 float4 main(float3 grid : TEXCOORD0) : SV_Position {
+#endif
     float2 uv     = grid.xy;
     float2 texelF = TexelBase + uv * TexelSpan;
     int2   texel  = int2((int)round(texelF.x), (int)round(texelF.y));
     float  y      = SampleHeightY(texel); // surface only in the depth pass (no skirt drop)
     float2 lxz    = OriginXZ + uv * SizeXZ;
     float3 worldPos = mul(float4(lxz.x, y, lxz.y, 1.0), ChunkToWorld).xyz;
+#ifdef HOLES
+    DepthVSOut o;
+    o.pos     = mul(float4(worldPos, 1.0), ViewProj);
+    o.splatUV = texelF / max(GridSize, float2(1.0, 1.0));
+    return o;
+#else
     return mul(float4(worldPos, 1.0), ViewProj);
+#endif
 }

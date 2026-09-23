@@ -150,9 +150,12 @@ props. A ray from a brush or a gameplay trace passes through a hole to whatever 
 which is what lets you place a cave mesh or a well under it, and it is also why the brush cannot
 pick inside a hole: to fill one, click on the rim with a radius that covers the cut.
 
-Cut at least a few samples wide. At distance a coarse chunk level drops a whole quad when any
-sample in it is cut, so a one-sample hole reads larger far away than close up; it never reads
-smaller. One stroke is one undo step. Saving writes the heightfield's `heights` and `holes`
+The drawn rim is a smooth curve through the cut samples (the terrain's pixel shaders cut it
+against a mask of the hole plane), and it looks the same at every distance. Collision, the nav
+bake and raycasts use the stricter rule (any triangle touching a cut sample is gone), so the
+visible edge sits up to half a sample inside the collision hole: a character can stand on
+that last half-sample of air. Cut at least a few samples wide so the rim has a shape to trace.
+One stroke is one undo step. Saving writes the heightfield's `heights` and `holes`
 sidecars into the source asset, so a cut survives a re-cook, and every heightfield re-cooks once
 after this feature lands because the cooked form carries the second stream. Cubemap-style
 overlays on the heightfield page and hole cutting from an imported image are not there yet.

@@ -326,3 +326,36 @@ TEST_CASE("terrain: holed chunk indices drop every quad with a cut sample and th
     CHECK_FALSE(chunks[3].allCut);
 }
 
+TEST_CASE("terrain: the render rule keeps a quad while one sample is solid; the strict rule drops it on any cut")
+{
+    // P2 (Specs/terrain-holes.md): the GPU draws the superset and the hole mask shapes the rim.
+    RefPtr<hf::Heightfield> grid = MakeRef<hf::Heightfield>(
+        DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    grid->SetHole(10, 10, true); // one cut sample: 4 quads touch it at LOD 0
+    Array<u32> strict;
+    Array<u32> render;
+    u32 strictSurface = 0;
+    u32 renderSurface = 0;
+    BuildHoledChunkIndices(*grid, 0, 0, 0, strict, strictSurface, /*dropWhenAnyCut*/ true);
+    BuildHoledChunkIndices(*grid, 0, 0, 0, render, renderSurface, /*dropWhenAnyCut*/ false);
+    CHECK(strictSurface == (64u * 64u - 4u) * 6u);
+    CHECK(renderSurface == 64u * 64u * 6u); // nothing dropped: no quad is cut at every corner
+    CHECK(render.Size() == strict.Size() + 4u * 6u);
+    // Cut a full 3 x 3 block: the render rule drops the 4 quads whose corners are all cut.
+    for (i32 z = 20; z <= 22; ++z)
+    {
+        for (i32 x = 20; x <= 22; ++x)
+        {
+            grid->SetHole(x, z, true);
+        }
+    }
+    BuildHoledChunkIndices(*grid, 0, 0, 0, render, renderSurface, /*dropWhenAnyCut*/ false);
+    CHECK(renderSurface == (64u * 64u - 4u) * 6u);
+    // At LOD 6 the one quad spans every sample: the render rule keeps it (mostly solid), the
+    // strict rule drops it (any cut).
+    BuildHoledChunkIndices(*grid, 0, 0, kMaxChunkLod, render, renderSurface, false);
+    CHECK(renderSurface == 6u);
+    BuildHoledChunkIndices(*grid, 0, 0, kMaxChunkLod, strict, strictSurface, true);
+    CHECK(strictSurface == 0u);
+}
+

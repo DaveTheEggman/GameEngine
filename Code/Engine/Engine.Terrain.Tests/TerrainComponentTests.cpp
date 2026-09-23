@@ -274,11 +274,13 @@ TEST_CASE("engine.terrain: a cut heightfield extracts its holed chunks' meshes; 
     foundation::render::ExtractedScene second{DefaultAllocator()};
     mgr->ExtractRenderData(second);
     CHECK(mgr->HoledMeshCount(grid->uid) == 1u);
+    CHECK(mgr->HoleTextureCount() == 1u); // the R8 mask the HOLES shaders sample
     rd = static_cast<const engine::terrain::TerrainRenderData*>(second.Items()[0]);
+    CHECK(rd->holeView != nullptr);
     REQUIRE(rd->holedMeshCount == 1u);
     CHECK(rd->holedMeshes[0].chunkIndex == 3u);
     CHECK(rd->holedMeshes[0].indexBuffers[0] != nullptr);
-    CHECK(rd->holedMeshes[0].surfaceIndexCounts[0] == (64u * 64u - 4u) * 6u);
+    CHECK(rd->holedMeshes[0].surfaceIndexCounts[0] == 64u * 64u * 6u); // the render rule: one cut sample drops no quad
     CHECK(rd->chunks[3].hasHoles);
     CHECK_FALSE(rd->chunks[0].hasHoles);
 
@@ -295,6 +297,7 @@ TEST_CASE("engine.terrain: a cut heightfield extracts its holed chunks' meshes; 
     CHECK(mgr->HoledMeshCount(grid->uid) == 1u);
     mgr->ClearGpu();
     CHECK(mgr->HoledMeshCount(grid->uid) == 0u);
+    CHECK(mgr->HoleTextureCount() == 0u);
 }
 
 // The PIE-start crash regression: the extracted snapshot must be SELF-CONTAINED - readable at

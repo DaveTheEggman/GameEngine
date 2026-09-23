@@ -4,7 +4,9 @@
 > builder 3; holed chunks' own index buffers through TerrainHoledMeshCache; Jolt's no-collision
 > sample; the nav bake's block skip; QueryRay's crossing skip; vegetation's cell reject; probed
 > at the texel on Vulkan + WebGPU). P1 BUILT 2026-09-23 (the `terrain.hole` brush, Cut / Fill,
-> HoleStrokeCommand, a persist that writes BOTH sidecars, its panel). Departures from the text
+> HoleStrokeCommand, a persist that writes BOTH sidecars, its panel). P2 BUILT 2026-09-23: the
+> alpha-tested rim (see "P2 - the rim" below; it reverses the "rejected: discard" line of
+> Decision 3 for holed chunks only). Departures from the text
 > below: the heightfield page previews only image-backed sources, so the hole overlay there has
 > nothing to draw on for a painted heightfield and was left out; the brush does not call
 > InvalidateRegion (like sculpt, a version bump regrows every set of a layer - the cost, not
@@ -157,10 +159,12 @@ hole sample gets its OWN `LodMesh` set, built on the CPU by a pure function in
   depth (shadow casters, the prepass) and pick draws all go through the same choice, so a hole
   is a hole in shadows and under the cursor for free.
 
-Rejected: a per-fragment `discard` reading a hole texture. It needs a pixel shader on the
-depth and pick paths that have none today, defeats early-Z on every terrain fragment, costs a
-texture load per fragment on every terrain forever, and still leaves the skirt problem to
-solve in geometry. Rejected: rebuilding the whole terrain's buffers per chunk - the shared grid
+Rejected for the common path: a per-fragment `discard` reading a hole texture. It needs a
+pixel shader on the depth and pick paths that have none today, defeats early-Z on every
+terrain fragment, costs a texture load per fragment on every terrain forever, and still leaves
+the skirt problem to solve in geometry. P2 (below) adopts it for HOLED CHUNKS ONLY, where the
+cost is bounded by the rare chunk that carries a cut and the geometry rule still does the
+skirts and the fully cut quads. Rejected: rebuilding the whole terrain's buffers per chunk - the shared grid
 is the reason terrain draws cost what they do, and holes are rare.
 
 ## Decision 4 - collision, nav, raycast and scatter all apply the sample rule
@@ -246,6 +250,20 @@ holes belong to the heightfield asset, the thing that IS the surface.
   vegetation. Acceptance: a headless stroke through `ViewportToolInput` cuts, undoes and
   redoes a region; the asset instance's `"holes"` stream round-trips; the status names the
   mode.
+- **P2 - the rim** (BUILT 2026-09-23, user ask after the playground's stair-stepped edge): a
+  holed chunk draws the SUPERSET of quads (`BuildHoledChunkIndices(..., dropWhenAnyCut =
+  false)`: a quad drops only when every sample in its stride block is cut; collision, nav and
+  raycast keep the strict rule) and its three pixel shaders discard by a bilinear R8 mask of
+  the hole plane (`TerrainHoleTextureCache`, `TerrainRenderData::holeView`, sampled at the
+  sample centres with `HoleCoverage > 0.5`). The rim is then the 0.5 iso-line of the mask at
+  every LOD, one smooth curve instead of a per-sample stair, and a coarse level no longer
+  drops a 64 x 64-cell quad for one cut sample. Mechanism: `ShaderFlags::Holes` -> `HOLES`
+  variants of terrain.vs/ps, terrain_depth.vs/ps (the depth pass gains a fragment stage under
+  HOLES only) and terrain_pick.vs/ps; the renderer keeps a second colour / depth / pick PSO
+  and a `(height, mask, sampler)` bind group per holed heightfield, chosen per chunk by
+  `hasHoles`. Solid chunks and solid terrains are untouched (no mask, no fragment stage, no
+  discard). Trade: the visible rim sits up to half a cell INSIDE the collision hole, so a
+  character can stand on that half-cell of air at the edge; the guide says so.
 - **P2 seeds** (not scheduled): import holes from a heightfield image's alpha or a sibling
   `_holes.png`; a "fill all" panel action; a hole-aware CDLOD morph when morphing lands.
 
@@ -274,8 +292,9 @@ section), the weekly.
 - **`Index()` clamps**: a brush disc past the grid edge marks edge samples, never wraps; the
   test paints at a corner.
 - **LOD blocks**: the "any sample in the block" rule means a one-sample hole removes a whole
-  LOD-6 quad (64 x 64 cells) at distance. Intended; document it in the guide as the reason to
-  cut holes at least a few samples wide.
+  LOD-6 quad (64 x 64 cells) at distance from collision and nav. Since P2 the DRAW keeps that
+  quad and the mask cuts the one sample out of it, so the picture no longer grows at distance;
+  still cut holes a few samples wide so the mask's 0.5 iso-line has something to trace.
 - **Jolt block size**: nothing changes - Jolt pads with the same sentinel we now write;
   no hand-padding, as the physics rule already says.
 - **Vegetation regrow under the brush**: `InvalidateRegion` with the stroke's region, else the
@@ -295,7 +314,7 @@ against a mask with a hole on a chunk boundary (both chunks drop the shared skir
 surface prefix counts match a hand count; a fully cut chunk yields no surface). Engine:
 render data carries the holed meshes for exactly the holed chunks; a chunk with no holes
 never allocates; pixel probe (Vulkan + WebGPU) shows the clear colour through the cut and the
-shadow-map hole; physics ray test; nav bake gap; scatter rejects the hole cell and the set
+shadow-map hole, and (P2) the same cut with the mask unbound draws the rim ring back; physics ray test; nav bake gap; scatter rejects the hole cell and the set
 regrows through `InvalidateRegion`. Editor: a scripted stroke cuts / undoes / redoes one
 command; persist writes the `"holes"` stream; the panel state and status text; the page
 overlay marks the cut samples.

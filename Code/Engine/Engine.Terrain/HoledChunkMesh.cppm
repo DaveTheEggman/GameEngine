@@ -114,7 +114,10 @@ export namespace engine::terrain
                 for (u32 lod = 0; lod <= tmodel::kMaxChunkLod; ++lod)
                 {
                     u32 surface = 0;
-                    tmodel::BuildHoledChunkIndices(hf, chunk.gridX0, chunk.gridZ0, lod, indices, surface);
+                    // The render rule: a quad stays while one sample in its block is solid; the
+                    // pixel shaders' hole mask shapes the rim inside it (terrain.ps under HOLES).
+                    tmodel::BuildHoledChunkIndices(hf, chunk.gridX0, chunk.gridZ0, lod, indices, surface,
+                                                   /*dropWhenAnyCut*/ false);
                     mesh.indexCounts[lod] = static_cast<u32>(indices.Size());
                     mesh.surfaceIndexCounts[lod] = surface;
                     if (indices.IsEmpty())
@@ -165,6 +168,140 @@ export namespace engine::terrain
                 }
             }
             entry.meshes.Clear();
+        }
+
+        Array<Entry> m_entries;
+        render::GpuRetireQueue* m_retire = nullptr;
+    };
+
+    /// The R8Unorm hole MASK texture per heightfield (one texel per sample, 0 solid / 1 cut),
+    /// sampled bilinearly by the HOLES pixel shaders to shape a holed chunk's rim. The height
+    /// texture cache's twin: keyed by uid, rebuilt in place on a version change, retired through
+    /// the queue. Only a heightfield with holes gets one (the extract asks HasHoles first).
+    class TerrainHoleTextureCache
+    {
+    public:
+        void SetRetireQueue(render::GpuRetireQueue* retire) noexcept { m_retire = retire; }
+
+        [[nodiscard]] rhi::TextureView* GetOrCreate(rhi::Device& device,
+                                                    const foundation::heightfield::Heightfield& hf,
+                                                    u64 version)
+        {
+            for (Entry& entry : m_entries)
+            {
+                if (entry.key != hf.uid)
+                {
+                    continue;
+                }
+                if (entry.version == version)
+                {
+                    return entry.view;
+                }
+                RetireOrDestroy(device, entry);
+                if (!Build(device, hf, entry))
+                {
+                    return nullptr;
+                }
+                entry.version = version;
+                return entry.view;
+            }
+            Entry fresh;
+            fresh.key = hf.uid;
+            fresh.version = version;
+            if (!Build(device, hf, fresh))
+            {
+                return nullptr;
+            }
+            m_entries.PushBack(fresh);
+            return m_entries[m_entries.Size() - 1].view;
+        }
+
+        void Clear(rhi::Device& device)
+        {
+            for (Entry& entry : m_entries)
+            {
+                RetireOrDestroy(device, entry);
+            }
+            m_entries.Clear();
+        }
+
+        [[nodiscard]] usize Size() const noexcept { return m_entries.Size(); }
+
+    private:
+        struct Entry
+        {
+            u64 key = 0;
+            u64 version = 0;
+            rhi::Texture* texture = nullptr;
+            rhi::TextureView* view = nullptr;
+        };
+
+        [[nodiscard]] static bool Build(rhi::Device& device,
+                                        const foundation::heightfield::Heightfield& hf, Entry& out)
+        {
+            const u32 n = static_cast<u32>(hf.Size());
+            rhi::TextureDesc td{};
+            td.format = rhi::TextureFormat::R8Unorm;
+            td.width = n;
+            td.height = n;
+            td.usage = rhi::TextureUsage::Sampled | rhi::TextureUsage::CopyDst;
+            td.label = u8"terrain.holes";
+            if (!device.CreateTexture(td, out.texture).IsOk() || out.texture == nullptr)
+            {
+                return false;
+            }
+            rhi::TextureViewDesc vd{};
+            vd.format = rhi::TextureFormat::R8Unorm;
+            vd.dimension = rhi::TextureViewDimension::Texture2D;
+            if (!device.CreateTextureView(out.texture, vd, out.view).IsOk() || out.view == nullptr)
+            {
+                device.DestroyTexture(out.texture);
+                out.texture = nullptr;
+                return false;
+            }
+            if (rhi::Queue* queue = device.GetQueue(rhi::QueueType::Graphics))
+            {
+                rhi::TransferBatch* batch = nullptr;
+                if (queue->CreateTransferBatch(batch).IsOk() && batch != nullptr)
+                {
+                    const Span<const u8> holes = hf.Holes();
+                    rhi::TextureDataLayout layout{};
+                    layout.bytesPerRow = n;
+                    layout.rowsPerImage = n;
+                    batch->WriteTexture(out.texture, holes, layout, rhi::Extent3D{n, n, 1});
+                    (void)batch->Submit();
+                    queue->DestroyTransferBatch(batch);
+                }
+            }
+            return true;
+        }
+
+        void RetireOrDestroy(rhi::Device& device, Entry& entry)
+        {
+            if (m_retire != nullptr)
+            {
+                if (entry.view != nullptr)
+                {
+                    m_retire->Retire(entry.view);
+                }
+                if (entry.texture != nullptr)
+                {
+                    m_retire->Retire(entry.texture);
+                }
+            }
+            else
+            {
+                if (entry.view != nullptr)
+                {
+                    device.DestroyTextureView(entry.view);
+                }
+                if (entry.texture != nullptr)
+                {
+                    device.DestroyTexture(entry.texture);
+                }
+            }
+            entry.view = nullptr;
+            entry.texture = nullptr;
         }
 
         Array<Entry> m_entries;

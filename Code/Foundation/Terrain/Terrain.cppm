@@ -150,13 +150,17 @@ export namespace foundation::terrain
     }
 
     /// The indices of ONE holed chunk at `lod` (Specs/terrain-holes.md): the same walk as
-    /// BuildChunkGridIndices with every quad dropped whose sample block (the stride-square it
-    /// spans, interior included) holds a cut sample - a hole never shrinks with distance - and
-    /// every skirt segment dropped whose border quad was, so no wall hangs under a cut rim. The
-    /// surface prefix count (the depth / pick draw range) comes back in `outSurfaceIndexCount`.
-    /// Neighbours share the edge samples, so both sides make the same call about a rim.
+    /// BuildChunkGridIndices with quads dropped by their sample block (the stride-square they
+    /// span, interior included) and every skirt segment dropped whose border quad was, so no
+    /// wall hangs under a cut rim. Two rules: `dropWhenAnyCut` drops a quad holding ANY cut
+    /// sample (the strict rule every non-GPU consumer applies - a hole never shrinks with
+    /// distance); otherwise a quad is dropped only when EVERY sample in its block is cut (the
+    /// render rule: the pixel shaders' bilinear hole mask then shapes the rim inside the quads
+    /// that remain, at every LOD). The surface prefix count (the depth / pick draw range) comes
+    /// back in `outSurfaceIndexCount`. Neighbours share the edge samples: both sides agree.
     inline void BuildHoledChunkIndices(const heightfield::Heightfield& hf, i32 gridX0, i32 gridZ0,
-                                       u32 lod, Array<u32>& out, u32& outSurfaceIndexCount)
+                                       u32 lod, Array<u32>& out, u32& outSurfaceIndexCount,
+                                       bool dropWhenAnyCut = true)
     {
         out.Clear();
         outSurfaceIndexCount = 0;
@@ -170,7 +174,21 @@ export namespace foundation::terrain
         {
             const i32 x0 = gridX0 + qx * stride;
             const i32 z0 = gridZ0 + qz * stride;
-            return !hf.BlockHasHole(x0, z0, x0 + stride, z0 + stride);
+            if (dropWhenAnyCut)
+            {
+                return !hf.BlockHasHole(x0, z0, x0 + stride, z0 + stride);
+            }
+            for (i32 gz = z0; gz <= z0 + stride; ++gz) // kept while one sample is still solid
+            {
+                for (i32 gx = x0; gx <= x0 + stride; ++gx)
+                {
+                    if (!hf.IsHole(gx, gz))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         };
         out.Reserve(static_cast<usize>(quads) * quads * 6 + static_cast<usize>(quads) * 4 * 6);
         for (i32 qz = 0; qz < quads; ++qz)

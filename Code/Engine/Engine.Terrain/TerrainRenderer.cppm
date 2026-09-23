@@ -13,6 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <initializer_list>
 
 export module engine.terrain:renderer;
 
@@ -94,6 +95,18 @@ export namespace engine::terrain
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
+            // set 2 for a HOLED chunk (the HOLES variants): the height texture plus the R8 hole
+            // mask (t1) and its bilinear sampler (s0), which the pixel shaders discard by.
+            rhi::BindGroupLayoutEntry holeMaskEntry =
+                rhi::BindGroupLayoutEntry::SampledTexture(1, rhi::ShaderStage::Fragment);
+            rhi::BindGroupLayoutEntry holeEntries[] = {
+                heightEntry, holeMaskEntry, rhi::BindGroupLayoutEntry::Sampler(0, rhi::ShaderStage::Fragment)};
+            rhi::BindGroupLayoutDesc hhld{};
+            hhld.entries = Span<const rhi::BindGroupLayoutEntry>{holeEntries, 3};
+            if (!m_device->CreateBindGroupLayout(hhld, m_heightHoleLayout).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
 
             // set 3: the top-K splat material - integer index map (t0, Load-only: filtering palette
             // indices is garbage) + weight map (t1) + base albedo (t2) + palette albedo array (t3) + the
@@ -150,6 +163,22 @@ export namespace engine::terrain
             rhi::PipelineLayoutDesc dpld{};
             dpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{depthLayouts, 3};
             if (!m_device->CreatePipelineLayout(dpld, m_depthPipelineLayout).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            // The HOLES twins: set 2 = height + hole mask + sampler.
+            rhi::BindGroupLayout* holeColorLayouts[] = {m_viewLayout, m_chunkLayout, m_heightHoleLayout,
+                                                        m_materialLayout};
+            rhi::PipelineLayoutDesc hpld{};
+            hpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{holeColorLayouts, 4};
+            if (!m_device->CreatePipelineLayout(hpld, m_holePipelineLayout).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            rhi::BindGroupLayout* holeDepthLayouts[] = {m_viewLayout, m_chunkLayout, m_heightHoleLayout};
+            rhi::PipelineLayoutDesc hdpld{};
+            hdpld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{holeDepthLayouts, 3};
+            if (!m_device->CreatePipelineLayout(hdpld, m_holeDepthPipelineLayout).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
@@ -215,6 +244,19 @@ export namespace engine::terrain
             ssd.compare = rhi::depth::NearerOrEqual(); // lit when the receiver is at or nearer than the occluder
             ssd.label = u8"terrain.shadowSampler";
             if (!m_device->CreateSampler(ssd, m_shadowSampler).IsOk())
+            {
+                return core::Status{core::ErrorCode::Unknown};
+            }
+            // The hole mask's bilinear clamp sampler (the rim is its 0.5 iso-line).
+            rhi::SamplerDesc hsd{};
+            hsd.minFilter = rhi::FilterMode::Linear;
+            hsd.magFilter = rhi::FilterMode::Linear;
+            hsd.mipmapFilter = rhi::MipmapFilterMode::Nearest;
+            hsd.addressU = rhi::AddressMode::ClampToEdge;
+            hsd.addressV = rhi::AddressMode::ClampToEdge;
+            hsd.addressW = rhi::AddressMode::ClampToEdge;
+            hsd.label = u8"terrain.holeSampler";
+            if (!m_device->CreateSampler(hsd, m_holeSampler).IsOk())
             {
                 return core::Status{core::ErrorCode::Unknown};
             }
@@ -592,6 +634,12 @@ export namespace engine::terrain
 
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
                 rhi::BindGroup* materialBg = EnsureMaterialBindGroup(*data);
+                // A terrain with holes: the HOLES twin + the mask bind group for its holed chunks.
+                rhi::RenderPipeline* holePso =
+                    data->holeView != nullptr ? EnsurePipeline(ctx.colorFormat, /*holes*/ true) : nullptr;
+                rhi::BindGroup* holeBg = data->holeView != nullptr
+                                             ? EnsureHeightHoleBindGroup(data->heightView, data->holeView)
+                                             : nullptr;
                 if (heightBg == nullptr || materialBg == nullptr)
                 {
                     continue;
@@ -623,15 +671,16 @@ export namespace engine::terrain
                     ChunkUBO cb = MakeChunkUBO(*data, c);
                     MemCopy(cr.ptr, &cb, sizeof(cb));
 
+                    const bool holed = c.hasHoles && holePso != nullptr && holeBg != nullptr;
                     render::ResolvedDraw draw{};
-                    draw.pso = pso;
+                    draw.pso = holed ? holePso : pso;
                     draw.viewSet = viewBg;
                     draw.viewDynamic = true;
                     draw.viewOffset = vr.byteOffset;
                     draw.drawSet = chunkBg;
                     draw.drawDynamic = true;
                     draw.drawOffset = cr.byteOffset;
-                    draw.materialSet = heightBg;   // set 2: height texture
+                    draw.materialSet = holed ? holeBg : heightBg; // set 2: height (+ hole mask)
                     draw.clusterSet = materialBg;  // set 3: splat material (splatmap + albedos)
                     draw.vertexBuffer0 = m_gridVertexBuffer;
                     draw.indexBuffer = lm.indexBuffer;
@@ -749,6 +798,15 @@ export namespace engine::terrain
                     }
                 }
                 rhi::BindGroup* heightBg = EnsureHeightBindGroup(data->heightView);
+                rhi::RenderPipeline* holePso = nullptr;
+                rhi::BindGroup* holeBg = nullptr;
+                if (data->holeView != nullptr)
+                {
+                    holePso = pick ? EnsurePickPipeline(ctx.colorFormat, ctx.depthFormat, /*holes*/ true)
+                                   : EnsureDepthPipeline(ctx.depthFormat, /*biased*/ !ctx.depthPrepass,
+                                                         /*holes*/ true);
+                    holeBg = EnsureHeightHoleBindGroup(data->heightView, data->holeView);
+                }
                 if (heightBg == nullptr)
                 {
                     continue;
@@ -777,15 +835,16 @@ export namespace engine::terrain
                     ChunkUBO cb = MakeChunkUBO(*data, c);
                     MemCopy(cr.ptr, &cb, sizeof(cb));
 
+                    const bool holed = c.hasHoles && holePso != nullptr && holeBg != nullptr;
                     render::ResolvedDraw draw{};
-                    draw.pso = pso;
+                    draw.pso = holed ? holePso : pso;
                     draw.viewSet = viewBg;
                     draw.viewDynamic = true;
                     draw.viewOffset = vr.byteOffset;
                     draw.drawSet = chunkBg;
                     draw.drawDynamic = true;
                     draw.drawOffset = cr.byteOffset;
-                    draw.materialSet = heightBg; // set 2: height texture (the VS displaces from it)
+                    draw.materialSet = holed ? holeBg : heightBg; // set 2: height (+ hole mask)
                     draw.vertexBuffer0 = m_gridVertexBuffer;
                     draw.indexBuffer = lm.indexBuffer;
                     draw.indexFormat = rhi::IndexFormat::UInt32;
@@ -910,6 +969,12 @@ export namespace engine::terrain
 
 
         struct DepthPso
+        {
+            rhi::RenderPipeline* pso = nullptr;
+            rhi::TextureFormat format = rhi::TextureFormat::Undefined;
+            u64 shaderVersion = 0;
+        };
+        struct ColorPso
         {
             rhi::RenderPipeline* pso = nullptr;
             rhi::TextureFormat format = rhi::TextureFormat::Undefined;
@@ -1101,6 +1166,50 @@ export namespace engine::terrain
             return bg;
         }
 
+        // Set 2 for a holed chunk: height + hole mask + sampler, cached per hole view and
+        // validated by both views' uniqueIds (never raw pointers - the bind-group-cache rule).
+        rhi::BindGroup* EnsureHeightHoleBindGroup(rhi::TextureView* height, rhi::TextureView* hole)
+        {
+            if (height == nullptr || hole == nullptr || m_holeSampler == nullptr)
+            {
+                return nullptr;
+            }
+            if (HeightHoleBindGroup* found = m_heightHoleBindGroups.Find(hole))
+            {
+                if (found->heightId == height->uniqueId && found->holeId == hole->uniqueId)
+                {
+                    return found->bindGroup;
+                }
+                if (found->bindGroup != nullptr)
+                {
+                    if (m_retire != nullptr)
+                    {
+                        m_retire->Retire(found->bindGroup);
+                    }
+                    else
+                    {
+                        m_device->DestroyBindGroup(found->bindGroup);
+                    }
+                }
+                m_heightHoleBindGroups.Remove(hole);
+            }
+            // Positional, in the layout's entry order: t0 height, t1 mask, s0 sampler.
+            rhi::BindGroupEntry entries[] = {rhi::BindGroupEntry::TextureEntry(height),
+                                             rhi::BindGroupEntry::TextureEntry(hole),
+                                             rhi::BindGroupEntry::SamplerEntry(m_holeSampler)};
+            rhi::BindGroupDesc bgd{};
+            bgd.layout = m_heightHoleLayout;
+            bgd.entries = Span<const rhi::BindGroupEntry>{entries, 3};
+            rhi::BindGroup* bg = nullptr;
+            if (!m_device->CreateBindGroup(bgd, bg).IsOk())
+            {
+                return nullptr;
+            }
+            m_heightHoleBindGroups.InsertOrAssign(
+                hole, HeightHoleBindGroup{bg, height->uniqueId, hole->uniqueId});
+            return bg;
+        }
+
         // Set 3 (splat material): splatmap + 4 albedos (white dummy for absent slots) + the two
         // samplers. Cached per splatmap view, validated by the uniqueId of ALL five views (never raw
         // pointers - address reuse); a hot-swap retires the stale group through the frame-retire queue.
@@ -1201,22 +1310,26 @@ export namespace engine::terrain
             return bg;
         }
 
-        rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat)
+        // `holes` = the HOLES twin for holed chunks (the hole-mask discard; set 2 carries the mask).
+        rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat colorFormat, bool holes = false)
         {
             const u64 shaderVersion = m_shaders->Version(u8"terrain");
-            if (m_pso != nullptr && m_psoFormat == colorFormat && m_psoShaderVersion == shaderVersion)
+            ColorPso& cp = holes ? m_holeColorPso : m_colorPso;
+            if (cp.pso != nullptr && cp.format == colorFormat && cp.shaderVersion == shaderVersion)
             {
-                return m_pso;
+                return cp.pso;
             }
-            if (m_pso != nullptr)
+            if (cp.pso != nullptr)
             {
-                m_device->DestroyRenderPipeline(m_pso);
-                m_pso = nullptr;
+                m_device->DestroyRenderPipeline(cp.pso);
+                cp.pso = nullptr;
             }
-            rhi::ShaderModule* vs = m_shaders->GetVariant(u8"terrain", shaders::ShaderStage::Vertex,
-                                                          shaders::ShaderFlags::None);
-            rhi::ShaderModule* ps = m_shaders->GetVariant(u8"terrain", shaders::ShaderStage::Fragment,
-                                                          shaders::ShaderFlags::None);
+            const shaders::ShaderFlags flags =
+                holes ? shaders::ShaderFlags::Holes : shaders::ShaderFlags::None;
+            rhi::ShaderModule* vs =
+                m_shaders->GetVariant(u8"terrain", shaders::ShaderStage::Vertex, flags);
+            rhi::ShaderModule* ps =
+                m_shaders->GetVariant(u8"terrain", shaders::ShaderStage::Fragment, flags);
             if (vs == nullptr || ps == nullptr)
             {
                 return nullptr;
@@ -1248,7 +1361,7 @@ export namespace engine::terrain
             ds.depthCompare = rhi::depth::NearerOrEqual();
 
             rhi::RenderPipelineDesc pd{};
-            pd.layout = m_pipelineLayout;
+            pd.layout = holes ? m_holePipelineLayout : m_pipelineLayout;
             pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
@@ -1258,15 +1371,15 @@ export namespace engine::terrain
             // surface is the front face: cull backs. Verified by the Vulkan pixel probe (a wrong
             // choice culls the top surface and the frame goes black).
             pd.primitive.cullMode = rhi::CullMode::Back;
-            pd.label = u8"terrain";
+            pd.label = holes ? u8"terrain.holes" : u8"terrain";
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
             {
                 return nullptr;
             }
-            m_pso = pso;
-            m_psoFormat = colorFormat;
-            m_psoShaderVersion = shaderVersion;
+            cp.pso = pso;
+            cp.format = colorFormat;
+            cp.shaderVersion = shaderVersion;
             return pso;
         }
 
@@ -1284,10 +1397,14 @@ export namespace engine::terrain
         // zoomed-out banding bug). The extra interpolants are discarded (no fragment stage) and
         // the VS touches sets 0-2 only, so the 3-set depth layout still fits. Shadow passes keep
         // the cheap terrain_depth VS - cascade depth never depth-tests against the color pass.
-        rhi::RenderPipeline* EnsureDepthPipeline(rhi::TextureFormat depthFormat, bool biased)
+        // `holes` = the HOLES twin: the same vertex module family plus terrain_depth's fragment
+        // stage discarding by the hole mask, so the prepass depth and the cascades open with the
+        // colour pass (a holed chunk's prepass + colour draws share the HOLES "terrain" VS module).
+        rhi::RenderPipeline* EnsureDepthPipeline(rhi::TextureFormat depthFormat, bool biased,
+                                                 bool holes = false)
         {
             const StringView shaderName = biased ? u8"terrain_depth" : u8"terrain";
-            DepthPso& p = m_depthPso[biased ? 1u : 0u];
+            DepthPso& p = (holes ? m_holeDepthPso : m_depthPso)[biased ? 1u : 0u];
             const u64 shaderVersion = m_shaders->Version(shaderName);
             if (p.pso != nullptr && p.format == depthFormat && p.shaderVersion == shaderVersion)
             {
@@ -1298,9 +1415,13 @@ export namespace engine::terrain
                 m_device->DestroyRenderPipeline(p.pso);
                 p.pso = nullptr;
             }
-            rhi::ShaderModule* vs = m_shaders->GetVariant(
-                shaderName, shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
-            if (vs == nullptr)
+            const shaders::ShaderFlags flags =
+                holes ? shaders::ShaderFlags::Holes : shaders::ShaderFlags::None;
+            rhi::ShaderModule* vs = m_shaders->GetVariant(shaderName, shaders::ShaderStage::Vertex, flags);
+            rhi::ShaderModule* holePs =
+                holes ? m_shaders->GetVariant(u8"terrain_depth", shaders::ShaderStage::Fragment, flags)
+                      : nullptr;
+            if (vs == nullptr || (holes && holePs == nullptr))
             {
                 return nullptr;
             }
@@ -1322,14 +1443,21 @@ export namespace engine::terrain
             }
 
             rhi::RenderPipelineDesc pd{};
-            pd.layout = m_depthPipelineLayout; // 3 sets (no material) - depth VS samples none of it
+            pd.layout = holes ? m_holeDepthPipelineLayout : m_depthPipelineLayout; // 3 sets (no material)
             pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
-            // No fragment stage (Optional left empty) + no color targets = depth-only.
+            // No fragment stage (Optional left empty) + no color targets = depth-only; the HOLES
+            // twin adds the discarding fragment stage, still with no colour target.
+            rhi::FragmentState holeFrag{};
+            if (holes)
+            {
+                holeFrag.shader = rhi::ProgrammableStage{holePs, u8"main", rhi::ShaderStage::Fragment};
+                pd.fragment = holeFrag;
+            }
             pd.depthStencil = ds;
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             pd.primitive.cullMode = rhi::CullMode::Back;
-            pd.label = u8"terrain.depth";
+            pd.label = holes ? u8"terrain.depth.holes" : u8"terrain.depth";
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
             {
@@ -1343,10 +1471,10 @@ export namespace engine::terrain
 
         // The pick PSO: the depth layout (3 sets) + the terrain_pick fragment writing the id target.
         rhi::RenderPipeline* EnsurePickPipeline(rhi::TextureFormat colorFormat,
-                                                rhi::TextureFormat depthFormat)
+                                                rhi::TextureFormat depthFormat, bool holes = false)
         {
             const StringView shaderName = u8"terrain_pick";
-            PickPso& p = m_pickPso;
+            PickPso& p = holes ? m_holePickPso : m_pickPso;
             const u64 shaderVersion = m_shaders->Version(shaderName);
             if (p.pso != nullptr && p.colorFormat == colorFormat && p.depthFormat == depthFormat &&
                 p.shaderVersion == shaderVersion)
@@ -1358,10 +1486,10 @@ export namespace engine::terrain
                 m_device->DestroyRenderPipeline(p.pso);
                 p.pso = nullptr;
             }
-            rhi::ShaderModule* vs = m_shaders->GetVariant(
-                shaderName, shaders::ShaderStage::Vertex, shaders::ShaderFlags::None);
-            rhi::ShaderModule* fs = m_shaders->GetVariant(
-                shaderName, shaders::ShaderStage::Fragment, shaders::ShaderFlags::None);
+            const shaders::ShaderFlags flags =
+                holes ? shaders::ShaderFlags::Holes : shaders::ShaderFlags::None;
+            rhi::ShaderModule* vs = m_shaders->GetVariant(shaderName, shaders::ShaderStage::Vertex, flags);
+            rhi::ShaderModule* fs = m_shaders->GetVariant(shaderName, shaders::ShaderStage::Fragment, flags);
             if (vs == nullptr || fs == nullptr)
             {
                 return nullptr;
@@ -1386,14 +1514,14 @@ export namespace engine::terrain
             frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
 
             rhi::RenderPipelineDesc pd{};
-            pd.layout = m_depthPipelineLayout;
+            pd.layout = holes ? m_holeDepthPipelineLayout : m_depthPipelineLayout;
             pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
             pd.depthStencil = ds;
             pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
             pd.primitive.cullMode = rhi::CullMode::Back;
-            pd.label = u8"terrain.pick";
+            pd.label = holes ? u8"terrain.pick.holes" : u8"terrain.pick";
             rhi::RenderPipeline* pso = nullptr;
             if (!m_device->CreateRenderPipeline(pd, pso).IsOk())
             {
@@ -1439,24 +1567,41 @@ export namespace engine::terrain
                 m_device->DestroyBindGroup(m_chunkBg);
                 m_chunkBg = nullptr;
             }
-            if (m_pso != nullptr)
+            for (ColorPso* cp : {&m_colorPso, &m_holeColorPso})
             {
-                m_device->DestroyRenderPipeline(m_pso);
-                m_pso = nullptr;
-            }
-            for (DepthPso& dp : m_depthPso)
-            {
-                if (dp.pso != nullptr)
+                if (cp->pso != nullptr)
                 {
-                    m_device->DestroyRenderPipeline(dp.pso);
-                    dp.pso = nullptr;
+                    m_device->DestroyRenderPipeline(cp->pso);
+                    cp->pso = nullptr;
                 }
             }
-            if (m_pickPso.pso != nullptr)
+            for (DepthPso* dps : {m_depthPso, m_holeDepthPso})
             {
-                m_device->DestroyRenderPipeline(m_pickPso.pso);
-                m_pickPso.pso = nullptr;
+                for (u32 i = 0; i < 2; ++i)
+                {
+                    if (dps[i].pso != nullptr)
+                    {
+                        m_device->DestroyRenderPipeline(dps[i].pso);
+                        dps[i].pso = nullptr;
+                    }
+                }
             }
+            for (PickPso* pp : {&m_pickPso, &m_holePickPso})
+            {
+                if (pp->pso != nullptr)
+                {
+                    m_device->DestroyRenderPipeline(pp->pso);
+                    pp->pso = nullptr;
+                }
+            }
+            for (auto& kv : m_heightHoleBindGroups)
+            {
+                if (kv.value.bindGroup != nullptr)
+                {
+                    m_device->DestroyBindGroup(kv.value.bindGroup);
+                }
+            }
+            m_heightHoleBindGroups.Clear();
             for (LodMesh& lm : m_lodMeshes)
             {
                 if (lm.indexBuffer != nullptr)
@@ -1565,6 +1710,26 @@ export namespace engine::terrain
                 m_device->DestroyPipelineLayout(m_depthPipelineLayout);
                 m_depthPipelineLayout = nullptr;
             }
+            if (m_holeDepthPipelineLayout != nullptr)
+            {
+                m_device->DestroyPipelineLayout(m_holeDepthPipelineLayout);
+                m_holeDepthPipelineLayout = nullptr;
+            }
+            if (m_holePipelineLayout != nullptr)
+            {
+                m_device->DestroyPipelineLayout(m_holePipelineLayout);
+                m_holePipelineLayout = nullptr;
+            }
+            if (m_heightHoleLayout != nullptr)
+            {
+                m_device->DestroyBindGroupLayout(m_heightHoleLayout);
+                m_heightHoleLayout = nullptr;
+            }
+            if (m_holeSampler != nullptr)
+            {
+                m_device->DestroySampler(m_holeSampler);
+                m_holeSampler = nullptr;
+            }
             if (m_pipelineLayout != nullptr)
             {
                 m_device->DestroyPipelineLayout(m_pipelineLayout);
@@ -1597,6 +1762,12 @@ export namespace engine::terrain
             rhi::BindGroup* bindGroup = nullptr;
             u64 viewId = 0;
         };
+        struct HeightHoleBindGroup
+        {
+            rhi::BindGroup* bindGroup = nullptr;
+            u64 heightId = 0;
+            u64 holeId = 0;
+        };
 
         struct MaterialBindGroup
         {
@@ -1614,9 +1785,14 @@ export namespace engine::terrain
         rhi::BindGroupLayout* m_viewLayout = nullptr;
         rhi::BindGroupLayout* m_chunkLayout = nullptr;
         rhi::BindGroupLayout* m_heightLayout = nullptr;
+        rhi::BindGroupLayout* m_heightHoleLayout = nullptr; // set 2 for holed chunks: + mask + sampler
         rhi::BindGroupLayout* m_materialLayout = nullptr; // set 3: splat material
         rhi::PipelineLayout* m_pipelineLayout = nullptr;      // color: 4 sets
         rhi::PipelineLayout* m_depthPipelineLayout = nullptr; // depth: 3 sets (no material)
+        rhi::PipelineLayout* m_holePipelineLayout = nullptr;      // the HOLES twins
+        rhi::PipelineLayout* m_holeDepthPipelineLayout = nullptr;
+        rhi::Sampler* m_holeSampler = nullptr;
+        HashMap<rhi::TextureView*, HeightHoleBindGroup> m_heightHoleBindGroups;
         rhi::Buffer* m_gridVertexBuffer = nullptr;
         u32 m_gridVertexCount = 0;
         LodMesh m_lodMeshes[tmodel::kMaxChunkLod + 1];
@@ -1667,11 +1843,12 @@ export namespace engine::terrain
         u64 m_activeShadowGen = 0;
         rhi::TextureView* m_viewBgShadow = nullptr; // what the cached view BG was built against
         u64 m_viewBgShadowGen = 0;
-        rhi::RenderPipeline* m_pso = nullptr;
-        rhi::TextureFormat m_psoFormat = rhi::TextureFormat::Undefined;
-        u64 m_psoShaderVersion = 0;
+        ColorPso m_colorPso;     // the colour pass
+        ColorPso m_holeColorPso; // its HOLES twin (holed chunks: the hole-mask discard)
         DepthPso m_depthPso[2]; // [0] = prepass (no bias), [1] = shadow cascade (biased)
+        DepthPso m_holeDepthPso[2];
         PickPso m_pickPso;      // the GPU-pick id pass
+        PickPso m_holePickPso;
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Undefined;
         Array<tmodel::ChunkDraw> m_draws; // scratch, reused each terrain (Resolve is single-threaded)
         u32 m_frameChunks = 0;      // color-pass visible chunks (the MaxChunksDrawn diagnostic)

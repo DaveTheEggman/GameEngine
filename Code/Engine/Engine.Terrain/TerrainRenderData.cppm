@@ -64,6 +64,9 @@ export namespace engine::terrain
         // `allCut` chunk outright.
         const HoledChunkMesh* holedMeshes = nullptr;
         u32 holedMeshCount = 0;
+        // The R8 hole mask (null = no holes): the HOLES pixel shaders sample it bilinearly to
+        // shape a holed chunk's rim (TerrainHoleTextureCache).
+        rhi::TextureView* holeView = nullptr;
 
         // Terrain placement + height mapping (local heightfield space -> world).
         Float4x4 chunkToWorld = Float4x4::Identity();

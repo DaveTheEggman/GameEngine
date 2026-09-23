@@ -71,6 +71,7 @@ namespace
         f32 fov = 1.0f;
         rhi::ClearColor clear = rhi::ClearColor::Black();
         bool skirts = true;
+        bool holeMask = true;               // P2: bind the R8 hole mask (false = geometry rule only)
         const Float3* toLight = nullptr;    // dir TO the light; null = renderer fallback sun
         const f32* thresholds = nullptr;    // LOD coverage thresholds override (null = default set)
         u32 thresholdCount = 0;
@@ -140,6 +141,10 @@ namespace
             engine::terrain::TerrainHoledMeshCache holedCache;
             const Span<const engine::terrain::HoledChunkMesh> holed = holedCache.GetOrBuild(
                 device, terrain, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()}, 1);
+            engine::terrain::TerrainHoleTextureCache holeTextures;
+            rhi::TextureView* holeView =
+                (cfg.holeMask && terrain.HasHoles()) ? holeTextures.GetOrCreate(device, terrain, 1)
+                                                      : nullptr;
 
             static const f32 defaultThresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
             const f32* thresholds = cfg.thresholds != nullptr ? cfg.thresholds : defaultThresholds;
@@ -165,6 +170,7 @@ namespace
         rd->chunkCount = static_cast<u32>(chunks.Size());
             rd->holedMeshes = holed.Data();
             rd->holedMeshCount = static_cast<u32>(holed.Size());
+            rd->holeView = holeView;
             rd->heightView = heightView;
             rd->chunkToWorld = cfg.chunkToWorld;
             rd->gridSize = terrain.Size();
@@ -285,6 +291,7 @@ namespace
             device.WaitIdle();
             heightCache.Clear(device); // owns the height texture/view; must release before the device
             holedCache.Clear(device);
+            holeTextures.Clear(device);
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(targetView);
@@ -1733,11 +1740,11 @@ TEST_CASE("terrain holes probe: a cut at the dome's centre shows the clear colou
         ProbeCfg holed;
         holed.terrain = MakeDome();
         const i32 c = holed.terrain->Size() / 2;
-        for (i32 z = c - 4; z <= c + 4; ++z)
+        for (i32 z = c - 8; z <= c + 8; ++z)
         {
-            for (i32 x = c - 4; x <= c + 4; ++x)
+            for (i32 x = c - 8; x <= c + 8; ++x)
             {
-                holed.terrain->SetHole(x, z, true); // 9 x 9 cut samples: a 10-cell-wide hole
+                holed.terrain->SetHole(x, z, true); // 17 x 17 cut samples: the centre block lies inside
             }
         }
         const Probe cut = RenderTerrainProbe(device, holed);
@@ -1748,6 +1755,16 @@ TEST_CASE("terrain holes probe: a cut at the dome's centre shows the clear colou
         CHECK(cut.centerLuma == 0.0);  // the hole: nothing drawn, black clear
         CHECK(cut.filled < ref.filled);
         CHECK(cut.filled > ref.filled / 2u); // the rest of the dome is still there
+        // P2, the alpha-tested rim: the same cut with the mask unbound draws the geometry rule
+        // alone (a quad stays while one corner is solid), so the ring the pixel shader discards
+        // - half a cell around the cut - comes back as filled pixels.
+        holed.holeMask = false;
+        const Probe geometryOnly = RenderTerrainProbe(device, holed);
+        REQUIRE(geometryOnly.valid);
+        std::printf("[terrain-holes] geometry-only filled=%u (mask discards %u)\n", geometryOnly.filled,
+                    geometryOnly.filled - cut.filled);
+        CHECK(geometryOnly.centerLuma == 0.0); // the centre block is inside the dropped quads
+        CHECK(geometryOnly.filled > cut.filled + 64u); // the rim ring only the mask can remove
     };
     rhi::Backend* vulkan = nullptr;
     if (rhi::Device* device = MakeVulkan(vulkan))

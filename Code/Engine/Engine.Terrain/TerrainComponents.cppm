@@ -93,6 +93,7 @@ export namespace engine::terrain
             m_splatTextures.SetRetireQueue(retire);
             m_paletteTextures.SetRetireQueue(retire);
             m_holedMeshes.SetRetireQueue(retire);
+            m_holeTextures.SetRetireQueue(retire);
         }
 
         /// Tear down this manager's GPU-side state THROUGH the wired device - called by the
@@ -108,6 +109,7 @@ export namespace engine::terrain
                 m_splatTextures.Clear(*m_device);
                 m_paletteTextures.Clear(*m_device);
                 m_holedMeshes.Clear(*m_device);
+                m_holeTextures.Clear(*m_device);
             }
             m_device = nullptr;
         }
@@ -118,6 +120,7 @@ export namespace engine::terrain
         {
             return m_holedMeshes.MeshCount(heightfieldUid);
         }
+        [[nodiscard]] usize HoleTextureCount() const noexcept { return m_holeTextures.Size(); }
         [[nodiscard]] usize SplatTextureCount() const noexcept { return m_splatTextures.Size(); }
         [[nodiscard]] usize PaletteTextureCount() const noexcept
         {
@@ -182,6 +185,9 @@ export namespace engine::terrain
                         hf->Version());
                     const Span<const HoledChunkMesh> holedCopy =
                         holed.IsEmpty() ? Span<const HoledChunkMesh>{} : snapshot.AddArray(holed);
+                    rhi::TextureView* holeView =
+                        hf->HasHoles() ? m_holeTextures.GetOrCreate(*m_device, *hf, hf->Version())
+                                       : nullptr;
 
                     TerrainRenderData* rd = snapshot.Add<TerrainRenderData>();
                     if (rd == nullptr)
@@ -198,6 +204,7 @@ export namespace engine::terrain
                     rd->heightView = heightView;
                     rd->holedMeshes = holedCopy.Data();
                     rd->holedMeshCount = static_cast<u32>(holedCopy.Size());
+                    rd->holeView = holeView;
                     rd->chunkToWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner)
                                                             : Float4x4::Identity();
                     rd->gridSize = hf->Size();
@@ -326,6 +333,7 @@ export namespace engine::terrain
         TerrainSplatTextureCache m_splatTextures;
         TerrainPaletteTextureCache m_paletteTextures;
         TerrainHoledMeshCache m_holedMeshes; // holed chunks' index buffers (Specs/terrain-holes.md)
+        TerrainHoleTextureCache m_holeTextures; // the R8 hole mask the HOLES shaders sample
         HashMap<u64, ChunkCache> m_chunkCache; // key = Heightfield::uid (never a pointer)
     };
 
