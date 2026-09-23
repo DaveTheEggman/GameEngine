@@ -120,7 +120,11 @@ instance serves scene pages and preview.
 the dock CENTER is the document area where each open page docks as a closable tab; everything
 scene-scoped - viewport, hierarchy, inspector - lives INSIDE the scene page, built from
 standalone reusable views (fixing Sedulous's hierarchy/inspector-hardwired-in-the-page-builder
-weakness without breaking its per-page model).
+weakness without breaking its per-page model). Closing a TOOL panel (one with a persistence id:
+Assets, Console) hides it - the dock keeps it registered, so View > Reset Layout and a layout
+restore re-dock the same object and the shell's borrowed pointers stay valid (2026-09-23: a
+closed Assets panel used to be destroyed, and Reset Layout then read its Parent out of freed
+memory). Closing a PAGE panel (no persistence id) destroys it with its content.
 
 ### 3.3 EditorContext + registries (extensibility spine)
 

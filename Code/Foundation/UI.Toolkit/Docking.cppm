@@ -1719,6 +1719,16 @@ export namespace foundation::ui::toolkit
         void ClosePanel(DockablePanel* panel)
         {
             UndockPanel(panel);
+            // A TOOL panel (one with a persistence id: Console, Assets, Welcome) HIDES on close:
+            // the registry keeps it, so Reset Layout and a layout restore re-dock the same
+            // object and whoever borrowed its pointer (the editor shell) never dangles. Before
+            // 2026-09-23 a closed Assets panel was destroyed, and View > Reset Layout then read
+            // its Parent out of freed memory (the RTHomes1 crash). A PAGE panel (no persistence
+            // id: its content dies with the page) is destroyed as before.
+            if (panel->PersistenceId().Size() > 0)
+            {
+                return;
+            }
             QueueDeleteNode(panel); // keeps `panel` alive across the deferred boundary (see helper)
             ErasePanel(panel);      // drop the mPanels ownership ref
         }
@@ -1876,6 +1886,12 @@ export namespace foundation::ui::toolkit
             }
 
             Invalidate();
+        }
+
+        /// Registered panels (docked, floating or hidden alike): the manager's ownership set.
+        [[nodiscard]] i32 RegisteredPanelCount() const noexcept
+        {
+            return static_cast<i32>(m_panels.Size());
         }
 
         /// Finds a registered panel by its PersistenceId.

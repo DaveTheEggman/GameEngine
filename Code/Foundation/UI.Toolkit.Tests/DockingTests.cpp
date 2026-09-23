@@ -522,10 +522,14 @@ TEST_CASE("docking: OS close request respects the panel close interceptor")
     CHECK(dm->FindPanelById(StringView(u8"doc")) == panel);
 
     allow = true;
-    host.LastOnClose(host.Created[0].Get()); // allowed: panel closes, window torn down
+    host.LastOnClose(host.Created[0].Get()); // allowed: the window is torn down...
     CHECK(asked == 2);
     CHECK(host.Destroyed == 1);
-    CHECK(dm->FindPanelById(StringView(u8"doc")) == nullptr);
+    // ...and the panel, a TOOL panel (it has a persistence id), hides: registered, out of the
+    // tree, alive for a Reset Layout or a layout restore (2026-09-23).
+    CHECK(dm->FindPanelById(StringView(u8"doc")) == panel);
+    CHECK(panel->Parent == nullptr);
+    CHECK(!panel->IsPendingDeletion);
 }
 
 // Zone targets carry the would-be dock region; hovering exposes it for the drop-preview overlay.
@@ -545,4 +549,72 @@ TEST_CASE("docking: zone indicator carries drop preview rect")
     indicator->UpdateHover(760, 200); // legacy AddTarget: zero-area preview (no overlay)
     REQUIRE(indicator->HoveredTarget().HasValue());
     CHECK(indicator->HoveredTarget().Value().PreviewRect.width == 0);
+}
+
+// The editor's Reset Layout crash (RTHomes1, 2026-09-23): the shell borrows raw pointers to its
+// tool panels, the user closed Assets, ClosePanel destroyed it, and DockDefaults then read the
+// dead panel's Parent. A tool panel (persistence id) now hides on close and stays registered, so
+// the default arrangement can be rebuilt over it; a page panel (no id) is still destroyed.
+TEST_CASE("docking: closing a tool panel hides it and keeps it registered; the default layout rebuilds over it; a page panel is destroyed")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto dm = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dm.Get());
+    ctx.BeginFrame(0.016f);
+
+    DockablePanel* welcome = dm->AddPanel(StringView(u8"Welcome"), MakeLabel(u8"w").Get());
+    welcome->SetPersistenceId(u8"welcome");
+    welcome->SetClosable(false);
+    DockablePanel* console = dm->AddPanel(StringView(u8"Console"), MakeLabel(u8"c").Get());
+    console->SetPersistenceId(u8"console");
+    DockablePanel* assets = dm->AddPanel(StringView(u8"Assets"), MakeLabel(u8"a").Get());
+    assets->SetPersistenceId(u8"assets");
+    const auto dockDefaults = [&]()
+    {
+        // The editor shell's DockDefaults, verbatim.
+        dm->DockPanel(welcome, DockPosition::Center);
+        dm->DockPanel(console, DockPosition::Bottom);
+        dm->DockPanelRelativeTo(assets, DockPosition::Center, console->Parent);
+        dm->ActivatePanel(console);
+    };
+    dockDefaults();
+    ctx.BeginFrame(0.016f);
+    REQUIRE(Cast<DockTabGroup>(assets->Parent) != nullptr);
+    CHECK(dm->RegisteredPanelCount() == 3);
+
+    // The user closes Assets (the close gesture's un-vetoed path): undocked, registered, alive.
+    assets->OnCloseRequested.Invoke(assets);
+    ctx.BeginFrame(0.016f); // the deferred deletes run here: the panel must not be among them
+    ctx.BeginFrame(0.016f);
+    CHECK(assets->Parent == nullptr);
+    CHECK(dm->RegisteredPanelCount() == 3);
+    CHECK(dm->FindPanelById(u8"assets") == assets);
+    CHECK(!assets->IsPendingDeletion);
+
+    // View > Reset Layout: the same three pointers, the same sequence - and Assets is back.
+    dockDefaults();
+    ctx.BeginFrame(0.016f);
+    CHECK(Cast<DockTabGroup>(assets->Parent) != nullptr);
+    CHECK(Cast<DockTabGroup>(console->Parent) != nullptr);
+    CHECK(assets->Parent == console->Parent); // tabbed with the console, as the default says
+    dockDefaults(); // and again, with nothing closed: idempotent
+    ctx.BeginFrame(0.016f);
+    CHECK(dm->RegisteredPanelCount() == 3);
+    CHECK(Cast<DockTabGroup>(assets->Parent) != nullptr);
+
+    // A page panel (no persistence id) still dies on close: dropped from the registry.
+    DockablePanel* page = dm->AddPanel(StringView(u8"Scene"), MakeLabel(u8"s").Get());
+    dm->DockPanelRelativeTo(page, DockPosition::Center, welcome->Parent);
+    ctx.BeginFrame(0.016f);
+    CHECK(dm->RegisteredPanelCount() == 4);
+    RefPtr<DockablePanel> pin(page); // observe the deletion without touching freed memory
+    page->OnCloseRequested.Invoke(page);
+    CHECK(dm->RegisteredPanelCount() == 3);
+    CHECK(pin->IsPendingDeletion);
+    ctx.BeginFrame(0.016f);
+    ctx.BeginFrame(0.016f);
+    CHECK(pin->Parent == nullptr);
 }

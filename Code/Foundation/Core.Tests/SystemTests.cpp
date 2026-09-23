@@ -280,6 +280,12 @@ TEST_CASE("system: NormalizePathSeparators yields OS-native separators")
 // behave as before).
 TEST_CASE("system: InstallCrashBacktrace prints a native stack on SIGSEGV")
 {
+#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+    // Under AddressSanitizer InstallCrashBacktrace is a no-op by design (the sanitizer's own
+    // handler reports the faulting frame and the freeing stack; ours would replace it).
+    MESSAGE("AddressSanitizer build: the engine's crash handler yields to the sanitizer's");
+    return;
+#endif
     int pipeFds[2];
     REQUIRE(pipe(pipeFds) == 0);
 

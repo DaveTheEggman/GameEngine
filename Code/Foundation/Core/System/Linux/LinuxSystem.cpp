@@ -948,6 +948,12 @@ namespace foundation::core::sys
             return;
         }
         installed = true;
+#if defined(__SANITIZE_ADDRESS__) || (defined(__has_feature) && __has_feature(address_sanitizer))
+        // Under AddressSanitizer the sanitizer's own signal handler is the useful one (it names
+        // the faulting frame and the freeing stack); ours would replace it and print only its
+        // own two frames (the 2026-09-23 Reset Layout hunt). Leave the sanitizer in charge.
+        return;
+#endif
 
         // Warm the unwinder NOW: glibc's backtrace() dlopens/allocates on first use, so calling
         // it from the handler could re-enter malloc - fatal when the crash IS a malloc abort
