@@ -240,8 +240,11 @@ namespace foundation::render
             maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount + m_captureFacePasses +
                         m_pickPasses);
         // Pick passes take shadow-view slots too: one per pass + one per MultiMesh set they id.
-        const u32 shadowViewCap = kMaxShadowPasses + m_pickPasses * (1u + kMaxPickMultiMeshSets);
-        if (!m_viewRing.Reserve(maxDraws) || !m_shadowViewRing.Reserve(shadowViewCap) ||
+        const u32 shadowViewCap = kMaxShadowPasses + m_pickPasses * (1u + kMaxPickMultiMeshSets) +
+                                  kMaxFadedSetSlots;
+        // The view ring: one slot per pass view, plus the faded sets' private copies.
+        if (!m_viewRing.Reserve(maxDraws + kMaxFadedSetSlots) ||
+            !m_shadowViewRing.Reserve(shadowViewCap) ||
             !m_objectRing.Reserve(drawCap) || !m_instanceRing.Reserve(drawCap) ||
             !m_offsetsRing.Reserve(drawCap) || !m_lightRing.Reserve(kMaxLights) ||
             !m_localShadowRing.Reserve(kMaxLocalShadows) || !m_boneRing.Reserve(m_boneSlotsWanted))
@@ -749,10 +752,14 @@ namespace foundation::render
             if (auto* dst = static_cast<InstanceData*>(set->instanceBuf->Map()))
             {
                 InstanceData* r = dst + static_cast<usize>(region) * set->capacity;
+                const bool ranked = mm.fadeEnd > 0.0f; // a faded set: the rank rides the tint alpha
                 for (u32 i = 0; i < uploadCount; ++i)
                 {
-                    const Color tint =
-                        (mm.tints != nullptr) ? mm.tints[i] : mm.color; // per-instance or shared
+                    Color tint = (mm.tints != nullptr) ? mm.tints[i] : mm.color; // per-instance or shared
+                    if (ranked)
+                    {
+                        tint.a = (static_cast<f32>(i) + 0.5f) / static_cast<f32>(uploadCount);
+                    }
                     r[i] = InstanceData{mm.transforms[i], mm.transforms[i], tint};
                 }
                 set->instanceBuf->Unmap();
@@ -786,6 +793,24 @@ namespace foundation::render
             }
             set->offsetsCapacity = mm.instanceCount;
         }
+    }
+
+    bool MeshRenderer::ReadMultiMeshInstanceTint(u64 key, u32 region, u32 index, Color& out)
+    {
+        MultiMeshSet* set = m_multiMeshSets.Find(key);
+        if (set == nullptr || set->instanceBuf == nullptr || region >= kMultiMeshMaxFiF ||
+            index >= set->capacity)
+        {
+            return false;
+        }
+        auto* data = static_cast<const InstanceData*>(set->instanceBuf->Map());
+        if (data == nullptr)
+        {
+            return false;
+        }
+        out = data[static_cast<usize>(region) * set->capacity + index].tint;
+        set->instanceBuf->Unmap();
+        return true;
     }
 
     bool MeshRenderer::ReadMultiMeshInstance(u64 key, u32 region, u32 index, Float4x4& out)
@@ -985,6 +1010,7 @@ namespace foundation::render
             vd.clusterLogScale = ctx.cluster.logScale;
             vd.clusterLogBias = ctx.cluster.logBias;
         }
+        m_passView = vd; // a faded instanced set copies this with its window (ResolveMultiMesh)
         *static_cast<ViewData*>(view.ptr) = vd;
         const u32 viewOffset = view.byteOffset;
 
@@ -1076,6 +1102,7 @@ namespace foundation::render
             PickViewData pv{};
             pv.viewProj = ctx.viewProj;
             pv.windTime = ctx.timeSeconds;
+            pv.camera = Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f};
             *static_cast<PickViewData*>(sv.ptr) = pv;
         }
         else
@@ -1083,6 +1110,7 @@ namespace foundation::render
             ShadowViewData svd{};
             svd.lightViewProj = ctx.viewProj;
             svd.wind.x = ctx.timeSeconds;
+            svd.camera = Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f};
             *static_cast<ShadowViewData*>(sv.ptr) = svd;
         }
         const u32 shadowViewOffset = sv.byteOffset;
@@ -1679,6 +1707,21 @@ namespace foundation::render
             config.shaderFlags |= shaders::ShaderFlags::Skinned;
         }
 
+        // A faded set draws through a PRIVATE copy of the pass's view block carrying its window
+        // in ShadowParams.zw (the instanced path binds no per-draw block; instance_fade.hlsli).
+        if (mm.fadeEnd > 0.0f)
+        {
+            const DynamicUniformRing::Range slot = m_viewRing.Allocate();
+            if (slot.ok) // past the budget: the pass's slot, drawn unfaded rather than dropped
+            {
+                ViewData faded = m_passView;
+                faded.shadowParams.z = mm.fadeStart;
+                faded.shadowParams.w = mm.fadeEnd;
+                *static_cast<ViewData*>(slot.ptr) = faded;
+                viewOffset = slot.byteOffset;
+            }
+        }
+
         ResolvedDraw base{};
         base.viewSet = m_viewBG;
         base.viewOffset = viewOffset;
@@ -1788,8 +1831,25 @@ namespace foundation::render
             pv.windTime = ctx.timeSeconds;
             pv.pickIndex = EntityTag::Index(mm.entityId) + 1u;
             pv.pickGeneration = EntityTag::Generation(mm.entityId);
+            pv.fadeStart = mm.fadeStart;
+            pv.camera = Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, mm.fadeEnd};
             *static_cast<PickViewData*>(sv.ptr) = pv;
             shadowViewOffset = sv.byteOffset;
+        }
+        else if (mm.fadeEnd > 0.0f && ctx.view != nullptr)
+        {
+            // A faded set's shadow: its window rides a private ShadowView slot, the fade measured
+            // from the CAMERA the pass couples to (no view = a pass with no camera: no fade).
+            const DynamicUniformRing::Range sv = m_shadowViewRing.Allocate();
+            if (sv.ok) // past the budget: the pass's slot, unfaded rather than dropped
+            {
+                ShadowViewData svd{};
+                svd.lightViewProj = ctx.viewProj;
+                svd.wind = Float4{ctx.timeSeconds, mm.fadeStart, mm.fadeEnd, 0.0f};
+                svd.camera = Float4{ctx.cameraPos.x, ctx.cameraPos.y, ctx.cameraPos.z, 0.0f};
+                *static_cast<ShadowViewData*>(sv.ptr) = svd;
+                shadowViewOffset = sv.byteOffset;
+            }
         }
         const bool masked = mm.material != nullptr &&
                             mm.material->pipeline.blendMode == materials::BlendMode::Masked;

@@ -475,9 +475,23 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   chunk seed (the renderer's persistent-buffer slot), `transforms` borrowed from the cache for
   the frame, `instanceCount` = the fade prefix, `uploadCount` = the whole set (uploaded once;
   the prefix moves with the camera without a re-upload), `version` = the scatter build
-  (re-upload only on change), `castShadows` from the layer. The renderer keeps a per-region
-  (frame-in-flight) version + written count and rewrites a region only when it is behind the
-  item, so a region never draws a tail it was not written with. Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
+  (re-upload only on change), `castShadows` and the `fadeStart` / `fadeEnd` window from the
+  layer. The renderer keeps a per-region (frame-in-flight) version + written count and rewrites
+  a region only when it is behind the item, so a region never draws a tail it was not written
+  with.
+- **Per-instance fade (2026-09-22).** The prefix alone faded a whole chunk at one density (the
+  chunk's nearest distance), so neighbouring chunks met at a straight seam and a chunk's last
+  instances vanished as a block. The prefix stays the coarse bound; the dissolve itself is per
+  instance in the vertex shaders (`instance_fade.hlsli`, forward / shadow-depth / pick under
+  INSTANCED): the renderer writes each instance's RANK ((i + 0.5) / uploadCount, its place in
+  the set's random order) into its `Tint.a` at upload when the item carries a window, and the
+  shader collapses an instance to its origin (zero area) when its rank is above the density at
+  ITS OWN camera distance, shrinking over the last eighth of the window first. The window rides
+  the pass's view block through a PRIVATE slot per faded set (`ShadowParams.zw` on the forward
+  view; `ShadowWind.yz` + `ShadowCamera` on the 96-byte shadow view; `FadeStart` + `PickCamera`
+  on the 96-byte pick view), budgeted by `kMaxFadedSetSlots` (a set past it draws unfaded, never
+  dropped). Non-faded sets and every other draw are untouched (window 0). Probed at the texel
+  on Vulkan + WebGPU (`InstanceFadeProbeTests`). Sets are built on demand under a per-extraction budget (4 chunks, `SetBuildBudget`),
   invalidated by the heightfield and splat uid + version, the entity world matrix (recompose,
   no rescatter) and the layer's scatter hash; `InvalidateRegion` (the editor brushes, P1)
   regrows only the touched chunks. An invalidated set that was already built keeps drawing

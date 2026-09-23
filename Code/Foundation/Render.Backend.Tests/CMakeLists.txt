@@ -9,7 +9,8 @@ add_executable(Render.Backend.Tests
     MsaaProbeTests.cpp
     ReverseZProbeTests.cpp
     PickProbeTests.cpp
-    WindProbeTests.cpp)
+    WindProbeTests.cpp
+    InstanceFadeProbeTests.cpp)
 
 target_link_libraries(Render.Backend.Tests PRIVATE
     Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport
@@ -21,7 +22,7 @@ target_compile_definitions(Render.Backend.Tests PRIVATE
 # DX12 backend - Windows only. The MSAA probe ran on Vulkan + WebGPU only, so DX12's MSAA path
 # had no coverage at all (and shipped reporting a 1x ceiling unnoticed).
 if(TARGET Foundation::RHI.DX12)
-    target_link_libraries(Render.Backend.Tests PRIVATE Foundation::RHI.DX12)
+    target_link_libraries(Render.Backend.Tests PRIVATE Foundation::Image Foundation::Image.IO Foundation::RHI.DX12)
     target_compile_definitions(Render.Backend.Tests PRIVATE OPTION_HAS_DX12)
 endif()
 

@@ -273,6 +273,13 @@ export namespace foundation::render
         // distance-faded set uploads its whole list once and draws a prefix that moves with the
         // camera without re-uploading (`transforms`/`tints` then hold uploadCount entries).
         u32 uploadCount = 0;
+        // Per-instance distance fade (metres; fadeEnd <= 0 = none): full density inside fadeStart,
+        // a smoothstep to nothing at fadeEnd, evaluated PER INSTANCE in the vertex shaders against
+        // its own camera distance and its rank (its position in the set's random order, which the
+        // renderer writes into its tint alpha at upload). The draw-count prefix stays the coarse
+        // bound; this is what removes the seam between chunks (a vegetation layer's window).
+        f32 fadeStart = 0.0f;
+        f32 fadeEnd = 0.0f;
         u32 version = 0; // bumps when `transforms` change; the renderer re-uploads only on a change
         // GPU-skinned crowds (SS7): a shared pose pool of `poseCount` palettes (each `boneCount` matrices),
         // borrowed for the frame. When non-null the set draws SKINNED with instance i using pose (i % poseCount).

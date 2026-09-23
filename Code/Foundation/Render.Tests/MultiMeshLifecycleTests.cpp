@@ -337,3 +337,57 @@ TEST_CASE("multimesh: a set with an uploadCount holds its whole list from the fi
     REQUIRE(renderer.ReadMultiMeshInstance(0x99u, 1, 7, world));
     CHECK(world.m[3][1] == doctest::Approx(0.0f));
 }
+
+TEST_CASE("multimesh: a faded set uploads each instance's rank in its tint alpha; an unfaded set keeps its tint")
+{
+    // The vertex shaders dissolve an instance whose rank is above the density at its own
+    // distance (instance_fade.hlsli): the rank is its position in the set's random order.
+    Systems s;
+    if (!s.Init())
+    {
+        MESSAGE("no shader compiler; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*s.compiler, s.device);
+    materials::PipelineStateCache psoCache(shaderSystem, s.device);
+    materials::MaterialSystem materialSystem;
+    REQUIRE(materialSystem.Initialize(s.device).IsOk());
+    MeshRenderer renderer(s.device, shaderSystem, psoCache, materialSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> material =
+        materials::MaterialBuilder(u8"lit").Shader(u8"forward").Build();
+    Array<Float4x4> transforms;
+    transforms.Resize(4, Float4x4::Identity());
+
+    ExtractedScene scene{DefaultAllocator()};
+    AddSet(scene, 0x51u, cube.Get(), material.Get(), Span<const Float4x4>{transforms.Data(), 4},
+           renderer.RendererId());
+    MultiMeshRenderData* faded = scene.Add<MultiMeshRenderData>();
+    REQUIRE(faded != nullptr);
+    faded->multiMesh = true;
+    faded->key = 0x52u;
+    faded->transforms = transforms.Data();
+    faded->instanceCount = 2; // the prefix: the far half is already out
+    faded->uploadCount = 4;   // the whole list carries its ranks
+    faded->version = 1;
+    faded->mesh = cube.Get();
+    faded->material = material.Get();
+    faded->rendererId = renderer.RendererId();
+    faded->category = RenderCategories::Opaque;
+    faded->worldRadius = 2.0f;
+    faded->fadeStart = 40.0f;
+    faded->fadeEnd = 80.0f;
+    renderer.PrepareFrame(2, 0);
+    renderer.UploadMultiMeshes(scene);
+
+    Color tint;
+    REQUIRE(renderer.ReadMultiMeshInstanceTint(0x51u, 0, 0, tint));
+    CHECK(tint.a == doctest::Approx(1.0f)); // unfaded: the shared colour, alpha untouched
+    for (u32 i = 0; i < 4; ++i)
+    {
+        REQUIRE(renderer.ReadMultiMeshInstanceTint(0x52u, 0, i, tint));
+        CHECK(tint.a == doctest::Approx((static_cast<f32>(i) + 0.5f) / 4.0f)); // its rank
+    }
+}
+

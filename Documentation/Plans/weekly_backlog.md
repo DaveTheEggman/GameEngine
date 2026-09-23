@@ -1431,7 +1431,10 @@ command recording only).
 - Scope decision for the user: transform update only, or also the AsyncUpdate promise (a
   parallel per-depth-level pass is the natural first use of it).
 
-## Seeded: vegetation distance fade is per CHUNK - visible quads thin and vanish (user 2026-09-22)
+## DONE 2026-09-22: vegetation distance fade is per CHUNK - visible quads thin and vanish (user 2026-09-22)
+
+Built the same day once the Beef port had caught up: the sketch below, as written (rank in the
+tint alpha, the window on a private view slot per faded set, the CPU prefix kept as the bound).
 
 Observed: zooming out, vegetation thins and disappears one sharp chunk-shaped quad at a time.
 Cause (read, not fixed - the Beef port references the current code; HOLD): the fade is

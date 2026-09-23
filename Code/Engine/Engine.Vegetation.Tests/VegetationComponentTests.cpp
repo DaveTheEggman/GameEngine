@@ -325,6 +325,8 @@ TEST_CASE("engine.vegetation: the fade prefix thins by distance and out-of-range
     {
         CHECK(s->instanceCount > 0u);
         CHECK(s->instanceCount <= 1024u);
+        CHECK(s->fadeStart == doctest::Approx(40.0f)); // the layer's window, for the per-instance dissolve
+        CHECK(s->fadeEnd == doctest::Approx(80.0f));
         if (s->instanceCount == 1024u)
         {
             ++full;

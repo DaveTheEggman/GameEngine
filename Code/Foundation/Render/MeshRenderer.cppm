@@ -172,6 +172,8 @@ export namespace foundation::render
         // set keyed `key` (false when there is no such set, region or slot). Maps the buffer, so it
         // is for host-visible test devices.
         [[nodiscard]] bool ReadMultiMeshInstance(u64 key, u32 region, u32 index, Float4x4& out);
+        // Test read-back of the tint written for instance `index` (a faded set's rank rides its alpha).
+        [[nodiscard]] bool ReadMultiMeshInstanceTint(u64 key, u32 region, u32 index, Color& out);
 
         // Grow the shared DataOffsets ramp to at least `count` slots: [{0,0,0,0},{1,0,0,0},...]. Filled once
         // per (re)allocation (values are static per index - never rewritten). .x is each instance's index into
@@ -287,8 +289,9 @@ export namespace foundation::render
         struct ShadowViewData
         {
             Float4x4 lightViewProj;
-            Float4 wind = Float4{0, 0, 0, 0}; // x = time (s) for the WIND sway
-        }; // 80  (cbuffer ShadowView)
+            Float4 wind = Float4{0, 0, 0, 0};   // x = time (s) for the WIND sway, y/z = a faded set's window
+            Float4 camera = Float4{0, 0, 0, 0}; // xyz = the camera's position (the instance fade's distance)
+        }; // 96  (cbuffer ShadowView)
         // GPU-layout contract: these mirror HLSL cbuffer/StructuredBuffer elements and use the PACKED
         // Float4x4 (64B, tight). A stray SIMD Matrix4 (also 64B but 16-byte aligned) would still trip the
         // size math via padding shifts - the guards pin the exact byte layout the shaders expect.
@@ -302,13 +305,18 @@ export namespace foundation::render
         {
             Float4x4 viewProj;
             u32 pickIndex = 0, pickGeneration = 0;
-            f32 windTime = 0.0f; // time (s) for the WIND sway (the pick follows the swayed card)
-            u32 p1 = 0;
-        }; // 80  (cbuffer PickView; shares the shadow-view ring's 256B slots)
-        static_assert(sizeof(ShadowViewData) == 80, "cbuffer ShadowView layout drift");
-        static_assert(sizeof(PickViewData) == 80, "cbuffer PickView layout drift");
+            f32 windTime = 0.0f;  // time (s) for the WIND sway (the pick follows the swayed card)
+            f32 fadeStart = 0.0f; // a faded set's window start (camera.w = its end; 0 = none)
+            Float4 camera = Float4{0, 0, 0, 0}; // xyz = the camera's position, w = fade end
+        }; // 96  (cbuffer PickView; shares the shadow-view ring's 256B slots)
+        static_assert(sizeof(ShadowViewData) == 96, "cbuffer ShadowView layout drift");
+        static_assert(sizeof(PickViewData) == 96, "cbuffer PickView layout drift");
         // MultiMesh sets a pick pass can id per frame (each takes a shadow-view ring slot).
         static constexpr u32 kMaxPickMultiMeshSets = 64;
+        // Faded instanced sets per frame that get a PRIVATE view slot carrying their window (the
+        // forward view ring and the shadow-view ring each budget this many beyond their passes).
+        // A set past the budget draws through the pass's own slot: visible, just not faded.
+        static constexpr u32 kMaxFadedSetSlots = 256;
 
         static constexpr u64 kViewSlot = 256; // dynamic UBO offset alignment (object/shadow-view)
         static constexpr u64 kViewDataSlot =
@@ -514,6 +522,7 @@ export namespace foundation::render
 
         DynamicUniformRing m_viewRing;
         DynamicUniformRing m_shadowViewRing;
+        ViewData m_passView{}; // the pass's view block, copied per faded instanced set with its window
         DynamicUniformRing m_objectRing;
         DynamicUniformRing m_instanceRing;
         DynamicUniformRing m_offsetsRing;

@@ -118,6 +118,11 @@ brush is the same controllability with the splat pattern already proven.
 
 ## Decision 3 - deterministic per-chunk scatter, CPU, prefix-sorted for distance fade
 
+> AMENDED 2026-09-22: the prefix is the coarse bound only. The fade the eye sees is PER
+> INSTANCE in the vertex shaders (rank in the tint alpha, the layer's window on a private view
+> slot; renderer.md "Per-instance fade"): the per-chunk density produced straight seams
+> between chunks and block pops at the window's end.
+
 Scatter is a pure function in `foundation.vegetation` (Foundation/Vegetation, no RHI,
 no scene): for one terrain chunk and one layer it produces the instance list.
 
