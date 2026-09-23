@@ -1,6 +1,9 @@
 # Whiteboxing (blockout geometry for level prototyping)
 
-> STATUS: PROPOSED 2026-09-23, not scheduled. Sized M for P0+P1, L with P2+P3. Origin: a user
+> STATUS: PROPOSED 2026-09-23, not scheduled; REVIEWED 2026-09-23 (Fable): every citation checked
+> against the tree; the collider ruling (compound boxes, built in memory), the load-order note,
+> the dedicated whitebox shader, extent clamping and the refuse-existing-mesh rule folded in
+> below. Sized M for P0+P1, L with P2+P3. Origin: a user
 > question ("what is the best approach for adding whiteboxing to this engine?"), answered after
 > reading ezEngine's `ezGreyBoxComponent` and O3DE's WhiteBox gem in full (see "Prior art"),
 > then this tree. `paperkid.md` already assumes a blockout primitive kit (its Meshes line names
@@ -39,8 +42,11 @@ Grepped before commissioning anything below; all of this is reused rather than r
 - **Collision is already parametric** (`Engine.Physics/PhysicsComponents.cppm:82`,
   `ColliderComponent`): `ShapeKind {Box, Sphere, Capsule, Cooked, Plane, Heightfield}`
   (`Foundation/Physics/PhysicsWorld.cppm:48`) with `halfExtents`, `radius`, `halfHeight`, and
-  `Cooked` taking a `Ref<CollisionShape>` for a convex hull. A box blockout needs no new shape
-  at all; a wedge or a stair cooks a hull.
+  `Cooked` taking a `Ref<CollisionShape>`, a plain object holding a Jolt shape BLOB
+  (`Physics.Resource/PhysicsResource.cppm:49`) that `Ref<T>::SetDirect` can carry with no asset
+  behind it. `PhysicsWorld::CookConvexHull(points, outBlob)` (`PhysicsWorld.cppm:279`) builds
+  such a blob IN MEMORY. A box blockout needs no new shape at all; every other shape is a
+  compound of boxes or a hull built at runtime the same way (Decision 3).
 - **The nav bake reads mesh components** (`Editor.Navigation/NavigationBakeImpl.cpp:114`): it
   walks `MeshComponentManager` and `TerrainComponentManager` and transforms their triangles into
   zone-local space. Anything that presents itself as a `MeshComponent` is in the navmesh for
@@ -128,8 +134,10 @@ regenerated whenever they change and shared between identical pieces.
 Six independent extents (`sizeNegX`, `sizePosX`, `sizeNegY`, `sizePosY`, `sizeNegZ`, `sizePosZ`),
 following ez. A centred half-extent forces the origin to move whenever one face does, which makes
 face-dragging fight the transform gizmo; independent extents let a face move while the entity's
-transform sits still. Extents crossing zero flip the winding, and the generator handles that
-rather than leaving an inside-out solid.
+transform sits still. Each extent is CLAMPED at a small positive minimum (`kMinExtent`, 0.01 m):
+the origin always sits inside the piece, and ez's inverted-solid branch (an extent dragged past
+zero flipping the winding, `bInvertedGeo`) is not ported - it buys nothing and it is the easiest
+thing for a face handle to do by accident.
 
 Rejected: storing generated vertices in the component. It bloats the scene file with data that is
 fully derived, and it makes a shape parameter edit a mesh rewrite rather than a cache miss.
@@ -164,10 +172,36 @@ self-rendering blockout component is invisible to the navmesh until a third coll
 and the same argument repeats for every future consumer of "the static geometry in this scene".
 
 So: `WhiteboxComponent` is AUTHORING data that writes into the sibling `MeshComponent` (via
-`Ref<StaticMesh>::SetDirect` with the generated mesh) and `ColliderComponent` (a `Box` for a box,
-a `Cooked` hull otherwise) on the same entity, and owns nothing about drawing. Rendering,
-shadows, GPU picking, LOD, material assignment, the nav bake, and anything added later all work
-with no integration at all.
+`Ref<StaticMesh>::SetDirect` with the generated mesh) and `ColliderComponent` on the same entity,
+and owns nothing about drawing. Rendering, shadows, GPU picking, LOD, material assignment, the
+nav bake, and anything added later all work with no integration at all.
+
+**The collider is a compound of boxes, never a hull of the whole piece** (review 2026-09-23). A
+convex hull of a doorway fills the door, of a window fills the window, of an arch fills the arch:
+the nav bake and the player both find a solid wall. Decision 2 keeps every piece
+convex-decomposable, so the generator emits the decomposition alongside the triangles: a `Box`
+shape for a box or a column; a Jolt static-compound blob of boxes for a doorway (two jambs, a
+lintel, the wall above), a window (four boxes), an arch (boxes stepping the curve at `detail`)
+and a stair (one box per step); a convex hull only for a wedge / ramp, built with
+`CookConvexHull`. A stair's collision is its STEPS, not a ramp (a capsule walks steps; a ramp
+would be the cheaper choice and the wrong shape for a placed prop). Every blob is built IN
+MEMORY on the parameter change and handed to the collider through `Ref<CollisionShape>::SetDirect`
+- nothing cooks through the pipeline - and it is cached beside the mesh under the same
+parameter hash (Decision 5), or a face drag re-cooks a Jolt shape at every step.
+
+**On scene load the mesh is regenerated, not read.** A direct object on a `Ref<T>` is never
+serialized (`ResourceModule.cppm:127`), so a loaded `MeshComponent` sibling holds a nil mesh
+until the whitebox manager runs. The manager regenerates every piece on scene start and syncs
+on a parameter change, and its `UpdateOrder` places it BEFORE `MeshComponentManager`'s
+extraction so no frame draws nothing. The sibling's `mesh` row is READ-ONLY in the inspector
+(an empty Mesh field beside a working blockout reads as a bug); the material is chosen on the
+whitebox component and written through to the sibling's material list.
+
+**An entity that already has a `MeshComponent` REFUSES a whitebox component**: the component
+menu greys the entry (the displayName + category attributes carry a `requires` / `excludes`
+hint, or the add path returns a status the menu shows). Adopting the existing mesh silently
+would overwrite authored data. Destroying the whitebox component leaves the siblings in place
+with their last mesh and collider - a deliberate "bake in place" - and the status bar says so.
 
 The cost is that two components must stay in step, which the manager does in one place on a
 parameter change, and that a blockout entity carries three components rather than one. That is a
@@ -184,10 +218,17 @@ proportion at a glance is the entire point of the exercise, and stretched texels
 prior engines solve this and neither uses the mesh's own UVs.
 
 `Data/Shaders` has no triplanar path today (checked: the only box projection is the
-reflection-probe parallax at `forward.ps.hlsl:446`), so this commissions one: a `WHITEBOX` shader
-variant, or a small dedicated material, sampling the base texture from WORLD position on the
-three axis planes and blending by the normal, at a fixed tiling (ez uses 0.25, i.e. a four-metre
-repeat). Plus a shipped grid/checker texture and a default whitebox material.
+reflection-probe parallax at `forward.ps.hlsl:446`), so this commissions one: a DEDICATED
+`whitebox` material shader (`whitebox.ps.hlsl` over the shared forward vertex path and the
+forward includes; a material names it with `MaterialBuilder(...).Shader(u8"whitebox")`, the
+model the renderer already supports for custom materials without renderer changes), sampling
+the base texture from WORLD position on the three axis planes and blending by the normal, at a
+fixed tiling (ez uses 0.25, i.e. a four-metre repeat). NOT a `WHITEBOX` flag on the forward
+pixel shader: a flag bit is a global resource that multiplies the forward's cooked lattice for a
+feature only blockout uses. The depth, shadow and pick passes need nothing - the piece is an
+ordinary mesh - so only the colour pixel shader is new, and it cooks to WGSL like any other
+(the probe runs on Vulkan + WebGPU). Plus a shipped grid/checker texture and a default whitebox
+material.
 
 Shader-side projection is chosen over O3DE's CPU-baked planar UVs so that nothing has to be
 recomputed when a piece moves or resizes. It also sidesteps O3DE's grid-snap bug outright: they
@@ -203,9 +244,11 @@ parameter - shape, the six extents, detail, and the shape-specific values. A mis
 hit returns the existing `RefPtr<StaticMesh>`. A room of identical 4x4x1 wall panels holds one
 mesh.
 
-This is why no instancing path is needed. It also makes the parameter-change path cheap: editing
-one piece's height is a cache lookup, and dragging a face through values that have been seen
-before costs nothing.
+This is why no instancing path is needed: the renderer keys its GPU buffers on the mesh's
+identity, so identical pieces already share one upload with nothing added. It also makes the
+parameter-change path cheap: editing one piece's height is a cache lookup, and dragging a face
+through values that have been seen before costs nothing. The cache entry holds the mesh AND the
+collision blob (Decision 3).
 
 The cache is owned by the component manager, keyed by the parameter hash, and entries are dropped
 when their last referencing component goes - the same shape as
@@ -222,12 +265,14 @@ engine.whitebox         WhiteboxShape enum {Box, RampX/Y(+/-), Column, StairsX/Y
                         WhiteboxComponent {shape, 6 extents, detail, thickness,
                           openingSize/openingOffset (Doorway/Window), curvature,
                           generateCollision, material}
-                        WhiteboxComponentManager: the parameter-hash mesh cache;
-                          writes the sibling MeshComponent.mesh and ColliderComponent
-                          on a parameter change
+                        WhiteboxComponentManager: the parameter-hash cache (mesh + the
+                          collision blob); writes the sibling MeshComponent.mesh and
+                          ColliderComponent on a parameter change and on scene start;
+                          UpdateOrder before MeshComponentManager
 
-Data/Shaders            + a WHITEBOX variant (or whitebox.ps.hlsl): world-projected
-                          triplanar sampling at fixed tiling
+Data/Shaders            + whitebox.ps.hlsl (a dedicated material shader over the shared
+                          forward vertex path): world-projected triplanar sampling at
+                          fixed tiling
 Data/Materials          + Whitebox.ezMaterialAsset equivalent + a grid texture
 
 editor.whitebox         WhiteboxTool ("whitebox.place"): drag a footprint on the grid
@@ -259,14 +304,20 @@ gizmo - which is Decision 3 paying for itself.
   matches its visual within a tolerance the test states; a doorway's opening is passable in the
   nav bake.
 - **P3 - handoff**: "replace selection with asset" keeping transforms, and an optional bake of a
-  selection to one static mesh asset. Acceptance: replacing a blockout piece with a mesh asset
-  leaves the transform untouched; a baked selection round-trips through the asset pipeline.
+  selection to one static mesh asset - a `StaticMeshAsset` with its `.geometry.bin` sidecar
+  (the bulk-data sidecar rule; the shape paperkid.md's mesh line already names). Acceptance:
+  replacing a blockout piece with a mesh asset leaves the transform untouched; a baked selection
+  round-trips through the asset pipeline.
 
 ## Gotchas
 
-- **Extents crossing zero invert the solid.** ez handles this explicitly (`bInvertedGeo`); a
-  generator that ignores it produces inside-out geometry the moment a face is dragged past the
-  origin, which a face-handle tool makes easy to do by accident.
+- **Extents never cross zero.** The clamp in Decision 1 is the whole defence; a face handle
+  that lets an extent reach zero has a bug in the handle, not a case for the generator.
+- **A hull is the wrong collider for a hole.** Doorway, window and arch collide as compounds of
+  boxes (Decision 3); a test with a capsule walking through a doorway pins it.
+- **A loaded scene has no mesh until the manager runs.** Regenerate on scene start, before the
+  mesh manager extracts (UpdateOrder); the test loads a saved scene and extracts on the first
+  frame.
 - **Grid-snap noise and projection choice.** O3DE truncates normals to three decimals before
   picking a projection plane because snapping perturbed the normal enough to flip the choice
   between edits. Decision 4 avoids the stored-choice version of this bug, but any CPU-side
@@ -288,10 +339,13 @@ gizmo - which is Decision 3 paying for itself.
 ## Tests (the spec's contract)
 
 Foundation: each new primitive builder produces a closed manifold with outward normals, and its
-AABB matches the requested extents; a negative extent produces correct winding. Engine: the
+AABB matches the requested extents; an extent below the minimum clamps. Engine: the
 parameter-hash cache returns one mesh for two identical components and two for differing ones,
 and drops an entry when its last holder goes; a parameter change rewrites both the sibling mesh
-reference and the collider; a whitebox piece appears in `CollectNavigationGeometry`. Rendering:
+reference and the collider; a doorway's compound collider lets a capsule through the opening and
+stops it at the jambs (Physics.Tests); a saved scene reloads and draws its pieces on the first
+extraction; adding a whitebox component to an entity with a mesh component is refused; a whitebox
+piece appears in `CollectNavigationGeometry`. Rendering:
 a pixel probe (Vulkan + WebGPU) showing the projected grid holds its texel density across a
 resize, and reads the same on both backends. Editor: a scripted place gesture creates a piece of
 the dragged size and undoes as one command; a face-handle drag changes one extent only; the
