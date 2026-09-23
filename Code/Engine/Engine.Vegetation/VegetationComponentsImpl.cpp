@@ -321,14 +321,29 @@ namespace engine::vegetation
             const f32 chunkWidth = Max(chunk.bounds.max.x - chunk.bounds.min.x, 1e-6f);
             const f32 chunkDepth = Max(chunk.bounds.max.z - chunk.bounds.min.z, 1e-6f);
             const i32 last = cache.chunksPerSide - 1;
+            const bool holes = hf.HasHoles();
             for (const Float4x4& m : authored)
             {
                 const i32 cx = Clamp(static_cast<i32>(Floor((m.m[3][0] - origin.bounds.min.x) / chunkWidth)), 0, last);
                 const i32 cz = Clamp(static_cast<i32>(Floor((m.m[3][2] - origin.bounds.min.z) / chunkDepth)), 0, last);
-                if (cx == chunk.chunkX && cz == chunk.chunkZ)
+                if (cx != chunk.chunkX || cz != chunk.chunkZ)
                 {
-                    result.transforms.PushBack(m);
+                    continue;
                 }
+                // A prop standing over a cut cell has no surface under it: it stays in the
+                // authored list (Fill brings it back, the eraser can reach it) but does not
+                // draw - the one rule everywhere (Specs/terrain-holes.md), for props too.
+                if (holes)
+                {
+                    i32 hx = 0;
+                    i32 hz = 0;
+                    hf.CellOfLocal(m.m[3][0], m.m[3][2], hx, hz);
+                    if (hf.CellHasHole(hx, hz))
+                    {
+                        continue;
+                    }
+                }
+                result.transforms.PushBack(m);
             }
             result.localBounds = chunk.bounds;
             if (!result.transforms.IsEmpty() && meshBounds.max.x >= meshBounds.min.x)

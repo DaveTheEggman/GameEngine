@@ -331,3 +331,45 @@ TEST_CASE("vegetation scatter: a layer whose mesh does not resolve is named in t
     }
     CHECK(!named);
 }
+
+TEST_CASE("vegetation scatter: the eraser reaches the props left standing over a cut (the brush picks through the hole)")
+{
+    // Cut a hole under placed props: they stay in the layer (hidden by the manager) until the
+    // eraser removes them, which needs the brush to pick the plane INSIDE the cut - QueryRay
+    // alone passes through and the brush would never activate there.
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::VegetationScatterTool tool(fx.scene, commands);
+    tool.SetLayer(1);
+    tool.SetRadius(6.0f);
+    tool.SetDensity(0.5f);
+    tool.SetSpacing(0.0f);
+    tool.SetBlockedQuery([](Float3, f32) { return false; });
+    Stroke(tool, -20.0f, 10.0f, 20.0f, 10.0f);
+    const Array<Float4x4> placed = fx.Rocks();
+    REQUIRE(placed.Size() > 4u);
+    u32 underCut = 0;
+    for (const Float4x4& m : placed)
+    {
+        const f32 dx = m.m[3][0];
+        const f32 dz = m.m[3][2] - 10.0f;
+        underCut += (dx * dx + dz * dz < 6.0f * 6.0f) ? 1u : 0u; // inside the eraser's disc
+    }
+    REQUIRE(underCut > 0u);
+
+    (void)hf::CutHoles(*fx.grid, 0.0f, 10.0f, 12.0f); // a 24 m cut under the middle of the stroke
+    REQUIRE(fx.grid->HasHoles());
+    CHECK(fx.Rocks().Size() == placed.Size()); // the cut deletes nothing
+
+    tool.SetEraser(true);
+    Stroke(tool, 0.0f, 10.0f, 0.0f, 10.0f, 1); // a press inside the hole
+    CHECK(fx.Rocks().Size() + underCut == placed.Size()); // exactly those, no other
+    for (const Float4x4& m : fx.Rocks())
+    {
+        const f32 dx = m.m[3][0];
+        const f32 dz = m.m[3][2] - 10.0f;
+        CHECK(dx * dx + dz * dz >= 6.0f * 6.0f); // nothing left under the eraser's disc
+    }
+    commands.Undo();
+    CHECK(SameInstances(fx.Rocks(), placed));
+}

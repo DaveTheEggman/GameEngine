@@ -131,8 +131,10 @@ namespace editor
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
-        const VegetationPick fp =
-            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ false);
+        // The prop brush picks the terrain PLANE, through a cut (the stamp itself refuses a cut
+        // cell; the eraser must reach the props left standing over one - Specs/terrain-holes.md).
+        const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
+                                                          /*requireMask*/ false, /*ignoreHoles*/ true);
         if (fp.valid)
         {
             m_hasHover = true;
@@ -173,8 +175,8 @@ namespace editor
 
     void VegetationScatterTool::BeginStroke(const ViewportToolInput& input)
     {
-        const VegetationPick fp =
-            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
+                                                          /*requireMask*/ false, /*ignoreHoles*/ true);
         if (!fp.valid || fp.component == nullptr || m_layer >= fp.component->layers.Size())
         {
             return;
@@ -193,8 +195,8 @@ namespace editor
     // m_stampSpacing x radius of terrain-local travel, so a fast drag leaves no gaps.
     void VegetationScatterTool::AdvanceStroke(const ViewportToolInput& input)
     {
-        const VegetationPick fp =
-            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
+                                                          /*requireMask*/ false, /*ignoreHoles*/ true);
         if (!fp.valid || fp.owner != m_strokeOwner)
         {
             return;
@@ -219,8 +221,8 @@ namespace editor
 
     void VegetationScatterTool::ApplyStamp(Float3 localCentre, const ViewportToolInput& input)
     {
-        const VegetationPick fp =
-            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp = VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction,
+                                                          /*requireMask*/ false, /*ignoreHoles*/ true);
         if (!fp.valid || fp.component == nullptr || m_strokeLayer >= fp.component->layers.Size())
         {
             return;

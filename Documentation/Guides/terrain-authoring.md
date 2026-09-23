@@ -146,9 +146,12 @@ Cut Holes is the third terrain brush in the scene viewport, beside Sculpt and Pa
 removes the terrain under a hard-edged disc; Fill puts it back. A hole is a set of cut samples,
 and the one rule everywhere is that any triangle touching a cut sample is gone: it does not
 draw, cast or receive a shadow, collide, count as walkable in the nav bake, or grow grass and
-props. A ray from a brush or a gameplay trace passes through a hole to whatever sits below,
-which is what lets you place a cave mesh or a well under it, and it is also why the brush cannot
-pick inside a hole: to fill one, click on the rim with a radius that covers the cut.
+props. A gameplay trace passes through a hole to whatever sits below, which is what lets you
+place a cave mesh or a well under it. The brushes that work on the hole itself pick the plane
+where the terrain used to be, so Fill lands inside the cut and the prop brush's eraser reaches
+props left standing over one. A prop placed before a cut is not deleted by the cut: it stays in
+the layer, hidden while its cell is cut, and comes back with Fill; erase it with the prop brush
+if the hole is there to stay.
 
 The drawn rim is a smooth curve through the cut samples (the terrain's pixel shaders cut it
 against a mask of the hole plane), and it looks the same at every distance. Collision, the nav

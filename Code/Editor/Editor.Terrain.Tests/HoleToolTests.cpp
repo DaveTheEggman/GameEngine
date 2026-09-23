@@ -149,7 +149,7 @@ TEST_CASE("terrain holes: a stroke cuts a hard-edged disc, bumps the version, an
     CHECK(Mentions(tool.StatusText(), u8"CUT"));
 }
 
-TEST_CASE("terrain holes: Fill restores a cut; a fill over solid ground is no command; the rim picks a cut")
+TEST_CASE("terrain holes: Fill restores a cut from inside it; a fill over solid ground is no command")
 {
     Fixture fx;
     editor::EditorCommandStack commands;
@@ -157,12 +157,11 @@ TEST_CASE("terrain holes: Fill restores a cut; a fill over solid ground is no co
     tool.SetRadius(3.0f);
     Stroke(tool, 0.0f, 0.0f);
     REQUIRE(fx.grid->HasHoles());
-    // The brush cannot pick INSIDE the cut (the ray passes through), so the fill lands from
-    // the rim: a stroke 3 m beside the centre with a radius that covers the cut.
+    // The brush picks the hole plane (QueryRayIgnoringHoles), so a fill lands INSIDE the cut
+    // with the same radius - no rim dance.
     tool.SetMode(editor::TerrainHoleTool::Mode::Fill);
     CHECK(Mentions(tool.StatusText(), u8"FILL"));
-    tool.SetRadius(8.0f);
-    Stroke(tool, 4.0f, 0.0f);
+    Stroke(tool, 0.0f, 0.0f);
     CHECK_FALSE(fx.grid->HasHoles());
     CHECK(commands.CanUndo());
     // A fill over solid ground changes nothing and pushes nothing.
@@ -171,18 +170,26 @@ TEST_CASE("terrain holes: Fill restores a cut; a fill over solid ground is no co
     still.SetMode(editor::TerrainHoleTool::Mode::Fill);
     Stroke(still, 10.0f, 10.0f);
     CHECK_FALSE(quiet.CanUndo());
-    // And a ray straight into a cut finds no terrain: no stroke at all.
+    // A ray straight into a cut still finds the plane (the brush is live over a hole), and a
+    // cut over a cut changes nothing: consumed, no command.
     editor::EditorCommandStack blind;
     editor::TerrainHoleTool cutter(fx.scene, blind, nullptr);
     cutter.SetRadius(3.0f);
     Stroke(cutter, 0.0f, 0.0f);
     REQUIRE(fx.grid->HasHoles());
-    editor::TerrainHoleTool over(fx.scene, blind, nullptr);
+    const u32 cutCount = fx.grid->HoleCount();
+    editor::EditorCommandStack again;
+    editor::TerrainHoleTool over(fx.scene, again, nullptr);
     over.SetRadius(1.0f);
     editor::ViewportToolInput press = RayAt(0.0f, 0.0f);
     press.leftPressed = true;
     press.leftDown = true;
-    CHECK_FALSE(over.Update(press)); // nothing under the cursor: not consumed
+    CHECK(over.Update(press)); // the plane under the cursor: the stroke begins
+    editor::ViewportToolInput release = RayAt(0.0f, 0.0f);
+    release.leftReleased = true;
+    (void)over.Update(release);
+    CHECK(fx.grid->HoleCount() == cutCount);
+    CHECK_FALSE(again.CanUndo());
 }
 
 TEST_CASE("terrain holes: unavailable with no terrain, and refuses edits while editingLocked")

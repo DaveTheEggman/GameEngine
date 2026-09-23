@@ -749,3 +749,98 @@ TEST_CASE("engine.vegetation: a freshly added layer with a mesh grows nothing un
     sets = f.Extract(snapshot, nullptr);
     CHECK(sets.Size() == 4u);
 }
+
+TEST_CASE("engine.vegetation: cutting a hole after the first growth regrows the layer with nothing inside the cut")
+{
+    // The editor's hole brush: CutHoles bumps the heightfield version and every set regrows
+    // (no InvalidateRegion), and the regrown scatter must leave the cut cells bare.
+    bool splat = false; // Uniform, then the editor's Splat-placed grass
+    SUBCASE("uniform") { splat = false; }
+    SUBCASE("splat") { splat = true; }
+    Fixture f(splat);
+    const usize grown = splat ? 2u : 4u; // the splat half (x < 0) grows two of the four chunks
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == grown);
+    const u32 before = TotalInstances(sets);
+    REQUIRE(before > 0u);
+
+    const auto countInside = [](const Array<const render::MultiMeshRenderData*>& s, f32 radius)
+    {
+        u32 n = 0;
+        for (const render::MultiMeshRenderData* set : s)
+        {
+            for (u32 i = 0; i < set->instanceCount; ++i)
+            {
+                const f32 x = set->transforms[i].m[3][0];
+                const f32 z = set->transforms[i].m[3][2];
+                if (x * x + z * z < radius * radius)
+                {
+                    ++n;
+                }
+            }
+        }
+        return n;
+    };
+    // Grass grew before the cut: the splat half is x < 0, so probe the centre's left side.
+    const auto countInsideLeft = [&](const Array<const render::MultiMeshRenderData*>& s, f32 radius)
+    {
+        u32 n = 0;
+        for (const render::MultiMeshRenderData* set : s)
+        {
+            for (u32 i = 0; i < set->instanceCount; ++i)
+            {
+                const f32 x = set->transforms[i].m[3][0];
+                const f32 z = set->transforms[i].m[3][2];
+                if (x < 0.0f && x * x + z * z < radius * radius)
+                {
+                    ++n;
+                }
+            }
+        }
+        return n;
+    };
+    REQUIRE(countInsideLeft(sets, 10.0f) > 0u);
+
+    (void)hf::CutHoles(*f.grid, 0.0f, 0.0f, 12.0f); // a 24 m cut at the centre, all four chunks
+    REQUIRE(f.grid->HasHoles());
+    sets = f.Extract(snapshot, nullptr);
+    REQUIRE(sets.Size() == grown);
+    CHECK(f.mgr->BuildCount() == 8u); // every set regrew
+    CHECK(countInside(sets, 10.0f) == 0u); // nothing inside the cut (a 2 m margin to the rim)
+    CHECK(TotalInstances(sets) < before);
+}
+
+TEST_CASE("engine.vegetation: a stamped prop over a cut cell does not draw and comes back with the fill")
+{
+    // The authored list is untouched (the eraser can still reach the prop through the hole);
+    // the bucketed set simply leaves it out while its cell is cut.
+    Fixture f(/*withSplat*/ false);
+    f.mgr->SetBuildBudget(100);
+    VegetationLayer& rocks = f.Layer();
+    rocks.placement = veg::VegetationPlacement::Scattered;
+    rocks.scaleRange = Float2{1.0f, 1.0f};
+    rocks.instances.PushBack(Float4x4::Translation(Float3{-40.0f, 2.0f, -40.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{-20.0f, 2.0f, -20.0f}));
+    rocks.instances.PushBack(Float4x4::Translation(Float3{20.0f, 2.0f, 20.0f}));
+
+    render::ExtractedScene snapshot{DefaultAllocator()};
+    Array<const render::MultiMeshRenderData*> sets = f.Extract(snapshot, nullptr);
+    CHECK(TotalInstances(sets) == 3u);
+
+    (void)hf::CutHoles(*f.grid, -20.0f, -20.0f, 3.0f); // under the second prop only
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(TotalInstances(sets) == 2u);
+    CHECK(f.Layer().instances.Size() == 3u); // the data keeps it
+    for (const render::MultiMeshRenderData* s : sets)
+    {
+        for (u32 i = 0; i < s->instanceCount; ++i)
+        {
+            CHECK(s->transforms[i].m[3][0] != -20.0f);
+        }
+    }
+
+    (void)hf::FillHoles(*f.grid, -20.0f, -20.0f, 3.0f);
+    sets = f.Extract(snapshot, nullptr);
+    CHECK(TotalInstances(sets) == 3u);
+}

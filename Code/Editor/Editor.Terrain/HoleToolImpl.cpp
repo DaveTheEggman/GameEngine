@@ -150,9 +150,9 @@ namespace editor
                 const Float3 localOrigin = TransformPoint(input.ray.origin, inv);
                 const Float3 localDir = TransformDirection(input.ray.direction, inv);
                 f32 t = 0.0f;
-                // QueryRay passes through a cut, so the brush cannot pick inside a hole; to FILL
-                // one, the author picks from its rim outward (the disc covers the cut).
-                if (!grid->QueryRay(localOrigin, localDir, t))
+                // The brush works ON the hole plane: QueryRay would pass through a cut and Fill
+                // could only land from the rim, so this pick treats cut samples as surface.
+                if (!grid->QueryRayIgnoringHoles(localOrigin, localDir, t))
                 {
                     return;
                 }

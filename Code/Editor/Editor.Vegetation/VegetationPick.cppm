@@ -44,8 +44,11 @@ export namespace editor
 
         /// The nearest vegetation footprint under the ray. `requireMask` = only components whose
         /// mask resolves (the mask brush); otherwise any component over a terrain (the prop brush).
+        /// `ignoreHoles` picks the terrain plane through a cut (QueryRayIgnoringHoles): the prop
+        /// brush, so what stands over a hole can be erased; the mask brush keeps the surface rule.
         [[nodiscard]] static VegetationPick Resolve(foundation::scene::Scene& scene, Float3 rayOrigin,
-                                                    Float3 rayDirection, bool requireMask);
+                                                    Float3 rayDirection, bool requireMask,
+                                                    bool ignoreHoles = false);
 
         /// Whether any vegetation footprint exists in the scene (the brushes' IsAvailable).
         [[nodiscard]] static bool AnyFootprint(foundation::scene::Scene& scene, bool requireMask);

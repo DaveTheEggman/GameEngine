@@ -6,7 +6,8 @@
 > at the texel on Vulkan + WebGPU). P1 BUILT 2026-09-23 (the `terrain.hole` brush, Cut / Fill,
 > HoleStrokeCommand, a persist that writes BOTH sidecars, its panel). P2 BUILT 2026-09-23: the
 > alpha-tested rim (see "P2 - the rim" below; it reverses the "rejected: discard" line of
-> Decision 3 for holed chunks only). Departures from the text
+> Decision 3 for holed chunks only). Props over a cut + the brushes' hole-plane pick BUILT
+> 2026-09-23 (Decision 4, the raycast and vegetation bullets). Departures from the text
 > below: the heightfield page previews only image-backed sources, so the hole overlay there has
 > nothing to draw on for a painted heightfield and was left out; the brush does not call
 > InvalidateRegion (like sculpt, a version bump regrows every set of a layer - the cost, not
@@ -182,10 +183,18 @@ is the reason terrain draws cost what they do, and holes are rare.
   hole corner (`CellHasHole`); a crossing inside a hole cell is skipped and the march
   continues, so the ray exits the terrain's AABB with no hit and the caller's next candidate
   (a cave mesh, the physics world) can answer. This is what makes the brushes (sculpt, splat,
-  vegetation, hole) land on the cave floor instead of the air where the terrain used to be,
-  and it is the behaviour a gameplay trace wants.
+  the mask painter) land on the cave floor instead of the air where the terrain used to be,
+  and it is the behaviour a gameplay trace wants. The brushes that work ON the hole - Fill,
+  the prop brush erasing what stands over a cut - use `QueryRayIgnoringHoles`, the same march
+  with the cut samples as surface (built 2026-09-23 after the RTHoles1 report: Fill needed a
+  click from the rim and the eraser never activated over a hole). Never a gameplay query.
 - **Vegetation**: `PlacementShareAt` returns 0 when `CellHasHole` at the local position, and
-  `ScatterStamp` rejects a candidate the same way. Set caches already key on the heightfield
+  `ScatterStamp` rejects a candidate the same way. A STAMPED prop placed before the cut is
+  not deleted by it: `BuildSet` leaves an authored instance out of the bucket while its cell
+  is cut (the rule for props too), Fill brings it back through the version bump, and the
+  eraser can reach it through the hole (built 2026-09-23; chosen over evicting the instance
+  from the authored list, which would make a terrain brush edit vegetation data and need its
+  own undo payload). Set caches already key on the heightfield
   version, so a cut regrows the touched chunks through the existing region path
   (`InvalidateRegion` from the hole brush, like sculpt).
 - **GPU picking** is geometry, covered by Decision 3. **Bounds** (`CellBounds`, the chunk

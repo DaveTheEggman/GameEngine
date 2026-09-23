@@ -423,5 +423,15 @@ TEST_CASE("heightfield holes: a ray through a cut cell misses and one beside it 
     CHECK(hitX > 2.5f); // not inside the cut
     // Starting UNDER the surface inside the cut (a cave) is no hit at the entry.
     CHECK_FALSE(h->QueryRay(Float3{0.0f, 2.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t));
+    // The brushes' pick treats the cut as surface: the same ray lands on the plane at 5 m.
+    REQUIRE(h->QueryRayIgnoringHoles(Float3{0.0f, 20.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t));
+    CHECK(Near(20.0f - t, 5.0f, 5.0e-2f));
+    // An angled ray whose crossing lies INSIDE the cut (x ~ -1): the surface rule passes through
+    // and never comes back above the field (no hit); the brushes' rule lands on the plane there.
+    CHECK_FALSE(h->QueryRay(Float3{-6.0f, 5.25f, 0.0f}, Float3{1.0f, -0.05f, 0.0f}, t));
+    REQUIRE(h->QueryRayIgnoringHoles(Float3{-6.0f, 5.25f, 0.0f}, Float3{1.0f, -0.05f, 0.0f}, t));
+    const f32 insideX = -6.0f + t * (1.0f / Sqrt(1.0f + 0.05f * 0.05f));
+    CHECK(insideX > -2.5f);
+    CHECK(insideX < 2.5f);
 }
 

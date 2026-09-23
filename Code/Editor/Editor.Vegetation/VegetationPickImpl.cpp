@@ -90,7 +90,7 @@ namespace editor
     }
 
     VegetationPick VegetationPick::Resolve(scene::Scene& scene, Float3 rayOrigin, Float3 rayDirection,
-                                       bool requireMask)
+                                       bool requireMask, bool ignoreHoles)
     {
         VegetationPick best;
         TerrainVegetationComponentManager* mgr = VegetationManagerOf(scene);
@@ -118,7 +118,9 @@ namespace editor
                 const Float3 localOrigin = TransformPoint(rayOrigin, inv);
                 const Float3 localDir = TransformDirection(rayDirection, inv);
                 f32 t = 0.0f;
-                if (!grid->QueryRay(localOrigin, localDir, t))
+                const bool hit = ignoreHoles ? grid->QueryRayIgnoringHoles(localOrigin, localDir, t)
+                                             : grid->QueryRay(localOrigin, localDir, t);
+                if (!hit)
                 {
                     return;
                 }

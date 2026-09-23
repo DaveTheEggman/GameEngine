@@ -292,7 +292,25 @@ export namespace foundation::heightfield
         /// Local-space ray against the surface. Returns the nearest hit distance in `outT` (>= 0).
         /// A height-field ray march: clip to the grid AABB, step by ~half a cell, and bisect the
         /// crossing where the ray drops to/through the bilinear surface. Robust for editor picking.
+        /// A crossing inside a cut cell is no surface (Specs/terrain-holes.md): the ray passes
+        /// through to whatever sits below - the gameplay trace's rule.
         [[nodiscard]] bool QueryRay(Float3 origin, Float3 direction, f32& outT) const noexcept
+        {
+            return MarchRay(origin, direction, outT, /*skipHoles*/ true);
+        }
+
+        /// The same march with the cut samples treated as surface: the brushes that work ON the
+        /// hole (Fill, the prop brush erasing what stands over a cut) pick the plane where the
+        /// terrain used to be instead of falling through it. Never a gameplay query.
+        [[nodiscard]] bool QueryRayIgnoringHoles(Float3 origin, Float3 direction,
+                                                 f32& outT) const noexcept
+        {
+            return MarchRay(origin, direction, outT, /*skipHoles*/ false);
+        }
+
+    private:
+        [[nodiscard]] bool MarchRay(Float3 origin, Float3 direction, f32& outT,
+                                    bool skipHoles) const noexcept
         {
             if (IsEmpty())
             {
@@ -318,7 +336,7 @@ export namespace foundation::heightfield
 
             f32 tPrev = t0;
             f32 diffPrev = SignedGap(origin, dir, t0);
-            if (diffPrev <= 0.0f && !HoleAt(origin, dir, t0)) // already at/under the surface at entry
+            if (diffPrev <= 0.0f && !(skipHoles && HoleAt(origin, dir, t0))) // at/under the surface at entry
             {
                 outT = t0;
                 return true;
@@ -347,7 +365,7 @@ export namespace foundation::heightfield
                     // A crossing inside a cut cell is no surface: the ray passes through to
                     // whatever sits below (a cave floor, the physics world) and the march goes
                     // on, needing to come back ABOVE the field before another crossing counts.
-                    if (!HoleAt(origin, dir, hit))
+                    if (!(skipHoles && HoleAt(origin, dir, hit)))
                     {
                         outT = hit;
                         return true;
@@ -363,7 +381,6 @@ export namespace foundation::heightfield
             return false;
         }
 
-    private:
         [[nodiscard]] usize Index(i32 gx, i32 gz) const noexcept
         {
             const i32 cx = Clamp(gx, 0, m_size - 1);
