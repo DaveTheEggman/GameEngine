@@ -110,7 +110,8 @@ Terrain** tool; the tool panel shows mode, radius, and strength.
 
 - **Modes** (hotkeys `1`-`4`): Raise, Lower, Smooth, Flatten. **Ctrl+click** picks the flatten
   target height from the terrain under the cursor.
-- **Radius**: mouse wheel over the viewport (the panel field tracks it live).
+- **Radius**: Shift + mouse wheel over the viewport (the panel field tracks it live); the bare
+  wheel zooms the camera as usual, brush or no brush.
 - **Strength** is in **world meters per second** - it is unbounded because it is measured against
   your scene's height range; a 30 m hill and a 600 m range want different values.
 - One undo entry per stroke. Sculpting is disabled during Simulate (the physics collider shares
@@ -125,12 +126,12 @@ Select the **Paint Splat** tool in the scene viewport. The floating panel shows 
 (labeled - it is not selectable, erase reveals it), one swatch per paint layer (hover for the
 asset name), and the **E** slot = the eraser.
 
-- **Hotkeys**: `1`-`9` select paint layers 1-9; `0` selects the eraser. Mouse wheel = radius.
+- **Hotkeys**: `1`-`9` select paint layers 1-9; `0` selects the eraser. Shift + wheel = radius.
 - **Stamp model**: a stamp lands on press and then every fraction of the radius of pointer
   travel. **Strength (0-1) is the coverage a single stamp deposits** - at 1.0 one stamp paints
   the layer fully (and the eraser erases fully); at 0.5 you build up by scrubbing. Holding the
   button still deposits nothing beyond the press stamp unless **Airbrush** is on.
-- **Spacing** (fraction of the radius): stamp density along the stroke - low spacing + low
+- **Stamp spacing** (fraction of the radius): stamp density along the stroke - low spacing + low
   strength is the smooth-blending detail workflow; high spacing gives discrete dabs.
 - **Airbrush**: while held, also deposits stamps at the cursor ~20x/second - build-up by
   hovering.
@@ -202,7 +203,11 @@ component's **Mask** field, and give the layer **Placement** Mask with **Mask Pl
 plane. Select the **Paint Vegetation** tool in the scene viewport: the panel's first row is the plane
 the brush works on (keys 1-9), its second the mode - Paint, Erase (key 0) or Smooth (key
 minus); erase is per plane, so the plane stays selected while you erase and the status bar
-names both. Radius, Strength, Spacing and Airbrush work like the splat brush. Placement **SplatTimesMask** grows only where BOTH the splat layer and the
+names both. Radius, Strength, Stamp spacing and Airbrush work like the splat brush (Stamp
+spacing is how often the stroke stamps, not a distance between plants: density is the layer's
+**Density**, and **maxInstancesPerChunk** is what one 64-cell chunk can hold - a chunk that fills
+stops placing and the log says so once; a painted patch inside a chunk still grows at the full
+density). Placement **SplatTimesMask** grows only where BOTH the splat layer and the
 mask allow, so erasing the mask along a path cuts a road through splat-driven grass. Strokes
 regrow only the chunks under the brush; Save writes the planes back to the mask asset.
 

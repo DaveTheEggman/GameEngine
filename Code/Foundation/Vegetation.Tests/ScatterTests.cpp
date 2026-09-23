@@ -153,7 +153,7 @@ TEST_CASE("vegetation scatter: a seed gives byte-identical instances; another ch
     CHECK(!SameTransforms(a.transforms, c.transforms));
 }
 
-TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk cap scales density down")
+TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk cap stops placing when the chunk is full")
 {
     RefPtr<hf::Heightfield> grid = MakeFlat(1.0f);
     const tmodel::TerrainChunk chunk = ChunkOf(*grid);
@@ -174,10 +174,53 @@ TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk
     dense.maxInstancesPerChunk = 4096;
     veg::ScatterResult capped;
     veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, dense, AABB::Empty(), capped);
-    CHECK(capped.candidateCount == 4096u);
+    CHECK(capped.candidateCount == 4096u); // every candidate placed: the loop stopped at the cap
     CHECK(capped.densityClamped);
     CHECK(capped.effectiveDensity == doctest::Approx(1.0f));
     CHECK(capped.transforms.Size() == 4096u);
+    // The placed set is a prefix of the uncapped one (the candidate stream is stable).
+    veg::ScatterLayer roomy = Uniform(10.0f);
+    roomy.maxInstancesPerChunk = 1u << 20;
+    veg::ScatterResult full;
+    veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, roomy, AABB::Empty(), full);
+    REQUIRE(full.transforms.Size() > 4096u);
+    CHECK(MemCompare(full.transforms.Data(), capped.transforms.Data(), 4096u * sizeof(Float4x4)) == 0);
+
+    // The cap counts PLACED instances, not candidates: a mask patch on a quarter of the chunk
+    // grows at the layer's full density (2 / m^2 x 1024 m^2 ~ 2048) although 2 x 4096 candidates
+    // over the whole chunk would once have been scaled to 1 / m^2 first (the RTHomes1 cones).
+    auto quarter = MakeRef<veg::VegetationMask>(DefaultAllocator(), 32, 32, 1);
+    for (i32 y = 0; y < 16; ++y)
+    {
+        for (i32 x = 0; x < 16; ++x)
+        {
+            quarter->SetDensity(0, x, y, 255);
+        }
+    }
+    veg::ScatterLayer patch;
+    patch.placement = veg::VegetationPlacement::Mask;
+    patch.maskPlane = 0;
+    patch.density = 2.0f;
+    patch.maxSlopeDegrees = 90.0f;
+    patch.maxInstancesPerChunk = 4096;
+    veg::ScatterResult grown;
+    veg::ScatterChunk(7, chunk, *grid, nullptr, quarter.Get(), patch, AABB::Empty(), grown);
+    CHECK(grown.candidateCount == 8192u);
+    CHECK(!grown.densityClamped);
+    CHECK(grown.effectiveDensity == doctest::Approx(2.0f));
+    CHECK(grown.transforms.Size() > 1800u);
+    CHECK(grown.transforms.Size() < 2300u);
+    // ...and a cap below that fills the patch to exactly the cap, all inside it.
+    patch.maxInstancesPerChunk = 512;
+    veg::ScatterChunk(7, chunk, *grid, nullptr, quarter.Get(), patch, AABB::Empty(), grown);
+    CHECK(grown.transforms.Size() == 512u);
+    CHECK(grown.densityClamped);
+    CHECK(grown.candidateCount < 8192u);
+    for (const Float4x4& m : grown.transforms)
+    {
+        CHECK(m.m[3][0] < 0.0f);
+        CHECK(m.m[3][2] < 0.0f);
+    }
 
     // Nothing to do: zero density, an empty heightfield, or an authored (Scattered) layer.
     veg::ScatterResult none;

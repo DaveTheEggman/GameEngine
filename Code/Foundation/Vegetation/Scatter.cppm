@@ -33,14 +33,20 @@ export namespace foundation::vegetation
     namespace heightfield = foundation::heightfield;
     namespace terrain = foundation::terrain;
 
+    // The candidate ceiling per chunk: a CPU bound per rebuild (density x area can be asked for
+    // anything), never the picture - the cap on what a chunk HOLDS is the layer's
+    // maxInstancesPerChunk, counted against PLACED instances (a candidate the mask rejects
+    // costs nothing, so a painted patch grows at the layer's full density).
+    inline constexpr u32 kMaxCandidatesPerChunk = 1u << 20;
+
     // One scattered chunk: the instances in fade order + what the scatter had to do to fit.
     struct ScatterResult
     {
         Array<Float4x4> transforms;      // terrain-local, in fade order
         AABB localBounds = AABB::Empty(); // the chunk's terrain AABB grown by the mesh extent
-        u32 candidateCount = 0;          // points tried (density x area, capped)
-        f32 effectiveDensity = 0.0f;     // the density actually used (scaled to the cap)
-        bool densityClamped = false;     // true when maxInstancesPerChunk scaled the density
+        u32 candidateCount = 0;          // points tried (density x area; fewer when the cap filled)
+        f32 effectiveDensity = 0.0f;     // the layer's density, or cap / area when the chunk filled
+        bool densityClamped = false;     // true when the chunk holds maxInstancesPerChunk with candidates left
     };
 
     // The seed of one (layer, chunk) set: a hash over the owning entity's PERSISTENT id, the

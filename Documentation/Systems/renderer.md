@@ -466,8 +466,10 @@ MultiMesh path - no renderer of their own. Spec: `Documentation/Specs/terrain-ve
   output ORDER is a uniformly random sequence, so distance fade is a draw-count PREFIX
   (`DensityAtDistance` x count via `FadePrefix`): the GPU buffer holds the full chunk once,
   only `instanceCount` moves with distance, no re-upload, no per-instance culling, no chunk
-  pop. `maxInstancesPerChunk` (4096 x 144 B = 590 KB per set) bounds memory; a denser layer
-  scales down and warns once.
+  pop. `maxInstancesPerChunk` (4096 x 144 B = 590 KB per set) bounds memory: it counts PLACED
+  instances (the loop stops when the chunk is full, and warns once), never the candidates, so
+  a mask patch covering a slice of a chunk still grows at the layer's density (2026-09-23; the
+  candidate count keeps its own CPU ceiling, `kMaxCandidatesPerChunk`).
 - **Extraction.** `VegetationLayerComponentManager` (an `IRenderDataProvider`, registered per
   scene by `VegetationSubsystem`) emits ONE `MultiMeshRenderData` per (layer, chunk) within
   `fadeEnd` of the snapshot's first-view origin (`ExtractedScene::ViewOrigin`, set by

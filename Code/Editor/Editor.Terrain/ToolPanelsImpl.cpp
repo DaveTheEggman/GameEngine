@@ -10,7 +10,7 @@
 // the framework contract) to read/write the brush params the UI-free tool cannot expose.
 //
 // UX: the mode / layer choices are a segmented row of exclusive TOGGLE icon buttons (the active one
-// stays lit), and the Radius field tracks the tool live (the mouse wheel resizes the brush, and the
+// stays lit), and the Radius field tracks the tool live (Shift + wheel resizes the brush, and the
 // tool's OnRadiusChanged pushes the new value back into the field).
 
 module;
@@ -216,7 +216,7 @@ namespace editor
                              [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
                 AddToolPanelFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 50.0, 0.5, 1,
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
-                // The wheel resizes the brush; mirror it into the field. SetValue is edit-guarded, so
+                // Shift + wheel resizes the brush; mirror it into the field. SetValue is edit-guarded, so
                 // this won't re-fire the setter. The RefPtr keeps the field alive for the callback.
                 t->OnRadiusChanged = [radiusFe](f32 r) { radiusFe->SetValue(static_cast<f64>(r)); };
 
@@ -385,7 +385,7 @@ namespace editor
                          [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
                 // Spacing = stamp density along the stroke (fraction of the radius): low + low
                 // strength = smooth soft blending; high = discrete dabs.
-                AddToolPanelFloat(*grid, u8"Spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0, 0.05, 2,
+                AddToolPanelFloat(*grid, u8"Stamp spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0, 0.05, 2,
                          [t](f64 v) { t->SetSpacing(static_cast<f32>(v)); });
                 // Airbrush = time-cadence stamps while HOLDING (build-up by hovering).
                 {

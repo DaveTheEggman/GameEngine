@@ -139,20 +139,17 @@ namespace foundation::vegetation
             return;
         }
 
-        // Candidate budget: density x area, capped per chunk (a layer over budget scales its
-        // density down - the memory bound per set is the cap, not the density).
-        f32 density = layer.density;
-        f32 wanted = density * area;
-        const f32 cap = static_cast<f32>(layer.maxInstancesPerChunk);
-        if (wanted > cap)
-        {
-            density = cap / area;
-            wanted = cap;
-            out.densityClamped = true;
-        }
+        // Candidates: the layer's OWN density x the chunk area (a CPU ceiling, never a scale).
+        // The cap (maxInstancesPerChunk) bounds what the chunk HOLDS: the loop stops when it is
+        // reached, so a mask patch covering a slice of the chunk still grows at the layer's
+        // density - a candidate outside the patch costs no cap - and only a chunk that fills up
+        // is clamped (the manager warns once). Before 2026-09-23 the cap scaled the density
+        // over the whole chunk area first, so a small painted patch never reached it.
+        const f32 wanted = Min(layer.density * area, static_cast<f32>(kMaxCandidatesPerChunk));
         const u32 candidates = static_cast<u32>(wanted + 0.5f);
+        const u32 cap = layer.maxInstancesPerChunk;
         out.candidateCount = candidates;
-        out.effectiveDensity = density;
+        out.effectiveDensity = layer.density;
         if (candidates == 0)
         {
             return;
@@ -165,9 +162,16 @@ namespace foundation::vegetation
         const f32 heightMax = Max(layer.heightRange.x, layer.heightRange.y);
 
         Random rng(seed);
-        out.transforms.Reserve(candidates);
+        out.transforms.Reserve(Min(candidates, cap));
         for (u32 i = 0; i < candidates; ++i)
         {
+            if (out.transforms.Size() >= cap) // full: the cap holds, the density does not
+            {
+                out.densityClamped = true;
+                out.effectiveDensity = static_cast<f32>(cap) / area;
+                out.candidateCount = i;
+                break;
+            }
             // Draw every random number a candidate CAN consume up front, so a rejection never
             // shifts the stream of the ones after it (the accepted set stays a stable prefix
             // thinning of the candidate set as parameters move).

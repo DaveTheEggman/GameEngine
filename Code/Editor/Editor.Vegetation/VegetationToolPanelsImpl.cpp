@@ -120,7 +120,7 @@ namespace editor
                     [t](f64 v) { t->SetRadius(static_cast<f32>(v)); });
                 app::AddToolPanelFloat(*grid, u8"Strength", static_cast<f64>(t->Strength()), 0.0, 1.0,
                                        0.05, 2, [t](f64 v) { t->SetStrength(static_cast<f32>(v)); });
-                app::AddToolPanelFloat(*grid, u8"Spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0,
+                app::AddToolPanelFloat(*grid, u8"Stamp spacing", static_cast<f64>(t->Spacing()), 0.05, 1.0,
                                        0.05, 2, [t](f64 v) { t->SetSpacing(static_cast<f32>(v)); });
                 app::AddToolPanelBool(*grid, u8"Airbrush", t->IsAirbrush(),
                                       [t](bool v) { t->SetAirbrush(v); });
