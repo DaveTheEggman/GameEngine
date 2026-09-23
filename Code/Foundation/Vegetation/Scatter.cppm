@@ -93,7 +93,7 @@ export namespace foundation::vegetation
     // layer's painted weight for Splat (0 with no splat), the mask plane's density for Mask (0
     // with no mask), their product for SplatTimesMask, 0 for Scattered. Both rasters span the
     // terrain footprint like the shader's splat uv (local / worldSize + 0.5).
-    [[nodiscard]] f32 PlacementShareAt(const VegetationLayer& layer,
+    [[nodiscard]] f32 PlacementShareAt(const ScatterLayer& layer,
                                        const heightfield::Heightfield& heightfield,
                                        const terrain::SplatWeights* splat,
                                        const VegetationMask* mask, f32 localX,
@@ -104,7 +104,7 @@ export namespace foundation::vegetation
     void ScatterChunk(u64 seed, const terrain::TerrainChunk& chunk,
                       const heightfield::Heightfield& heightfield,
                       const terrain::SplatWeights* splat, const VegetationMask* mask,
-                      const VegetationLayer& layer, const AABB& meshLocalBounds,
+                      const ScatterLayer& layer, const AABB& meshLocalBounds,
                       ScatterResult& out);
 
     // ---- the prop scatter brush (Scattered layers) ----------------------------------------
@@ -132,7 +132,7 @@ export namespace foundation::vegetation
     using BlockedQuery = Function<bool(Float3 localPosition, f32 radius)>;
 
     StampResult ScatterStamp(u64 seed, const heightfield::Heightfield& heightfield,
-                             const VegetationLayer& layer, const AABB& meshLocalBounds,
+                             const ScatterLayer& layer, const AABB& meshLocalBounds,
                              f32 centreX, f32 centreZ, f32 radius, f32 density, f32 amount,
                              f32 spacing, Span<const Float4x4> existing,
                              const BlockedQuery& blocked, Array<Float4x4>& out);

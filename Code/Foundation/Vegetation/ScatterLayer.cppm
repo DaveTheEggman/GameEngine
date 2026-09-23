@@ -32,7 +32,7 @@ export namespace foundation::vegetation
     // painted (the implicit base weight).
     inline constexpr u32 kSplatBaseLayer = 0xFFFFFFFFu;
 
-    struct VegetationLayer
+    struct ScatterLayer
     {
         VegetationPlacement placement = VegetationPlacement::Splat;
         u32 splatLayer = 0;          // Splat: palette index, or kSplatBaseLayer
@@ -51,7 +51,7 @@ export namespace foundation::vegetation
 
     // A hash of every parameter that changes the SCATTER (fade + shadows are per-frame draw
     // state, not part of the set): the cache invalidation key for a layer.
-    [[nodiscard]] inline u64 LayerScatterHash(const VegetationLayer& layer) noexcept
+    [[nodiscard]] inline u64 LayerScatterHash(const ScatterLayer& layer) noexcept
     {
         u64 h = HashBytes(&layer.placement, sizeof(layer.placement));
         h = HashBytes(&layer.splatLayer, sizeof(layer.splatLayer), h);

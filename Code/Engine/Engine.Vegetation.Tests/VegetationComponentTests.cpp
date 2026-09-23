@@ -251,7 +251,7 @@ TEST_CASE("engine.vegetation: the component reflects (layers as a container of r
     CHECK(loaded.layers[1].instances[1].m[3][0] == 7.0f);
 
     // ToScatterLayer mirrors the scatter fields.
-    const veg::VegetationLayer layer = g.ToScatterLayer();
+    const veg::ScatterLayer layer = g.ToScatterLayer();
     CHECK(layer.density == 7.5f);
     CHECK(layer.castShadows);
     CHECK(veg::LayerScatterHash(layer) == veg::LayerScatterHash(grass.ToScatterLayer()));

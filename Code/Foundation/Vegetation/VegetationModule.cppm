@@ -6,5 +6,5 @@
 
 export module foundation.vegetation;
 
-export import :layer;   // VegetationPlacement + VegetationLayer (+ LayerHash)
+export import :layer;   // VegetationPlacement + ScatterLayer (+ LayerHash)
 export import :scatter; // ScatterChunk, ChunkSeed, DensityAtDistance, FadePrefix, ChunksTouchedBy

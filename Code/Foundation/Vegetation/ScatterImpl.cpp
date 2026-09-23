@@ -77,7 +77,7 @@ namespace foundation::vegetation
         }
     }
 
-    f32 PlacementShareAt(const VegetationLayer& layer, const heightfield::Heightfield& heightfield,
+    f32 PlacementShareAt(const ScatterLayer& layer, const heightfield::Heightfield& heightfield,
                          const terrain::SplatWeights* splat, const VegetationMask* mask,
                          f32 localX, f32 localZ) noexcept
     {
@@ -105,7 +105,7 @@ namespace foundation::vegetation
     void ScatterChunk(u64 seed, const terrain::TerrainChunk& chunk,
                       const heightfield::Heightfield& heightfield,
                       const terrain::SplatWeights* splat, const VegetationMask* mask,
-                      const VegetationLayer& layer, const AABB& meshLocalBounds,
+                      const ScatterLayer& layer, const AABB& meshLocalBounds,
                       ScatterResult& out)
     {
         out.transforms.Clear();
@@ -203,7 +203,7 @@ namespace foundation::vegetation
     }
 
     StampResult ScatterStamp(u64 seed, const heightfield::Heightfield& heightfield,
-                             const VegetationLayer& layer, const AABB& meshLocalBounds,
+                             const ScatterLayer& layer, const AABB& meshLocalBounds,
                              f32 centreX, f32 centreZ, f32 radius, f32 density, f32 amount,
                              f32 spacing, Span<const Float4x4> existing,
                              const BlockedQuery& blocked, Array<Float4x4>& out)

@@ -64,7 +64,7 @@ namespace editor
         }
     }
 
-    bool AnyVegetationFootprint(scene::Scene& scene, bool requireMask)
+    bool VegetationPick::AnyFootprint(scene::Scene& scene, bool requireMask)
     {
         TerrainVegetationComponentManager* mgr = VegetationManagerOf(scene);
         if (mgr == nullptr)
@@ -89,10 +89,10 @@ namespace editor
         return any;
     }
 
-    FootprintPick ResolveFootprintPick(scene::Scene& scene, Float3 rayOrigin, Float3 rayDirection,
+    VegetationPick VegetationPick::Resolve(scene::Scene& scene, Float3 rayOrigin, Float3 rayDirection,
                                        bool requireMask)
     {
-        FootprintPick best;
+        VegetationPick best;
         TerrainVegetationComponentManager* mgr = VegetationManagerOf(scene);
         if (mgr == nullptr)
         {

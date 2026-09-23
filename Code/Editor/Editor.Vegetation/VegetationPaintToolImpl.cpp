@@ -56,10 +56,10 @@ namespace editor
         // The region-delta stroke command over ONE plane: replays the touched rectangle between
         // its before / after blocks, bumps the mask version and tells the manager the rect changed.
         // One per stroke; never merges. Keeps the raster alive.
-        class MaskStrokeCommand final : public IEditorCommand
+        class VegetationStrokeCommand final : public IEditorCommand
         {
         public:
-            MaskStrokeCommand(RefPtr<veg::VegetationMask> mask, u32 plane, veg::MaskRegion region,
+            VegetationStrokeCommand(RefPtr<veg::VegetationMask> mask, u32 plane, veg::MaskRegion region,
                               Array<u8> before, Array<u8> after,
                               TerrainVegetationComponentManager* manager, i32 gridSize)
                 : m_mask(Move(mask)), m_plane(plane), m_region(region), m_before(Move(before)),
@@ -141,14 +141,14 @@ namespace editor
 
     bool VegetationPaintTool::IsAvailable() const
     {
-        return AnyVegetationFootprint(*m_scene, /*requireMask*/ true);
+        return VegetationPick::AnyFootprint(*m_scene, /*requireMask*/ true);
     }
 
     VegetationPaintTool::Pick VegetationPaintTool::ResolvePick(const ViewportToolInput& input) const
     {
         Pick pick;
-        const FootprintPick fp =
-            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ true);
+        const VegetationPick fp =
+            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ true);
         if (!fp.valid || fp.mask == nullptr)
         {
             return pick;
@@ -315,7 +315,7 @@ namespace editor
                 Span<const u8>{m_beforePlane.Data(), m_beforePlane.Size()}, rasterW, m_region);
             Array<u8> after = SliceRegion(m_strokeMask->Plane(m_plane), rasterW, m_region);
             m_commands->Execute(UniquePtr<IEditorCommand>(
-                editor::EditorRootAllocator().New<MaskStrokeCommand>(
+                editor::EditorRootAllocator().New<VegetationStrokeCommand>(
                     m_strokeMask, m_plane, m_region, Move(before), Move(after),
                     static_cast<TerrainVegetationComponentManager*>(m_strokeManager),
                     m_strokeGridSize),

@@ -87,14 +87,14 @@ namespace editor
 
     struct VegetationScatterTool::Pick
     {
-        FootprintPick fp;
+        VegetationPick fp;
         VegetationLayer* layer = nullptr;
     };
 
     bool VegetationScatterTool::IsAvailable() const
     {
         TerrainVegetationComponentManager* mgr = VegetationManagerOf(*m_scene);
-        if (mgr == nullptr || !AnyVegetationFootprint(*m_scene, /*requireMask*/ false))
+        if (mgr == nullptr || !VegetationPick::AnyFootprint(*m_scene, /*requireMask*/ false))
         {
             return false;
         }
@@ -131,8 +131,8 @@ namespace editor
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
-        const FootprintPick fp =
-            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ false);
+        const VegetationPick fp =
+            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, /*requireMask*/ false);
         if (fp.valid)
         {
             m_hasHover = true;
@@ -173,8 +173,8 @@ namespace editor
 
     void VegetationScatterTool::BeginStroke(const ViewportToolInput& input)
     {
-        const FootprintPick fp =
-            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp =
+            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
         if (!fp.valid || fp.component == nullptr || m_layer >= fp.component->layers.Size())
         {
             return;
@@ -193,8 +193,8 @@ namespace editor
     // m_stampSpacing x radius of terrain-local travel, so a fast drag leaves no gaps.
     void VegetationScatterTool::AdvanceStroke(const ViewportToolInput& input)
     {
-        const FootprintPick fp =
-            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp =
+            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
         if (!fp.valid || fp.owner != m_strokeOwner)
         {
             return;
@@ -219,8 +219,8 @@ namespace editor
 
     void VegetationScatterTool::ApplyStamp(Float3 localCentre, const ViewportToolInput& input)
     {
-        const FootprintPick fp =
-            ResolveFootprintPick(*m_scene, input.ray.origin, input.ray.direction, false);
+        const VegetationPick fp =
+            VegetationPick::Resolve(*m_scene, input.ray.origin, input.ray.direction, false);
         if (!fp.valid || fp.component == nullptr || m_strokeLayer >= fp.component->layers.Size())
         {
             return;

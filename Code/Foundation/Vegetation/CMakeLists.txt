@@ -14,6 +14,6 @@ target_sources(Vegetation
         ScatterImpl.cpp
     PUBLIC
         FILE_SET vegetation_modules TYPE CXX_MODULES FILES
-            VegetationLayer.cppm
+            ScatterLayer.cppm
             Scatter.cppm
             VegetationModule.cppm)

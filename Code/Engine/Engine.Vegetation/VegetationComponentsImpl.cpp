@@ -306,7 +306,7 @@ namespace engine::vegetation
                                                      const heightfield::Heightfield& hf,
                                                      const tmodel::SplatWeights* splat,
                                                      const veg::VegetationMask* mask,
-                                                     const veg::VegetationLayer& layer,
+                                                     const veg::ScatterLayer& layer,
                                                      const AABB& meshBounds,
                                                      Span<const Float4x4> authored)
     {
@@ -392,7 +392,7 @@ namespace engine::vegetation
             return;
         }
         cache.warnedNoMesh = false;
-        const veg::VegetationLayer layer = authored.ToScatterLayer();
+        const veg::ScatterLayer layer = authored.ToScatterLayer();
         const u64 layerHash = veg::LayerScatterHash(layer);
 
         // Identity changes rebuild the whole cache: another heightfield (or its size), the

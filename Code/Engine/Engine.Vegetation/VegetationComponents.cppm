@@ -48,7 +48,7 @@ export namespace engine::vegetation
     using foundation::vegetation::VegetationPlacement;
     using foundation::vegetation::kSplatBaseLayer;
 
-    // One authored layer. The scatter parameters mirror foundation::vegetation::VegetationLayer
+    // One authored layer. The scatter parameters mirror foundation::vegetation::ScatterLayer
     // FLAT (the inspector edits leaf fields); ToScatterLayer() is the bridge to the pure scatter.
     struct VegetationLayer
     {
@@ -77,9 +77,9 @@ export namespace engine::vegetation
         // Not an inspector row (a list of matrices has no editor); the brush is the editor.
         Array<Float4x4> instances;
 
-        [[nodiscard]] veg::VegetationLayer ToScatterLayer() const noexcept
+        [[nodiscard]] veg::ScatterLayer ToScatterLayer() const noexcept
         {
-            veg::VegetationLayer layer;
+            veg::ScatterLayer layer;
             layer.placement = placement;
             layer.splatLayer = splatLayer;
             layer.splatThreshold = splatThreshold;
@@ -231,7 +231,7 @@ export namespace engine::vegetation
         void DirtyAll(LayerCache& cache);
         void BuildSet(LayerCache& cache, u32 chunkIndex, const heightfield::Heightfield& hf,
                       const tmodel::SplatWeights* splat, const veg::VegetationMask* mask,
-                      const veg::VegetationLayer& layer, const AABB& meshBounds,
+                      const veg::ScatterLayer& layer, const AABB& meshBounds,
                       Span<const Float4x4> authored);
         void Compose(LayerCache& cache, ChunkSet& set);
         void ExtractLayer(render::ExtractedScene& snapshot, scene::EntityHandle owner,

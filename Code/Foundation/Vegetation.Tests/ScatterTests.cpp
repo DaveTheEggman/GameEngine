@@ -86,9 +86,9 @@ namespace
         return sw;
     }
 
-    veg::VegetationLayer Uniform(f32 density)
+    veg::ScatterLayer Uniform(f32 density)
     {
-        veg::VegetationLayer layer;
+        veg::ScatterLayer layer;
         layer.placement = veg::VegetationPlacement::Uniform;
         layer.density = density;
         layer.maxSlopeDegrees = 90.0f;
@@ -121,7 +121,7 @@ TEST_CASE("vegetation scatter: a seed gives byte-identical instances; another ch
 {
     RefPtr<hf::Heightfield> grid = MakeFlat(5.0f);
     const tmodel::TerrainChunk chunk = ChunkOf(*grid);
-    const veg::VegetationLayer layer = Uniform(0.25f);
+    const veg::ScatterLayer layer = Uniform(0.25f);
     const Guid layerId{0x1234u, 0x5678u};
     const u64 seed = veg::ChunkSeed(layerId, 0, 0, 0);
 
@@ -170,7 +170,7 @@ TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk
     CHECK(one.effectiveDensity == doctest::Approx(0.25f));
 
     // Over budget: the cap wins and the density reports what was actually used.
-    veg::VegetationLayer dense = Uniform(10.0f); // 40960 wanted
+    veg::ScatterLayer dense = Uniform(10.0f); // 40960 wanted
     dense.maxInstancesPerChunk = 4096;
     veg::ScatterResult capped;
     veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, dense, AABB::Empty(), capped);
@@ -183,7 +183,7 @@ TEST_CASE("vegetation scatter: density scales the candidate count; the per-chunk
     veg::ScatterResult none;
     veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, Uniform(0.0f), AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
-    veg::VegetationLayer authored = Uniform(1.0f);
+    veg::ScatterLayer authored = Uniform(1.0f);
     authored.placement = veg::VegetationPlacement::Scattered;
     veg::ScatterChunk(7, chunk, *grid, nullptr, nullptr, authored, AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
@@ -195,7 +195,7 @@ TEST_CASE("vegetation scatter: the splat rule grows only where the layer's share
     const tmodel::TerrainChunk chunk = ChunkOf(*grid);
     RefPtr<tmodel::SplatWeights> splat = MakeHalfSplat();
 
-    veg::VegetationLayer grass;
+    veg::ScatterLayer grass;
     grass.placement = veg::VegetationPlacement::Splat;
     grass.splatLayer = 0;
     grass.splatThreshold = 0.25f;
@@ -214,7 +214,7 @@ TEST_CASE("vegetation scatter: the splat rule grows only where the layer's share
     }
 
     // The base layer is the complement.
-    veg::VegetationLayer base = grass;
+    veg::ScatterLayer base = grass;
     base.splatLayer = veg::kSplatBaseLayer;
     veg::ScatterResult unpainted;
     veg::ScatterChunk(3, chunk, *grid, splat.Get(), nullptr, base, AABB::Empty(), unpainted);
@@ -226,12 +226,12 @@ TEST_CASE("vegetation scatter: the splat rule grows only where the layer's share
 
     // A layer nobody painted, or a threshold above every share, grows nothing; nor does a
     // Splat layer with no splat at all.
-    veg::VegetationLayer rocks = grass;
+    veg::ScatterLayer rocks = grass;
     rocks.splatLayer = 3;
     veg::ScatterResult none;
     veg::ScatterChunk(3, chunk, *grid, splat.Get(), nullptr, rocks, AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
-    veg::VegetationLayer strict = grass;
+    veg::ScatterLayer strict = grass;
     strict.splatThreshold = 1.5f;
     veg::ScatterChunk(3, chunk, *grid, splat.Get(), nullptr, strict, AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
@@ -250,7 +250,7 @@ TEST_CASE("vegetation scatter: the slope limit and the height window reject")
     RefPtr<hf::Heightfield> ramp = MakeRamp(32.0f);
     const tmodel::TerrainChunk chunk = ChunkOf(*ramp);
 
-    veg::VegetationLayer gentle = Uniform(0.25f);
+    veg::ScatterLayer gentle = Uniform(0.25f);
     // The limit sits under the ramp's slope everywhere - the central difference halves at the
     // clamped x edges (13.3 degrees there), so 10 keeps rejecting at the rim too.
     gentle.maxSlopeDegrees = 10.0f;
@@ -258,14 +258,14 @@ TEST_CASE("vegetation scatter: the slope limit and the height window reject")
     veg::ScatterChunk(11, chunk, *ramp, nullptr, nullptr, gentle, AABB::Empty(), none);
     CHECK(none.transforms.IsEmpty());
 
-    veg::VegetationLayer steep = Uniform(0.25f);
+    veg::ScatterLayer steep = Uniform(0.25f);
     steep.maxSlopeDegrees = 35.0f; // allowed
     veg::ScatterResult all;
     veg::ScatterChunk(11, chunk, *ramp, nullptr, nullptr, steep, AABB::Empty(), all);
     CHECK(all.transforms.Size() == all.candidateCount);
 
     // The height window: only the band 8..16 m up the ramp (x in the middle quarter).
-    veg::VegetationLayer band = steep;
+    veg::ScatterLayer band = steep;
     band.heightRange = Float2{8.0f, 16.0f};
     veg::ScatterResult banded;
     veg::ScatterChunk(11, chunk, *ramp, nullptr, nullptr, band, AABB::Empty(), banded);
@@ -284,7 +284,7 @@ TEST_CASE("vegetation scatter: alignToNormal tilts each instance onto the sample
     const tmodel::TerrainChunk chunk = ChunkOf(*ramp);
     const Float3 expected = Normalized(Float3{-0.5f, 1.0f, 0.0f}); // the ramp's normal
 
-    veg::VegetationLayer flat = Uniform(0.05f);
+    veg::ScatterLayer flat = Uniform(0.05f);
     flat.scaleRange = Float2{2.0f, 2.0f};
     veg::ScatterResult upright;
     veg::ScatterChunk(5, chunk, *ramp, nullptr, nullptr, flat, AABB::Empty(), upright);
@@ -296,7 +296,7 @@ TEST_CASE("vegetation scatter: alignToNormal tilts each instance onto the sample
         CHECK(Normalized(up).y == doctest::Approx(1.0f).epsilon(0.001));
     }
 
-    veg::VegetationLayer aligned = flat;
+    veg::ScatterLayer aligned = flat;
     aligned.alignToNormal = true;
     veg::ScatterResult tilted;
     veg::ScatterChunk(5, chunk, *ramp, nullptr, nullptr, aligned, AABB::Empty(), tilted);
@@ -322,7 +322,7 @@ TEST_CASE("vegetation scatter: the mesh extent grows the chunk bounds by the lar
 {
     RefPtr<hf::Heightfield> grid = MakeFlat(3.0f);
     const tmodel::TerrainChunk chunk = ChunkOf(*grid);
-    veg::VegetationLayer layer = Uniform(0.1f);
+    veg::ScatterLayer layer = Uniform(0.1f);
     layer.scaleRange = Float2{1.0f, 3.0f};
     const AABB blade = AABB::FromCenterExtents(Float3{0.0f, 0.5f, 0.0f}, Float3{0.1f, 0.5f, 0.1f});
 
@@ -419,8 +419,8 @@ TEST_CASE("vegetation: ChunksTouchedBy maps a grid region to the chunks that sha
 
 TEST_CASE("vegetation layer: the scatter hash covers the scatter parameters, not the per-frame draw state")
 {
-    veg::VegetationLayer a;
-    veg::VegetationLayer b = a;
+    veg::ScatterLayer a;
+    veg::ScatterLayer b = a;
     CHECK(veg::LayerScatterHash(a) == veg::LayerScatterHash(b));
     b.density = 3.0f;
     CHECK(veg::LayerScatterHash(a) != veg::LayerScatterHash(b));
@@ -452,7 +452,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
         }
     }
 
-    veg::VegetationLayer flowers;
+    veg::ScatterLayer flowers;
     flowers.placement = veg::VegetationPlacement::Mask;
     flowers.maskPlane = 1;
     flowers.density = 0.5f;
@@ -468,7 +468,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
     }
     // The empty plane, a plane out of range, or no mask at all grow nothing; the splat
     // threshold does not apply to a mask density.
-    veg::VegetationLayer empty = flowers;
+    veg::ScatterLayer empty = flowers;
     empty.maskPlane = 0;
     veg::ScatterResult none;
     veg::ScatterChunk(21, chunk, *grid, splat.Get(), mask.Get(), empty, AABB::Empty(), none);
@@ -484,7 +484,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
 
     // SplatTimesMask: the painted splat half (x < 0) AND the painted mask half (z < 0): one
     // quadrant.
-    veg::VegetationLayer carved = flowers;
+    veg::ScatterLayer carved = flowers;
     carved.placement = veg::VegetationPlacement::SplatTimesMask;
     carved.splatLayer = 0;
     carved.splatThreshold = 0.25f;
@@ -505,7 +505,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
     CHECK(veg::PlacementShareAt(carved, *grid, nullptr, mask.Get(), -16.0f, -16.0f) == 0.0f);
 
     // The hash covers the placement and the plane (a mask edit is a version bump, not a hash).
-    veg::VegetationLayer other = flowers;
+    veg::ScatterLayer other = flowers;
     other.maskPlane = 0;
     CHECK(veg::LayerScatterHash(other) != veg::LayerScatterHash(flowers));
 }
@@ -513,7 +513,7 @@ TEST_CASE("vegetation scatter: a Mask layer grows where its plane is painted; Sp
 TEST_CASE("vegetation stamp: a seeded stamp places a deterministic count inside the disc; slope, spacing and a blocked query reject; erase removes")
 {
     RefPtr<hf::Heightfield> grid = MakeFlat(2.0f);
-    veg::VegetationLayer rocks = Uniform(0.0f);
+    veg::ScatterLayer rocks = Uniform(0.0f);
     rocks.placement = veg::VegetationPlacement::Scattered;
     rocks.scaleRange = Float2{1.0f, 1.0f};
     rocks.maxSlopeDegrees = 90.0f;
@@ -576,7 +576,7 @@ TEST_CASE("vegetation stamp: a seeded stamp places a deterministic count inside 
 
     // The slope rule: a steep ramp with a tight limit places nothing.
     RefPtr<hf::Heightfield> ramp = MakeRamp(32.0f);
-    veg::VegetationLayer gentle = rocks;
+    veg::ScatterLayer gentle = rocks;
     gentle.maxSlopeDegrees = 10.0f;
     Array<Float4x4> none;
     const veg::StampResult rr =

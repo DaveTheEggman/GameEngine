@@ -22,7 +22,7 @@ using namespace foundation::core;
 
 export namespace editor
 {
-    struct FootprintPick
+    struct VegetationPick
     {
         engine::vegetation::TerrainVegetationComponent* component = nullptr;
         engine::vegetation::TerrainVegetationComponentManager* manager = nullptr;
@@ -41,13 +41,13 @@ export namespace editor
         Float3 worldNormal{0.0f, 1.0f, 0.0f};
         Float4x4 terrainWorld = Float4x4::Identity();
         bool valid = false;
+
+        /// The nearest vegetation footprint under the ray. `requireMask` = only components whose
+        /// mask resolves (the mask brush); otherwise any component over a terrain (the prop brush).
+        [[nodiscard]] static VegetationPick Resolve(foundation::scene::Scene& scene, Float3 rayOrigin,
+                                                    Float3 rayDirection, bool requireMask);
+
+        /// Whether any vegetation footprint exists in the scene (the brushes' IsAvailable).
+        [[nodiscard]] static bool AnyFootprint(foundation::scene::Scene& scene, bool requireMask);
     };
-
-    /// The nearest vegetation footprint under the ray. `requireMask` = only components whose
-    /// mask resolves (the mask brush); otherwise any component over a terrain (the prop brush).
-    [[nodiscard]] FootprintPick ResolveFootprintPick(foundation::scene::Scene& scene, Float3 rayOrigin,
-                                                     Float3 rayDirection, bool requireMask);
-
-    /// Whether any vegetation footprint exists in the scene (the brushes' IsAvailable).
-    [[nodiscard]] bool AnyVegetationFootprint(foundation::scene::Scene& scene, bool requireMask);
 }
