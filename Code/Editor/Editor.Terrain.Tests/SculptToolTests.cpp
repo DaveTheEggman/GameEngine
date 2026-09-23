@@ -285,3 +285,29 @@ TEST_CASE("terrain sculpt: a save persists to the source asset and survives a re
     FileDelete(u8"scratch_sculpt_persist_db/hf.heights.bin");
     RemoveDirectory(dbDir);
 }
+
+TEST_CASE("terrain sculpt: the wheel resizes the brush only with Shift (the bare wheel is the camera's)")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::TerrainSculptTool tool(fx.scene, commands, nullptr);
+    const f32 before = tool.Radius();
+    editor::ViewportToolInput wheel = []() {
+        editor::ViewportToolInput in;
+        in.ray.origin = Float3{0.0f, 100.0f, 0.0f};
+        in.ray.direction = Float3{0.0f, -1.0f, 0.0f};
+        in.pointerValid = true;
+        in.pointerOver = true;
+        in.deltaSeconds = 0.1f;
+        return in;
+    }();
+    wheel.wheelDelta = 1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() == before); // the camera's scroll
+    wheel.shift = true;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() > before);
+    wheel.wheelDelta = -1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() < before * 1.13f);
+}

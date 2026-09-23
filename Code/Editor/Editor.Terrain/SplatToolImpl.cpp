@@ -245,7 +245,8 @@ namespace editor
             if (kb->IsKeyPressed(KeyCode::Minus)) SetSmooth(true);
         }
 
-        if (input.pointerOver && input.wheelDelta != 0.0f)
+        // Shift + wheel resizes the brush; the bare wheel stays the camera's dolly (2026-09-23).
+        if (input.pointerOver && input.shift && input.wheelDelta != 0.0f)
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
@@ -497,12 +498,12 @@ namespace editor
     {
         m_status =
             m_smooth
-                ? Format(u8"Paint Splat [SMOOTH]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                ? Format(u8"Paint Splat [SMOOTH]  radius {}  (1-9 layer, 0 eraser, - smooth, Shift+wheel size)",
                          static_cast<i32>(m_radius + 0.5f))
             : m_erase
-                ? Format(u8"Paint Splat [ERASER]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                ? Format(u8"Paint Splat [ERASER]  radius {}  (1-9 layer, 0 eraser, - smooth, Shift+wheel size)",
                          static_cast<i32>(m_radius + 0.5f))
-                : Format(u8"Paint Splat [layer {}]  radius {}  (1-9 layer, 0 eraser, - smooth, wheel size)",
+                : Format(u8"Paint Splat [layer {}]  radius {}  (1-9 layer, 0 eraser, - smooth, Shift+wheel size)",
                          static_cast<i32>(m_paletteIndex),
                          static_cast<i32>(m_radius + 0.5f));
     }

@@ -212,7 +212,8 @@ namespace editor
         }
 
         // Wheel resizes the brush (multiplicative so it feels even across scales).
-        if (input.pointerOver && input.wheelDelta != 0.0f)
+        // Shift + wheel resizes the brush; the bare wheel stays the camera's dolly (2026-09-23).
+        if (input.pointerOver && input.shift && input.wheelDelta != 0.0f)
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
@@ -420,7 +421,7 @@ namespace editor
         case Mode::Smooth: modeText = u8"Smooth"; break;
         case Mode::Flatten: modeText = u8"Flatten"; break;
         }
-        m_status = Format(u8"Sculpt [{}]  radius {}  strength {}  (1-4 mode, wheel size, Ctrl+click "
+        m_status = Format(u8"Sculpt [{}]  radius {}  strength {}  (1-4 mode, Shift+wheel size, Ctrl+click "
                           u8"= flatten target)",
                           modeText, static_cast<i32>(m_radius + 0.5f),
                           static_cast<i32>(m_strength + 0.5f));

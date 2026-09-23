@@ -127,7 +127,8 @@ namespace editor
             if (kb->IsKeyPressed(KeyCode::Num9)) SetLayer(8);
             if (kb->IsKeyPressed(KeyCode::Num0)) SetEraser(true);
         }
-        if (input.pointerOver && input.wheelDelta != 0.0f)
+        // Shift + wheel resizes the brush; the bare wheel stays the camera's dolly (2026-09-23).
+        if (input.pointerOver && input.shift && input.wheelDelta != 0.0f)
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
@@ -336,7 +337,7 @@ namespace editor
     void VegetationScatterTool::UpdateStatus()
     {
         const i32 radius = static_cast<i32>(m_radius + 0.5f);
-        m_status = Format(u8"Paint Props [{} layer {}]  radius {}  (1-9 layer, 0 erase, wheel size)",
+        m_status = Format(u8"Paint Props [{} layer {}]  radius {}  (1-9 layer, 0 erase, Shift+wheel size)",
                           m_erase ? StringView(u8"ERASE") : StringView(u8"paint"),
                           static_cast<i32>(m_layer), radius);
         if (!m_erase && !m_layerHasMesh)

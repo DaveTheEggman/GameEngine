@@ -185,7 +185,8 @@ namespace editor
             if (kb->IsKeyPressed(KeyCode::Num1)) SetMode(Mode::Cut);
             if (kb->IsKeyPressed(KeyCode::Num2)) SetMode(Mode::Fill);
         }
-        if (input.pointerOver && input.wheelDelta != 0.0f)
+        // Shift + wheel resizes the brush; the bare wheel stays the camera's dolly (2026-09-23).
+        if (input.pointerOver && input.shift && input.wheelDelta != 0.0f)
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
@@ -348,7 +349,7 @@ namespace editor
 
     void TerrainHoleTool::UpdateStatus()
     {
-        m_status = Format(u8"Cut Holes [{}]  radius {}  (1 cut, 2 fill, wheel size)",
+        m_status = Format(u8"Cut Holes [{}]  radius {}  (1 cut, 2 fill, Shift+wheel size)",
                           m_mode == Mode::Cut ? u8"CUT" : u8"FILL",
                           static_cast<i32>(m_radius + 0.5f));
     }

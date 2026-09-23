@@ -373,3 +373,21 @@ TEST_CASE("vegetation scatter: the eraser reaches the props left standing over a
     commands.Undo();
     CHECK(SameInstances(fx.Rocks(), placed));
 }
+
+TEST_CASE("vegetation scatter: the wheel resizes the brush only with Shift (the bare wheel is the camera's)")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::VegetationScatterTool tool(fx.scene, commands);
+    const f32 before = tool.Radius();
+    editor::ViewportToolInput wheel = RayAt(0.0f, 0.0f);
+    wheel.wheelDelta = 1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() == before); // the camera's scroll
+    wheel.shift = true;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() > before);
+    wheel.wheelDelta = -1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() < before * 1.13f);
+}

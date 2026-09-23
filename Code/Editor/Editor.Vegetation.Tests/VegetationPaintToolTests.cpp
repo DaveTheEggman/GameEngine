@@ -368,3 +368,21 @@ TEST_CASE("vegetation tool panel: the provider registers for the brush id and bu
     tool.SetRadius(12.0f);
     CHECK(tool.Radius() == 12.0f);
 }
+
+TEST_CASE("vegetation paint: the wheel resizes the brush only with Shift (the bare wheel is the camera's)")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::VegetationPaintTool tool(fx.scene, commands, nullptr);
+    const f32 before = tool.Radius();
+    editor::ViewportToolInput wheel = RayAt(0.0f, 0.0f);
+    wheel.wheelDelta = 1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() == before); // the camera's scroll
+    wheel.shift = true;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() > before);
+    wheel.wheelDelta = -1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() < before * 1.13f);
+}

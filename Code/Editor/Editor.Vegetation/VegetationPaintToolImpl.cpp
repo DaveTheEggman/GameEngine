@@ -187,7 +187,8 @@ namespace editor
             if (kb->IsKeyPressed(KeyCode::Num0)) SetEraser(true);
             if (kb->IsKeyPressed(KeyCode::Minus)) SetSmooth(true);
         }
-        if (input.pointerOver && input.wheelDelta != 0.0f)
+        // Shift + wheel resizes the brush; the bare wheel stays the camera's dolly (2026-09-23).
+        if (input.pointerOver && input.shift && input.wheelDelta != 0.0f)
         {
             SetRadius(m_radius * (1.0f + 0.12f * input.wheelDelta));
         }
@@ -399,7 +400,7 @@ namespace editor
     {
         const i32 radius = static_cast<i32>(m_radius + 0.5f);
         const StringView mode = m_smooth ? StringView(u8"SMOOTH") : m_erase ? StringView(u8"ERASE") : StringView(u8"paint");
-        m_status = Format(u8"Paint Vegetation [{} plane {}]  radius {}  (1-9 plane, 0 erase, - smooth, wheel size)",
+        m_status = Format(u8"Paint Vegetation [{} plane {}]  radius {}  (1-9 plane, 0 erase, - smooth, Shift+wheel size)",
                           mode, static_cast<i32>(m_plane), radius);
     }
 

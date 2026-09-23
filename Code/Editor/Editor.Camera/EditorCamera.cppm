@@ -104,8 +104,8 @@ export namespace editor
         }
 
         // Apply this frame's input from explicit (gated) devices.
-        /// `allowZoom` is false while a modal viewport tool owns the wheel (terrain sculpt resizes
-        /// its brush): the first-consumer rule keeps the wheel from ALSO dollying the camera.
+        /// `allowZoom` is false while a modal viewport tool owns the wheel (a brush resizes on
+        /// Shift + wheel): the first-consumer rule keeps that scroll from ALSO dollying the camera.
         void Update(foundation::shell::IKeyboard* kb, foundation::shell::IMouse* mouse, f32 dt,
                     bool allowZoom = true)
         {

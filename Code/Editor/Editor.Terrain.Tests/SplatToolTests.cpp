@@ -538,3 +538,21 @@ TEST_CASE("terrain splat: a save converts an imported splatmap to embedded and s
     FileDelete(u8"scratch_splat_persist_db/splat.indices.bin");
     RemoveDirectory(dbDir);
 }
+
+TEST_CASE("terrain splat: the wheel resizes the brush only with Shift (the bare wheel is the camera's)")
+{
+    Fixture fx;
+    editor::EditorCommandStack commands;
+    editor::TerrainSplatTool tool(fx.scene, commands, nullptr);
+    const f32 before = tool.Radius();
+    editor::ViewportToolInput wheel = RayAt(0.0f, 0.0f);
+    wheel.wheelDelta = 1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() == before); // the camera's scroll
+    wheel.shift = true;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() > before);
+    wheel.wheelDelta = -1.0f;
+    (void)tool.Update(wheel);
+    CHECK(tool.Radius() < before * 1.13f);
+}

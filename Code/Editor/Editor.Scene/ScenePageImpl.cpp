@@ -104,11 +104,16 @@ namespace editor
         const bool viewportActive = m_viewport->IsHovered() || m_viewport->IsFocused();
         if (viewportActive)
         {
-            // First-consumer rule: a modal viewport tool (terrain sculpt) owns the wheel to resize
-            // its brush, so the camera must not ALSO dolly on scroll while one is active.
+            // First-consumer rule: a modal viewport tool (a brush) owns SHIFT + wheel to resize
+            // itself, so the camera must not ALSO dolly on that scroll; the bare wheel stays the
+            // camera's even while a brush is active (2026-09-23: zoom under the brush).
             const bool modalToolActive =
                 m_viewportTools.ActiveTool() != nullptr && m_viewportTools.ActiveTool() != m_selectTool;
-            m_camera.Update(m_viewport->Keyboard(), m_viewport->Mouse(), dt, !modalToolActive);
+            foundation::shell::IKeyboard* keyboard = m_viewport->Keyboard();
+            const bool shiftDown = keyboard != nullptr &&
+                                   (keyboard->IsKeyDown(foundation::shell::KeyCode::LeftShift) ||
+                                    keyboard->IsKeyDown(foundation::shell::KeyCode::RightShift));
+            m_camera.Update(keyboard, m_viewport->Mouse(), dt, !(modalToolActive && shiftDown));
         }
         else
         {
