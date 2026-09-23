@@ -12,22 +12,6 @@
 
 ## Queued 2026-09-23 (user, during the terrain holes work)
 
-- **Vegetation component: two layer lists, procedural and props** (user 2026-09-23; AFTER the
-  Beef port has caught up on vegetation, since it mirrors the component). Today one list
-  carries every kind and the `placement` field decides what a layer is: a procedural layer drags
-  an empty `instances` array, a Scattered layer carries a density and a splat threshold that
-  mean nothing, and the brushes pick from the same list. Build: `proceduralLayers` (placement
-  Uniform / Splat / Mask / SplatTimesMask, density, splat + mask fields) and `propLayers`
-  (instances, spacing) over a shared base (mesh, material, scale range, slope + height rules,
-  fade, shadows, visible, maxInstancesPerChunk); the set cache keyed by (list, index); the
-  extraction loop over both; the layer editor in two sections; the prop brush picks only from
-  the props list, the paint brush's panel names the layers that read the plane being painted
-  (the indirection that stays whatever the shape). Wire: `dataVersion` bump WITH a legacy
-  reader for the one-list layout (user ruling 2026-09-23: legacy readers are fine again, kept
-  few) - which also means opening the versioned-payload reader for an older stored version per
-  type, the first such case since the 2026-09-08 purge. RTHomes1 (Cube, Sphere props; Grass
-  mask) is the smoke scene.
-
 - **View > Reset Layout crashes the editor** (SIGSEGV; user report with a resource report as
   the last log line). The pasted backtrace holds only the fatal handler's own two frames
   (`WriteBacktrace` / `FatalSignalHandler`, LinuxSystem.cpp:910 / :938): the handler's
