@@ -215,6 +215,13 @@ namespace editor::navigation
                     {
                         for (u32 col = 0; col + 1 < columns; ++col)
                         {
+                            // A hole anywhere in this block (the stride square, interior included)
+                            // is no walkable surface: the block's two triangles are left out, so
+                            // the navmesh opens there and agents route around it.
+                            if (field->BlockHasHole(xs[col], zs[row], xs[col + 1], zs[row + 1]))
+                            {
+                                continue;
+                            }
                             const u32 v00 = base + row * columns + col;
                             const u32 v10 = v00 + 1;
                             const u32 v01 = v00 + columns;

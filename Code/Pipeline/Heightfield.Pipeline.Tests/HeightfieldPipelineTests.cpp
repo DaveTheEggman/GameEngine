@@ -32,6 +32,7 @@ namespace
         FileDelete(u8"scratch_hfpipe_src.png");
         FileDelete(u8"scratch_hfpipe_out_db/hf.rasset");
         FileDelete(u8"scratch_hfpipe_out_db/hf.heights.bin");
+        FileDelete(u8"scratch_hfpipe_out_db/hf.holes.bin");
         RemoveDirectory(u8"scratch_hfpipe_out_db");
     }
 
@@ -104,6 +105,7 @@ TEST_CASE("heightfield.pipeline: a blank asset cooks a flat grid")
     CHECK(hf->MinY() == doctest::Approx(-2.0f));
     CHECK(hf->MaxY() == doctest::Approx(12.0f));
     CHECK(hf->GetSample(10, 10) == 0); // blank
+    CHECK_FALSE(hf->HasHoles());       // the hole stream is always cooked; a blank one is solid
 
     delete manager;
     delete db;
@@ -235,6 +237,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
         MakeRef<Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
     authored->SetSample(10, 12, 4321);
     authored->SetSample(33, 40, 60000);
+    authored->SetHole(20, 21, true); // a cut the hole brush persisted
 
     HeightfieldAsset asset; // fileName empty = embedded: the sidecar is the truth
     asset.size = 65;
@@ -248,8 +251,9 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
         pipeline::AssetBuildContext scanCtx{DefaultAllocator()};
         pipeline::AssetDependencies deps;
         builder.ScanDependencies(asset, scanCtx, deps);
-        REQUIRE(deps.sourceStreams.Size() == 1);
+        REQUIRE(deps.sourceStreams.Size() == 2);
         CHECK(deps.sourceStreams[0].AsView() == kHeightStream);
+        CHECK(deps.sourceStreams[1].AsView() == kHoleStream); // a hole edit re-cooks too
 
         HeightfieldAsset imported; // Asset is non-copyable; only fileName matters here
         imported.fileName = foundation::vfs::SourcePath(u8"some.png");
@@ -265,6 +269,7 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
         auto* inst = db.RootGroup()->CreateInstance(u8"hf", HeightfieldSource::StaticType());
         id = inst->Id();
         REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*authored)).IsOk());
+        REQUIRE(inst->WriteData(kHoleStream, HeightfieldSource::HoleBlob(*authored)).IsOk());
 
         HeightfieldAssetBuilder builder;
         NativeFileSystem srcMount(u8".", DefaultAllocator());
@@ -286,6 +291,8 @@ TEST_CASE("heightfield.pipeline: an embedded asset cooks from the authored heigh
     CHECK(hf->GetSample(10, 12) == 4321); // the sculpt survived the cook
     CHECK(hf->GetSample(33, 40) == 60000);
     CHECK(hf->GetSample(1, 1) == 0); // untouched samples stay flat
+    CHECK(hf->HoleCount() == 1u);   // and the cut survived the cook
+    CHECK(hf->IsHole(20, 21));
 
     RemoveTree();
 }

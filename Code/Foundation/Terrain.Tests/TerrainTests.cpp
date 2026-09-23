@@ -256,3 +256,73 @@ TEST_CASE("terrain: splat layer descriptor defaults")
     SplatLayer layer;
     CHECK(layer.tileScale == doctest::Approx(1.0f));
 }
+
+TEST_CASE("terrain: holed chunk indices drop every quad with a cut sample and the skirt under it; a cut on the boundary is seen by both chunks")
+{
+    // A 129 grid (2 x 2 chunks) over 128 m, flat; cut one sample on the boundary between chunk 0
+    // and chunk 1 (gx = 64) and one deep inside chunk 3.
+    RefPtr<hf::Heightfield> grid = MakeRef<hf::Heightfield>(
+        DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 10.0f);
+    grid->SetHole(64, 10, true); // shared edge sample of chunks 0 and 1
+    grid->SetHole(100, 100, true); // interior of chunk 3
+    Array<TerrainChunk> chunks;
+    BuildChunks(*grid, chunks);
+    REQUIRE(chunks.Size() == 4u);
+    CHECK(chunks[0].hasHoles);
+    CHECK(chunks[1].hasHoles);
+    CHECK_FALSE(chunks[2].hasHoles);
+    CHECK(chunks[3].hasHoles);
+    CHECK_FALSE(chunks[0].allCut);
+
+    // LOD 0 in chunk 0: the two quads touching sample (64,10) are gone (qx = 63, qz = 9 and 10),
+    // and the x = max skirt segments under them.
+    Array<u32> idx;
+    u32 surface = 0;
+    BuildHoledChunkIndices(*grid, chunks[0].gridX0, chunks[0].gridZ0, 0, idx, surface);
+    CHECK(surface == (64u * 64u - 2u) * 6u);
+    CHECK(idx.Size() == surface + (64u * 4u - 2u) * 12u); // 12 indices per skirt segment
+    // Chunk 1 sees the same sample on its x = 0 edge: its qx = 0, qz = 9 and 10 quads go too.
+    BuildHoledChunkIndices(*grid, chunks[1].gridX0, chunks[1].gridZ0, 0, idx, surface);
+    CHECK(surface == (64u * 64u - 2u) * 6u);
+    CHECK(idx.Size() == surface + (64u * 4u - 2u) * 12u); // 12 indices per skirt segment
+    // Chunk 3's interior cut removes four quads and no skirt segment.
+    BuildHoledChunkIndices(*grid, chunks[3].gridX0, chunks[3].gridZ0, 0, idx, surface);
+    CHECK(surface == (64u * 64u - 4u) * 6u);
+    CHECK(idx.Size() == surface + 64u * 4u * 12u);
+    // At LOD 6 (one quad per chunk) the cut removes the whole chunk's surface AND its skirt.
+    BuildHoledChunkIndices(*grid, chunks[3].gridX0, chunks[3].gridZ0, kMaxChunkLod, idx, surface);
+    CHECK(surface == 0u);
+    CHECK(idx.IsEmpty());
+    // At LOD 1 (stride 2) in chunk 3 the cut at (100,100) = local (36,36) sits on a quad corner:
+    // the four stride-2 quads around it go.
+    BuildHoledChunkIndices(*grid, chunks[3].gridX0, chunks[3].gridZ0, 1, idx, surface);
+    CHECK(surface == (32u * 32u - 4u) * 6u);
+    // A chunk with no holes reproduces the shared grid exactly.
+    Array<u32> shared;
+    BuildChunkGridIndices(0, shared);
+    BuildHoledChunkIndices(*grid, chunks[2].gridX0, chunks[2].gridZ0, 0, idx, surface);
+    REQUIRE(idx.Size() == shared.Size());
+    CHECK(surface == ChunkLodSurfaceIndexCount(0));
+    bool same = true;
+    for (usize i = 0; i < idx.Size(); ++i)
+    {
+        if (idx[i] != shared[i])
+        {
+            same = false;
+            break;
+        }
+    }
+    CHECK(same);
+    // Every sample cut: no surface, allCut.
+    for (i32 z = 0; z <= 64; ++z)
+    {
+        for (i32 x = 0; x <= 64; ++x)
+        {
+            grid->SetHole(x, z, true);
+        }
+    }
+    BuildChunks(*grid, chunks);
+    CHECK(chunks[0].allCut);
+    CHECK_FALSE(chunks[3].allCut);
+}
+

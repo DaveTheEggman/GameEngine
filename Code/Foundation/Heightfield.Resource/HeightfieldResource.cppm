@@ -28,6 +28,9 @@ export namespace foundation::heightfield
 {
     /// The name of the sidecar stream carrying the raw u16 samples.
     inline constexpr StringView kHeightStream = u8"heights";
+    /// The per-sample hole plane (one byte per sample, 0 solid / 255 cut), ALWAYS written beside
+    /// the heights (an all-zero plane is the common file; one layout, never optional).
+    inline constexpr StringView kHoleStream = u8"holes";
 
     /// Cooked heightfield METADATA: the grid parameters. The u16 sample bulk is NOT here - it rides
     /// the `kHeightStream` data stream (see the module doc).
@@ -66,25 +69,33 @@ export namespace foundation::heightfield
                                     samples.Size() * sizeof(Height));
         }
 
-        /// Build the runtime product from this metadata + the sidecar sample bytes. Returns an empty
-        /// grid if the cooked data is inconsistent (invalid size, or a blob that does not match
-        /// size*size*2) rather than a malformed grid.
-        // The runtime product is allocated from `allocator` (caller-owned).
-        [[nodiscard]] RefPtr<Heightfield> Build(Span<const byte> blob,
+        /// The hole plane bytes of a heightfield, to feed WriteData(kHoleStream, ...).
+        [[nodiscard]] static Span<const byte> HoleBlob(const Heightfield& hf) noexcept
+        {
+            const Span<const u8> holes = hf.Holes();
+            return Span<const byte>(reinterpret_cast<const byte*>(holes.Data()), holes.Size());
+        }
+
+        /// Build the runtime product from this metadata + the two sidecar streams. Returns an
+        /// empty grid if the cooked data is inconsistent (invalid size, a height blob that does
+        /// not match size*size*2, a hole blob that does not match size*size) rather than a
+        /// malformed grid. The runtime product is allocated from `allocator` (caller-owned).
+        [[nodiscard]] RefPtr<Heightfield> Build(Span<const byte> heightBlob, Span<const byte> holeBlob,
                                                 IAllocator& allocator) const
         {
             if (!IsValidSize(size))
             {
                 return MakeRef<Heightfield>(allocator);
             }
-            const usize expected = static_cast<usize>(size) * static_cast<usize>(size) * sizeof(Height);
-            if (blob.Size() != expected)
+            const usize samples = static_cast<usize>(size) * static_cast<usize>(size);
+            if (heightBlob.Size() != samples * sizeof(Height) || holeBlob.Size() != samples)
             {
                 return MakeRef<Heightfield>(allocator);
             }
             RefPtr<Heightfield> hf =
                 MakeRef<Heightfield>(allocator, size, worldSize, minY, maxY);
-            MemCopy(hf->Samples().Data(), blob.Data(), expected);
+            MemCopy(hf->Samples().Data(), heightBlob.Data(), samples * sizeof(Height));
+            (void)hf->SetHoles(Span<const u8>(reinterpret_cast<const u8*>(holeBlob.Data()), samples));
             return hf;
         }
     };
@@ -127,21 +138,28 @@ export namespace foundation::heightfield
             {
                 return RefPtr<Object>{};
             }
-            Array<u8> blob;
-            if (UniquePtr<IStream> stream = instance.ReadData(kHeightStream))
+            const auto readStream = [&](StringView name, Array<u8>& blob)
             {
-                const i64 size = stream->Size();
-                if (size > 0)
+                if (UniquePtr<IStream> stream = instance.ReadData(name))
                 {
-                    blob.Resize(static_cast<usize>(size));
-                    if (stream->Read(blob.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+                    const i64 size = stream->Size();
+                    if (size > 0)
                     {
-                        blob.Clear();
+                        blob.Resize(static_cast<usize>(size));
+                        if (stream->Read(blob.Data(), static_cast<u64>(size)) != static_cast<u64>(size))
+                        {
+                            blob.Clear();
+                        }
                     }
                 }
-            }
+            };
+            Array<u8> heights;
+            Array<u8> holes;
+            readStream(kHeightStream, heights);
+            readStream(kHoleStream, holes);
             return src->Build(
-                Span<const byte>(reinterpret_cast<const byte*>(blob.Data()), blob.Size()),
+                Span<const byte>(reinterpret_cast<const byte*>(heights.Data()), heights.Size()),
+                Span<const byte>(reinterpret_cast<const byte*>(holes.Data()), holes.Size()),
                 (*m_allocator));
         }
     
@@ -158,5 +176,7 @@ export namespace foundation::heightfield
         RegisterSerializable<HeightfieldSource>();
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(HeightfieldSource, "rtti::heightfield", 1)
+    // v2 (2026-09-23): the "holes" stream beside "heights" (the one-layout rule: every cooked
+    // heightfield carries both; a v1 product is refused and re-cooked, never migrated).
+    RTTI_DEFINE_OBJECT_VERSIONED(HeightfieldSource, "rtti::heightfield", 2)
 }

@@ -63,6 +63,7 @@ TEST_CASE("terrain.pipeline: TerrainAsset cooks to a Terrain that resolves the s
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         // Cook the terrain asset through the builder.
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
@@ -142,6 +143,7 @@ TEST_CASE("terrain.pipeline: per-layer normal + ORM ids round-trip; arrays built
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();
@@ -235,6 +237,7 @@ TEST_CASE("terrain.pipeline: no normal/ORM maps -> no arrays (compat)")
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();
@@ -297,6 +300,7 @@ TEST_CASE("terrain.pipeline: per-layer height ids + contrast round-trip; array b
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();
@@ -388,6 +392,7 @@ TEST_CASE("terrain.pipeline: per-layer mask ids round-trip; array built on deman
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();
@@ -470,6 +475,7 @@ TEST_CASE("terrain.pipeline: re-cooking WITHOUT a removed map DELETES its stale 
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());
         terrainId = tInst->Id();

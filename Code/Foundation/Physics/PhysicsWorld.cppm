@@ -88,6 +88,9 @@ export namespace foundation::physics
         Span<const f32> heightSamples;
         u32 heightSampleCount = 0;
         Float2 heightWorldSize{0.0f, 0.0f};
+        /// A height sample with NO surface (Jolt's cNoCollisionValue, FLT_MAX): every triangle
+        /// touching it is not collidable - the terrain holes rule (Specs/terrain-holes.md).
+        static constexpr f32 kNoCollisionHeight = 3.402823466e38f;
     };
 
     struct BodyDesc

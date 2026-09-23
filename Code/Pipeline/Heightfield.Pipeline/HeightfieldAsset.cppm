@@ -107,7 +107,9 @@ export namespace pipeline
         {
             return &HeightfieldSource::StaticType();
         }
-        [[nodiscard]] u32 Version() const override { return 2; } // re-cook: Heightfield -> HeightfieldSource
+        // v2: Heightfield -> HeightfieldSource. v3 (2026-09-23): the "holes" stream beside the
+        // heights (HeightfieldSource 2) - every heightfield re-cooks.
+        [[nodiscard]] u32 Version() const override { return 3; }
 
         // An EMBEDDED heightfield (fileName empty - page-created, or converted by a sculpt save)
         // reads the authored "heights" source stream - declare it so the recipe hash chains its
@@ -120,6 +122,7 @@ export namespace pipeline
             if (ha.fileName.View().IsEmpty())
             {
                 out.sourceStreams.PushBack(String(foundation::heightfield::kHeightStream));
+                out.sourceStreams.PushBack(String(foundation::heightfield::kHoleStream));
             }
         }
 
@@ -189,6 +192,23 @@ export namespace pipeline
                         }
                     }
                 }
+                // The authored "holes" sidecar (the hole brush's persist). Absent - a heightfield
+                // painted before holes existed - or mismatched leaves the plane solid.
+                if (UniquePtr<IStream> stream =
+                        ctx.source->ReadData(foundation::heightfield::kHoleStream))
+                {
+                    const i64 streamSize = stream->Size();
+                    if (streamSize == static_cast<i64>(size) * static_cast<i64>(size))
+                    {
+                        Array<u8> plane;
+                        plane.Resize(static_cast<usize>(streamSize));
+                        if (stream->Read(plane.Data(), static_cast<u64>(streamSize)) ==
+                            static_cast<u64>(streamSize))
+                        {
+                            (void)hf->SetHoles(Span<const u8>(plane.Data(), plane.Size()));
+                        }
+                    }
+                }
             }
 
             HeightfieldSource src;
@@ -198,8 +218,14 @@ export namespace pipeline
             {
                 return wrote;
             }
-            return ctx.output->WriteData(foundation::heightfield::kHeightStream,
-                                         HeightfieldSource::HeightBlob(*hf));
+            const Status heights = ctx.output->WriteData(foundation::heightfield::kHeightStream,
+                                                        HeightfieldSource::HeightBlob(*hf));
+            if (!heights.IsOk())
+            {
+                return heights;
+            }
+            return ctx.output->WriteData(foundation::heightfield::kHoleStream,
+                                         HeightfieldSource::HoleBlob(*hf)); // always: one layout
         }
     };
 

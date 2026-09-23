@@ -94,6 +94,7 @@ TEST_CASE("terrain resource: builds through the manager and resolves the shared 
         REQUIRE(hfInst->WriteObject(hfSrc).IsOk());
         REQUIRE(
             hfInst->WriteData(hf::kHeightStream, hf::HeightfieldSource::HeightBlob(*grid)).IsOk());
+        REQUIRE(hfInst->WriteData(hf::kHoleStream, hf::HeightfieldSource::HoleBlob(*grid)).IsOk()); // the cooked form's second stream
 
         // A terrain referencing that heightfield + a base + two (texture-less) palette layers.
         auto* tInst = db.RootGroup()->CreateInstance(u8"terrain", TerrainSource::StaticType());

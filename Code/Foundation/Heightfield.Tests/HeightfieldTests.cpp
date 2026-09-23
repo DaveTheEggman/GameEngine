@@ -299,3 +299,129 @@ TEST_CASE("heightfield sculpt: a brush entirely off-grid touches nothing")
     CHECK(r.IsEmpty());
     CHECK(h->Version() == v0); // no change -> no re-upload signal
 }
+
+// ---- holes (Specs/terrain-holes.md): a per-sample cut; a triangle with a hole vertex is gone ----
+
+TEST_CASE("heightfield holes: a fresh grid is solid; SetHole counts, SetHoles replaces and refuses a wrong size")
+{
+    RefPtr<Heightfield> h = MakeRampX();
+    CHECK_FALSE(h->HasHoles());
+    CHECK(h->HoleCount() == 0u);
+    CHECK(h->Holes().Size() == 65u * 65u);
+    h->SetHole(3, 3, true);
+    h->SetHole(3, 3, true); // idempotent: counted once
+    CHECK(h->HoleCount() == 1u);
+    CHECK(h->IsHole(3, 3));
+    CHECK(h->Holes()[3 + 3 * 65] == 255);
+    h->SetHole(3, 3, false);
+    CHECK_FALSE(h->HasHoles());
+    Array<u8> plane;
+    plane.Resize(65u * 65u);
+    plane[10] = 1; // any non-zero byte is a cut, normalised to 255
+    CHECK(h->SetHoles(Span<const u8>(plane.Data(), plane.Size())));
+    CHECK(h->HoleCount() == 1u);
+    CHECK(h->Holes()[10] == 255);
+    Array<u8> wrong;
+    wrong.Resize(9);
+    CHECK_FALSE(h->SetHoles(Span<const u8>(wrong.Data(), wrong.Size())));
+    CHECK(h->HoleCount() == 1u); // untouched by the refusal
+}
+
+TEST_CASE("heightfield holes: CellHasHole is any corner, BlockHasHole any sample in the block, both clamped")
+{
+    RefPtr<Heightfield> h = MakeRampX();
+    h->SetHole(10, 10, true);
+    // The four cells sharing sample (10,10) lose their triangles; a cell one away does not.
+    CHECK(h->CellHasHole(9, 9));
+    CHECK(h->CellHasHole(10, 10));
+    CHECK(h->CellHasHole(9, 10));
+    CHECK(h->CellHasHole(10, 9));
+    CHECK_FALSE(h->CellHasHole(11, 11));
+    CHECK_FALSE(h->CellHasHole(8, 8));
+    // A coarse block sees a cut anywhere inside it, including its interior.
+    CHECK(h->BlockHasHole(8, 8, 12, 12));
+    CHECK(h->BlockHasHole(10, 10, 10, 10));
+    CHECK_FALSE(h->BlockHasHole(11, 11, 20, 20));
+    CHECK_FALSE(h->BlockHasHole(0, 0, 9, 9));
+    // Past the grid the indices clamp: a cut on the last sample is seen from beyond it.
+    h->SetHole(64, 64, true);
+    CHECK(h->CellHasHole(64, 64));
+    CHECK(h->BlockHasHole(70, 70, 90, 90));
+    i32 cx = 0, cz = 0;
+    h->CellOfLocal(100.0f, 100.0f, cx, cz); // far outside: the last cell
+    CHECK(cx == 63);
+    CHECK(cz == 63);
+    h->CellOfLocal(-31.5f, -31.5f, cx, cz); // world (-32,-32) is sample (0,0): the first cell
+    CHECK(cx == 0);
+    CHECK(cz == 0);
+}
+
+TEST_CASE("heightfield holes: the cut brush has a hard edge, bumps the version once, reports the region; fill restores")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 100.0f);
+    const u64 v0 = h->Version();
+    const HeightfieldRegion region = CutHoles(*h, 0.0f, 0.0f, 3.0f); // 1 m cells: radius 3
+    CHECK_FALSE(region.IsEmpty());
+    CHECK(h->Version() == v0 + 1);
+    CHECK(h->HasHoles());
+    // The centre and a sample 2 m out are cut (inside); a sample 3 m out is on the rim: not.
+    CHECK(h->IsHole(64, 64));
+    CHECK(h->IsHole(66, 64));
+    CHECK_FALSE(h->IsHole(67, 64));
+    CHECK_FALSE(h->IsHole(64, 68));
+    // Every cut sample lies inside the reported rect.
+    for (i32 z = 0; z < 129; ++z)
+    {
+        for (i32 x = 0; x < 129; ++x)
+        {
+            if (h->IsHole(x, z))
+            {
+                CHECK(x >= region.minX);
+                CHECK(x <= region.maxX);
+                CHECK(z >= region.minZ);
+                CHECK(z <= region.maxZ);
+            }
+        }
+    }
+    // Cutting the same disc again changes nothing and bumps nothing.
+    (void)CutHoles(*h, 0.0f, 0.0f, 3.0f);
+    CHECK(h->Version() == v0 + 1);
+    // Fill restores and bumps once; a fill over solid ground bumps nothing.
+    (void)FillHoles(*h, 0.0f, 0.0f, 3.0f);
+    CHECK_FALSE(h->HasHoles());
+    CHECK(h->Version() == v0 + 2);
+    (void)FillHoles(*h, 0.0f, 0.0f, 3.0f);
+    CHECK(h->Version() == v0 + 2);
+    // A disc past the edge marks the edge samples and never wraps.
+    (void)CutHoles(*h, 64.0f, 64.0f, 2.0f);
+    CHECK(h->IsHole(128, 128));
+    CHECK_FALSE(h->IsHole(0, 0));
+}
+
+TEST_CASE("heightfield holes: a ray through a cut cell misses and one beside it hits; an entry under a cut is no hit")
+{
+    RefPtr<Heightfield> h =
+        MakeRef<Heightfield>(DefaultAllocator(), 65, Float2{64.0f, 64.0f}, 0.0f, 10.0f);
+    for (i32 z = 0; z < 65; ++z)
+    {
+        for (i32 x = 0; x < 65; ++x)
+        {
+            h->SetSample(x, z, 32768); // a flat field at ~5 m
+        }
+    }
+    f32 t = 0.0f;
+    REQUIRE(h->QueryRay(Float3{0.0f, 20.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t));
+    (void)CutHoles(*h, 0.0f, 0.0f, 2.5f); // a hole around the origin (1 m cells)
+    CHECK_FALSE(h->QueryRay(Float3{0.0f, 20.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t)); // through it
+    REQUIRE(h->QueryRay(Float3{10.0f, 20.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t));   // beside it
+    CHECK(Near(20.0f - t, 5.0f, 5.0e-2f));
+    // An angled ray that crosses the surface inside the cut goes on and lands where the field
+    // is solid again (past the hole's rim on the far side).
+    REQUIRE(h->QueryRay(Float3{-6.0f, 5.5f, 0.0f}, Float3{1.0f, -0.05f, 0.0f}, t));
+    const f32 hitX = -6.0f + t * (1.0f / Sqrt(1.0f + 0.05f * 0.05f));
+    CHECK(hitX > 2.5f); // not inside the cut
+    // Starting UNDER the surface inside the cut (a cave) is no hit at the entry.
+    CHECK_FALSE(h->QueryRay(Float3{0.0f, 2.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, t));
+}
+

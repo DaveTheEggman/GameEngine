@@ -282,6 +282,39 @@ TEST_CASE("editor.navigation: terrain contributes walkable surface to the bake")
                      Float3{10, 2, 0}));
 }
 
+TEST_CASE("editor.navigation: a terrain hole is no walkable surface - a strip across the zone blocks the path")
+{
+    // The terrain holes rule (Specs/terrain-holes.md): a stride block with a cut sample is left
+    // out of the bake, so the navmesh opens there. A strip of cut samples across the whole
+    // zone leaves the agent no way from one side to the other.
+    RefPtr<foundation::terrain::TerrainResource> terrain =
+        MakeTerrain(0.0f, 10.0f, 32.0f, [](i32, i32) { return 2.0f; });
+    usize solidTriangles = 0;
+    Array<byte> solid = BakeTerrainZone(terrain, Float3{14, 8, 14}, solidTriangles);
+    REQUIRE(!solid.IsEmpty());
+    REQUIRE(PathAcross(Span<const byte>(solid.Data(), solid.Size()), Float3{-10, 2, 0},
+                       Float3{10, 2, 0}));
+
+    foundation::heightfield::Heightfield* field = terrain->heightfield.Get();
+    REQUIRE(field != nullptr);
+    for (i32 gz = 0; gz < field->Size(); ++gz) // the strip: samples 30..34 (x ~ -1..1 m) at every z
+    {
+        for (i32 gx = 30; gx <= 34; ++gx)
+        {
+            field->SetHole(gx, gz, true);
+        }
+    }
+    usize holedTriangles = 0;
+    Array<byte> holed = BakeTerrainZone(terrain, Float3{14, 8, 14}, holedTriangles);
+    CHECK(holedTriangles < solidTriangles); // the strip's blocks are gone
+    REQUIRE(!holed.IsEmpty());
+    CHECK_FALSE(PathAcross(Span<const byte>(holed.Data(), holed.Size()), Float3{-10, 2, 0},
+                           Float3{10, 2, 0}));
+    // Both halves stay walkable on their own side.
+    CHECK(PathAcross(Span<const byte>(holed.Data(), holed.Size()), Float3{-10, 2, -5},
+                     Float3{-10, 2, 5}));
+}
+
 TEST_CASE("editor.navigation: an agent paths across sloped terrain")
 {
     // A gentle ramp: ~4 units of rise over the 32-unit footprint (~7 degrees).

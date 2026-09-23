@@ -123,6 +123,58 @@ TEST_CASE("physics: a heightfield collider - a sphere rests on it, off-footprint
     CHECK(position.y < 0.0f); // fell past the surface level: no collision off-footprint
 }
 
+TEST_CASE("physics: a heightfield hole - a sphere over the cut falls through, one beside it rests")
+{
+    // The terrain holes rule (Specs/terrain-holes.md): a sample at kNoCollisionHeight removes
+    // every triangle touching it, exactly as the renderer removes them.
+    PhysicsWorld world(DefaultAllocator());
+    const u32 n = 65;
+    Array<f32> samples;
+    samples.Resize(static_cast<usize>(n) * n, 2.0f);
+    for (u32 z = 30; z <= 34; ++z)
+    {
+        for (u32 x = 30; x <= 34; ++x)
+        {
+            samples[static_cast<usize>(z) * n + x] = ShapeDesc::kNoCollisionHeight; // a 5x5 cut at the centre
+        }
+    }
+    BodyDesc ground;
+    ground.motion = MotionKind::Static;
+    ground.layer = PhysicsLayer::Static;
+    ShapeDesc hf;
+    hf.kind = ShapeKind::Heightfield;
+    hf.heightSamples = Span<const f32>(samples.Data(), samples.Size());
+    hf.heightSampleCount = n;
+    hf.heightWorldSize = Float2{64.0f, 64.0f};
+    ground.shapes.PushBack(hf);
+    REQUIRE(world.CreateBody(ground).IsValid());
+
+    const auto drop = [&](Float3 at)
+    {
+        BodyDesc body;
+        ShapeDesc sphere;
+        sphere.kind = ShapeKind::Sphere;
+        sphere.radius = 0.5f;
+        body.shapes.PushBack(sphere);
+        body.position = at;
+        return world.CreateBody(body);
+    };
+    const BodyId through = drop(Float3{0.0f, 10.0f, 0.0f});   // over the cut (sample 32,32)
+    const BodyId beside = drop(Float3{20.0f, 10.0f, 0.0f});   // solid ground
+    REQUIRE(through.IsValid());
+    REQUIRE(beside.IsValid());
+    for (int i = 0; i < 240; ++i)
+    {
+        world.Step(1.0f / 60.0f);
+    }
+    Float3 position;
+    Quaternion rotation;
+    world.GetBodyTransform(beside, position, rotation);
+    CHECK(position.y == doctest::Approx(2.5f).epsilon(0.1)); // rests on the surface
+    world.GetBodyTransform(through, position, rotation);
+    CHECK(position.y < 0.0f); // fell through the hole
+}
+
 TEST_CASE("physics: static-static never pairs; dynamic collides with static")
 {
     PhysicsWorld world(DefaultAllocator());

@@ -206,6 +206,74 @@ TEST_CASE("terrain renderer: visible chunks draw (extract -> Resolve -> per-LOD 
     heightCache.Clear(harness.device); // GPU objects back to the device before it dies
 }
 
+TEST_CASE("terrain renderer: a chunk cut everywhere draws nothing; a holed chunk draws its own buffers")
+{
+    RenderHarness harness;
+    if (!harness.Init(256, 256))
+    {
+        MESSAGE("DXC/Null unavailable; skipping");
+        return;
+    }
+    shaders::ShaderSystem shaderSystem(*harness.compiler, harness.device);
+    WireEngineShaders(shaderSystem);
+    engine::terrain::TerrainRenderer renderer(harness.device, shaderSystem, /*framesInFlight*/ 2);
+    REQUIRE(renderer.Initialize().IsOk());
+    RendererRegistry registry;
+    registry.Register(&renderer);
+    RenderFrame frame(DefaultAllocator(), harness.device, registry, /*framesInFlight*/ 2);
+
+    RefPtr<hf::Heightfield> h = MakeRampX();
+    // Chunk 0 (samples 0..64 x 0..64) cut everywhere; chunk 3 with one cut sample inside.
+    for (i32 z = 0; z <= 64; ++z)
+    {
+        for (i32 x = 0; x <= 64; ++x)
+        {
+            h->SetHole(x, z, true);
+        }
+    }
+    h->SetHole(100, 100, true);
+    Array<tmodel::TerrainChunk> chunks;
+    tmodel::BuildChunks(*h, chunks);
+    REQUIRE(chunks.Size() == 4u);
+    REQUIRE(chunks[0].allCut);
+    REQUIRE(chunks[3].hasHoles);
+    tmodel::TerrainQuadtree tree;
+    tree.Build(Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+               tmodel::ChunksPerSide(h->Size()));
+    engine::terrain::TerrainHeightTextureCache heightCache;
+    rhi::TextureView* heightView = heightCache.GetOrCreate(harness.device, *h, 1);
+    REQUIRE(heightView != nullptr);
+    engine::terrain::TerrainHoledMeshCache holedCache;
+    const Span<const engine::terrain::HoledChunkMesh> holed = holedCache.GetOrBuild(
+        harness.device, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()}, 1);
+    // Chunks 1 and 2 share cut edge samples with chunk 0, so they are holed too: 3 records, none
+    // for the all-cut chunk.
+    CHECK(holed.Size() == 3u);
+    CHECK(holedCache.MeshCount(h->uid) == 3u);
+
+    ExtractedScene scene{DefaultAllocator()};
+    engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
+    REQUIRE(rd != nullptr);
+    FillTerrainRenderData(*rd, *h, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()},
+                          tree, heightView, renderer.RendererId());
+    rd->holedMeshes = holed.Data();
+    rd->holedMeshCount = static_cast<u32>(holed.Size());
+
+    ViewCamera camera;
+    camera.view = Float4x4::LookAtRH(Float3{0.0f, 300.0f, 0.1f}, Float3{0.0f, 0.0f, 0.0f},
+                                     Float3{0.0f, 0.0f, 1.0f});
+    camera.projection = Float4x4::PerspectiveFovRH(1.2f, 1.0f, 1.0f, 2000.0f);
+    ViewSettings settings;
+    frame.Begin(*harness.encoder, 0);
+    frame.AddView(scene, camera, settings, harness.colorView, rhi::TextureFormat::BGRA8Unorm, 256,
+                  256);
+    frame.End();
+    CHECK(renderer.MaxChunksDrawn() == 3u); // the all-cut chunk is absent; the holed ones draw
+    holedCache.Clear(harness.device);
+    CHECK(holedCache.MeshCount(h->uid) == 0u);
+    heightCache.Clear(harness.device);
+}
+
 TEST_CASE("terrain renderer: nothing drawn when the terrain is off-screen")
 {
     RenderHarness harness;

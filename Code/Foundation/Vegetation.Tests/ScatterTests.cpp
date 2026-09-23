@@ -600,3 +600,48 @@ TEST_CASE("vegetation stamp: a seeded stamp places a deterministic count inside 
     CHECK(veg::ScatterStamp(1, *grid, rocks, rock, 0, 0, 0.0f, 1.0f, 1.0f, 0.0f, {}, {}, none).candidates == 0u);
     CHECK(veg::ScatterStamp(1, *grid, rocks, rock, 0, 0, 5.0f, 0.0f, 1.0f, 0.0f, {}, {}, none).candidates == 0u);
 }
+
+TEST_CASE("vegetation holes: nothing grows or stands over a cut cell - the scatter and the stamp both reject it")
+{
+    // Specs/terrain-holes.md: a cut cell has no surface. A Uniform layer over a flat field with a
+    // disc cut out of its middle places no instance inside the disc, and a prop stamp centred on
+    // the cut places none there either.
+    RefPtr<hf::Heightfield> grid = MakeFlat(5.0f);
+    (void)hf::CutHoles(*grid, 0.0f, 0.0f, 8.0f); // 1 m cells: a 16 m wide cut at the centre
+    REQUIRE(grid->HasHoles());
+    veg::ScatterLayer layer;
+    layer.placement = veg::VegetationPlacement::Uniform;
+    layer.density = 1.0f;
+    layer.maxSlopeDegrees = 90.0f;
+    veg::ScatterResult result;
+    veg::ScatterChunk(1234u, ChunkOf(*grid), *grid, nullptr, nullptr, layer,
+                      AABB::FromCenterExtents(Float3{0, 0, 0}, Float3{0.5f, 0.5f, 0.5f}), result);
+    REQUIRE(result.transforms.Size() > 100u); // the field around the cut still grows
+    for (const Float4x4& m : result.transforms)
+    {
+        const f32 x = m.m[3][0];
+        const f32 z = m.m[3][2];
+        // Inside the cut, allowing the one-cell rim a corner sample removes.
+        CHECK(Sqrt(x * x + z * z) > 8.0f - 1.5f);
+    }
+    // The share itself reads zero over the cut and one beside it.
+    CHECK(veg::PlacementShareAt(layer, *grid, nullptr, nullptr, 0.0f, 0.0f) == 0.0f);
+    CHECK(veg::PlacementShareAt(layer, *grid, nullptr, nullptr, 20.0f, 20.0f) == 1.0f);
+
+    // A prop stamp over the cut places nothing; the same stamp beside it does.
+    Array<Float4x4> existing;
+    Array<Float4x4> placed;
+    veg::StampResult stampOver = veg::ScatterStamp(
+        7u, *grid, layer, AABB::FromCenterExtents(Float3{0, 0, 0}, Float3{0.5f, 0.5f, 0.5f}), 0.0f,
+        0.0f, 3.0f, 2.0f, 1.0f, 0.0f, Span<const Float4x4>{existing.Data(), existing.Size()},
+        {}, placed);
+    CHECK(placed.IsEmpty());
+    CHECK(stampOver.rejectedRules > 0u);
+    veg::StampResult stampBeside = veg::ScatterStamp(
+        7u, *grid, layer, AABB::FromCenterExtents(Float3{0, 0, 0}, Float3{0.5f, 0.5f, 0.5f}), 20.0f,
+        20.0f, 3.0f, 2.0f, 1.0f, 0.0f, Span<const Float4x4>{existing.Data(), existing.Size()},
+        {}, placed);
+    CHECK(placed.Size() > 0u);
+    CHECK(stampBeside.rejectedRules == 0u);
+}
+

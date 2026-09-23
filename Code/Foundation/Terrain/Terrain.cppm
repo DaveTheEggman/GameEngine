@@ -149,6 +149,90 @@ export namespace foundation::terrain
         }
     }
 
+    /// The indices of ONE holed chunk at `lod` (Specs/terrain-holes.md): the same walk as
+    /// BuildChunkGridIndices with every quad dropped whose sample block (the stride-square it
+    /// spans, interior included) holds a cut sample - a hole never shrinks with distance - and
+    /// every skirt segment dropped whose border quad was, so no wall hangs under a cut rim. The
+    /// surface prefix count (the depth / pick draw range) comes back in `outSurfaceIndexCount`.
+    /// Neighbours share the edge samples, so both sides make the same call about a rim.
+    inline void BuildHoledChunkIndices(const heightfield::Heightfield& hf, i32 gridX0, i32 gridZ0,
+                                       u32 lod, Array<u32>& out, u32& outSurfaceIndexCount)
+    {
+        out.Clear();
+        outSurfaceIndexCount = 0;
+        if (lod > kMaxChunkLod)
+        {
+            return;
+        }
+        const i32 stride = 1 << lod;
+        const i32 quads = kChunkQuads / stride;
+        const auto quadKept = [&](i32 qx, i32 qz)
+        {
+            const i32 x0 = gridX0 + qx * stride;
+            const i32 z0 = gridZ0 + qz * stride;
+            return !hf.BlockHasHole(x0, z0, x0 + stride, z0 + stride);
+        };
+        out.Reserve(static_cast<usize>(quads) * quads * 6 + static_cast<usize>(quads) * 4 * 6);
+        for (i32 qz = 0; qz < quads; ++qz)
+        {
+            for (i32 qx = 0; qx < quads; ++qx)
+            {
+                if (!quadKept(qx, qz))
+                {
+                    continue;
+                }
+                const i32 x0 = qx * stride;
+                const i32 z0 = qz * stride;
+                const i32 x1 = x0 + stride;
+                const i32 z1 = z0 + stride;
+                const u32 v00 = static_cast<u32>(z0 * kChunkVerts + x0);
+                const u32 v10 = static_cast<u32>(z0 * kChunkVerts + x1);
+                const u32 v01 = static_cast<u32>(z1 * kChunkVerts + x0);
+                const u32 v11 = static_cast<u32>(z1 * kChunkVerts + x1);
+                out.PushBack(v00);
+                out.PushBack(v01);
+                out.PushBack(v11);
+                out.PushBack(v00);
+                out.PushBack(v11);
+                out.PushBack(v10);
+            }
+        }
+        outSurfaceIndexCount = static_cast<u32>(out.Size());
+
+        const auto surf = [](i32 x, i32 z) { return static_cast<u32>(z * kChunkVerts + x); };
+        const auto skirt = [&surf](i32 x, i32 z) { return surf(x, z) + kChunkSurfaceVertexCount; };
+        const auto wall = [&out](u32 t0, u32 t1, u32 b0, u32 b1)
+        {
+            out.PushBack(t0); out.PushBack(b0); out.PushBack(b1);
+            out.PushBack(t0); out.PushBack(b1); out.PushBack(t1);
+            out.PushBack(t0); out.PushBack(b1); out.PushBack(b0);
+            out.PushBack(t0); out.PushBack(t1); out.PushBack(b1);
+        };
+        for (i32 q = 0; q < quads; ++q)
+        {
+            const i32 i = q * stride;
+            const i32 j = i + stride;
+            if (quadKept(q, 0)) // z = 0 edge: under the first row's quads
+            {
+                wall(surf(i, 0), surf(j, 0), skirt(i, 0), skirt(j, 0));
+            }
+            if (quadKept(q, quads - 1)) // z = max edge
+            {
+                wall(surf(i, kChunkQuads), surf(j, kChunkQuads), skirt(i, kChunkQuads),
+                     skirt(j, kChunkQuads));
+            }
+            if (quadKept(0, q)) // x = 0 edge
+            {
+                wall(surf(0, i), surf(0, j), skirt(0, i), skirt(0, j));
+            }
+            if (quadKept(quads - 1, q)) // x = max edge
+            {
+                wall(surf(kChunkQuads, i), surf(kChunkQuads, j), skirt(kChunkQuads, i),
+                     skirt(kChunkQuads, j));
+            }
+        }
+    }
+
     /// One terrain chunk: its position in the chunk grid, the grid origin of its sample block, and
     /// its LOCAL-space bounds (the renderer/physics apply the entity transform).
     struct TerrainChunk
@@ -158,6 +242,11 @@ export namespace foundation::terrain
         i32 gridX0 = 0; // sample-grid origin (covers [gridX0, gridX0+64] x [gridZ0, gridZ0+64])
         i32 gridZ0 = 0;
         AABB bounds = AABB::Empty();
+        // A cut sample in the chunk's block (edges shared with the neighbours): this chunk draws
+        // its OWN index buffers (BuildHoledChunkIndices) instead of the shared grid's. When every
+        // sample is cut the chunk has no surface at all (allCut) and is not drawn.
+        bool hasHoles = false;
+        bool allCut = false;
     };
 
     /// Build the k x k chunk grid from a heightfield: each chunk's XZ footprint from the world
@@ -186,6 +275,23 @@ export namespace foundation::terrain
                 chunk.gridZ0 = gz0;
                 chunk.bounds.min = Float3{w0.x, minY, w0.y};
                 chunk.bounds.max = Float3{w1.x, maxY, w1.y};
+                chunk.hasHoles = hf.BlockHasHole(gx0, gz0, gx0 + kChunkQuads, gz0 + kChunkQuads);
+                if (chunk.hasHoles)
+                {
+                    bool all = true;
+                    for (i32 gz = gz0; gz <= gz0 + kChunkQuads && all; ++gz)
+                    {
+                        for (i32 gx = gx0; gx <= gx0 + kChunkQuads; ++gx)
+                        {
+                            if (!hf.IsHole(gx, gz))
+                            {
+                                all = false;
+                                break;
+                            }
+                        }
+                    }
+                    chunk.allCut = all;
+                }
                 out.PushBack(chunk);
             }
         }

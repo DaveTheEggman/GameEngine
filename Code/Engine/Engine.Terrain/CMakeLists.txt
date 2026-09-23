@@ -17,6 +17,7 @@ target_sources(Engine.Terrain
     PUBLIC
         FILE_SET engineterrain_modules TYPE CXX_MODULES FILES
             HeightTexture.cppm
+            HoledChunkMesh.cppm
             SplatTexture.cppm
             TerrainRenderData.cppm
             TerrainComponents.cppm

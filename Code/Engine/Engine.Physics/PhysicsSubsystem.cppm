@@ -760,10 +760,13 @@ export namespace engine::physics
                         heightBuffers.PushBack(Array<f32>{});
                         Array<f32>& buf = heightBuffers[heightBuffers.Size() - 1];
                         const Span<const foundation::heightfield::Height> src = hf->Samples();
+                        const Span<const u8> holes = hf->Holes(); // a cut sample has no surface
                         buf.Resize(src.Size());
                         for (usize i = 0; i < src.Size(); ++i)
                         {
-                            buf[i] = hf->SampleToWorldY(static_cast<f32>(src[i]));
+                            buf[i] = (i < holes.Size() && holes[i] != 0)
+                                         ? ShapeDesc::kNoCollisionHeight
+                                         : hf->SampleToWorldY(static_cast<f32>(src[i]));
                         }
                         s.heightSamples = Span<const f32>(buf.Data(), buf.Size());
                         s.heightSampleCount = static_cast<u32>(n);

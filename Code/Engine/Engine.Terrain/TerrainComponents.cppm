@@ -29,6 +29,7 @@ import foundation.texture.resource; // texture::Texture::View() (splatmap + laye
 import :heighttexture;              // TerrainHeightTextureCache
 import :splattexture;               // TerrainSplatTextureCache (RGBA8 splat, paint re-upload)
 import :renderdata;                 // TerrainRenderData
+import :holedmesh;                  // TerrainHoledMeshCache (Specs/terrain-holes.md)
 
 using namespace foundation::core;
 
@@ -91,6 +92,7 @@ export namespace engine::terrain
             m_heightTextures.SetRetireQueue(retire);
             m_splatTextures.SetRetireQueue(retire);
             m_paletteTextures.SetRetireQueue(retire);
+            m_holedMeshes.SetRetireQueue(retire);
         }
 
         /// Tear down this manager's GPU-side state THROUGH the wired device - called by the
@@ -105,11 +107,17 @@ export namespace engine::terrain
                 m_heightTextures.Clear(*m_device);
                 m_splatTextures.Clear(*m_device);
                 m_paletteTextures.Clear(*m_device);
+                m_holedMeshes.Clear(*m_device);
             }
             m_device = nullptr;
         }
 
         [[nodiscard]] usize HeightTextureCount() const noexcept { return m_heightTextures.Size(); }
+        /// Holed chunk meshes cached for a heightfield (the holes test observable).
+        [[nodiscard]] usize HoledMeshCount(u64 heightfieldUid) const noexcept
+        {
+            return m_holedMeshes.MeshCount(heightfieldUid);
+        }
         [[nodiscard]] usize SplatTextureCount() const noexcept { return m_splatTextures.Size(); }
         [[nodiscard]] usize PaletteTextureCount() const noexcept
         {
@@ -167,6 +175,13 @@ export namespace engine::terrain
                     {
                         return; // arena exhausted: skip rather than snapshot dangling state
                     }
+                    // Holed chunks' own index buffers (none for the common terrain), copied too.
+                    const Span<const HoledChunkMesh> holed = m_holedMeshes.GetOrBuild(
+                        *m_device, *hf,
+                        Span<const tmodel::TerrainChunk>{cache.chunks.Data(), cache.chunks.Size()},
+                        hf->Version());
+                    const Span<const HoledChunkMesh> holedCopy =
+                        holed.IsEmpty() ? Span<const HoledChunkMesh>{} : snapshot.AddArray(holed);
 
                     TerrainRenderData* rd = snapshot.Add<TerrainRenderData>();
                     if (rd == nullptr)
@@ -181,6 +196,8 @@ export namespace engine::terrain
                     rd->chunkCount = static_cast<u32>(chunkCopy.Size());
                     rd->nodeCount = static_cast<u32>(nodeCopy.Size());
                     rd->heightView = heightView;
+                    rd->holedMeshes = holedCopy.Data();
+                    rd->holedMeshCount = static_cast<u32>(holedCopy.Size());
                     rd->chunkToWorld = (m_scene != nullptr) ? m_scene->GetWorldMatrix(owner)
                                                             : Float4x4::Identity();
                     rd->gridSize = hf->Size();
@@ -308,6 +325,7 @@ export namespace engine::terrain
         TerrainHeightTextureCache m_heightTextures;
         TerrainSplatTextureCache m_splatTextures;
         TerrainPaletteTextureCache m_paletteTextures;
+        TerrainHoledMeshCache m_holedMeshes; // holed chunks' index buffers (Specs/terrain-holes.md)
         HashMap<u64, ChunkCache> m_chunkCache; // key = Heightfield::uid (never a pointer)
     };
 

@@ -81,6 +81,16 @@ namespace foundation::vegetation
                          const terrain::SplatWeights* splat, const VegetationMask* mask,
                          f32 localX, f32 localZ) noexcept
     {
+        if (heightfield.HasHoles()) // a cut cell has no surface: nothing grows there
+        {
+            i32 cx = 0;
+            i32 cz = 0;
+            heightfield.CellOfLocal(localX, localZ, cx, cz);
+            if (heightfield.CellHasHole(cx, cz))
+            {
+                return 0.0f;
+            }
+        }
         switch (layer.placement)
         {
         case VegetationPlacement::Uniform:
@@ -274,6 +284,17 @@ namespace foundation::vegetation
             {
                 ++result.rejectedRules;
                 continue;
+            }
+            if (heightfield.HasHoles()) // no prop stands over a cut cell
+            {
+                i32 cx = 0;
+                i32 cz = 0;
+                heightfield.CellOfLocal(x, z, cx, cz);
+                if (heightfield.CellHasHole(cx, cz))
+                {
+                    ++result.rejectedRules;
+                    continue;
+                }
             }
             const f32 reach = Max(spacing, 0.0f) * meshRadius * scale;
             if (reach > 0.0f && tooClose(x, z, reach))

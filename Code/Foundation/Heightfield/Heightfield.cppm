@@ -74,6 +74,7 @@ export namespace foundation::heightfield
             : m_size(size), m_worldSize(worldSize), m_minY(minY), m_maxY(maxY)
         {
             m_samples.Resize(static_cast<usize>(size) * static_cast<usize>(size), Height{0});
+            m_holes.Resize(static_cast<usize>(size) * static_cast<usize>(size), u8{0});
         }
 
         [[nodiscard]] bool IsEmpty() const noexcept { return m_size <= 0; }
@@ -101,6 +102,97 @@ export namespace foundation::heightfield
         [[nodiscard]] Span<Height> Samples() noexcept
         {
             return Span<Height>{m_samples.Data(), m_samples.Size()};
+        }
+
+        // ---- holes: a per-SAMPLE cut (Specs/terrain-holes.md) ------------------------------
+        // The ONE rule every consumer applies: a triangle with a hole vertex is removed - the
+        // renderer's chunk indices, Jolt's no-collision sample, the nav bake's blocks, the
+        // vegetation's placement and QueryRay all read the same plane. A byte per sample,
+        // 0 = solid, 255 = cut, laid out like the heights; the plane is the "holes" stream of the
+        // cooked form. The count keeps every consumer's "no holes here" O(1).
+        [[nodiscard]] bool IsHole(i32 gx, i32 gz) const noexcept
+        {
+            return m_holes[Index(gx, gz)] != 0;
+        }
+        void SetHole(i32 gx, i32 gz, bool hole) noexcept
+        {
+            u8& h = m_holes[Index(gx, gz)];
+            if ((h != 0) == hole)
+            {
+                return;
+            }
+            h = hole ? u8{255} : u8{0};
+            if (hole)
+            {
+                ++m_holeCount;
+            }
+            else
+            {
+                --m_holeCount;
+            }
+        }
+        [[nodiscard]] Span<const u8> Holes() const noexcept
+        {
+            return Span<const u8>{m_holes.Data(), m_holes.Size()};
+        }
+        /// Replace the whole plane (the cooked "holes" stream); a blob of any other size is
+        /// refused (false) and the plane is left as it was.
+        bool SetHoles(Span<const u8> plane) noexcept
+        {
+            if (plane.Size() != m_holes.Size())
+            {
+                return false;
+            }
+            m_holeCount = 0;
+            for (usize i = 0; i < plane.Size(); ++i)
+            {
+                m_holes[i] = plane[i] != 0 ? u8{255} : u8{0};
+                m_holeCount += plane[i] != 0 ? 1u : 0u;
+            }
+            return true;
+        }
+        [[nodiscard]] u32 HoleCount() const noexcept { return m_holeCount; }
+        [[nodiscard]] bool HasHoles() const noexcept { return m_holeCount != 0; }
+        /// The cell (cx, cz) - the quad between samples cx..cx+1, cz..cz+1 - has a cut corner:
+        /// both of its triangles are gone. Indices clamp like every other accessor.
+        [[nodiscard]] bool CellHasHole(i32 cx, i32 cz) const noexcept
+        {
+            if (m_holeCount == 0)
+            {
+                return false;
+            }
+            return IsHole(cx, cz) || IsHole(cx + 1, cz) || IsHole(cx, cz + 1) || IsHole(cx + 1, cz + 1);
+        }
+        /// Any cut sample in the inclusive block [gx0, gx1] x [gz0, gz1]: the coarse-LOD quad and
+        /// the nav bake's stride block ask this (a hole never shrinks with distance).
+        [[nodiscard]] bool BlockHasHole(i32 gx0, i32 gz0, i32 gx1, i32 gz1) const noexcept
+        {
+            if (m_holeCount == 0)
+            {
+                return false;
+            }
+            const i32 x0 = Clamp(gx0, 0, m_size - 1);
+            const i32 x1 = Clamp(gx1, 0, m_size - 1);
+            const i32 z0 = Clamp(gz0, 0, m_size - 1);
+            const i32 z1 = Clamp(gz1, 0, m_size - 1);
+            for (i32 gz = z0; gz <= z1; ++gz)
+            {
+                for (i32 gx = x0; gx <= x1; ++gx)
+                {
+                    if (m_holes[Index(gx, gz)] != 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        /// The cell a local XZ position lies in (clamped to the grid's cells).
+        void CellOfLocal(f32 localX, f32 localZ, i32& outCx, i32& outCz) const noexcept
+        {
+            const Float2 g = WorldToGrid(localX, localZ);
+            outCx = Clamp(static_cast<i32>(Floor(g.x)), 0, m_size - 2);
+            outCz = Clamp(static_cast<i32>(Floor(g.y)), 0, m_size - 2);
         }
 
         // ---- quantization (sample <-> world Y) ----
@@ -226,7 +318,7 @@ export namespace foundation::heightfield
 
             f32 tPrev = t0;
             f32 diffPrev = SignedGap(origin, dir, t0);
-            if (diffPrev <= 0.0f) // already at/under the surface at entry
+            if (diffPrev <= 0.0f && !HoleAt(origin, dir, t0)) // already at/under the surface at entry
             {
                 outT = t0;
                 return true;
@@ -235,7 +327,7 @@ export namespace foundation::heightfield
             {
                 const f32 tc = t < t1 ? t : t1;
                 const f32 diff = SignedGap(origin, dir, tc);
-                if (diff <= 0.0f) // crossed the surface between tPrev and tc
+                if (diffPrev > 0.0f && diff <= 0.0f) // crossed the surface between tPrev and tc
                 {
                     f32 lo = tPrev;
                     f32 hi = tc;
@@ -251,8 +343,15 @@ export namespace foundation::heightfield
                             hi = mid;
                         }
                     }
-                    outT = 0.5f * (lo + hi);
-                    return true;
+                    const f32 hit = 0.5f * (lo + hi);
+                    // A crossing inside a cut cell is no surface: the ray passes through to
+                    // whatever sits below (a cave floor, the physics world) and the march goes
+                    // on, needing to come back ABOVE the field before another crossing counts.
+                    if (!HoleAt(origin, dir, hit))
+                    {
+                        outT = hit;
+                        return true;
+                    }
                 }
                 tPrev = tc;
                 diffPrev = diff;
@@ -270,6 +369,19 @@ export namespace foundation::heightfield
             const i32 cx = Clamp(gx, 0, m_size - 1);
             const i32 cz = Clamp(gz, 0, m_size - 1);
             return static_cast<usize>(cx) + static_cast<usize>(cz) * static_cast<usize>(m_size);
+        }
+
+        // The cell under the ray point at distance t has a cut corner (no surface there).
+        [[nodiscard]] bool HoleAt(Float3 origin, Float3 dir, f32 t) const noexcept
+        {
+            if (m_holeCount == 0)
+            {
+                return false;
+            }
+            i32 cx = 0;
+            i32 cz = 0;
+            CellOfLocal(origin.x + dir.x * t, origin.z + dir.z * t, cx, cz);
+            return CellHasHole(cx, cz);
         }
 
         // Ray height above the surface at distance t (positive above, negative below).
@@ -340,6 +452,8 @@ export namespace foundation::heightfield
         f32 m_maxY = 0.0f;
         u64 m_version = 1; // edit generation (BumpVersion) for GPU-cache invalidation
         Array<Height> m_samples;
+        Array<u8> m_holes;   // the per-sample cut plane (0 solid, 255 cut), same layout as the heights
+        u32 m_holeCount = 0; // cut samples: every consumer's O(1) "nothing to do here"
     };
 
     // ---- sculpt brushes (pure sample math; the editor sculpt tool wraps these) ------------------
@@ -497,4 +611,45 @@ export namespace foundation::heightfield
     }
 
     RTTI_DEFINE_OBJECT(Heightfield, "rtti::heightfield")
+    // ---- hole brushes (the terrain.hole tool; Specs/terrain-holes.md) --------------------------
+    // A sample is cut or solid, so the disc has a HARD edge: every sample inside the radius is
+    // marked, none outside, no falloff. The version bumps once when anything changed, and the
+    // touched rect comes back for the stroke's region-delta undo and the renderer's rebuild.
+
+    namespace detail
+    {
+        inline HeightfieldRegion MarkHoles(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius,
+                                           bool cut)
+        {
+            bool changed = false;
+            const HeightfieldRegion region = VisitBrush(
+                hf, worldX, worldZ, radius,
+                [&](i32 gx, i32 gz, f32)
+                {
+                    if (hf.IsHole(gx, gz) != cut)
+                    {
+                        hf.SetHole(gx, gz, cut);
+                        changed = true;
+                    }
+                });
+            if (changed)
+            {
+                hf.BumpVersion();
+            }
+            return region;
+        }
+    }
+
+    /// Cut every sample inside the disc.
+    inline HeightfieldRegion CutHoles(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius)
+    {
+        return detail::MarkHoles(hf, worldX, worldZ, radius, true);
+    }
+
+    /// Fill (restore) every sample inside the disc.
+    inline HeightfieldRegion FillHoles(Heightfield& hf, f32 worldX, f32 worldZ, f32 radius)
+    {
+        return detail::MarkHoles(hf, worldX, worldZ, radius, false);
+    }
+
 }

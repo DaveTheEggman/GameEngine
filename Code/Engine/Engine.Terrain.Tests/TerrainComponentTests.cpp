@@ -246,6 +246,57 @@ TEST_CASE("engine.terrain: ClearGpu frees the height textures while the device i
     CHECK(mgr->HeightTextureCount() == 0u);
 }
 
+TEST_CASE("engine.terrain: a cut heightfield extracts its holed chunks' meshes; ClearGpu drops them")
+{
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    scene::Scene sceneObj{DefaultAllocator()};
+    engine::terrain::AddTerrainSceneManagers(sceneObj);
+    auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
+    REQUIRE(mgr != nullptr);
+    mgr->SetRenderContext(&device, 7, nullptr);
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 129, Float2{128.0f, 128.0f}, 0.0f, 10.0f);
+    auto res = MakeRef<foundation::terrain::TerrainResource>(DefaultAllocator());
+    res->heightfield = grid.Get();
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"terrain");
+    engine::terrain::TerrainComponent& c = mgr->Add(e);
+    c.terrain = res.Get();
+    sceneObj.Start();
+
+    foundation::render::ExtractedScene snapshot{DefaultAllocator()};
+    mgr->ExtractRenderData(snapshot);
+    CHECK(mgr->HoledMeshCount(grid->uid) == 0u); // no holes: no meshes, nothing allocated
+    auto* rd = static_cast<const engine::terrain::TerrainRenderData*>(snapshot.Items()[0]);
+    CHECK(rd->holedMeshCount == 0u);
+
+    grid->SetHole(100, 100, true); // inside chunk 3 only
+    grid->BumpVersion();
+    foundation::render::ExtractedScene second{DefaultAllocator()};
+    mgr->ExtractRenderData(second);
+    CHECK(mgr->HoledMeshCount(grid->uid) == 1u);
+    rd = static_cast<const engine::terrain::TerrainRenderData*>(second.Items()[0]);
+    REQUIRE(rd->holedMeshCount == 1u);
+    CHECK(rd->holedMeshes[0].chunkIndex == 3u);
+    CHECK(rd->holedMeshes[0].indexBuffers[0] != nullptr);
+    CHECK(rd->holedMeshes[0].surfaceIndexCounts[0] == (64u * 64u - 4u) * 6u);
+    CHECK(rd->chunks[3].hasHoles);
+    CHECK_FALSE(rd->chunks[0].hasHoles);
+
+    grid->SetHole(100, 100, false); // filled back: the next extract drops the record
+    grid->BumpVersion();
+    foundation::render::ExtractedScene third{DefaultAllocator()};
+    mgr->ExtractRenderData(third);
+    CHECK(mgr->HoledMeshCount(grid->uid) == 0u);
+
+    grid->SetHole(5, 5, true);
+    grid->BumpVersion();
+    foundation::render::ExtractedScene fourth{DefaultAllocator()};
+    mgr->ExtractRenderData(fourth);
+    CHECK(mgr->HoledMeshCount(grid->uid) == 1u);
+    mgr->ClearGpu();
+    CHECK(mgr->HoledMeshCount(grid->uid) == 0u);
+}
+
 // The PIE-start crash regression: the extracted snapshot must be SELF-CONTAINED - readable at
 // record time even after the scene, its manager, and every cache the extract read from are GONE
 // (a mid-frame scene mutation freed the previously-borrowed quadtree pointer; under ASAN a

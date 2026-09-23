@@ -100,6 +100,7 @@ namespace
         bool valid = false;
         u32 filled = 0; // pixels brighter than the black background
         f64 leftLuma = 0, rightLuma = 0, topLuma = 0, bottomLuma = 0, total = 0;
+        f64 centerLuma = 0; // the middle 16 x 16 block (the terrain holes probe reads it)
         f64 leftR = 0, leftB = 0, rightR = 0, rightB = 0; // per-channel halves (colour checks)
         f64 leftG = 0, rightG = 0;                        // green halves (mask-reveal A/B checks)
         // Band-centre channel means (x split into kBands, centre half of each band, centre half
@@ -135,6 +136,10 @@ namespace
             engine::terrain::TerrainHeightTextureCache heightCache;
             rhi::TextureView* heightView = heightCache.GetOrCreate(device, terrain, 1);
             REQUIRE(heightView != nullptr);
+            // Holed chunks' own index buffers (none for a solid field): Specs/terrain-holes.md.
+            engine::terrain::TerrainHoledMeshCache holedCache;
+            const Span<const engine::terrain::HoledChunkMesh> holed = holedCache.GetOrBuild(
+                device, terrain, Span<const tmodel::TerrainChunk>{chunks.Data(), chunks.Size()}, 1);
 
             static const f32 defaultThresholds[] = {1.0f, 0.25f, 0.08f, 0.03f, 0.012f, 0.005f, 0.002f};
             const f32* thresholds = cfg.thresholds != nullptr ? cfg.thresholds : defaultThresholds;
@@ -158,6 +163,8 @@ namespace
             rd->nodes = tree.Nodes().Data();
             rd->nodeCount = static_cast<u32>(tree.Nodes().Size());
         rd->chunkCount = static_cast<u32>(chunks.Size());
+            rd->holedMeshes = holed.Data();
+            rd->holedMeshCount = static_cast<u32>(holed.Size());
             rd->heightView = heightView;
             rd->chunkToWorld = cfg.chunkToWorld;
             rd->gridSize = terrain.Size();
@@ -251,6 +258,10 @@ namespace
                     }
                     (x < kSize / 2 ? probe.leftLuma : probe.rightLuma) += luma;
                     (y < kSize / 2 ? probe.topLuma : probe.bottomLuma) += luma;
+                    if (x >= kSize / 2 - 8 && x < kSize / 2 + 8 && y >= kSize / 2 - 8 && y < kSize / 2 + 8)
+                    {
+                        probe.centerLuma += luma;
+                    }
                     if (x < kSize / 2) { probe.leftR += p[0]; probe.leftG += p[1]; probe.leftB += p[2]; }
                     else { probe.rightR += p[0]; probe.rightG += p[1]; probe.rightB += p[2]; }
                     // Band-centre sums (the stripe fixture): centre half in y, centre half of
@@ -273,6 +284,7 @@ namespace
 
             device.WaitIdle();
             heightCache.Clear(device); // owns the height texture/view; must release before the device
+            holedCache.Clear(device);
             device.DestroyFence(fence);
             device.DestroyCommandPool(pool);
             device.DestroyTextureView(targetView);
@@ -1707,3 +1719,64 @@ TEST_CASE("terrain probe: a masked layer reveals the PAINTED layer beneath, not 
     if (vulkan != nullptr) { vulkan->Destroy(); }
     if (webgpu != nullptr) { webgpu->Destroy(); }
 }
+
+// Terrain holes (Specs/terrain-holes.md): a block of cut samples at the dome's centre draws
+// nothing there, so the clear colour shows through where the reference dome is lit.
+TEST_CASE("terrain holes probe: a cut at the dome's centre shows the clear colour - Vulkan + WebGPU")
+{
+    const auto probeOn = [](rhi::Device& device)
+    {
+        ProbeCfg solid;
+        solid.terrain = MakeDome();
+        const Probe ref = RenderTerrainProbe(device, solid);
+        REQUIRE(ref.valid);
+        ProbeCfg holed;
+        holed.terrain = MakeDome();
+        const i32 c = holed.terrain->Size() / 2;
+        for (i32 z = c - 4; z <= c + 4; ++z)
+        {
+            for (i32 x = c - 4; x <= c + 4; ++x)
+            {
+                holed.terrain->SetHole(x, z, true); // 9 x 9 cut samples: a 10-cell-wide hole
+            }
+        }
+        const Probe cut = RenderTerrainProbe(device, holed);
+        REQUIRE(cut.valid);
+        std::printf("[terrain-holes] ref center=%.0f filled=%u | cut center=%.0f filled=%u\n",
+                    ref.centerLuma, ref.filled, cut.centerLuma, cut.filled);
+        CHECK(ref.centerLuma > 0.0);   // the dome's top is lit
+        CHECK(cut.centerLuma == 0.0);  // the hole: nothing drawn, black clear
+        CHECK(cut.filled < ref.filled);
+        CHECK(cut.filled > ref.filled / 2u); // the rest of the dome is still there
+    };
+    rhi::Backend* vulkan = nullptr;
+    if (rhi::Device* device = MakeVulkan(vulkan))
+    {
+        probeOn(*device);
+        device->Destroy();
+    }
+    else
+    {
+        MESSAGE("Vulkan unavailable - vulkan holes probe skipped");
+    }
+    if (vulkan != nullptr)
+    {
+        vulkan->Destroy();
+    }
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
+    if (rhi::Device* device = webgpu != nullptr ? testsupport::MakeTestDevice(webgpu) : nullptr)
+    {
+        probeOn(*device);
+        device->Destroy();
+    }
+    else
+    {
+        MESSAGE("WebGPU unavailable - webgpu holes probe skipped");
+    }
+    if (webgpu != nullptr)
+    {
+        webgpu->Destroy();
+    }
+}
+

@@ -33,6 +33,18 @@ export namespace engine::terrain
     /// The largest LOD-threshold table a terrain carries inline (kMaxChunkLod + 1 = 7 levels).
     inline constexpr u32 kMaxLodThresholds = 8;
 
+    /// The index buffers of ONE holed chunk, per LOD (Specs/terrain-holes.md): built on the CPU by
+    /// BuildHoledChunkIndices when the heightfield's version changes, owned by the manager's
+    /// TerrainHoledMeshCache, copied into the frame arena by value (the buffers outlive the frame
+    /// through the retire queue). A chunk without holes draws the renderer's shared grid.
+    struct HoledChunkMesh
+    {
+        u32 chunkIndex = 0;
+        rhi::Buffer* indexBuffers[foundation::terrain::kMaxChunkLod + 1] = {};
+        u32 indexCounts[foundation::terrain::kMaxChunkLod + 1] = {};
+        u32 surfaceIndexCounts[foundation::terrain::kMaxChunkLod + 1] = {};
+    };
+
     struct TerrainRenderData : render::RenderData
     {
         // SNAPSHOT CPU model: the chunk grid + flattened quadtree nodes, COPIED into the
@@ -46,6 +58,12 @@ export namespace engine::terrain
 
         // The R16Uint height texture (from TerrainHeightTextureCache); the VS/PS fetch it via Load.
         rhi::TextureView* heightView = nullptr;
+
+        // Holed chunks' own index buffers (arena copy; one record per chunk with holes, in chunk
+        // order). The renderer draws these for a chunk whose `hasHoles` is set and skips an
+        // `allCut` chunk outright.
+        const HoledChunkMesh* holedMeshes = nullptr;
+        u32 holedMeshCount = 0;
 
         // Terrain placement + height mapping (local heightfield space -> world).
         Float4x4 chunkToWorld = Float4x4::Identity();

@@ -61,8 +61,10 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
         RefPtr<Heightfield> ramp = MakeRampX();
         HeightfieldSource src;
         HeightfieldSource::FromHeightfield(*ramp, src);
+        ramp->SetHole(3, 4, true); // a cut sample rides the second stream
         REQUIRE(inst->WriteObject(src).IsOk());
         REQUIRE(inst->WriteData(kHeightStream, HeightfieldSource::HeightBlob(*ramp)).IsOk());
+        REQUIRE(inst->WriteData(kHoleStream, HeightfieldSource::HoleBlob(*ramp)).IsOk());
     }
 
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
@@ -81,6 +83,12 @@ TEST_CASE("heightfield resource: cook round-trips through the resource manager")
     CHECK(hf->GetSample(0, 0) == 0);
     CHECK(hf->GetSample(64, 0) == 65535);
     CHECK(hf->GetHeightAt(0.0f, 0.0f) == doctest::Approx(5.0f).epsilon(0.01));
+    CHECK(hf->HoleCount() == 1u); // and the hole plane came back with it
+    CHECK(hf->IsHole(3, 4));
+    CHECK_FALSE(hf->IsHole(4, 4));
+    CHECK(hf->HoleCount() == 1u); // and the hole plane came back with it
+    CHECK(hf->IsHole(3, 4));
+    CHECK_FALSE(hf->IsHole(4, 4));
 
     RemoveTree();
 }
@@ -95,7 +103,8 @@ TEST_CASE("heightfield resource: FromHeightfield / Build reproduces the grid dir
     const Span<const byte> blob = HeightfieldSource::HeightBlob(*ramp);
     CHECK(blob.Size() == 65u * 65u * sizeof(Height));
 
-    RefPtr<Heightfield> built = src.Build(blob, DefaultAllocator());
+    CHECK(HeightfieldSource::HoleBlob(*ramp).Size() == 65u * 65u);
+    RefPtr<Heightfield> built = src.Build(blob, HeightfieldSource::HoleBlob(*ramp), DefaultAllocator());
     REQUIRE(built);
     CHECK(built->Size() == 65);
     CHECK(built->MaxY() == doctest::Approx(10.0f));
@@ -125,8 +134,11 @@ TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, neve
         src.worldSize = Float2{64.0f, 64.0f};
         src.maxY = 10.0f;
         bytes.Resize(64u * 64u * sizeof(Height));
+        Array<u8> holes;
+        holes.Resize(64u * 64u);
         RefPtr<Heightfield> built =
-            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()), DefaultAllocator());
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()),
+                      Span<const byte>(reinterpret_cast<const byte*>(holes.Data()), holes.Size()), DefaultAllocator());
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }
@@ -137,8 +149,26 @@ TEST_CASE("heightfield resource: an inconsistent cook builds an empty grid, neve
         src.worldSize = Float2{64.0f, 64.0f};
         src.maxY = 10.0f;
         bytes.Resize(10); // wrong length
+        Array<u8> holes;
+        holes.Resize(65u * 65u);
         RefPtr<Heightfield> built =
-            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()), DefaultAllocator());
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()),
+                      Span<const byte>(reinterpret_cast<const byte*>(holes.Data()), holes.Size()), DefaultAllocator());
+        REQUIRE(built);
+        CHECK(built->IsEmpty());
+    }
+    // Valid heights but a hole plane that does not match size*size: refused the same way.
+    {
+        HeightfieldSource src;
+        src.size = 65;
+        src.worldSize = Float2{64.0f, 64.0f};
+        src.maxY = 10.0f;
+        bytes.Resize(65u * 65u * sizeof(Height));
+        Array<u8> holes;
+        holes.Resize(7);
+        RefPtr<Heightfield> built =
+            src.Build(Span<const byte>(reinterpret_cast<const byte*>(bytes.Data()), bytes.Size()),
+                      Span<const byte>(reinterpret_cast<const byte*>(holes.Data()), holes.Size()), DefaultAllocator());
         REQUIRE(built);
         CHECK(built->IsEmpty());
     }

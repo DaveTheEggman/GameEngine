@@ -601,12 +601,17 @@ export namespace engine::terrain
                 {
                     const tmodel::ChunkDraw& cd = m_draws[d];
                     const u32 lod = Min(cd.lod, tmodel::kMaxChunkLod);
-                    const LodMesh& lm = m_lodMeshes[lod];
+                    const tmodel::TerrainChunk& c = data->chunks[static_cast<usize>(cd.chunkIndex)];
+                    // The shared grid, or a holed chunk's own buffers (Specs/terrain-holes.md).
+                    LodMesh lm = m_lodMeshes[lod];
+                    if (!SelectChunkMesh(*data, c, static_cast<u32>(cd.chunkIndex), lod, lm))
+                    {
+                        continue;
+                    }
                     if (lm.indexBuffer == nullptr || lm.indexCount == 0)
                     {
                         continue;
                     }
-                    const tmodel::TerrainChunk& c = data->chunks[static_cast<usize>(cd.chunkIndex)];
 
                     const render::DynamicUniformRing::Range cr = m_chunkRing.Allocate();
                     if (!cr.ok)
@@ -753,12 +758,16 @@ export namespace engine::terrain
                 {
                     const tmodel::ChunkDraw& cd = m_draws[d];
                     const u32 lod = Min(cd.lod, tmodel::kMaxChunkLod);
-                    const LodMesh& lm = m_lodMeshes[lod];
+                    const tmodel::TerrainChunk& c = data->chunks[static_cast<usize>(cd.chunkIndex)];
+                    LodMesh lm = m_lodMeshes[lod];
+                    if (!SelectChunkMesh(*data, c, static_cast<u32>(cd.chunkIndex), lod, lm))
+                    {
+                        continue;
+                    }
                     if (lm.indexBuffer == nullptr || lm.surfaceIndexCount == 0)
                     {
                         continue;
                     }
-                    const tmodel::TerrainChunk& c = data->chunks[static_cast<usize>(cd.chunkIndex)];
                     const render::DynamicUniformRing::Range cr = m_chunkRing.Allocate();
                     if (!cr.ok)
                     {
@@ -868,6 +877,37 @@ export namespace engine::terrain
             u32 indexCount = 0;        // surface + skirt walls
             u32 surfaceIndexCount = 0; // the surface prefix (skirtless draw range)
         };
+
+        // A chunk with holes draws its OWN buffers (the render data carries them per chunk); a
+        // chunk cut everywhere draws nothing; every other chunk draws the shared grid `lm` holds
+        // on entry. False = nothing to draw for this chunk at this LOD.
+        [[nodiscard]] static bool SelectChunkMesh(const TerrainRenderData& data,
+                                                  const tmodel::TerrainChunk& chunk, u32 chunkIndex,
+                                                  u32 lod, LodMesh& lm)
+        {
+            if (chunk.allCut)
+            {
+                return false;
+            }
+            if (!chunk.hasHoles)
+            {
+                return true;
+            }
+            for (u32 i = 0; i < data.holedMeshCount; ++i)
+            {
+                const HoledChunkMesh& hm = data.holedMeshes[i];
+                if (hm.chunkIndex != chunkIndex)
+                {
+                    continue;
+                }
+                lm.indexBuffer = hm.indexBuffers[lod];
+                lm.indexCount = hm.indexCounts[lod];
+                lm.surfaceIndexCount = hm.surfaceIndexCounts[lod];
+                return lm.indexBuffer != nullptr && lm.indexCount != 0;
+            }
+            return false; // a holed chunk without its buffers (a failed upload) draws nothing
+        }
+
 
         struct DepthPso
         {
