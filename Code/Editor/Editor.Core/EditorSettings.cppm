@@ -48,6 +48,10 @@ export namespace editor
         }
     };
 
+    // The UI scale preference's range: 50% (a dense layout on a large monitor) to 200%.
+    inline constexpr f32 kUiScaleMin = 0.5f;
+    inline constexpr f32 kUiScaleMax = 2.0f;
+
     // Editor-level UI preferences (a Settings section). uiScale multiplies the window's
     // OS content scale for the whole editor UI (layout + fonts + baked icons) - both an
     // accessibility knob and the way to exercise the DPI path without a scaled monitor.
@@ -55,7 +59,7 @@ export namespace editor
     {
         RTTI_OBJECT(EditorUiSettings, ISerializable)
     public:
-        f32 uiScale = 1.0f; // clamped to [1, 2] on use
+        f32 uiScale = 1.0f; // clamped to [kUiScaleMin, kUiScaleMax] on use
 
         void Serialize(ISerializer& ar) override
         {

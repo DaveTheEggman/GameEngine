@@ -69,13 +69,13 @@ export namespace editor::app
             if (const editor::EditorUiSettings* u =
                     store.Find<editor::EditorUiSettings>())
             {
-                uiScale = Clamp(u->uiScale, 1.0f, 2.0f);
+                uiScale = Clamp(u->uiScale, editor::kUiScaleMin, editor::kUiScaleMax);
             }
             {
                 ui::FlexLayout* row = AddRow(*column, u8"UI scale");
                 auto slider = MakeRef<ui::Slider>(MemoryAllocator());
-                slider->Min.SetValue(1.0f);
-                slider->Max.SetValue(2.0f);
+                slider->Min.SetValue(editor::kUiScaleMin);
+                slider->Max.SetValue(editor::kUiScaleMax);
                 slider->Step.SetValue(0.05f);
                 slider->Value.SetValue(uiScale);
                 m_uiScaleSlider = slider.Get();
@@ -228,7 +228,7 @@ export namespace editor::app
             fontPrefs.fontPath = String(m_fontEdit->Text());
             fontPrefs.monoFontPath = String(m_monoFontEdit->Text());
             m_settings->MarkChanged<editor::EditorFontSettings>();
-            const f32 uiScale = Clamp(m_uiScaleSlider->Value.Value(), 1.0f, 2.0f);
+            const f32 uiScale = Clamp(m_uiScaleSlider->Value.Value(), editor::kUiScaleMin, editor::kUiScaleMax);
             m_settings->Section<editor::EditorUiSettings>().uiScale = uiScale;
             m_settings->MarkChanged<editor::EditorUiSettings>();
             if (OnUiScaleApplied)

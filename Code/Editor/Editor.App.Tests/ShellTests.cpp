@@ -57,6 +57,25 @@ TEST_CASE("editor-shell: builds the chrome with the global panels only")
     ctx.SetStatus(u8"hello"); // must not crash; the label text lives inside the bar
 }
 
+TEST_CASE("editor-shell: the default layout gives the document 70%, Assets first in the "
+          "bottom pane")
+{
+    EditorContext ctx{DefaultAllocator()};
+    EditorShell shell;
+    shell.Build(ctx, nullptr, 1280, 720);
+
+    auto* split = Cast<ui::toolkit::DockSplit>(shell.Docks()->RootNode());
+    REQUIRE(split != nullptr);
+    CHECK(split->SplitRatio() == doctest::Approx(0.7f)); // first (top) child's share
+
+    auto* pane = Cast<ui::toolkit::DockTabGroup>(shell.AssetsPanel()->Parent);
+    REQUIRE(pane != nullptr);
+    REQUIRE(pane->PanelCount() == 2);
+    CHECK(pane->GetPanel(0) == shell.AssetsPanel());
+    CHECK(pane->GetPanel(1) == shell.ConsolePanel());
+    CHECK(pane->SelectedPanel() == shell.AssetsPanel());
+}
+
 TEST_CASE("editor-shell: page panels dock into the center document area as closable tabs")
 {
     EditorContext ctx{DefaultAllocator()};

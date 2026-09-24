@@ -296,7 +296,7 @@ namespace editor::app
             if (const editor::EditorUiSettings* uiPrefs =
                     m_editorSettings.Find<editor::EditorUiSettings>())
             {
-                uiScale = Clamp(uiPrefs->uiScale, 1.0f, 2.0f);
+                uiScale = Clamp(uiPrefs->uiScale, editor::kUiScaleMin, editor::kUiScaleMax);
             }
             m_uiHost->SetUiScale(uiScale);
             BakeEditorIcons(mainRw->Window().ContentScale() * uiScale);

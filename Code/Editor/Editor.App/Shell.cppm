@@ -162,16 +162,23 @@ export namespace editor::app
 
         void DockDefaults()
         {
-            // Documents center, Console bottom, Assets tabbed with Console (Sedulous's
-            // south-stacked tool pane; scene-scoped views live inside the pages).
+            // Documents center, the south-stacked tool pane below (Sedulous's layout;
+            // scene-scoped views live inside the pages): Assets first and in front, Console
+            // as its second tab. The bottom pane takes 30% (a bottom dock inserts at 0.5;
+            // the ratio is the first, top child's share), leaving the document 70%.
             m_dock->DockPanel(m_welcome, ui::toolkit::DockPosition::Center);
-            m_dock->DockPanel(m_console, ui::toolkit::DockPosition::Bottom);
-            m_dock->DockPanelRelativeTo(m_assets, ui::toolkit::DockPosition::Center,
-                                        m_console->Parent);
-            // Docking activates the docked tab, so Assets ended up in front - the default
-            // layout leads with the Console (logs visible immediately).
-            m_dock->ActivatePanel(m_console);
+            m_dock->DockPanel(m_assets, ui::toolkit::DockPosition::Bottom);
+            m_dock->DockPanelRelativeTo(m_console, ui::toolkit::DockPosition::Center,
+                                        m_assets->Parent);
+            m_dock->ActivatePanel(m_assets);
+            if (auto* split = Cast<ui::toolkit::DockSplit>(m_dock->RootNode()))
+            {
+                split->SetSplitRatio(kDefaultDocumentShare);
+            }
         }
+
+        /// The document area's share of the main window height in the default layout.
+        static constexpr f32 kDefaultDocumentShare = 0.7f;
 
         RefPtr<ui::RootView> m_root;
         RefPtr<ui::toolkit::MenuBar> m_menuBar;
