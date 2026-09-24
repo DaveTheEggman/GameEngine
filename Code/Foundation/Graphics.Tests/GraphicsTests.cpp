@@ -160,3 +160,36 @@ TEST_CASE("graphics: a minimized window yields an invalid frame")
     CHECK_FALSE(f.valid);
     rw->EndFrame(f); // must be a harmless no-op
 }
+
+TEST_CASE("graphics: validation follows the build config, and the command line overrides it")
+{
+    GraphicsDeviceDesc desc;
+#if BUILD_RELEASE
+    CHECK_FALSE(desc.enableValidation); // an optimized build measures the real cost
+#else
+    CHECK(desc.enableValidation); // a dev build catches API misuse
+#endif
+    const bool configDefault = desc.enableValidation;
+
+    // No flag: the default stands.
+    const char* none[] = {"editor", "--vulkan"};
+    ApplyValidationArguments(2, const_cast<char**>(none), desc);
+    CHECK(desc.enableValidation == configDefault);
+
+    const char* off[] = {"editor", "--no-gpu-validation"};
+    ApplyValidationArguments(2, const_cast<char**>(off), desc);
+    CHECK_FALSE(desc.enableValidation);
+
+    const char* on[] = {"editor", "--gpu-validation"};
+    ApplyValidationArguments(2, const_cast<char**>(on), desc);
+    CHECK(desc.enableValidation);
+
+    // The last one given wins; a prefix is not a match.
+    const char* both[] = {"editor", "--gpu-validation", "--no-gpu-validation"};
+    ApplyValidationArguments(3, const_cast<char**>(both), desc);
+    CHECK_FALSE(desc.enableValidation);
+    const char* prefix[] = {"editor", "--gpu-validation-extra"};
+    ApplyValidationArguments(2, const_cast<char**>(prefix), desc);
+    CHECK_FALSE(desc.enableValidation);
+}
+

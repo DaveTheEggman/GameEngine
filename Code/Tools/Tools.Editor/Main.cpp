@@ -14,6 +14,8 @@
 //   Smoke-test aids: [--exit-after <s>] [--rebuild-after <s>]
 //   [--screenshot <png> [--screenshot-after <s>]] (the main window, UI included, as a PNG -
 //   a run proves what it drew) [--seed] [--seed-primitives] [--version].
+//   GPU: [--vulkan|--dx12|--webgpu|--null-gpu] [--gpu-validation|--no-gpu-validation]
+//   (validation defaults ON in Debug, OFF in RelWithDebInfo / Release).
 
 #include <cstdio>
 #include <cstring>
@@ -928,7 +930,9 @@ int main(int argc, char** argv)
 
     graphics::GraphicsDeviceDesc gdd;
     gdd.backend = graphics::SelectBackendFromArguments(argc, argv);
-    gdd.enableValidation = true;
+    // Validation follows the build config (Debug ON, optimized OFF) unless the command line
+    // says otherwise - a RelWithDebInfo editor is for measuring, not for the layer's overhead.
+    graphics::ApplyValidationArguments(argc, argv, gdd);
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {

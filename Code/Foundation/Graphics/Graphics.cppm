@@ -107,6 +107,36 @@ export namespace foundation::graphics
         rhi::DeviceFeatures requiredFeatures = {};
     };
 
+    /// The shared command-line validation override: `--gpu-validation` forces the API
+    /// validation layer ON, `--no-gpu-validation` forces it OFF; neither leaves the desc's
+    /// config default (ON in Debug, OFF in optimized builds). The last one given wins.
+    /// Every executable that creates a device through a desc should run its arguments
+    /// through this rather than assign enableValidation itself (the editor forced it ON for
+    /// every config until 2026-09-24, so a RelWithDebInfo editor ran the Vulkan layer).
+    inline void ApplyValidationArguments(int argc, char** argv, GraphicsDeviceDesc& desc)
+    {
+        const auto matches = [](const char* argument, const char* flag)
+        {
+            while (*argument != '\0' && *argument == *flag)
+            {
+                ++argument;
+                ++flag;
+            }
+            return *argument == '\0' && *flag == '\0';
+        };
+        for (int i = 1; i < argc; ++i)
+        {
+            if (matches(argv[i], "--gpu-validation"))
+            {
+                desc.enableValidation = true;
+            }
+            else if (matches(argv[i], "--no-gpu-validation"))
+            {
+                desc.enableValidation = false;
+            }
+        }
+    }
+
     struct RenderWindowDesc
     {
         rhi::TextureFormat format = rhi::TextureFormat::BGRA8UnormSrgb;

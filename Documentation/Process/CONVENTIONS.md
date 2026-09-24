@@ -13,6 +13,18 @@ violating them fails review even if the feature works.
   Debug editor cooks and decodes 4k textures, nothing in them is ever stepped through, and at
   -O0 a BC7 encode took 84 s (2026-09-23). First-party hot loops stay at the build's level
   and get their speed from the job system (a texture's block rows, its mip rows).
+- RelWithDebInfo (`build/clang-reldbg`, `Bin/RelWithDebInfo/`) is the measuring config:
+  optimized, profiling instrumentation on, GPU validation OFF by default (the
+  GraphicsDeviceDesc default follows BUILD_RELEASE; the editor took that default from
+  2026-09-24 - before, it forced the Vulkan layer on in every config). Force either way
+  with `--gpu-validation` / `--no-gpu-validation` on any executable that runs its
+  arguments through `graphics::ApplyValidationArguments`.
+- Point the compiler's temp directory at the DISK for big builds: `export
+  TMPDIR=<repo>/build/tmp` (gitignored under build/). `/tmp` on the dev box is a 7.5 GB
+  tmpfs shared with every session's scratch; a release rebuild filled it mid-compile and
+  clang died with a bus error (2026-09-24). Never run two ninjas on one build tree - the
+  second corrupts the dyndep state (an internal ninja assertion on every later pass; the
+  cure is deleting `.ninja_log` + `.ninja_deps`, i.e. a full rebuild).
 - Never `rm -rf` anything under `Bin/` - the user's EditorProject lives inside.
   Inspect before any destructive delete.
 - New test targets need a cmake re-configure (`cd build/clang && cmake .`) before
