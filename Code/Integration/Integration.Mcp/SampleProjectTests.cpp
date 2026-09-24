@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// The tracked sample project (SampleProjects/PaperKid) must stay readable at the CURRENT data
+// The tracked sample project (Data/SampleProjects/PaperKid) must stay readable at the CURRENT data
 // versions. A wire-version bump or a key rename that forgets to upgrade its sources leaves it
 // refused by the strict readers - the cook logged 13 refusals (font, six meshes, six UI
 // documents) before the 2026-09-18 upgrade. This registers the whole pipeline the way
@@ -20,6 +20,7 @@ import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
 import engine.scenesurface;
+import engine.scriptsurface; // RegisterAllScriptFacades: the scripts cook against the full surface
 import editor.core;
 import editor.mcp;
 
@@ -73,13 +74,14 @@ TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versi
 {
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type (idempotent)
     engine::RegisterAllSceneComponentReflection();
+    engine::RegisterAllScriptFacades(); // idempotent; this case must not lean on another's
     // The readers log WHY they refuse; put that on the console so a red run names the record.
     ConsoleSink console;
     GlobalLogger().AddSink(&console);
 
     const String dataRoot = foundation::vfs::FindDataRoot();
     REQUIRE_FALSE(dataRoot.IsEmpty());
-    const String source = PathJoin(PathParent(dataRoot.AsView()), u8"SampleProjects/PaperKid");
+    const String source = PathJoin(dataRoot.AsView(), u8"SampleProjects/PaperKid");
     REQUIRE(DirectoryExists(source.AsView()));
 
     const std::filesystem::path scratch = "scratch_paperkid_versions";

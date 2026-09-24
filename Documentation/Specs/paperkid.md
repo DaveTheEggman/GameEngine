@@ -27,7 +27,7 @@
 >   Build that track FIRST, then PaperKid on top. See "Prerequisites" below.
 > - **Obstacles use NAVIGATION** (Recast/Detour agents), not hand-rolled waypoint scripts.
 > - **Tells/markers/camera use PROPERTY ANIMATION** clips, not ad-hoc per-frame script lerps.
-> - **Project home: `SampleProjects/PaperKid/`** - committed 2026-08-19 (skeleton: Project.xml +
+> - **Project home: `Data/SampleProjects/PaperKid/`** - committed 2026-08-19 (skeleton: Project.xml +
 >   Sources + Content/*.xasset + README + .gitignore for .cache/Cooked/Editor).
 
 ## Concept
@@ -170,7 +170,7 @@ stateDiagram-v2
 ## Where it lives
 
 The tracked, committed **editor sample project** (the week-2026-08-22 seed) - scenes + AngelScript +
-authored assets, opened + played in the editor. Committed at **`SampleProjects/PaperKid/`** (2026-08-19),
+authored assets, opened + played in the editor. Committed at **`Data/SampleProjects/PaperKid/`** (2026-08-19),
 distinct from the untracked `SampleGame/` Wren sketch and the user's `EditorProject/`.
 If a thin native module is ever needed, per the facade rule it is its own out-of-tree module named for
 the game (e.g. `PaperKid`), never `Game`; but the aim is near-zero native code - the game rides on
@@ -235,7 +235,7 @@ These were NOT pre-existing - PaperKid P0 drove them out. A fresh session buildi
   `RequestRebuild()` not inline `Rebuild()`; the Listen button toggles to "Cancel" while listening;
   Escape is no longer swallowed as cancel, so it can be bound. (User bound Pause->ESC in the map.)
 
-### Ground-truth project inventory (SampleProjects/PaperKid/)
+### Ground-truth project inventory (Data/SampleProjects/PaperKid/)
 
 - **Project.xml:** `defaultSceneId` = StartScene `c83b3435-c2a2-4224-9778-35736dd26221` (boot scene);
   `startupScriptId` = PaperKidGame `6c8ed2f6-fa3f-4265-87b7-9365e2d6022c`; input map
@@ -333,7 +333,7 @@ Verify: New Game shows the block. (Houses/roads come with P1-4.)
 
 **P1-2 Player bike entity + control behavior. [CODE DONE; AUTHORING pending]** `CharacterComponent`
 (Jolt CharacterVirtual, kinematic arcade feel - decided, no ragdoll). `Bike.as` written
-(`SampleProjects/PaperKid/Sources/Bike.as` + `Content/Scripts/Bike.xasset`): `onUpdate(dt)` reads the
+(`Data/SampleProjects/PaperKid/Sources/Bike.as` + `Content/Scripts/Bike.xasset`): `onUpdate(dt)` reads the
 `Move` axis (Y = throttle/brake, X = steer), ramps a signed speed, turns a heading, and drives the
 character along it via the reflected `Quaternion::FromAxisAngle`/`RotateVector`; tunables are
 `[metadata]` inspector properties. Input map wired: `DefaultInputMap.xasset` = Move (Axis2D WASD),
@@ -342,7 +342,7 @@ tests). Verify (in-editor): drive the bike around the block. [[physics-p1]] [[sc
 [[input-subsystem]]
 
 **P1-3 Third-person follow camera. [CODE DONE; AUTHORING pending]** `FollowCamera.as` written
-(`SampleProjects/PaperKid/Sources/FollowCamera.as`) as an AngelScript behavior on the camera entity:
+(`Data/SampleProjects/PaperKid/Sources/FollowCamera.as`) as an AngelScript behavior on the camera entity:
 the target is an `[null] Entity@` PICKER property (no name lookup), springs the camera behind-and-above
 (behind = the camera's own lag, so no need to read the bike heading), and aims with reflected
 `Math::Atan2`/`Asin`. Native component NOT needed (the behavior reads clean). Cook-tested. Verify
@@ -474,7 +474,7 @@ that exercises the whole game-ready runtime (the original point of the exercise)
 
 SETTLED (2026-08-18): scripting backend = **AngelScript**; Game/run tier is **scripted** (needs
 `game-ready-scripting2` first); obstacles use **navigation**; tells/markers use **property animation**;
-project = the tracked **editor sample project** (committed at `SampleProjects/PaperKid/`).
+project = the tracked **editor sample project** (committed at `Data/SampleProjects/PaperKid/`).
 
 SETTLED (2026-08-19, all six recommendations taken by the user):
 
@@ -521,6 +521,6 @@ means upgrade. What the 2026-09-18 upgrade needed, per record kind:
   every primitive creator (Cube/Sphere/Plane/Cylinder/Cone/Torus) plus the baseline font; copy
   the six `.xasset` + `.geometry.bin` pairs over PaperKid's, restoring PaperKid's ORIGINAL guids
   in the `.xasset` (the scenes reference meshes by guid; the sidecar carries none).
-- Verify: `Tools.Cook SampleProjects/PaperKid --rebuild` -> "host cooked 20, failed 0", and the
+- Verify: `Tools.Cook Data/SampleProjects/PaperKid --rebuild` -> "host cooked 20, failed 0", and the
   integration test above. Scenes/prefabs were not affected this time (stream version 3); a
   scene-stream bump would need the editor's scene page to re-save them.

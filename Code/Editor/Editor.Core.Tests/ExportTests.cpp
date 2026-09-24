@@ -2070,10 +2070,10 @@ TEST_CASE("export: ship output suffix is per-project and filesystem-safe")
 
 TEST_CASE("export: the NativeSample fixture pins the native-game conventions")
 {
-    // The committed reference project (SampleProjects/NativeSample) must stay a valid
+    // The committed reference project (Data/SampleProjects/NativeSample) must stay a valid
     // input to the native pipeline: manifest parses, the module path derives the target
     // that its Native/CMakeLists.txt actually declares, and the source dir exists.
-    const String root = Format(u8"{}/SampleProjects/NativeSample",
+    const String root = Format(u8"{}/Data/SampleProjects/NativeSample",
                                StringView(reinterpret_cast<const char8_t*>(RAPTOR_SOURCE_DIR)));
     foundation::vfs::NativeFileSystem fs(root.AsView(), foundation::core::DefaultAllocator());
     engine::project::ProjectSettings settings;
