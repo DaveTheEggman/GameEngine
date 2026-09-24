@@ -48,7 +48,11 @@ namespace
         bool taa = false;
         bool fxaa = false;
         bool ssr = false;
-        u32 aoMode = 0; // 0 = off, 1 = GTAO
+        u32 aoMode = 0; // 0 = off, 1 = GTAO, 2 = SSAO
+        // A large thin slab tilted so its top face crosses the whole view at a grazing angle
+        // (a floor seen from low above it) instead of the small rotated cube: the flat-surface
+        // AO probe. Thin, so the camera at z=6 is never inside it (a cube's back faces cull away).
+        bool obliquePlane = false;
     };
 
     // Render a flat-lit rotated cube on black through the full RenderFrame chain (forward +
@@ -103,8 +107,14 @@ namespace
             ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
             MeshRenderData* cube = scene.Add<MeshRenderData>();
-            cube->world = Float4x4::RotationY(0.6f) * Float4x4::RotationX(0.5f);
-            cube->worldCenter = Float3{0.0f, 0.0f, 0.0f};
+            // Slab: 40 x 0.2 x 40, tilted 0.35 rad about X and pushed to z=-8, so the top face
+            // spans the view with its normal ~70 degrees off the view direction (grazing).
+            cube->world = cfg.obliquePlane
+                              ? Float4x4::Scale(Float3{40.0f, 0.2f, 40.0f}) *
+                                    Float4x4::RotationX(0.35f) * Float4x4::Translation(Float3{0, 0, -8})
+                              : Float4x4::RotationY(0.6f) * Float4x4::RotationX(0.5f);
+            cube->worldCenter = cfg.obliquePlane ? Float3{0.0f, 0.0f, -8.0f} : Float3{0.0f, 0.0f, 0.0f};
+            cube->worldRadius = cfg.obliquePlane ? 30.0f : 2.0f;
             cube->mesh = cubeMesh.Get();
             cube->material = cubeMat.Get();
             cube->category = RenderCategories::Opaque;
@@ -280,6 +290,49 @@ namespace
         }
     }
 
+    u32 MeanLuma(const testsupport::CapturedImage& img, u32 x0, u32 y0, u32 x1, u32 y1)
+    {
+        u64 sum = 0;
+        for (u32 y = y0; y < y1; ++y)
+        {
+            for (u32 x = x0; x < x1; ++x)
+            {
+                sum += img.Luma(x, y);
+            }
+        }
+        return static_cast<u32>(sum / static_cast<u64>((x1 - x0) * (y1 - y0)));
+    }
+
+    // A flat surface has NO ambient occlusion: a floor seen at a grazing angle must come out as
+    // bright with SSAO (and GTAO) on as with AO off. SSAO used to compare each sample's scene
+    // depth against the CENTER pixel and draw its kernel from a sphere, so an oblique floor's own
+    // depth gradient read as occlusion and moved with the camera (Bistro's ground, 2026-09-24).
+    void ProbeFlatSurfaceAo(rhi::Device& device, const char* backendName)
+    {
+        const testsupport::CapturedImage off = RenderMsaa(device, MsaaConfig{.obliquePlane = true});
+        REQUIRE(off.valid);
+        const u32 base = MeanLuma(off, 32, 32, 96, 96);
+        INFO(backendName, " flat surface, AO off: mean luma ", base);
+        REQUIRE(base > 100); // the plane fills the probe region and is lit
+
+        const struct
+        {
+            const char* name;
+            u32 mode;
+        } modes[] = {{"gtao", 1u}, {"ssao", 2u}};
+        for (const auto& m : modes)
+        {
+            const testsupport::CapturedImage on =
+                RenderMsaa(device, MsaaConfig{.aoMode = m.mode, .obliquePlane = true});
+            REQUIRE(on.valid);
+            const u32 lit = MeanLuma(on, 32, 32, 96, 96);
+            std::printf("[ao-flat] %-8s %-5s off=%u on=%u\n", backendName, m.name, base, lit);
+            INFO(backendName, " ", m.name, ": flat surface mean luma ", lit, " vs AO off ", base);
+            // Within a few percent of the unoccluded surface: no self-occlusion on a plane.
+            CHECK(lit * 100 >= base * 95);
+        }
+    }
+
     void ForEachBackend(void (*probe)(rhi::Device&, const char*))
     {
         rhi::Backend* vulkan = nullptr;
@@ -355,3 +408,9 @@ TEST_CASE("msaa: composes with the post-effect stack (TAA/FXAA/AO/SSR) at 4x")
 {
     ForEachBackend(&ProbeEffectStack);
 }
+
+TEST_CASE("ao: a flat surface at a grazing angle is not self-occluded by SSAO or GTAO")
+{
+    ForEachBackend(&ProbeFlatSurfaceAo);
+}
+
