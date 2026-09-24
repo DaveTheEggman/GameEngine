@@ -89,6 +89,7 @@ export namespace foundation::core
         }
 
         void Blob(void* data, usize size) override { RawBytes(data, size); }
+        [[nodiscard]] bool BulkScalarArrays() const noexcept override { return true; }
 
         // Compact: the raw 16 bytes (two u64 halves), not the canonical string. (Traktor-style.)
         void GuidValue(Guid& value) override { RawBytes(&value, sizeof(Guid)); }

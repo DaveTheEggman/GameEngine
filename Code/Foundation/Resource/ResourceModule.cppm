@@ -497,7 +497,21 @@ export namespace foundation::resource
                     break;
                 }
 
+                const Stopwatch finalizeClock = Stopwatch::StartNew();
                 FinalizeCompleted(entry);
+                const f64 finalizeMs = finalizeClock.Elapsed().AsMilliseconds();
+                if (finalizeMs >= 50.0)
+                {
+                    // One finalize past a frame, by type and id: a large GPU upload, a
+                    // nested SYNC bind inside it, or (Debug, expected) a shader compile /
+                    // pipeline creation under validation.
+                    const TypeInfo* productType =
+                        entry.factory != nullptr ? entry.factory->ProductType() : nullptr;
+                    const char* typeName = productType != nullptr ? productType->name : "?";
+                    LOG_INFO(u8"Resource", u8"finalize of {} {} took {} ms on the main thread",
+                             StringView(reinterpret_cast<const char8_t*>(typeName)), entry.id,
+                             static_cast<i64>(finalizeMs));
+                }
 
                 if (stopwatch.Elapsed().AsSeconds() >= budgetSeconds)
                 {
@@ -505,6 +519,7 @@ export namespace foundation::resource
                 }
             }
             ReapPending();
+            ReportSettledBurst();
         }
 
         // Block the main thread until every pending async load has finalized (participating in the
@@ -731,6 +746,7 @@ export namespace foundation::resource
             pending->id = id;
             PendingLoad* record = pending.Get();
             m_pending.InsertOrAssign(id, Move(pending));
+            NoteBurstGrowth();
 
             // The job captures only thread-safe data: the factory/instance pointers (stable for the
             // load's lifetime), a RefPtr copy of the handle (atomic refcount), and the id by value.
@@ -775,6 +791,11 @@ export namespace foundation::resource
                 // while its textures were still Pending skipped those slots - the reload
                 // rebuilds it now that the child is live, and pop-in composes transitively.
                 // COPY the list: Reload binds children, growing maps (the rehash lesson).
+                // The rebuild runs with async binds ON whatever the caller's mode: a material
+                // reloading for its first texture must NOT block-complete its other, still
+                // pending textures - a sync Bind of a pending id waits out the decode and
+                // finalized EVERYTHING decoded so far, nested, one 8 s stall on the Bistro
+                // prefab open (2026-09-23). Pending slots stay skipped; each settle reloads.
                 const Span<const Guid> dependentsView = Dependents(entry.id);
                 if (!dependentsView.IsEmpty())
                 {
@@ -783,10 +804,13 @@ export namespace foundation::resource
                     {
                         dependents.PushBack(d);
                     }
+                    const bool previousAsync = m_asyncBinds;
+                    m_asyncBinds = true;
                     for (const Guid& d : dependents)
                     {
                         (void)Reload(d);
                     }
+                    m_asyncBinds = previousAsync;
                 }
             }
         }
@@ -801,7 +825,32 @@ export namespace foundation::resource
                     m_jobs->Wait((*record)->counter); // runs the decode inline if not yet done
                 }
             }
-            Pump(1.0e9); // unbounded: finalize this id (and any other now-decoded loads)
+            // Finalize THIS id only. Draining every decoded entry here (the old unbounded
+            // Pump) made one sync Bind pay for the whole burst's finalizes - GPU uploads
+            // included - on the caller's thread; the rest keep their FIFO turn in Pump.
+            CompletedDecode entry;
+            bool have = false;
+            {
+                ScopedLock lock(m_completedMutex);
+                for (usize i = 0; i < m_completed.Size(); ++i)
+                {
+                    if (m_completed[i].id == id)
+                    {
+                        entry = Move(m_completed[i]);
+                        m_completed.RemoveAt(i);
+                        have = true;
+                        break;
+                    }
+                }
+            }
+            if (have)
+            {
+                FinalizeCompleted(entry);
+                ReapPending();
+                ReportSettledBurst();
+                return;
+            }
+            Pump(1.0e9); // not in the completed queue (a foreign wait raced it): drain
         }
 
         static void SettleSyncState(ResourceHandle& handle) noexcept
@@ -831,6 +880,32 @@ export namespace foundation::resource
         // still touching the Counter - destroying it then is a data race (TSAN-confirmed). Wait
         // returns only after that critical section is released; for a finalized record the decode
         // body is already done, so Wait is effectively non-blocking here.
+        // A burst = the span from the first async bind while none was in flight to the Pump
+        // that drains the last one: a scene open queues hundreds of binds in one frame and they
+        // settle over the next seconds. The peak is sampled at BIND time (a pump may finalize
+        // and reap part of a burst before it looks) and reported once, when the set empties.
+        void NoteBurstGrowth()
+        {
+            if (!m_burstActive)
+            {
+                m_burstActive = true;
+                m_burstClock = Stopwatch::StartNew();
+                m_burstPeak = 0;
+            }
+            if (m_pending.Size() > m_burstPeak)
+            {
+                m_burstPeak = m_pending.Size();
+            }
+        }
+        void ReportSettledBurst()
+        {
+            if (m_pending.IsEmpty() && m_burstActive)
+            {
+                m_burstActive = false;
+                LOG_INFO(u8"Resource", u8"async loads settled: {} in flight at the peak, {} ms",
+                         m_burstPeak, static_cast<i64>(m_burstClock.Elapsed().AsMilliseconds()));
+            }
+        }
         void ReapPending()
         {
             Array<Guid> reap;
@@ -960,6 +1035,9 @@ export namespace foundation::resource
         u64 m_mainThreadId = 0;      // thread that constructs/pumps; async finalize must run here
         bool m_asyncBinds = false;   // Ref<T>::Bind routes through BindAsync while set
         HashMap<Guid, UniquePtr<PendingLoad>> m_pending; // main-thread only (heap-stable Counter)
+        bool m_burstActive = false;  // ReportSettledBurst: a burst of async loads is in flight
+        usize m_burstPeak = 0;
+        Stopwatch m_burstClock;
         Mutex m_completedMutex;                          // guards m_completed (worker <-> main)
         Array<CompletedDecode> m_completed;              // FIFO decode results, drained by Pump
 

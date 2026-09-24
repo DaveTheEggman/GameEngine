@@ -120,5 +120,10 @@ export namespace foundation::core
             return false;
         }
         [[nodiscard]] virtual bool IsPayloadOk() const noexcept { return true; }
+        // True when a run of scalar elements is laid out exactly as its raw bytes (the binary
+        // backend): Serialize(Array<scalar>) then moves the whole run through Blob in one call
+        // instead of one virtual Scalar per element - the same bytes, so no format changes.
+        // (2026-09-23: a cooked mesh's vertex blob read one virtual call per BYTE at -O0.)
+        [[nodiscard]] virtual bool BulkScalarArrays() const noexcept { return false; }
     };
 }

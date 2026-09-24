@@ -195,6 +195,29 @@ export namespace foundation::core
         u32 count = static_cast<u32>(array.Size());
         ar.BeginArray(count);
 
+        // Scalars (and byte) in a backend whose element layout IS the raw run: one Blob for the
+        // whole array. Byte-identical to the per-element loop below (each element would be one
+        // Scalar of exactly sizeof(T) bytes), so the on-disk format is unchanged; what changes
+        // is one virtual call per array instead of one per element (2026-09-23: a cooked mesh's
+        // 50 MB vertex blob read one virtual call per BYTE at -O0).
+        constexpr bool kScalarRun = (std::is_arithmetic_v<T> && !std::is_same_v<T, bool>) ||
+                                    std::is_same_v<T, byte>;
+        if constexpr (kScalarRun)
+        {
+            if (ar.BulkScalarArrays())
+            {
+                if (ar.Mode() == SerializeMode::Read)
+                {
+                    array.Resize(count);
+                }
+                if (count > 0)
+                {
+                    ar.Blob(array.Data(), static_cast<usize>(count) * sizeof(T));
+                }
+                ar.EndArray();
+                return;
+            }
+        }
         if (ar.Mode() == SerializeMode::Read)
         {
             array.Clear();

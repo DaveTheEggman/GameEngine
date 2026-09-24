@@ -510,3 +510,62 @@ TEST_CASE("io: RemoveDirectoryRecursive deletes a populated tree (rmdir alone ca
     CHECK_FALSE(DirectoryExists(u8"scratch_rmr_scratch"));
     CHECK(RemoveDirectoryRecursive(u8"scratch_rmr_scratch"));
 }
+
+TEST_CASE("io: binary arrays of scalars move as one block, byte-identical to the per-element layout")
+{
+    // The bulk path (ISerializer::BulkScalarArrays) must write exactly what N Scalar calls wrote
+    // and read exactly what they read: a u8 run and an f32 run here.
+    Array<u8> bytes;
+    for (u32 i = 0; i < 1000; ++i)
+    {
+        bytes.PushBack(static_cast<u8>(i * 7));
+    }
+    Array<f32> floats;
+    for (u32 i = 0; i < 300; ++i)
+    {
+        floats.PushBack(static_cast<f32>(i) * 0.25f - 3.0f);
+    }
+    MemoryStream bulk;
+    {
+        BinarySerializer ar(bulk, SerializeMode::Write);
+        Serialize(ar, bytes);
+        Serialize(ar, floats);
+        REQUIRE(ar.IsOk());
+    }
+    // The per-element layout, written by hand: a u32 count then each element's raw bytes.
+    MemoryStream manual;
+    {
+        BinarySerializer ar(manual, SerializeMode::Write);
+        u32 n = static_cast<u32>(bytes.Size());
+        ar.BeginArray(n);
+        for (u8& b : bytes)
+        {
+            ar.Scalar(&b, ScalarKind::UInt8);
+        }
+        ar.EndArray();
+        n = static_cast<u32>(floats.Size());
+        ar.BeginArray(n);
+        for (f32& f : floats)
+        {
+            ar.Scalar(&f, ScalarKind::Float32);
+        }
+        ar.EndArray();
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(bulk.Bytes().Size() == manual.Bytes().Size());
+    CHECK(std::memcmp(bulk.Bytes().Data(), manual.Bytes().Data(), bulk.Bytes().Size()) == 0);
+
+    REQUIRE(bulk.Seek(0, SeekOrigin::Begin) == 0);
+    Array<u8> bytesBack;
+    Array<f32> floatsBack;
+    {
+        BinarySerializer ar(bulk, SerializeMode::Read);
+        Serialize(ar, bytesBack);
+        Serialize(ar, floatsBack);
+        REQUIRE(ar.IsOk());
+    }
+    REQUIRE(bytesBack.Size() == 1000u);
+    REQUIRE(floatsBack.Size() == 300u);
+    CHECK(bytesBack[999] == static_cast<u8>(999 * 7));
+    CHECK(floatsBack[299] == 299.0f * 0.25f - 3.0f);
+}

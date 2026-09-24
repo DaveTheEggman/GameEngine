@@ -360,6 +360,24 @@ logs each import's main-thread milliseconds and its worker flush; the MCP `asset
 reports `prepareMs` / `mainMs` / `flushMs` over the same two-phase path (Bistro, 1149 assets:
 main-thread 16.3 s -> 0.9 s).
 
+**Rule four: a settle-reload never block-completes** (2026-09-23, the Bistro prefab open). The
+scene page binds under an `AsyncBindScope` and the 1071 cooked products (2.1 GB) decode on the
+job system's workers, but when the first texture of a material settled, the reload of that
+material (the recorded dependency edge) ran in the caller's SYNC mode: its other, still pending
+textures were block-completed, and a sync bind of a pending id finalized EVERYTHING decoded so
+far - nested, so the outermost finalize held the UI thread for 8 s (measured with the new
+`finalize of <type> <id> took N ms` line: 148 finalizes past 50 ms, the tail climbing from 0.5 s
+to 8 s as the stack unwound). Now the dependents' reload runs with async binds on (pending
+slots stay skipped and each settle reloads again), and a sync upgrade of a pending id finalizes
+that id alone; the rest keep their FIFO turn in `Pump`. The console reports each burst once:
+`Resource: async loads settled: N in flight at the peak, M ms`; the page logs `opened scene
+'x': parse / bind / prefabs ms (UI thread)` and the context logs each page's open time (the
+Bistro prefab: 2.9 s, of which the 49 MB XML parse is 2.7 s). The binary serializer moves
+scalar arrays (vertex bytes, index runs) as one block instead of per element. In Debug a
+finalize can still show 50-100 ms for a shader compile or a pipeline creation under
+validation - expected, not a stall to chase. Open follow-up: the XML parse is the remaining
+UI-thread cost of a large source scene (parse on a worker, or a binary source form).
+
 **DEFERRED (tagged 2026-07-11, plan/discuss later):**
 - **Project native module**: optional per-project native DLL (game code + its editor plugins)
  loaded by the editor, with a static-link build option like Traktor. Touches: manifest field,

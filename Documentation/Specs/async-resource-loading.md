@@ -169,6 +169,19 @@ unchanged. Commits are on master after baseline `43beeaed` (see specs/HANDOFF.md
    wants a game-UI loading screen, so a specific consumer (GameInstance
    level-load) should opt in deliberately. Default scene load is unchanged.
 
+### Status 2026-09-23: the settle-reload stall (the Bistro prefab open)
+A settling child reloads its dependents through the recorded edge - and that reload ran in
+the caller's mode. In the editor (sync binds outside the page's `AsyncBindScope`) a
+material's reload sync-bound its other pending textures; `CompletePending` then waited out
+the decode and ran an unbounded `Pump`, finalizing every decoded entry - nested through the
+reloads those finalizes triggered - for one 8 s stall on the UI thread. Fixed twice over:
+the dependents' reload runs with async binds on (pending slots stay skipped; each settle
+reloads again), and `CompletePending` finalizes only its own id (the rest keep their FIFO
+turn). `Pump` also reports each burst once when the pending set drains (`async loads
+settled: N in flight at the peak, M ms`, peak sampled at bind time) and any single finalize
+past 50 ms by type and id (Debug: a shader compile or pipeline creation is expected there).
+Resource.Tests cover the reload mode, the single-id upgrade and both log lines.
+
 ### Remaining
 - Wire a real consumer (GameInstance async level-load + a game-UI loading screen)
   when desired - the mechanism is ready (`AsyncBindScope` + `AsyncLoadBatch`).

@@ -104,7 +104,11 @@ export namespace editor
                 m_sceneManager.SetSceneEventBus(&m_pageEvents);
                 m_scene = m_sceneManager.CreateScene(instance.Name());
                 m_scene->SetSimulationEnabled(false); // edit mode is frozen; Simulate un-freezes
+                const Stopwatch loadClock = Stopwatch::StartNew();
                 const Status loaded = scene::LoadScene(instance, *m_scene);
+                const i64 parseMs = static_cast<i64>(loadClock.Elapsed().AsMilliseconds());
+                i64 bindMs = 0;
+                i64 prefabMs = 0;
                 if (loaded.IsOk())
                 {
                     // Bind the scene's resource refs to cooked products (no-op refs stay null;
@@ -118,6 +122,7 @@ export namespace editor
                         foundation::resource::AsyncBindScope asyncScope(*context.Resources());
                         scene::ResolveSceneResources(*m_scene, *context.Resources());
                     }
+                    bindMs = static_cast<i64>(loadClock.Elapsed().AsMilliseconds()) - parseMs;
                     // Prefab instances load as ref+deltas - respawn them from the SOURCE DB
                     // (payloads are edited assets, not cooked products), then bind the
                     // spawned components' refs too.
@@ -139,8 +144,16 @@ export namespace editor
                             foundation::resource::AsyncBindScope asyncScope(*context.Resources());
                             scene::ResolveSceneResources(*m_scene, *context.Resources());
                         }
+                        prefabMs = static_cast<i64>(loadClock.Elapsed().AsMilliseconds()) -
+                                   parseMs - bindMs;
                     }
-                    LOG_INFO(u8"Editor", u8"opened scene '{}'", m_title);
+                    // The UI-thread cost of opening this scene: the document parse, the bind
+                    // pass (async: it queues decodes, the products pop in over later frames),
+                    // the prefab respawn. The async decodes and GPU finalizes are not in here.
+                    LOG_INFO(u8"Editor",
+                             u8"opened scene '{}': parse {} ms, bind {} ms, prefabs {} ms "
+                             u8"(UI thread)",
+                             m_title, parseMs, bindMs, prefabMs);
                 }
                 else if (loaded.Code() == ErrorCode::NotFound)
                 {

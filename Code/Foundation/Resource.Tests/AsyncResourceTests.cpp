@@ -373,6 +373,94 @@ TEST_CASE("resource.async: Pump respects its time budget and resumes on the next
     CHECK(pumps >= kCount); // budget prevented finalizing all in a single Pump
 }
 
+namespace
+{
+    // Captures the "Resource" category so the pump's burst / slow-finalize reports can be
+    // asserted (the editor console is where they land in practice).
+    struct ResourceLogCapture : ILogSink
+    {
+        int settled = 0;
+        int slowFinalize = 0;
+        String lastSettled;
+
+        void Write(LogLevel, StringView category, StringView message) noexcept override
+        {
+            if (category != u8"Resource")
+            {
+                return;
+            }
+            if (message.StartsWith(u8"async loads settled"))
+            {
+                ++settled;
+                lastSettled = String(message);
+            }
+            else if (message.StartsWith(u8"finalize of"))
+            {
+                ++slowFinalize;
+            }
+        }
+    };
+}
+
+TEST_CASE("resource.async: Pump reports a burst ONCE when the in-flight loads drain, and any "
+          "single finalize past 50 ms")
+{
+    RegisterAsyncTypes();
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    JobSystem jobs(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
+    manager.AddFactory(&factory);
+
+    ResourceLogCapture capture;
+    Logger& logger = GlobalLogger();
+    const LogLevel previousLevel = logger.MinLevel();
+    logger.AddSink(&capture);
+    logger.SetMinLevel(LogLevel::Info);
+
+    // No loads in flight: pumping is silent.
+    manager.Pump();
+    CHECK(capture.settled == 0);
+
+    constexpr int kCount = 3;
+    for (int i = 0; i < kCount; ++i)
+    {
+        char8_t name[2] = {static_cast<char8_t>(u8'a' + i), 0};
+        const Guid id = MakeInstance(db, factory, StringView(name), i, i);
+        (void)manager.BindAsync<AsyncProduct>(id);
+    }
+    int pumps = 0;
+    while (manager.PendingCount() > 0 && pumps < 10000)
+    {
+        manager.Pump(1.0);
+        ++pumps;
+    }
+    REQUIRE(manager.PendingCount() == 0u);
+    CHECK(capture.settled == 1);
+    CHECK(capture.lastSettled.AsView().StartsWith(u8"async loads settled: 3 in flight at the peak"));
+    CHECK(capture.slowFinalize == 0); // instant finalizes stay quiet
+
+    // Quiet again once settled: no repeat report on later idle pumps.
+    manager.Pump();
+    manager.Pump();
+    CHECK(capture.settled == 1);
+
+    // A second burst reports again, and a 60 ms finalize is called out by id.
+    factory.finalizeSleepMs = 60;
+    const Guid slow = MakeInstance(db, factory, u8"z", 9, 9);
+    (void)manager.BindAsync<AsyncProduct>(slow);
+    manager.WaitAll();
+    CHECK(manager.PendingCount() == 0u);
+    CHECK(capture.settled == 2);
+    CHECK(capture.slowFinalize == 1);
+
+    logger.RemoveSink(&capture);
+    logger.SetMinLevel(previousLevel);
+}
+
 TEST_CASE("resource.async: finalize follows decode-completion order (FIFO)")
 {
     RegisterAsyncTypes();
@@ -564,12 +652,14 @@ namespace
         RTTI_OBJECT(ParentProduct, Object)
     public:
         i32 childValue = -1; // -1 = child was pending/absent at build time
+        i32 secondChildValue = -1;
     };
 
     class ParentFactory final : public IResourceFactory
     {
     public:
         Guid childId;
+        Guid secondChildId; // optional (nil = a one-child parent)
 
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
@@ -586,6 +676,16 @@ namespace
             if (child)
             {
                 product->childValue = child->value;
+            }
+            if (!secondChildId.IsNil())
+            {
+                Proxy<AsyncProduct> second = manager.AsyncBindsEnabled()
+                                                 ? manager.BindAsync<AsyncProduct>(secondChildId)
+                                                 : manager.Bind<AsyncProduct>(secondChildId);
+                if (second)
+                {
+                    product->secondChildValue = second->value;
+                }
             }
             return product; // pending child = the slot stays -1 until the settle-reload
         }
@@ -630,3 +730,109 @@ TEST_CASE("resource.async: a settling child RELOADS its dependents (the material
     REQUIRE(parent);
     CHECK(parent->childValue == 7);
 }
+
+TEST_CASE("resource.async: a settle-reload does NOT block-complete the dependent's other "
+          "pending children (the Bistro nested-drain stall)")
+{
+    RegisterAsyncTypes();
+    GlobalTypeRegistry().Register(ParentProduct::StaticType());
+    CleanDir(u8"scratch_async_cascade2_db");
+    NativeFileSystem mount(u8"scratch_async_cascade2_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    factory.gates[0].store(false, std::memory_order_relaxed); // both children held closed
+    factory.gates[1].store(false, std::memory_order_relaxed);
+    JobSystem jobs(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
+    manager.AddFactory(&factory);
+    ParentFactory parentFactory;
+    parentFactory.childId = MakeInstance(db, factory, u8"first", 7, 0);
+    parentFactory.secondChildId = MakeInstance(db, factory, u8"second", 9, 1);
+    manager.AddFactory(&parentFactory);
+    auto* parentInst = db.RootGroup()->CreateInstance(u8"parent", ParentProduct::StaticType());
+
+    Proxy<ParentProduct> parent;
+    {
+        AsyncBindScope scope(manager);
+        parent = manager.BindAsync<ParentProduct>(parentInst->Id());
+    }
+    REQUIRE(parent);
+    CHECK(parent->childValue == -1);
+    CHECK(parent->secondChildValue == -1);
+    CHECK(manager.PendingCount() == 2u);
+    CHECK_FALSE(manager.AsyncBindsEnabled()); // the caller's mode: sync binds from here on
+
+    // The second child's decode opens only after a delay: with the old behaviour the first
+    // settle's reload of the parent sync-bound it (a wait for the gate + finalize inline),
+    // so it would already be Ready below; the settle-reload must leave it Pending instead.
+    std::thread opener([&factory]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        factory.gates[1].store(true, std::memory_order_release);
+    });
+    factory.gates[0].store(true, std::memory_order_release);
+    for (int i = 0; i < 100000 && factory.finalizeCalls.load() < 1; ++i)
+    {
+        manager.Pump(1.0);
+        std::this_thread::yield();
+    }
+    REQUIRE(parent);
+    CHECK(parent->childValue == 7);        // reloaded through the edge
+    CHECK(parent->secondChildValue == -1); // the other slot stays skipped, quietly
+    CHECK(manager.PendingCount() == 1u);   // still in flight, not block-completed
+    CHECK(factory.finalizeCalls.load() == 1);
+    CHECK_FALSE(manager.AsyncBindsEnabled()); // the reload restored the caller's mode
+
+    opener.join();
+    manager.WaitAll();
+    REQUIRE(parent);
+    CHECK(parent->childValue == 7);
+    CHECK(parent->secondChildValue == 9); // the second settle reloaded it again
+    CHECK(manager.PendingCount() == 0u);
+}
+
+TEST_CASE("resource.async: a sync Bind of a pending id finalizes THAT id only; the rest keep "
+          "their FIFO turn in Pump")
+{
+    RegisterAsyncTypes();
+    CleanDir(u8"scratch_async_db");
+    NativeFileSystem mount(u8"scratch_async_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::core::BinarySerializerFactory(),
+                                          u8".rasset");
+    AsyncFactory factory;
+    JobSystem jobs(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db, &jobs);
+    manager.AddFactory(&factory);
+    const Guid a = MakeInstance(db, factory, u8"a", 1, 0);
+    const Guid b = MakeInstance(db, factory, u8"b", 2, 1);
+    const Guid c = MakeInstance(db, factory, u8"c", 3, 2);
+    Proxy<AsyncProduct> pa = manager.BindAsync<AsyncProduct>(a);
+    Proxy<AsyncProduct> pb = manager.BindAsync<AsyncProduct>(b);
+    Proxy<AsyncProduct> pc = manager.BindAsync<AsyncProduct>(c);
+    // Let every decode finish on the workers WITHOUT pumping: three completed entries queued.
+    while (!factory.decoded[0].load() || !factory.decoded[1].load() || !factory.decoded[2].load())
+    {
+        std::this_thread::yield();
+    }
+    CHECK(factory.finalizeCalls.load() == 0);
+
+    // A sync Bind of b upgrades b alone.
+    Proxy<AsyncProduct> sync = manager.Bind<AsyncProduct>(b);
+    REQUIRE(sync);
+    CHECK(sync->value == 2);
+    CHECK(pb.Handle()->State() == ResourceState::Ready);
+    CHECK(factory.finalizeCalls.load() == 1);
+    CHECK(manager.PendingCount() == 2u);
+    CHECK(pa.Handle()->State() == ResourceState::Pending);
+    CHECK(pc.Handle()->State() == ResourceState::Pending);
+
+    // The others finalize in their decode order on the next Pump.
+    manager.WaitAll();
+    CHECK(factory.finalizeCalls.load() == 3);
+    REQUIRE(factory.finalizeOrder.Size() == 3u);
+    CHECK(factory.finalizeOrder[0] == b);
+    CHECK(pa.Handle()->State() == ResourceState::Ready);
+    CHECK(pc.Handle()->State() == ResourceState::Ready);
+    CHECK(manager.PendingCount() == 0u);
+}
+

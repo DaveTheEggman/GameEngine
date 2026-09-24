@@ -220,11 +220,16 @@ namespace editor
             return nullptr;
         }
 
+        const Stopwatch openClock = Stopwatch::StartNew();
         UniquePtr<EditorPage> page = factory->CreatePage(*this, instance);
         if (!page)
         {
             return nullptr;
         }
+        // The number that must stay small: a page's constructor runs on the UI thread (a
+        // Bistro-sized prefab: the document parse; its resources bind async and pop in).
+        LOG_INFO(u8"Editor", u8"page '{}' ({}) opened in {} ms", instance.Name(),
+                 instance.TypeName(), static_cast<i64>(openClock.Elapsed().AsMilliseconds()));
         page->SetInstanceId(instance.Id());
 
         EditorPage* raw = page.Get();

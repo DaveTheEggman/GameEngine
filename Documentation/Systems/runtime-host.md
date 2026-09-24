@@ -32,7 +32,10 @@ the LIST of `RenderWindow`s it presents. It is infrastructure - NOT subclassed -
 the shell layer drives `Start`/`Tick`/`Stop` (a blocking loop on desktop via `RunApplication` in
 `foundation.runtime.desktop`; a callback on Emscripten via `foundation.runtime.web`), so the host holds
 no run loop. It implements `IApplicationHost`, the view the application gets (`Ctx`, `Graphics`,
-window open/close, exit).
+window open/close, exit). `Start` also owns the engine-wide `JobSystem`'s lifetime
+(`InitGlobalJobSystem` before `Configure`, `ShutdownGlobalJobSystem` last in `Stop`), so every
+`ResourceManager` built during startup with `HasGlobalJobSystem() ? &GlobalJobs() : nullptr` gets
+the workers. A test that wants them makes its own `JobSystem`.
 
 Multi-window is uniform: the main window is `windows[0]`; every frame renders the whole list;
 `OpenWindow`/`CloseWindow` run at runtime (the basis for detachable UI windows) with close deferred to
