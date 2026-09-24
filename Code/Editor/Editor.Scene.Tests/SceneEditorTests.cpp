@@ -536,6 +536,106 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&once, sceneA, fb).showFps == true);
     CHECK(LoadSceneViewPref(&once, sceneA, fb).showMarkers == false); // siblings intact
     CHECK(LoadSceneViewPref(&once, sceneB, fb).showFps == false);
+
+    // v4 camera + selection: saved by a closing page, restored on reopen, per scene.
+    {
+        SceneViewPref view{sceneA, true, true, true, false, true};
+        view.hasCamera = true;
+        view.cameraPosition = Float3{1.5f, 2.5f, -3.0f};
+        view.cameraYaw = 0.75f;
+        view.cameraPitch = -0.25f;
+        view.cameraFocusDistance = 8.0f;
+        view.selection.PushBack(Guid{7, 7});
+        view.selection.PushBack(Guid{8, 8});
+        CHECK(SaveSceneViewPref(&once, view));
+    }
+    MemoryStream buf6;
+    REQUIRE(once.Save(buf6, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buf6.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings twice(foundation::core::DefaultAllocator());
+    REQUIRE(twice.Load(buf6, foundation::xml::XmlSerializerFactory()).IsOk());
+    const SceneViewPref back = LoadSceneViewPref(&twice, sceneA, fb);
+    CHECK(back.hasCamera);
+    CHECK(back.cameraPosition.x == doctest::Approx(1.5f));
+    CHECK(back.cameraPosition.z == doctest::Approx(-3.0f));
+    CHECK(back.cameraYaw == doctest::Approx(0.75f));
+    CHECK(back.cameraPitch == doctest::Approx(-0.25f));
+    CHECK(back.cameraFocusDistance == doctest::Approx(8.0f));
+    REQUIRE(back.selection.Size() == 2u);
+    CHECK(back.selection[0] == Guid{7, 7});
+    CHECK(back.selection[1] == Guid{8, 8});
+    CHECK_FALSE(LoadSceneViewPref(&twice, sceneB, fb).hasCamera); // the other scene: never saved
+}
+
+TEST_CASE("scene-editor: a v3 view pref (before markers / FPS / camera) reads through the "
+          "legacy gate and a v4 one carries the new keys")
+{
+    RegisterSceneViewSettingsType();
+    const TypeInfo& type = SceneViewSettings::StaticType(); // the versioned macro's TypeInfo
+    CHECK(type.dataVersion == 4u);
+    CHECK(type.minReadDataVersion == 3u);
+
+    // A v3-shaped record: the pref body under a version-3 scope writes ONLY the v3 keys.
+    MemoryStream v3;
+    {
+        BinarySerializer ar(v3, SerializeMode::Write);
+        const SerializedDataVersion chain[] = {{type.id, 3u}};
+        ar.PushVersionScope(chain, 1);
+        SceneViewPref pref{Guid{1, 2}, false, true, true, false, true};
+        pref.hasCamera = true; // must NOT reach the v3 record
+        pref.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    (void)v3.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(v3, SerializeMode::Read);
+        const SerializedDataVersion chain[] = {{type.id, 3u}};
+        ar.PushVersionScope(chain, 1);
+        SceneViewPref pref;
+        pref.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+        CHECK(pref.scene == Guid{1, 2});
+        CHECK(pref.showGrid == false);
+        CHECK(pref.showLodOverlay == true);
+        CHECK(pref.showColliders == true);
+        CHECK(pref.showMarkers == true);   // the v4 defaults, not the writer's values
+        CHECK(pref.showFps == false);
+        CHECK_FALSE(pref.hasCamera);
+        CHECK(pref.selection.IsEmpty());
+    }
+
+    // The same body under the current scope round-trips every key.
+    MemoryStream v4;
+    {
+        BinarySerializer ar(v4, SerializeMode::Write);
+        const SerializedDataVersion chain[] = {{type.id, 4u}};
+        ar.PushVersionScope(chain, 1);
+        SceneViewPref pref{Guid{1, 2}, false, true, true, false, true};
+        pref.hasCamera = true;
+        pref.cameraYaw = 0.5f;
+        pref.selection.PushBack(Guid{9, 9});
+        pref.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    (void)v4.Seek(0, SeekOrigin::Begin);
+    {
+        BinarySerializer ar(v4, SerializeMode::Read);
+        const SerializedDataVersion chain[] = {{type.id, 4u}};
+        ar.PushVersionScope(chain, 1);
+        SceneViewPref pref;
+        pref.Serialize(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+        CHECK(pref.showMarkers == false);
+        CHECK(pref.showFps == true);
+        CHECK(pref.hasCamera);
+        CHECK(pref.cameraYaw == doctest::Approx(0.5f));
+        REQUIRE(pref.selection.Size() == 1u);
+        CHECK(pref.selection[0] == Guid{9, 9});
+    }
 }
 
 TEST_CASE("scene-editor: the FPS overlay text reads the window's rate and mean frame time")

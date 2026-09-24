@@ -426,8 +426,10 @@ export namespace editor
             m_router =
                 MakeUnique<foundation::shell::InputRouter>(Allocator(), host.Shell()->Input());
 
-            // Start framed on the origin (grid center), orbit pivot there, horizon level.
+            // Start framed on the origin (grid center), orbit pivot there, horizon level -
+            // then where this scene was last left, if a page saved that (camera + selection).
             m_camera.LookAt(Float3{0.0f, 0.0f, 0.0f});
+            RestoreViewState();
         }
 
         ~SceneEditorPage() override
@@ -564,8 +566,9 @@ export namespace editor
 
         // (split out so the lambda below can live next to its state)
         void ScenePage_OverlaysInit();
-        void LoadViewPrefs(); // read this scene's saved view state (grid + LOD; per-project, by guid)
-        void SaveViewPrefs(); // persist it on any viewport toggle
+        void LoadViewPrefs(); // read this scene's saved overlay toggles (per-project, by guid)
+        void SaveViewPrefs(); // persist the whole pref: toggles + camera + selection (toggle / close)
+        void RestoreViewState(); // camera + selection from the saved pref (after the scene loads)
 
         // Reflect externally-driven state (the W/E/R keys, X space toggle) back into the
         // toolbar. SetIsChecked no-ops when unchanged, and the mode handlers only act on

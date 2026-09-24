@@ -31,12 +31,36 @@ export namespace editor
     // (grid on, LOD-overlay off) so an absent pref reads as the fresh-page look.
     struct SceneViewPref
     {
+        // The toggles by position (every caller's shape); the v4 camera / selection fields are
+        // set by name, so a partial brace init never trips -Wmissing-field-initializers.
+        SceneViewPref() = default;
+        explicit SceneViewPref(Guid sceneId, bool grid = true, bool lod = false,
+                               bool colliders = false, bool markers = true, bool fps = false)
+            : scene(sceneId), showGrid(grid), showLodOverlay(lod), showColliders(colliders),
+              showMarkers(markers), showFps(fps)
+        {
+        }
+
         Guid scene;
         bool showGrid = true;
         bool showLodOverlay = false;
         bool showColliders = false; // edit-time physics collider wireframes (v3)
         bool showMarkers = true;    // the origin cross on every entity (off for a large scene)
         bool showFps = false;       // the frame-rate readout in the viewport's top-right corner
+        // The editor camera as the page last had it (v4): restored on reopen so a scene comes
+        // back where it was left. hasCamera = false until a page has saved one.
+        bool hasCamera = false;
+        Float3 cameraPosition{};
+        f32 cameraYaw = 0.0f;
+        f32 cameraPitch = 0.0f;
+        f32 cameraFocusDistance = 12.0f;
+        // The entity selection at close (persistent ids; ids no longer in the scene are dropped).
+        Array<Guid> selection;
+
+        // The section's data version gates the keys added after v3 (a keyed reader FAILS the
+        // whole section on a missing key, so a v3 file must not be asked for them).
+        static constexpr u32 kVersionWithOverlaysAndCamera = 4;
+
         void Serialize(ISerializer& ar)
         {
             ar.Key("scene");
@@ -44,8 +68,17 @@ export namespace editor
             foundation::core::Serialize(ar, "showGrid", showGrid);
             foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
             foundation::core::Serialize(ar, "showColliders", showColliders);
-            foundation::core::Serialize(ar, "showMarkers", showMarkers);
-            foundation::core::Serialize(ar, "showFps", showFps);
+            if (ar.Version() >= kVersionWithOverlaysAndCamera)
+            {
+                foundation::core::Serialize(ar, "showMarkers", showMarkers);
+                foundation::core::Serialize(ar, "showFps", showFps);
+                foundation::core::Serialize(ar, "hasCamera", hasCamera);
+                foundation::core::Serialize(ar, "cameraPosition", cameraPosition);
+                foundation::core::Serialize(ar, "cameraYaw", cameraYaw);
+                foundation::core::Serialize(ar, "cameraPitch", cameraPitch);
+                foundation::core::Serialize(ar, "cameraFocusDistance", cameraFocusDistance);
+                foundation::core::Serialize(ar, "selection", selection);
+            }
         }
     };
 
@@ -85,6 +118,9 @@ export namespace editor
     // Register the section type (call before the app loads the per-project store).
     inline void RegisterSceneViewSettingsType()
     {
+        // v4 (markers / FPS / camera / selection) keeps a v3 legacy reader: a project's saved
+        // prefs from before 2026-09-24 load without the new keys and re-save as v4.
+        const_cast<TypeInfo&>(SceneViewSettings::StaticType()).minReadDataVersion = 3;
         GlobalTypeRegistry().Register(SceneViewSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<SceneViewSettings>();
     }
@@ -136,5 +172,5 @@ export namespace editor
         return true;
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 3)
+    RTTI_DEFINE_OBJECT_VERSIONED(SceneViewSettings, "rtti::editor::editor.scene", 4)
 }

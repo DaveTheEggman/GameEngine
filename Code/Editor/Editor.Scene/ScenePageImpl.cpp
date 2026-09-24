@@ -718,6 +718,11 @@ namespace editor
 
     void SceneEditorPage::OnClose()
     {
+        // Where the scene was left: the camera and the selection, for the next open.
+        if (m_scene != nullptr && m_toolbar.Get() != nullptr)
+        {
+            SaveViewPrefs();
+        }
         // A closing page must stop claiming clip opens (the interceptor holds a raw `this`).
         if (m_openAssetInterceptorId != 0)
         {
@@ -1491,13 +1496,56 @@ namespace editor
 
     void SceneEditorPage::SaveViewPrefs()
     {
-        // Save the WHOLE pref (grid + LOD + colliders + markers) so toggling one never
-        // resurrects a default.
-        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
-                                 m_showMarkers, m_showFps};
+        // Save the WHOLE pref (toggles + camera + selection) so saving one never resurrects
+        // another's default. Runs on every toggle and when the page closes.
+        SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
+                           m_showMarkers, m_showFps};
+        pref.hasCamera = true;
+        pref.cameraPosition = m_camera.position;
+        pref.cameraYaw = m_camera.yaw;
+        pref.cameraPitch = m_camera.pitch;
+        pref.cameraFocusDistance = m_camera.focusDistance;
+        if (m_editContext)
+        {
+            for (const Guid& id : m_editContext->EntitySelection().Items())
+            {
+                pref.selection.PushBack(id);
+            }
+        }
         if (SaveSceneViewPref(m_context->ProjectEditorSettings(), pref))
         {
             m_context->RequestProjectEditorSettingsSave();
+        }
+    }
+
+    void SceneEditorPage::RestoreViewState()
+    {
+        const SceneViewPref none{InstanceId()};
+        const SceneViewPref p = LoadSceneViewPref(m_context->ProjectEditorSettings(), InstanceId(), none);
+        if (!p.hasCamera)
+        {
+            return; // never saved by a page: the origin framing stands
+        }
+        m_camera.position = p.cameraPosition;
+        m_camera.yaw = p.cameraYaw;
+        m_camera.pitch = p.cameraPitch;
+        m_camera.focusDistance = p.cameraFocusDistance;
+        if (m_editContext && m_scene != nullptr && !p.selection.IsEmpty())
+        {
+            // Only ids still in the scene (deleted since, or a Simulate-spawned entity that
+            // was selected at close) - the selection never names a ghost.
+            Array<Guid> live;
+            for (const Guid& id : p.selection)
+            {
+                if (m_scene->FindEntity(id).IsAssigned())
+                {
+                    live.PushBack(id);
+                }
+            }
+            if (!live.IsEmpty())
+            {
+                m_editContext->EntitySelection().Set(Span<const Guid>{live.Data(), live.Size()});
+            }
         }
     }
 
