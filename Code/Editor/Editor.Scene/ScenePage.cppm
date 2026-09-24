@@ -610,6 +610,8 @@ export namespace editor
         bool m_showLodOverlay = false;
         ui::toolkit::ToolbarToggle* m_collidersToggle = nullptr; // edit-time physics collider gizmo
         bool m_showColliders = false;
+        ui::toolkit::ToolbarToggle* m_markersToggle = nullptr; // the origin cross on every entity
+        bool m_showMarkers = true;
 
         // Viewport tool palette: one toggle per non-default registered tool (Property Animation, and
         // future terrain/nav-mesh) that activates it - the affordance that docks the tool's panel.

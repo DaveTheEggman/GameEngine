@@ -35,6 +35,7 @@ export namespace editor
         bool showGrid = true;
         bool showLodOverlay = false;
         bool showColliders = false; // edit-time physics collider wireframes (v3)
+        bool showMarkers = true;    // the origin cross on every entity (off for a large scene)
         void Serialize(ISerializer& ar)
         {
             ar.Key("scene");
@@ -42,6 +43,7 @@ export namespace editor
             foundation::core::Serialize(ar, "showGrid", showGrid);
             foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
             foundation::core::Serialize(ar, "showColliders", showColliders);
+            foundation::core::Serialize(ar, "showMarkers", showMarkers);
         }
     };
     inline void Serialize(ISerializer& ar, SceneViewPref& p)

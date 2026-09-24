@@ -463,6 +463,20 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showColliders == true);
     CHECK(LoadSceneViewPref(&reloaded, sceneB, fb).showColliders == false);
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showLodOverlay == true); // siblings intact
+
+    // showMarkers (the entity origin crosses): defaults ON, and an OFF choice survives the XML
+    // round trip per scene while its siblings stay put.
+    CHECK(fb.showMarkers == true);
+    CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showMarkers == true);
+    CHECK(SaveSceneViewPref(&reloaded, SceneViewPref{sceneA, true, true, true, false}));
+    MemoryStream buf4;
+    REQUIRE(reloaded.Save(buf4, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buf4.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings again(foundation::core::DefaultAllocator());
+    REQUIRE(again.Load(buf4, foundation::xml::XmlSerializerFactory()).IsOk());
+    CHECK(LoadSceneViewPref(&again, sceneA, fb).showMarkers == false);
+    CHECK(LoadSceneViewPref(&again, sceneA, fb).showColliders == true);
+    CHECK(LoadSceneViewPref(&again, sceneB, fb).showMarkers == true); // untouched scene: default
 }
 
 TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")

@@ -1373,7 +1373,17 @@ namespace editor
                                                     self->m_showColliders = value;
                                                     self->SaveViewPrefs(); // persist per-scene
                                                 });
-        // Restore this scene's saved grid + LOD + collider state before the first SyncToolbar mirrors it.
+        // Entity origin markers: the cross at every entity's origin. On by default; a large
+        // scene (Bistro: thousands of nodes) is all crosses, so it is a toggle. Off keeps the
+        // SELECTED entity's marker and bounds - the selection feedback, not the clutter.
+        m_markersToggle = m_toolbar->AddToggle(u8"Markers");
+        m_markersToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
+                                              {
+                                                  self->m_showMarkers = value;
+                                                  self->SaveViewPrefs(); // persist per-scene
+                                              });
+        // Restore this scene's saved grid + LOD + collider + marker state before the first
+        // SyncToolbar mirrors it.
         LoadViewPrefs();
     }
 
@@ -1382,18 +1392,22 @@ namespace editor
     // the default. Loading never writes (only the user toggle persists).
     void SceneEditorPage::LoadViewPrefs()
     {
-        const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders};
+        const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
+                                     m_showMarkers};
         const SceneViewPref p =
             LoadSceneViewPref(m_context->ProjectEditorSettings(), InstanceId(), fallback);
         m_showGrid = p.showGrid;
         m_showLodOverlay = p.showLodOverlay;
         m_showColliders = p.showColliders;
+        m_showMarkers = p.showMarkers;
     }
 
     void SceneEditorPage::SaveViewPrefs()
     {
-        // Save the WHOLE pref (grid + LOD + colliders) so toggling one never resurrects a default.
-        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders};
+        // Save the WHOLE pref (grid + LOD + colliders + markers) so toggling one never
+        // resurrects a default.
+        const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
+                                 m_showMarkers};
         if (SaveSceneViewPref(m_context->ProjectEditorSettings(), pref))
         {
             m_context->RequestProjectEditorSettingsSave();
@@ -1420,6 +1434,10 @@ namespace editor
         if (m_collidersToggle != nullptr)
         {
             m_collidersToggle->SetIsChecked(m_showColliders);
+        }
+        if (m_markersToggle != nullptr)
+        {
+            m_markersToggle->SetIsChecked(m_showMarkers);
         }
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
@@ -1449,6 +1467,10 @@ namespace editor
                 const Float4x4 world = scene.GetWorldMatrix(e);
                 const Float3 p{world.m[3][0], world.m[3][1], world.m[3][2]};
                 const bool selected = selection.Contains(scene.GetEntityId(e));
+                if (!selected && !m_showMarkers)
+                {
+                    return; // the "Markers" toggle: unselected origins draw nothing
+                }
                 const f32 s = 0.25f;
                 const Color color =
                     selected ? Color{1.0f, 0.85f, 0.25f, 1.0f} : Color{0.75f, 0.75f, 0.80f, 1.0f};
