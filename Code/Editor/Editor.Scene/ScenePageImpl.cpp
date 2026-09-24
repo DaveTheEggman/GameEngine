@@ -1097,6 +1097,9 @@ namespace editor
         add(u8"No SSR", &render::ViewPostOverride::disableSsr);
         add(u8"No SSGI", &render::ViewPostOverride::disableSsgi);
         add(u8"No AA (crisp)", &render::ViewPostOverride::disableAa);
+        // Not post, but the same kind of thing: an ephemeral per-view "draw it all" for
+        // measuring what the frustum cull saves in this viewport.
+        add(u8"No frustum culling (draw everything)", &render::ViewPostOverride::disableCulling);
         // Scene-pass MSAA: an INDEPENDENT off/2x/4x tri-state (not a bool - it forces the
         // view's sample count). The count is capability-clamped by the render subsystem, so a 4x pick
         // on a 2x device renders 2x. MSAA and TAA are independent; both can be on.

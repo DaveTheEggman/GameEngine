@@ -461,6 +461,7 @@ namespace engine::render
         if (postOverride != nullptr)
         {
             ApplyViewPostOverride(settings.post, *postOverride);
+            settings.frustumCull = !postOverride->disableCulling;
         }
         // Editor debug view: pass-through selection (validated per view at declare time -
         // an unknown resource name simply shows the final image).

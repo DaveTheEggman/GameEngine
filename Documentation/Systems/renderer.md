@@ -639,6 +639,11 @@ forward light loop, but design the data path for *many many lights* from the sta
 **All phases below are DELIVERED** (0-9, plus SSR and view-frustum culling added after). The
 one item explicitly deferred - the spatial acceleration structure - moved to
 [renderer-improvements-history.md](../Archive/renderer-improvements-history.md); culling is still linear scans today.
+View-frustum culling is ON by default since 2026-09-24 (`RenderSubsystem` / `RenderFrame`
+`m_viewCulling`; it shipped off and only the samples ever switched it on, so the editor and the
+player drew everything). Per view, `ViewPostOverride::disableCulling` (the editor's Post menu:
+"No frustum culling (draw everything)") clears `ViewSettings::frustumCull` for an A/B; the frame
+gates by both. Occlusion culling does not exist (backlog: Hi-Z from the depth prepass).
 
 0. **(done)** Thin slice: extraction boundary + forward draw of a cube.
 1. **Extraction + view core**: replace `ExtractedView`/`Renderable` with per-scene

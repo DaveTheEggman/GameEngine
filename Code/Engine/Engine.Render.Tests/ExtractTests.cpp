@@ -669,6 +669,9 @@ TEST_CASE("render: DebugView isolates per-view gizmos (camera-preview fix, task 
     rhi::null::NullDevice device{DefaultAllocator()};
     foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(), DefaultAllocator());
     RenderSubsystem sub{DefaultAllocator(), device, 2, dataFs};
+    // View-frustum culling is ON by default for every host of the subsystem (editor, player,
+    // samples) since 2026-09-24; a per-view ViewPostOverride::disableCulling is the A/B.
+    CHECK(sub.ViewCulling());
 
     // Two distinct viewport keys (e.g. the main editor viewport + the camera-preview inset).
     int mainKey = 0;

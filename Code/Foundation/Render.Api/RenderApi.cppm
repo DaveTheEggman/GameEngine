@@ -78,6 +78,9 @@ export namespace foundation::render
         bool disableSsr = false;
         bool disableAa = false; // TAA + FXAA off (crisp + unjittered)
         bool disableSsgi = false;
+        // Draw EVERYTHING in the scene for this view, frustum test off: the A/B for what
+        // view-frustum culling saves (on by default since 2026-09-24; the player culls too).
+        bool disableCulling = false;
         // Scene-pass MSAA for this view (the editor viewport's off/2x/4x toggle). 0 = no override
         // (leave the resolved count as-is); 1/2/4 = force that sample count. The editor viewport is
         // the source of its own MSAA count (the scene authors none), so

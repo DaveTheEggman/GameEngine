@@ -792,7 +792,7 @@ export namespace foundation::render
         bool m_fxaaEnabled = false;
         f32 m_fxaaSubpixel = 0.75f;
         bool m_instanceSharing = true; // share prepass->forward instance data (A/B toggle)
-        bool m_viewCulling = false;    // view-frustum cull camera draw lists (default off)
+        bool m_viewCulling = true;     // view-frustum cull camera draw lists (ON since 2026-09-24)
         f32 m_shadowDistance = 300.0f; // directional-shadow reach (clamped to camera farZ)
         f32 m_shadowFarFade = 40.0f;   // far-fade width in world units
         AoMode m_aoMode = AoMode::Off;

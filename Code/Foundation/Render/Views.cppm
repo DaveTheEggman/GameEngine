@@ -54,6 +54,9 @@ export namespace foundation::render
         // The opaque per-viewport key the RenderScene call carried (null = unkeyed). Pick
         // requests bind to it: only the view rendered with a matching key answers them.
         const void* viewportKey = nullptr;
+        // This view may frustum-cull its draw list (the frame's global switch still gates it).
+        // A per-view override (ViewPostOverride::disableCulling) clears it for an A/B.
+        bool frustumCull = true;
     };
 
     // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

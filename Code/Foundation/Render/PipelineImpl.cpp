@@ -597,7 +597,7 @@ namespace foundation::render
         view->SetDebugScene(debugScene);
         view->SetDebugView(debugView);
         view->SetSceneKey(sceneKey);
-        view->BuildDrawList(m_sortScratch, m_viewCulling);
+        view->BuildDrawList(m_sortScratch, m_viewCulling && settings.frustumCull);
         return view;
     }
 

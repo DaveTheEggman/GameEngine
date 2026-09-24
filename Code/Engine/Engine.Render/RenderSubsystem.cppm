@@ -389,7 +389,7 @@ export namespace engine::render
         u32 m_globalMsaaSamples = 1; // scene-pass MSAA count for the global post path (off by default)
         SsrPass::Params m_ssrParams{};
         bool m_instanceSharing = true; // prepass->forward instance-data sharing (A/B toggle)
-        bool m_viewCulling = false;    // view-frustum cull camera draw lists (default off)
+        bool m_viewCulling = true;     // view-frustum cull camera draw lists (ON since 2026-09-24)
         bool m_fxaaEnabled = false;    // FXAA off by default (TAA-off fallback)
         f32 m_fxaaSubpixel = 0.75f;
         bool m_taaEnabled = false;     // TAA off by default (UI toggle)

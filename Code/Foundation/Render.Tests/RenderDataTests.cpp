@@ -99,6 +99,68 @@ TEST_CASE("RadixSortDrawItems sorts ascending by key")
     CHECK(items[items.Size() - 1].key == 0x00FF00FF00FF00FFull);
 }
 
+TEST_CASE("RenderView::BuildDrawList frustum-culls a sphere entirely outside the view, and a "
+          "view whose settings opt out of culling keeps everything")
+{
+    ExtractedScene scene{DefaultAllocator()};
+    auto add = [&](Float3 center, f32 radius, u64 tag)
+    {
+        MeshRenderData* rd = scene.Add<MeshRenderData>();
+        rd->worldCenter = center;
+        rd->worldRadius = radius;
+        rd->entityId = tag;
+        rd->category = RenderCategories::Opaque;
+    };
+    add(Float3{0, 0, -5}, 1.0f, 1);    // in front of the camera: kept
+    add(Float3{0, 0, 50}, 1.0f, 2);    // behind it: culled
+    add(Float3{500, 0, -5}, 1.0f, 3);  // far off to the side: culled
+    add(Float3{0, 0, -20}, 1.0f, 4);   // farther in front: kept
+
+    // A real perspective (the default ViewCamera's identity projection makes the frustum the
+    // reverse-Z unit box, which culls everything at a distance - the sort tests above never cull).
+    ViewCamera camera;
+    camera.projection = Float4x4::PerspectiveFovRH(1.0472f, 1.0f, 0.1f, 100.0f);
+    ViewSettings settings;
+    Array<DrawItem> scratch;
+
+    RenderView culled;
+    culled.Bind(scene, camera, settings, nullptr, rhi::TextureFormat::BGRA8Unorm, 64, 64);
+    culled.BuildDrawList(scratch, /*cull*/ true);
+    REQUIRE(culled.DrawList().Size() == 2);
+    CHECK(culled.CulledCount() == 2);
+    for (const DrawItem& item : culled.DrawList())
+    {
+        const u64 id = static_cast<const MeshRenderData*>(item.data)->entityId;
+        CHECK((id == 1 || id == 4));
+    }
+
+    // Culling off (the frame's switch off, or a view's frustumCull cleared by the
+    // "draw everything" override): the behind-camera sphere is in the list too.
+    RenderView all;
+    all.Bind(scene, camera, settings, nullptr, rhi::TextureFormat::BGRA8Unorm, 64, 64);
+    all.BuildDrawList(scratch, /*cull*/ false);
+    CHECK(all.DrawList().Size() == 4);
+    CHECK(all.CulledCount() == 0);
+
+    // The frame gates by BOTH: its global switch (on by default) and the view's setting.
+    rhi::null::NullDevice device{DefaultAllocator()};
+    RendererRegistry registry; // no renderer needed: AddView only builds the draw list
+    RenderFrame frame(DefaultAllocator(), device, registry, /*framesInFlight*/ 2);
+    CHECK(frame.ViewCulling()); // the default since 2026-09-24
+    frame.SetViewCulling(true);
+    ViewSettings optOut;
+    optOut.frustumCull = false;
+    RenderView* framed = frame.AddView(scene, camera, optOut, nullptr, rhi::TextureFormat::BGRA8Unorm,
+                                       64, 64, nullptr, nullptr, nullptr);
+    REQUIRE(framed != nullptr);
+    CHECK(framed->DrawList().Size() == 4);
+    RenderView* framedCulled = frame.AddView(scene, camera, settings, nullptr,
+                                             rhi::TextureFormat::BGRA8Unorm, 64, 64, nullptr,
+                                             nullptr, nullptr);
+    REQUIRE(framedCulled != nullptr);
+    CHECK(framedCulled->DrawList().Size() == 2);
+}
+
 TEST_CASE("RenderView::BuildDrawList sorts opaque front-to-back, transparent back-to-front")
 {
     // Three meshes in front of an identity camera at view-space depths 2, 5, 8.
