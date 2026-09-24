@@ -45,10 +45,8 @@ export namespace editor
 
         [[nodiscard]] Status Prepare(content::Instance& instance,
                                      foundation::vfs::IFileSystem& sources,
-                                     Array<byte>& payload) override
+                                     editor::ThumbnailPrepared& out) override
         {
-            // The payload is the ENCODED source image bytes; embedded-pixel sources (model
-            // imports) are wrapped in a tiny header the worker recognizes.
             RefPtr<ISerializable> object = instance.ReadObject();
             auto* asset = Cast<pipeline::TextureAsset>(object.Get());
             if (asset == nullptr)
@@ -57,17 +55,13 @@ export namespace editor
             }
             if (!asset->fileName.IsEmpty())
             {
-                // Imported source FILES live under the project's Sources/ mount at the
-                // mount-relative fileName (the same way the cook's ReadSourceBytes reads
-                // them) - they are NOT instance data streams.
                 UniquePtr<IStream> stream =
                     sources.Open(asset->fileName.View(), FileMode::Read);
                 if (stream.Get() != nullptr && stream->IsValid())
                 {
-                    return ReadAll(*stream, payload);
+                    out.stream = Move(stream); // the worker reads the encoded file
+                    return Status{};
                 }
-                // Fall through: some model-extracted textures carry a fileName AND embedded
-                // pixels; prefer the file, use the pixels when it is absent.
             }
             if (asset->embeddedWidth > 0 && asset->embeddedHeight > 0)
             {
@@ -76,24 +70,14 @@ export namespace editor
                 {
                     return Status{ErrorCode::NotFound};
                 }
-                Array<byte> pixels;
-                const Status read = ReadAll(*stream, pixels);
-                if (!read.IsOk())
-                {
-                    return read;
-                }
-                // Header: magic 'R','A','W','8' + u32 width + u32 height, then RGBA8 rows.
-                payload.Clear();
-                payload.PushBack(byte{'R'});
-                payload.PushBack(byte{'A'});
-                payload.PushBack(byte{'W'});
-                payload.PushBack(byte{'8'});
-                AppendU32(payload, static_cast<u32>(asset->embeddedWidth));
-                AppendU32(payload, static_cast<u32>(asset->embeddedHeight));
-                for (byte b : pixels)
-                {
-                    payload.PushBack(b);
-                }
+                out.header.Clear();
+                out.header.PushBack(byte{'R'});
+                out.header.PushBack(byte{'A'});
+                out.header.PushBack(byte{'W'});
+                out.header.PushBack(byte{'8'});
+                AppendU32(out.header, static_cast<u32>(asset->embeddedWidth));
+                AppendU32(out.header, static_cast<u32>(asset->embeddedHeight));
+                out.stream = Move(stream); // the pixels follow the header
                 return Status{};
             }
             return Status{ErrorCode::NotFound};

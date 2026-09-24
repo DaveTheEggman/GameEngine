@@ -56,21 +56,36 @@ namespace
             static constexpr StringView kTypes[] = {u8"StubAsset"};
             return Span<const StringView>(kTypes, 1);
         }
+        usize* payloadSeen = nullptr; // Generate: the payload size the worker assembled
+        bool handStream = false;      // Prepare: also hand the worker a 100-byte stream to read
         [[nodiscard]] Status Prepare(content::Instance&, foundation::vfs::IFileSystem&,
-                                     Array<byte>& payload) override
+                                     ThumbnailPrepared& out) override
         {
             if (prepareCount != nullptr)
             {
                 ++*prepareCount;
             }
-            payload.PushBack(byte{42});
+            out.header.PushBack(byte{42});
+            if (handStream)
+            {
+                UniquePtr<MemoryStream> stream = MakeUnique<MemoryStream>(DefaultAllocator());
+                Array<byte> bytes;
+                bytes.Resize(100, byte{7});
+                (void)stream->Write(bytes.Data(), bytes.Size());
+                (void)stream->Seek(0, SeekOrigin::Begin);
+                out.stream = UniquePtr<IStream>(Move(stream)); // derived -> base move
+            }
             return Status{};
         }
-        [[nodiscard]] Status Generate(Span<const byte>, image::Image& out) override
+        [[nodiscard]] Status Generate(Span<const byte> payload, image::Image& out) override
         {
             if (generateCount != nullptr)
             {
                 ++*generateCount;
+            }
+            if (payloadSeen != nullptr)
+            {
+                *payloadSeen = payload.Size();
             }
             if (failGenerate)
             {
@@ -96,8 +111,9 @@ namespace
         Guid known{0x1111, 0x2222};
         int prepares = 0;
         int generates = 0;
-
-        explicit Fixture(StringView cacheDir, u64 hash = 0x77, bool failGenerate = false)
+        usize payloadSeen = 0; // what Generate received (header + the worker's stream read)
+        explicit Fixture(StringView cacheDir, u64 hash = 0x77, bool failGenerate = false,
+                         bool handStream = false)
             : db(DefaultAllocator(), NullMount(), nullptr, u8"asset"),
               instance(db, *db.RootGroup(), Guid{0x1111, 0x2222}, u8"Stub", u8"tests",
                        u8"StubAsset")
@@ -107,6 +123,8 @@ namespace
             generator->prepareCount = &prepares;
             generator->generateCount = &generates;
             generator->failGenerate = failGenerate;
+            generator->payloadSeen = &payloadSeen;
+            generator->handStream = handStream;
             service.RegisterGenerator(Move(generator));
             content::Instance* inst = &instance;
             Guid knownId = known;
@@ -146,6 +164,21 @@ TEST_CASE("thumbnails: icon-first, then the drawable + ONE ready signal")
     CHECK(ready == 1);
     CHECK(f.generates == 1);
     CHECK(f.service.Get(f.known).Get() == thumb.Get()); // stable instance, no rescheduling
+}
+
+TEST_CASE("thumbnails: the worker reads the stream Prepare opened; Generate sees header + bytes")
+{
+    // Prepare is main-thread and cheap: it OPENS the source and composes a header; the light
+    // worker does the read (2026-09-23: the grid view froze while Prepare read whole 4k
+    // textures on the main thread). The stub hands a 100-byte stream behind a 1-byte header.
+    (void)RemoveDirectoryRecursive(u8"thumbs_stream");
+    Fixture f(u8"thumbs_stream", 0, /*failGenerate*/ false, /*handStream*/ true);
+    CHECK(!f.service.Get(f.known));
+    PumpLight(f.jobs);
+    CHECK(f.service.Get(f.known));
+    CHECK(f.prepares == 1);
+    CHECK(f.generates == 1);
+    CHECK(f.payloadSeen == 101u); // the header byte, then the stream's 100
 }
 
 TEST_CASE("thumbnails: negatives never re-schedule")

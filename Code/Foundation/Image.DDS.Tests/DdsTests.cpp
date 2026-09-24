@@ -419,3 +419,59 @@ TEST_CASE("dds: LoadDdsAsImage is level 0 of layer 0")
     CHECK(img.Width() == 4u);
     CHECK(PixelAt(img, 0, 0).b == 255);
 }
+
+TEST_CASE("dds: ParseDdsHeader reads the facts from the first bytes alone; ReadDdsHeader reads only the header from a file")
+{
+    // An importer classifies a texture by its header (BC5 = normal, BC4 = mask, HDR = sky, a
+    // DX10 colour space). It must not need the payload: the model importer used to LoadDds
+    // every file whole to learn this (2026-09-23).
+    DdsImage source;
+    source.width = 16;
+    source.height = 8;
+    source.mipLevels = 3;
+    source.format = DdsFormat::BC5;
+    source.colorSpaceKnown = true;
+    source.data.Resize(source.LayerSize(), 0);
+    Array<u8> file;
+    REQUIRE(WriteDds(source, file).IsOk());
+    REQUIRE(file.Size() > kDdsHeaderBytes);
+
+    DdsHeader header;
+    REQUIRE(ParseDdsHeader(Span<const u8>(file.Data(), kDdsHeaderBytes), header).IsOk());
+    CHECK(header.width == 16u);
+    CHECK(header.height == 8u);
+    CHECK(header.mipLevels == 3u);
+    CHECK(header.arrayLayers == 1u);
+    CHECK(!header.cubemap);
+    CHECK(header.format == DdsFormat::BC5);
+    CHECK(header.colorSpaceKnown);
+    // The facts equal the full load's.
+    DdsImage loaded;
+    REQUIRE(LoadDds(Span<const u8>(file.Data(), file.Size()), loaded).IsOk());
+    CHECK(loaded.format == header.format);
+    CHECK(loaded.mipLevels == header.mipLevels);
+    // A legacy header (128 bytes, no DX10 block) parses from those 128 alone.
+    Array<u8> legacy = LegacyHeader(4, 4, 1, 0x4u, FourCC("DXT1"), 0, 0, 0, 0, 0);
+    DdsHeader legacyHeader;
+    REQUIRE(ParseDdsHeader(Span<const u8>(legacy.Data(), legacy.Size()), legacyHeader).IsOk());
+    CHECK(legacyHeader.format == DdsFormat::BC1);
+    CHECK(!legacyHeader.colorSpaceKnown);
+    // Too short is refused; a DX10 header cut before its extension is refused.
+    DdsHeader refused;
+    CHECK(ParseDdsHeader(Span<const u8>(file.Data(), 100), refused).Code() == ErrorCode::InvalidArgument);
+    CHECK(ParseDdsHeader(Span<const u8>(file.Data(), 130), refused).Code() == ErrorCode::InvalidArgument);
+    // From a file: only the header is read (the payload may be anything, even truncated).
+    const StringView path = u8"dds_header_probe.dds";
+    Array<byte> truncated;
+    for (usize i = 0; i < kDdsHeaderBytes + 4; ++i)
+    {
+        truncated.PushBack(static_cast<byte>(file[i]));
+    }
+    REQUIRE(WriteFile(path, Span<const byte>(truncated.Data(), truncated.Size())).IsOk());
+    DdsHeader fromFile;
+    REQUIRE(ReadDdsHeader(path, fromFile).IsOk());
+    CHECK(fromFile.format == DdsFormat::BC5);
+    CHECK(fromFile.width == 16u);
+    CHECK(ReadDdsHeader(u8"dds_header_missing.dds", fromFile).Code() == ErrorCode::NotFound);
+    (void)FileDelete(path);
+}

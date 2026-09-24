@@ -41,7 +41,7 @@ export namespace editor
 
         [[nodiscard]] Status Prepare(content::Instance& instance,
                                      foundation::vfs::IFileSystem& sources,
-                                     Array<byte>& payload) override
+                                     editor::ThumbnailPrepared& out) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             auto* asset = Cast<pipeline::FontAsset>(object.Get());
@@ -50,18 +50,12 @@ export namespace editor
                 return Status{ErrorCode::InvalidArgument};
             }
             UniquePtr<IStream> stream = sources.Open(asset->fileName.View(), FileMode::Read);
-            if (stream.Get() == nullptr || !stream->IsValid())
+            if (stream.Get() == nullptr || !stream->IsValid() || stream->Size() <= 0)
             {
                 return Status{ErrorCode::NotFound};
             }
-            const i64 size = stream->Size();
-            if (size <= 0)
-            {
-                return Status{ErrorCode::NotFound};
-            }
-            payload.Resize(static_cast<usize>(size));
-            const u64 read = stream->Read(payload.Data(), static_cast<u64>(size));
-            return read == static_cast<u64>(size) ? Status{} : Status{ErrorCode::Internal};
+            out.stream = Move(stream); // the worker reads the file
+            return Status{};
         }
 
         [[nodiscard]] Status Generate(Span<const byte> payload, image::Image& out) override

@@ -1053,13 +1053,10 @@ export namespace pipeline{
         // name tokens decide the rest. (An unreadable DDS imports like any file; the cook says why.)
         static void SetupForDds(TextureAsset& asset, StringView sourcePath, StringView stem)
         {
-            Result<Array<byte>> bytes = ReadFile(sourcePath);
-            image::dds::DdsImage dds;
-            if (!bytes.HasValue() ||
-                !image::dds::LoadDds(Span<const u8>(reinterpret_cast<const u8*>(bytes.Value().Data()),
-                                                    bytes.Value().Size()),
-                                     dds)
-                     .IsOk())
+            // The HEADER decides everything here; reading the whole file did too, and for a
+            // 390-texture model that was gigabytes on the editor's main thread (2026-09-23).
+            image::dds::DdsHeader dds;
+            if (!image::dds::ReadDdsHeader(sourcePath, dds).IsOk())
             {
                 SetupForInferredUsage(asset, stem);
                 return;

@@ -19,7 +19,11 @@
 // Threading: Get/Invalidate/OnThumbnailReady are MAIN-thread; generation + PNG IO run on the
 // light worker; completion fires on the main thread from EditorJobService::Update. In-flight
 // jobs use the heap-slot lifetime pattern so project close or service reset
-// mid-flight is safe.
+// mid-flight is safe. A generator's Prepare runs on the MAIN thread but must stay CHEAP: it
+// reads the small asset envelope and OPENS the source it needs (a file under Sources/, a
+// sidecar stream) - the worker does the reading. Until 2026-09-23 Prepare read the whole
+// source file (a 4k JPEG, a WAV) on the main thread, up to kMaxInFlight of them per Get
+// burst, and the asset browser's grid view froze for as long as thumbnails were pending.
 
 module;
 #include "Core/Prelude.h"
@@ -62,25 +66,40 @@ export namespace editor
 
     RTTI_DEFINE_OBJECT(OwnedThumbnailDrawable, "rtti::editor")
 
+    /// What Prepare hands the worker: a small header the generator composes on the main
+    /// thread (tags, dimensions) and a stream OPENED there but READ on the worker. The
+    /// worker's payload = the header bytes followed by the whole stream (either may be absent).
+    struct ThumbnailPrepared
+    {
+        Array<byte> header;
+        UniquePtr<IStream> stream;
+        [[nodiscard]] bool HasInput() const noexcept
+        {
+            return !header.IsEmpty() || stream.Get() != nullptr;
+        }
+    };
+
     /// One per-asset-type thumbnail producer. Split across threads:
-    /// Prepare runs on the MAIN thread and gathers everything the worker needs (content
+    /// Prepare runs on the MAIN thread and resolves what the worker needs (content
     /// Instance/DB access is main-thread-only - a cook or delete can run concurrently with the
-    /// light lane); Generate runs on the LIGHT worker over that payload: CPU only, no UI, no
-    /// GPU (offscreen renders are the preview-bake path). The output image should already
-    /// be thumbnail-sized (the service saves it verbatim).
+    /// light lane) WITHOUT reading it: it opens the source into a stream the worker reads.
+    /// Generate runs on the LIGHT worker over the read payload: CPU only, no UI, no GPU
+    /// (offscreen renders are the preview-bake path). The output image should already be
+    /// thumbnail-sized (the service saves it verbatim).
     class IThumbnailGenerator
     {
     public:
         virtual ~IThumbnailGenerator() = default;
         /// The content asset-type names this generator covers (e.g. "TextureAsset").
         [[nodiscard]] virtual Span<const StringView> AssetTypeNames() const = 0;
-        /// MAIN thread: read the instance's source data into a worker-safe payload.
-        /// `sources` is the project's Sources/ mount - imported source FILES live there
-        /// (mount-relative Asset::fileName paths), embedded data lives in instance streams.
+        /// MAIN thread, cheap: read the small envelope and OPEN the source into `out` - a
+        /// file under `sources` (the project's Sources/ mount, mount-relative Asset::fileName
+        /// paths) or an instance data stream - plus any header bytes. No whole-file reads
+        /// here: the worker reads `out.stream`.
         [[nodiscard]] virtual Status Prepare(content::Instance& instance,
                                              foundation::vfs::IFileSystem& sources,
-                                             Array<byte>& payload) = 0;
-        /// LIGHT worker: produce the thumbnail pixels from the prepared payload.
+                                             ThumbnailPrepared& out) = 0;
+        /// LIGHT worker: produce the thumbnail pixels from the payload (header + stream bytes).
         [[nodiscard]] virtual Status Generate(Span<const byte> payload, image::Image& out) = 0;
     };
 
@@ -276,7 +295,8 @@ export namespace editor
                                            // regenerate from (Prepare was skipped because the
                                            // file existed): delete the file, retry fully
             image::Image pixels;           // worker output
-            Array<byte> payload;           // main-thread Prepare output, consumed by the worker
+            ThumbnailPrepared prepared;    // main-thread Prepare output: header + an OPEN stream
+            Array<byte> payload;           // the worker's read: header + the stream's bytes
             String diskPath;               // empty = RAM-only (unknown content hash)
             IThumbnailGenerator* generator = nullptr; // borrowed; generators live on the service
         };

@@ -95,7 +95,7 @@ namespace editor
         // negative entry (bad/missing source stream) - logged once here, not every frame.
         else if (!diskHit)
         {
-            const Status prepared = generator->Prepare(*instance, *m_sources, slot->payload);
+            const Status prepared = generator->Prepare(*instance, *m_sources, slot->prepared);
             if (!prepared.IsOk())
             {
                 LOG_WARNING(u8"Thumbnails", u8"prepare failed for '{}' ({}): error {}",
@@ -121,7 +121,7 @@ namespace editor
                                      return;
                                  }
                                  if (slot->generator == nullptr ||
-                                     (slot->payload.IsEmpty() && !slot->diskPath.IsEmpty()))
+                                     (!slot->prepared.HasInput() && !slot->diskPath.IsEmpty()))
                                  {
                                      // Either a load-only slot (GPU-generated type) whose file
                                      // would not load, or the cache file existed at schedule
@@ -129,6 +129,29 @@ namespace editor
                                      // Self-heal: delete it and retry the FULL path next Get.
                                      slot->staleDiskFile = true;
                                      return;
+                                 }
+                                 // The read happens HERE, on the worker: the header the
+                                 // generator composed, then the stream it opened.
+                                 slot->payload = Move(slot->prepared.header);
+                                 if (slot->prepared.stream.Get() != nullptr)
+                                 {
+                                     IStream& stream = *slot->prepared.stream;
+                                     const i64 size = stream.Size();
+                                     if (size <= 0)
+                                     {
+                                         slot->negative = true;
+                                         return;
+                                     }
+                                     const usize start = slot->payload.Size();
+                                     slot->payload.Resize(start + static_cast<usize>(size));
+                                     const u64 read = stream.Read(slot->payload.Data() + start,
+                                                                  static_cast<u64>(size));
+                                     slot->prepared.stream.Reset(); // closed on the worker
+                                     if (read != static_cast<u64>(size))
+                                     {
+                                         slot->negative = true;
+                                         return;
+                                     }
                                  }
                                  const Status generated =
                                      slot->generator->Generate(Span<const byte>(slot->payload.Data(),

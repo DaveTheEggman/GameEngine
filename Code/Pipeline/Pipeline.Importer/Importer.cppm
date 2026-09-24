@@ -190,6 +190,12 @@ export namespace pipeline
         Array<byte> owned;
         String copyFrom; // raw copy when both paths set
         String copyTo;
+        // A LAZY payload: runs on the worker right before the write and fills `owned` (a
+        // mesh's conversion, LOD chain and geometry serialization - the import's CPU bulk).
+        // Import queues the write in microseconds; the work happens off the main thread
+        // (2026-09-23). Whatever it captures must outlive the flush (the editor keeps the
+        // prepared model alive for exactly this reason).
+        Function<Status(Array<byte>&)> produce;
 
         [[nodiscard]] Span<const byte> Bytes() const noexcept
         {
@@ -197,8 +203,17 @@ export namespace pipeline
         }
 
         /// Execute on the worker. Returns the write's status.
-        [[nodiscard]] Status Execute() const
+        [[nodiscard]] Status Execute()
         {
+            if (produce)
+            {
+                const Status produced = produce(owned);
+                if (!produced.IsOk())
+                {
+                    return produced;
+                }
+                produce = {};
+            }
             if (!copyFrom.IsEmpty() && !copyTo.IsEmpty())
             {
                 Result<Array<byte>> bytes = ReadFile(copyFrom.AsView());

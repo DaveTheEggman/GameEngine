@@ -40,7 +40,7 @@ export namespace editor
 
         [[nodiscard]] Status Prepare(content::Instance& instance,
                                      foundation::vfs::IFileSystem& sources,
-                                     Array<byte>& payload) override
+                                     editor::ThumbnailPrepared& out) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             auto* asset = Cast<pipeline::SplatmapAsset>(object.Get());
@@ -53,32 +53,23 @@ export namespace editor
                 UniquePtr<IStream> stream = sources.Open(asset->fileName.View(), FileMode::Read);
                 if (stream.Get() != nullptr && stream->IsValid())
                 {
-                    return ReadAll(*stream, payload); // encoded image bytes, no header
+                    out.stream = Move(stream); // encoded image bytes, no header
+                    return Status{};
                 }
             }
-            // Painted map: the raw 4-slot weight raster, wrapped with the dimensions.
             UniquePtr<IStream> weights = instance.ReadData(u8"pixels");
             if (weights.Get() == nullptr)
             {
                 return Status{ErrorCode::NotFound};
             }
-            Array<byte> raster;
-            const Status read = ReadAll(*weights, raster);
-            if (!read.IsOk())
-            {
-                return read;
-            }
-            payload.Clear();
-            payload.PushBack(byte{'S'});
-            payload.PushBack(byte{'P'});
-            payload.PushBack(byte{'L'});
-            payload.PushBack(byte{'T'});
-            AppendU32(payload, static_cast<u32>(Max(asset->width, 1)));
-            AppendU32(payload, static_cast<u32>(Max(asset->height, 1)));
-            for (byte b : raster)
-            {
-                payload.PushBack(b);
-            }
+            out.header.Clear();
+            out.header.PushBack(byte{'S'});
+            out.header.PushBack(byte{'P'});
+            out.header.PushBack(byte{'L'});
+            out.header.PushBack(byte{'T'});
+            AppendU32(out.header, static_cast<u32>(Max(asset->width, 1)));
+            AppendU32(out.header, static_cast<u32>(Max(asset->height, 1)));
+            out.stream = Move(weights); // the raster follows the header (read on the worker)
             return Status{};
         }
 

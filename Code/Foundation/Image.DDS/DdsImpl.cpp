@@ -228,83 +228,123 @@ namespace foundation::image::dds
         return got == 4 && IsDds(Span<const u8>(magic, 4));
     }
 
-    Status LoadDds(Span<const u8> bytes, DdsImage& out)
+    namespace
     {
-        if (bytes.Size() < kFileHeaderBytes || !IsDds(bytes))
+        // The header parse LoadDds and ParseDdsHeader share: the facts + where the payload starts.
+        Status ParseHeader(Span<const u8> bytes, DdsHeader& out, usize& payloadStart)
         {
-            return ErrorCode::InvalidArgument;
-        }
-        const u8* h = bytes.Data() + 4;
-        if (ReadU32(h) != kHeaderSize || ReadU32(h + 72) != kPixelFormatSize)
-        {
-            return ErrorCode::InvalidArgument;
-        }
-        const u32 flags = ReadU32(h + 4);
-        const u32 height = ReadU32(h + 8);
-        const u32 width = ReadU32(h + 12);
-        const u32 depth = ReadU32(h + 20);
-        const u32 mipCount = ReadU32(h + 24);
-        const u32 pfFlags = ReadU32(h + 76);
-        const u32 fourCC = ReadU32(h + 80);
-        const u32 bitCount = ReadU32(h + 84);
-        const u32 rMask = ReadU32(h + 88);
-        const u32 gMask = ReadU32(h + 92);
-        const u32 bMask = ReadU32(h + 96);
-        const u32 aMask = ReadU32(h + 100);
-        const u32 caps2 = ReadU32(h + 108);
-        (void)depth;
-
-        DdsImage dds;
-        dds.width = width;
-        dds.height = height;
-        dds.mipLevels = ((flags & kFlagMipMapCount) != 0 && mipCount > 0) ? mipCount : 1u;
-        usize payloadStart = kFileHeaderBytes;
-        bool cube = (caps2 & kCaps2Cubemap) != 0;
-        bool volume = (caps2 & kCaps2Volume) != 0;
-        u32 arraySize = 1;
-
-        if ((pfFlags & kPfFourCC) != 0 && fourCC == kFourCCDx10)
-        {
-            if (bytes.Size() < kFileHeaderBytes + kDx10HeaderSize)
+            if (bytes.Size() < kFileHeaderBytes || !IsDds(bytes))
             {
                 return ErrorCode::InvalidArgument;
             }
-            const u8* x = bytes.Data() + kFileHeaderBytes;
-            const u32 dxgi = ReadU32(x);
-            const u32 dimension = ReadU32(x + 4);
-            const u32 misc = ReadU32(x + 8);
-            arraySize = ReadU32(x + 12);
-            dds.format = FromDxgi(dxgi);
-            dds.colorSpaceKnown = true;
-            cube = cube || (misc & kMiscTextureCube) != 0;
-            volume = volume || dimension == kDimensionTexture3D;
-            if (dimension != kDimensionTexture2D && dimension != kDimensionTexture3D)
+            const u8* h = bytes.Data() + 4;
+            if (ReadU32(h) != kHeaderSize || ReadU32(h + 72) != kPixelFormatSize)
             {
-                return ErrorCode::NotSupported; // 1D textures: nothing in the engine wants one
+                return ErrorCode::InvalidArgument;
             }
-            payloadStart += kDx10HeaderSize;
+            const u32 flags = ReadU32(h + 4);
+            const u32 height = ReadU32(h + 8);
+            const u32 width = ReadU32(h + 12);
+            const u32 mipCount = ReadU32(h + 24);
+            const u32 pfFlags = ReadU32(h + 76);
+            const u32 fourCC = ReadU32(h + 80);
+            const u32 bitCount = ReadU32(h + 84);
+            const u32 rMask = ReadU32(h + 88);
+            const u32 gMask = ReadU32(h + 92);
+            const u32 bMask = ReadU32(h + 96);
+            const u32 aMask = ReadU32(h + 100);
+            const u32 caps2 = ReadU32(h + 108);
+            DdsHeader header;
+            header.width = width;
+            header.height = height;
+            header.mipLevels = ((flags & kFlagMipMapCount) != 0 && mipCount > 0) ? mipCount : 1u;
+            payloadStart = kFileHeaderBytes;
+            bool cube = (caps2 & kCaps2Cubemap) != 0;
+            bool volume = (caps2 & kCaps2Volume) != 0;
+            u32 arraySize = 1;
+            if ((pfFlags & kPfFourCC) != 0 && fourCC == kFourCCDx10)
+            {
+                if (bytes.Size() < kFileHeaderBytes + kDx10HeaderSize)
+                {
+                    return ErrorCode::InvalidArgument;
+                }
+                const u8* x = bytes.Data() + kFileHeaderBytes;
+                const u32 dxgi = ReadU32(x);
+                const u32 dimension = ReadU32(x + 4);
+                const u32 misc = ReadU32(x + 8);
+                arraySize = ReadU32(x + 12);
+                header.format = FromDxgi(dxgi);
+                header.colorSpaceKnown = true;
+                cube = cube || (misc & kMiscTextureCube) != 0;
+                volume = volume || dimension == kDimensionTexture3D;
+                if (dimension != kDimensionTexture2D && dimension != kDimensionTexture3D)
+                {
+                    return ErrorCode::NotSupported; // 1D textures: nothing in the engine wants one
+                }
+                payloadStart += kDx10HeaderSize;
+            }
+            else
+            {
+                header.format = FromLegacy(pfFlags, fourCC, bitCount, rMask, gMask, bMask, aMask);
+                header.colorSpaceKnown = false;
+            }
+            if (volume)
+            {
+                return ErrorCode::NotSupported;
+            }
+            if (header.format == DdsFormat::Unknown || width == 0 || height == 0 || arraySize == 0)
+            {
+                return ErrorCode::NotSupported;
+            }
+            if (cube && (caps2 & kCaps2Cubemap) != 0 &&
+                (caps2 & kCaps2CubemapAllFaces) != kCaps2CubemapAllFaces)
+            {
+                return ErrorCode::NotSupported; // a partial cubemap has no fixed layout
+            }
+            header.cubemap = cube;
+            header.arrayLayers = cube ? arraySize * 6u : arraySize;
+            out = header;
+            return ErrorCode::Ok;
         }
-        else
-        {
-            dds.format = FromLegacy(pfFlags, fourCC, bitCount, rMask, gMask, bMask, aMask);
-            dds.colorSpaceKnown = false;
-        }
-        if (volume)
-        {
-            return ErrorCode::NotSupported;
-        }
-        if (dds.format == DdsFormat::Unknown || width == 0 || height == 0 || arraySize == 0)
-        {
-            return ErrorCode::NotSupported;
-        }
-        if (cube && (caps2 & kCaps2Cubemap) != 0 &&
-            (caps2 & kCaps2CubemapAllFaces) != kCaps2CubemapAllFaces)
-        {
-            return ErrorCode::NotSupported; // a partial cubemap has no fixed layout
-        }
-        dds.cubemap = cube;
-        dds.arrayLayers = cube ? arraySize * 6u : arraySize;
+    }
 
+    Status ParseDdsHeader(Span<const u8> bytes, DdsHeader& out)
+    {
+        usize payloadStart = 0;
+        return ParseHeader(bytes, out, payloadStart);
+    }
+
+    Status ReadDdsHeader(StringView path, DdsHeader& out)
+    {
+        const std::string cPath(reinterpret_cast<const char*>(path.Data()), path.Size());
+        FILE* file = std::fopen(cPath.c_str(), "rb");
+        if (file == nullptr)
+        {
+            return ErrorCode::NotFound;
+        }
+        u8 head[kDdsHeaderBytes] = {};
+        const usize got = std::fread(head, 1, sizeof(head), file);
+        std::fclose(file);
+        return ParseDdsHeader(Span<const u8>(head, got), out);
+    }
+
+    Status LoadDds(Span<const u8> bytes, DdsImage& out)
+    {
+        DdsHeader header;
+        usize payloadStart = 0;
+        const Status parsed = ParseHeader(bytes, header, payloadStart);
+        if (!parsed.IsOk())
+        {
+            return parsed;
+        }
+        DdsImage dds;
+        dds.width = header.width;
+        dds.height = header.height;
+        dds.mipLevels = header.mipLevels;
+        dds.arrayLayers = header.arrayLayers;
+        dds.cubemap = header.cubemap;
+        dds.format = header.format;
+        dds.colorSpaceKnown = header.colorSpaceKnown;
         const usize payload = dds.LayerSize() * dds.arrayLayers;
         if (bytes.Size() < payloadStart + payload)
         {

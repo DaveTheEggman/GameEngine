@@ -39,7 +39,7 @@ export namespace editor
 
         [[nodiscard]] Status Prepare(content::Instance& instance,
                                      foundation::vfs::IFileSystem& sources,
-                                     Array<byte>& payload) override
+                                     editor::ThumbnailPrepared& out) override
         {
             RefPtr<ISerializable> object = instance.ReadObject();
             auto* asset = Cast<pipeline::HeightfieldAsset>(object.Get());
@@ -52,35 +52,26 @@ export namespace editor
                 UniquePtr<IStream> stream = sources.Open(asset->fileName.View(), FileMode::Read);
                 if (stream.Get() != nullptr && stream->IsValid())
                 {
-                    return ReadAll(*stream, payload); // encoded image bytes, no header
+                    out.stream = Move(stream); // encoded image bytes, no header
+                    return Status{};
                 }
             }
-            // Authored field: the raw u16 sidecar, wrapped in a header carrying the side.
             UniquePtr<IStream> heights = instance.ReadData(u8"heights");
             if (heights.Get() == nullptr)
             {
                 return Status{ErrorCode::NotFound};
             }
-            Array<byte> samples;
-            const Status read = ReadAll(*heights, samples);
-            if (!read.IsOk())
-            {
-                return read;
-            }
-            payload.Clear();
-            payload.PushBack(byte{'R'});
-            payload.PushBack(byte{'1'});
-            payload.PushBack(byte{'6'});
-            payload.PushBack(byte{' '});
+            out.header.Clear();
+            out.header.PushBack(byte{'R'});
+            out.header.PushBack(byte{'1'});
+            out.header.PushBack(byte{'6'});
+            out.header.PushBack(byte{' '});
             const u32 side = static_cast<u32>(Max(asset->size, 1));
             for (u32 shift = 0; shift < 32; shift += 8)
             {
-                payload.PushBack(static_cast<byte>((side >> shift) & 0xff));
+                out.header.PushBack(static_cast<byte>((side >> shift) & 0xff));
             }
-            for (byte b : samples)
-            {
-                payload.PushBack(b);
-            }
+            out.stream = Move(heights); // the samples follow the header (read on the worker)
             return Status{};
         }
 

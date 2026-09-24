@@ -1609,7 +1609,7 @@ TEST_CASE("model-import: nested-subfolder sidecars survive the DEFERRED write pa
 
     // EVERY deferred write must succeed - the nested Sources/textures/ copy included
     // (with the old raw WriteFile this is the one that failed).
-    for (const pipeline::DeferredImportWrite& write : deferred)
+    for (pipeline::DeferredImportWrite& write : deferred)
     {
         const Status s = write.Execute();
         CHECK(s.IsOk());
@@ -1867,7 +1867,7 @@ TEST_CASE("model-import: DDS textures stay on disk as file-backed assets and pas
                                *project->SourceDb().RootGroup(), nullptr, nullptr, &deferred);
     REQUIRE(imported.HasValue());
     CHECK_FALSE(deferred.IsEmpty());
-    for (const pipeline::DeferredImportWrite& write : deferred)
+    for (pipeline::DeferredImportWrite& write : deferred)
     {
         CHECK_MESSAGE(write.Execute().IsOk(), write.Label());
     }
@@ -1880,3 +1880,98 @@ TEST_CASE("model-import: DDS textures stay on disk as file-backed assets and pas
     (void)RemoveDirectoryRecursive(src);
 }
 
+
+TEST_CASE("model-import: with a prepared model the geometry writes are LAZY - produced on the flush, byte-identical to the inline import")
+{
+    // The editor's path: PrepareOnWorker loads the model, Import queues the mesh writes in
+    // microseconds (no conversion, no LOD chain, no serialization on the main thread), and the
+    // deferred flush produces the geometry on the worker while the prepared model stays alive.
+    using namespace editor;
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterTextureAsset();
+    pipeline::RegisterMeshAssets();
+    pipeline::RegisterMaterialAsset();
+    pipeline::RegisterAnimationAssets();
+    const auto freshProject = [](StringView dir) -> UniquePtr<EditorProject>
+    {
+        (void)RemoveDirectoryRecursive(dir);
+        REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+        REQUIRE(static_cast<bool>(project));
+        return project;
+    };
+    const auto geometryBytes = [](const foundation::content::Instance& mesh) -> Array<byte>
+    {
+        UniquePtr<IStream> stream = mesh.ReadData(pipeline::kMeshGeometryStreamName);
+        Array<byte> bytes;
+        REQUIRE(stream.Get() != nullptr);
+        const i64 size = stream->Size();
+        REQUIRE(size > 0);
+        bytes.Resize(static_cast<usize>(size));
+        REQUIRE(stream->Read(bytes.Data(), static_cast<u64>(size)) == static_cast<u64>(size));
+        return bytes;
+    };
+    pipeline::ModelFileImporter importer;
+
+    // The inline reference: no prepared model, no deferred writes.
+    const StringView inlineDir = u8"scratch_gltf_lazy_inline";
+    UniquePtr<EditorProject> inlineProject = freshProject(inlineDir);
+    Result<foundation::content::Instance*> inlineImport = importer.Import(
+        MiFoxNested().AsView(),
+        pipeline::ImportContext{DefaultAllocator(), inlineProject->SourcesRoot()},
+        *inlineProject->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(inlineImport.HasValue());
+    foundation::content::Instance* inlineMesh = nullptr;
+    for (foundation::content::Instance* candidate : inlineImport.Value()->OwningGroup().Instances())
+    {
+        if (candidate->TypeName() == StringView(u8"SkinnedMeshAsset") ||
+            candidate->TypeName() == StringView(u8"StaticMeshAsset"))
+        {
+            inlineMesh = candidate;
+            break;
+        }
+    }
+    REQUIRE(inlineMesh != nullptr);
+    const Array<byte> reference = geometryBytes(*inlineMesh);
+
+    // The editor's path.
+    const StringView lazyDir = u8"scratch_gltf_lazy_deferred";
+    UniquePtr<EditorProject> lazyProject = freshProject(lazyDir);
+    Array<pipeline::DeferredImportWrite> deferred;
+    RefPtr<Object> prepared = importer.PrepareOnWorker(MiFoxNested().AsView(), DefaultAllocator());
+    REQUIRE(prepared.Get() != nullptr);
+    Result<foundation::content::Instance*> lazyImport = importer.Import(
+        MiFoxNested().AsView(),
+        pipeline::ImportContext{DefaultAllocator(), lazyProject->SourcesRoot()},
+        *lazyProject->SourceDb().RootGroup(), nullptr, prepared.Get(), &deferred);
+    REQUIRE(lazyImport.HasValue());
+    usize lazyGeometryWrites = 0;
+    for (const pipeline::DeferredImportWrite& write : deferred)
+    {
+        if (write.streamName.AsView() == pipeline::kMeshGeometryStreamName)
+        {
+            ++lazyGeometryWrites;
+            CHECK(static_cast<bool>(write.produce)); // the work is parked on the worker...
+            CHECK(write.owned.IsEmpty());            // ...nothing was serialized on this thread
+        }
+    }
+    CHECK(lazyGeometryWrites >= 1u);
+    for (pipeline::DeferredImportWrite& write : deferred)
+    {
+        CHECK_MESSAGE(write.Execute().IsOk(), write.Label());
+    }
+    foundation::content::Instance* lazyMesh =
+        lazyImport.Value()->OwningGroup().GetInstance(inlineMesh->Name());
+    REQUIRE(lazyMesh != nullptr);
+    const Array<byte> produced = geometryBytes(*lazyMesh);
+    REQUIRE(produced.Size() == reference.Size());
+    CHECK(MemCompare(produced.Data(), reference.Data(), reference.Size()) == 0);
+    // The envelope was written AFTER the geometry was produced: it reads back as a mesh asset.
+    RefPtr<ISerializable> envelope = lazyMesh->ReadObject();
+    CHECK(envelope.Get() != nullptr);
+
+    inlineProject.Reset();
+    lazyProject.Reset();
+    (void)RemoveDirectoryRecursive(inlineDir);
+    (void)RemoveDirectoryRecursive(lazyDir);
+}

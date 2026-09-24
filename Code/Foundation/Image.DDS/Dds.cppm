@@ -226,6 +226,34 @@ export namespace foundation::image::dds
     /// the file): how a loader tells a GPU-ready container from an image it should decode.
     [[nodiscard]] bool IsDdsFile(StringView path) noexcept;
 
+    /// The facts a DDS header states, without the payload: what an importer needs to decide a
+    /// texture's usage (BC5 = normal map, BC4 = mask, an HDR format = a skybox) and colour
+    /// space. Reading these used to mean reading the whole file (2026-09-23: Bistro's 390 DDS
+    /// files, gigabytes, on the editor's main thread); ReadDdsHeader reads kDdsHeaderBytes.
+    struct DdsHeader
+    {
+        u32 width = 0;
+        u32 height = 0;
+        u32 mipLevels = 1;
+        u32 arrayLayers = 1; // 6 x arraySize for cubemaps
+        bool cubemap = false;
+        DdsFormat format = DdsFormat::Unknown;
+        bool colorSpaceKnown = false;
+    };
+
+    /// Magic + DDS_HEADER + the DX10 extension: the most bytes any header can take.
+    inline constexpr usize kDdsHeaderBytes = 4 + 124 + 20;
+
+    /// Parse only the header (legacy or DX10) from the FIRST bytes of a file - kDdsHeaderBytes is
+    /// always enough, a legacy header needs 128. The same refusals as LoadDds (a volume, an
+    /// unknown format, a partial cubemap: NotSupported; too short: InvalidArgument); nothing
+    /// about the payload is checked.
+    [[nodiscard]] Status ParseDdsHeader(Span<const u8> bytes, DdsHeader& out);
+
+    /// ParseDdsHeader over the first kDdsHeaderBytes of the file at `path`: a header read, never
+    /// a file read.
+    [[nodiscard]] Status ReadDdsHeader(StringView path, DdsHeader& out);
+
     /// Parse a DDS file (legacy or DX10 header) into `out`, copying the payload. Volumes and
     /// formats outside DdsFormat are NotSupported; a truncated payload is InvalidArgument.
     [[nodiscard]] Status LoadDds(Span<const u8> bytes, DdsImage& out);

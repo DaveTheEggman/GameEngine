@@ -469,11 +469,18 @@ namespace editor::app
                                                 : m_context->Project()->SourceDb().RootGroup());
         auto deferred =
             MakeUnique<Array<pipeline::DeferredImportWrite>>(MemoryAllocator());
+        const Stopwatch mainClock = Stopwatch::StartNew();
         Result<content::Instance*> imported =
             importer->Import(path.AsView(),
                              pipeline::ImportContext{MemoryAllocator(), m_context->Project()->SourcesRoot()},
                              *group, options.Get(),
                              prepared.Get(), (m_jobs != nullptr) ? deferred.Get() : nullptr);
+        // The number that must stay small: everything the import does on the UI thread. The
+        // bulk (mesh conversion, LOD chains, serialization, file copies) is in the deferred
+        // writes the worker flushes below.
+        LOG_INFO(u8"Import", u8"'{}': {} ms on the main thread, {} deferred write(s) queued",
+                 pipeline::FileNameOf(path.AsView()),
+                 static_cast<i64>(mainClock.Elapsed().AsMilliseconds()), deferred->Size());
         if (!imported.HasValue() || imported.Value() == nullptr)
         {
             String message(u8"Import failed: '");
@@ -502,9 +509,10 @@ namespace editor::app
         m_jobs->Submit(
             title.AsView(),
             Function<Status(editor::JobContext&)>{
-                [writes, prepared](editor::JobContext& job) -> Status
+                [writes, prepared, path](editor::JobContext& job) -> Status
                 {
                     Status result{};
+                    const Stopwatch flushClock = Stopwatch::StartNew();
                     for (usize i = 0; i < writes->Size(); ++i)
                     {
                         pipeline::DeferredImportWrite& write = (*writes)[i];
@@ -519,6 +527,9 @@ namespace editor::app
                         }
                     }
                     (void)prepared; // keeps the decoded pixels alive for the views
+                    LOG_INFO(u8"Import", u8"'{}': {} deferred write(s) flushed in {} ms (worker)",
+                             pipeline::FileNameOf(path.AsView()), writes->Size(),
+                             static_cast<i64>(flushClock.Elapsed().AsMilliseconds()));
                     return result;
                 }},
             Function<void(Status)>{

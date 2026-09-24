@@ -264,8 +264,35 @@ export namespace editor::mcp
 
                 pipeline::ImportContext ctx{editor::EditorRootAllocator(),
                                             s->project->SourcesRoot().AsView()};
+                // The editor's two-phase path, run inline: the worker prepare (the load), the
+                // main-thread fan-out, then the deferred flush - timed apart, so the tool
+                // reports what the editor's UI thread would have paid (`mainMs`).
+                const Stopwatch prepareClock = Stopwatch::StartNew();
+                RefPtr<Object> prepared =
+                    importer->WantsWorkerPrepare()
+                        ? importer->PrepareOnWorker(source.AsView(), editor::EditorRootAllocator())
+                        : RefPtr<Object>{};
+                const i64 prepareMs = static_cast<i64>(prepareClock.Elapsed().AsMilliseconds());
+                Array<pipeline::DeferredImportWrite> deferred;
+                const Stopwatch mainClock = Stopwatch::StartNew();
                 Result<content::Instance*> imported =
-                    importer->Import(source.AsView(), ctx, *group);
+                    importer->Import(source.AsView(), ctx, *group, nullptr, prepared.Get(),
+                                     &deferred);
+                const i64 mainMs = static_cast<i64>(mainClock.Elapsed().AsMilliseconds());
+                const Stopwatch flushClock = Stopwatch::StartNew();
+                if (imported.HasValue())
+                {
+                    for (pipeline::DeferredImportWrite& write : deferred)
+                    {
+                        const Status written = write.Execute();
+                        if (!written.IsOk())
+                        {
+                            return Err(Format(u8"import of '{}': deferred write '{}' failed",
+                                              source.AsView(), write.Label()));
+                        }
+                    }
+                }
+                const i64 flushMs = static_cast<i64>(flushClock.Elapsed().AsMilliseconds());
                 if (!imported.HasValue())
                 {
                     return Err(Format(u8"import of '{}' failed (error {})", source.AsView(),
@@ -273,6 +300,10 @@ export namespace editor::mcp
                 }
                 content::Instance* inst = imported.Value();
                 JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"prepareMs", JsonValue::MakeNumber(static_cast<f64>(prepareMs)));
+                out.Set(u8"mainMs", JsonValue::MakeNumber(static_cast<f64>(mainMs)));
+                out.Set(u8"flushMs", JsonValue::MakeNumber(static_cast<f64>(flushMs)));
+                out.Set(u8"deferredWrites", JsonValue::MakeNumber(static_cast<f64>(deferred.Size())));
                 out.Set(u8"guid", detail::GuidToJson(inst->Id()));
                 out.Set(u8"name", JsonValue::MakeString(String(inst->Name())));
                 out.Set(u8"type", JsonValue::MakeString(String(inst->TypeName())));

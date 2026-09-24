@@ -348,6 +348,18 @@ building it blind (Lumix `PrefabSystem` + Sedulous `LocalModifications`/`PrefabR
 show prefab design is dominated by editor use-cases: instance tracking, per-instance overrides,
 apply/revert). The cooker driver lands with the asset browser (phase 6) for the same reason.
 
+**The UI thread's three rules for asset work** (2026-09-23, after the RTHomes1 grid-view freeze
+and the Bistro import stall): (1) a thumbnail generator's `Prepare` OPENS its source and composes
+a header; the light worker reads the stream (`ThumbnailPrepared`) - Prepare used to read whole 4k
+textures on the main thread, eight per `Get` burst. (2) An importer's `Import` is the DB fan-out
+only: the CPU bulk (a mesh's conversion, LOD chain and serialization) rides the deferred writes
+as a LAZY `produce` step the worker runs before the write, while the prepared model the editor's
+job captures keeps the source alive. (3) A probe reads a header, never a file:
+`image::dds::ReadDdsHeader` gives the texture setup its facts from 148 bytes. The assets view
+logs each import's main-thread milliseconds and its worker flush; the MCP `asset_import` tool
+reports `prepareMs` / `mainMs` / `flushMs` over the same two-phase path (Bistro, 1149 assets:
+main-thread 16.3 s -> 0.9 s).
+
 **DEFERRED (tagged 2026-07-11, plan/discuss later):**
 - **Project native module**: optional per-project native DLL (game code + its editor plugins)
  loaded by the editor, with a static-link build option like Traktor. Touches: manifest field,

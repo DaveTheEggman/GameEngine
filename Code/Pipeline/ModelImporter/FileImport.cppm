@@ -437,6 +437,18 @@ export namespace pipeline
                 CopyGltfSidecars(sourcePath, context, deferredWrites);
             }
 
+            // Phase timings on the calling thread (the editor's UI thread): the import's own
+            // profile, so a regression in any phase names itself in the console.
+            const Stopwatch phaseClock = Stopwatch::StartNew();
+            i64 phaseTexturesMs = 0;
+            i64 phaseMaterialsMs = 0;
+            i64 phaseAnimationsMs = 0;
+            i64 phaseMeshesMs = 0;
+            i64 phaseCollisionMs = 0;
+            const auto lap = [&phaseClock](i64& into)
+            {
+                into = static_cast<i64>(phaseClock.Elapsed().AsMilliseconds());
+            };
             const StringView stem = pipeline::FileStemOf(fileName.Value().AsView());
             content::Group* modelGroup = group.CreateGroup(stem);
             if (modelGroup == nullptr)
@@ -465,29 +477,37 @@ export namespace pipeline
                     textureGuids.PushBack(Guid{});
                 }
             }
+            lap(phaseTexturesMs);
             if (opt.importMaterials)
             {
                 ImportMaterials(model, *modelGroup, textureGuids, manifest, claimed,
                                 deferredWrites, opt);
             }
+            lap(phaseMaterialsMs);
             if (opt.importAnimations)
             {
                 ImportSkeletonAndClips(model, *modelGroup, manifest, claimed, opt);
             }
+            lap(phaseAnimationsMs);
             Array<String> meshSourceNames; // per manifest mesh slot (collision's plan keys)
+            // The prepared model outlives the deferred flush (the editor's job captures it),
+            // so the mesh conversion + LOD chains run INSIDE the deferred writes; an inline
+            // model dies with this call, so its writes are produced here.
             const Status meshes =
                 ImportMeshes(*context.allocator, model, *modelGroup, manifest, claimed,
-                             deferredWrites,
-                             opt.generateLods, opt, meshSourceNames);
+                             deferredWrites, opt.generateLods, opt, meshSourceNames,
+                             /*modelOutlivesWrites*/ modelPtr != &inlineModel);
             if (!meshes.IsOk())
             {
                 return Err(meshes.Code());
             }
+            lap(phaseMeshesMs);
             if (opt.generateCollision)
             {
                 ImportCollisionShapes(*modelGroup, manifest, opt.collisionConvex, claimed, opt,
                                       meshSourceNames);
             }
+            lap(phaseCollisionMs);
             ImportNodes(model, manifest);
 
             content::Instance* instance =
@@ -501,6 +521,13 @@ export namespace pipeline
             {
                 return Err(written.Code());
             }
+            LOG_INFO(u8"Import",
+                     u8"'{}' phases (this thread, ms): textures {} materials {} animations {} "
+                     u8"meshes {} collision {} nodes+manifest {}",
+                     fileName.Value().AsView(), phaseTexturesMs,
+                     phaseMaterialsMs - phaseTexturesMs, phaseAnimationsMs - phaseMaterialsMs,
+                     phaseMeshesMs - phaseAnimationsMs, phaseCollisionMs - phaseMeshesMs,
+                     static_cast<i64>(phaseClock.Elapsed().AsMilliseconds()) - phaseCollisionMs);
             return instance;
         }
 
@@ -1160,6 +1187,117 @@ export namespace pipeline
             }
         }
 
+        // Fold the authored _LODn levels into a source and auto-generate a chain for a big
+        // chainless mesh. The import's CPU bulk: on the editor path it runs INSIDE the deferred
+        // geometry write, on the worker (2026-09-23).
+        static void FoldLevelsAndChain(const foundation::model::ModelMesh& m,
+                                       Span<const foundation::model::ModelMesh* const> levels,
+                                       bool generateLods, foundation::geometry::StaticMeshSource& source)
+        {
+            for (const foundation::model::ModelMesh* level : levels)
+            {
+                if (!pipeline::AppendLodLevelFromModel(*level, source))
+                {
+                    LOG_WARNING(u8"Import",
+                                u8"mesh '{}': LOD level '{}' has a different submesh count - "
+                                u8"level skipped",
+                                m.name(), level->name());
+                }
+            }
+            if (source.lodCount > 1)
+            {
+                LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)", m.name(),
+                         source.lodCount);
+            }
+            // Auto-generation: big static meshes with NO authored chain get a simplified
+            // ladder (GenerateLodChain no-ops on chains).
+            else if (generateLods && source.indexData.Size() >= 3u * 10000u)
+            {
+                (void)pipeline::GenerateLodChain(source);
+            }
+        }
+        static void FoldLevelsAndChain(const foundation::model::ModelMesh& m,
+                                       Span<const foundation::model::ModelMesh* const> levels,
+                                       bool generateLods, foundation::geometry::SkinnedMeshSource& source)
+        {
+            for (const foundation::model::ModelMesh* level : levels)
+            {
+                if (!pipeline::AppendLodLevelFromModel(*level, source))
+                {
+                    LOG_WARNING(u8"Import",
+                                u8"mesh '{}': LOD level '{}' mismatched (submesh count or skin "
+                                u8"stream) - level skipped",
+                                m.name(), level->name());
+                }
+            }
+            if (source.lodCount > 1)
+            {
+                LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)", m.name(),
+                         source.lodCount);
+            }
+            // Simplification only drops indices - the parallel skin stream is untouched.
+            else if (generateLods && source.indexData.Size() >= 3u * 10000u)
+            {
+                (void)pipeline::GenerateLodChain(source);
+            }
+        }
+        static void BuildMeshSource(const foundation::model::ModelMesh& m,
+                                    Span<const foundation::model::ModelMesh* const> levels,
+                                    bool generateLods, pipeline::StaticMeshAsset& asset)
+        {
+            StaticMeshSourceFromModel(m, asset.source);
+            FoldLevelsAndChain(m, levels, generateLods, asset.source);
+        }
+        static void BuildMeshSource(const foundation::model::ModelMesh& m,
+                                    Span<const foundation::model::ModelMesh* const> levels,
+                                    bool generateLods, pipeline::SkinnedMeshAsset& asset)
+        {
+            SkinnedMeshSourceFromModel(m, 0, asset.source);
+            FoldLevelsAndChain(m, levels, generateLods, asset.source);
+        }
+
+        // Queue a mesh asset's two deferred writes: the geometry stream (LAZY when the model
+        // outlives the flush: the conversion, LODs and serialization run on the worker) then
+        // the envelope, in that order so the envelope's XML sees the final source.
+        template <typename AssetT>
+        static void QueueMeshWrites(content::Instance& inst, RefPtr<AssetT> asset,
+                                    const foundation::model::ModelMesh& m,
+                                    Array<const foundation::model::ModelMesh*> levels,
+                                    bool generateLods, bool lazy,
+                                    Array<pipeline::DeferredImportWrite>& deferredWrites)
+        {
+            pipeline::DeferredImportWrite geometry;
+            geometry.instance = &inst;
+            geometry.streamName = String(pipeline::kMeshGeometryStreamName);
+            if (lazy)
+            {
+                const foundation::model::ModelMesh* mesh = &m;
+                geometry.produce = [asset, mesh, levels = Move(levels),
+                                    generateLods](Array<byte>& bytes) -> Status
+                {
+                    BuildMeshSource(*mesh,
+                                    Span<const foundation::model::ModelMesh* const>{levels.Data(),
+                                                                                    levels.Size()},
+                                    generateLods, *asset);
+                    pipeline::detail::MeshSourceToBytes(asset->source, bytes);
+                    return Status{};
+                };
+            }
+            else
+            {
+                BuildMeshSource(m,
+                                Span<const foundation::model::ModelMesh* const>{levels.Data(),
+                                                                                levels.Size()},
+                                generateLods, *asset);
+                pipeline::detail::MeshSourceToBytes(asset->source, geometry.owned);
+            }
+            deferredWrites.PushBack(static_cast<pipeline::DeferredImportWrite&&>(geometry));
+            pipeline::DeferredImportWrite envelope;
+            envelope.instance = &inst;
+            envelope.object = RefPtr<ISerializable>(asset.Get());
+            deferredWrites.PushBack(static_cast<pipeline::DeferredImportWrite&&>(envelope));
+        }
+
         [[nodiscard]] static Status ImportMeshes(IAllocator& allocator,
                                                  const foundation::model::Model& model,
                                                  content::Group& group,
@@ -1168,7 +1306,8 @@ export namespace pipeline
                                                  Array<pipeline::DeferredImportWrite>* deferredWrites,
                                                  bool generateLods,
                                                  const pipeline::ImportOptions& sel,
-                                                 Array<String>& meshSourceNames)
+                                                 Array<String>& meshSourceNames,
+                                                 bool modelOutlivesWrites)
         {
             const bool hasSkin = model.skins().Size() > 0;
             const Span<foundation::model::ModelMesh* const> meshes = model.meshes();
@@ -1218,34 +1357,16 @@ export namespace pipeline
                 // source rendered to XML) - defer object + write to the worker flush.
                 content::Instance* inst = nullptr;
                 Status written;
+                Array<const foundation::model::ModelMesh*> levels; // authored _LODn siblings
+                for (const usize levelIndex : lodLevels[i])
+                {
+                    levels.PushBack(meshes[levelIndex]);
+                }
+                const Span<const foundation::model::ModelMesh* const> levelSpan{levels.Data(),
+                                                                               levels.Size()};
                 if (skinned)
                 {
                     auto asset = MakeRef<pipeline::SkinnedMeshAsset>(allocator);
-                    SkinnedMeshSourceFromModel(m, 0, asset->source);
-                    // Authored _LODn levels fold into the chain (skinned overload keeps the
-                    // parallel skinning stream in lockstep); big chainless meshes auto-generate
-                    // (simplification only drops indices - the skin stream is untouched).
-                    for (const usize levelIndex : lodLevels[i])
-                    {
-                        if (!pipeline::AppendLodLevelFromModel(*meshes[levelIndex],
-                                                               asset->source))
-                        {
-                            LOG_WARNING(u8"Import",
-                                        u8"mesh '{}': LOD level '{}' mismatched (submesh count "
-                                        u8"or skin stream) - level skipped",
-                                        m.name(), meshes[levelIndex]->name());
-                        }
-                    }
-                    if (asset->source.lodCount > 1)
-                    {
-                        LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
-                                 m.name(), asset->source.lodCount);
-                    }
-                    else if (generateLods &&
-                             asset->source.indexData.Size() >= 3u * 10000u)
-                    {
-                        (void)pipeline::GenerateLodChain(asset->source);
-                    }
                     inst = ClaimInstance(
                         group, name, pipeline::SkinnedMeshAsset::StaticType(), claimed);
                     if (inst == nullptr)
@@ -1254,54 +1375,18 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        // Sidecar split: tiny envelope + binary geometry stream, both
-                        // deferred. The binary serialize is cheap (the XML rendering was the
-                        // cost this defers); bytes are owned by the deferred write.
-                        pipeline::DeferredImportWrite envelope;
-                        envelope.instance = inst;
-                        envelope.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(
-                            static_cast<pipeline::DeferredImportWrite&&>(envelope));
-                        pipeline::DeferredImportWrite geometry;
-                        geometry.instance = inst;
-                        geometry.streamName = String(pipeline::kMeshGeometryStreamName);
-                        pipeline::detail::MeshSourceToBytes(asset->source, geometry.owned);
-                        deferredWrites->PushBack(
-                            static_cast<pipeline::DeferredImportWrite&&>(geometry));
+                        QueueMeshWrites(*inst, asset, m, Move(levels), generateLods,
+                                        modelOutlivesWrites, *deferredWrites);
                     }
                     else
                     {
+                        BuildMeshSource(m, levelSpan, generateLods, *asset);
                         written = pipeline::WriteMeshAsset(*inst, *asset);
                     }
                 }
                 else
                 {
                     auto asset = MakeRef<pipeline::StaticMeshAsset>(allocator);
-                    StaticMeshSourceFromModel(m, asset->source);
-                    // Fold the gathered _LODn siblings into this asset's chain (suffix order).
-                    for (const usize levelIndex : lodLevels[i])
-                    {
-                        if (!pipeline::AppendLodLevelFromModel(*meshes[levelIndex],
-                                                               asset->source))
-                        {
-                            LOG_WARNING(u8"Import",
-                                        u8"mesh '{}': LOD level '{}' has a different submesh "
-                                        u8"count - level skipped",
-                                        m.name(), meshes[levelIndex]->name());
-                        }
-                    }
-                    if (asset->source.lodCount > 1)
-                    {
-                        LOG_INFO(u8"Import", u8"mesh '{}': authored LOD chain with {} level(s)",
-                                 m.name(), asset->source.lodCount);
-                    }
-                    // Auto-generation: big static meshes with NO authored
-                    // chain get a simplified ladder (GenerateLodChain no-ops on chains).
-                    else if (generateLods &&
-                             asset->source.indexData.Size() >= 3u * 10000u)
-                    {
-                        (void)pipeline::GenerateLodChain(asset->source);
-                    }
                     inst = ClaimInstance(
                         group, name, pipeline::StaticMeshAsset::StaticType(), claimed);
                     if (inst == nullptr)
@@ -1310,21 +1395,12 @@ export namespace pipeline
                     }
                     if (deferredWrites != nullptr)
                     {
-                        // Sidecar split - see the skinned branch.
-                        pipeline::DeferredImportWrite envelope;
-                        envelope.instance = inst;
-                        envelope.object = RefPtr<ISerializable>(asset.Get());
-                        deferredWrites->PushBack(
-                            static_cast<pipeline::DeferredImportWrite&&>(envelope));
-                        pipeline::DeferredImportWrite geometry;
-                        geometry.instance = inst;
-                        geometry.streamName = String(pipeline::kMeshGeometryStreamName);
-                        pipeline::detail::MeshSourceToBytes(asset->source, geometry.owned);
-                        deferredWrites->PushBack(
-                            static_cast<pipeline::DeferredImportWrite&&>(geometry));
+                        QueueMeshWrites(*inst, asset, m, Move(levels), generateLods,
+                                        modelOutlivesWrites, *deferredWrites);
                     }
                     else
                     {
+                        BuildMeshSource(m, levelSpan, generateLods, *asset);
                         written = pipeline::WriteMeshAsset(*inst, *asset);
                     }
                 }
