@@ -1140,6 +1140,58 @@ TEST_CASE("mesh lod: _LODn suffix parsing (case-insensitive; _LOD0 and non-suffi
     CHECK(pipeline::ParseLodSuffix(u8"Foo_MOD1", base) == 0);  // wrong tag
 }
 
+TEST_CASE("mesh convert: submesh materials become per-mesh slots (first-appearance order), "
+          "and the slot list names the model-wide materials")
+{
+    // Three parts over model-wide materials 7, 2, 7: two slots [7, 2]; submeshes index them.
+    struct SrcVertex
+    {
+        Float3 pos;
+    };
+    model::ModelMesh mesh;
+    mesh.addVertexElement(model::VertexElement(model::VertexSemantic::Position,
+                                               model::VertexElementFormat::Float3, 0));
+    SrcVertex verts[3] = {{Float3{0, 0, 0}}, {Float3{1, 0, 0}}, {Float3{0, 1, 0}}};
+    mesh.allocateVertices(3, sizeof(SrcVertex));
+    mesh.setVertexData(verts, 3);
+    const u32 indices[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
+    mesh.allocateIndices(9, true);
+    mesh.setIndexData(indices, 9);
+    mesh.addPart(model::ModelMeshPart{0, 3, 7});
+    mesh.addPart(model::ModelMeshPart{3, 3, 2});
+    mesh.addPart(model::ModelMeshPart{6, 3, 7});
+
+    Array<i32> slots;
+    pipeline::CollectMeshMaterialSlots(mesh, slots);
+    REQUIRE(slots.Size() == 2u);
+    CHECK(slots[0] == 7);
+    CHECK(slots[1] == 2);
+
+    geometry::StaticMeshSource source;
+    pipeline::StaticMeshSourceFromModel(mesh, source);
+    REQUIRE(source.subMaterial.Size() == 3u);
+    CHECK(source.subMaterial[0] == 0); // slot of material 7
+    CHECK(source.subMaterial[1] == 1); // slot of material 2
+    CHECK(source.subMaterial[2] == 0); // material 7 again: the same slot
+
+    // A part without a material keeps -1 and claims no slot.
+    model::ModelMesh bare;
+    bare.addVertexElement(model::VertexElement(model::VertexSemantic::Position,
+                                               model::VertexElementFormat::Float3, 0));
+    bare.allocateVertices(3, sizeof(SrcVertex));
+    bare.setVertexData(verts, 3);
+    bare.allocateIndices(3, true);
+    bare.setIndexData(indices, 3);
+    bare.addPart(model::ModelMeshPart{0, 3, -1});
+    Array<i32> none;
+    pipeline::CollectMeshMaterialSlots(bare, none);
+    CHECK(none.IsEmpty());
+    geometry::StaticMeshSource bareSource;
+    pipeline::StaticMeshSourceFromModel(bare, bareSource);
+    REQUIRE(bareSource.subMaterial.Size() == 1u);
+    CHECK(bareSource.subMaterial[0] == -1);
+}
+
 TEST_CASE("mesh lod: authored level appends into the base's chain (offset indices, ranges, defaults)")
 {
     struct SrcVertex

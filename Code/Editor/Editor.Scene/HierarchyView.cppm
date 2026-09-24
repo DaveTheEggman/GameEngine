@@ -45,6 +45,11 @@ export namespace editor
         /// Cross-page clipboard home (optional - Copy/Paste menu items appear when set).
         void SetEditorContext(EditorContext* context) noexcept { m_editor = context; }
 
+        /// The "Copy ID" context-menu action: puts the entity's persistent guid (the id the
+        /// scene file, prefab deltas and scripts name it by) on the OS text clipboard.
+        /// False when no UI context / clipboard is attached (a bare view in a test).
+        bool CopyEntityId(const Guid& id);
+
         /// Prefab hooks (wired by the scene page - asset creation/picking lives there):
         /// turn an entity's subtree into a prefab asset + instance, and spawn an instance
         /// under `parent` (nil = scene root).

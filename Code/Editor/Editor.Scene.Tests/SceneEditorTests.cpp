@@ -216,6 +216,53 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     RemoveProjectTree(dir);
 }
 
+namespace
+{
+    class TestClipboard final : public foundation::ui::IClipboard
+    {
+    public:
+        String stored;
+        Status GetText(String& outText) override
+        {
+            outText = String(stored.AsView());
+            return Status{};
+        }
+        Status SetText(StringView text) override
+        {
+            stored = String(text);
+            return Status{};
+        }
+        [[nodiscard]] bool HasText() override { return !stored.IsEmpty(); }
+    };
+}
+
+TEST_CASE("hierarchy: Copy ID puts the entity's persistent guid on the text clipboard")
+{
+    scene::Scene scene{DefaultAllocator()};
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    auto hierarchyRef =
+        foundation::core::MakeRef<SceneHierarchyView>(DefaultAllocator(), edit);
+    const Guid entity = edit.CreateEntity(u8"Lantern");
+
+    // A bare view (no UI context) has no clipboard: the action reports false, nothing crashes.
+    CHECK_FALSE(hierarchyRef->CopyEntityId(entity));
+
+    foundation::ui::UIContext ctx{DefaultAllocator()};
+    auto root = foundation::core::MakeRef<foundation::ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    TestClipboard clipboard;
+    ctx.SetClipboard(&clipboard);
+    root->AddView(hierarchyRef.Get());
+
+    REQUIRE(hierarchyRef->CopyEntityId(entity));
+    CHECK(clipboard.stored == Format(u8"{}", entity)); // the guid text, as the scene file spells it
+    CHECK(clipboard.stored.Size() == 36u);
+    CHECK_FALSE(hierarchyRef->CopyEntityId(Guid{})); // nil is never an id to copy
+    root->RemoveView(hierarchyRef.Get());
+}
+
 TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")
 {
     scene::Scene scene{DefaultAllocator()};

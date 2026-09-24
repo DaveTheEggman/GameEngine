@@ -1332,6 +1332,7 @@ export namespace pipeline
                         folded.parts();
                     manifest.meshMaterial.PushBack(
                         foldedParts.Size() > 0 ? foldedParts[0].materialIndex : -1);
+                    manifest.meshMaterialSlots.PushBack(foundation::model::ModelMeshMaterialSlots{}); // held slot: no mesh
                     meshSourceNames.PushBack(ImportedAssetName(folded.name(), u8"mesh", i));
                     continue;
                 }
@@ -1347,6 +1348,7 @@ export namespace pipeline
                     const Span<const foundation::model::ModelMeshPart> skippedParts = m.parts();
                     manifest.meshMaterial.PushBack(
                         skippedParts.Size() > 0 ? skippedParts[0].materialIndex : -1);
+                    manifest.meshMaterialSlots.PushBack(foundation::model::ModelMeshMaterialSlots{}); // held slot: no mesh
                     meshSourceNames.PushBack(baseName);
                     continue;
                 }
@@ -1413,6 +1415,11 @@ export namespace pipeline
                 manifest.meshSkinned.PushBack(skinned ? u8{1} : u8{0});
                 const Span<const foundation::model::ModelMeshPart> parts = m.parts();
                 manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
+                {
+                    foundation::model::ModelMeshMaterialSlots slots;
+                    CollectMeshMaterialSlots(m, slots.slots);
+                    manifest.meshMaterialSlots.PushBack(Move(slots));
+                }
                 meshSourceNames.PushBack(baseName);
             }
             return Status{};
@@ -1504,9 +1511,12 @@ export namespace pipeline
     // Registers the manifest asset type for content-DB construction + deserialization.
     inline void RegisterModelManifestAsset()
     {
-        // Data version 1 (importSelection = re-import memory). No REFLECT block owns this
-        // type, so the data version is patched directly on the registered TypeInfo.
-        const_cast<TypeInfo&>(ModelManifestAsset::StaticType()).dataVersion = 1;
+        // Data version 2: per-mesh material slots (v1: importSelection = re-import memory).
+        // A v1 manifest still reads (legacy reader, one version back): its meshes were cooked
+        // with model-wide submesh indices and the prefab builder keeps the whole list for
+        // them. No REFLECT block owns this type - patched directly on the TypeInfo.
+        const_cast<TypeInfo&>(ModelManifestAsset::StaticType()).dataVersion = 2;
+        const_cast<TypeInfo&>(ModelManifestAsset::StaticType()).minReadDataVersion = 1;
         GlobalTypeRegistry().Register(ModelManifestAsset::StaticType());
         RegisterSerializable<ModelManifestAsset>();
     }

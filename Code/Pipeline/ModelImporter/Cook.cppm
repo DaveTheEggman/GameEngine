@@ -414,6 +414,11 @@ export namespace pipeline
             // One material per mesh: the first submesh's material (single-material models).
             const Span<const model::ModelMeshPart> parts = m.parts();
             manifest.meshMaterial.PushBack(parts.Size() > 0 ? parts[0].materialIndex : -1);
+            {
+                foundation::model::ModelMeshMaterialSlots slots;
+                CollectMeshMaterialSlots(m, slots.slots);
+                manifest.meshMaterialSlots.PushBack(Move(slots));
+            }
         }
 
         const Span<model::ModelBone* const> bones = model.bones();

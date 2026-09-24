@@ -59,6 +59,19 @@ export namespace foundation::model
     }
 
     // Authored/cooked manifest: the leaf resource Guids + the node hierarchy.
+    // The material slots one mesh uses (model-wide indices into materialGuids, in the order
+    // its cooked submeshes index them). Plain struct, free Serialize via ADL.
+    struct ModelMeshMaterialSlots
+    {
+        Array<i32> slots;
+    };
+    inline void Serialize(ISerializer& ar, ModelMeshMaterialSlots& m)
+    {
+        ar.BeginObject();
+        foundation::core::Serialize(ar, "slots", m.slots);
+        ar.EndObject();
+    }
+
     class ModelManifestSource final : public ISerializable
     {
         RTTI_OBJECT(ModelManifestSource, ISerializable)
@@ -66,6 +79,9 @@ export namespace foundation::model
         Array<Guid> meshGuids;   // cooked mesh resources
         Array<u8> meshSkinned;   // 1 if the mesh is skinned (parallel to meshGuids)
         Array<i32> meshMaterial; // material index per mesh (-1 = none); parallel to meshGuids
+        // v2: the material slots per mesh (parallel to meshGuids; a cooked submesh's
+        // materialIndex is a position in its entry). Empty entry = the mesh has no parts.
+        Array<ModelMeshMaterialSlots> meshMaterialSlots;
         Array<Guid>
             collisionGuids; // cooked collision shape per mesh (nil = none); parallel to meshGuids
         Array<Guid> materialGuids; // cooked material resources
@@ -82,6 +98,14 @@ export namespace foundation::model
             foundation::core::Serialize(ar, "meshGuids", meshGuids);
             foundation::core::Serialize(ar, "meshSkinned", meshSkinned);
             foundation::core::Serialize(ar, "meshMaterial", meshMaterial);
+            // Data version 2 (the enclosing payload's: ModelManifestAsset in the source DB,
+            // this type in the cooked DB - both 2). A v1 asset reads without the slots and
+            // the prefab builder falls back to the whole list, which matches its v1-cooked
+            // meshes' model-wide submesh indices.
+            if (ar.Mode() == SerializeMode::Write || ar.Version() >= 2)
+            {
+                foundation::core::Serialize(ar, "meshMaterialSlots", meshMaterialSlots);
+            }
             foundation::core::Serialize(ar, "collisionGuids", collisionGuids);
             foundation::core::Serialize(ar, "materialGuids", materialGuids);
             foundation::core::Serialize(ar, "materialAlbedo", materialAlbedo);
@@ -204,6 +228,9 @@ export namespace foundation::model
     // mesh/material/texture/animation) for by-type-name construction at runtime.
     inline void RegisterModelResourceTypes()
     {
+        // Data version 2: per-mesh material slots (v0 cooked manifests re-cook; the strict
+        // reader refuses them). No REFLECT block owns this type - patched on the TypeInfo.
+        const_cast<TypeInfo&>(ModelManifestSource::StaticType()).dataVersion = 2;
         GlobalTypeRegistry().Register(ModelManifestSource::StaticType());
         RegisterSerializable<ModelManifestSource>();
         GlobalTypeRegistry().Register(ModelResource::StaticType());

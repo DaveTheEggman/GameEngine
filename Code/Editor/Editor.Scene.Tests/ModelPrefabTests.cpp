@@ -89,6 +89,14 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     asset.manifest.meshMaterial.PushBack(0);
     asset.manifest.materialGuids.PushBack(matA);
     asset.manifest.materialGuids.PushBack(matB);
+    {
+        // v2 slots: the static mesh draws material B only (its submeshes index slot 0 = B);
+        // the skinned mesh has NO slots entry (a v1-shaped mesh) and keeps the whole list.
+        foundation::model::ModelMeshMaterialSlots staticSlots;
+        staticSlots.slots.PushBack(1);
+        asset.manifest.meshMaterialSlots.PushBack(Move(staticSlots));
+        asset.manifest.meshMaterialSlots.PushBack(foundation::model::ModelMeshMaterialSlots{});
+    }
     asset.manifest.skeletonGuid = skeleton;
     asset.manifest.animationGuids.PushBack(clip);
     {
@@ -147,16 +155,17 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
             if (c.mesh.id == meshStatic)
             {
                 sawStatic = true;
-                REQUIRE(c.materials.Size() == 2u); // the unified material list
-                CHECK(c.materials[0].id == matA);
-                CHECK(c.materials[1].id == matB);
+                REQUIRE(c.materials.Size() == 1u); // only the slot the mesh draws
+                CHECK(c.materials[0].id == matB);
                 const Transform t = level.GetLocalTransform(e);
                 CHECK(t.position.x == 1.0f);
             }
             if (c.mesh.id == meshSkinned)
             {
                 sawSkinned = true;
-                REQUIRE(c.materials.Size() == 2u);
+                REQUIRE(c.materials.Size() == 2u); // no slots recorded: the whole list
+                CHECK(c.materials[0].id == matA);
+                CHECK(c.materials[1].id == matB);
             }
         });
     CHECK(meshCount == 2u);

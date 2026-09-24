@@ -114,13 +114,34 @@ export namespace editor
             engine::render::MeshComponent& mc = meshes->Add(entities[i]);
             mc.mesh.SetId(manifest.meshGuids[meshIndex]);
 
-            // The unified material list: submeshes index it by SubMesh::materialIndex, and
-            // slot 0 covers single-material meshes and out-of-range indexes.
-            for (const Guid& g : manifest.materialGuids)
+            // The material list, indexed by SubMesh::materialIndex (slot 0 covers
+            // single-material meshes and out-of-range indexes). A v2 manifest records the
+            // slots each mesh uses and its submeshes index THAT list, so the entity binds
+            // only its own materials (Bistro: 254 per node before, one or two after). A v1
+            // manifest (no slots) cooked its submeshes with model-wide indices: the whole
+            // list stays their table.
+            const bool hasSlots = meshIndex < manifest.meshMaterialSlots.Size() &&
+                                  !manifest.meshMaterialSlots[meshIndex].slots.IsEmpty();
+            if (hasSlots)
             {
-                foundation::resource::Ref<foundation::materials::Material> r;
-                r.SetId(g);
-                mc.materials.PushBack(r);
+                for (const i32 slot : manifest.meshMaterialSlots[meshIndex].slots)
+                {
+                    foundation::resource::Ref<foundation::materials::Material> r;
+                    if (slot >= 0 && static_cast<usize>(slot) < manifest.materialGuids.Size())
+                    {
+                        r.SetId(manifest.materialGuids[static_cast<usize>(slot)]);
+                    }
+                    mc.materials.PushBack(r); // an unresolvable slot stays an empty ref
+                }
+            }
+            else
+            {
+                for (const Guid& g : manifest.materialGuids)
+                {
+                    foundation::resource::Ref<foundation::materials::Material> r;
+                    r.SetId(g);
+                    mc.materials.PushBack(r);
+                }
             }
 
             // Generated collision: each mesh node gets a cooked-shape collider that folds

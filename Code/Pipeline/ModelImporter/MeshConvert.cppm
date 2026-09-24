@@ -121,6 +121,36 @@ namespace pipeline
 
     // ---- parts -> submesh ranges ----
 
+    // The material slots ONE mesh uses: the distinct model-wide material indices of its
+    // parts, in first-appearance order. A cooked submesh's materialIndex is the position in
+    // THIS list (a per-mesh slot), never the model-wide index - so the entity's material
+    // list holds only what the mesh draws (Bistro: 254 materials per node before this,
+    // 2909 nodes; the material a submesh needs is one or two of them).
+    void CollectMeshMaterialSlotsImpl(const model::ModelMesh& mesh, Array<i32>& out)
+    {
+        out.Clear();
+        for (const model::ModelMeshPart& p : mesh.parts())
+        {
+            if (p.materialIndex < 0)
+            {
+                continue;
+            }
+            bool seen = false;
+            for (const i32 slot : out)
+            {
+                if (slot == p.materialIndex)
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen)
+            {
+                out.PushBack(p.materialIndex);
+            }
+        }
+    }
+
     void CopyParts(const model::ModelMesh& mesh, geometry::StaticMeshSource& out)
     {
         out.subStart.Clear();
@@ -137,16 +167,35 @@ namespace pipeline
             out.subPrim.PushBack(static_cast<u8>(geometry::PrimitiveType::Triangles));
             return;
         }
+        Array<i32> slots;
+        CollectMeshMaterialSlotsImpl(mesh, slots);
         for (const model::ModelMeshPart& p : parts)
         {
+            i32 local = -1;
+            for (usize i = 0; i < slots.Size(); ++i)
+            {
+                if (slots[i] == p.materialIndex)
+                {
+                    local = static_cast<i32>(i);
+                    break;
+                }
+            }
             out.subStart.PushBack(p.indexStart);
             out.subCount.PushBack(p.indexCount);
-            out.subMaterial.PushBack(p.materialIndex);
+            out.subMaterial.PushBack(local); // the per-mesh slot (-1 = no material)
             out.subPrim.PushBack(static_cast<u8>(geometry::PrimitiveType::Triangles));
         }
     }
 
     export {
+
+        /// The model-wide material indices one mesh's parts use, first-appearance order: the
+        /// cooked submeshes' materialIndex values are positions in this list, and the manifest
+        /// records it per mesh so an entity binds only these materials.
+        void CollectMeshMaterialSlots(const model::ModelMesh& mesh, Array<i32>& out)
+        {
+            CollectMeshMaterialSlotsImpl(mesh, out);
+        }
 
         // model::TextureWrap -> rhi::AddressMode VALUE (as u8; enum orders differ - model has
         // {Repeat, ClampToEdge, MirroredRepeat}, rhi has {Repeat, MirrorRepeat, ClampToEdge}).

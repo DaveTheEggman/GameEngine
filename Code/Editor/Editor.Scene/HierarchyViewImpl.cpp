@@ -37,6 +37,17 @@ namespace ui = foundation::ui;
 
 namespace editor
 {
+    bool SceneHierarchyView::CopyEntityId(const Guid& id)
+    {
+        ui::IClipboard* clipboard = Context != nullptr ? Context->Clipboard() : nullptr;
+        if (clipboard == nullptr || id == Guid{})
+        {
+            return false;
+        }
+        const String text = Format(u8"{}", id);
+        return clipboard->SetText(text.AsView()).IsOk();
+    }
+
     void SceneHierarchyView::Refresh()
     {
         if (m_edit->Scene().Revision() != m_revision)
@@ -163,6 +174,7 @@ namespace editor
                 menu->AddItem(u8"Create Child",
                               [edit, id]() { (void)edit->CreateEntity(u8"Entity", id); });
                 menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
+                menu->AddItem(u8"Copy ID", [self, id]() { (void)self->CopyEntityId(id); });
                 menu->AddSeparator();
                 menu->AddItem(u8"Duplicate", [edit, id]() { (void)edit->DuplicateEntity(id); });
                 menu->AddItem(u8"Create Prefab from Selection",
