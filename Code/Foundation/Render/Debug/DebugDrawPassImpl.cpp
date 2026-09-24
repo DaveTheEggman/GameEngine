@@ -273,7 +273,9 @@ namespace foundation::render
             {
                 const f32 cw = static_cast<f32>(debug::kCharWidth) * cmd.scale,
                           ch = static_cast<f32>(debug::kCharHeight) * cmd.scale;
-                f32 x = cmd.position.x;
+                // A negative x is DrawScreenTextRight's margin encoding (2026-09-24: the pass
+                // drew those at the raw negative x, i.e. on the left edge over the tool status).
+                f32 x = debug::ResolveScreenTextX(cmd.position.x, cmd.textLength, cw, vpW);
                 const f32 y = cmd.position.y;
                 for (i32 i = 0; i < cmd.textLength; ++i)
                 {

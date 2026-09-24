@@ -21,6 +21,21 @@ using namespace foundation::core;
 
 export namespace foundation::render::debug
 {
+    /// The pixel x a 2D text command starts at. A command stores a left x directly; a
+    /// right-aligned one (DrawScreenTextRight) stores -(margin + 1), and its left edge is the
+    /// viewport width minus the margin minus the text's width in glyph cells.
+    [[nodiscard]] constexpr f32 ResolveScreenTextX(f32 storedX, i32 textLength, f32 glyphWidth,
+                                                   u32 viewportWidth) noexcept
+    {
+        if (storedX >= 0.0f)
+        {
+            return storedX;
+        }
+        const f32 margin = -storedX - 1.0f;
+        return static_cast<f32>(viewportWidth) - margin -
+               static_cast<f32>(textLength) * glyphWidth;
+    }
+
 
     // World-space geometry vertex (16B): position + packed RGBA8 color (byte0=R -> matches Unorm8x4).
     struct DebugVertex
@@ -151,6 +166,8 @@ export namespace foundation::render::debug
         // ==================== Text + 2D ====================
         void DrawText3D(Float3 worldPos, StringView text, Color color);
         void DrawScreenText(f32 x, f32 y, StringView text, Color color, f32 scale = 1.0f);
+        // Right-aligned: the text's right edge sits `rightMargin` pixels in from the viewport's
+        // right edge (resolved at draw time - the list does not know the viewport width).
         void DrawScreenTextRight(f32 rightMargin, f32 y, StringView text, Color color,
                                  f32 scale = 1.0f);
         void DrawScreenRect(f32 x, f32 y, f32 width, f32 height, Color color);
