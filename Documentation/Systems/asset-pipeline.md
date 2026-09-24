@@ -110,6 +110,18 @@ The bridge from cooked products to live scenes:
   (exact `Ref<T>` TypeInfo match, undoable). Import: `IShell::DrainDroppedFiles` (SDL3 drop
   events) -> `ImporterRegistry` (by extension) -> copy into `Sources/` + a typed Asset (e.g.
   `TextureFileImporter` for png/jpg/tga/bmp/hdr/dds).
+- **What a texture cook costs** (2026-09-23, measured through the MCP `asset_cook` tool on
+  the RTHomes1 4k JPEGs): decode ~0.2 s, mips ~0.1 s, BC7 ~0.8 s, write ~0 - about 1.2 s for
+  one 4k texture alone, 7 s for six together on 16 cores; it was 84 s and 506 s. Four things
+  made the difference and each is a rule now: the block encoder fans its block rows out over
+  the cook's job system (`AssetBuildContext::jobs`, `EncodeBlockCompressed(..., jobs)`,
+  byte-identical to the inline loop) and so does the mip filter; the vendored encoders
+  (bc7enc, astcenc) and stb build at -O2 in EVERY configuration (a Debug editor cooks too);
+  Default compression is bc7enc's uber 0 (its own default; the mid level cost ~4x for a
+  fraction of a dB) and Quality is uber 4; and `Array::Resize` grows geometrically with a
+  block relocation for trivially copyable elements (the 85 MB mip chain used to reallocate
+  byte by byte per level - 6 s at -O0). The builder logs each texture's phase split and the
+  driver logs each build's time, so a slow phase names itself in the console.
 - **DDS sources** (`foundation.image.dds`, 2026-09-22): a DDS is a GPU-ready container
   (BC1-BC7 / BC6H blocks, a mip chain, legacy FourCC or DX10 header). The module reads it as-is
   (`LoadDds` keeps the payload bytes), decodes any level through bcdec (`DecodeLevel`: RGBA8,

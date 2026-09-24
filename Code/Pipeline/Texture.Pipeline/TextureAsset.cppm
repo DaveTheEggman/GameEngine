@@ -416,19 +416,26 @@ export namespace pipeline{
                 return BuildDds(ta, ctx, raw);
             }
             image::Image image;
+            const Stopwatch decodeClock = Stopwatch::StartNew();
             const Status loaded = image::io::LoadImageFromMemory(raw, image);
             if (!loaded.IsOk())
             {
                 return loaded;
             }
-            return BuildFromImage(ta, ctx, image);
+            return BuildFromImage(ta, ctx, image,
+                                  static_cast<i64>(decodeClock.Elapsed().AsMilliseconds()));
         }
 
     private:
         // The image path: a decoded 2D image -> mips by the asset's flag -> the policy's format.
         [[nodiscard]] Status BuildFromImage(const TextureAsset& ta, pipeline::AssetBuildContext& ctx,
-                                            const image::Image& image)
+                                            const image::Image& image, i64 decodeMs = 0)
         {
+            // The cook's own profile per texture: decode / mips / compress / write, so a slow
+            // phase names itself in the console (2026-09-23: six 4k textures took 506 s).
+            const Stopwatch phaseClock = Stopwatch::StartNew();
+            i64 mipsMs = 0;
+            i64 compressMs = 0;
             TextureResource resource;
             resource.width = image.Width();
             resource.height = image.Height();
@@ -448,14 +455,15 @@ export namespace pipeline{
                 {
                     resource.mipLevels = AppendMipChain(
                         mipPixels, image.Width(), image.Height(),
-                        ta.colorSpace == image::ImageColorSpace::Srgb);
+                        ta.colorSpace == image::ImageColorSpace::Srgb, ctx.jobs);
                 }
+                mipsMs = static_cast<i64>(phaseClock.Elapsed().AsMilliseconds());
                 // Block-compress the RGBA8 chain when the policy table says to (2D RGBA8 only).
                 if (ta.shape == TextureShape::Texture2D && image.Format() == image::PixelFormat::RGBA8)
                 {
                     MaybeCompress(mipPixels, image.Width(), image.Height(), resource.mipLevels,
                                   ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage,
-                                  ta.compression, ProfileFor(ctx), resource.format);
+                                  ta.compression, ProfileFor(ctx), resource.format, ctx.jobs);
                 }
                 // HDR (RGBA32F, one level: skies carry no mip chain) -> BC6H when the policy says.
                 else if (ta.shape == TextureShape::Texture2D &&
@@ -464,6 +472,7 @@ export namespace pipeline{
                     MaybeCompressHdr(mipPixels, image.Width(), image.Height(), ta.usage,
                                      ta.compression, ProfileFor(ctx), resource.format);
                 }
+                compressMs = static_cast<i64>(phaseClock.Elapsed().AsMilliseconds()) - mipsMs;
             }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;
@@ -474,14 +483,21 @@ export namespace pipeline{
             resource.generateMipmaps = ta.generateMipmaps;
             resource.anisotropy = ta.anisotropy;
 
+            const i64 beforeWrite = static_cast<i64>(phaseClock.Elapsed().AsMilliseconds());
             const Status wrote = ctx.output->WriteObject(resource);
             if (!wrote.IsOk())
             {
                 return wrote;
             }
-
-            return ctx.output->WriteData(
+            const Status written = ctx.output->WriteData(
                 u8"data", Span<const byte>(mipPixels.Data(), mipPixels.Size()));
+            LOG_INFO(u8"Cook",
+                     u8"texture {}x{}, {} level(s), format {}: decode {} ms, mips {} ms, "
+                     u8"compress {} ms, write {} ms",
+                     image.Width(), image.Height(), resource.mipLevels,
+                     static_cast<i32>(resource.format), decodeMs, mipsMs, compressMs,
+                     static_cast<i64>(phaseClock.Elapsed().AsMilliseconds()) - beforeWrite);
+            return written;
         }
 
         // === DDS sources ========================================================================
@@ -664,7 +680,8 @@ export namespace pipeline{
 
         static void MaybeCompress(Array<byte>& pixels, u32 width, u32 height, u32 mipLevels, bool srgb,
                                   texcomp::TextureUsage usage, texcomp::CompressionChoice choice,
-                                  const texcomp::TargetProfile& profile, rhi::TextureFormat& format)
+                                  const texcomp::TargetProfile& profile, rhi::TextureFormat& format,
+                                  JobSystem* jobs)
         {
             if (choice == texcomp::CompressionChoice::None)
             {
@@ -704,7 +721,8 @@ export namespace pipeline{
             {
                 const usize levelBytes = static_cast<usize>(w) * h * 4;
                 const Array<byte> block = texcomp::EncodeBlockCompressed(
-                    reinterpret_cast<const u8*>(pixels.Data() + srcOffset), w, h, chosen, quality);
+                    reinterpret_cast<const u8*>(pixels.Data() + srcOffset), w, h, chosen, quality,
+                    jobs);
                 if (block.Size() == 0)
                 {
                     return; // encode failed - keep the uncompressed chain (safe fallback)
@@ -726,26 +744,54 @@ export namespace pipeline{
 
         // sRGB <-> linear for the downsample: averaging must happen in LINEAR space or mips
         // darken (a 50% black/white checker must average to linear 0.5 = sRGB ~188, not 128).
-        [[nodiscard]] static f32 SrgbToLinear(u8 v)
+        [[nodiscard]] static f32 SrgbToLinearExact(u8 v)
         {
             const f32 c = static_cast<f32>(v) / 255.0f;
             return c <= 0.04045f ? c / 12.92f : Pow((c + 0.055f) / 1.055f, 2.4f);
         }
-        [[nodiscard]] static u8 LinearToSrgb(f32 c)
+        [[nodiscard]] static u8 LinearToSrgbExact(f32 c)
         {
             c = c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c);
             const f32 encoded =
                 c <= 0.0031308f ? c * 12.92f : 1.055f * Pow(c, 1.0f / 2.4f) - 0.055f;
             return static_cast<u8>(encoded * 255.0f + 0.5f);
         }
+        // The mip filter's transfer functions as tables, built per chain (9 KB, ~8k Pow calls:
+        // nothing next to a texture; a function-local static would be process-wide state in a
+        // module interface, which the shared-library rule forbids). A 4k chain evaluates them
+        // ~90 million times, and Pow per texel was seconds of the cook (2026-09-23). Decode is
+        // exact (the input is 8-bit); encode quantizes linear to 1/8191 before the exact curve,
+        // well under an sRGB code step everywhere but the first few codes, where it stays
+        // within one.
+        struct SrgbTables
+        {
+            f32 toLinear[256];
+            u8 toSrgb[8192];
+            SrgbTables()
+            {
+                for (u32 i = 0; i < 256; ++i)
+                {
+                    toLinear[i] = SrgbToLinearExact(static_cast<u8>(i));
+                }
+                for (u32 i = 0; i < 8192; ++i)
+                {
+                    toSrgb[i] = LinearToSrgbExact(static_cast<f32>(i) / 8191.0f);
+                }
+            }
+        };
+
 
         /// Appends the full mip chain (levels 1..N, 2x2 box, clamped for odd dims) to
         /// `pixels`, which holds level 0 as tight RGBA8. Color channels of sRGB images
         /// filter in linear space; alpha (and everything in Linear images) averages
         /// directly. Returns the TOTAL level count including level 0.
         [[nodiscard]] static u32 AppendMipChain(Array<byte>& pixels, u32 width, u32 height,
-                                                bool srgb)
+                                                bool srgb, JobSystem* jobs = nullptr)
         {
+            // Every destination row is independent: the big levels fan their rows out over the
+            // cook's job system (2026-09-23: a 4k chain took 7.4 s on one core in a Debug
+            // build); the tables are hoisted out of the texel loop for the same reason.
+            const SrgbTables tables;
             u32 levels = 1;
             usize srcOffset = 0;
             u32 srcW = width;
@@ -758,7 +804,7 @@ export namespace pipeline{
                 pixels.Resize(dstOffset + static_cast<usize>(dstW) * dstH * 4);
                 const u8* src = reinterpret_cast<const u8*>(pixels.Data() + srcOffset);
                 u8* dst = reinterpret_cast<u8*>(pixels.Data() + dstOffset);
-                for (u32 y = 0; y < dstH; ++y)
+                const auto filterRow = [&](u32 y)
                 {
                     const u32 y0 = y * 2;
                     const u32 y1 = y0 + 1 < srcH ? y0 + 1 : y0; // clamp odd edges
@@ -775,10 +821,11 @@ export namespace pipeline{
                         {
                             if (srgb && c < 3) // color channels filter in linear space
                             {
-                                const f32 avg = (SrgbToLinear(p00[c]) + SrgbToLinear(p01[c]) +
-                                                 SrgbToLinear(p10[c]) + SrgbToLinear(p11[c])) *
-                                                0.25f;
-                                out[c] = LinearToSrgb(avg);
+                                const f32 avg =
+                                    (tables.toLinear[p00[c]] + tables.toLinear[p01[c]] +
+                                     tables.toLinear[p10[c]] + tables.toLinear[p11[c]]) *
+                                    0.25f;
+                                out[c] = tables.toSrgb[static_cast<u32>(avg * 8191.0f + 0.5f)];
                             }
                             else
                             {
@@ -786,6 +833,17 @@ export namespace pipeline{
                                     (static_cast<u32>(p00[c]) + p01[c] + p10[c] + p11[c] + 2) / 4);
                             }
                         }
+                    }
+                };
+                if (jobs != nullptr && dstH >= 64)
+                {
+                    jobs->ParallelFor(dstH, [&](u32 y) { filterRow(y); });
+                }
+                else
+                {
+                    for (u32 y = 0; y < dstH; ++y)
+                    {
+                        filterRow(y);
                     }
                 }
                 srcOffset = dstOffset;
@@ -919,7 +977,7 @@ export namespace pipeline{
             {
                 MaybeCompress(pixels, ta.embeddedWidth, ta.embeddedHeight, resource.mipLevels,
                               ta.colorSpace == image::ImageColorSpace::Srgb, ta.usage, ta.compression,
-                              ProfileFor(ctx), resource.format);
+                              ProfileFor(ctx), resource.format, ctx.jobs);
             }
             resource.shape = ta.shape;
             resource.minFilter = ta.minFilter;

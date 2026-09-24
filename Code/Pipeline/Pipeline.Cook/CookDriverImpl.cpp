@@ -734,7 +734,11 @@ namespace pipeline
         ctx.db = m_cookedDb;      // cross-refs resolve against already-cooked products
         ctx.sourceDb = m_sourceDb; // cross-asset SOURCE reads (envelopes + raw sidecars)
         ctx.target = &m_target;   // the export target being produced
+        ctx.jobs = m_jobs;        // data-parallel work inside the build (null = inline)
+        const Stopwatch buildClock = Stopwatch::StartNew();
         const Status built = item.builder->Build(*asset, ctx);
+        LOG_INFO(u8"Cook", u8"'{}' built in {} ms", item.path,
+                 static_cast<i64>(buildClock.Elapsed().AsMilliseconds()));
 
         // Record: recipe + memoized file hashes + deps; failures keep the last good
         // product but stay dirty (failed record never satisfies a clean check).

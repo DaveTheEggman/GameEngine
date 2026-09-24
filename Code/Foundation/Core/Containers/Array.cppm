@@ -4,6 +4,8 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Debug/Assert.h"
+#include <cstring>
+#include <type_traits>
 
 export module foundation.core:array;
 
@@ -109,10 +111,24 @@ export namespace foundation::core
                 static_cast<T*>(m_allocator->Allocate(newCapacity * sizeof(T), alignof(T)));
             DIAGNOSTIC_ASSERT_MSG(newData != nullptr, "Array allocation failed");
 
-            for (usize i = 0; i < m_size; ++i)
+            // A trivially copyable T relocates as one block: the per-element move + destruct
+            // loop was the cost of every growth of a byte buffer (2026-09-23: a 4k texture's
+            // 85 MB mip chain, reallocated per level at -O0, was 6 s of its cook).
+            if constexpr (std::is_trivially_copyable_v<T>)
             {
-                Construct<T>(&newData[i], Move(m_data[i]));
-                Destruct(&m_data[i]);
+                if (m_size > 0)
+                {
+                    std::memcpy(static_cast<void*>(newData), static_cast<const void*>(m_data),
+                                m_size * sizeof(T));
+                }
+            }
+            else
+            {
+                for (usize i = 0; i < m_size; ++i)
+                {
+                    Construct<T>(&newData[i], Move(m_data[i]));
+                    Destruct(&m_data[i]);
+                }
             }
 
             if (m_data != nullptr)
@@ -134,10 +150,21 @@ export namespace foundation::core
             }
             else if (newSize > m_size)
             {
-                Reserve(newSize);
-                for (usize i = m_size; i < newSize; ++i)
+                ReserveForGrowth(newSize);
+                // Value-initialization of a trivial T is a zero fill: the same bytes the
+                // per-element loop writes, without an -O0 call per element.
+                if constexpr (std::is_trivially_default_constructible_v<T> &&
+                              std::is_trivially_copyable_v<T>)
                 {
-                    Construct<T>(&m_data[i]);
+                    std::memset(static_cast<void*>(m_data + m_size), 0,
+                                (newSize - m_size) * sizeof(T));
+                }
+                else
+                {
+                    for (usize i = m_size; i < newSize; ++i)
+                    {
+                        Construct<T>(&m_data[i]);
+                    }
                 }
             }
             m_size = newSize;
@@ -155,7 +182,7 @@ export namespace foundation::core
             }
             else if (newSize > m_size)
             {
-                Reserve(newSize);
+                ReserveForGrowth(newSize);
                 for (usize i = m_size; i < newSize; ++i)
                 {
                     Construct<T>(&m_data[i], value);
@@ -337,6 +364,20 @@ export namespace foundation::core
             {
                 Reserve(m_capacity == 0 ? kInitialCapacity : m_capacity * 2);
             }
+        }
+
+        // A Resize that GROWS an array already holding data reserves geometrically (1.5x),
+        // like PushBack: a buffer built up step by step (a mip chain) reallocates a few times,
+        // not once per step. A first Resize from empty stays exact - it is usually the final
+        // size (a decoded image), and doubling it would waste half the buffer.
+        void ReserveForGrowth(usize needed)
+        {
+            if (needed <= m_capacity)
+            {
+                return;
+            }
+            const usize grown = (m_capacity > 0) ? m_capacity + m_capacity / 2 : 0;
+            Reserve(needed > grown ? needed : grown);
         }
 
         void Destroy() noexcept

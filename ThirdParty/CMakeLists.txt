@@ -223,6 +223,12 @@ add_library(bc7enc STATIC
     bc7enc/rgbcx.cpp
     bc7enc/bc7decomp.cpp)
 add_library(ThirdParty::Bc7enc ALIAS bc7enc)
+# The block encoders run at full optimisation in EVERY configuration (not MSVC: /O2 fights the
+# Debug runtime checks): a Debug editor cooks textures too, and at -O0 a 4k BC7 encode took
+# 84 s of one core (2026-09-23). Nothing here is ever stepped through.
+if(NOT MSVC)
+    target_compile_options(bc7enc PRIVATE $<$<CONFIG:Debug>:-O2>)
+endif()
 
 # bcdec - vendored single-header BCn DECODER (github.com/iOrange/bcdec, MIT/Unlicense). Implemented
 # ONCE in Foundation::Image.DDS (the DDS level decoder); the compression tests include it a second
@@ -263,6 +269,9 @@ set_target_properties(meshoptimizer PROPERTIES POSITION_INDEPENDENT_CODE ON
 file(GLOB ASTCENC_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/astcenc/astcenc_*.cpp)
 add_library(astcenc STATIC ${ASTCENC_SOURCES})
 add_library(ThirdParty::Astcenc ALIAS astcenc)
+if(NOT MSVC)
+    target_compile_options(astcenc PRIVATE $<$<CONFIG:Debug>:-O2>) # see bc7enc above
+endif()
 target_include_directories(astcenc SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/astcenc)
 target_compile_definitions(astcenc PUBLIC
     ASTCENC_SSE=0 ASTCENC_AVX=0 ASTCENC_POPCNT=0 ASTCENC_F16C=0 ASTCENC_NEON=0 ASTCENC_SVE=0)

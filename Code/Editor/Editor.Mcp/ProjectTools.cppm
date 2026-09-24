@@ -332,9 +332,12 @@ export namespace editor::mcp
                 const String cacheRoot = s->project->CacheRoot();
                 vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), editor::EditorRootAllocator());
                 vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), editor::EditorRootAllocator());
+                // The editor's cook runs its items and their inner work over a job system;
+                // the tool does the same so its timings mean what the editor's would.
+                JobSystem jobs(editor::EditorRootAllocator());
                 pipeline::CookDriver driver(editor::EditorRootAllocator(),
                                             s->project->SourceDb(), s->project->CookedDb(), *bld,
-                                            &sourcesMount, &cacheMount, nullptr); // serial
+                                            &sourcesMount, &cacheMount, &jobs);
                 pipeline::CookPlan plan = driver.Plan(force);
                 const pipeline::CookStats stats = driver.Execute(plan);
 

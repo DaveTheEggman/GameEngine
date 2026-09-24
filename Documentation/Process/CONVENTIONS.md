@@ -8,7 +8,11 @@ violating them fails review even if the feature works.
 - Develop and verify against DEBUG: `cmake --build build/clang -j4` and
   `cmake --build build/gcc -j4`. BOTH compilers must be green before a phase is
   called done. Binaries land in `Bin/Debug/Linux64-Clang/` and
-  `Bin/Debug/Linux64-GCC/`.
+  `Bin/Debug/Linux64-GCC/`. Vendored CODECS (bc7enc, astcenc, the stb bodies) compile at
+  -O2 in Debug too (non-MSVC, `$<$<CONFIG:Debug>:-O2>` on their targets / the impl unit): a
+  Debug editor cooks and decodes 4k textures, nothing in them is ever stepped through, and at
+  -O0 a BC7 encode took 84 s (2026-09-23). First-party hot loops stay at the build's level
+  and get their speed from the job system (a texture's block rows, its mip rows).
 - Never `rm -rf` anything under `Bin/` - the user's EditorProject lives inside.
   Inspect before any destructive delete.
 - New test targets need a cmake re-configure (`cd build/clang && cmake .`) before

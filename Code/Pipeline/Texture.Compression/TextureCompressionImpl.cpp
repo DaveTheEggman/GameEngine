@@ -180,7 +180,7 @@ namespace texcomp
     }
 
     Array<byte> EncodeBlockCompressed(const u8* rgba, u32 width, u32 height, rhi::TextureFormat format,
-                                      u8 quality)
+                                      u8 quality, JobSystem* jobs)
     {
         Array<byte> out;
         if (rgba == nullptr || width == 0 || height == 0 || !rhi::IsCompressed(format))
@@ -195,56 +195,82 @@ namespace texcomp
                               quality);
         }
         EnsureInit();
-
         const u32 bx = (width + 3) / 4;
         const u32 by = (height + 3) / 4;
+        usize blockBytes = 0;
+        switch (format)
+        {
+        case rhi::TextureFormat::BC1RGBAUnorm:
+        case rhi::TextureFormat::BC1RGBAUnormSrgb:
+        case rhi::TextureFormat::BC4RUnorm:
+        case rhi::TextureFormat::BC4RSnorm:
+            blockBytes = 8;
+            break;
+        case rhi::TextureFormat::BC3RGBAUnorm:
+        case rhi::TextureFormat::BC3RGBAUnormSrgb:
+        case rhi::TextureFormat::BC5RGUnorm:
+        case rhi::TextureFormat::BC5RGSnorm:
+        case rhi::TextureFormat::BC7RGBAUnorm:
+        case rhi::TextureFormat::BC7RGBAUnormSrgb:
+            blockBytes = 16;
+            break;
+        default:
+            return Array<byte>{}; // BC6H / ASTC not supported in this build
+        }
         out.Resize(BlockCompressedSize(format, width, height));
-
         // rgbcx level 0..18 (BC1/3); bc7enc uber level 0..4. Map both from `quality` 0..255.
         const u32 rgbcxLevel = (static_cast<u32>(quality) * rgbcx::MAX_LEVEL) / 255u;
         bc7enc_compress_block_params bc7params;
         bc7enc_compress_block_params_init(&bc7params);
-        bc7params.m_uber_level = Min<u32>(4u, static_cast<u32>(quality) / 51u); // 0..4
-
-        u8 block[64];
-        usize off = 0;
-        for (u32 y = 0; y < by; ++y)
+        // Default (128) = bc7enc's uber 0 - its own default, and ~4x faster than uber 2 for a
+        // fraction of a dB (2026-09-23: the mid mapping cost a 4k texture ~50 s of CPU);
+        // Quality (255) = uber 4, the export-grade effort.
+        bc7params.m_uber_level = quality >= 255u ? 4u : (quality >= 192u ? 2u : 0u);
+        // One block row per work item: each row writes its own slice of `out`, every block is
+        // encoded on its own (the encoders keep no state past EnsureInit), so the fan-out is
+        // byte-identical to the inline loop.
+        byte* const outBytes = out.Data();
+        const auto encodeRow = [&](u32 y)
         {
-            for (u32 x = 0; x < bx; ++x)
+            u8 block[64];
+            byte* dst = outBytes + static_cast<usize>(y) * bx * blockBytes;
+            for (u32 x = 0; x < bx; ++x, dst += blockBytes)
             {
                 GatherBlock(rgba, width, height, x, y, block);
-                void* dst = out.Data() + off;
                 switch (format)
                 {
                 case rhi::TextureFormat::BC1RGBAUnorm:
                 case rhi::TextureFormat::BC1RGBAUnormSrgb:
                     rgbcx::encode_bc1(rgbcxLevel, dst, block, /*allow_3color*/ true,
                                       /*use_transparent_texels_for_black*/ false);
-                    off += 8;
                     break;
                 case rhi::TextureFormat::BC3RGBAUnorm:
                 case rhi::TextureFormat::BC3RGBAUnormSrgb:
                     rgbcx::encode_bc3(rgbcxLevel, dst, block);
-                    off += 16;
                     break;
                 case rhi::TextureFormat::BC4RUnorm:
                 case rhi::TextureFormat::BC4RSnorm:
                     rgbcx::encode_bc4(dst, block, /*stride*/ 4);
-                    off += 8;
                     break;
                 case rhi::TextureFormat::BC5RGUnorm:
                 case rhi::TextureFormat::BC5RGSnorm:
                     rgbcx::encode_bc5(dst, block, /*chan0*/ 0, /*chan1*/ 1, /*stride*/ 4);
-                    off += 16;
                     break;
-                case rhi::TextureFormat::BC7RGBAUnorm:
-                case rhi::TextureFormat::BC7RGBAUnormSrgb:
+                default: // BC7
                     bc7enc_compress_block(dst, block, &bc7params);
-                    off += 16;
                     break;
-                default:
-                    return Array<byte>{}; // BC6H / ASTC not supported in this build
                 }
+            }
+        };
+        if (jobs != nullptr && by > 1)
+        {
+            jobs->ParallelFor(by, [&](u32 y) { encodeRow(y); });
+        }
+        else
+        {
+            for (u32 y = 0; y < by; ++y)
+            {
+                encodeRow(y);
             }
         }
         return out;

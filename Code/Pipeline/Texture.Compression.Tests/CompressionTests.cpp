@@ -400,3 +400,24 @@ TEST_CASE("ResolveCompressedFormat - the HDR row is BC6H on BC targets, uncompre
                                   32, 32, DesktopProfile(), F::RGBA32Float) == F::RGBA32Float);
 }
 
+
+TEST_CASE("EncodeBlockCompressed - the job-system fan-out is byte-identical to the inline encode")
+{
+    // A 4k texture's BC7 encode took 84 s on one core (2026-09-23); the cook now fans the block
+    // rows out over its job system. Every block is encoded on its own, so the bytes must not
+    // depend on how the rows were split across workers - for every BC format.
+    const u32 w = 96, h = 64; // 24 x 16 blocks: more rows than workers, uneven chunks
+    const Array<u8> img = MakeImage(w, h, /*alpha*/ true);
+    JobSystem jobs(DefaultAllocator(), 3);
+    for (const rhi::TextureFormat format :
+         {rhi::TextureFormat::BC1RGBAUnorm, rhi::TextureFormat::BC3RGBAUnorm,
+          rhi::TextureFormat::BC4RUnorm, rhi::TextureFormat::BC5RGUnorm,
+          rhi::TextureFormat::BC7RGBAUnorm})
+    {
+        const Array<byte> inline_ = EncodeBlockCompressed(img.Data(), w, h, format, 128, nullptr);
+        const Array<byte> fanned = EncodeBlockCompressed(img.Data(), w, h, format, 128, &jobs);
+        REQUIRE(inline_.Size() == BlockCompressedSize(format, w, h));
+        REQUIRE(fanned.Size() == inline_.Size());
+        CHECK(MemCompare(fanned.Data(), inline_.Data(), inline_.Size()) == 0);
+    }
+}

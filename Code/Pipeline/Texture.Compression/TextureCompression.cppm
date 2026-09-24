@@ -91,8 +91,11 @@ export namespace texcomp
     // block-compressed bytes. `format` MUST be a BC format this build supports (BC1/3/4/5/7); returns
     // empty otherwise. Edge blocks on NPOT/small levels are clamp-padded. `quality` 0..255 maps to the
     // encoder effort (Default ~ mid, Quality ~ max).
+    // `jobs`: the block rows fan out over it (ParallelFor; the caller participates), else the
+    // encode runs inline. Byte-identical either way - every block is encoded on its own.
     [[nodiscard]] Array<byte> EncodeBlockCompressed(const u8* rgba, u32 width, u32 height,
-                                                    rhi::TextureFormat format, u8 quality);
+                                                    rhi::TextureFormat format, u8 quality,
+                                                    JobSystem* jobs = nullptr);
 
     // Bytes one mip level of a BC `format` occupies (4x4 block-ceil), for the exact-size cook assertion.
     [[nodiscard]] usize BlockCompressedSize(rhi::TextureFormat format, u32 width, u32 height) noexcept;

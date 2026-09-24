@@ -161,6 +161,25 @@ TEST_CASE("containers: Array resize and clear")
     a.Clear();
     CHECK(a.IsEmpty());
     CHECK(a.Capacity() == capBefore); // clear keeps capacity
+
+    // A first Resize from empty is exact; a growing Resize reserves geometrically (a mip
+    // chain built level by level reallocated 85 MB per level before 2026-09-23), and the
+    // relocation keeps every trivially copyable element.
+    Array<u8> bytes;
+    bytes.Resize(1000);
+    CHECK(bytes.Capacity() == 1000u);
+    for (usize i = 0; i < 1000; ++i)
+    {
+        bytes[i] = static_cast<u8>(i);
+    }
+    bytes.Resize(1001);
+    CHECK(bytes.Capacity() >= 1500u); // 1.5x, not 1001
+    const usize grownCapacity = bytes.Capacity();
+    bytes.Resize(1400);
+    CHECK(bytes.Capacity() == grownCapacity); // within the reserve: no reallocation
+    CHECK(bytes[999] == static_cast<u8>(999)); // relocated intact...
+    CHECK(bytes[1000] == 0);                   // ...and the new tail value-initialized
+    CHECK(bytes[1399] == 0);
 }
 
 TEST_CASE("containers: Array manages non-trivial element lifetimes")

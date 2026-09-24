@@ -116,6 +116,9 @@ export namespace pipeline
         // The export target being produced. Null = the host target (a variant
         // builder falls back to the desktop/BC profile).
         const CookTarget* target = nullptr;
+        // The cook's job system for data-parallel work INSIDE one build (a texture's block
+        // rows, 2026-09-23: a 4k texture's BC7 encode took 84 s on one core). Null = inline.
+        JobSystem* jobs = nullptr;
     };
 
     // What one build consumes beyond the implicit Asset::fileName. The cook driver hashes files
