@@ -57,23 +57,34 @@ TEST_CASE("editor-shell: builds the chrome with the global panels only")
     ctx.SetStatus(u8"hello"); // must not crash; the label text lives inside the bar
 }
 
-TEST_CASE("editor-shell: the default layout gives the document 70%, Assets first in the "
-          "bottom pane")
+TEST_CASE("editor-shell: the default layout gives the document 70%, and the bottom pane is "
+          "Assets beside Console at 65/35 so both show")
 {
     EditorContext ctx{DefaultAllocator()};
     EditorShell shell;
     shell.Build(ctx, nullptr, 1280, 720);
 
-    auto* split = Cast<ui::toolkit::DockSplit>(shell.Docks()->RootNode());
-    REQUIRE(split != nullptr);
-    CHECK(split->SplitRatio() == doctest::Approx(0.7f)); // first (top) child's share
+    auto* root = Cast<ui::toolkit::DockSplit>(shell.Docks()->RootNode());
+    REQUIRE(root != nullptr);
+    CHECK(root->Orientation() == ui::Orientation::Vertical);
+    CHECK(root->SplitRatio() == doctest::Approx(0.7f)); // first (top) child's share
 
-    auto* pane = Cast<ui::toolkit::DockTabGroup>(shell.AssetsPanel()->Parent);
+    // Assets and Console sit in their OWN tab groups, side by side in one horizontal split.
+    auto* assetsGroup = Cast<ui::toolkit::DockTabGroup>(shell.AssetsPanel()->Parent);
+    auto* consoleGroup = Cast<ui::toolkit::DockTabGroup>(shell.ConsolePanel()->Parent);
+    REQUIRE(assetsGroup != nullptr);
+    REQUIRE(consoleGroup != nullptr);
+    CHECK(assetsGroup != consoleGroup);
+    CHECK(assetsGroup->PanelCount() == 1);
+    CHECK(consoleGroup->PanelCount() == 1);
+    auto* pane = Cast<ui::toolkit::DockSplit>(assetsGroup->Parent);
     REQUIRE(pane != nullptr);
-    REQUIRE(pane->PanelCount() == 2);
-    CHECK(pane->GetPanel(0) == shell.AssetsPanel());
-    CHECK(pane->GetPanel(1) == shell.ConsolePanel());
-    CHECK(pane->SelectedPanel() == shell.AssetsPanel());
+    CHECK(pane == consoleGroup->Parent);
+    CHECK(pane->Orientation() == ui::Orientation::Horizontal);
+    CHECK(pane->First() == assetsGroup);  // Assets left
+    CHECK(pane->Second() == consoleGroup); // Console right
+    CHECK(pane->SplitRatio() == doctest::Approx(0.65f));
+    CHECK(root->Second() == pane); // the pane is the bottom child of the root split
 }
 
 TEST_CASE("editor-shell: page panels dock into the center document area as closable tabs")

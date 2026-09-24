@@ -162,23 +162,30 @@ export namespace editor::app
 
         void DockDefaults()
         {
-            // Documents center, the south-stacked tool pane below (Sedulous's layout;
-            // scene-scoped views live inside the pages): Assets first and in front, Console
-            // as its second tab. The bottom pane takes 30% (a bottom dock inserts at 0.5;
-            // the ratio is the first, top child's share), leaving the document 70%.
+            // Documents center, the south tool pane below (Sedulous's layout; scene-scoped
+            // views live inside the pages). The pane is Assets on the left and Console on the
+            // right, side by side so both show at once, 65/35; the pane takes 30% of the
+            // height, the document 70%. (A dock inserts its split at 0.5; the ratio is the
+            // first child's share, so the root's is the document's and the pane's is Assets'.)
             m_dock->DockPanel(m_welcome, ui::toolkit::DockPosition::Center);
             m_dock->DockPanel(m_assets, ui::toolkit::DockPosition::Bottom);
-            m_dock->DockPanelRelativeTo(m_console, ui::toolkit::DockPosition::Center,
+            m_dock->DockPanelRelativeTo(m_console, ui::toolkit::DockPosition::Right,
                                         m_assets->Parent);
-            m_dock->ActivatePanel(m_assets);
             if (auto* split = Cast<ui::toolkit::DockSplit>(m_dock->RootNode()))
             {
                 split->SetSplitRatio(kDefaultDocumentShare);
+            }
+            if (auto* pane = Cast<ui::toolkit::DockSplit>(
+                    m_assets->Parent != nullptr ? m_assets->Parent->Parent : nullptr))
+            {
+                pane->SetSplitRatio(kDefaultAssetsShare);
             }
         }
 
         /// The document area's share of the main window height in the default layout.
         static constexpr f32 kDefaultDocumentShare = 0.7f;
+        /// The asset browser's share of the bottom pane's width; the console has the rest.
+        static constexpr f32 kDefaultAssetsShare = 0.65f;
 
         RefPtr<ui::RootView> m_root;
         RefPtr<ui::toolkit::MenuBar> m_menuBar;
