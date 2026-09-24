@@ -524,6 +524,27 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&again, sceneA, fb).showMarkers == false);
     CHECK(LoadSceneViewPref(&again, sceneA, fb).showColliders == true);
     CHECK(LoadSceneViewPref(&again, sceneB, fb).showMarkers == true); // untouched scene: default
+
+    // showFps (the viewport frame-rate readout): defaults OFF and round-trips per scene.
+    CHECK(fb.showFps == false);
+    CHECK(SaveSceneViewPref(&again, SceneViewPref{sceneA, true, true, true, false, true}));
+    MemoryStream buf5;
+    REQUIRE(again.Save(buf5, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buf5.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings once(foundation::core::DefaultAllocator());
+    REQUIRE(once.Load(buf5, foundation::xml::XmlSerializerFactory()).IsOk());
+    CHECK(LoadSceneViewPref(&once, sceneA, fb).showFps == true);
+    CHECK(LoadSceneViewPref(&once, sceneA, fb).showMarkers == false); // siblings intact
+    CHECK(LoadSceneViewPref(&once, sceneB, fb).showFps == false);
+}
+
+TEST_CASE("scene-editor: the FPS overlay text reads the window's rate and mean frame time")
+{
+    CHECK(FrameRateOverlayText(0.0, 0) == u8"-- fps");
+    CHECK(FrameRateOverlayText(0.5, 0) == u8"-- fps");
+    CHECK(FrameRateOverlayText(0.5, 30) == u8"60 fps  16.7 ms");
+    CHECK(FrameRateOverlayText(1.0, 144) == u8"144 fps  6.9 ms");
+    CHECK(FrameRateOverlayText(0.5, 12) == u8"24 fps  41.7 ms");
 }
 
 TEST_CASE("inspector: an EntityRef list shows the referenced entities' NAMES")

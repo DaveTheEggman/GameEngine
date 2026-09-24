@@ -161,6 +161,27 @@ namespace editor
             {
                 m_propAnimPanel->DrawOverlay(dd); // the live-preview entity marker
             }
+            // The FPS readout (Overlays > FPS): top-right, clear of the tool status text in
+            // the top-left. Sampled over half-second windows of this page's update dt.
+            if (m_showFps)
+            {
+                m_fpsWindowSeconds += static_cast<f64>(dt);
+                m_fpsWindowFrames += 1;
+                if (m_fpsWindowSeconds >= 0.5 || m_fpsText.IsEmpty())
+                {
+                    m_fpsText = FrameRateOverlayText(m_fpsWindowSeconds, m_fpsWindowFrames);
+                    m_fpsWindowSeconds = 0.0;
+                    m_fpsWindowFrames = 0;
+                }
+                dd.DrawScreenTextRight(12.0f, 12.0f, m_fpsText.AsView(),
+                                       Color{0.85f, 0.85f, 0.85f, 1.0f});
+            }
+            else
+            {
+                m_fpsWindowSeconds = 0.0;
+                m_fpsWindowFrames = 0;
+                m_fpsText.Clear();
+            }
         }
         UpdateCameraPreview(); // task #118: selection/pin -> preview visibility + target
         SyncToolbar();
@@ -1042,6 +1063,8 @@ namespace editor
         menu->AddSeparator();
         add(u8"LOD overlay", &SceneEditorPage::m_showLodOverlay);
         add(u8"Colliders", &SceneEditorPage::m_showColliders);
+        menu->AddSeparator();
+        add(u8"FPS", &SceneEditorPage::m_showFps);
         const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
         menu->Show(anchor->Context, pos.x, pos.y);
     }
@@ -1456,13 +1479,14 @@ namespace editor
     void SceneEditorPage::LoadViewPrefs()
     {
         const SceneViewPref fallback{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
-                                     m_showMarkers};
+                                     m_showMarkers, m_showFps};
         const SceneViewPref p =
             LoadSceneViewPref(m_context->ProjectEditorSettings(), InstanceId(), fallback);
         m_showGrid = p.showGrid;
         m_showLodOverlay = p.showLodOverlay;
         m_showColliders = p.showColliders;
         m_showMarkers = p.showMarkers;
+        m_showFps = p.showFps;
     }
 
     void SceneEditorPage::SaveViewPrefs()
@@ -1470,7 +1494,7 @@ namespace editor
         // Save the WHOLE pref (grid + LOD + colliders + markers) so toggling one never
         // resurrects a default.
         const SceneViewPref pref{InstanceId(), m_showGrid, m_showLodOverlay, m_showColliders,
-                                 m_showMarkers};
+                                 m_showMarkers, m_showFps};
         if (SaveSceneViewPref(m_context->ProjectEditorSettings(), pref))
         {
             m_context->RequestProjectEditorSettingsSave();

@@ -36,6 +36,7 @@ export namespace editor
         bool showLodOverlay = false;
         bool showColliders = false; // edit-time physics collider wireframes (v3)
         bool showMarkers = true;    // the origin cross on every entity (off for a large scene)
+        bool showFps = false;       // the frame-rate readout in the viewport's top-right corner
         void Serialize(ISerializer& ar)
         {
             ar.Key("scene");
@@ -44,8 +45,23 @@ export namespace editor
             foundation::core::Serialize(ar, "showLodOverlay", showLodOverlay);
             foundation::core::Serialize(ar, "showColliders", showColliders);
             foundation::core::Serialize(ar, "showMarkers", showMarkers);
+            foundation::core::Serialize(ar, "showFps", showFps);
         }
     };
+
+    // The FPS overlay's readout for one sample window: "60 fps  16.7 ms" (the frame time is
+    // the window's mean). An empty window (no frames yet) reads as "-- fps".
+    [[nodiscard]] inline String FrameRateOverlayText(f64 windowSeconds, u32 frames)
+    {
+        if (frames == 0 || windowSeconds <= 0.0)
+        {
+            return String(u8"-- fps");
+        }
+        const f64 fps = static_cast<f64>(frames) / windowSeconds;
+        const f64 ms = windowSeconds * 1000.0 / static_cast<f64>(frames);
+        const i64 tenths = static_cast<i64>(ms * 10.0 + 0.5); // one decimal, rounded
+        return Format(u8"{} fps  {}.{} ms", static_cast<i64>(fps + 0.5), tenths / 10, tenths % 10);
+    }
     inline void Serialize(ISerializer& ar, SceneViewPref& p)
     {
         ar.BeginObject();

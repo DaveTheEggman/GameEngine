@@ -622,6 +622,11 @@ export namespace editor
         bool m_showLodOverlay = false;
         bool m_showColliders = false;
         bool m_showMarkers = true;
+        bool m_showFps = false;
+        // The FPS overlay samples half-second windows so the readout is legible, not a blur.
+        f64 m_fpsWindowSeconds = 0.0;
+        u32 m_fpsWindowFrames = 0;
+        String m_fpsText;
 
         // Viewport tool palette: a toggle per lone non-default tool, a dropdown per category
         // with two or more (GroupViewportTools). Checking one activates it - the affordance
