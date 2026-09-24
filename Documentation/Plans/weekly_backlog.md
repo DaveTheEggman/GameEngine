@@ -17,6 +17,22 @@
   editing Min Height moves the whole plane. Build: a base height on blank creation (a fresh
   flat sits mid-range), or a "base height" field on the heightfield page that re-quantizes.
 
+## Queued 2026-09-23 (the editor main-thread work)
+
+- **Large source scene parse on the UI thread**: with the binds async, a scene page's remaining
+  UI-thread cost is the XML parse of the source (Bistro prefab: 49 MB, 2.7 s of a 2.9 s open).
+  Options: parse on a worker (page shows a placeholder until the scene lands) or a binary source
+  form for machine-generated scenes. Measure with the page's `opened scene` line.
+- **Texture finalize at ~100 ms** (Bistro open after the settle-reload fix, Debug + validation):
+  44 of 816 finalizes past 50 ms, all `Texture`, tightly clustered at 90-105 ms - a uniform
+  wait, not size-proportional (a transfer-batch submit + wait?). Not a freeze (the burst pops in
+  over 20 s at the 2 ms pump budget); measure in RelWithDebInfo before chasing, per the user
+  (Debug-only shader compile / pipeline creation is expected and not this).
+- **Remove the vegetation legacy reader** (`ReadsDataVersionsFrom(1)` on
+  `TerrainVegetationComponent`) once the user's scenes are re-saved at version 2.
+- **Per-mesh import bookkeeping** (~0.5 s of Bistro's 0.9 s main-thread import): ClaimInstance +
+  XML envelope writes per mesh; a batched claim if a bigger model shows it.
+
 ## Open follow-ups filed during week 2026-09-05 (moved 2026-09-12)
 
 Small items left open inside that week's DONE/audit sections; the full write-ups are in
