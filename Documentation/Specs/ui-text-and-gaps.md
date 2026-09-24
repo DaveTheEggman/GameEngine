@@ -85,6 +85,9 @@ Ranked by what it unlocks, not by effort.
    ligatures. Already named as out of scope in `ui-layout-and-style-model.md`. **This spec.**
 2. **Inline runs** - no mixed format within a paragraph, so no bolded word, no coloured name, no
    inline icon. **This spec.**
+2b. **Parity testing** - our layout expectations are hand-derived, so a misreading of CSS
+   produces a test that agrees with the bug. Lunarsong measures Chrome instead. Split out to
+   `ui-browser-parity-tests.md`; its P3 (text geometry) depends on P0-P1 here.
 3. **Dev tooling** - `UI/Debug/UIDebugOverlay` draws bounds, padding, margin, hit target and
    focus path. It is not an inspector: no tree, no live property editing, no profiler. Both
    comparators have one. Productivity, not capability. **Own spec, recommended next.**
