@@ -204,8 +204,41 @@ export namespace foundation::ui::toolkit
         bool m_isChecked = false;
     };
 
+    /// Toolbar menu button: a button that opens a popup (OnClick, the caller shows a
+    /// ContextMenu under it) and carries a checked state like a toggle - "the mode this
+    /// dropdown holds is active" - drawn with a caret after its text.
+    class ToolbarMenuButton : public ToolbarButton
+    {
+        RTTI_OBJECT(ToolbarMenuButton, ToolbarButton)
+    public:
+        static constexpr f32 kCaretWidth = 12.0f;
+
+        [[nodiscard]] bool IsChecked() const noexcept { return m_isChecked; }
+
+        void SetIsChecked(bool value)
+        {
+            if (m_isChecked != value)
+            {
+                m_isChecked = value;
+                Invalidate();
+            }
+        }
+
+        void OnDraw(UIDrawContext& ctx) override; // defined out-of-line (needs complete Toolbar)
+
+    protected:
+        void OnMeasure(BoxConstraints constraints) override
+        {
+            ToolbarButton::OnMeasure(constraints);
+            MeasuredSize.x = constraints.ConstrainWidth(MeasuredSize.x + kCaretWidth);
+        }
+
+    private:
+        bool m_isChecked = false;
+    };
+
     /// Horizontal toolbar container. Draws background with bottom border.
-    /// Add items via AddItem(), AddButton(), AddSeparator(), AddToggle().
+    /// Add items via AddItem(), AddButton(), AddSeparator(), AddToggle(), AddMenuButton().
     class Toolbar : public FlexLayout
     {
         RTTI_OBJECT(Toolbar, FlexLayout)
@@ -251,6 +284,16 @@ export namespace foundation::ui::toolkit
             toggle->SetText(text);
             ToolbarToggle* raw = toggle.Get();
             AddItem(toggle.Get());
+            return raw;
+        }
+
+        /// Add a menu (dropdown) button. Returns the borrowed button; wire OnClick to show a menu.
+        ToolbarMenuButton* AddMenuButton(StringView text)
+        {
+            RefPtr<ToolbarMenuButton> button = MakeRef<ToolbarMenuButton>(MemoryAllocator());
+            button->SetText(text);
+            ToolbarMenuButton* raw = button.Get();
+            AddItem(button.Get());
             return raw;
         }
 
@@ -374,6 +417,38 @@ export namespace foundation::ui::toolkit
     RTTI_DEFINE_OBJECT(ToolbarItem, "rtti::ui::toolkit")
     RTTI_DEFINE_OBJECT(ToolbarSeparator, "rtti::ui::toolkit")
     RTTI_DEFINE_OBJECT(ToolbarButton, "rtti::ui::toolkit")
+    inline void ToolbarMenuButton::OnDraw(UIDrawContext& ctx)
+    {
+        const Rectangle bounds{0, 0, Width(), Height()};
+        if (m_isChecked)
+        {
+            const f32 cornerR = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+            Color onColor = Rgb(40, 80, 160, 255);
+            if (Toolbar* toolbar = Cast<Toolbar>(Parent))
+            {
+                onColor = toolbar->ResolveStyleColor(StyleProperty::SelectionColor, onColor);
+            }
+            if (cornerR > 0.0f)
+            {
+                ctx.VG().FillRoundedRect(bounds, cornerR, onColor);
+            }
+            else
+            {
+                ctx.VG().FillRect(bounds, onColor);
+            }
+        }
+        ToolbarButton::OnDraw(ctx);
+
+        // The caret: a small down-pointing triangle in the reserved strip at the right.
+        const Color caretColor = ResolveStyleColor(StyleProperty::TextColor, Rgb(220, 225, 235, 255));
+        const f32 cx = Width() - kCaretWidth * 0.5f - 2.0f;
+        const f32 cy = Height() * 0.5f;
+        const Float2 points[3] = {Float2{cx - 4.0f, cy - 2.0f}, Float2{cx + 4.0f, cy - 2.0f},
+                                  Float2{cx, cy + 3.0f}};
+        ctx.VG().FillPolygon(Span<const Float2>(points, 3), caretColor);
+    }
+
     RTTI_DEFINE_OBJECT(ToolbarToggle, "rtti::ui::toolkit")
+    RTTI_DEFINE_OBJECT(ToolbarMenuButton, "rtti::ui::toolkit")
     RTTI_DEFINE_OBJECT(Toolbar, "rtti::ui::toolkit")
 }

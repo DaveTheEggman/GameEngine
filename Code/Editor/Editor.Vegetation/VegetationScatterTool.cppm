@@ -41,6 +41,7 @@ export namespace editor
 
         [[nodiscard]] StringView Id() const override { return u8"vegetation.scatter"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Paint Props"; }
+        [[nodiscard]] StringView Category() const override { return u8"Vegetation"; }
         /// Relevant only when the scene has a vegetation component over a terrain with at least
         /// one prop layer.
         [[nodiscard]] bool IsAvailable() const override;

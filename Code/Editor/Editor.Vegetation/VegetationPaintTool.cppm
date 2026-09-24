@@ -45,6 +45,7 @@ export namespace editor
 
         [[nodiscard]] StringView Id() const override { return u8"vegetation.paint"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Paint Vegetation"; }
+        [[nodiscard]] StringView Category() const override { return u8"Vegetation"; }
         /// Relevant only when the scene has a vegetation component whose mask (and its terrain's
         /// heightfield, for the pick) resolves.
         [[nodiscard]] bool IsAvailable() const override;

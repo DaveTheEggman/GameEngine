@@ -134,4 +134,37 @@ namespace editor
             provider->CreateTools(manager, context);
         }
     }
+
+    void GroupViewportTools(ViewportToolManager& manager, Array<ViewportToolGroup>& out)
+    {
+        for (usize i = 1; i < manager.Count(); ++i)
+        {
+            IViewportTool* tool = manager.ToolAt(i);
+            if (tool == nullptr)
+            {
+                continue;
+            }
+            const StringView category = tool->Category();
+            ViewportToolGroup* group = nullptr;
+            if (!category.IsEmpty())
+            {
+                for (ViewportToolGroup& g : out)
+                {
+                    if (g.category.AsView() == category)
+                    {
+                        group = &g;
+                        break;
+                    }
+                }
+            }
+            if (group == nullptr)
+            {
+                ViewportToolGroup fresh;
+                fresh.category = String(category);
+                out.PushBack(Move(fresh));
+                group = &out.Back();
+            }
+            group->toolIds.PushBack(String(tool->Id()));
+        }
+    }
 }

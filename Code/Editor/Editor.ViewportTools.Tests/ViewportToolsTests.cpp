@@ -35,6 +35,7 @@ namespace
 
         StringView Id() const override { return m_id.AsView(); }
         StringView DisplayName() const override { return m_id.AsView(); }
+        StringView Category() const override { return category.AsView(); }
         bool IsAvailable() const override { return available; }
         void OnActivate() override { ++m_log->activations; }
         void OnDeactivate() override { ++m_log->deactivations; }
@@ -46,6 +47,7 @@ namespace
 
         bool available = true;
         bool consume = false;
+        String category; // empty = stands alone (the interface default)
 
     private:
         String m_id;
@@ -174,3 +176,40 @@ TEST_CASE("viewporttools: provider registry - explicit, idempotent, never the de
     CHECK(manager.ActiveTool()->Id() == StringView(u8"select")); // provider tools never default
     CHECK(log.activations == 0);
 }
+
+TEST_CASE("viewporttools: Category defaults to empty and GroupViewportTools folds a category "
+          "into one group in first-appearance order, skipping the default tool")
+{
+    ToolLog log;
+    ViewportToolManager manager;
+    auto add = [&](StringView id, StringView category)
+    {
+        UniquePtr<TestTool> tool = MakeUnique<TestTool>(DefaultAllocator(), id, log);
+        tool->category = String(category);
+        manager.Add(Move(tool));
+    };
+    add(u8"select", {});           // the default: never in a group
+    add(u8"terrain.sculpt", u8"Terrain");
+    add(u8"terrain.splat", u8"Terrain");
+    add(u8"spline.edit", {});      // alone
+    add(u8"vegetation.paint", u8"Vegetation");
+    add(u8"terrain.hole", u8"Terrain"); // a late registration joins its group
+    add(u8"vegetation.scatter", u8"Vegetation");
+
+    CHECK(manager.ToolAt(3)->Category().IsEmpty()); // the interface default
+
+    Array<ViewportToolGroup> groups;
+    GroupViewportTools(manager, groups);
+    REQUIRE(groups.Size() == 3u);
+    CHECK(groups[0].category == u8"Terrain");
+    REQUIRE(groups[0].toolIds.Size() == 3u);
+    CHECK(groups[0].toolIds[0] == u8"terrain.sculpt");
+    CHECK(groups[0].toolIds[1] == u8"terrain.splat");
+    CHECK(groups[0].toolIds[2] == u8"terrain.hole");
+    CHECK(groups[1].category.IsEmpty());
+    REQUIRE(groups[1].toolIds.Size() == 1u);
+    CHECK(groups[1].toolIds[0] == u8"spline.edit");
+    CHECK(groups[2].category == u8"Vegetation");
+    CHECK(groups[2].toolIds.Size() == 2u);
+}
+

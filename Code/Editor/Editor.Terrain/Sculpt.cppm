@@ -50,6 +50,7 @@ export namespace editor
 
         [[nodiscard]] StringView Id() const override { return u8"terrain.sculpt"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Sculpt Terrain"; }
+        [[nodiscard]] StringView Category() const override { return u8"Terrain"; }
 
         /// Relevant only when the scene actually has a terrain whose heightfield resolves.
         [[nodiscard]] bool IsAvailable() const override;

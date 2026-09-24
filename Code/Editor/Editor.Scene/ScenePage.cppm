@@ -82,7 +82,7 @@ export namespace editor
             : app::UIEditorPage(context.Allocator()),
               m_context(&context), m_host(&host), m_uiHost(&uiHost), m_title(instance.Name())
         {
-            // Set the instance id NOW, before the viewport toolbar's ScenePage_GridToggleInit ->
+            // Set the instance id NOW, before the viewport toolbar's ScenePage_OverlaysInit ->
             // LoadViewPrefs runs: the per-scene grid/LOD prefs are keyed by this guid, and the ctor
             // builds the toolbar before the context's later SetInstanceId, so loading with a nil guid
             // would always fall back to the default (grid on) and never restore the saved toggle. Same
@@ -521,6 +521,17 @@ export namespace editor
         // this viewport ("Final" = off). Built from the renderer's last-frame inventory.
         void ShowDebugViewMenu(foundation::ui::View* anchor);
 
+        // The viewport's overlays popup (checkable): the editor's own debug draws - grid,
+        // entity markers, LOD overlay, colliders. Per-scene persisted (SceneViewPref).
+        void ShowOverlaysMenu(foundation::ui::View* anchor);
+
+        // A tool dropdown's popup: one checkable item per tool of the category; picking
+        // activates it (or, for the active one, returns to the default tool).
+        struct ToolMenu;
+        void ShowToolMenu(const ToolMenu& toolMenu, foundation::ui::View* anchor);
+        // Activate (on) or release (off) a palette tool, saying a refusal as a notice.
+        void ToggleViewportTool(StringView id, bool on);
+
         // === Viewport toolbar (gizmo mode/space/grid) ===
 
         void BuildViewportToolbar();
@@ -552,7 +563,7 @@ export namespace editor
         void RefreshSimToolbar();
 
         // (split out so the lambda below can live next to its state)
-        void ScenePage_GridToggleInit();
+        void ScenePage_OverlaysInit();
         void LoadViewPrefs(); // read this scene's saved view state (grid + LOD; per-project, by guid)
         void SaveViewPrefs(); // persist it on any viewport toggle
 
@@ -604,23 +615,31 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_rotateToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_scaleToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
-        ui::toolkit::ToolbarToggle* m_gridToggle = nullptr;
+        // The Overlays dropdown's state (per-scene persisted): grid, LOD overlay, edit-time
+        // physics collider gizmos, the origin cross on every entity.
+        ui::toolkit::ToolbarMenuButton* m_overlaysButton = nullptr; // borrowed (toolbar-owned)
         bool m_showGrid = true;
-        ui::toolkit::ToolbarToggle* m_lodToggle = nullptr; // LOD overlay
         bool m_showLodOverlay = false;
-        ui::toolkit::ToolbarToggle* m_collidersToggle = nullptr; // edit-time physics collider gizmo
         bool m_showColliders = false;
-        ui::toolkit::ToolbarToggle* m_markersToggle = nullptr; // the origin cross on every entity
         bool m_showMarkers = true;
 
-        // Viewport tool palette: one toggle per non-default registered tool (Property Animation, and
-        // future terrain/nav-mesh) that activates it - the affordance that docks the tool's panel.
+        // Viewport tool palette: a toggle per lone non-default tool, a dropdown per category
+        // with two or more (GroupViewportTools). Checking one activates it - the affordance
+        // that docks the tool's panel.
         struct ToolToggle
         {
             ui::toolkit::ToolbarToggle* toggle = nullptr;
             String id;
         };
         Array<ToolToggle> m_toolToggles;
+        struct ToolMenu
+        {
+            ui::toolkit::ToolbarMenuButton* button = nullptr; // borrowed (toolbar-owned)
+            String category;
+            Array<String> ids;
+            String label; // what the button shows now ("Terrain" / "Terrain: Sculpt")
+        };
+        Array<ToolMenu> m_toolMenus;
         RefPtr<SceneInspectorView> m_inspector;
         // The GPU pick seam the tools see: RenderSubsystem::RequestPick keyed by THIS page's
         // viewport (the same key its RenderScene call carries), hits decoded to entity handles.

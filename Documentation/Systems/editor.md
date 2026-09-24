@@ -230,6 +230,15 @@ service, status sink, and the registries:
  `InputSurface`, hover-gated); the page's `OnRender` renders the scene via `foundation.render` into
  the viewport RT (the thin-slice/UISandbox wiring, with the real renderer).
 
+- **Scene toolbar shape (2026-09-24):** `[Translate][Rotate][Scale] | [World] | [Overlays v]
+  [Post v][Debug v] | <tool palette> ... [Play][Pause][Stop]`. Overlays is one checkable dropdown
+  for the editor's own debug draws - Grid, Entity markers, LOD overlay, Colliders - all four
+  per-scene persisted in `SceneViewPref`; Post (per-view effect overrides) and Debug (render
+  target views) stay their own dropdowns. The palette groups tools by `IViewportTool::Category()`
+  (`GroupViewportTools`, first-appearance order = registration order): a category with two or
+  more tools is ONE `ToolbarMenuButton` labelled by it, reading the active tool ("Terrain:
+  Sculpt", highlighted) while one is on; a lone tool (Spline) stays a toggle. A domain that
+  registers brushes gives them a category and takes one slot however many it adds.
 - **Viewport tool refusals are said, not swallowed (2026-09-22):** every `IViewportTool` has an
  `IsAvailable()` predicate (a terrain brush needs a terrain) and now an `UnavailableReason()`;
  when the toolbar toggle's activation is refused, the scene page notifies the reason as a

@@ -43,6 +43,7 @@ export namespace editor
         }
         [[nodiscard]] StringView Id() const override { return u8"terrain.hole"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Cut Holes"; }
+        [[nodiscard]] StringView Category() const override { return u8"Terrain"; }
         [[nodiscard]] bool IsAvailable() const override;
         [[nodiscard]] StringView UnavailableReason() const override
         {

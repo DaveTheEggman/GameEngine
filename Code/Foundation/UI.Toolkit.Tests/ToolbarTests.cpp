@@ -54,3 +54,32 @@ TEST_CASE("toolkit-toolbar: AddsItemsAndToggles")
     btn->OnClick.Invoke(btn);
     CHECK(clicked);
 }
+
+TEST_CASE("toolkit-toolbar: a menu button is a button with a checked state and a caret strip")
+{
+    auto bar = core::MakeRef<Toolbar>(core::DefaultAllocator());
+    ToolbarMenuButton* menu = bar->AddMenuButton(u8"Terrain");
+    REQUIRE(menu != nullptr);
+    CHECK(bar->ChildCount() == 1u);
+    CHECK(Cast<ToolbarButton>(menu) != nullptr); // it IS a button: OnClick opens the popup
+
+    bool clicked = false;
+    menu->OnClick.Add([&](ToolbarButton*) { clicked = true; });
+    menu->OnClick.Invoke(menu);
+    CHECK(clicked);
+
+    // Checked state round-trips like a toggle's (the dropdown's mode is active).
+    CHECK_FALSE(menu->IsChecked());
+    menu->SetIsChecked(true);
+    CHECK(menu->IsChecked());
+    menu->SetIsChecked(false);
+    CHECK_FALSE(menu->IsChecked());
+
+    // The caret strip widens the button past a plain button with the same text.
+    ToolbarButton* plain = bar->AddButton(u8"Terrain");
+    const BoxConstraints loose = BoxConstraints::Loose(1000.0f, 100.0f);
+    menu->Measure(loose);
+    plain->Measure(loose);
+    CHECK(menu->MeasuredSize.x == doctest::Approx(plain->MeasuredSize.x + ToolbarMenuButton::kCaretWidth));
+}
+

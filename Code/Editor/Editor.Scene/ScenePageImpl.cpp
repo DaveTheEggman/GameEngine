@@ -961,6 +961,91 @@ namespace editor
             { m_componentGizmos.DrawEntity(e, selection.Contains(m_scene->GetEntityId(e)), ctx); });
     }
 
+    void SceneEditorPage::ToggleViewportTool(StringView id, bool on)
+    {
+        if (on)
+        {
+            // A refusal (the tool has nothing to work on here) is said, not swallowed: the
+            // toggle / dropdown snaps back through SyncToolbar below.
+            if (!m_viewportTools.ActivateById(id))
+            {
+                if (IViewportTool* tool = m_viewportTools.FindById(id))
+                {
+                    m_context->Notify(editor::NoticeKind::Warning, tool->UnavailableReason());
+                }
+            }
+        }
+        else if (m_viewportTools.ActiveTool() != nullptr &&
+                 m_viewportTools.ActiveTool()->Id() == id)
+        {
+            m_viewportTools.ActivateDefault();
+        }
+        SyncToolbar();
+    }
+
+    void SceneEditorPage::ShowToolMenu(const ToolMenu& toolMenu, foundation::ui::View* anchor)
+    {
+        if (anchor == nullptr)
+        {
+            return;
+        }
+        auto menu = MakeRef<foundation::ui::ContextMenu>(Allocator());
+        SceneEditorPage* self = this;
+        IViewportTool* active = m_viewportTools.ActiveTool();
+        const StringView activeId = active != nullptr ? active->Id() : StringView{};
+        for (const String& id : toolMenu.ids)
+        {
+            IViewportTool* tool = m_viewportTools.FindById(id.AsView());
+            if (tool == nullptr)
+            {
+                continue;
+            }
+            const bool on = id.AsView() == activeId;
+            String text(on ? StringView(u8"[x] ") : StringView(u8"[ ] "));
+            text += tool->DisplayName();
+            String idCopy(id);
+            menu->AddItem(text.AsView(),
+                          [self, idCopy, on]() { self->ToggleViewportTool(idCopy.AsView(), !on); });
+        }
+        const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
+        menu->Show(anchor->Context, pos.x, pos.y);
+    }
+
+    void SceneEditorPage::ShowOverlaysMenu(foundation::ui::View* anchor)
+    {
+        if (anchor == nullptr)
+        {
+            return;
+        }
+        auto menu = MakeRef<foundation::ui::ContextMenu>(Allocator());
+        SceneEditorPage* self = this;
+        const auto mark = [](bool on) { return on ? StringView(u8"[x] ") : StringView(u8"[ ] "); };
+        const auto add = [&](StringView label, bool SceneEditorPage::* field)
+        {
+            String text(mark(this->*field));
+            text += label;
+            menu->AddItem(text.AsView(),
+                          [self, field]()
+                          {
+                              self->*field = !(self->*field);
+                              self->SaveViewPrefs(); // persist per-scene
+                          });
+        };
+        // The editor's own debug draws into this viewport (never the scene, never the game):
+        // the ground grid + world axes; the origin cross on every entity (off for a large
+        // scene - the selected entity keeps its marker and bounds); the LOD overlay tinting
+        // each chained mesh by the level this camera selects; the edit-time physics collider
+        // gizmos (from component shapes, no world - distinct from the RUNTIME
+        // PhysicsSceneSettings.debugDraw).
+        add(u8"Grid", &SceneEditorPage::m_showGrid);
+        add(u8"Entity markers", &SceneEditorPage::m_showMarkers);
+        menu->AddSeparator();
+        add(u8"LOD overlay", &SceneEditorPage::m_showLodOverlay);
+        add(u8"Colliders", &SceneEditorPage::m_showColliders);
+        const Float2 pos = anchor->LocalToScreen(Float2{0.0f, anchor->Height()});
+        menu->Show(anchor->Context, pos.x, pos.y);
+    }
+
     void SceneEditorPage::ShowPostFlagsMenu(foundation::ui::View* anchor)
     {
         if (anchor == nullptr)
@@ -1162,62 +1247,67 @@ namespace editor
 
         m_toolbar->AddSeparator();
 
-        ScenePage_GridToggleInit();
+        ScenePage_OverlaysInit();
 
         // Post show-flags: ephemeral per-view overrides that strip effects for editing clarity
-        // (never written to the scene). A "Post" button opens a checkable menu.
+        // (never written to the scene). A "Post" dropdown opens a checkable menu.
         {
             SceneEditorPage* self = this;
-            ui::toolkit::ToolbarButton* postButton = m_toolbar->AddButton(u8"Post");
+            ui::toolkit::ToolbarMenuButton* postButton = m_toolbar->AddMenuButton(u8"Post");
             postButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
                                     { self->ShowPostFlagsMenu(btn); });
             // Debug view: pick any render-graph texture to visualize in this viewport.
-            ui::toolkit::ToolbarButton* debugButton = m_toolbar->AddButton(u8"Debug");
+            ui::toolkit::ToolbarMenuButton* debugButton = m_toolbar->AddMenuButton(u8"Debug");
             debugButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
                                      { self->ShowDebugViewMenu(btn); });
         }
 
         // Viewport tool palette (APPENDED after the built-ins so the fixed toolbar shape never
-        // shifts as tool plugins come and go): a toggle per non-default registered tool (index 0 is
-        // the default Select/gizmo tool, driven by the gizmo toggles). Checking one activates that
-        // tool - which docks its panel (terrain brushes, future nav-mesh); unchecking (or checking
-        // another) returns to the default. This is the entry point to the in-scene modes.
+        // shifts as tool plugins come and go). Index 0 is the default Select/gizmo tool, driven
+        // by the gizmo toggles. A category with two or more tools (Terrain, Vegetation) is ONE
+        // dropdown; a lone tool (Spline) is a toggle. Checking/picking one activates that
+        // tool - which docks its panel; unchecking (or picking the active one again) returns
+        // to the default. This is the entry point to the in-scene modes.
         if (m_viewportTools.Count() > 1)
         {
             m_toolbar->AddSeparator();
-            for (usize i = 1; i < m_viewportTools.Count(); ++i)
+            Array<ViewportToolGroup> groups;
+            GroupViewportTools(m_viewportTools, groups);
+            for (ViewportToolGroup& group : groups)
             {
-                IViewportTool* tool = m_viewportTools.ToolAt(i);
-                if (tool == nullptr)
+                if (group.category.IsEmpty() || group.toolIds.Size() < 2)
                 {
+                    for (const String& toolId : group.toolIds)
+                    {
+                        IViewportTool* tool = m_viewportTools.FindById(toolId.AsView());
+                        if (tool == nullptr)
+                        {
+                            continue;
+                        }
+                        String id(toolId);
+                        ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(tool->DisplayName());
+                        toggle->OnCheckedChanged.Add(
+                            [this, id](ui::toolkit::ToolbarToggle*, bool value)
+                            { ToggleViewportTool(id.AsView(), value); });
+                        m_toolToggles.PushBack(ToolToggle{toggle, Move(id)});
+                    }
                     continue;
                 }
-                String id(tool->Id());
-                ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(tool->DisplayName());
-                toggle->OnCheckedChanged.Add(
-                    [this, id](ui::toolkit::ToolbarToggle*, bool value)
+                ToolMenu menu;
+                menu.category = Move(group.category);
+                menu.ids = Move(group.toolIds);
+                menu.label = menu.category;
+                menu.button = m_toolbar->AddMenuButton(menu.label.AsView());
+                const usize menuIndex = m_toolMenus.Size();
+                menu.button->OnClick.Add(
+                    [this, menuIndex](ui::toolkit::ToolbarButton* btn)
                     {
-                        if (value)
+                        if (menuIndex < m_toolMenus.Size())
                         {
-                            // A refusal (the tool has nothing to work on here) is said, not
-                            // swallowed: the toggle snaps back through SyncToolbar below.
-                            if (!m_viewportTools.ActivateById(id.AsView()))
-                            {
-                                if (IViewportTool* tool = m_viewportTools.FindById(id.AsView()))
-                                {
-                                    m_context->Notify(editor::NoticeKind::Warning,
-                                                      tool->UnavailableReason());
-                                }
-                            }
+                            ShowToolMenu(m_toolMenus[menuIndex], btn);
                         }
-                        else if (m_viewportTools.ActiveTool() != nullptr &&
-                                 m_viewportTools.ActiveTool()->Id() == id.AsView())
-                        {
-                            m_viewportTools.ActivateDefault();
-                        }
-                        SyncToolbar();
                     });
-                m_toolToggles.PushBack(ToolToggle{toggle, Move(id)});
+                m_toolMenus.PushBack(Move(menu));
             }
         }
 
@@ -1340,10 +1430,13 @@ namespace editor
         m_stopButton->Invalidate();
     }
 
-    void SceneEditorPage::ScenePage_GridToggleInit()
+    void SceneEditorPage::ScenePage_OverlaysInit()
     {
-        m_gridToggle = m_toolbar->AddToggle(u8"");
-        m_gridToggle->SetIcon(Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
+        // One dropdown for the editor's debug draws (grid, markers, LOD overlay, colliders)
+        // instead of a toggle each: they are one kind of thing and the bar was full.
+        SceneEditorPage* self = this;
+        m_overlaysButton = m_toolbar->AddMenuButton(u8"Overlays");
+        m_overlaysButton->SetIcon(Function<void(foundation::ui::UIDrawContext&, Rectangle)>{
             [](foundation::ui::UIDrawContext& ctx, Rectangle rect)
             {
                 if (auto* drawable = editor::app::EditorIcons::Get().grid.Get())
@@ -1351,39 +1444,9 @@ namespace editor
                     drawable->Draw(ctx, rect);
                 }
             }});
-        SceneEditorPage* self = this;
-        m_gridToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                           {
-                                               self->m_showGrid = value;
-                                               self->SaveViewPrefs(); // persist per-scene
-                                           });
-        // LOD overlay: tint every chained mesh's bounds by the level this
-        // viewport's camera selects. Off by default - a debug lens, not an editing mode.
-        m_lodToggle = m_toolbar->AddToggle(u8"LOD");
-        m_lodToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                          {
-                                              self->m_showLodOverlay = value;
-                                              self->SaveViewPrefs(); // persist per-scene
-                                          });
-        // Edit-time physics collider wireframes (editor gizmo - distinct from the RUNTIME
-        // PhysicsSceneSettings.debugDraw). Off by default; draws from component shapes, no world.
-        m_collidersToggle = m_toolbar->AddToggle(u8"Colliders");
-        m_collidersToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                                {
-                                                    self->m_showColliders = value;
-                                                    self->SaveViewPrefs(); // persist per-scene
-                                                });
-        // Entity origin markers: the cross at every entity's origin. On by default; a large
-        // scene (Bistro: thousands of nodes) is all crosses, so it is a toggle. Off keeps the
-        // SELECTED entity's marker and bounds - the selection feedback, not the clutter.
-        m_markersToggle = m_toolbar->AddToggle(u8"Markers");
-        m_markersToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                              {
-                                                  self->m_showMarkers = value;
-                                                  self->SaveViewPrefs(); // persist per-scene
-                                              });
-        // Restore this scene's saved grid + LOD + collider + marker state before the first
-        // SyncToolbar mirrors it.
+        m_overlaysButton->OnClick.Add([self](ui::toolkit::ToolbarButton* btn)
+                                      { self->ShowOverlaysMenu(btn); });
+        // Restore this scene's saved overlay state before the first SyncToolbar mirrors it.
         LoadViewPrefs();
     }
 
@@ -1426,19 +1489,6 @@ namespace editor
         m_scaleToggle->SetIsChecked(mode == GizmoMode::Scale);
         const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
         m_spaceToggle->SetIsChecked(world);
-        m_gridToggle->SetIsChecked(m_showGrid);
-        if (m_lodToggle != nullptr)
-        {
-            m_lodToggle->SetIsChecked(m_showLodOverlay);
-        }
-        if (m_collidersToggle != nullptr)
-        {
-            m_collidersToggle->SetIsChecked(m_showColliders);
-        }
-        if (m_markersToggle != nullptr)
-        {
-            m_markersToggle->SetIsChecked(m_showMarkers);
-        }
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
         const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};
@@ -1447,6 +1497,35 @@ namespace editor
             if (tt.toggle != nullptr)
             {
                 tt.toggle->SetIsChecked(tt.id.AsView() == activeId);
+            }
+        }
+        // A tool dropdown reads its active tool ("Terrain: Sculpt", highlighted) or just
+        // its category. SetText only when the label changes (this runs every frame).
+        for (ToolMenu& tm : m_toolMenus)
+        {
+            bool on = false;
+            for (const String& id : tm.ids)
+            {
+                if (id.AsView() == activeId)
+                {
+                    on = true;
+                    break;
+                }
+            }
+            String label(tm.category);
+            if (on && activeTool != nullptr)
+            {
+                label += u8": ";
+                label += activeTool->DisplayName();
+            }
+            if (tm.button != nullptr)
+            {
+                tm.button->SetIsChecked(on);
+                if (label.AsView() != tm.label.AsView())
+                {
+                    tm.label = Move(label);
+                    tm.button->SetText(tm.label.AsView());
+                }
             }
         }
     }

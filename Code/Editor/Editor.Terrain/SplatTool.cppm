@@ -41,6 +41,7 @@ export namespace editor
 
         [[nodiscard]] StringView Id() const override { return u8"terrain.splat"; }
         [[nodiscard]] StringView DisplayName() const override { return u8"Paint Splat"; }
+        [[nodiscard]] StringView Category() const override { return u8"Terrain"; }
 
         /// Relevant only when the scene has a terrain whose splatmap (and heightfield, for the pick)
         /// resolves.

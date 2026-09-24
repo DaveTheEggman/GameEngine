@@ -119,6 +119,11 @@ export namespace editor
         /// Palette label.
         [[nodiscard]] virtual StringView DisplayName() const = 0;
 
+        /// Palette group ("Terrain", "Vegetation"); empty = the tool stands alone. The host
+        /// folds a category with two or more tools into one dropdown labelled by it, so a
+        /// domain's brushes take one slot however many it registers. Never localized here.
+        [[nodiscard]] virtual StringView Category() const { return {}; }
+
         /// Availability predicate: registration is unconditional, RELEVANCE is contextual (a
         /// terrain brush needs a terrain in the scene). Checked every frame for the active
         /// tool - the manager falls back to the default tool when this turns false.
@@ -184,6 +189,18 @@ export namespace editor
         Array<UniquePtr<IViewportTool>> m_tools;
         IViewportTool* m_active = nullptr; // borrowed from m_tools; null until first Add
     };
+
+    /// One palette group: the tools sharing a Category(), in registration order, or a single
+    /// uncategorized tool. Groups come in first-appearance order, so a domain's registration
+    /// order still decides where its dropdown sits.
+    struct ViewportToolGroup
+    {
+        String category;      // empty = a lone tool
+        Array<String> toolIds; // never empty
+    };
+
+    /// Groups every tool but the default (index 0) for a palette host.
+    void GroupViewportTools(ViewportToolManager& manager, Array<ViewportToolGroup>& out);
 
     /// Everything a scene-viewport tool may need at CREATION, in framework-known types only
     /// (page-specific context stays out of the interface; concrete tools that need more are

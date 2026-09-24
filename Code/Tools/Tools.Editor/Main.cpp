@@ -463,11 +463,13 @@ int main(int argc, char** argv)
         editor::RegisterImageEditor(app.Context());
         editor::RegisterHeightfieldEditor(app.Context());
         editor::RegisterTerrainEditor(app.Context(), host, uiHost);
+        // Palette order = registration order: the Terrain dropdown, the Vegetation dropdown,
+        // then the lone Spline tool.
         editor::RegisterTerrainViewportTools(); // the scene-viewport terrain sculpt + splat brushes
-        editor::RegisterSplineViewportTools(); // the scene-viewport spline control-point editor
         editor::RegisterTerrainToolPanels();    // their bottom-dock brush settings panels
         editor::RegisterVegetationViewportTools(); // the scene-viewport vegetation mask brush
         editor::RegisterVegetationToolPanels();    // its brush settings panel
+        editor::RegisterSplineViewportTools(); // the scene-viewport spline control-point editor
         editor::RegisterFontEditor(app.Context());
         editor::RegisterCollisionShapeEditor(app.Context(), host, uiHost);
         // The FALLBACK page registers like any factory: nearest-base dispatch routes every
