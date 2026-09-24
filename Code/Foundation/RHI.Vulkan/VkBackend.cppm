@@ -251,9 +251,21 @@ export namespace foundation::rhi::vk
         Status init(bool enableValidation)
         {
             m_validationEnabled = enableValidation;
-            // Announce validation state so a perf run can confirm the layers are OFF (they add real overhead).
-            std::fprintf(stderr, "[Vulkan] validation layers: %s\n",
-                         enableValidation ? "ENABLED" : "DISABLED");
+            // Announce validation state so a perf run can confirm the layers are OFF: the
+            // layer validates every command, and a profile taken with it on measures the layer
+            // (the 2026-09-24 Bistro profile: 80 ms of draw recording against 20 ms of GPU).
+            if (enableValidation)
+            {
+                std::fprintf(stderr,
+                             "[Vulkan] validation layers: ENABLED - this build has device "
+                             "validation enabled, which is known to be slow. For real numbers "
+                             "use a build with device validation disabled (RelWithDebInfo, or "
+                             "--no-gpu-validation).\n");
+            }
+            else
+            {
+                std::fprintf(stderr, "[Vulkan] validation layers: DISABLED\n");
+            }
 
             // ---- Application info ----
             VkApplicationInfo appInfo{};

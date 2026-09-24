@@ -76,6 +76,20 @@ export namespace foundation::rhi::dx12
         Status init(bool enableValidation)
         {
             m_validationEnabled = enableValidation;
+            // Same announcement as the Vulkan backend: a profile with the debug layer on
+            // measures the layer, not the engine.
+            if (enableValidation)
+            {
+                std::fprintf(stderr,
+                             "[DX12] debug layer: ENABLED - this build has device validation "
+                             "enabled, which is known to be slow. For real numbers use a build "
+                             "with device validation disabled (RelWithDebInfo, or "
+                             "--no-gpu-validation).\n");
+            }
+            else
+            {
+                std::fprintf(stderr, "[DX12] debug layer: DISABLED\n");
+            }
 
             // Enable debug layer before device creation.
             if (m_validationEnabled)
