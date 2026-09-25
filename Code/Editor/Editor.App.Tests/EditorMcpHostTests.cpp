@@ -157,9 +157,9 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
     bool hasProjectOpen = false;
     for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
     {
-        const StringView name = tools.At(i).Get(u8"name").AsString().AsView();
-        hasHostInfo = hasHostInfo || name == StringView(u8"host_info");
-        hasProjectOpen = hasProjectOpen || name == StringView(u8"project_open");
+        const String name = tools.At(i).Get(u8"name").AsString(); // AsString returns BY VALUE
+        hasHostInfo = hasHostInfo || name == u8"host_info";
+        hasProjectOpen = hasProjectOpen || name == u8"project_open";
     }
     CHECK(hasHostInfo);
     CHECK_FALSE(hasProjectOpen);
