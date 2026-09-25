@@ -91,7 +91,9 @@ TEST_CASE("integration.mcp: an agent creates, opens, and inspects a project via 
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     RegisterReflectionTools(server); // the same host serves reflection + project tools
 
     // list advertises both tool families
@@ -133,7 +135,9 @@ TEST_CASE("integration.mcp: asset_list / asset_info read the open project's cont
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterAssetTools(server, session);
 
     CallOk(server, u8"project_create",
@@ -202,7 +206,9 @@ namespace
 
         McpServer server;
         editor::mcp::ProjectSession session;
-        editor::mcp::RegisterProjectTools(server, session);
+        editor::mcp::ProjectOwner owner;
+        editor::mcp::RegisterProjectOpenTools(server, session, owner);
+        editor::mcp::RegisterProjectInfoTool(server, session);
         editor::mcp::RegisterAssetTools(server, session);
         editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
 
@@ -324,7 +330,9 @@ TEST_CASE("integration.mcp: project_info before any project is open is a tool er
 {
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
 
     JsonValue resp = CallResponse(server, u8"project_info", JsonValue::MakeObject());
     REQUIRE(resp.Has(u8"result"));

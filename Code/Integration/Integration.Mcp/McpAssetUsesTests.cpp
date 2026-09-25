@@ -118,7 +118,9 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterAssetUsesTool(server, session, builders);
 
     (void)UsesCallOk(server, u8"project_create",
@@ -213,7 +215,9 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterProjectHealthTool(server, session, builders);
 
     (void)UsesCallOk(server, u8"project_create",

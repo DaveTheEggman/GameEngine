@@ -10,6 +10,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Pipeline::Script Foundation::Script.Resource # script_validate: the language-cook registry
     Foundation::Script # script_create: backend registry (language -> file extension)
     Engine::SceneSurface # the FULL manager set for scene_validate's scratch (full payload validation)
+    Foundation::Mcp.Reflection Foundation::Mcp.Script # the engine surface root registers their tools too
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
 target_sources(Editor.Mcp

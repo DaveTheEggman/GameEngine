@@ -72,7 +72,9 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterProjectExportTool(server, session, builders, TestExeDir(),
                                            foundation::vfs::FindDataRoot());
 

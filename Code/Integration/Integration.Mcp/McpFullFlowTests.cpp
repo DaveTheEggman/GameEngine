@@ -72,12 +72,14 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     engine::RegisterAllSceneComponentReflection();
 
     McpServer server;
+    // The flow runs over the SHARED engine surface (what every host serves) plus the stdio
+    // host's project_create / project_open.
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterAssetTools(server, session);
-    editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
-    editor::mcp::RegisterSceneTools(server, session);
-    editor::mcp::RegisterProjectHealthTool(server, session, builders);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+                                     editor::mcp::EngineToolPaths{});
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
 
     // 1. Create + open.
     (void)FfCall(server, u8"project_create",
@@ -139,4 +141,49 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     CHECK(health.Get(u8"failedCooks").AsNumber() == doctest::Approx(0.0));
 
     std::remove("Mover.luau");
+}
+
+TEST_CASE("integration.mcp: RegisterEngineTools registers exactly kEngineToolCount tools - the "
+          "surface every host serves, and only that")
+{
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+
+    McpServer server;
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+                                     editor::mcp::EngineToolPaths{});
+    CHECK(server.ToolCount() == editor::mcp::kEngineToolCount);
+
+    JsonValue req = JsonValue::MakeObject();
+    req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+    req.Set(u8"id", JsonValue::MakeNumber(1));
+    req.Set(u8"method", JsonValue::MakeString(u8"tools/list"));
+    LineOutcome line = server.HandleLine(req.ToString().AsView());
+    REQUIRE(line.state == LineState::Answered);
+    JsonValue tools = json::Parse(line.response.AsView()).value.Get(u8"result").Get(u8"tools");
+    const auto has = [&tools](StringView name)
+    {
+        for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
+        {
+            if (tools.At(i).Get(u8"name").AsString().AsView() == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    // Spot checks across the families the root gathers ...
+    CHECK(has(u8"type_list"));
+    CHECK(has(u8"script_api"));
+    CHECK(has(u8"project_info"));
+    CHECK(has(u8"asset_cook"));
+    CHECK(has(u8"scene_write"));
+    CHECK(has(u8"project_export"));
+    CHECK(has(u8"known_issues"));
+    // ... and what a HOST adds itself: never part of the shared surface.
+    CHECK_FALSE(has(u8"project_open"));
+    CHECK_FALSE(has(u8"project_create"));
+    CHECK_FALSE(has(u8"host_info"));
 }

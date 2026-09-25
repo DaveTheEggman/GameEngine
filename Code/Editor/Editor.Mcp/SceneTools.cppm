@@ -210,7 +210,7 @@ export namespace editor::mcp
                 {
                     String error;
                     content::Instance* instance = detail::ResolveDocument(
-                        s->project.Get(), args.Get(u8"guid").AsString().AsView(),
+                        s->project, args.Get(u8"guid").AsString().AsView(),
                         wantedType.AsView(), sibling.AsView(), error);
                     if (instance == nullptr)
                     {
@@ -256,7 +256,7 @@ export namespace editor::mcp
                 }
                 if (!guidText.IsEmpty())
                 {
-                    if (s->project.Get() == nullptr)
+                    if (s->project == nullptr)
                     {
                         return Err(String(u8"no project is open - call project_open first"));
                     }
@@ -304,7 +304,7 @@ export namespace editor::mcp
                 [s, wantedType = String(wantedType), sibling = String(sibling),
                  singleRoot](const JsonValue& args) -> ToolResult
                 {
-                    if (s->project.Get() == nullptr)
+                    if (s->project == nullptr)
                     {
                         return Err(String(u8"no project is open - call project_open first"));
                     }
@@ -336,7 +336,7 @@ export namespace editor::mcp
                     if (!guidText.IsEmpty())
                     {
                         String error;
-                        instance = detail::ResolveDocument(s->project.Get(), guidText.AsView(),
+                        instance = detail::ResolveDocument(s->project, guidText.AsView(),
                                                            wantedType.AsView(), sibling.AsView(),
                                                            error);
                         if (instance == nullptr)

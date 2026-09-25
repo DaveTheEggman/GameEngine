@@ -19,8 +19,6 @@ import foundation.core;
 import foundation.vfs; // ResolveDataRoot (--data-root / the Data/.dataroot walk)
 import foundation.json;
 import foundation.mcp;
-import foundation.mcp.reflection;
-import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
@@ -134,45 +132,6 @@ namespace
         return String();
     }
 
-    // Register every shipping doc (*.md) as a read-only `docs://<FileName>` resource. Readers
-    // re-read the file per request, so edits are live without restarting the host.
-    void RegisterShippingDocResources(McpServer& server, StringView docsDir)
-    {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const fs::path root(reinterpret_cast<const char*>(String(docsDir).CStr()));
-        for (const fs::directory_entry& entry : fs::directory_iterator(root, ec))
-        {
-            if (!entry.is_regular_file(ec) || entry.path().extension() != ".md")
-            {
-                continue;
-            }
-            const std::string fileName = entry.path().filename().string();
-            const std::string fullPath = entry.path().string();
-            const String name(StringView(reinterpret_cast<const utf8char*>(fileName.c_str())));
-            const String path(StringView(reinterpret_cast<const utf8char*>(fullPath.c_str())));
-            server.RegisterResource(
-                Format(u8"docs://{}", name.AsView()), name, String(u8"text/markdown"),
-                Format(u8"engine documentation: {} (curated, distribution-facing)", name.AsView()),
-                [path]() -> Result<String, String>
-                {
-                    FileStream stream(path.AsView(), FileMode::Read);
-                    if (!stream.IsValid())
-                    {
-                        return Err(Format(u8"could not read '{}'", path.AsView()));
-                    }
-                    const i64 size = stream.Size();
-                    Array<byte> bytes;
-                    bytes.Resize(static_cast<usize>(size));
-                    if (stream.Read(bytes.Data(), bytes.Size()) != static_cast<u64>(size))
-                    {
-                        return Err(Format(u8"could not read '{}'", path.AsView()));
-                    }
-                    return String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()),
-                                             bytes.Size()));
-                });
-        }
-    }
 }
 
 int main(int argc, char** argv)
@@ -208,33 +167,7 @@ int main(int argc, char** argv)
 
     McpServer server;
     server.SetServerInfo(u8"engine-mcp", u8"0.1.0");
-    RegisterReflectionTools(server);
-    RegisterScriptTools(server); // script_api: the per-backend bound API for writing scripts
 
-    // The host's current project (project_open/create populate it); outlives the server.
-    editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterAssetTools(server, session);
-    editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
-    editor::mcp::RegisterAssetUsesTool(server, session, builders); // reverse deps (pre-delete read)
-    editor::mcp::RegisterProjectHealthTool(server, session, builders); // the soundness sweep
-    // Diagnostics: the captured engine log (incremental reads + agent markers) + the curated
-    // known-issues register.
-    editor::mcp::RegisterLogTools(server, logBuffer, FindKnownIssues(argv[0]));
-    editor::mcp::RegisterSceneTools(server, session); // scene/prefab read+write+validate (files-first)
-    // Read-only context by URI: the curated shipping docs (docs://<name>) + the open project's
-    // scene/prefab XML sources (project://scene|prefab/<guid>, listed live).
-    const String shippingDocs = FindShippingDocsDir(argv[0]);
-    if (!shippingDocs.IsEmpty())
-    {
-        RegisterShippingDocResources(server, shippingDocs.AsView());
-    }
-    editor::mcp::RegisterProjectResources(server, session);
-    // script_validate: compile-check-only (no typed checks); the
-    // language cooks were registered by Pipeline::Registration above.
-    editor::mcp::RegisterScriptValidateTool(server);
-    editor::mcp::RegisterScriptCreateTool(server, session); // starter-seeded script assets
-    // project_export: the ONE export entry point (identical to the editor menu + export CLI).
     // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
     // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
     const String dataRoot = foundation::vfs::ResolveDataRoot(argc, argv);
@@ -244,8 +177,22 @@ int main(int argc, char** argv)
                              "beside the tool, or pass --data-root <dir>)\n");
         return 1;
     }
-    editor::mcp::RegisterProjectExportTool(server, session, builders, ToolDir(argv[0]),
-                                           dataRoot);
+
+    // The session every tool works through; this host OWNS the project it opens (project_open
+    // stores it in `owner` and points the session at it). Both outlive the server.
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::ProjectSession session;
+    // The engine surface every host serves (one list, in editor.mcp), with the paths only this
+    // host knows how to find: the curated docs + known issues by the walk-up from the executable,
+    // the export host-template source beside it, the data root above.
+    editor::mcp::EngineToolPaths paths;
+    paths.knownIssues = FindKnownIssues(argv[0]);
+    paths.shippingDocsDir = FindShippingDocsDir(argv[0]);
+    paths.hostToolDir = ToolDir(argv[0]);
+    paths.dataRoot = dataRoot;
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer, paths);
+    // This host's additions: an agent opens (or scaffolds) the project it wants to work on.
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.
     RegisterHostInfoTool(
         server, String(reinterpret_cast<const char8_t*>(BuildStamp())),
@@ -254,7 +201,7 @@ int main(int argc, char** argv)
             {
                 using foundation::json::JsonValue;
                 JsonValue host = JsonValue::MakeObject();
-                const bool open = session.project.Get() != nullptr;
+                const bool open = session.project != nullptr;
                 host.Set(u8"projectOpen", JsonValue::MakeBool(open));
                 if (open)
                 {

@@ -162,7 +162,9 @@ TEST_CASE("integration.mcp: script_create - starter-seeded asset, unique names, 
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterScriptValidateTool(server);
     editor::mcp::RegisterScriptCreateTool(server, session);
 

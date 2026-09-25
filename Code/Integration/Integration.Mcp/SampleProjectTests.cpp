@@ -109,7 +109,9 @@ TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versi
         pipeline::RegisterAllImporters(importers);
         foundation::mcp::McpServer server;
         editor::mcp::ProjectSession session;
-        editor::mcp::RegisterProjectTools(server, session);
+        editor::mcp::ProjectOwner owner;
+        editor::mcp::RegisterProjectOpenTools(server, session, owner);
+        editor::mcp::RegisterProjectInfoTool(server, session);
         editor::mcp::RegisterAssetTools(server, session);
         editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
         JsonValue open = JsonValue::MakeObject();

@@ -23,9 +23,18 @@ namespace content = foundation::content;
 
 export namespace editor::mcp
 {
-    // The MCP host's current project (null until project_open succeeds). Owned by the host; must
-    // outlive the server the tools are registered on.
+    // The project every tool works on (null until one is open). NON-OWNING: the editor host
+    // points it at the editor's live project - one ContentDatabase, one writer - and the stdio
+    // host at the project it opened and keeps in its ProjectOwner. The pointee must outlive the
+    // server the tools are registered on.
     struct ProjectSession
+    {
+        editor::EditorProject* project = nullptr;
+    };
+
+    // The stdio host's project ownership: project_open stores what it opened here and points
+    // the session at it. The editor host has no owner - its project is the editor's own.
+    struct ProjectOwner
     {
         UniquePtr<editor::EditorProject> project;
     };

@@ -103,7 +103,9 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterSceneTools(server, session);
     editor::mcp::RegisterProjectResources(server, session); // scenes as project:// resources
 

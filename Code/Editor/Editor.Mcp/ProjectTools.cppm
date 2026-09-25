@@ -3,11 +3,13 @@
 
 // Editor::Mcp - `editor.mcp`
 //
-// The project MCP tool contribution: project_create / project_open / project_info. Lets an agent
-// scaffold and open a project HEADLESSLY (editor closed) and inspect it, over foundation.mcp. Built
-// on the headless EditorProject (VFS + manifest; no UI). A ProjectSession holds the host's currently
-// open project - the tools read/mutate it. Asset/scene/pipeline tools join this lib (and Pipeline's)
-// as they land.
+// The project MCP tool contribution over foundation.mcp, built on the headless EditorProject (VFS +
+// manifest; no UI): project_info + the asset tools here, the scene / script / health / export /
+// log tools in the partitions, and at the end RegisterEngineTools - the ONE list of the engine
+// surface every host serves (the stdio host and the editor host compose through it, so they
+// cannot drift; kEngineToolCount is its tripwire). project_create / project_open are the stdio
+// host's own additions (RegisterProjectOpenTools): the editor's project is the editor's. A
+// ProjectSession points every tool at the current project without owning it.
 
 module;
 #include "Core/Prelude.h"
@@ -28,6 +30,8 @@ import foundation.json;
 import foundation.content;
 import foundation.vfs;
 import foundation.mcp;
+import foundation.mcp.reflection;
+import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.cook;
@@ -82,11 +86,16 @@ namespace editor::mcp::detail
 export namespace editor::mcp
 {
     // Registers project_create / project_open / project_info against `server`, backed by `session`.
-    inline void RegisterProjectTools(foundation::mcp::McpServer& server, ProjectSession& session)
+    // Registers project_create / project_open - the STDIO host's additions. What project_open
+    // opens is stored in `owner` and the session is pointed at it; the editor host, whose project
+    // is the editor's own, registers neither.
+    inline void RegisterProjectOpenTools(foundation::mcp::McpServer& server,
+                                         ProjectSession& session, ProjectOwner& owner)
     {
         using foundation::mcp::SchemaBuilder;
         using foundation::mcp::ToolResult;
         ProjectSession* s = &session;
+        ProjectOwner* o = &owner;
 
         server.RegisterTool(
             u8"project_create",
@@ -117,7 +126,7 @@ export namespace editor::mcp
             u8"Open a project (mounts its source + cooked content databases) as the session's "
             u8"current project.",
             SchemaBuilder().Str(u8"directory", u8"the project directory", true).Build(),
-            [s](const JsonValue& args) -> ToolResult
+            [s, o](const JsonValue& args) -> ToolResult
             {
                 const String directory = args.Get(u8"directory").AsString();
                 UniquePtr<editor::EditorProject> opened =
@@ -131,9 +140,21 @@ export namespace editor::mcp
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"name", JsonValue::MakeString(String(opened->Name())));
                 out.Set(u8"directory", JsonValue::MakeString(String(opened->Directory())));
-                s->project = Move(opened);
+                s->project = nullptr; // the previous project dies with its owner slot
+                o->project = Move(opened);
+                s->project = o->project.Get();
                 return out;
             });
+    }
+
+    // Registers project_info against `server` - the open project's identity, part of the
+    // surface every host serves.
+    inline void RegisterProjectInfoTool(foundation::mcp::McpServer& server,
+                                        ProjectSession& session)
+    {
+        using foundation::mcp::SchemaBuilder;
+        using foundation::mcp::ToolResult;
+        ProjectSession* s = &session;
 
         server.RegisterTool(
             u8"project_info",
@@ -351,5 +372,100 @@ export namespace editor::mcp
                 out.Set(u8"unbuildable", JsonValue::MakeNumber(static_cast<f64>(plan.unbuildable)));
                 return out;
             });
+    }
+}
+
+export namespace editor::mcp
+{
+    // Paths the shared surface needs that only a host can discover, each host its own way (the
+    // stdio host walks up from its executable, the editor knows its data root). An empty
+    // knownIssues path leaves known_issues erring with guidance; an empty shippingDocsDir
+    // registers no docs:// resources.
+    struct EngineToolPaths
+    {
+        String knownIssues;     ///< the curated KnownIssues.md (Documentation/Shipping)
+        String shippingDocsDir; ///< the curated shipping docs directory (docs://<name>)
+        String hostToolDir;     ///< where Engine.Player + its runtime sidecars live (project_export)
+        String dataRoot;        ///< the engine data root (the shader cook reads <dataRoot>/Shaders)
+    };
+
+    // The number of tools RegisterEngineTools registers. A new engine tool bumps this
+    // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
+    // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
+    // each host registers its own.
+    inline constexpr usize kEngineToolCount = 21;
+
+    // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
+    // distribution-facing docs set (internal design/spec/process docs are never exposed).
+    // Readers re-read the file per request, so edits are live without restarting the host.
+    inline void RegisterShippingDocResources(foundation::mcp::McpServer& server,
+                                             StringView docsDir)
+    {
+        Array<String> names;
+        (void)ListDirectory(
+            docsDir,
+            [](void* ctx, StringView name, bool isDirectory)
+            {
+                if (!isDirectory && name.EndsWith(u8".md"))
+                {
+                    static_cast<Array<String>*>(ctx)->PushBack(String(name));
+                }
+            },
+            &names);
+        for (const String& name : names)
+        {
+            const String path = PathJoin(docsDir, name.AsView());
+            server.RegisterResource(
+                Format(u8"docs://{}", name.AsView()), name, String(u8"text/markdown"),
+                Format(u8"engine documentation: {} (curated, distribution-facing)", name.AsView()),
+                [path]() -> Result<String, String>
+                {
+                    FileStream stream(path.AsView(), FileMode::Read);
+                    if (!stream.IsValid())
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    const i64 size = stream.Size();
+                    Array<byte> bytes;
+                    bytes.Resize(static_cast<usize>(size));
+                    if (stream.Read(bytes.Data(), bytes.Size()) != static_cast<u64>(size))
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    return String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()),
+                                             bytes.Size()));
+                });
+        }
+    }
+
+    // The engine tool surface EVERY MCP host serves, listed ONCE: reflection (type_list /
+    // type_info), script_api, project_info, the asset tools (list / info / import / cook / uses),
+    // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
+    // tools, script_validate / script_create, project_export, and the docs:// + project://
+    // resources. A host adds what only it can serve on top (the stdio host: project_create /
+    // project_open; the editor: its live tools) and its own host_info.
+    inline void RegisterEngineTools(foundation::mcp::McpServer& server, ProjectSession& session,
+                                    pipeline::BuilderRegistry& builders,
+                                    pipeline::ImporterRegistry& importers,
+                                    editor::EditorLogBuffer& logBuffer,
+                                    const EngineToolPaths& paths)
+    {
+        foundation::mcp::RegisterReflectionTools(server);
+        foundation::mcp::RegisterScriptTools(server);
+        RegisterProjectInfoTool(server, session);
+        RegisterAssetTools(server, session);
+        RegisterAssetWriteTools(server, session, builders, importers);
+        RegisterAssetUsesTool(server, session, builders);
+        RegisterProjectHealthTool(server, session, builders);
+        RegisterLogTools(server, logBuffer, paths.knownIssues);
+        RegisterSceneTools(server, session);
+        if (!paths.shippingDocsDir.IsEmpty())
+        {
+            RegisterShippingDocResources(server, paths.shippingDocsDir.AsView());
+        }
+        RegisterProjectResources(server, session);
+        RegisterScriptValidateTool(server);
+        RegisterScriptCreateTool(server, session);
+        RegisterProjectExportTool(server, session, builders, paths.hostToolDir, paths.dataRoot);
     }
 }
