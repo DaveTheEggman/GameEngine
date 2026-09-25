@@ -59,6 +59,7 @@ TEST_CASE("mcp.http: an McpServer over HTTP - the exchange, every refusal, and 2
     McpServer server;
     server.SetServerInfo(u8"http-host", u8"1.0.0");
     server.RegisterTool(u8"ping_tool", u8"answers pong", SchemaBuilder().Build(),
+    foundation::mcp::ToolAnnotations::ReadOnly(),
                         [](const JsonValue&) -> ToolResult
                         {
                             JsonValue out = JsonValue::MakeObject();
@@ -248,6 +249,7 @@ TEST_CASE("mcp.http: a tool that is not finished keeps the caller waiting across
     McpServer server;
     u32 calls = 0;
     server.RegisterTool(u8"slow", u8"answers on its third entry", SchemaBuilder().Build(),
+    foundation::mcp::ToolAnnotations::ReadOnly(),
                         [&calls](const JsonValue&) -> ToolOutcome
                         {
                             ++calls;

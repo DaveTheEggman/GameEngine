@@ -205,6 +205,7 @@ export namespace editor::mcp
                        kind, kind),
                 SchemaBuilder().Str(u8"guid", Format(u8"the {} asset's guid", kind).AsView(), true)
                     .Build(),
+                    foundation::mcp::ToolAnnotations::ReadOnly(),
                 [s, wantedType = String(wantedType), sibling = String(sibling)](
                     const JsonValue& args) -> ToolResult
                 {
@@ -244,6 +245,7 @@ export namespace editor::mcp
                 .Str(u8"guid", u8"a scene/prefab asset guid whose stored stream to validate",
                      false)
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s](const JsonValue& args) -> ToolResult
             {
                 String xml = args.Get(u8"xml").AsString();
@@ -301,6 +303,7 @@ export namespace editor::mcp
                     .Str(u8"group", u8"slash-joined group path for a NEW asset (default root)",
                          false)
                     .Build(),
+                    foundation::mcp::ToolAnnotations::Overwrites(),
                 [s, wantedType = String(wantedType), sibling = String(sibling),
                  singleRoot](const JsonValue& args) -> ToolResult
                 {

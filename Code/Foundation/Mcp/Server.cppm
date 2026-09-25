@@ -85,11 +85,33 @@ export namespace foundation::mcp
         String response;
     };
 
+    /// What a tool does to the world, as MCP's tool annotations say it (tools/list emits them
+    /// under `annotations`): a client uses them to run reads freely and confirm writes, and
+    /// the editor host to decide what a call may do unattended. Every registration states its
+    /// class - there is no default, because an unannotated write reads as a read.
+    struct ToolAnnotations
+    {
+        bool readOnly = false;   ///< readOnlyHint: changes nothing
+        bool destructive = true; ///< destructiveHint: may overwrite or delete what exists
+        bool idempotent = false; ///< idempotentHint: calling again with the same args changes nothing more
+        bool openWorld = false;  ///< openWorldHint: reaches outside the project (never, here)
+
+        /// Reads and reports; changes nothing.
+        [[nodiscard]] static ToolAnnotations ReadOnly() { return {true, false, true, false}; }
+        /// Adds something new (an asset, a log line, a project) without touching what exists.
+        [[nodiscard]] static ToolAnnotations Creates() { return {false, false, false, false}; }
+        /// Replaces existing data (a scene's source); the same call again lands the same state.
+        [[nodiscard]] static ToolAnnotations Overwrites() { return {false, true, true, false}; }
+        /// Regenerates derived output (a cook, a dist, the open project); nothing authored is lost.
+        [[nodiscard]] static ToolAnnotations Rebuilds() { return {false, false, true, false}; }
+    };
+
     struct Tool
     {
         String name;
         String description;
         JsonValue inputSchema;
+        ToolAnnotations annotations;
         ToolHandler handler;
     };
 
@@ -178,9 +200,11 @@ export namespace foundation::mcp
         {
             m_toolObserver = Move(observer);
         }
-        void RegisterTool(String name, String description, JsonValue schema, ToolHandler handler)
+        void RegisterTool(String name, String description, JsonValue schema,
+                          ToolAnnotations annotations, ToolHandler handler)
         {
-            m_tools.PushBack(Tool{Move(name), Move(description), Move(schema), Move(handler)});
+            m_tools.PushBack(
+                Tool{Move(name), Move(description), Move(schema), annotations, Move(handler)});
         }
         void RegisterResource(String uri, String name, String mimeType, String description,
                               ResourceReader reader)
@@ -299,6 +323,13 @@ export namespace foundation::mcp
                     jt.Set(u8"name", JsonValue::MakeString(m_tools[i].name));
                     jt.Set(u8"description", JsonValue::MakeString(m_tools[i].description));
                     jt.Set(u8"inputSchema", m_tools[i].inputSchema);
+                    const ToolAnnotations& a = m_tools[i].annotations;
+                    JsonValue annotations = JsonValue::MakeObject();
+                    annotations.Set(u8"readOnlyHint", JsonValue::MakeBool(a.readOnly));
+                    annotations.Set(u8"destructiveHint", JsonValue::MakeBool(a.destructive));
+                    annotations.Set(u8"idempotentHint", JsonValue::MakeBool(a.idempotent));
+                    annotations.Set(u8"openWorldHint", JsonValue::MakeBool(a.openWorld));
+                    jt.Set(u8"annotations", Move(annotations));
                     tools.Add(Move(jt));
                 }
                 JsonValue result = JsonValue::MakeObject();
@@ -473,6 +504,7 @@ export namespace foundation::mcp
             u8"stale binary after a rebuild), server + MCP protocol versions, and host state "
             u8"(e.g. the open project). Read this first in a new session.",
             SchemaBuilder().Build(),
+            foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, buildStamp = Move(buildStamp),
              hostState = Move(hostState)](const JsonValue&) -> ToolResult
             {

@@ -106,6 +106,7 @@ export namespace editor::mcp
                 .Str(u8"directory", u8"path to create the project at", true)
                 .Str(u8"name", u8"the project's display name", true)
                 .Build(),
+                foundation::mcp::ToolAnnotations::Creates(),
             [](const JsonValue& args) -> ToolResult
             {
                 const String directory = args.Get(u8"directory").AsString();
@@ -127,6 +128,7 @@ export namespace editor::mcp
             u8"Open a project (mounts its source + cooked content databases) as the session's "
             u8"current project.",
             SchemaBuilder().Str(u8"directory", u8"the project directory", true).Build(),
+            foundation::mcp::ToolAnnotations::Rebuilds(),
             [s, o](const JsonValue& args) -> ToolResult
             {
                 const String directory = args.Get(u8"directory").AsString();
@@ -161,6 +163,7 @@ export namespace editor::mcp
             u8"project_info",
             u8"Details about the currently-open project (name, directory, sources root).",
             SchemaBuilder().Build(),
+            foundation::mcp::ToolAnnotations::ReadOnly(),
             [s](const JsonValue& /*args*/) -> ToolResult
             {
                 if (!s->project)
@@ -197,6 +200,7 @@ export namespace editor::mcp
                 .Enum(u8"database", detail::DatabaseChoices(),
                       u8"which content database (default: source)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, pickDb](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)
@@ -219,6 +223,7 @@ export namespace editor::mcp
                 .Enum(u8"database", detail::DatabaseChoices(),
                       u8"which content database (default: source)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, pickDb](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)
@@ -269,6 +274,7 @@ export namespace editor::mcp
                 .Str(u8"source", u8"absolute path to the file to import", true)
                 .Str(u8"group", u8"source-DB group path to place it in (slash-joined; default root)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::Creates(),
             [s, imp, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
@@ -315,6 +321,7 @@ export namespace editor::mcp
             SchemaBuilder()
                 .Boolean(u8"force", u8"re-cook every buildable asset regardless of cleanliness")
                 .Build(),
+                foundation::mcp::ToolAnnotations::Rebuilds(),
             [s, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)

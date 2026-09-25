@@ -84,6 +84,7 @@ export namespace editor::mcp
                 .Str(u8"group", u8"source-DB group path to place it in (slash-joined; "
                                 u8"default root)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::Creates(),
             [s](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)

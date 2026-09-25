@@ -142,6 +142,7 @@ export namespace editor::mcp
                 .Str(u8"out", u8"output root directory (default: <project>/Dist)")
                 .Boolean(u8"rebuild", u8"force a full re-cook first (default incremental)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::Rebuilds(),
             [s, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)

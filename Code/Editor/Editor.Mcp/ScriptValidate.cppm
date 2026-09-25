@@ -63,6 +63,7 @@ export namespace editor::mcp
                 .Str(u8"name", u8"a display name for error messages (e.g. the intended file "
                                u8"name; default 'script')")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [](const JsonValue& args) -> ToolResult
             {
                 const String language = args.Get(u8"language").AsString();

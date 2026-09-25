@@ -55,6 +55,7 @@ namespace
     {
         s.RegisterTool(u8"echo", u8"Echoes the message back",
                        SchemaBuilder().Str(u8"message", u8"text to echo", true).Build(),
+                       foundation::mcp::ToolAnnotations::ReadOnly(),
                        [](const JsonValue& args) -> ToolResult
                        {
                            JsonValue out = JsonValue::MakeObject();
@@ -62,6 +63,7 @@ namespace
                            return out;
                        });
         s.RegisterTool(u8"fail", u8"Always fails", SchemaBuilder().Build(),
+        foundation::mcp::ToolAnnotations::ReadOnly(),
                        [](const JsonValue&) -> ToolResult
                        { return Err(String(u8"cook failed: bad input")); });
         s.RegisterResource(u8"mem://greeting", u8"greeting", u8"text/plain", u8"a greeting",
@@ -134,6 +136,41 @@ TEST_CASE("mcp: tools/list emits names, descriptions, and inputSchemas")
     CHECK(schema.Get(u8"type").AsString() == StringView(u8"object"));
     CHECK(schema.Get(u8"properties").Has(u8"message"));
     CHECK(schema.Get(u8"required").At(0).AsString() == StringView(u8"message"));
+}
+
+TEST_CASE("mcp: tools/list emits every tool's annotations - a read-only tool and an overwriting "
+          "one say so in the MCP hints")
+{
+    McpServer s;
+    Setup(s); // echo + fail are read-only
+    s.RegisterTool(u8"clobber", u8"Replaces a thing", SchemaBuilder().Build(),
+                   ToolAnnotations::Overwrites(),
+                   [](const JsonValue&) -> ToolResult { return JsonValue::MakeObject(); });
+    JsonValue r = Response(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"));
+    const JsonValue tools = r.Get(u8"result").Get(u8"tools");
+    REQUIRE(tools.Count() == 3);
+    const auto find = [&tools](StringView name) -> JsonValue
+    {
+        for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
+        {
+            if (tools.At(i).Get(u8"name").AsString().AsView() == name)
+            {
+                return tools.At(i).Get(u8"annotations");
+            }
+        }
+        return JsonValue::MakeNull();
+    };
+    JsonValue echo = find(u8"echo");
+    REQUIRE(echo.IsObject());
+    CHECK(echo.Get(u8"readOnlyHint").AsBool());
+    CHECK_FALSE(echo.Get(u8"destructiveHint").AsBool());
+    CHECK(echo.Get(u8"idempotentHint").AsBool());
+    CHECK_FALSE(echo.Get(u8"openWorldHint").AsBool());
+    JsonValue clobber = find(u8"clobber");
+    REQUIRE(clobber.IsObject());
+    CHECK_FALSE(clobber.Get(u8"readOnlyHint").AsBool());
+    CHECK(clobber.Get(u8"destructiveHint").AsBool());
+    CHECK(clobber.Get(u8"idempotentHint").AsBool());
 }
 
 TEST_CASE("mcp: tools/call round-trips through the registry (result is JSON-stringified text)")
@@ -343,6 +380,7 @@ namespace
     void RegisterSlow(McpServer& s, SlowTool& slow)
     {
         s.RegisterTool(u8"slow", u8"Answers after a few re-entries", SchemaBuilder().Build(),
+        foundation::mcp::ToolAnnotations::ReadOnly(),
                        [&slow](const JsonValue&) -> ToolOutcome
                        {
                            ++slow.calls;

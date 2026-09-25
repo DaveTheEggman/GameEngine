@@ -17,7 +17,9 @@ give the client a generous timeout rather than polling.
 
 ## First moves in a session
 
-1. `tools/list` - read the real surface before guessing; descriptions carry the contract.
+1. `tools/list` - read the real surface before guessing; descriptions carry the contract, and
+   each tool's `annotations` say what it does to the project: `readOnlyHint` (changes nothing),
+   `destructiveHint` (overwrites what exists - the scene and prefab writes), `idempotentHint`.
 2. `host_info` - pid (kill a hung host by it) and `buildStamp`. After rebuilding the
    engine, compare stamps: a stale host serves yesterday's engine.
 3. `resources/list` - the curated `docs://` shipping docs (Scripting/Assets/Scenes/

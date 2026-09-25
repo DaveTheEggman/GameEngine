@@ -178,6 +178,7 @@ export namespace foundation::mcp
             SchemaBuilder()
                 .Str(u8"namespace", u8"only types whose namespace starts with this prefix")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [reg](const JsonValue& args) -> ToolResult
             {
                 const String nsFilter = args.Get(u8"namespace").AsString();
@@ -212,6 +213,7 @@ export namespace foundation::mcp
                 .Str(u8"type", u8"the unqualified type name (e.g. \"JsonValue\")", true)
                 .Str(u8"namespace", u8"the exact namespace, to disambiguate a duplicated name")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [reg](const JsonValue& args) -> ToolResult
             {
                 const String typeName = args.Get(u8"type").AsString();

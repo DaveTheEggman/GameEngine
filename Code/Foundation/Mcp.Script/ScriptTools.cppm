@@ -131,6 +131,7 @@ export namespace foundation::mcp
             SchemaBuilder()
                 .Str(u8"language", u8"backend language id (e.g. \"angelscript\", \"luau\"); default: all")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [](const JsonValue& args) -> Result<JsonValue, String>
             {
                 const String language = args.Get(u8"language").AsString();
