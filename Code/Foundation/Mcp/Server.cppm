@@ -4,16 +4,19 @@
 // Foundation::Mcp - :server partition
 //
 // The JSON-RPC 2.0 dispatcher + MCP lifecycle + tool/resource registry. HandleLine takes ONE
-// newline-delimited message and returns the response line (or nothing for a notification). It always
-// survives bad input. Two error layers, never conflated: PROTOCOL failures are JSON-RPC error
-// responses; TOOL failures are SUCCESSFUL responses whose result carries isError:true + the real
-// error text (an agent must see the underlying cook/import message, not a protocol failure).
+// newline-delimited message and says how it went: the response line to write, nothing (a
+// notification), or NOT FINISHED - the tool asked to be re-entered, so the transport keeps the
+// caller waiting and hands the same line in again on its next pump. It always survives bad input.
+// Two error layers, never conflated: PROTOCOL failures are JSON-RPC error responses; TOOL
+// failures are SUCCESSFUL responses whose result carries isError:true + the real error text (an
+// agent must see the underlying cook/import message, not a protocol failure).
 //
 // v1 subset only: initialize / notifications/initialized / tools.list / tools.call /
 // resources.list / resources.read / ping. Capabilities advertise exactly {tools, resources}.
 
 module;
 #include "Core/Prelude.h"
+#include <type_traits>
 
 export module foundation.mcp:server;
 
@@ -43,7 +46,44 @@ export namespace foundation::mcp
     // A tool turns validated args into a JSON result, or an error MESSAGE. The error channel is a
     // String (not a bare ErrorCode) precisely so agents receive the real underlying text.
     using ToolResult = Result<JsonValue, String>;
-    using ToolHandler = Function<ToolResult(const JsonValue& args)>;
+
+    /// What a handler hands back: its answer, or NOT FINISHED - the host keeps the caller
+    /// waiting and re-enters the handler with the SAME arguments on its next pump, until a call
+    /// answers. For a tool that must let its host make progress in between (a cook running on
+    /// a background thread, a simulation that has to advance frames). Such a handler keeps its
+    /// own progress state across the re-entries and gives up on its own timeout: a host that
+    /// stopped pumping and a handler that never answers look the same to the caller. A handler
+    /// that answers at once returns its ToolResult as always.
+    struct ToolOutcome
+    {
+        Optional<ToolResult> answer; ///< empty = not finished
+
+        template <typename T>
+            requires std::is_convertible_v<T&&, ToolResult>
+        ToolOutcome(T&& result) : answer(ToolResult(Forward<T>(result)))
+        {
+        }
+
+        [[nodiscard]] static ToolOutcome NotFinished() { return ToolOutcome(); }
+        [[nodiscard]] bool IsFinished() const noexcept { return answer.HasValue(); }
+
+    private:
+        ToolOutcome() = default;
+    };
+    using ToolHandler = Function<ToolOutcome(const JsonValue& args)>;
+
+    /// How HandleLine dealt with one line.
+    enum class LineState : u8
+    {
+        Answered,     ///< `response` is the line to write back
+        Notification, ///< no response, by protocol
+        NotFinished,  ///< the tool asked to be re-entered: hand the SAME line in again next pump
+    };
+    struct LineOutcome
+    {
+        LineState state = LineState::Notification;
+        String response;
+    };
 
     struct Tool
     {
@@ -100,6 +140,11 @@ namespace foundation::mcp::detail
         r.Set(u8"error", Move(err));
         return r;
     }
+
+    inline LineOutcome Answered(const JsonValue& message)
+    {
+        return LineOutcome{LineState::Answered, message.ToString()};
+    }
 }
 
 export namespace foundation::mcp
@@ -141,30 +186,29 @@ export namespace foundation::mcp
         [[nodiscard]] usize ToolCount() const noexcept { return m_tools.Size(); }
         [[nodiscard]] usize ResourceCount() const noexcept { return m_resources.Size(); }
 
-        // Handle ONE JSON-RPC message. Returns the response line to write, or an empty Optional for a
-        // notification (no response). Never throws; malformed input yields a protocol error line.
-        [[nodiscard]] Optional<String> HandleLine(StringView line)
+        // Handle ONE JSON-RPC message: the response line to write, a notification (nothing to
+        // write), or NotFinished (re-enter with the same line next pump). Never throws;
+        // malformed input yields a protocol error line.
+        [[nodiscard]] LineOutcome HandleLine(StringView line)
         {
             json::ParseResult parsed = json::Parse(line);
             if (!parsed.ok)
             {
-                return detail::MakeError(JsonValue::MakeNull(), RpcError::ParseError,
-                                         String(u8"Parse error"))
-                    .ToString();
+                return detail::Answered(detail::MakeError(
+                    JsonValue::MakeNull(), RpcError::ParseError, String(u8"Parse error")));
             }
             const JsonValue& msg = parsed.value;
             // Top-level arrays are batch requests - not supported (later MCP revisions dropped them).
             if (msg.IsArray())
             {
-                return detail::MakeError(JsonValue::MakeNull(), RpcError::InvalidRequest,
-                                         String(u8"Batch requests are not supported"))
-                    .ToString();
+                return detail::Answered(
+                    detail::MakeError(JsonValue::MakeNull(), RpcError::InvalidRequest,
+                                      String(u8"Batch requests are not supported")));
             }
             if (!msg.IsObject())
             {
-                return detail::MakeError(JsonValue::MakeNull(), RpcError::InvalidRequest,
-                                         String(u8"Invalid Request"))
-                    .ToString();
+                return detail::Answered(detail::MakeError(
+                    JsonValue::MakeNull(), RpcError::InvalidRequest, String(u8"Invalid Request")));
             }
 
             const JsonValue methodVal = msg.Get(u8"method");
@@ -173,9 +217,9 @@ export namespace foundation::mcp
             {
                 if (hasId)
                 {
-                    return detail::MakeError(msg.Get(u8"id"), RpcError::InvalidRequest,
-                                             String(u8"Invalid Request: 'method' must be a string"))
-                        .ToString();
+                    return detail::Answered(detail::MakeError(
+                        msg.Get(u8"id"), RpcError::InvalidRequest,
+                        String(u8"Invalid Request: 'method' must be a string")));
                 }
                 return {}; // malformed notification - ignored, per JSON-RPC
             }
@@ -188,7 +232,7 @@ export namespace foundation::mcp
 
             const JsonValue id = msg.Get(u8"id");
             const JsonValue params = msg.Get(u8"params");
-            return Dispatch(methodVal.AsString().AsView(), params, id).ToString();
+            return Dispatch(methodVal.AsString().AsView(), params, id);
         }
 
     private:
@@ -215,8 +259,8 @@ export namespace foundation::mcp
             return nullptr;
         }
 
-        [[nodiscard]] JsonValue Dispatch(StringView method, const JsonValue& params,
-                                         const JsonValue& id)
+        [[nodiscard]] LineOutcome Dispatch(StringView method, const JsonValue& params,
+                                           const JsonValue& id)
         {
             if (method == StringView(u8"initialize"))
             {
@@ -231,11 +275,11 @@ export namespace foundation::mcp
                 info.Set(u8"name", JsonValue::MakeString(m_serverName));
                 info.Set(u8"version", JsonValue::MakeString(m_serverVersion));
                 result.Set(u8"serverInfo", Move(info));
-                return detail::MakeResult(id, Move(result));
+                return detail::Answered(detail::MakeResult(id, Move(result)));
             }
             if (method == StringView(u8"ping"))
             {
-                return detail::MakeResult(id, JsonValue::MakeObject());
+                return detail::Answered(detail::MakeResult(id, JsonValue::MakeObject()));
             }
             if (method == StringView(u8"tools/list"))
             {
@@ -250,21 +294,21 @@ export namespace foundation::mcp
                 }
                 JsonValue result = JsonValue::MakeObject();
                 result.Set(u8"tools", Move(tools));
-                return detail::MakeResult(id, Move(result));
+                return detail::Answered(detail::MakeResult(id, Move(result)));
             }
             if (method == StringView(u8"tools/call"))
             {
                 const JsonValue nameVal = params.Get(u8"name");
                 if (!nameVal.IsString())
                 {
-                    return detail::MakeError(id, RpcError::InvalidParams,
-                                             String(u8"tools/call requires a string 'name'"));
+                    return detail::Answered(detail::MakeError(id, RpcError::InvalidParams,
+                                             String(u8"tools/call requires a string 'name'")));
                 }
                 const Tool* tool = FindTool(nameVal.AsString().AsView());
                 if (tool == nullptr)
                 {
-                    return detail::MakeError(id, RpcError::InvalidParams,
-                                             Format(u8"unknown tool '{}'", nameVal.AsString().AsView()));
+                    return detail::Answered(detail::MakeError(id, RpcError::InvalidParams,
+                                             Format(u8"unknown tool '{}'", nameVal.AsString().AsView())));
                 }
                 JsonValue args = params.Get(u8"arguments");
                 if (args.IsNull())
@@ -274,28 +318,34 @@ export namespace foundation::mcp
                 Optional<String> schemaError = ValidateArgs(args, tool->inputSchema);
                 if (schemaError.HasValue())
                 {
-                    return detail::MakeError(id, RpcError::InvalidParams, Move(schemaError.Value()));
+                    return detail::Answered(detail::MakeError(id, RpcError::InvalidParams, Move(schemaError.Value())));
                 }
-                // Run the tool. BOTH outcomes are successful JSON-RPC responses; a tool failure is
-                // reported as isError content, not a protocol error.
-                ToolResult outcome = tool->handler(args);
+                // Run the tool. A tool that is not finished is asked again next pump (same
+                // line, same args). BOTH finished outcomes are successful JSON-RPC responses;
+                // a tool failure is reported as isError content, not a protocol error.
+                ToolOutcome outcome = tool->handler(args);
+                if (!outcome.IsFinished())
+                {
+                    return LineOutcome{LineState::NotFinished, String()};
+                }
+                ToolResult& answer = outcome.answer.Value();
                 JsonValue item = JsonValue::MakeObject();
                 item.Set(u8"type", JsonValue::MakeString(u8"text"));
                 JsonValue result = JsonValue::MakeObject();
-                if (outcome.HasValue())
+                if (answer.HasValue())
                 {
-                    item.Set(u8"text", JsonValue::MakeString(outcome.Value().ToString()));
+                    item.Set(u8"text", JsonValue::MakeString(answer.Value().ToString()));
                     result.Set(u8"isError", JsonValue::MakeBool(false));
                 }
                 else
                 {
-                    item.Set(u8"text", JsonValue::MakeString(Move(outcome.Error())));
+                    item.Set(u8"text", JsonValue::MakeString(Move(answer.Error())));
                     result.Set(u8"isError", JsonValue::MakeBool(true));
                 }
                 JsonValue content = JsonValue::MakeArray();
                 content.Add(Move(item));
                 result.Set(u8"content", Move(content));
-                return detail::MakeResult(id, Move(result));
+                return detail::Answered(detail::MakeResult(id, Move(result)));
             }
             if (method == StringView(u8"resources/list"))
             {
@@ -325,15 +375,15 @@ export namespace foundation::mcp
                 }
                 JsonValue result = JsonValue::MakeObject();
                 result.Set(u8"resources", Move(arr));
-                return detail::MakeResult(id, Move(result));
+                return detail::Answered(detail::MakeResult(id, Move(result)));
             }
             if (method == StringView(u8"resources/read"))
             {
                 const JsonValue uriVal = params.Get(u8"uri");
                 if (!uriVal.IsString())
                 {
-                    return detail::MakeError(id, RpcError::InvalidParams,
-                                             String(u8"resources/read requires a string 'uri'"));
+                    return detail::Answered(detail::MakeError(id, RpcError::InvalidParams,
+                                             String(u8"resources/read requires a string 'uri'")));
                 }
                 const String uriText = uriVal.AsString(); // AsString returns BY VALUE - keep it
                 const StringView uri = uriText.AsView();
@@ -350,8 +400,8 @@ export namespace foundation::mcp
                     }
                     if (!dynamicContent.HasValue())
                     {
-                        return detail::MakeError(id, RpcError::InvalidParams,
-                                                 Format(u8"unknown resource '{}'", uri));
+                        return detail::Answered(detail::MakeError(id, RpcError::InvalidParams,
+                                                 Format(u8"unknown resource '{}'", uri)));
                     }
                     // The answering provider's listing carries the entry's declared mime type.
                     mimeType = String(u8"text/plain");
@@ -377,7 +427,7 @@ export namespace foundation::mcp
                     (res != nullptr) ? res->reader() : Move(dynamicContent.Value());
                 if (!content.HasValue())
                 {
-                    return detail::MakeError(id, RpcError::InternalError, Move(content.Error()));
+                    return detail::Answered(detail::MakeError(id, RpcError::InternalError, Move(content.Error())));
                 }
                 JsonValue entry = JsonValue::MakeObject();
                 entry.Set(u8"uri", JsonValue::MakeString(String(uri)));
@@ -387,10 +437,10 @@ export namespace foundation::mcp
                 contents.Add(Move(entry));
                 JsonValue result = JsonValue::MakeObject();
                 result.Set(u8"contents", Move(contents));
-                return detail::MakeResult(id, Move(result));
+                return detail::Answered(detail::MakeResult(id, Move(result)));
             }
-            return detail::MakeError(id, RpcError::MethodNotFound,
-                                     Format(u8"method not found: {}", method));
+            return detail::Answered(detail::MakeError(id, RpcError::MethodNotFound,
+                                     Format(u8"method not found: {}", method)));
         }
     };
 

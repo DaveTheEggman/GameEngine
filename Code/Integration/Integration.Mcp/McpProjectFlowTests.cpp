@@ -62,9 +62,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue CallOk(McpServer& s, StringView tool, JsonValue arguments)
@@ -96,8 +96,7 @@ TEST_CASE("integration.mcp: an agent creates, opens, and inspects a project via 
 
     // list advertises both tool families
     JsonValue tools = json::Parse(server.HandleLine(
-                                        u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}")
-                                       .Value()
+                                        u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}").response
                                        .AsView())
                           .value.Get(u8"result")
                           .Get(u8"tools");

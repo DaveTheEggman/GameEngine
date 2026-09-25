@@ -40,9 +40,9 @@ namespace
         request.Set(u8"id", JsonValue::MakeNumber(1));
         request.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         request.Set(u8"params", Move(params));
-        Optional<String> line = server.HandleLine(request.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue response = foundation::json::Parse(line.Value().AsView()).value;
+        foundation::mcp::LineOutcome line = server.HandleLine(request.ToString().AsView());
+        REQUIRE(line.state == foundation::mcp::LineState::Answered);
+        JsonValue response = foundation::json::Parse(line.response.AsView()).value;
         REQUIRE(response.Has(u8"result"));
         REQUIRE(response.Get(u8"result").Get(u8"isError").AsBool() == false);
         return foundation::json::Parse(

@@ -52,9 +52,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue resp = json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        JsonValue resp = json::Parse(line.response.AsView()).value;
         REQUIRE(resp.Has(u8"result"));
         CHECK(resp.Get(u8"result").Get(u8"isError").AsBool() == false);
         return JsonValue::Parse(resp.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString());
@@ -70,7 +70,7 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        return json::Parse(s.HandleLine(req.ToString().AsView()).Value().AsView()).value;
+        return json::Parse(s.HandleLine(req.ToString().AsView()).response.AsView()).value;
     }
 }
 

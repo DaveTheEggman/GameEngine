@@ -112,15 +112,24 @@ namespace foundation::mcp
                 return http::HttpResponse::Json(
                     405, u8"{\"error\":\"POST one JSON-RPC message per request\"}");
             }
-            Optional<String> response = m_server->HandleLine(request.BodyText());
-            if (!response.HasValue())
+            LineOutcome outcome = m_server->HandleLine(request.BodyText());
+            switch (outcome.state)
+            {
+            case LineState::Notification:
             {
                 // A notification: accepted, nothing to say.
                 http::HttpResponse accepted;
                 accepted.status = 202;
                 return accepted;
             }
-            return http::HttpResponse::Json(200, response.Value().AsView());
+            case LineState::NotFinished:
+                // The tool asked to be re-entered: the request waits on its connection and
+                // comes back through Handle on the next Pump.
+                return http::HttpResponse::Deferred();
+            case LineState::Answered:
+                break;
+            }
+            return http::HttpResponse::Json(200, outcome.response.AsView());
         }
         if (request.target.AsView() == StringView(u8"/events"))
         {

@@ -36,9 +36,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue SvOk(McpServer& s, JsonValue arguments)
@@ -121,9 +121,9 @@ TEST_CASE("integration.mcp: script_validate - every enabled backend's starter co
     req.Set(u8"id", JsonValue::MakeNumber(2));
     req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
     req.Set(u8"params", Move(params));
-    Optional<String> line = server.HandleLine(req.ToString().AsView());
-    REQUIRE(line.HasValue());
-    JsonValue resp = json::Parse(line.Value().AsView()).value;
+    LineOutcome line = server.HandleLine(req.ToString().AsView());
+    REQUIRE(line.state == LineState::Answered);
+    JsonValue resp = json::Parse(line.response.AsView()).value;
     CHECK(resp.Get(u8"error").Get(u8"code").AsInt() == -32602);
 }
 
@@ -139,9 +139,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue resp = json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        JsonValue resp = json::Parse(line.response.AsView()).value;
         REQUIRE(resp.Has(u8"result"));
         CHECK(resp.Get(u8"result").Get(u8"isError").AsBool() == !expectOk);
         if (!expectOk)

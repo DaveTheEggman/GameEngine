@@ -39,9 +39,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue CallOk(McpServer& s, StringView tool, JsonValue arguments)
@@ -64,9 +64,9 @@ namespace
     // Raw JSON-RPC line -> response line (for the resources/* methods, which are not tools).
     String Response(McpServer& s, StringView line)
     {
-        Optional<String> out = s.HandleLine(line);
-        REQUIRE(out.HasValue());
-        return Move(out.Value());
+        LineOutcome out = s.HandleLine(line);
+        REQUIRE(out.state == LineState::Answered);
+        return Move(out.response);
     }
 
     JsonValue Obj() { return JsonValue::MakeObject(); }
