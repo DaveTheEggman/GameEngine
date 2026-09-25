@@ -313,6 +313,25 @@ TEST_CASE("editor.settings: the MCP section round-trips, and a minted token is a
     CHECK(back->token == mcp.token);
 }
 
+TEST_CASE("editor.settings: the MCP section takes the Preferences fields, refusing a bad port")
+{
+    EditorMcpSettings mcp;
+    mcp.token = String(u8"old");
+    CHECK(mcp.ApplyFromPreferences(true, u8"7500", u8"new"));
+    CHECK(mcp.enabled);
+    CHECK(mcp.port == 7500u);
+    CHECK(mcp.token == u8"new");
+    // A port outside 1024..65535, or not a number, is refused and the port stands.
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"80", u8"new"));
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"70000", u8"new"));
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"lots", u8"new"));
+    CHECK(mcp.port == 7500u);
+    // Disabling with an empty token: off, and the next enable mints a fresh secret.
+    CHECK(mcp.ApplyFromPreferences(false, u8"7500", u8""));
+    CHECK_FALSE(mcp.enabled);
+    CHECK(mcp.token.IsEmpty());
+}
+
 TEST_CASE("editor.settings: a store with EVERY section round-trips (registry survives)")
 {
     RegisterEditorSettingsTypes();

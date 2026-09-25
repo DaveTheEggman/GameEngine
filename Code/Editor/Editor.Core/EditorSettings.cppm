@@ -86,6 +86,23 @@ export namespace editor
         u32 port = kEditorMcpDefaultPort;
         String token;
 
+        /// The Preferences fields as typed. `portText` must name a port in 1024..65535 (below
+        /// needs elevation, 0 cannot be put in a client's URL): anything else leaves the port
+        /// as it was and returns false. `token` is taken verbatim; empty means "mint a new one
+        /// on the next enable".
+        bool ApplyFromPreferences(bool enable, StringView portText, StringView newToken)
+        {
+            enabled = enable;
+            token = String(newToken);
+            const Optional<i64> parsed = ParseInt(portText);
+            if (!parsed.HasValue() || parsed.Value() < 1024 || parsed.Value() > 65535)
+            {
+                return false;
+            }
+            port = static_cast<u32>(parsed.Value());
+            return true;
+        }
+
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "enabled", enabled);

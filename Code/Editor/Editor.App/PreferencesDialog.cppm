@@ -108,6 +108,41 @@ export namespace editor::app
                 column->AddView(note.Get());
             }
 
+            // Agent access: the MCP host over the open project (EditorMcpSettings).
+            {
+                auto header = MakeRef<ui::Label>(MemoryAllocator(),
+                                                 StringView(u8"Agent access (MCP)"));
+                header->FontSize.SetValue(13.0f);
+                column->AddView(header.Get());
+                const editor::EditorMcpSettings* mcp = store.Find<editor::EditorMcpSettings>();
+                auto check = MakeRef<ui::CheckBox>(
+                    MemoryAllocator(), StringView(u8"Serve the open project to agents"),
+                    mcp != nullptr && mcp->enabled);
+                check->FontSize.SetValue(12.0f);
+                check->TooltipText =
+                    String(u8"An MCP host on 127.0.0.1 for the project this editor has open; "
+                           u8"the token below is the secret an agent presents");
+                m_mcpEnabled = check.Get();
+                {
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    column->AddView(check.Get(), lp);
+                }
+                const u32 port = mcp != nullptr ? mcp->port : editor::kEditorMcpDefaultPort;
+                m_mcpPortEdit = AddTextRow(*column, u8"MCP port", Format(u8"{}", port).AsView());
+                m_mcpTokenEdit = AddTextRow(*column, u8"MCP token",
+                                            mcp != nullptr ? mcp->token.AsView() : StringView());
+                m_mcpTokenEdit->SetPlaceholder(u8"minted on first enable");
+                auto note = MakeRef<ui::Label>(
+                    MemoryAllocator(),
+                    StringView(u8"Applies to the open project on Save; the token is also written "
+                               u8"to <user-data>/mcp-token for a local agent."));
+                note->FontSize.SetValue(11.0f);
+                note->TextColor.SetValue(Optional<Color>(Color{0.55f, 0.55f, 0.55f, 1.0f}));
+                column->AddView(note.Get());
+            }
+
             // Domain-contributed categories (EditorContext::RegisterEditorSettingsContribution):
             // the app hardcodes nothing - each domain's fields render generically here and
             // write through their own closures (usually into the domain's user-store section).
@@ -173,6 +208,9 @@ export namespace editor::app
         /// Fired on Apply with the new UI scale so the app can apply it LIVE (set the
         /// host's scale + re-bake icons); the saved setting covers the next launch.
         Function<void(f32)> OnUiScaleApplied;
+        /// Fired on Apply after the MCP section changed, so the app restarts (or stops) the
+        /// host for the open project without a reopen.
+        Function<void()> OnMcpSettingsApplied;
 
     private:
         void UpdateScaleLabel(f32 value)
@@ -235,6 +273,18 @@ export namespace editor::app
             {
                 OnUiScaleApplied(uiScale); // live: host scale + icon re-bake
             }
+            if (!m_settings->Section<editor::EditorMcpSettings>().ApplyFromPreferences(
+                    m_mcpEnabled->IsChecked.Value(), m_mcpPortEdit->Text(),
+                    m_mcpTokenEdit->Text()))
+            {
+                m_context->Notify(editor::NoticeKind::Warning,
+                                  u8"MCP port must be a number in 1024..65535 - kept the old one.");
+            }
+            m_settings->MarkChanged<editor::EditorMcpSettings>();
+            if (OnMcpSettingsApplied)
+            {
+                OnMcpSettingsApplied(); // live: the host follows the new enabled/port/token
+            }
             if (editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
             {
                 m_context->SetStatus(u8"Preferences saved.");
@@ -254,6 +304,9 @@ export namespace editor::app
         ui::EditText* m_monoFontEdit = nullptr;
         ui::Slider* m_uiScaleSlider = nullptr;
         ui::Label* m_uiScaleLabel = nullptr;
+        ui::CheckBox* m_mcpEnabled = nullptr;
+        ui::EditText* m_mcpPortEdit = nullptr;
+        ui::EditText* m_mcpTokenEdit = nullptr;
     };
 
     RTTI_DEFINE_OBJECT(EditorPreferencesDialog, "rtti::editor::editor::app")

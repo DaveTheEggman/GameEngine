@@ -3321,6 +3321,9 @@ namespace editor::app
                                                             : 1.0f;
                                       BakeEditorIcons(content * uiScale);
                                   };
+                                  // The MCP host follows the saved preference at once: started,
+                                  // moved to the new port, or stopped.
+                                  dialog->OnMcpSettingsApplied = [this]() { StartMcpHost(); };
                                   dialog->Show(&m_uiHost->Context());
                               });
         }
