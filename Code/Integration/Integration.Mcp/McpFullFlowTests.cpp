@@ -187,3 +187,53 @@ TEST_CASE("integration.mcp: RegisterEngineTools registers exactly kEngineToolCou
     CHECK_FALSE(has(u8"project_create"));
     CHECK_FALSE(has(u8"host_info"));
 }
+
+TEST_CASE("integration.mcp: LocateShippingDocs walks up to the checkout layout, accepts the "
+          "distribution layout, and leaves a miss empty")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_docs_checkout", ec);
+    std::filesystem::remove_all("mcp_docs_dist", ec);
+    std::filesystem::create_directories("mcp_docs_checkout/Documentation/Shipping", ec);
+    std::filesystem::create_directories("mcp_docs_checkout/Bin/Debug", ec);
+    std::filesystem::create_directories("mcp_docs_dist/tool", ec);
+    std::ofstream("mcp_docs_checkout/Documentation/Shipping/KnownIssues.md") << "# known";
+    std::ofstream("mcp_docs_checkout/Documentation/Shipping/McpGuide.md") << "# guide";
+    std::ofstream("mcp_docs_dist/KnownIssues.md") << "# staged";
+
+    // The engine checkout: the executable sits under Bin/, the docs two levels up.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_checkout/Bin/Debug")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.shippingDocsDir == u8"mcp_docs_checkout/Documentation/Shipping");
+        CHECK(paths.knownIssues == u8"mcp_docs_checkout/Documentation/Shipping/KnownIssues.md");
+    }
+    // A distribution: KnownIssues.md staged beside the tool, no docs directory at all.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_dist/tool")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.knownIssues == u8"mcp_docs_dist/KnownIssues.md");
+        CHECK(paths.shippingDocsDir.IsEmpty());
+    }
+    // A later start fills what an earlier one could not.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_dist/tool"),
+                                 String(u8"mcp_docs_checkout/Bin/Debug")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+        CHECK(paths.knownIssues == u8"mcp_docs_dist/KnownIssues.md"); // the first hit stands
+        CHECK(paths.shippingDocsDir == u8"mcp_docs_checkout/Documentation/Shipping");
+    }
+    // Nowhere: both fields stay empty and nothing is invented.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_nowhere/q")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.knownIssues.IsEmpty());
+        CHECK(paths.shippingDocsDir.IsEmpty());
+    }
+    std::filesystem::remove_all("mcp_docs_checkout", ec);
+    std::filesystem::remove_all("mcp_docs_dist", ec);
+}

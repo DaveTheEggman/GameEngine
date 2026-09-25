@@ -469,3 +469,50 @@ export namespace editor::mcp
         RegisterProjectExportTool(server, session, builders, paths.hostToolDir, paths.dataRoot);
     }
 }
+
+export namespace editor::mcp
+{
+    // Locates the curated shipping docs for a host's EngineToolPaths, walking UP from each
+    // start directory in turn (a host passes its executable's directory, then its working
+    // directory) and checking the distribution layout first (KnownIssues.md staged beside the
+    // executable) and the engine checkout second (Documentation/Shipping/). The first hit
+    // wins per field; a field left empty means not found - known_issues then errs with
+    // guidance and no docs:// resources register. Same walk for both hosts, so they agree.
+    inline void LocateShippingDocs(Span<const String> starts, EngineToolPaths& paths)
+    {
+        for (const String& start : starts)
+        {
+            for (StringView dir = start.AsView(); !dir.IsEmpty(); dir = PathParent(dir))
+            {
+                if (paths.knownIssues.IsEmpty())
+                {
+                    const String staged = PathJoin(dir, u8"KnownIssues.md");
+                    if (FileExists(staged.AsView()))
+                    {
+                        paths.knownIssues = staged;
+                    }
+                }
+                const String shipping = PathJoin(PathJoin(dir, u8"Documentation"), u8"Shipping");
+                if (DirectoryExists(shipping.AsView()))
+                {
+                    if (paths.shippingDocsDir.IsEmpty())
+                    {
+                        paths.shippingDocsDir = shipping;
+                    }
+                    if (paths.knownIssues.IsEmpty())
+                    {
+                        const String checkout = PathJoin(shipping.AsView(), u8"KnownIssues.md");
+                        if (FileExists(checkout.AsView()))
+                        {
+                            paths.knownIssues = checkout;
+                        }
+                    }
+                }
+                if (!paths.knownIssues.IsEmpty() && !paths.shippingDocsDir.IsEmpty())
+                {
+                    return;
+                }
+            }
+        }
+    }
+}

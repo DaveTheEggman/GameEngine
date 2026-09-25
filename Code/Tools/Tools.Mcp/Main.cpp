@@ -13,7 +13,6 @@
 #include "Core/Prelude.h"
 
 #include <cstdio>
-#include <filesystem>
 
 import foundation.core;
 import foundation.vfs; // ResolveDataRoot (--data-root / the Data/.dataroot walk)
@@ -53,84 +52,6 @@ namespace
             std::fflush(stderr);
         }
     };
-
-    // The CURATED, distribution-facing register (Documentation/Shipping/KnownIssues.md) - never
-    // the repo-root development tracker, which is internal triage state and is not distributed.
-    // Resolution walks up from the executable (then the cwd) checking the distribution layout first
-    // (KnownIssues.md staged next to the tool) and the repo layout second. "" = not found - the
-    // known_issues tool then errs with guidance instead of being silently absent.
-    [[nodiscard]] String FindKnownIssues(const char* argv0)
-    {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const fs::path starts[] = {fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
-                                       .parent_path(),
-                                   fs::current_path(ec)};
-        for (const fs::path& start : starts)
-        {
-            for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
-            {
-                const fs::path candidates[] = {dir / "KnownIssues.md", // distribution: staged sidecar
-                                               dir / "Documentation" / "Shipping" /
-                                                   "KnownIssues.md"}; // engine checkout
-                for (const fs::path& candidate : candidates)
-                {
-                    if (fs::is_regular_file(candidate, ec))
-                    {
-                        const std::string text = candidate.string();
-                        return String(
-                            StringView(reinterpret_cast<const utf8char*>(text.c_str())));
-                    }
-                }
-                if (dir == dir.root_path())
-                {
-                    break;
-                }
-            }
-        }
-        return String();
-    }
-
-    // Directory containing this executable (where Engine.Player + its runtime sidecars live -
-    // the export host-template source). argv[0] can be bare/relative, so canonicalize.
-    [[nodiscard]] String ToolDir(const char* argv0)
-    {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const std::string dir = fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
-                                    .parent_path()
-                                    .string();
-        return String(StringView(reinterpret_cast<const utf8char*>(dir.c_str())));
-    }
-
-    // The shipping docs directory (Documentation/Shipping in the engine checkout), resolved with
-    // the same walk-up. Same distribution stance as KnownIssues.md: this is the CURATED,
-    // distribution-facing docs set - internal design/spec/process docs are never exposed.
-    [[nodiscard]] String FindShippingDocsDir(const char* argv0)
-    {
-        namespace fs = std::filesystem;
-        std::error_code ec;
-        const fs::path starts[] = {fs::weakly_canonical(fs::absolute(fs::path(argv0), ec), ec)
-                                       .parent_path(),
-                                   fs::current_path(ec)};
-        for (const fs::path& start : starts)
-        {
-            for (fs::path dir = start; !dir.empty(); dir = dir.parent_path())
-            {
-                const fs::path candidate = dir / "Documentation" / "Shipping";
-                if (fs::is_directory(candidate, ec))
-                {
-                    const std::string text = candidate.string();
-                    return String(StringView(reinterpret_cast<const utf8char*>(text.c_str())));
-                }
-                if (dir == dir.root_path())
-                {
-                    break;
-                }
-            }
-        }
-        return String();
-    }
 
 }
 
@@ -182,13 +103,14 @@ int main(int argc, char** argv)
     // stores it in `owner` and points the session at it). Both outlive the server.
     editor::mcp::ProjectOwner owner;
     editor::mcp::ProjectSession session;
-    // The engine surface every host serves (one list, in editor.mcp), with the paths only this
-    // host knows how to find: the curated docs + known issues by the walk-up from the executable,
-    // the export host-template source beside it, the data root above.
+    // The engine surface every host serves (one list, in editor.mcp), with the paths a host
+    // supplies: the curated docs + known issues by the walk-up from the executable (then the
+    // working directory), the export host-template source beside the executable, the data
+    // root above.
     editor::mcp::EngineToolPaths paths;
-    paths.knownIssues = FindKnownIssues(argv[0]);
-    paths.shippingDocsDir = FindShippingDocsDir(argv[0]);
-    paths.hostToolDir = ToolDir(argv[0]);
+    const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
+    editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+    paths.hostToolDir = GetExecutableDirectory();
     paths.dataRoot = dataRoot;
     editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer, paths);
     // This host's additions: an agent opens (or scaffolds) the project it wants to work on.
