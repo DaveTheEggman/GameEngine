@@ -1008,6 +1008,21 @@ Landing order - one layer per commit, each with its passing tests, both compiler
 7. The live tools, in the P2 section's list, with the unattended scope (a scoped flag
    on EditorContext: modals suppressed for the call and reported in its result); then
    P2b.
+   FIRST STEP BUILT 2026-09-25 (settled the page system before the tools, per the user):
+   a page publishes the interfaces it implements (IPageService, EditorPage::Provide /
+   Service by type); ISceneEditorPage in Editor.Scene is the page-level surface of a scene
+   or prefab page (its SceneEditContext + the Simulate control; ViewportToolHostContext
+   stays the framework-level one); the scene editor contributes selection_get /
+   selection_set / simulate_start / simulate_stop, page-addressed by the asset guid,
+   defaulting to the active page. page_reload refreshes the page in place through its own
+   OnAssetExternallyModified (force = the page's DiscardChanges first), and a scene_write /
+   prefab_write over an open page's asset reaches it the same way (ProjectSession::
+   onAssetWritten, wired by the editor host to EditorContext::NotifyAssetExternallyModified):
+   a clean page reloads, a dirty page keeps its edits and warns. Found on the way: LoadScene
+   ignored the reader's verdict (fixed), and the tracked PaperKid streams were a month stale
+   (re-stamped; the sample test parses every stream now). REMAINING in 7: the unattended
+   scope with declared answers and suppressed-dialog reporting (+ MCP elicitation), the
+   Agent panel, the action bridge, viewport_screenshot, entity_inspect; then P2b.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
 
