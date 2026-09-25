@@ -1,4 +1,4 @@
-add_executable(Editor.App.Tests TestsMain.cpp ShellTests.cpp LogViewTests.cpp ToolPanelTests.cpp AssetPickerSlotTests.cpp FontAtlasDiskCacheTests.cpp ImportDialogTests.cpp EditorIconsTests.cpp EditorMcpHostTests.cpp EditorProjectOperationsTests.cpp)
+add_executable(Editor.App.Tests TestsMain.cpp ShellTests.cpp LogViewTests.cpp ToolPanelTests.cpp AssetPickerSlotTests.cpp FontAtlasDiskCacheTests.cpp ImportDialogTests.cpp EditorIconsTests.cpp EditorMcpHostTests.cpp EditorProjectOperationsTests.cpp EditorPageToolsTests.cpp)
 target_link_libraries(Editor.App.Tests PRIVATE Foundation::VFS Foundation::Content Pipeline::Importer Pipeline::Core
     Foundation::Net Foundation::Http Foundation::Json Foundation::Mcp Foundation::Mcp.Http Editor::Mcp # the MCP host over loopback
     Editor::App Editor::Core Editor::ViewportTools doctest::doctest)

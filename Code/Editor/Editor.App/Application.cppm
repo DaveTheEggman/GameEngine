@@ -30,6 +30,7 @@ import engine.defaultapp; // the embedded game application (v3)
 import editor.mcp;        // ProjectSession + the operations the MCP host serves through
 import :mcp_host;         // EditorMcpHost (per project, pumped per frame)
 import :mcp_operations;   // EditorProjectOperations (the host's cook / import / export)
+import :mcp_page_tools;   // the page tools the host adds over this application's pages
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
 import engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)

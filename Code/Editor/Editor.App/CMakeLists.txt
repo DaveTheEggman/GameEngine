@@ -25,6 +25,7 @@ target_sources(Editor.App
         ContainerListEditorImpl.cpp
         EditorMcpHostImpl.cpp
         EditorProjectOperationsImpl.cpp
+        EditorPageToolsImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
@@ -47,6 +48,7 @@ target_sources(Editor.App
             ContainerListEditor.cppm
             EditorMcpHost.cppm
             EditorProjectOperations.cppm
+            EditorPageTools.cppm
             AssetDragData.cppm
             ProjectManagerView.cppm
             Shell.cppm

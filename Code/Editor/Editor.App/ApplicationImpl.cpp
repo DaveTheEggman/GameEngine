@@ -50,6 +50,7 @@ import editor.mcp; // EngineToolPaths + LocateShippingDocs (the host's compositi
 import :assets_view;
 import :mcp_host;
 import :mcp_operations;
+import :mcp_page_tools;
 import :editor_icons;
 import :settings_dialog;
 import :preferences_dialog;
@@ -2785,6 +2786,35 @@ namespace editor::app
             String(reinterpret_cast<const char8_t*>(BuildStamp())));
         m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
         { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };
+        // This host's live additions: the pages, over the same open/close paths the tabs take.
+        PageToolSeams pageSeams;
+        pageSeams.context = &m_context;
+        pageSeams.openPage = [this](const Guid& id) -> editor::EditorPage*
+        {
+            if (!m_project)
+            {
+                return nullptr;
+            }
+            foundation::content::Instance* instance = m_project->SourceDb().GetInstance(id);
+            return instance != nullptr ? OpenInstancePage(*instance) : nullptr;
+        };
+        pageSeams.closePage = [this](editor::EditorPage* page)
+        {
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                if (static_cast<editor::EditorPage*>(entry.page) == page)
+                {
+                    const PagePanel closing = entry; // the tab-close pair: panel, then page
+                    if (m_shell.Docks() != nullptr && closing.panel != nullptr)
+                    {
+                        m_shell.Docks()->ClosePanel(closing.panel);
+                    }
+                    ClosePage(closing.page);
+                    return;
+                }
+            }
+        };
+        RegisterPageTools(m_mcpHost->Server(), Move(pageSeams));
         EditorMcpHostConfig config;
         config.port = static_cast<u16>(m_config.mcpPort != 0 ? m_config.mcpPort : settings.port);
         config.token = settings.token;

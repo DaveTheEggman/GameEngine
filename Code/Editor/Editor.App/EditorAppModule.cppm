@@ -35,4 +35,5 @@ export import :shell;
 export import :font_atlas_cache;
 export import :mcp_host;
 export import :mcp_operations;
+export import :mcp_page_tools;
 export import :application;
