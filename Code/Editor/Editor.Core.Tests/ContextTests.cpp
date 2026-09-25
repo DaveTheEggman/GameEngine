@@ -520,3 +520,52 @@ TEST_CASE("context: MCP tool contributions register at boot and apply to a host'
     CHECK(another.ToolCount() == 1u);
 }
 
+namespace
+{
+    // Two interfaces a page might publish: a page that is "a thing with a counter", and one
+    // that is "a thing with a name". Interfaces, not owned objects: what a page IS to others.
+    class ICounterPage : public IPageService
+    {
+    public:
+        [[nodiscard]] virtual i32 Count() const = 0;
+    };
+    class INamedPage : public IPageService
+    {
+    public:
+        [[nodiscard]] virtual StringView Name() const = 0;
+    };
+    class CountingPage final : public EditorPage, public ICounterPage
+    {
+    public:
+        CountingPage() : EditorPage(DefaultAllocator()) { Provide<ICounterPage>(*this); }
+        [[nodiscard]] StringView Title() const override { return u8"counting"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        [[nodiscard]] i32 Count() const override { return 42; }
+    };
+    class PlainPage final : public EditorPage
+    {
+    public:
+        PlainPage() : EditorPage(DefaultAllocator()) {}
+        [[nodiscard]] StringView Title() const override { return u8"plain"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+    };
+}
+
+TEST_CASE("page: a page publishes the interfaces it implements, by type - a lookup for another "
+          "interface, or on a page that publishes nothing, answers null")
+{
+    CountingPage counting;
+    PlainPage plain;
+    // Through the base pointer any holder of a page has: the published interface comes back
+    // typed, and answers as the page.
+    EditorPage* asPage = &counting;
+    ICounterPage* counter = asPage->Service<ICounterPage>();
+    REQUIRE(counter != nullptr);
+    CHECK(counter->Count() == 42);
+    // Not published: not that kind of page.
+    CHECK(asPage->Service<INamedPage>() == nullptr);
+    EditorPage* plainPage = &plain;
+    CHECK(plainPage->Service<ICounterPage>() == nullptr);
+    CHECK(plainPage->Service<INamedPage>() == nullptr);
+}
+
