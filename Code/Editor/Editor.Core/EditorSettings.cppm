@@ -72,6 +72,38 @@ export namespace editor
 
     // Register the editor's Settings section types so a Settings store can instantiate them on Load.
     // Call once at editor startup, before LoadEditorSettings.
+    // The editor's MCP host - agent access to the OPEN project over localhost HTTP. Off by
+    // default. `port` is where it listens (one editor per port: a second editor takes
+    // another); `token` is the bearer secret the editor generates on first enable (see
+    // GenerateMcpToken) and also writes to <user-data>/mcp-token so a local agent
+    // self-configures. Edited in Preferences; `--mcp` / `--mcp-port` override one run.
+    inline constexpr u32 kEditorMcpDefaultPort = 7405;
+    class EditorMcpSettings final : public ISerializable
+    {
+        RTTI_OBJECT(EditorMcpSettings, ISerializable)
+    public:
+        bool enabled = false;
+        u32 port = kEditorMcpDefaultPort;
+        String token;
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "enabled", enabled);
+            foundation::core::Serialize(ar, "port", port);
+            foundation::core::Serialize(ar, "token", token);
+        }
+    };
+
+    // A fresh bearer token for the MCP host: a random Guid's canonical text (36 chars, from a
+    // generator seeded by the clock and the process, so two editors never mint the same one).
+    [[nodiscard]] inline String GenerateMcpToken()
+    {
+        Random rng(GetTicks() ^ (static_cast<u64>(ProcessId()) << 32));
+        utf8char text[37];
+        Guid::Generate(rng).ToChars(text);
+        return String(StringView(text, 36));
+    }
+
     inline void RegisterEditorSettingsTypes()
     {
         // EVERY section type needs BOTH registrations: the type (so Load can match the
@@ -85,6 +117,8 @@ export namespace editor
         RegisterSerializable<EditorFontSettings>();
         GlobalTypeRegistry().Register(EditorUiSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorUiSettings>();
+        GlobalTypeRegistry().Register(EditorMcpSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorMcpSettings>();
     }
 
     // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>
@@ -130,4 +164,5 @@ export namespace editor
 
     RTTI_DEFINE_OBJECT_VERSIONED(EditorFontSettings, "rtti::editor::editor", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorUiSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorMcpSettings, "rtti::editor::editor", 1)
 }
