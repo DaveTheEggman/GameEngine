@@ -276,6 +276,20 @@ namespace editor
         return Span<const UniquePtr<EditorPage>>{m_pages.Data(), m_pages.Size()};
     }
 
+    usize EditorContext::NotifyAssetExternallyModified(const Guid& assetId)
+    {
+        usize told = 0;
+        for (const UniquePtr<EditorPage>& page : m_pages)
+        {
+            if (page->InstanceId() == assetId)
+            {
+                page->OnAssetExternallyModified();
+                ++told;
+            }
+        }
+        return told;
+    }
+
     void EditorContext::SetActivePage(EditorPage* page)
     {
         if (m_activePage == page)

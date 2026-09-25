@@ -1075,14 +1075,7 @@ export namespace editor
                                             }
                                         });
                                 }
-                                for (const UniquePtr<EditorPage>& open :
-                                     editorContext->OpenPages())
-                                {
-                                    if (open->InstanceId() == prefabId)
-                                    {
-                                        open->OnAssetExternallyModified();
-                                    }
-                                }
+                                (void)editorContext->NotifyAssetExternallyModified(prefabId);
                             }
                         }
                         String message(u8"Prefab '");
@@ -1109,14 +1102,8 @@ export namespace editor
                         // rebuild in other scenes).
                         if (generatedScene.regenerated)
                         {
-                            const Guid sceneId = generatedScene.instance->Id();
-                            for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
-                            {
-                                if (open->InstanceId() == sceneId)
-                                {
-                                    open->OnAssetExternallyModified();
-                                }
-                            }
+                            (void)editorContext->NotifyAssetExternallyModified(
+                                generatedScene.instance->Id());
                         }
                         String message(u8"Scene '");
                         message += generatedScene.instance->Name();

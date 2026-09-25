@@ -364,6 +364,12 @@ export namespace editor
 
         [[nodiscard]] Span<const UniquePtr<EditorPage>> OpenPages() const noexcept;
 
+        /// The source asset `assetId` changed OUTSIDE its page (apply-to-prefab, a regenerated
+        /// model prefab or scene, an agent's write over MCP): every open page editing it is
+        /// told (EditorPage::OnAssetExternallyModified) and refreshes by its own rule. Returns
+        /// how many pages were told.
+        usize NotifyAssetExternallyModified(const Guid& assetId);
+
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
         void SetActivePage(EditorPage* page);
 

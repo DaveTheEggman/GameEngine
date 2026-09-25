@@ -569,3 +569,46 @@ TEST_CASE("page: a page publishes the interfaces it implements, by type - a look
     CHECK(plainPage->Service<INamedPage>() == nullptr);
 }
 
+namespace
+{
+    // A page that counts how often its asset changed under it.
+    class WatchingPage final : public EditorPage
+    {
+    public:
+        explicit WatchingPage(const Guid& asset) : EditorPage(DefaultAllocator())
+        {
+            SetInstanceId(asset);
+        }
+        [[nodiscard]] StringView Title() const override { return u8"watching"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        void OnAssetExternallyModified() override { ++told; }
+        u32 told = 0;
+    };
+}
+
+TEST_CASE("context: an asset changed outside its page tells every open page editing it, and no "
+          "other")
+{
+    Random rng(11);
+    const Guid edited = Guid::Generate(rng);
+    const Guid other = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* first = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(edited), DefaultAllocator())));
+    auto* second = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(edited), DefaultAllocator())));
+    auto* elsewhere = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(other), DefaultAllocator())));
+
+    CHECK(context.NotifyAssetExternallyModified(edited) == 2u);
+    CHECK(first->told == 1u);
+    CHECK(second->told == 1u);
+    CHECK(elsewhere->told == 0u);
+    // An asset no page edits: nothing told, nothing wrong.
+    CHECK(context.NotifyAssetExternallyModified(Guid::Generate(rng)) == 0u);
+
+    context.ClosePage(elsewhere);
+    context.ClosePage(second);
+    context.ClosePage(first);
+}
+

@@ -427,13 +427,7 @@ namespace editor
         }
         // An open editor page on the prefab itself shows the TEMPLATE (plain entities,
         // not an instance) - the rebuild above can't reach it; tell it to refresh.
-        for (const UniquePtr<editor::EditorPage>& open : m_context->OpenPages())
-        {
-            if (open->InstanceId() == prefabId)
-            {
-                open->OnAssetExternallyModified();
-            }
-        }
+        (void)m_context->NotifyAssetExternallyModified(prefabId);
         String message(u8"Applied to prefab '");
         message += asset->Name();
         message += u8"' (not undoable - the asset changed).";
