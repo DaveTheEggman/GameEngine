@@ -925,6 +925,14 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    the reason while MutationLocked), project_export over the export job, asset_import
    over the deferred-write path. Tests: a cook that spans pumps answers with the real
    counts; the busy refusal.
+   BUILT 2026-09-25 (three commits): editor.mcp's IProjectOperations seam (the tools keep
+   their contract, the host supplies where the work runs; InlineProjectOperations is the
+   stdio host's), the cook service's CookSummary (and a Shutdown that leaves it
+   quiescent - the first cook-service test found the stuck m_cooking), and
+   EditorProjectOperations on the editor's cook + job services. One ruling refined by the
+   code: nothing is REFUSED while the databases are locked - the cook service remembers a
+   request that arrives mid-cook and an import waits for the lock to clear, so the agent
+   simply waits (with a timeout) instead of being told to retry.
 7. The live tools, in the P2 section's list, with the unattended scope (a scoped flag
    on EditorContext: modals suppressed for the call and reported in its result); then
    P2b.
