@@ -19,7 +19,10 @@
 //
 // Threading matches the editor-host plan: Pump() from ONE thread (the editor's main thread,
 // per frame) - handlers run synchronously there, so tools may touch main-thread state.
-// Broadcast is safe from that same thread; SseStream itself serializes its writes.
+// Broadcast is safe from that same thread; SseStream itself serializes its writes. A tool that
+// is not finished leaves its request waiting on the connection (foundation.http's deferred
+// response) and is re-entered by the next Pump; HasPendingRequest says a caller is waiting, so
+// a host that idles must keep pumping until it is answered.
 
 module;
 #include "Core/Prelude.h"
@@ -56,6 +59,11 @@ export namespace foundation::mcp
         void Stop();
         [[nodiscard]] bool IsRunning() const noexcept { return m_http.IsRunning(); }
         [[nodiscard]] u16 BoundPort() const noexcept { return m_http.BoundPort(); }
+        /// A tool call is waiting on a not-finished tool: keep pumping until it is answered.
+        [[nodiscard]] bool HasPendingRequest() const noexcept
+        {
+            return m_http.PendingRequestCount() > 0;
+        }
 
         /// One pump of the underlying HTTP server (accept/read/dispatch/write). Call per
         /// frame or in a loop. Returns completed requests this call.
