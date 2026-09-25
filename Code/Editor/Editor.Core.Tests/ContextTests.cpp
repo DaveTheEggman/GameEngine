@@ -15,6 +15,8 @@ import foundation.vfs;
 import foundation.content;
 import foundation.xml.serialization;
 import editor.core;
+import foundation.mcp;
+import foundation.json;
 
 using namespace foundation::core;
 using namespace editor;
@@ -487,3 +489,34 @@ TEST_CASE("editor-context: pending asset-edit registry (register/replace/nil, dr
     CHECK(ctx.DrainAssetEdits(db).IsOk()); // empty drain is a no-op
     CHECK_FALSE(cooked);
 }
+
+TEST_CASE("context: MCP tool contributions register at boot and apply to a host's server in order")
+{
+    EditorContext ctx{DefaultAllocator()};
+    CHECK(ctx.McpToolContributionCount() == 0u);
+    Array<String> order;
+    ctx.RegisterMcpToolContribution(
+        [&order](foundation::mcp::McpServer& server)
+        {
+            order.PushBack(String(u8"scene"));
+            server.RegisterTool(u8"selection_get", u8"x", foundation::mcp::SchemaBuilder().Build(),
+                                foundation::mcp::ToolAnnotations::ReadOnly(),
+                                [](const foundation::json::JsonValue&) -> foundation::mcp::ToolResult
+                                { return foundation::json::JsonValue::MakeObject(); });
+        });
+    ctx.RegisterMcpToolContribution([&order](foundation::mcp::McpServer&)
+                                    { order.PushBack(String(u8"other")); });
+    CHECK(ctx.McpToolContributionCount() == 2u);
+
+    foundation::mcp::McpServer server;
+    ctx.ApplyMcpToolContributions(server);
+    CHECK(server.ToolCount() == 1u);
+    REQUIRE(order.Size() == 2u);
+    CHECK(order[0] == u8"scene");
+    CHECK(order[1] == u8"other");
+    // Applying to a second host serves the same contributions again (one per project open).
+    foundation::mcp::McpServer another;
+    ctx.ApplyMcpToolContributions(another);
+    CHECK(another.ToolCount() == 1u);
+}
+

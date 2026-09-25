@@ -17,6 +17,7 @@ export module editor.core:context;
 import foundation.core;
 import foundation.resource;
 import foundation.settings;
+import foundation.mcp;
 import pipeline.importer;
 import foundation.content;
 import :command;
@@ -282,6 +283,27 @@ export namespace editor
         {
             return m_settingsContributions;
         }
+
+        /// Domain-contributed MCP tools: a domain's RegisterEditor (the scene editor, ...)
+        /// registers what only IT can serve over the live editor (the selection, simulate);
+        /// the MCP host applies every contribution to its server when it starts. Registered at
+        /// boot, before any host exists, like the settings contributions.
+        using McpToolContribution = Function<void(foundation::mcp::McpServer&)>;
+        void RegisterMcpToolContribution(McpToolContribution contribution)
+        {
+            m_mcpToolContributions.PushBack(static_cast<McpToolContribution&&>(contribution));
+        }
+        void ApplyMcpToolContributions(foundation::mcp::McpServer& server) const
+        {
+            for (const McpToolContribution& contribution : m_mcpToolContributions)
+            {
+                contribution(server);
+            }
+        }
+        [[nodiscard]] usize McpToolContributionCount() const noexcept
+        {
+            return m_mcpToolContributions.Size();
+        }
         [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
@@ -472,6 +494,7 @@ export namespace editor
         foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         foundation::settings::Settings* m_userEditorSettings = nullptr;    // borrowed (app-owned)
         Array<EditorSettingsContribution> m_settingsContributions;
+        Array<McpToolContribution> m_mcpToolContributions;
         pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         Array<AssetCreator> m_creators;

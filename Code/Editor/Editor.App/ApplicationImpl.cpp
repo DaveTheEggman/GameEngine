@@ -2781,8 +2781,8 @@ namespace editor::app
         seams.dataRoot = m_config.dataRoot;
         m_mcpOperations = MakeUnique<EditorProjectOperations>(m_editorAllocator, Move(seams));
         m_mcpHost = MakeUnique<EditorMcpHost>(
-            m_editorAllocator, m_editorAllocator, m_mcpSession, *m_config.logBuffer, m_builders,
-            m_context.Importers(), paths, *m_mcpOperations,
+            m_editorAllocator, m_editorAllocator, m_context, m_mcpSession, *m_config.logBuffer,
+            m_builders, m_context.Importers(), paths, *m_mcpOperations,
             String(reinterpret_cast<const char8_t*>(BuildStamp())));
         m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
         { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };

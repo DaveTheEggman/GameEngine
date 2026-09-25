@@ -93,7 +93,18 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
     editor::mcp::ProjectSession session;
     session.project = project.Get();
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-    app::EditorMcpHost host(DefaultAllocator(), session, logBuffer, builders, importers,
+    EditorContext context{DefaultAllocator()};
+    // A domain's contribution (registered at boot) reaches the served surface.
+    context.RegisterMcpToolContribution(
+        [](foundation::mcp::McpServer& server)
+        {
+            server.RegisterTool(u8"contributed_tool", u8"from a domain",
+                                foundation::mcp::SchemaBuilder().Build(),
+                                foundation::mcp::ToolAnnotations::ReadOnly(),
+                                [](const JsonValue&) -> foundation::mcp::ToolResult
+                                { return JsonValue::MakeObject(); });
+        });
+    app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders, importers,
                             editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
     Array<String> finished;
     host.OnToolFinished = [&finished](StringView tool, bool isError)
@@ -152,19 +163,23 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
     // project_info answers for the SAME project object the editor holds.
     REQUIRE(outcome.project.IsObject());
     CHECK(Payload(outcome.project).Get(u8"name").AsString() == StringView(u8"Hosted"));
-    // The surface: the shared engine tools plus host_info; never the stdio host's project_open.
+    // The surface: the shared engine tools, host_info, and the domain's contribution; never
+    // the stdio host's project_open.
     REQUIRE(outcome.tools.IsObject());
     const JsonValue tools = outcome.tools.Get(u8"result").Get(u8"tools");
-    CHECK(static_cast<usize>(tools.Count()) == editor::mcp::kEngineToolCount + 1);
+    CHECK(static_cast<usize>(tools.Count()) == editor::mcp::kEngineToolCount + 2);
     bool hasHostInfo = false;
     bool hasProjectOpen = false;
+    bool hasContributed = false;
     for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
     {
         const String name = tools.At(i).Get(u8"name").AsString(); // AsString returns BY VALUE
         hasHostInfo = hasHostInfo || name == u8"host_info";
         hasProjectOpen = hasProjectOpen || name == u8"project_open";
+        hasContributed = hasContributed || name == u8"contributed_tool";
     }
     CHECK(hasHostInfo);
+    CHECK(hasContributed);
     CHECK_FALSE(hasProjectOpen);
     CHECK(outcome.wrongTokenRefused);
     // Every finished call was reported, in order.
@@ -191,7 +206,8 @@ TEST_CASE("editor-mcp-host: an empty token never serves")
     editor::mcp::ProjectSession session;
     session.project = project.Get();
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-    app::EditorMcpHost host(DefaultAllocator(), session, logBuffer, builders, importers,
+    EditorContext context{DefaultAllocator()};
+    app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders, importers,
                             editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
     app::EditorMcpHostConfig config; // no token
     CHECK_FALSE(host.Start(config));

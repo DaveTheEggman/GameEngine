@@ -22,7 +22,8 @@ using foundation::json::JsonValue;
 
 namespace editor::app
 {
-    EditorMcpHost::EditorMcpHost(IAllocator& allocator, editor::mcp::ProjectSession& session,
+    EditorMcpHost::EditorMcpHost(IAllocator& allocator, editor::EditorContext& context,
+                                 editor::mcp::ProjectSession& session,
                                  editor::EditorLogBuffer& logBuffer,
                                  pipeline::BuilderRegistry& builders,
                                  pipeline::ImporterRegistry& importers,
@@ -34,6 +35,7 @@ namespace editor::app
         m_server.SetServerInfo(u8"engine-editor-mcp", u8"0.1.0");
         editor::mcp::RegisterEngineTools(m_server, *m_session, builders, importers, logBuffer, paths,
                                          operations);
+        context.ApplyMcpToolContributions(m_server); // the domains' live tools
         foundation::mcp::RegisterHostInfoTool(
             m_server, Move(buildStamp),
             Function<JsonValue()>{[this]()
