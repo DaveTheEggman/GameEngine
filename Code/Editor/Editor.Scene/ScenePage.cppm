@@ -49,8 +49,11 @@ import editor.core;
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import editor.camera;
+import foundation.mcp; // McpServer (the MCP tool contribution)
 import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
+import :scene_page_interface; // ISceneEditorPage (published on the page)
+import :mcp_tools;            // RegisterSceneLiveTools (the contribution)
 import :model_prefab;
 import :game_page;
 import :gizmo;
@@ -74,7 +77,7 @@ export namespace editor
     namespace scene = foundation::scene;
     namespace render = foundation::render;
 
-    class SceneEditorPage final : public app::UIEditorPage
+    class SceneEditorPage final : public app::UIEditorPage, public ISceneEditorPage
     {
     public:
         SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host,
@@ -88,6 +91,7 @@ export namespace editor
             // would always fall back to the default (grid on) and never restore the saved toggle. Same
             // early-bind MeshPage does; the context's SetInstanceId is then the identical value.
             SetInstanceId(instance.Id());
+            Provide<ISceneEditorPage>(*this); // what this page lets others act through
 
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
@@ -494,7 +498,8 @@ export namespace editor
 
         [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
         [[nodiscard]] EditorCamera& Camera() noexcept { return m_camera; }
-        [[nodiscard]] SceneEditContext* EditContext() const noexcept { return m_editContext.Get(); }
+        [[nodiscard]] SceneEditContext& EditContext() noexcept override { return *m_editContext; }
+        [[nodiscard]] bool IsSimulating() const noexcept override { return m_isSimulating; }
 
     private:
         static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
@@ -551,16 +556,16 @@ export namespace editor
         /// policy the canvases never take editor clicks/keys. Simulate is a physics/
         /// systems preview whose pointer must keep serving SELECTION and camera flight;
         /// the Game tab is the interactive-run surface and binds its scene on Play.
-        void StartSimulation();
+        void StartSimulation() override;
 
         /// Freeze/resume the running simulation (SimulationEnabled only - the Start/Stop
         /// system callbacks are for the big transitions, not the per-frame pause).
-        void PauseSimulation(bool paused);
+        void PauseSimulation(bool paused) override;
 
         /// Scene::Stop(), then restore the snapshot INTO THE SAME Scene instance (borrowed
         /// scene pointers stay valid; the guid-keyed selection re-resolves against restored
         /// entities - runtime-spawned ones drop out naturally). No-op if not simulating.
-        void StopSimulation();
+        void StopSimulation() override;
 
         void RefreshSimToolbar();
 
@@ -904,6 +909,13 @@ export namespace editor
         prefabCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreatePrefabInstance(ctx, group); };
         context.RegisterCreator(Move(prefabCreator));
+        // The scene editor's MCP tools (selection, simulate) - served by the editor's MCP host
+        // over whichever scene page a call addresses.
+        {
+            EditorContext* ctx = &context;
+            context.RegisterMcpToolContribution([ctx](foundation::mcp::McpServer& server)
+                                                { RegisterSceneLiveTools(server, *ctx); });
+        }
 
         // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
         // "Generate prefab" import option). Lives here - not in the importer - because it

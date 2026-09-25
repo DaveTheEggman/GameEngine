@@ -14,6 +14,8 @@ export import editor.camera;
 export import :view_settings;
 export import :camera_preview;
 export import :edit;
+export import :scene_page_interface;
+export import :mcp_tools;
 export import :gizmo;
 export import :tools;
 export import :component_gizmos;
