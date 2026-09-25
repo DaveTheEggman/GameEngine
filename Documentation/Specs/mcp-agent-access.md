@@ -907,15 +907,25 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    Tools.Mcp composes through it. Tests: the count, Integration.Mcp goldens unchanged.
 5. `editor.app`: `EditorMcpHost` (server + McpHttpHost, Pump in OnUpdate, start/stop on
    project open/close), `EditorMcpSettings` (enabled, port, token) + Preferences UI, the
-   `<userdata>/mcp-token` file, `--mcp` / `--mcp-port`, unattended scope, host_info with
-   editor state, the post-write UI refresh notice. Tests: Editor.App.Tests starts the
-   host over loopback and round-trips host_info + project_info; the settings section
-   round-trip; the token file.
+   `<userdata>/mcp-token` file, `--mcp` / `--mcp-port`, host_info with editor state.
+   Tests: Editor.App.Tests starts the host over loopback and round-trips host_info +
+   project_info; the settings section round-trip; the token file.
+   BUILT 2026-09-25 (six commits: the docs locator shared by both hosts, the settings
+   section + GenerateMcpToken, the host, the tool observer in foundation.mcp, the
+   Preferences section with live apply). Two things the code decided: the UNATTENDED
+   scope moved to layer 7 - no shared tool opens a dialog (editor.mcp is UI-free by
+   construction), so it has no consumer before the live tools; and the post-write
+   refresh needs no new path - a write lands in the editor's own source DB and files,
+   the cook service's Sources/ watch cooks it, and OnCookFinished already rebuilds the
+   Assets view; the status bar shows each finished call through the tool observer.
+   Server name `engine-editor-mcp`; default port 7405.
 6. `editor.app`: the async strategies - asset_cook over EditorCookService (refused with
    the reason while MutationLocked), project_export over the export job, asset_import
    over the deferred-write path. Tests: a cook that spans pumps answers with the real
    counts; the busy refusal.
-7. The live tools, in the P2 section's list; then P2b.
+7. The live tools, in the P2 section's list, with the unattended scope (a scoped flag
+   on EditorContext: modals suppressed for the call and reported in its result); then
+   P2b.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
 
