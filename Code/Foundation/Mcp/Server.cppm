@@ -156,6 +156,7 @@ export namespace foundation::mcp
         Array<ResourceProvider> m_resourceProviders;
         String m_serverName = String(u8"engine-mcp");
         String m_serverVersion = String(u8"0.1.0");
+        Function<void(StringView, bool)> m_toolObserver;
 
     public:
         [[nodiscard]] StringView ServerName() const noexcept { return m_serverName.AsView(); }
@@ -168,6 +169,14 @@ export namespace foundation::mcp
         {
             m_serverName = Move(name);
             m_serverVersion = Move(version);
+        }
+
+        /// Told `(toolName, isError)` after every FINISHED tools/call, on the dispatching
+        /// thread - a host refreshes what a write tool changed, or logs the agent's activity.
+        /// Not-finished attempts and protocol failures (no tool ran) are not reported.
+        void SetToolObserver(Function<void(StringView, bool)> observer)
+        {
+            m_toolObserver = Move(observer);
         }
         void RegisterTool(String name, String description, JsonValue schema, ToolHandler handler)
         {
@@ -344,7 +353,12 @@ export namespace foundation::mcp
                 }
                 JsonValue content = JsonValue::MakeArray();
                 content.Add(Move(item));
+                const bool isError = result.Get(u8"isError").AsBool();
                 result.Set(u8"content", Move(content));
+                if (m_toolObserver)
+                {
+                    m_toolObserver(tool->name.AsView(), isError);
+                }
                 return detail::Answered(detail::MakeResult(id, Move(result)));
             }
             if (method == StringView(u8"resources/list"))

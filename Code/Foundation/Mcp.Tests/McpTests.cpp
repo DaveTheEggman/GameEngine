@@ -301,6 +301,33 @@ TEST_CASE("mcp: framing survives garbage (-32700) and drives multiple messages; 
     CHECK(p.Has(u8"result"));
 }
 
+// --- Observer -------------------------------------------------------------
+
+TEST_CASE("mcp: the tool observer hears every finished tools/call by name, with its outcome, "
+          "and nothing else")
+{
+    McpServer s;
+    Setup(s);
+    Array<String> heard;
+    s.SetToolObserver([&heard](StringView tool, bool isError)
+                      { heard.PushBack(Format(u8"{}:{}", tool, isError ? u8"err" : u8"ok")); });
+
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"echo\",\"arguments\":{\"message\":\"hi\"}}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"fail\"}}");
+    // Not a finished tool run: a schema refusal (-32602), an unknown tool, a ping.
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"echo\",\"arguments\":{}}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"nope\"}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"ping\"}");
+
+    REQUIRE(heard.Size() == 2);
+    CHECK(heard[0] == u8"echo:ok");
+    CHECK(heard[1] == u8"fail:err");
+}
+
 // --- Not finished ---------------------------------------------------------
 
 namespace
