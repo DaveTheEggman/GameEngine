@@ -849,6 +849,78 @@ granularity is too coarse: a scene session (open -> edits -> validate ->
 save) still lands on files-are-truth at save. Revisit with usage evidence,
 not before.
 
+## PRIOR ART 3 (2026-09-25): the chat window - ezEngine, Traktor, Doriax
+
+The user asked where the agent's conversation lives once the editor serves MCP. Three
+clones re-read for exactly that (~/Dev/CPP/ezEngine, ~/Dev/CPP/traktor, ~/Dev/CPP/doriax).
+
+**ezEngine: no chat, fully unattended.** The agent lives outside (Claude Code and the like)
+and talks to the editor over MCP. Inside, the editor never waits for a human during a tool
+call: `ezQtScopedUnattended` makes every message box log its text and return its declared
+UNATTENDED ANSWER (each question names one - the answer that lets automated work proceed,
+the accident-preventing one only where proceeding would destroy unrecoverable data),
+`ezQtDialog::exec()` returns without showing, and anything entering a nested event loop
+outside those paths (file pickers) checks `SuppressModalWindow` itself. What was suppressed
+is recorded (bounded) and reported: `action_execute` lists it under `suppressedDialogs`
+with a note ("the action most likely did nothing - look for a dedicated tool, or ask the
+user"), the other tools rely on the log. Failed asserts are caught the same way and turn
+the result into an error telling the agent to restart the editor. The user sees the agent's
+work through the editor's own log and through the editor changing under them; there is no
+panel.
+
+**Traktor: no chat either.** `McpServerEditorPlugin` starts the server on a setting
+(`Editor.McpServer`, port 13880) and pumps it on its own thread; ~45 tools plus the skill
+tools and a prompt provider (skills as assets, surfaced as MCP prompts - the idea we adopted
+in prior art 2). No editor UI beyond the log line "MCP server listening". The conversation
+is the external client's.
+
+**Doriax: a full in-editor assistant, without MCP.** `editor/window/AiChatWindow` (2.9k
+lines) over `editor/ai/` (~13k): the editor IS the agent's front end and the tool loop.
+- Providers: OpenAI, Anthropic, Gemini, OpenAI-compatible endpoints (`AiProvider.cpp`
+  speaks each one's tool-calling dialect: `tools`/`tool_use`/`tool_result` for Anthropic,
+  function tools for OpenAI, function declarations for Gemini), with a model catalog per
+  account, rate-limit retry with backoff, and a `SecretStore` that keeps API keys
+  obfuscated with a machine-bound seed in the config directory.
+- The loop: `AiService` runs requests on a worker thread; the model's tool calls become
+  `ActionProposal`s (name, arguments, a human `description`, `readOnly`); the window
+  executes an approved proposal ON THE MAIN THREAD through `EditorActionExecutor`
+  (5.7k lines of editor actions: entities, components, scenes, scripts, terrain, builds,
+  play mode...), the result goes back as a tool result, and `update()` re-sends
+  automatically while the conversation ends on unanswered tool results. Tool definitions
+  come from a static `EditorActionRegistry` (name, description, JSON parameters,
+  `readOnly`; validates arguments and describes a call in one line for the transcript).
+- Three approval modes, the piece that answers "who decides": PREVIEW THEN APPROVE (every
+  proposal shows with Approve / Dismiss), AUTO-RUN READ-ONLY (read-only proposals run at
+  once, writes wait for approval), FULL AGENT (everything runs, budgeted per frame so one
+  slow action cannot freeze the UI). The `readOnly` flag on each action is what makes the
+  middle mode possible.
+- The transcript: @mentions (selection, project, scene, entity, file, open file) that
+  insert live editor context into the prompt, image attachments, conversation history
+  persisted per project (`ConversationStore`), engine API context injected into the system
+  prompt (`AiEngineApiContext`, so it can draft Lua/C++ against the real API), a
+  notification badge when a reply lands while the window is hidden.
+- The cost: a second tool surface (their registry, not MCP), every provider's wire
+  dialect maintained by hand, keys and billing inside the editor, and the model choice as
+  an editor setting.
+
+**What this means for us.** Two products are on the table and they compose:
+- A (the cheap half, ezEngine's model plus a panel): the agent stays external (Claude Code
+  over our HTTP host); the editor gets an AGENT PANEL showing the calls and outcomes (the
+  tool observer already delivers them) and, unlike ezEngine, the questions: an unattended
+  call that hits a decision (reload a dirty page? overwrite?) parks the question in the
+  panel and answers "not yet" (our re-entry) until the user clicks or a timeout takes the
+  declared unattended answer. That is ezEngine's unattended contract with a human in the
+  loop when one is present, and it is what the earlier "surface dialog choices to the chat"
+  idea needs.
+- B (Doriax's product): the conversation inside the editor. Two ways to get there, and
+  only one is cheap: (1) host an agent RUNTIME - Claude Code via the Agent SDK or the CLI
+  as a subprocess, with the editor's own MCP host registered to it - so the panel is a
+  transcript and a text box and the tool loop, the skills, the docs and the approvals are
+  the runtime's; or (2) Doriax's way, an API client and a tool loop of our own, which
+  means re-building what the runtime already is and a second tool registry. Our MCP surface
+  makes (1) natural: the approval modes map onto MCP tool annotations (readOnlyHint /
+  destructiveHint, which our tools do not carry yet) and the runtime's permission system.
+
 ## P2 build plan (user rulings 2026-09-25; branch `editor-mcp`)
 
 Restarted after the dev-box loss with the ezEngine editor plugin re-read (clone at
