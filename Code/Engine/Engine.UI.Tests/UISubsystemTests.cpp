@@ -258,10 +258,10 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
 
     const foundation::ui::LayoutStyle& lpFront = a.root->Layout();
     const foundation::ui::LayoutStyle& lpBehind = b.root->Layout();
-    CHECK(lpFront.Left == doctest::Approx(400.0f)); // on-axis -> target center
-    CHECK(lpFront.Top == doctest::Approx(300.0f));
-    CHECK(lpBehind.Left == doctest::Approx(-10000.0f)); // behind the camera -> parked
-    CHECK(lpBehind.Top == doctest::Approx(-10000.0f));
+    CHECK(lpFront.Left.Value() == doctest::Approx(400.0f)); // on-axis -> target center
+    CHECK(lpFront.Top.Value() == doctest::Approx(300.0f));
+    CHECK(lpBehind.Left.Value() == doctest::Approx(-10000.0f)); // behind the camera -> parked
+    CHECK(lpBehind.Top.Value() == doctest::Approx(-10000.0f));
 
     // Sub-rect view (split-screen half): billboards land in VIEWPORT pixels - the VG
     // viewport seam places the whole root at the view's rect, so the on-axis anchor
@@ -270,8 +270,8 @@ TEST_CASE("ui.subsystem: billboards project through the scene camera and park be
     view.viewportWidth = 400;
     view.viewportHeight = 300;
     ui->UpdateSceneView(*scene, view);
-    CHECK(a.root->Layout().Left == doctest::Approx(200.0f)); // center of the 400x300 half
-    CHECK(a.root->Layout().Top == doctest::Approx(150.0f));
+    CHECK(a.root->Layout().Left.Value() == doctest::Approx(200.0f)); // center of the 400x300 half
+    CHECK(a.root->Layout().Top.Value() == doctest::Approx(150.0f));
 
     // Scene isolation is structural now: another scene's canvas parents into ITS root.
     scene::Scene* other = sm.CreateScene(u8"other");

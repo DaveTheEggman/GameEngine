@@ -210,7 +210,7 @@ TEST_CASE("markup: FlexGrow_LayoutStyle")
     REQUIRE(flex != nullptr);
     CHECK(flex->GetChildAt(0)->Layout().FlexGrow == 1);
     CHECK(flex->GetChildAt(1)->Layout().FlexGrow == 2);
-    CHECK(flex->GetChildAt(1)->Layout().FlexShrink == doctest::Approx(0.5f));
+    CHECK(flex->GetChildAt(1)->Layout().FlexShrink.Value() == doctest::Approx(0.5f));
     REQUIRE(flex->GetChildAt(1)->Layout().AlignSelf.HasValue());
     CHECK(flex->GetChildAt(1)->Layout().AlignSelf.Value() == Align::Center);
     CHECK(!flex->GetChildAt(0)->Layout().AlignSelf.HasValue());
