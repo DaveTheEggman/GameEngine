@@ -49,6 +49,7 @@ import foundation.settings;
 import editor.mcp; // EngineToolPaths + LocateShippingDocs (the host's composition)
 import :assets_view;
 import :mcp_host;
+import :mcp_operations;
 import :editor_icons;
 import :settings_dialog;
 import :preferences_dialog;
@@ -1180,22 +1181,6 @@ namespace editor::app
             false); // safe background cook; OnUpdate fires the export job after it
     }
 
-    void EditorApplication::CollectSceneStreams(foundation::content::Group& group)
-    {
-        for (foundation::content::Instance* instance : group.Instances())
-        {
-            Array<byte> bytes;
-            if (m_context.SceneStreamStager(*instance, bytes))
-            {
-                m_exportSceneStreams.InsertOrAssign(instance->Id(), Move(bytes));
-            }
-        }
-        for (foundation::content::Group* child : group.Groups())
-        {
-            CollectSceneStreams(*child);
-        }
-    }
-
     void EditorApplication::LoadEditorSettings()
     {
         editor::RegisterEditorSettingsTypes();
@@ -1263,7 +1248,8 @@ namespace editor::app
         m_exportSceneStreams.Clear();
         if (m_context.SceneStreamStager)
         {
-            CollectSceneStreams(*m_project->SourceDb().RootGroup());
+            editor::CollectSceneStreams(*m_project->SourceDb().RootGroup(),
+                                        m_context.SceneStreamStager, m_exportSceneStreams);
         }
         const HashMap<Guid, Array<byte>>* sceneStreams = &m_exportSceneStreams;
 
@@ -2780,11 +2766,19 @@ namespace editor::app
         const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
         editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
         m_mcpSession.project = m_project.Get();
-        // The export stages the player from beside this executable and cooks shaders from the
-        // data root - the same two things the stdio host hands its inline operations.
-        m_mcpOperations = MakeUnique<editor::mcp::InlineProjectOperations>(
-            m_editorAllocator, m_mcpSession, m_builders, GetExecutableDirectory(),
-            m_config.dataRoot);
+        // The operations run on THIS application's services, so an agent's cook, import or
+        // export takes the same background paths the menus do and the editor stays live.
+        EditorProjectOperationsSeams seams;
+        seams.allocator = &m_editorAllocator;
+        seams.project = m_project.Get();
+        seams.context = &m_context;
+        seams.cook = &m_cookService;
+        seams.jobs = &m_jobService;
+        seams.builders = &m_builders;
+        seams.hostToolDir = GetExecutableDirectory();
+        seams.templatesRoot = TemplatesRoot();
+        seams.dataRoot = m_config.dataRoot;
+        m_mcpOperations = MakeUnique<EditorProjectOperations>(m_editorAllocator, Move(seams));
         m_mcpHost = MakeUnique<EditorMcpHost>(
             m_editorAllocator, m_editorAllocator, m_mcpSession, *m_config.logBuffer, m_builders,
             m_context.Importers(), paths, *m_mcpOperations,

@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+// Editor::App tests - the editor host's operations over the REAL services on a scratch
+// project: a cook is requested through the cook service and answered not-finished until its
+// revision lands; an import runs the two-phase path (worker prepare, main-thread placement,
+// the deferred flush on the job service) and lands its stream; an export cooks first and then
+// runs the export job, whose failure (no template here) reaches the re-entered call as the
+// tool's error. Every step is pumped the way the editor pumps: the services' Update, then the
+// operation again.
+#include <doctest/doctest.h>
+#include "Core/Prelude.h"
+#include <filesystem>
+
+import foundation.core;
+import foundation.content;
+import pipeline.core;
+import pipeline.importer;
+import editor.core;
+import editor.mcp;
+import editor.app;
+
+using namespace foundation::core;
+using namespace editor;
+namespace content = foundation::content;
+
+namespace
+{
+    // A two-phase importer: the worker "reads" the file into a payload, the main thread places
+    // the asset, and one deferred stream write carries the bulk.
+    class TwoPhaseImporter final : public pipeline::IFileImporter
+    {
+    public:
+        explicit TwoPhaseImporter(bool worker, bool failPlacement = false)
+            : m_worker(worker), m_failPlacement(failPlacement)
+        {
+        }
+        [[nodiscard]] StringView Label() const override { return u8"TwoPhase"; }
+        [[nodiscard]] bool Accepts(StringView extension) const override
+        {
+            return extension == u8"two";
+        }
+        [[nodiscard]] bool WantsWorkerPrepare() const override { return m_worker; }
+        [[nodiscard]] RefPtr<Object> PrepareOnWorker(StringView, IAllocator& allocator) override
+        {
+            ++prepares;
+            return RefPtr<Object>(MakeRef<Object>(allocator).Get());
+        }
+        [[nodiscard]] pipeline::ImportPlan DescribeImport(StringView sourcePath,
+                                                          const pipeline::ImportOptions*,
+                                                          Object*) override
+        {
+            return pipeline::SingleAssetPlan(sourcePath);
+        }
+        [[nodiscard]] Result<content::Instance*>
+        Import(StringView, const pipeline::ImportContext&, content::Group& group,
+               const pipeline::ImportOptions*, Object* prepared,
+               Array<pipeline::DeferredImportWrite>* deferred) override
+        {
+            ++imports;
+            sawPrepared = prepared != nullptr;
+            if (m_failPlacement)
+            {
+                return Err(ErrorCode::InvalidArgument);
+            }
+            content::Instance* instance =
+                group.CreateInstance(u8"Imported", pipeline::ImportOptions::StaticType());
+            if (deferred != nullptr)
+            {
+                pipeline::DeferredImportWrite write;
+                write.instance = instance;
+                write.streamName = String(u8"bulk");
+                write.owned.PushBack(byte{7});
+                write.owned.PushBack(byte{9});
+                deferred->PushBack(Move(write));
+            }
+            return instance;
+        }
+        u32 prepares = 0;
+        u32 imports = 0;
+        bool sawPrepared = false;
+
+    private:
+        bool m_worker;
+        bool m_failPlacement;
+    };
+
+    // Everything an operations object runs on, over a scratch project.
+    struct Bench
+    {
+        UniquePtr<EditorProject> project;
+        EditorContext context{DefaultAllocator()};
+        pipeline::BuilderRegistry builders{DefaultAllocator()};
+        EditorCookService cook;
+        EditorJobService jobs{DefaultAllocator()};
+        String dir;
+
+        explicit Bench(StringView leaf) : dir(leaf)
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(reinterpret_cast<const char*>(dir.CStr()), ec);
+            REQUIRE(EditorProject::Create(DefaultAllocator(), dir.AsView(), u8"Ops").IsOk());
+            project = EditorProject::Open(DefaultAllocator(), dir.AsView());
+            REQUIRE(project);
+            cook.Initialize(*project, builders);
+            // The app's wiring: a running job holds the databases like a cook does.
+            EditorJobService* jobsPtr = &jobs;
+            cook.ExternalMutationLock = [jobsPtr]() { return jobsPtr->IsBusy(); };
+        }
+        ~Bench()
+        {
+            cook.Shutdown();
+            jobs.Shutdown();
+            project = nullptr;
+            std::error_code ec;
+            std::filesystem::remove_all(reinterpret_cast<const char*>(dir.CStr()), ec);
+        }
+        app::EditorProjectOperationsSeams Seams(f64 timeoutSeconds = 30.0)
+        {
+            app::EditorProjectOperationsSeams seams;
+            seams.allocator = &DefaultAllocator();
+            seams.project = project.Get();
+            seams.context = &context;
+            seams.cook = &cook;
+            seams.jobs = &jobs;
+            seams.builders = &builders;
+            seams.timeoutSeconds = timeoutSeconds;
+            return seams;
+        }
+        // One editor frame: the services' main-thread pumps.
+        void Pump()
+        {
+            cook.Update({});
+            jobs.Update({});
+            SleepMilliseconds(1);
+        }
+    };
+
+    // Re-enters `step` after each pump until it answers, as the host's pump does; the count of
+    // not-finished answers says how many frames the caller waited.
+    template <typename T, typename Step>
+    editor::mcp::OperationStep<T> Drive(Bench& bench, Step step, u32& waited)
+    {
+        waited = 0;
+        for (u32 i = 0; i < 5000; ++i)
+        {
+            editor::mcp::OperationStep<T> result = step();
+            if (!result.HasValue() || result.Value().HasValue())
+            {
+                return result;
+            }
+            ++waited;
+            bench.Pump();
+        }
+        return Err(String(u8"the step never answered"));
+    }
+}
+
+TEST_CASE("editor-operations: a cook rides the cook service - not finished until its revision "
+          "lands, then the summary; and again after it")
+{
+    Bench bench(u8"mcp_ops_cook");
+    app::EditorProjectOperations ops(bench.Seams());
+    u32 waited = 0;
+    editor::mcp::OperationStep<editor::mcp::CookOutcome> first =
+        Drive<editor::mcp::CookOutcome>(bench, [&ops]() { return ops.Cook(false); }, waited);
+    REQUIRE(first.HasValue());
+    REQUIRE(first.Value().HasValue());
+    CHECK(waited >= 1u); // the first entry only requested; the worker answered later
+    CHECK(first.Value().Value().planned == 0u);
+    CHECK(bench.cook.Revision() == 1u);
+
+    // The state resets: a second cook starts a new wait rather than answering from the old.
+    editor::mcp::OperationStep<editor::mcp::CookOutcome> second =
+        Drive<editor::mcp::CookOutcome>(bench, [&ops]() { return ops.Cook(true); }, waited);
+    REQUIRE(second.HasValue());
+    REQUIRE(second.Value().HasValue());
+    CHECK(waited >= 1u);
+    CHECK(bench.cook.Revision() == 2u);
+}
+
+TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare, main-thread "
+          "placement, the deferred flush on the job service - and lands its stream")
+{
+    Bench bench(u8"mcp_ops_import");
+    app::EditorProjectOperations ops(bench.Seams());
+    TwoPhaseImporter importer(/*worker=*/true);
+    editor::mcp::ImportRequest request;
+    request.source = String(u8"anything.two");
+    request.importer = &importer;
+
+    u32 waited = 0;
+    editor::mcp::OperationStep<editor::mcp::ImportOutcome> step =
+        Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    REQUIRE(step.HasValue());
+    REQUIRE(step.Value().HasValue());
+    const editor::mcp::ImportOutcome& outcome = step.Value().Value();
+    CHECK(waited >= 2u); // the prepare job, then the flush job, each landed through a pump
+    CHECK(importer.prepares == 1u);
+    CHECK(importer.imports == 1u);
+    CHECK(importer.sawPrepared);
+    CHECK(outcome.name == u8"Imported");
+    CHECK(outcome.importer == u8"TwoPhase");
+    CHECK(outcome.deferredWrites == 1u);
+    // The bulk write reached the instance's stream.
+    content::Instance* instance = bench.project->SourceDb().GetInstance(outcome.guid);
+    REQUIRE(instance != nullptr);
+    UniquePtr<IStream> bulk = instance->ReadData(u8"bulk");
+    REQUIRE(bulk);
+    CHECK(bulk->Size() == 2);
+
+    // An inline importer (no worker prepare) places at once and still flushes on the job.
+    TwoPhaseImporter inlineImporter(/*worker=*/false);
+    request.importer = &inlineImporter;
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    REQUIRE(step.HasValue());
+    REQUIRE(step.Value().HasValue());
+    CHECK(inlineImporter.prepares == 0u);
+    CHECK_FALSE(inlineImporter.sawPrepared);
+
+    // A placement failure is the tool's error, and the state is clean for the next call.
+    TwoPhaseImporter failing(/*worker=*/false, /*failPlacement=*/true);
+    request.importer = &failing;
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    REQUIRE_FALSE(step.HasValue());
+    CHECK(step.Error().AsView().StartsWith(u8"import of 'anything.two' failed"));
+    request.importer = &inlineImporter;
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    REQUIRE(step.HasValue());
+    REQUIRE(step.Value().HasValue());
+}
+
+TEST_CASE("editor-operations: an export cooks first, then runs the export job, and the job's "
+          "failure reaches the re-entered call")
+{
+    Bench bench(u8"mcp_ops_export");
+    app::EditorProjectOperations ops(bench.Seams());
+    ExportPresetSet presets;
+    DefaultExportPresets(presets);
+    REQUIRE(presets.presets.Size() > 0u);
+    editor::mcp::ExportRequest request;
+    request.preset = presets.presets[0];
+    request.outRoot = String(u8"mcp_ops_export/Dist");
+
+    u32 waited = 0;
+    editor::mcp::OperationStep<editor::mcp::ExportOutcome> step =
+        Drive<editor::mcp::ExportOutcome>(bench, [&]() { return ops.Export(request); }, waited);
+    // No template is installed here, so the job fails - after the cook landed and the job ran.
+    REQUIRE_FALSE(step.HasValue());
+    CHECK(step.Error().AsView().StartsWith(u8"export of preset '"));
+    CHECK(waited >= 2u);
+    CHECK(bench.cook.Revision() == 1u); // the export's cook went through the cook service
+    CHECK_FALSE(bench.jobs.IsBusy());
+}

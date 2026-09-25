@@ -34,4 +34,5 @@ export import :project_manager_view;
 export import :shell;
 export import :font_atlas_cache;
 export import :mcp_host;
+export import :mcp_operations;
 export import :application;

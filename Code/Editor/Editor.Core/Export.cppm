@@ -525,6 +525,29 @@ export namespace editor
                                             Span<const ContentVariant> variants, bool rebuild,
                                             const ExportProgress& onProgress = {});
 
+    /// The scene/prefab TEXT sources under `group`, pre-transcoded to the binary wire by
+    /// `stager` (the editor's SceneStreamStager: main-thread only) and keyed by instance for
+    /// the export's packer. An instance the stager declines (not a scene, or a failure) is left
+    /// out; the exporter then stages its source verbatim.
+    inline void CollectSceneStreams(
+        foundation::content::Group& group,
+        const Function<bool(foundation::content::Instance&, Array<byte>&)>& stager,
+        HashMap<Guid, Array<byte>>& out)
+    {
+        for (foundation::content::Instance* instance : group.Instances())
+        {
+            Array<byte> bytes;
+            if (stager(*instance, bytes))
+            {
+                out.InsertOrAssign(instance->Id(), Move(bytes));
+            }
+        }
+        for (foundation::content::Group* child : group.Groups())
+        {
+            CollectSceneStreams(*child, stager, out);
+        }
+    }
+
     /// Cook + ExportContent (the all-in-one; the CLI / one-shot path). The builder registry is the
     /// exe's full set (kept in lockstep across cook/editor/export). `rebuild` forces a clean cook.
     /// `variants`: when non-empty (a web preset), the host cook is followed by

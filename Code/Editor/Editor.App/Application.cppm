@@ -29,6 +29,7 @@ import foundation.vfs;    // NativeFileSystem: the editor's mount over the data 
 import engine.defaultapp; // the embedded game application (v3)
 import editor.mcp;        // ProjectSession + the operations the MCP host serves through
 import :mcp_host;         // EditorMcpHost (per project, pumped per frame)
+import :mcp_operations;   // EditorProjectOperations (the host's cook / import / export)
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
 import engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
@@ -236,7 +237,6 @@ export namespace editor::app
         // types first). Absent on first run - the store stays empty and sections read as defaults.
         // Recursive walk feeding the export pre-transcode (main thread; scene/prefab typed
         // instances only - the stager filters).
-        void CollectSceneStreams(foundation::content::Group& group);
 
         void LoadEditorSettings();
 
@@ -409,10 +409,10 @@ export namespace editor::app
         pipeline::BuilderRegistry m_builders{m_editorAllocator}; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
         // The MCP host and what it serves through, per project: the session points at the open
-        // project, the operations are how this host runs cook / import / export (inline for now:
-        // the editor's own background services take over as they are wired), the host last.
+        // project, the operations run cook / import / export on this application's services
+        // (the cook service, the job service - the paths the menus take), the host last.
         editor::mcp::ProjectSession m_mcpSession;
-        UniquePtr<editor::mcp::InlineProjectOperations> m_mcpOperations;
+        UniquePtr<EditorProjectOperations> m_mcpOperations;
         UniquePtr<EditorMcpHost> m_mcpHost; // after the services are up, gone before they go
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)

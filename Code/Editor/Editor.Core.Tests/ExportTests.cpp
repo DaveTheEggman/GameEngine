@@ -1121,6 +1121,42 @@ TEST_CASE("export: ResolveTemplatesRoot prefers an explicit override")
     CHECK(fallback == editor::ResolveTemplatesRoot());
 }
 
+TEST_CASE("export: CollectSceneStreams keys what the stager accepts, walking nested groups")
+{
+    const String dir = TempDir(u8"scratch_scene_streams");
+    NukeTree(dir.AsView());
+    REQUIRE(editor::EditorProject::Create(foundation::core::DefaultAllocator(), dir.AsView(), u8"Streams").IsOk());
+    UniquePtr<editor::EditorProject> project =
+        editor::EditorProject::Open(foundation::core::DefaultAllocator(), dir.AsView());
+    REQUIRE(project);
+    foundation::content::Group* root = project->SourceDb().RootGroup();
+    foundation::content::Instance* top = root->CreateInstance(u8"Top", scene::SceneDocument::StaticType());
+    foundation::content::Group* nested = root->CreateGroup(u8"nested");
+    foundation::content::Instance* deep = nested->CreateInstance(u8"Deep", scene::SceneDocument::StaticType());
+    (void)nested->CreateInstance(u8"NotAScene", scene::SceneDocument::StaticType());
+
+    // The stager decides: anything named "NotAScene" is declined and stays out of the map.
+    HashMap<Guid, Array<byte>> streams;
+    editor::CollectSceneStreams(
+        *root,
+        [](foundation::content::Instance& instance, Array<byte>& out)
+        {
+            if (instance.Name() == StringView(u8"NotAScene"))
+            {
+                return false;
+            }
+            out.PushBack(static_cast<byte>(instance.Name().Size()));
+            return true;
+        },
+        streams);
+    CHECK(streams.Size() == 2u);
+    REQUIRE(streams.Find(top->Id()) != nullptr);
+    REQUIRE(streams.Find(deep->Id()) != nullptr);
+    CHECK(streams.Find(deep->Id())->Size() == 1u);
+    project = nullptr;
+    NukeTree(dir.AsView());
+}
+
 TEST_CASE("export: EditorExportSettings round-trips through the editor settings store")
 {
     namespace settings = foundation::settings;
