@@ -16,6 +16,8 @@ import foundation.vfs;
 import foundation.content;
 import foundation.json;
 import foundation.mcp;
+import foundation.scene;
+import foundation.scene.resource;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
@@ -50,7 +52,11 @@ namespace
             .value;
     }
 
-    // Every instance under a group (recursively) reads back; fails the case on a refusal.
+    // Every instance under a group (recursively) reads back; fails the case on a refusal. A
+    // scene or prefab is its STREAM, not its document: the entities, components and system
+    // settings carry their own data versions, so the stream loads into a scratch scene of the
+    // full composition the way a page opens it (a stale RigidBody payload sat behind a valid
+    // SceneDocument for a month).
     usize ReadAllInstances(foundation::content::Group& group)
     {
         usize read = 0;
@@ -60,6 +66,14 @@ namespace
             const String name(instance->Name());
             const std::string shown(reinterpret_cast<const char*>(name.CStr()), name.Size());
             CHECK_MESSAGE(object.Get() != nullptr, "sample project instance refused: ", shown);
+            if (instance->TypeName() == StringView(u8"SceneDocument") ||
+                instance->TypeName() == StringView(u8"PrefabDocument"))
+            {
+                foundation::scene::Scene scratch(DefaultAllocator(), name.AsView());
+                engine::AddAllSceneManagers(scratch);
+                const Status loaded = foundation::scene::LoadScene(*instance, scratch);
+                CHECK_MESSAGE(loaded.IsOk(), "sample project scene stream refused: ", shown);
+            }
             ++read;
         }
         for (foundation::content::Group* child : group.Groups())

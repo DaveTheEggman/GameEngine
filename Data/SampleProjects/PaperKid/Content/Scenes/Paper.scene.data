@@ -52,7 +52,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">2</u8>
 				<u8 name="layer">1</u8>
@@ -74,6 +74,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 	</array>

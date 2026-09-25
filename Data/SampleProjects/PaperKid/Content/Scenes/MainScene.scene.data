@@ -424,7 +424,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -446,6 +446,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -454,7 +456,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -476,6 +478,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -484,7 +488,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -506,6 +510,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -514,7 +520,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -536,6 +542,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -544,7 +552,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -566,6 +574,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -574,7 +584,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -596,6 +606,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -604,7 +616,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">16919434437036753967</u64>
-					<u32 name="version">2</u32>
+					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
 				<u8 name="layer">0</u8>
@@ -626,6 +638,8 @@
 				<string name="collisionShape">00000000-0000-0000-0000-000000000000</string>
 				<string name="material">00000000-0000-0000-0000-000000000000</string>
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
+				<bool name="continuousCollision">false</bool>
+				<f32 name="mass">0</f32>
 			</object>
 		</object>
 		<object>
@@ -707,11 +721,12 @@
 			<string name="system">navigation</string>
 			<array name="dataVersions" count="1">
 				<u64 name="type">7391183583667289637</u64>
-				<u32 name="version">1</u32>
+				<u32 name="version">2</u32>
 			</array>
 			<object name="settings">
 				<bool name="debugDraw">false</bool>
 				<bool name="debugDrawPaths">false</bool>
+				<bool name="debugDrawBakeStages">false</bool>
 			</object>
 		</object>
 		<object>
@@ -734,7 +749,7 @@
 			<string name="system">environment</string>
 			<array name="dataVersions" count="1">
 				<u64 name="type">18085087500305644796</u64>
-				<u32 name="version">3</u32>
+				<u32 name="version">4</u32>
 			</array>
 			<object name="settings">
 				<string name="skyTexture">00000000-0000-0000-0000-000000000000</string>
@@ -770,13 +785,15 @@
 				<f32 name="sunIntensity">1</f32>
 				<f32 name="sunAngularSize">0.5</f32>
 				<f32 name="turbidity">3</f32>
+				<f32 name="iblDiffuseIntensity">1</f32>
+				<f32 name="iblSpecularIntensity">1</f32>
 			</object>
 		</object>
 		<object>
 			<string name="system">postprocess</string>
 			<array name="dataVersions" count="1">
 				<u64 name="type">7065443234402282730</u64>
-				<u32 name="version">1</u32>
+				<u32 name="version">3</u32>
 			</array>
 			<object name="settings">
 				<f32 name="exposureEV">0</f32>
@@ -795,6 +812,15 @@
 				<f32 name="taaBlendFactor">0.97</f32>
 				<f32 name="taaVarianceGamma">1.25</f32>
 				<f32 name="fxaaSubpixel">0.75</f32>
+				<bool name="autoExposure">false</bool>
+				<f32 name="autoExposureKey">0.18</f32>
+				<f32 name="autoExposureSpeed">2</f32>
+				<f32 name="autoExposureMinEV">-4</f32>
+				<f32 name="autoExposureMaxEV">4</f32>
+				<string name="gradingLut">00000000-0000-0000-0000-000000000000</string>
+				<f32 name="gradingIntensity">1</f32>
+				<bool name="ssgiEnabled">false</bool>
+				<f32 name="ssgiIntensity">1</f32>
 			</object>
 		</object>
 		<object>
