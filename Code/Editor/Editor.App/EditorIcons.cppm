@@ -84,7 +84,7 @@ export namespace editor::app
         [[nodiscard]] Array<ui::BakedSVGDrawable*> Bakeable() const;
 
         /// Every icon slot, the one table Shutdown and Bakeable walk (kSlotCount entries).
-        static constexpr usize kSlotCount = 29;
+        static constexpr ENGINE_EXPORT_DATA usize kSlotCount = 29;
         [[nodiscard]] Array<RefPtr<ui::BakedSVGDrawable>*> Slots();
 
     private:
