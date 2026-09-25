@@ -1,6 +1,6 @@
 # MCP: agent access to the engine, pipeline, and editor
 
-**Status:** ACTIVE - P0 building (Opus). ALL discussion points resolved (json placement, naming, endpoint opt-in, mutation scope)
+**Status:** ACTIVE - P0/P1 SHIPPED (24 tools over stdio); P2 editor host BUILDING on branch `editor-mcp` from 2026-09-25 (plan below, "P2 build plan")
 **[DISCUSS]**. Everything else is recommendation-grade and buildable once
 those settle.
 
@@ -848,6 +848,76 @@ the PATTERN to reach for if real sessions show scene_write's whole-file
 granularity is too coarse: a scene session (open -> edits -> validate ->
 save) still lands on files-are-truth at save. Revisit with usage evidence,
 not before.
+
+## P2 build plan (user rulings 2026-09-25; branch `editor-mcp`)
+
+Restarted after the dev-box loss with the ezEngine editor plugin re-read (clone at
+~/Dev/CPP/ezEngine, Code/EditorPlugins/Mcp). What it settled, beyond the P2 section above:
+
+- **Async tools stay async.** The editor's import and cook are non-blocking (a background
+  `EditorCookService` with a build lock, imports riding deferred writes) and MCP must not
+  undo that. ezEngine's `asset_transform` BLOCKS the main thread for minutes; its
+  `longop_execute` does not - it returns "not finished", the transport keeps the client
+  waiting, and the host re-enters the tool with the same arguments every pump until it
+  answers, the tool keeping its own cursor + timeout. We take the second shape everywhere
+  a tool waits on the editor's own services: cook rides `RequestCookFor` + `IsCooking`,
+  export rides the export job, a worker-side import rides its job. The STDIO host has no
+  frame to pump, so `Serve` re-enters on a short sleep; its tools' synchronous paths are
+  unchanged (the execution strategy is the host's, the tool's interface is shared).
+- **One shared composition root, then per-host additions.** `editor::mcp::
+  RegisterEngineTools(server, session, ...)` lists the base surface once with a count
+  tripwire (the Pipeline::Registration pattern - Tools.Mcp/Main.cpp hand-listed 14 calls);
+  each host adds what only it can serve (editor: page_/selection_/simulate_/screenshot/
+  action_ tools; stdio: project_create/open). `host_info.serverName` tells the hosts apart.
+- **`ProjectSession` is NON-OWNING** (`EditorProject*`): the editor host points it at the
+  live project (same ContentDatabase object - no two-writer problem in-process; a UI
+  refresh notice after an MCP write is what remains); the stdio host keeps its own
+  UniquePtr beside the session.
+- **Opt-in + port + token** as decided in P2, plus ezEngine's per-editor port flag
+  (`--mcp-port <n>`, so tests can run several editors); the default port is fixed and
+  documented in the skill. Token kept (Mcp.Http refuses without one).
+- **Unattended mode for tool calls** (ezEngine's `ezQtScopedUnattended`): a scoped flag on
+  EditorContext suppresses modal dialogs for the duration of a call and the call's result
+  REPORTS what was suppressed - a suppressed dialog is otherwise indistinguishable from
+  nothing having happened. Surfacing those choices to the agent's chat for the user to
+  answer is a later idea, not this track.
+- **Server lifetime = project lifetime**: starts on project open, stops on close
+  (everything it exposes is project-specific).
+- **Documents are never opened implicitly** and destructive decisions are ARGUMENTS
+  (`discard`, `force`) - a tool never waits for a human. Every tool returns the identity
+  of what it touched.
+
+Landing order - one layer per commit, each with its passing tests, both compilers green:
+
+1. `foundation.http`: a DEFERRED response. `HttpResponse::Deferred()` (a marker like
+   `EventStream()`); the server keeps the parsed request on its connection, skips reading,
+   and re-dispatches it every Pump until the handler answers; a peer that closes while
+   waiting is dropped; `PendingRequestCount()` so an idle host can tell a client is
+   waiting. Test: a handler that defers N pumps then answers, the client sees one 200;
+   the peer-closed-while-deferred drop.
+2. `foundation.mcp`: `ToolOutcome` - a handler returns an answer (`ToolResult`, unchanged,
+   so every registered tool compiles as is) or `ToolOutcome::NotFinished()`.
+   `HandleLine` returns `{state, response}` with state Answered / Notification /
+   NotFinished (the Optional<String> shape could not say "not yet"); `Serve` re-enters a
+   NotFinished line after a 1 ms sleep. Tests: the three states through tools/call, and
+   the Serve spin (handler entered N times, one output line).
+3. `foundation.mcp.http`: NotFinished -> `HttpResponse::Deferred()`; `HasPendingRequest()`.
+   Test: a deferring tool over real loopback, the pending flag observed mid-wait.
+4. `editor.mcp`: non-owning ProjectSession + `RegisterEngineTools` with the tripwire;
+   Tools.Mcp composes through it. Tests: the count, Integration.Mcp goldens unchanged.
+5. `editor.app`: `EditorMcpHost` (server + McpHttpHost, Pump in OnUpdate, start/stop on
+   project open/close), `EditorMcpSettings` (enabled, port, token) + Preferences UI, the
+   `<userdata>/mcp-token` file, `--mcp` / `--mcp-port`, unattended scope, host_info with
+   editor state, the post-write UI refresh notice. Tests: Editor.App.Tests starts the
+   host over loopback and round-trips host_info + project_info; the settings section
+   round-trip; the token file.
+6. `editor.app`: the async strategies - asset_cook over EditorCookService (refused with
+   the reason while MutationLocked), project_export over the export job, asset_import
+   over the deferred-write path. Tests: a cook that spans pumps answers with the real
+   counts; the busy refusal.
+7. The live tools, in the P2 section's list; then P2b.
+The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
+bearer header) in the commit that makes the host reachable (5).
 
 ## P2G - the GAME host (new phase; after P2, shares its transport)
 
