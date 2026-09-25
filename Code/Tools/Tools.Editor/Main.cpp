@@ -12,6 +12,8 @@
 //   With NO project: starts on the built-in PROJECT MANAGER (recent projects from the
 //   per-user registry, open/create/remove); File > Close Project returns to it.
 //   Smoke-test aids: [--exit-after <s>] [--rebuild-after <s>]
+//   [--mcp] [--mcp-port <n>] (the MCP host for this run: agent access to the open project over
+//     127.0.0.1; the persisted preference is in Preferences)
 //   [--screenshot <png> [--screenshot-after <s>]] (the main window, UI included, as a PNG -
 //   a run proves what it drew) [--seed] [--seed-primitives] [--version].
 //   GPU: [--vulkan|--dx12|--webgpu|--null-gpu] [--gpu-validation|--no-gpu-validation]
@@ -409,12 +411,21 @@ int main(int argc, char** argv)
         {
             config.screenshotAfterSeconds = static_cast<f32>(std::atof(argv[i + 1]));
         }
+        if (std::strcmp(argv[i], "--mcp-port") == 0)
+        {
+            config.mcpPort = static_cast<u32>(std::atoi(argv[i + 1]));
+            config.mcpEnabled = true; // naming a port means serving on it
+        }
     }
     for (int i = 1; i < argc; ++i)
     {
         if (std::strcmp(argv[i], "--seed") == 0)
         {
             config.seedOnScaffold = true; // a scaffolded project also gets the starter content
+        }
+        if (std::strcmp(argv[i], "--mcp") == 0)
+        {
+            config.mcpEnabled = true; // the MCP host for this run, whatever the preference says
         }
         if (std::strcmp(argv[i], "--seed-primitives") == 0)
         {

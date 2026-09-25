@@ -5,6 +5,16 @@ surface: newline-delimited JSON-RPC over stdio, the full project/asset/scene/scr
 workflow with the editor closed. This is the operating manual for any agent connected to
 it - it is itself served as `docs://McpGuide.md`, so you can re-read it over the wire.
 
+## Two hosts, one surface
+
+The headless host above is `Tools.Mcp`. The EDITOR serves the same engine tools over HTTP
+(`engine-editor-mcp`) for the project it has open - the live one, one content database, one
+writer - so an agent can work on what the user is looking at. Tell them apart by
+`host_info.serverName` and `host_info.host.kind`. What differs: the stdio host has
+`project_create` / `project_open` (the editor's project is the editor's), and the editor's
+long tools (a cook) keep the call open until the editor's own background service finishes -
+give the client a generous timeout rather than polling.
+
 ## First moves in a session
 
 1. `tools/list` - read the real surface before guessing; descriptions carry the contract.

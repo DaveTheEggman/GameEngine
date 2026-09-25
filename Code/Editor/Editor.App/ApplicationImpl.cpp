@@ -46,7 +46,9 @@ import foundation.resource;
 import pipeline.core;
 import editor.core;
 import foundation.settings;
+import editor.mcp; // EngineToolPaths + LocateShippingDocs (the host's composition)
 import :assets_view;
+import :mcp_host;
 import :editor_icons;
 import :settings_dialog;
 import :preferences_dialog;
@@ -704,6 +706,10 @@ namespace editor::app
         {
             m_thumbnailStage->Update(); // take/stage the next queued GPU thumbnail job
         }
+        if (m_mcpHost)
+        {
+            m_mcpHost->Pump(); // answers a waiting agent call HERE: tools touch main-thread state
+        }
         // I4 instrumentation: periodic resident-product report while a project is open -
         // the 5-GB-with-no-pages repro accumulates over ~30s of background work AFTER open,
         // so a single post-open snapshot misses it. 15s cadence, INFO; remove or demote
@@ -1012,6 +1018,7 @@ namespace editor::app
         {
             m_screenshot.Release(*gfx->Raw()); // the readback buffer, while the device lives
         }
+        StopMcpHost();
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         // Release page resources while the device and windows are still alive. Pages
         // destroy their scenes in the RUNTIME context, so it must outlive them.
@@ -2396,6 +2403,7 @@ namespace editor::app
         // Cook-gated starts (PIE waits for the cook): busy = anything in flight OR a
         // remembered mid-cook request still waiting to re-issue (IsIdle, not MutationLocked).
         m_context.CookBusy = [this]() { return m_cookService.IsReady() && !m_cookService.IsIdle(); };
+        StartMcpHost(); // the agent surface over this project, if enabled
         // Background jobs (export) read the source DB structure and pack cooked FILES
         // from their worker - DB mutations and new cooks must hold off while one runs,
         // exactly like during a cook. The cook service folds this into MutationLocked.
@@ -2743,6 +2751,64 @@ namespace editor::app
         }
     }
 
+    void EditorApplication::StartMcpHost()
+    {
+        StopMcpHost();
+        editor::EditorMcpSettings& settings = m_editorSettings.Section<editor::EditorMcpSettings>();
+        if (!(settings.enabled || m_config.mcpEnabled) || !m_project)
+        {
+            return;
+        }
+        if (m_config.logBuffer == nullptr)
+        {
+            LOG_WARNING(u8"Editor", u8"MCP: no log capture was installed - the host is not started");
+            return;
+        }
+        if (settings.token.IsEmpty())
+        {
+            // First enable: mint the secret once and keep it, so the token file and the
+            // Preferences display stay valid across runs.
+            settings.token = editor::GenerateMcpToken();
+            if (const Status saved = editor::SaveEditorSettingsToUserData(m_editorSettings);
+                !saved.IsOk())
+            {
+                LOG_WARNING(u8"Editor", u8"MCP: the minted token could not be saved to the "
+                                        u8"editor settings; it changes on the next run");
+            }
+        }
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+        paths.hostToolDir = GetExecutableDirectory();
+        paths.dataRoot = m_config.dataRoot;
+        m_mcpHost = MakeUnique<EditorMcpHost>(
+            m_editorAllocator, m_editorAllocator, *m_project, *m_config.logBuffer, m_builders,
+            m_context.Importers(), paths, String(reinterpret_cast<const char8_t*>(BuildStamp())));
+        m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
+        { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };
+        EditorMcpHostConfig config;
+        config.port = static_cast<u16>(m_config.mcpPort != 0 ? m_config.mcpPort : settings.port);
+        config.token = settings.token;
+        config.tokenFileDirectory = GetUserDataDirectory();
+        if (!m_mcpHost->Start(config))
+        {
+            LOG_WARNING(u8"Editor",
+                        u8"MCP: could not listen on 127.0.0.1:{} - another editor may hold the "
+                        u8"port; pass --mcp-port <n> or change it in Preferences",
+                        config.port);
+            m_mcpHost = nullptr;
+            return;
+        }
+        LOG_INFO(u8"Editor", u8"MCP: listening on 127.0.0.1:{} (the token is in <user-data>/{})",
+                 m_mcpHost->BoundPort(), EditorMcpHost::kTokenFileName);
+        m_context.SetStatus(Format(u8"MCP host on 127.0.0.1:{}", m_mcpHost->BoundPort()));
+    }
+
+    void EditorApplication::StopMcpHost()
+    {
+        m_mcpHost = nullptr; // Stop + release; a waiting agent sees its connection close
+    }
+
     void EditorApplication::CloseProject()
     {
         if (!m_project)
@@ -2750,6 +2816,7 @@ namespace editor::app
             EnterManagerMode();
             return;
         }
+        StopMcpHost();            // no agent call may run against services that are going away
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         m_thumbnailStage = {};      // unstages + drops GPU objects while the renderer is alive
         m_thumbnailService.Reset(); // in-flight slots outlive harmlessly; entries drop
