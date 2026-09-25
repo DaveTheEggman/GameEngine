@@ -123,13 +123,6 @@ namespace foundation::http
         return r;
     }
 
-    HttpResponse HttpResponse::Deferred()
-    {
-        HttpResponse r;
-        r.deferred = true;
-        return r;
-    }
-
     StringView HttpStatusText(i32 status) noexcept
     {
         switch (status)
@@ -547,14 +540,16 @@ namespace foundation::http
     bool HttpServer::Dispatch(Connection& connection)
     {
         const HttpRequest& request = connection.request;
-        HttpResponse response =
+        Optional<HttpResponse> answer =
             m_handler ? m_handler(request)
-                      : HttpResponse::Text(404, u8"text/plain", u8"no handler registered");
-        if (response.deferred)
+                      : Optional<HttpResponse>(
+                            HttpResponse::Text(404, u8"text/plain", u8"no handler registered"));
+        if (!answer.HasValue())
         {
-            return false; // still pending - the handler sees the same request next Pump
+            return false; // not yet - the handler sees the same request next Pump
         }
         connection.pending = false;
+        const HttpResponse& response = answer.Value();
         if (response.eventStream)
         {
             // SSE: write the stream headers, then hand the held connection over.
@@ -625,7 +620,7 @@ namespace foundation::http
             byte buffer[4096];
             if (connection.pending)
             {
-                // A deferred request. The peer has nothing more to say on a one-shot
+                // A request answered "not yet". The peer has nothing more to say on a one-shot
                 // connection, so the read only probes whether it is still there; then the
                 // handler is asked again.
                 if (connection.socket.Receive(Span<byte>(buffer, sizeof(buffer))) < 0)

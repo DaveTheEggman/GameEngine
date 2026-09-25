@@ -237,8 +237,8 @@ TEST_CASE("http: loopback - one-shot request/response, 404, and bad request")
     CHECK(after.Value().status == 200);
 }
 
-TEST_CASE("http: loopback - a deferred response is re-dispatched every pump until answered; "
-          "a peer that leaves while waiting is dropped")
+TEST_CASE("http: loopback - a request answered not yet is re-dispatched every pump until it "
+          "is answered; a peer that leaves while waiting is dropped")
 {
     HttpServer server(DefaultAllocator());
     REQUIRE(server.Start(HttpServerConfig{}));
@@ -248,12 +248,12 @@ TEST_CASE("http: loopback - a deferred response is re-dispatched every pump unti
     u32 calls = 0;
     u32 answerOnCall = 3;
     server.SetHandler(
-        [&](const HttpRequest& request) -> HttpResponse
+        [&](const HttpRequest& request) -> Optional<HttpResponse>
         {
             ++calls;
             if (calls < answerOnCall)
             {
-                return HttpResponse::Deferred();
+                return {}; // not yet
             }
             return HttpResponse::Json(200, Format(u8"{{\"calls\":{},\"target\":\"{}\"}}", calls,
                                                   request.target.AsView())
@@ -272,8 +272,8 @@ TEST_CASE("http: loopback - a deferred response is re-dispatched every pump unti
             outcome = HttpFetch(u8"127.0.0.1", port, get);
             done = true;
         });
-    // Pumped by hand so the wait is observable: a deferring pump answers nothing and
-    // leaves exactly one request pending.
+    // Pumped by hand so the wait is observable: a pump whose handler says not yet answers
+    // nothing and leaves exactly one request pending.
     bool sawPending = false;
     usize answered = 0;
     for (u32 i = 0; i < 5000 && !done; ++i)
@@ -295,7 +295,7 @@ TEST_CASE("http: loopback - a deferred response is re-dispatched every pump unti
     CHECK(answered == 1);
     CHECK(server.PendingRequestCount() == 0);
 
-    // A peer that sends a request and leaves while the handler keeps deferring is dropped:
+    // A peer that sends a request and leaves while the handler keeps saying not yet is dropped:
     // the pending count returns to zero without the handler ever answering.
     calls = 0;
     answerOnCall = 0xFFFFFFFFu; // never

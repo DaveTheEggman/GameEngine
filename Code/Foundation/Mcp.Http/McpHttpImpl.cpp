@@ -98,7 +98,7 @@ namespace foundation::mcp
         return auth.SubStr(prefix.Size(), auth.Size() - prefix.Size()) == m_token.AsView();
     }
 
-    http::HttpResponse McpHttpHost::Handle(const http::HttpRequest& request)
+    Optional<http::HttpResponse> McpHttpHost::Handle(const http::HttpRequest& request)
     {
         if (!Authorized(request))
         {
@@ -123,9 +123,9 @@ namespace foundation::mcp
                 return accepted;
             }
             case LineState::NotFinished:
-                // The tool asked to be re-entered: the request waits on its connection and
-                // comes back through Handle on the next Pump.
-                return http::HttpResponse::Deferred();
+                // The tool asked to be re-entered: no answer yet - the request waits on its
+                // connection and comes back through Handle on the next Pump.
+                return {};
             case LineState::Answered:
                 break;
             }

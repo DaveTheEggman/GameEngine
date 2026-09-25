@@ -889,12 +889,14 @@ Restarted after the dev-box loss with the ezEngine editor plugin re-read (clone 
 
 Landing order - one layer per commit, each with its passing tests, both compilers green:
 
-1. `foundation.http`: a DEFERRED response. `HttpResponse::Deferred()` (a marker like
-   `EventStream()`); the server keeps the parsed request on its connection, skips reading,
-   and re-dispatches it every Pump until the handler answers; a peer that closes while
-   waiting is dropped; `PendingRequestCount()` so an idle host can tell a client is
-   waiting. Test: a handler that defers N pumps then answers, the client sees one 200;
-   the peer-closed-while-deferred drop.
+1. `foundation.http`: a handler may answer NOT YET. The handler returns
+   `Optional<HttpResponse>` and an empty answer means "ask me again": the server keeps
+   the parsed request on its connection, skips reading, and re-dispatches it every Pump
+   until the handler answers; a peer that closes while waiting is dropped;
+   `PendingRequestCount()` so an idle host can tell a client is waiting. (First landed as
+   a `deferred` field on HttpResponse; the user's review moved it: a response is only ever
+   a response, "not yet" is the absence of one.) Test: a handler that says not yet N pumps
+   then answers, the client sees one 200; the peer-closed-while-waiting drop.
 2. `foundation.mcp`: `ToolOutcome` - a handler returns an answer (`ToolResult`, unchanged,
    so every registered tool compiles as is) or `ToolOutcome::NotFinished()`.
    `HandleLine` returns `{state, response}` with state Answered / Notification /
