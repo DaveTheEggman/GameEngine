@@ -110,9 +110,12 @@ int main(int argc, char** argv)
     editor::mcp::EngineToolPaths paths;
     const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
     editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
-    paths.hostToolDir = GetExecutableDirectory();
-    paths.dataRoot = dataRoot;
-    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer, paths);
+    // This host runs the cook / import / export INLINE: the export stages the player from
+    // beside this executable and cooks shaders from the data root.
+    editor::mcp::InlineProjectOperations operations(session, builders, GetExecutableDirectory(),
+                                                    dataRoot);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer, paths,
+                                     operations);
     // This host's additions: an agent opens (or scaffolds) the project it wants to work on.
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.

@@ -27,6 +27,7 @@ import pipeline.core;
 import engine.scenesurface;
 import editor.core;
 import :session;
+import :operations;
 import :asset_uses; // CollectSceneReferences (the scene-edge scan the scanner delegates to)
 
 using namespace foundation::core;
@@ -77,20 +78,56 @@ namespace editor::mcp::detail
 
 export namespace editor::mcp
 {
-    // Registers project_export. `builders` is the host's registry; `hostToolDir` is the
-    // directory of the host executable (where Engine.Player + its runtime sidecars live -
-    // the host template source, exactly as the export CLI resolves it); `dataRoot` is the
-    // host's resolved engine data root (the shader cook reads <dataRoot>/Shaders).
+    // The INLINE export - what the stdio host runs on the calling thread and what the export
+    // CLI does: templates from the shared root plus the host tool directory (the player next to
+    // the executable), scene streams pre-transcoded over the full manager set, the reachability
+    // scanner over the same scan asset_uses runs, then ExportOne with the cook folded in.
+    // `hostToolDir` is the host executable's directory; `dataRoot` the engine data root (the
+    // shader cook reads <dataRoot>/Shaders).
+    [[nodiscard]] inline OperationStep<ExportOutcome>
+    RunExportInline(ProjectSession& session, pipeline::BuilderRegistry& builders,
+                    StringView hostToolDir, StringView dataRoot, const ExportRequest& request)
+    {
+        editor::TemplateRegistry templates;
+        {
+            const String templatesRoot = editor::ResolveTemplatesRoot();
+            UniquePtr<vfs::NativeFileSystem> rootFs;
+            if (DirectoryExists(templatesRoot.AsView()))
+            {
+                rootFs = MakeUnique<vfs::NativeFileSystem>(
+                    editor::EditorRootAllocator(), templatesRoot.AsView(), editor::EditorRootAllocator());
+            }
+            vfs::NativeFileSystem toolFs(hostToolDir, editor::EditorRootAllocator());
+            templates.Refresh(templatesRoot.AsView(), rootFs.Get(), hostToolDir, &toolFs);
+        }
+        HashMap<Guid, Array<byte>> sceneStreams;
+        detail::CollectExportSceneStreams(session.project->SourceDb().RootGroup(), sceneStreams);
+        const editor::SceneReferenceScanner scanner =
+            [](content::Instance& instance, content::ContentDatabase& db,
+               editor::SceneReferences& out)
+        { (void)detail::CollectSceneReferences(instance, db, out.resources, out.prefabs); };
+        ExportOutcome outcome;
+        if (!editor::ExportOne(*session.project, request.preset, templates, builders,
+                               request.outRoot.AsView(), dataRoot, request.rebuild,
+                               &outcome.result, {}, /*cook=*/true, &sceneStreams, &scanner)
+                 .IsOk())
+        {
+            return Err(Format(u8"export of preset '{}' failed - read log_read (category "
+                              u8"Export/Cook) for the failing step",
+                              request.preset.name.AsView()));
+        }
+        return Optional<ExportOutcome>(Move(outcome));
+    }
+
+    // Registers project_export: preset resolution and the result shape here, the work through
+    // the host's operations (inline on the stdio host, the editor's export job otherwise).
     inline void RegisterProjectExportTool(foundation::mcp::McpServer& server,
-                                          ProjectSession& session,
-                                          pipeline::BuilderRegistry& builders,
-                                          String hostToolDir, String dataRoot)
+                                          ProjectSession& session, IProjectOperations& operations)
     {
         using foundation::mcp::SchemaBuilder;
-        using foundation::mcp::ToolResult;
+        using foundation::mcp::ToolOutcome;
         ProjectSession* s = &session;
-        pipeline::BuilderRegistry* bld = &builders;
-
+        IProjectOperations* ops = &operations;
         server.RegisterTool(
             u8"project_export",
             u8"Export the open project into a shippable dist: cook everything, stage the "
@@ -105,7 +142,7 @@ export namespace editor::mcp
                 .Str(u8"out", u8"output root directory (default: <project>/Dist)")
                 .Boolean(u8"rebuild", u8"force a full re-cook first (default incremental)")
                 .Build(),
-            [s, bld, hostToolDir, dataRoot](const JsonValue& args) -> ToolResult
+            [s, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
@@ -141,47 +178,22 @@ export namespace editor::mcp
                                       presetName.AsView(), names.Take().AsView()));
                 }
 
-                // Templates: the shared root + the host tool dir (player next to the exe).
-                editor::TemplateRegistry templates;
-                {
-                    const String templatesRoot = editor::ResolveTemplatesRoot();
-                    UniquePtr<vfs::NativeFileSystem> rootFs;
-                    if (DirectoryExists(templatesRoot.AsView()))
-                    {
-                        rootFs = MakeUnique<vfs::NativeFileSystem>(
-                            editor::EditorRootAllocator(), templatesRoot.AsView(), editor::EditorRootAllocator());
-                    }
-                    vfs::NativeFileSystem toolFs(hostToolDir.AsView(), editor::EditorRootAllocator());
-                    templates.Refresh(templatesRoot.AsView(), rootFs.Get(), hostToolDir.AsView(),
-                                      &toolFs);
-                }
-
-                // Scene streams (full-manager transcode) + the reachability scanner.
-                HashMap<Guid, Array<byte>> sceneStreams;
-                detail::CollectExportSceneStreams(s->project->SourceDb().RootGroup(),
-                                                  sceneStreams);
-                const editor::SceneReferenceScanner scanner =
-                    [](content::Instance& instance, content::ContentDatabase& db,
-                       editor::SceneReferences& out)
-                { (void)detail::CollectSceneReferences(instance, db, out.resources, out.prefabs); };
-
+                ExportRequest request;
+                request.preset = *preset;
                 const String outArg = args.Get(u8"out").AsString();
-                const String outRoot = !outArg.IsEmpty()
-                                           ? outArg
-                                           : PathJoin(s->project->Directory(), u8"Dist");
-                const bool rebuild = args.Get(u8"rebuild").AsBool();
-
-                editor::ExportResult result;
-                if (!editor::ExportOne(*s->project, *preset, templates, *bld, outRoot.AsView(),
-                                       dataRoot.AsView(), rebuild, &result, {}, /*cook=*/true,
-                                       &sceneStreams, &scanner)
-                         .IsOk())
+                request.outRoot = !outArg.IsEmpty() ? outArg
+                                                    : PathJoin(s->project->Directory(), u8"Dist");
+                request.rebuild = args.Get(u8"rebuild").AsBool();
+                OperationStep<ExportOutcome> step = ops->Export(request);
+                if (!step.HasValue())
                 {
-                    return Err(Format(u8"export of preset '{}' failed - read log_read "
-                                      u8"(category Export/Cook) for the failing step",
-                                      preset->name.AsView()));
+                    return Err(Move(step.Error()));
                 }
-
+                if (!step.Value().HasValue())
+                {
+                    return ToolOutcome::NotFinished(); // the host's export is still running
+                }
+                const editor::ExportResult& result = step.Value().Value().result;
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"exported", JsonValue::MakeBool(true));
                 out.Set(u8"preset", JsonValue::MakeString(preset->name));

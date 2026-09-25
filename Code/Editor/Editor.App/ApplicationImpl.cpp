@@ -2779,11 +2779,16 @@ namespace editor::app
         editor::mcp::EngineToolPaths paths;
         const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
         editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
-        paths.hostToolDir = GetExecutableDirectory();
-        paths.dataRoot = m_config.dataRoot;
+        m_mcpSession.project = m_project.Get();
+        // The export stages the player from beside this executable and cooks shaders from the
+        // data root - the same two things the stdio host hands its inline operations.
+        m_mcpOperations = MakeUnique<editor::mcp::InlineProjectOperations>(
+            m_editorAllocator, m_mcpSession, m_builders, GetExecutableDirectory(),
+            m_config.dataRoot);
         m_mcpHost = MakeUnique<EditorMcpHost>(
-            m_editorAllocator, m_editorAllocator, *m_project, *m_config.logBuffer, m_builders,
-            m_context.Importers(), paths, String(reinterpret_cast<const char8_t*>(BuildStamp())));
+            m_editorAllocator, m_editorAllocator, m_mcpSession, *m_config.logBuffer, m_builders,
+            m_context.Importers(), paths, *m_mcpOperations,
+            String(reinterpret_cast<const char8_t*>(BuildStamp())));
         m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
         { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };
         EditorMcpHostConfig config;
@@ -2807,6 +2812,8 @@ namespace editor::app
     void EditorApplication::StopMcpHost()
     {
         m_mcpHost = nullptr; // Stop + release; a waiting agent sees its connection close
+        m_mcpOperations = nullptr;
+        m_mcpSession.project = nullptr;
     }
 
     void EditorApplication::CloseProject()

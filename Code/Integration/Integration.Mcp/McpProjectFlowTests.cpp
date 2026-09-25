@@ -210,7 +210,8 @@ namespace
         editor::mcp::RegisterProjectOpenTools(server, session, owner);
         editor::mcp::RegisterProjectInfoTool(server, session);
         editor::mcp::RegisterAssetTools(server, session);
-        editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
+        editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+        editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
 
         CallOk(server, u8"project_create",
                With(With(Obj(), u8"directory", projectDir), u8"name", u8"Write"));

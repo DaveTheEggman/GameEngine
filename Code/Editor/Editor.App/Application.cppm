@@ -27,6 +27,7 @@ import foundation.runtime;
 import foundation.runtime.client;
 import foundation.vfs;    // NativeFileSystem: the editor's mount over the data root
 import engine.defaultapp; // the embedded game application (v3)
+import editor.mcp;        // ProjectSession + the operations the MCP host serves through
 import :mcp_host;         // EditorMcpHost (per project, pumped per frame)
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
@@ -407,7 +408,12 @@ export namespace editor::app
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders{m_editorAllocator}; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
-        UniquePtr<EditorMcpHost> m_mcpHost; // per project: after the services are up, gone before they go
+        // The MCP host and what it serves through, per project: the session points at the open
+        // project, the operations are how this host runs cook / import / export (inline for now:
+        // the editor's own background services take over as they are wired), the host last.
+        editor::mcp::ProjectSession m_mcpSession;
+        UniquePtr<editor::mcp::InlineProjectOperations> m_mcpOperations;
+        UniquePtr<EditorMcpHost> m_mcpHost; // after the services are up, gone before they go
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)
         editor::EditorJobService m_jobService{m_editorAllocator}; // background jobs (export, ...)

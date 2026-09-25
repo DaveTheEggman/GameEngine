@@ -113,7 +113,8 @@ TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versi
         editor::mcp::RegisterProjectOpenTools(server, session, owner);
         editor::mcp::RegisterProjectInfoTool(server, session);
         editor::mcp::RegisterAssetTools(server, session);
-        editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
+        editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+        editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
         JsonValue open = JsonValue::MakeObject();
         open.Set(u8"directory", JsonValue::MakeString(u8"scratch_paperkid_versions"));
         (void)Call(server, u8"project_open", Move(open));

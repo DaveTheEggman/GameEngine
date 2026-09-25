@@ -22,17 +22,18 @@ using foundation::json::JsonValue;
 
 namespace editor::app
 {
-    EditorMcpHost::EditorMcpHost(IAllocator& allocator, editor::EditorProject& project,
+    EditorMcpHost::EditorMcpHost(IAllocator& allocator, editor::mcp::ProjectSession& session,
                                  editor::EditorLogBuffer& logBuffer,
                                  pipeline::BuilderRegistry& builders,
                                  pipeline::ImporterRegistry& importers,
-                                 const editor::mcp::EngineToolPaths& paths, String buildStamp)
-        : m_allocator(&allocator), m_http(allocator, m_server)
+                                 const editor::mcp::EngineToolPaths& paths,
+                                 editor::mcp::IProjectOperations& operations, String buildStamp)
+        : m_allocator(&allocator), m_http(allocator, m_server), m_session(&session)
     {
-        m_session.project = &project;
         // Distinct from the stdio host's "engine-mcp": an agent talking to both tells them apart.
         m_server.SetServerInfo(u8"engine-editor-mcp", u8"0.1.0");
-        editor::mcp::RegisterEngineTools(m_server, m_session, builders, importers, logBuffer, paths);
+        editor::mcp::RegisterEngineTools(m_server, *m_session, builders, importers, logBuffer, paths,
+                                         operations);
         foundation::mcp::RegisterHostInfoTool(
             m_server, Move(buildStamp),
             Function<JsonValue()>{[this]()
@@ -42,10 +43,10 @@ namespace editor::app
                                       host.Set(u8"projectOpen", JsonValue::MakeBool(true));
                                       host.Set(u8"projectName",
                                                JsonValue::MakeString(
-                                                   String(m_session.project->Name())));
+                                                   String(m_session->project->Name())));
                                       host.Set(u8"projectDirectory",
                                                JsonValue::MakeString(
-                                                   String(m_session.project->Directory())));
+                                                   String(m_session->project->Directory())));
                                       return host;
                                   }});
         m_server.SetToolObserver(

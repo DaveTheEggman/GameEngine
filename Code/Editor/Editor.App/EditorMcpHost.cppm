@@ -38,12 +38,15 @@ export namespace editor::app
         /// The token file's name under EditorMcpHostConfig::tokenFileDirectory.
         static constexpr ENGINE_EXPORT_DATA StringView kTokenFileName = u8"mcp-token";
 
-        /// Registers the shared engine surface over `project` and this host's host_info. Every
-        /// reference must outlive the host: the application owns them all for the project's life.
-        EditorMcpHost(IAllocator& allocator, editor::EditorProject& project,
+        /// Registers the shared engine surface over `session` (pointed at the editor's live
+        /// project) and this host's host_info; `operations` is how this host runs the cook /
+        /// import / export behind their tools. Every reference must outlive the host: the
+        /// application owns them all for the project's life.
+        EditorMcpHost(IAllocator& allocator, editor::mcp::ProjectSession& session,
                       editor::EditorLogBuffer& logBuffer, pipeline::BuilderRegistry& builders,
                       pipeline::ImporterRegistry& importers,
-                      const editor::mcp::EngineToolPaths& paths, String buildStamp);
+                      const editor::mcp::EngineToolPaths& paths,
+                      editor::mcp::IProjectOperations& operations, String buildStamp);
         ~EditorMcpHost() { Stop(); }
         EditorMcpHost(const EditorMcpHost&) = delete;
         EditorMcpHost& operator=(const EditorMcpHost&) = delete;
@@ -71,6 +74,6 @@ export namespace editor::app
         IAllocator* m_allocator;
         foundation::mcp::McpServer m_server;
         foundation::mcp::McpHttpHost m_http;
-        editor::mcp::ProjectSession m_session;
+        editor::mcp::ProjectSession* m_session;
     };
 }

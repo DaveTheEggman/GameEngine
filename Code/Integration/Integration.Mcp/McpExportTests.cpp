@@ -75,8 +75,9 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
     editor::mcp::ProjectOwner owner;
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
     editor::mcp::RegisterProjectInfoTool(server, session);
-    editor::mcp::RegisterProjectExportTool(server, session, builders, TestExeDir(),
-                                           foundation::vfs::FindDataRoot());
+    editor::mcp::InlineProjectOperations operations(session, builders, TestExeDir(),
+                                                    foundation::vfs::FindDataRoot());
+    editor::mcp::RegisterProjectExportTool(server, session, operations);
 
     // No project -> guided refusal.
     (void)ExCall(server, u8"project_export", JsonValue::MakeObject(), /*expectOk=*/false);

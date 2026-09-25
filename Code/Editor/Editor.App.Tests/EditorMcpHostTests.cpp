@@ -90,8 +90,11 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::ImporterRegistry importers{DefaultAllocator()};
 
-    app::EditorMcpHost host(DefaultAllocator(), *project, logBuffer, builders, importers,
-                            editor::mcp::EngineToolPaths{}, String(u8"test-stamp"));
+    editor::mcp::ProjectSession session;
+    session.project = project.Get();
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    app::EditorMcpHost host(DefaultAllocator(), session, logBuffer, builders, importers,
+                            editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
     Array<String> finished;
     host.OnToolFinished = [&finished](StringView tool, bool isError)
     { finished.PushBack(Format(u8"{}:{}", tool, isError ? u8"err" : u8"ok")); };
@@ -185,8 +188,11 @@ TEST_CASE("editor-mcp-host: an empty token never serves")
     EditorLogBuffer logBuffer{DefaultAllocator()};
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::ImporterRegistry importers{DefaultAllocator()};
-    app::EditorMcpHost host(DefaultAllocator(), *project, logBuffer, builders, importers,
-                            editor::mcp::EngineToolPaths{}, String(u8"test-stamp"));
+    editor::mcp::ProjectSession session;
+    session.project = project.Get();
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    app::EditorMcpHost host(DefaultAllocator(), session, logBuffer, builders, importers,
+                            editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
     app::EditorMcpHostConfig config; // no token
     CHECK_FALSE(host.Start(config));
     CHECK_FALSE(host.IsRunning());
