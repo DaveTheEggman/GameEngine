@@ -38,6 +38,13 @@ token), or for one run: `Tools.Editor <project> --mcp [--mcp-port <n>]`. The def
   editor (a cook) keeps the call open until it finishes.
 - `project_create` / `project_open` are the stdio host's alone - the editor's project is the
   editor's.
+- The page tools (`page_list` / `page_open` / `page_reload` / `page_close`) are the editor
+  host's alone, and so are the scene page's live tools (`selection_get` / `selection_set` /
+  `simulate_start` / `simulate_stop`, each addressed by the page's asset guid). A
+  `scene_write` / `prefab_write` over an asset the user has open reaches its page at once: a
+  clean page reloads in place, a page with unsaved edits keeps them and warns the user -
+  never write over it again hoping to win; ask, or `page_reload` with `force` only when the
+  user said to discard.
 
 ## The two rules that live here
 

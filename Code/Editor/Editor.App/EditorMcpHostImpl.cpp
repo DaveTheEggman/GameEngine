@@ -36,6 +36,12 @@ namespace editor::app
         editor::mcp::RegisterEngineTools(m_server, *m_session, builders, importers, logBuffer, paths,
                                          operations);
         context.ApplyMcpToolContributions(m_server); // the domains' live tools
+        // An agent's write over a source asset is a change made outside its page, like an
+        // apply-to-prefab: the open pages editing it are told and refresh by their own rule (a
+        // clean page reloads, a dirty one warns and keeps its edits).
+        editor::EditorContext* ctx = &context;
+        m_session->onAssetWritten = [ctx](const Guid& assetId)
+        { (void)ctx->NotifyAssetExternallyModified(assetId); };
         foundation::mcp::RegisterHostInfoTool(
             m_server, Move(buildStamp),
             Function<JsonValue()>{[this]()

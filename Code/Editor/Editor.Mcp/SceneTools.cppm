@@ -400,6 +400,10 @@ export namespace editor::mcp
                     {
                         return Err(String(u8"failed writing the scene stream to disk"));
                     }
+                    if (s->onAssetWritten)
+                    {
+                        s->onAssetWritten(instance->Id());
+                    }
 
                     JsonValue out = detail::ReportToJson(report);
                     out.Set(u8"guid", detail::GuidToJson(instance->Id()));

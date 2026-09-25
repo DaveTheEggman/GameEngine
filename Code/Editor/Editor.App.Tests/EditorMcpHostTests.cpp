@@ -75,6 +75,20 @@ namespace
         return String(StringView(reinterpret_cast<const utf8char*>(bytes.Value().Data()),
                                  bytes.Value().Size()));
     }
+
+    // A page that counts how often its asset changed under it.
+    class WatchingPage final : public EditorPage
+    {
+    public:
+        explicit WatchingPage(const Guid& asset) : EditorPage(DefaultAllocator())
+        {
+            SetInstanceId(asset);
+        }
+        [[nodiscard]] StringView Title() const override { return u8"watching"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        void OnAssetExternallyModified() override { ++told; }
+        u32 told = 0;
+    };
 }
 
 TEST_CASE("editor-mcp-host: serves the engine surface over the live project on loopback, "
@@ -106,6 +120,20 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
         });
     app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders, importers,
                             editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
+    // The host wires a tool's write over a source asset to the open pages editing it, the way
+    // any change made outside a page reaches them.
+    {
+        Random rng(5);
+        const Guid edited = Guid::Generate(rng);
+        auto* page = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+            DefaultAllocator().New<WatchingPage>(edited), DefaultAllocator())));
+        REQUIRE(session.onAssetWritten);
+        session.onAssetWritten(edited);
+        CHECK(page->told == 1u);
+        session.onAssetWritten(Guid::Generate(rng));
+        CHECK(page->told == 1u);
+        context.ClosePage(page);
+    }
     Array<String> finished;
     host.OnToolFinished = [&finished](StringView tool, bool isError)
     { finished.PushBack(Format(u8"{}:{}", tool, isError ? u8"err" : u8"ok")); };

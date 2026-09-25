@@ -165,6 +165,11 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         CHECK(report.Get(u8"warnings").Count() >= 1);
     }
 
+    // Every successful write announces the asset to the host (the editor host tells the open
+    // pages editing it); a refused write announces nothing.
+    Array<Guid> announced;
+    session.onAssetWritten = [&announced](const Guid& id) { announced.PushBack(id); };
+
     // scene_write CREATES a new scene from the XML; the stored stream is byte-identical.
     JsonValue written = CallOk(
         server, u8"scene_write",
@@ -172,6 +177,12 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
              u8"Levels"));
     CHECK(written.Get(u8"written").AsBool() == true);
     const String newGuid(written.Get(u8"guid").AsString());
+    {
+        Guid parsed;
+        REQUIRE(Guid::TryParse(newGuid.AsView(), parsed));
+        REQUIRE(announced.Size() == 1u);
+        CHECK(announced[0] == parsed);
+    }
     JsonValue readBack = CallOk(server, u8"scene_read", With(Obj(), u8"guid", newGuid.AsView()));
     CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // verbatim storage
 
@@ -186,6 +197,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"scene_write",
         With(With(Obj(), u8"xml", u8"<not a scene>"), u8"name", u8"broken"));
     CHECK(garbage.Size() > 0u);
+    CHECK(announced.Size() == 1u); // nothing written, nothing announced
     // (b) a scene guid through the prefab tool redirects.
     const String redirect =
         CallErr(server, u8"prefab_read", With(Obj(), u8"guid", newGuid.AsView()));
@@ -195,6 +207,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"prefab_write",
         With(With(Obj(), u8"xml", seedXml.AsView()), u8"name", u8"goodprefab"));
     CHECK(okPrefab.Get(u8"written").AsBool() == true);
+    CHECK(announced.Size() == 2u); // the prefab write announced too
     // ...and a MULTI-root one is refused with the single-root rule.
     {
         scene::Scene twoRoots(DefaultAllocator(), u8"pair");

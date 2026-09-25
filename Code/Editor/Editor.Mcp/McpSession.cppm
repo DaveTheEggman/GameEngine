@@ -30,6 +30,11 @@ export namespace editor::mcp
     struct ProjectSession
     {
         editor::EditorProject* project = nullptr;
+        /// A tool wrote a source asset (scene_write / prefab_write, created or overwritten): the
+        /// host reacts as it does to any change made outside a page - the editor host tells
+        /// the open pages editing it (EditorContext::NotifyAssetExternallyModified); the stdio
+        /// host has no pages and leaves it unset.
+        Function<void(const Guid&)> onAssetWritten;
     };
 
     // The stdio host's project ownership: project_open stores what it opened here and points
