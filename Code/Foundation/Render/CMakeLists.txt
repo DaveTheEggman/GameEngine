@@ -50,7 +50,6 @@ target_sources(Render
             AoPass.cppm
             MsaaResolvePass.cppm
             PickSystem.cppm
-            PickSystem.cppm
             SsrPass.cppm
         SsgiPass.cppm
             FxaaPass.cppm
