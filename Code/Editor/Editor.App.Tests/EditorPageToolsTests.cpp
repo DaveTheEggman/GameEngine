@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 // Editor::App tests - the page tools over a real EditorContext with a test page factory: the
-// list, opening by guid (and focusing an already-open page), the unsaved-changes refusals of
-// reload and close and the arguments that override them, and the identity every tool returns.
+// list, opening by guid (and focusing an already-open page), the in-place reload through the
+// page's own hook, the unsaved-changes refusals of reload and close and the arguments that
+// override them, and the identity every tool returns.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -41,6 +42,8 @@ namespace
             ClearDirty();
             return Status{};
         }
+        void OnAssetExternallyModified() override { ++reloads; }
+        u32 reloads = 0;
 
     private:
         String m_title;
@@ -175,23 +178,33 @@ TEST_CASE("page-tools: list, open, focus, the dirty refusals of reload and close
     CHECK_FALSE(malformed.ok);
     CHECK(malformed.error.AsView().StartsWith(u8"invalid guid"));
 
-    // A dirty page refuses reload and close; force / discard override, and reload reopens.
-    EditorPage* pageOne = context.ActivePage();
-    pageOne->MarkDirty();
+    // A clean page reloads in place: the same page object, refreshed through its hook, never
+    // closed or recreated.
+    auto* pageOne = static_cast<TestPage*>(context.ActivePage());
     Answer reload = Call(server, u8"page_reload", Format(u8"{{\"guid\":\"{}\"}}", oneGuid.AsView()).AsView());
+    REQUIRE(reload.ok);
+    CHECK(pageOne->reloads == 1u);
+    CHECK(closes == 0u);
+    CHECK(factoryPtr->created == 2u);
+    CHECK(context.ActivePage() == pageOne);
+    // A dirty page refuses reload and close; force discards THEN refreshes, discard drops.
+    pageOne->MarkDirty();
+    reload = Call(server, u8"page_reload", Format(u8"{{\"guid\":\"{}\"}}", oneGuid.AsView()).AsView());
     CHECK_FALSE(reload.ok);
     CHECK(reload.error.AsView().StartsWith(u8"page 'One' has unsaved changes"));
-    CHECK(closes == 0u);
+    CHECK(pageOne->reloads == 1u);
     reload = Call(server, u8"page_reload",
                   Format(u8"{{\"guid\":\"{}\",\"force\":true}}", oneGuid.AsView()).AsView());
     REQUIRE(reload.ok);
-    CHECK(closes == 1u);
-    CHECK(factoryPtr->created == 3u); // closed and reopened
+    CHECK(pageOne->reloads == 2u);
+    CHECK_FALSE(pageOne->IsDirty());
+    CHECK(closes == 0u);
+    CHECK(factoryPtr->created == 2u);
     CHECK_FALSE(reload.payload.Get(u8"dirty").AsBool());
     CHECK(reload.payload.Get(u8"active").AsBool());
     CHECK(context.OpenPages().Size() == 2u);
 
-    context.ActivePage()->MarkDirty();
+    pageOne->MarkDirty();
     Answer close = Call(server, u8"page_close", Format(u8"{{\"guid\":\"{}\"}}", oneGuid.AsView()).AsView());
     CHECK_FALSE(close.ok);
     CHECK(close.error.AsView().StartsWith(u8"page 'One' has unsaved changes"));
@@ -199,7 +212,7 @@ TEST_CASE("page-tools: list, open, focus, the dirty refusals of reload and close
                  Format(u8"{{\"guid\":\"{}\",\"discard\":true}}", oneGuid.AsView()).AsView());
     REQUIRE(close.ok);
     CHECK(close.payload.Get(u8"closed").AsBool());
-    CHECK(closes == 2u);
+    CHECK(closes == 1u);
     CHECK(context.OpenPages().Size() == 1u);
     // Reloading a page that is not open is a refusal that points at the tools to use.
     reload = Call(server, u8"page_reload", Format(u8"{{\"guid\":\"{}\"}}", oneGuid.AsView()).AsView());

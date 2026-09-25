@@ -128,9 +128,9 @@ namespace editor::app
         server.RegisterTool(
             u8"page_reload",
             u8"Reload an open page from its asset's source on disk - after scene_write or "
-            u8"prefab_write changed what the page shows. REFUSED while the page has unsaved "
-            u8"changes unless `force` is true, which discards them. Returns the reopened page's "
-            u8"identity.",
+            u8"prefab_write changed what the page shows. The page stays open and refreshes in "
+            u8"place (its undo history goes). REFUSED while the page has unsaved changes unless "
+            u8"`force` is true, which discards them first. Returns the page's identity.",
             SchemaBuilder()
                 .Str(u8"guid", u8"the open page's asset", true)
                 .Boolean(u8"force", u8"discard the page's unsaved changes (default false)")
@@ -151,20 +151,19 @@ namespace editor::app
                                       u8"page_open opens one)",
                                       args.Get(u8"guid").AsString().AsView()));
                 }
-                if (page->IsDirty() && !args.Get(u8"force").AsBool())
+                if (page->IsDirty())
                 {
-                    return Err(UnsavedChangesRefusal(*page, u8"force"));
+                    if (!args.Get(u8"force").AsBool())
+                    {
+                        return Err(UnsavedChangesRefusal(*page, u8"force"));
+                    }
+                    // The page's own discard, then the refresh a clean page takes: a page
+                    // refreshes only when clean (an apply-to-prefab or a re-import leaves a
+                    // dirty page alone with a warning), so the discard comes first.
+                    page->DiscardChanges();
                 }
-                state->seams.closePage(page);
-                editor::EditorPage* reopened = state->seams.openPage(id.Value());
-                if (reopened == nullptr)
-                {
-                    return Err(Format(u8"the page closed but its asset '{}' could not be reopened "
-                                      u8"(see log_read, category Editor)",
-                                      args.Get(u8"guid").AsString().AsView()));
-                }
-                context.SetActivePage(reopened);
-                return PageIdentity(context, *reopened);
+                page->OnAssetExternallyModified();
+                return PageIdentity(context, *page);
             });
 
         server.RegisterTool(
