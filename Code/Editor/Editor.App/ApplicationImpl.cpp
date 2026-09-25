@@ -2493,8 +2493,8 @@ namespace editor::app
             assets->Rebuild();
             // Result toast: failures are sticky (Console has the log); silent when the
             // cook was a no-op (the watcher fires those constantly).
-            const usize failed = m_cookService.LastFailedCount();
-            const usize cooked = m_cookService.LastCookedCount();
+            const usize failed = m_cookService.LastCookSummary().failed;
+            const usize cooked = m_cookService.LastCookSummary().cooked;
             if (failed > 0)
             {
                 ShowToast(editor::NoticeKind::Error,

@@ -50,6 +50,19 @@ export namespace editor
         Failed
     };
 
+    /// What the most recent cook did: the plan's split (planned = dirty items, upToDate,
+    /// unbuildable) and the build's counts. Valid when OnCookFinished fires, until the next
+    /// cook finishes - the app's result toast and the MCP asset_cook read it.
+    struct CookSummary
+    {
+        usize planned = 0;
+        usize cooked = 0;
+        usize failed = 0;
+        usize orphansSwept = 0;
+        usize upToDate = 0;
+        usize unbuildable = 0;
+    };
+
     class EditorCookService
     {
     public:
@@ -119,10 +132,12 @@ export namespace editor
         /// the next cook finishes). The app hot-reloads these through the ResourceManager.
         [[nodiscard]] Span<const Guid> LastCookedProducts() const noexcept;
 
-        /// Pass/fail counts of the most recent cook (valid when OnCookFinished fires, like
+        /// The most recent cook's counts (valid when OnCookFinished fires, like
         /// LastCookedProducts).
-        [[nodiscard]] usize LastCookedCount() const noexcept { return m_lastCookedCountMain; }
-        [[nodiscard]] usize LastFailedCount() const noexcept { return m_lastFailedCountMain; }
+        [[nodiscard]] const CookSummary& LastCookSummary() const noexcept
+        {
+            return m_lastSummaryMain;
+        }
 
         /// Cheap per-instance cook state for the Assets panel (no recipe recompute).
         [[nodiscard]] CookBadge BadgeFor(foundation::content::Instance& instance);
@@ -153,10 +168,9 @@ export namespace editor
         Array<String> m_queue;
         Array<Guid> m_lastCooked;     // written by the worker under m_queueMutex
         Array<Guid> m_lastCookedMain; // main-thread copy (LastCookedProducts)
-        usize m_lastCookedCount = 0;  // worker-written, under m_queueMutex
-        usize m_lastFailedCount = 0;
-        usize m_lastCookedCountMain = 0; // main-thread copies
-        usize m_lastFailedCountMain = 0;
+        CookSummary m_lastSummary;     // the plan half main-written at StartBuilds, the build
+                                       // half worker-written, both under m_queueMutex
+        CookSummary m_lastSummaryMain; // main-thread copy (LastCookSummary)
         Array<Function<void()>> m_idleQueue; // main-thread deferred mutations (RunWhenIdle)
         bool m_pendingCook = false;          // a RequestCook arrived while cooking
         bool m_pendingForce = false;

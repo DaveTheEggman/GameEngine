@@ -72,6 +72,17 @@ namespace editor
     void EditorCookService::Shutdown()
     {
         JoinWorker();
+        // Quiescent, whatever phase the join cut short: a worker joined mid-plan never reaches
+        // the build that clears m_cooking, and a stuck flag would make the NEXT project's first
+        // request "remembered" forever. The deferred mutations belonged to the closed project.
+        m_cooking.store(false);
+        m_planReady.store(false);
+        m_finishedPending.store(false);
+        m_pendingCook = false;
+        m_pendingForce = false;
+        m_pendingRoots.Clear();
+        m_pendingRootsForce = false;
+        m_idleQueue.Clear();
         m_watcher = nullptr; // owned by the sources mount
         m_driver.Reset();
         m_jobs.Reset();
@@ -170,6 +181,13 @@ namespace editor
         JoinWorker(); // the plan worker has finished (m_planReady was set)
         m_driver->PrepareProducts(m_plan);
         const usize total = m_plan.dirty.Size();
+        {
+            ScopedLock lock(m_queueMutex);
+            m_lastSummary = CookSummary{};
+            m_lastSummary.planned = total;
+            m_lastSummary.upToDate = m_plan.upToDate;
+            m_lastSummary.unbuildable = m_plan.unbuildable;
+        }
         // Zero-work plans run SILENTLY (no "cooking 0 asset(s)" line): page-open and
         // import requests are cheap to make and often find everything already cooked.
         if (total > 0 || !m_plan.orphans.IsEmpty())
@@ -209,8 +227,9 @@ namespace editor
                                           {
                                               ScopedLock lock(self->m_queueMutex);
                                               self->m_lastCooked = Move(stats.cookedProducts);
-                                              self->m_lastCookedCount = stats.cooked;
-                                              self->m_lastFailedCount = stats.failed;
+                                              self->m_lastSummary.cooked = stats.cooked;
+                                              self->m_lastSummary.failed = stats.failed;
+                                              self->m_lastSummary.orphansSwept = stats.orphansSwept;
                                           }
                                           self->m_cooking.store(false);
                                           self->m_finishedPending.store(true);
@@ -249,8 +268,7 @@ namespace editor
             {
                 ScopedLock lock(m_queueMutex);
                 m_lastCookedMain = Move(m_lastCooked);
-                m_lastCookedCountMain = m_lastCookedCount;
-                m_lastFailedCountMain = m_lastFailedCount;
+                m_lastSummaryMain = m_lastSummary;
             }
             if (OnCookFinished)
             {
