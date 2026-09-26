@@ -8,8 +8,12 @@
 // never binds a command of its own; it asks the registry whether an action is enabled or
 // checked and tells it to Execute. The declaration carries what every surface needs to show
 // it and the three bindings that ARE the command: execute, enabled (pulled, never pushed) and
-// checked (a Toggle or Window's state). Actions are nullary: anything that takes a parameter
-// is a tool or a list-driven menu, not an action.
+// checked (a Toggle or Window's state). Actions are nullary from every surface's and the
+// agent's point of view; what they run OVER is a SUBJECT PAGE the surface supplies - the
+// active page for the menu bar, a chord, the palette and the MCP bridge (the registry asks
+// its ActiveSubject), a page's OWN page for that page's toolbar (a split layout shows two
+// pages and only one is active). One rule, whichever surface asks. Anything that takes a
+// real parameter is a tool or a list-driven menu, not an action.
 //
 // Registration is explicit, in the composition roots (the application for the editor-wide
 // set, each domain's Register<Domain>Editor for its own), like pages, creators and the MCP
@@ -18,11 +22,13 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include <type_traits> // std::is_base_of_v (ServiceOf)
 
 export module editor.core:actions;
 
 import foundation.core;
 import foundation.ui;
+import :page;
 
 using namespace foundation::core;
 
@@ -73,10 +79,21 @@ export namespace editor
         /// Changes nothing (the MCP readOnlyHint; runs under a read-only editor).
         bool readOnly = false;
 
-        Function<void()> execute;
-        Function<bool()> enabled; // unset = always enabled
-        Function<bool()> checked; // Toggle / Window only; unset = never checked
+        /// The bindings, over the subject page (null when no page is the subject; an
+        /// editor-wide action ignores it).
+        Function<void(EditorPage*)> execute;
+        Function<bool(EditorPage*)> enabled; // unset = always enabled
+        Function<bool(EditorPage*)> checked; // Toggle / Window only; unset = never checked
     };
+
+    /// The interface `page` publishes, or null when there is no page or it is not that kind:
+    /// what a domain's action binds through ("enabled iff the subject is a scene page").
+    template <typename T>
+        requires std::is_base_of_v<IPageService, T>
+    [[nodiscard]] T* ServiceOf(EditorPage* page) noexcept
+    {
+        return page != nullptr ? page->Service<T>() : nullptr;
+    }
 
     class EditorActionRegistry
     {
@@ -89,6 +106,11 @@ export namespace editor
         /// table) rebuild on it. Subscribers outlive the registry's use of them (they are
         /// the application's surfaces).
         foundation::ui::Event<void()> OnActionsChanged;
+
+        /// The subject the nullary calls run over: the context wires it to its active page.
+        /// Unset (a bare registry) = no subject.
+        Function<EditorPage*()> ActiveSubject;
+        [[nodiscard]] EditorPage* Subject() const { return ActiveSubject ? ActiveSubject() : nullptr; }
 
         /// Register a declaration. Refused (false, logged) when the id or label is empty, when
         /// execute is unset, or when the id is already registered - each a mistake in a
@@ -141,41 +163,45 @@ export namespace editor
 
         /// Unknown ids are disabled and unchecked: a surface asking about a name nobody
         /// registered shows nothing runnable.
-        [[nodiscard]] bool IsEnabled(StringView id) const
+        [[nodiscard]] bool IsEnabled(StringView id) const { return IsEnabled(id, Subject()); }
+        [[nodiscard]] bool IsEnabled(StringView id, EditorPage* subject) const
         {
             const EditorActionDeclaration* action = Find(id);
-            return action != nullptr && IsEnabled(*action);
+            return action != nullptr && IsEnabled(*action, subject);
         }
-        [[nodiscard]] static bool IsEnabled(const EditorActionDeclaration& action)
+        [[nodiscard]] static bool IsEnabled(const EditorActionDeclaration& action, EditorPage* subject)
         {
-            return !action.enabled || action.enabled();
+            return !action.enabled || action.enabled(subject);
         }
-        [[nodiscard]] bool IsChecked(StringView id) const
+        [[nodiscard]] bool IsChecked(StringView id) const { return IsChecked(id, Subject()); }
+        [[nodiscard]] bool IsChecked(StringView id, EditorPage* subject) const
         {
             const EditorActionDeclaration* action = Find(id);
-            return action != nullptr && IsChecked(*action);
+            return action != nullptr && IsChecked(*action, subject);
         }
-        [[nodiscard]] static bool IsChecked(const EditorActionDeclaration& action)
+        [[nodiscard]] static bool IsChecked(const EditorActionDeclaration& action, EditorPage* subject)
         {
-            return static_cast<bool>(action.checked) && action.checked();
+            return static_cast<bool>(action.checked) && action.checked(subject);
         }
 
         /// The one funnel: a menu click, a chord, a toolbar click, the palette and the MCP
-        /// bridge all execute through here. NotFound for an unknown id; NotSupported when the
-        /// action is not enabled (the surfaces never offer a disabled action, so this is the
-        /// bridge's refusal); Ok once execute ran.
-        [[nodiscard]] Status Execute(StringView id) const
+        /// bridge all execute through here, over the active subject or the page a surface
+        /// names. NotFound for an unknown id; NotSupported when the action is not enabled over
+        /// that subject (the surfaces never offer a disabled action, so this is the bridge's
+        /// refusal); Ok once execute ran.
+        [[nodiscard]] Status Execute(StringView id) const { return Execute(id, Subject()); }
+        [[nodiscard]] Status Execute(StringView id, EditorPage* subject) const
         {
             const EditorActionDeclaration* action = Find(id);
             if (action == nullptr)
             {
                 return Status{ErrorCode::NotFound};
             }
-            if (!IsEnabled(*action))
+            if (!IsEnabled(*action, subject))
             {
                 return Status{ErrorCode::NotSupported};
             }
-            action->execute();
+            action->execute(subject);
             return Status{};
         }
 

@@ -289,7 +289,7 @@ TEST_CASE("editor-context: adopted instance-less pages share the ownership flow"
     CHECK(context.OpenPages().Size() == 0);
 }
 
-TEST_CASE("editor-context: undo/redo routes to the active page")
+TEST_CASE("editor-context: a page owns its command stack, and the active page is the one Edit acts on")
 {
     RegisterTestTypes();
 
@@ -302,8 +302,7 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     REQUIRE(a != nullptr);
 
     EditorContext ctx{DefaultAllocator()};
-    CHECK(!ctx.CanUndo()); // no active page
-    ctx.Undo();            // safe no-op
+    CHECK(ctx.ActivePage() == nullptr); // no active page: nothing to undo anywhere
 
     ctx.Pages().Register(MakeFactory(BaseAsset::StaticType(), u8"base"));
     EditorPage* page = ctx.OpenPage(*a);
@@ -332,11 +331,14 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     CHECK(flag);
     CHECK(page->IsDirty()); // command execution marks the page dirty
 
-    CHECK(ctx.CanUndo());
-    ctx.Undo();
+    // Edit > Undo / Redo are the edit.undo / edit.redo actions over the active page's stack
+    // (the application declares them); the page owns the stack.
+    REQUIRE(ctx.ActivePage() == page);
+    CHECK(page->Commands().CanUndo());
+    page->Commands().Undo();
     CHECK(!flag);
-    CHECK(ctx.CanRedo());
-    ctx.Redo();
+    CHECK(page->Commands().CanRedo());
+    page->Commands().Redo();
     CHECK(flag);
 
     CHECK(page->Save().IsOk());

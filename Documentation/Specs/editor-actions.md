@@ -185,6 +185,16 @@ struct EditorActionDeclaration
     `action_state(id)`, `action_execute(id)` - refused when disabled, `readOnly` mapped to
     the tool hint; `action_execute` runs under the unattended scope and reports the dialogs
     it suppressed (ezEngine's contract). One generic bridge, the whole surface.
+- **A subject page.** An action is nullary to every surface and to the agent, but it runs
+  OVER a page the surface supplies: the active page for the menu bar, a chord, the palette
+  and the MCP bridge (the registry's `ActiveSubject`, wired by the context), and a page's
+  OWN page for that page's toolbar - a split layout shows two pages and only one is active,
+  and the toolbar inside the other must act on and report about its own page. So the three
+  bindings take `EditorPage*` (`enabled`, `checked`, `execute`; an editor-wide action ignores
+  it), `ServiceOf<T>(page)` is how a domain action reaches the interface the subject
+  publishes, and the registry answers `IsEnabled(id)` / `Execute(id)` over the active subject
+  or `IsEnabled(id, page)` / `Execute(id, page)` over a named one. One rule, whichever surface
+  asks (found while building the toolbar layer).
 - **Not in the declaration.** Enabled/checked are PULLED (menus on open, toolbars per frame,
   MCP on call) - no state-change events. Execution is a direct call on the main thread -
   no request flag (Lumix's exists for polling owners). Undo stays where it is: a mutating
@@ -198,8 +208,8 @@ struct EditorActionDeclaration
 2. The application's editor-wide actions registered in its composition root, and the menu
    bar plus the global shortcuts GENERATED from the registry - ApplicationImpl's 25 items and
    4 shortcuts become declarations; a test proves the generated menu matches the declarations.
-3. `PageToolbar` as action ids; the standard page set (save / undo / redo / discard) as
-   declarations over the active page.
+3. `PageToolbar` as action ids over ITS page; the standard page set (file.save / edit.undo /
+   edit.redo / page.discardChanges) as declarations over the subject page.
 4. The scene editor's actions in `RegisterSceneEditor` (simulate, gizmo toggles, markers,
    hierarchy entity actions over the selection); the hierarchy context menu built from them.
 5. The MCP bridge (`action_list / action_state / action_execute`) and the unattended scope

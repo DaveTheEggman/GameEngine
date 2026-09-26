@@ -80,30 +80,29 @@ TEST_CASE("actions: declarations bind through the active page and its published 
     u32 exits = 0;
     EditorActionDeclaration exit = Declare(u8"file.exit", u8"Exit");
     exit.menuPath = String(u8"File/Exit");
-    exit.execute = [&exits]() { ++exits; };
+    exit.execute = [&exits](EditorPage*) { ++exits; };
     REQUIRE(actions.Register(Move(exit)));
 
-    // Over the active page: enabled while it is dirty, executes its Save.
-    EditorContext* ctx = &context;
+    // Over the subject page: enabled while it is dirty, executes its Save.
     EditorActionDeclaration save = Declare(u8"page.save", u8"Save");
     save.shortcut = CtrlS;
-    save.enabled = [ctx]() { return ctx->ActivePage() != nullptr && ctx->ActivePage()->IsDirty(); };
-    save.execute = [ctx]() { (void)ctx->ActivePage()->Save(); };
+    save.enabled = [](EditorPage* page) { return page != nullptr && page->IsDirty(); };
+    save.execute = [](EditorPage* page) { (void)page->Save(); };
     REQUIRE(actions.Register(Move(save)));
 
-    // Over the interface the active page publishes: a Toggle whose checked state is the run.
+    // Over the interface the subject page publishes: a Toggle whose checked state is the run.
     EditorActionDeclaration simulate = Declare(u8"sim.run", u8"Simulate");
     simulate.kind = EditorActionKind::Toggle;
     simulate.shortcut = F5;
-    simulate.enabled = [ctx]() { return ctx->ActivePageService<ISimulating>() != nullptr; };
-    simulate.checked = [ctx]()
+    simulate.enabled = [](EditorPage* page) { return ServiceOf<ISimulating>(page) != nullptr; };
+    simulate.checked = [](EditorPage* page)
     {
-        ISimulating* sim = ctx->ActivePageService<ISimulating>();
+        ISimulating* sim = ServiceOf<ISimulating>(page);
         return sim != nullptr && sim->Running();
     };
-    simulate.execute = [ctx]()
+    simulate.execute = [](EditorPage* page)
     {
-        ISimulating* sim = ctx->ActivePageService<ISimulating>();
+        ISimulating* sim = ServiceOf<ISimulating>(page);
         if (sim->Running())
         {
             sim->Stop();
@@ -158,9 +157,32 @@ TEST_CASE("actions: declarations bind through the active page and its published 
     CHECK(actions.Execute(u8"sim.run").IsOk());
     CHECK_FALSE(sim->running);
     CHECK_FALSE(actions.IsChecked(u8"file.exit")); // a Command is never checked
-    // Back on the plain page, the toggle is out of reach again.
+    // Back on the plain page, the toggle is out of reach again through the active subject;
+    // a surface that names the sim page as its subject still reaches it (a page's own
+    // toolbar in a split layout), and a named subject answers about ITSELF.
     context.SetActivePage(plain);
     CHECK_FALSE(actions.IsEnabled(u8"sim.run"));
+    CHECK(actions.IsEnabled(u8"sim.run", sim));
+    CHECK(actions.Execute(u8"sim.run", sim).IsOk());
+    CHECK(sim->running);
+    CHECK(actions.IsChecked(u8"sim.run", sim));
+    CHECK_FALSE(actions.IsChecked(u8"sim.run")); // the active subject is the plain page
+    CHECK(actions.Execute(u8"page.save", plain).Code() == ErrorCode::NotSupported); // clean
+    plain->MarkDirty();
+    context.SetActivePage(sim);
+    CHECK_FALSE(actions.IsEnabled(u8"page.save"));  // the active sim page is clean
+    CHECK(actions.IsEnabled(u8"page.save", plain)); // the named plain page is dirty
+    CHECK(actions.Execute(u8"page.save", plain).IsOk());
+    CHECK(plain->saves == 2u);
+    // A bare registry has no subject: page-bound actions see null.
+    EditorActionRegistry bare;
+    EditorActionDeclaration needsPage = Declare(u8"needs.page", u8"Needs a page");
+    needsPage.enabled = [](EditorPage* page) { return page != nullptr; };
+    needsPage.execute = [](EditorPage*) {};
+    REQUIRE(bare.Register(Move(needsPage)));
+    CHECK(bare.Subject() == nullptr);
+    CHECK_FALSE(bare.IsEnabled(u8"needs.page"));
+    CHECK(bare.IsEnabled(u8"needs.page", plain));
 
     context.ClosePage(sim);
     context.ClosePage(plain);
@@ -173,15 +195,15 @@ TEST_CASE("actions: the shortcut table - the default chord, the user's override,
     EditorActionRegistry& actions = context.Actions();
     EditorActionDeclaration save = Declare(u8"page.save", u8"Save");
     save.shortcut = CtrlS;
-    save.execute = []() {};
+    save.execute = [](EditorPage*) {};
     REQUIRE(actions.Register(Move(save)));
     EditorActionDeclaration run = Declare(u8"sim.run", u8"Simulate");
     run.shortcut = F5;
     run.alternateShortcut = EditorShortcut{ui::KeyCode::F6, ui::KeyModifiers::None};
-    run.execute = []() {};
+    run.execute = [](EditorPage*) {};
     REQUIRE(actions.Register(Move(run)));
     EditorActionDeclaration bare = Declare(u8"view.reset", u8"Reset Layout"); // no chord
-    bare.execute = []() {};
+    bare.execute = [](EditorPage*) {};
     REQUIRE(actions.Register(Move(bare)));
     u32 changes = 0;
     actions.OnActionsChanged.Add([&changes]() { ++changes; });
@@ -242,10 +264,10 @@ TEST_CASE("actions: a registration without an id, a label or execute is refused,
 {
     EditorActionRegistry actions;
     EditorActionDeclaration noId = Declare(u8"", u8"Nameless");
-    noId.execute = []() {};
+    noId.execute = [](EditorPage*) {};
     CHECK_FALSE(actions.Register(Move(noId)));
     EditorActionDeclaration noLabel = Declare(u8"x.y", u8"");
-    noLabel.execute = []() {};
+    noLabel.execute = [](EditorPage*) {};
     CHECK_FALSE(actions.Register(Move(noLabel)));
     CHECK_FALSE(actions.Register(Declare(u8"x.y", u8"No body"))); // execute unset
     CHECK(actions.Count() == 0u);
@@ -253,9 +275,9 @@ TEST_CASE("actions: a registration without an id, a label or execute is refused,
     u32 first = 0;
     u32 second = 0;
     EditorActionDeclaration a = Declare(u8"x.y", u8"First");
-    a.execute = [&first]() { ++first; };
+    a.execute = [&first](EditorPage*) { ++first; };
     EditorActionDeclaration b = Declare(u8"x.y", u8"Second");
-    b.execute = [&second]() { ++second; };
+    b.execute = [&second](EditorPage*) { ++second; };
     REQUIRE(actions.Register(Move(a)));
     CHECK_FALSE(actions.Register(Move(b)));
     CHECK(actions.Count() == 1u);

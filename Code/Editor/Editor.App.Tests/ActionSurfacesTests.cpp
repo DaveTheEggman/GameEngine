@@ -29,7 +29,7 @@ namespace
         d.label = String(label);
         d.menuPath = String(menuPath);
         d.menuOrder = order;
-        d.execute = []() {};
+        d.execute = [](EditorPage*) {};
         return d;
     }
     String Labels(const ui::ContextMenu& menu)
@@ -60,8 +60,8 @@ TEST_CASE("action-menus: the bar is generated from the registry - menus in first
     u32 saves = 0;
     bool dirty = false;
     EditorActionDeclaration save = Declare(u8"file.save", u8"Save", u8"File/Save", 100);
-    save.enabled = [&dirty]() { return dirty; };
-    save.execute = [&saves]() { ++saves; };
+    save.enabled = [&dirty](EditorPage*) { return dirty; };
+    save.execute = [&saves](EditorPage*) { ++saves; };
     REQUIRE(actions.Register(Move(save)));
     REQUIRE(actions.Register(Declare(u8"file.exit", u8"Exit", u8"File/Exit", 300)));
     REQUIRE(actions.Register(Declare(u8"edit.undo", u8"Undo", u8"Edit/Undo", 100)));
@@ -131,12 +131,12 @@ TEST_CASE("action-shortcuts: one global per effective chord and alternate, execu
     u32 redos = 0;
     EditorActionDeclaration save = Declare(u8"file.save", u8"Save", u8"File/Save", 100);
     save.shortcut = EditorShortcut{ui::KeyCode::S, ui::KeyModifiers::Ctrl};
-    save.execute = [&saves]() { ++saves; };
+    save.execute = [&saves](EditorPage*) { ++saves; };
     REQUIRE(actions.Register(Move(save)));
     EditorActionDeclaration redo = Declare(u8"edit.redo", u8"Redo", u8"Edit/Redo", 101);
     redo.shortcut = EditorShortcut{ui::KeyCode::Z, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift};
     redo.alternateShortcut = EditorShortcut{ui::KeyCode::Y, ui::KeyModifiers::Ctrl};
-    redo.execute = [&redos]() { ++redos; };
+    redo.execute = [&redos](EditorPage*) { ++redos; };
     REQUIRE(actions.Register(Move(redo)));
     REQUIRE(actions.Register(Declare(u8"view.reset", u8"Reset Layout", u8"View/Reset Layout", 100)));
 
@@ -164,7 +164,7 @@ TEST_CASE("action-shortcuts: one global per effective chord and alternate, execu
     EditorActionDeclaration run = Declare(u8"sim.run", u8"Simulate", u8"", 0);
     run.shortcut = EditorShortcut{ui::KeyCode::F5, ui::KeyModifiers::None};
     u32 runs = 0;
-    run.execute = [&runs]() { ++runs; };
+    run.execute = [&runs](EditorPage*) { ++runs; };
     REQUIRE(actions.Register(Move(run)));
     CHECK(shortcuts.BoundCount() == 3u);
     CHECK(ctx.GetShortcuts()->TryDispatch(ui::KeyCode::F5, ui::KeyModifiers::None));

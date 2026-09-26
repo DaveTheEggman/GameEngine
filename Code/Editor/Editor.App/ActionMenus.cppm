@@ -177,7 +177,7 @@ export namespace editor::app
                 const EditorActionRegistry* actions = m_actions;
                 const String id = action.id;
                 menu.AddItem(head, [actions, id]() { (void)actions->Execute(id.AsView()); },
-                             EditorActionRegistry::IsEnabled(action));
+                             m_actions->IsEnabled(action.id.AsView()));
                 return;
             }
             foundation::ui::ContextMenu* submenu = nullptr;

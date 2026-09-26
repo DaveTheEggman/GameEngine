@@ -11,7 +11,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <type_traits> // std::is_base_of_v (ActivePageService)
 
 export module editor.core:context;
 
@@ -85,6 +84,9 @@ export namespace editor
         explicit EditorContext(IAllocator& allocator) noexcept
             : m_allocator(&allocator), m_importers(allocator)
         {
+            // The nullary action calls (menus, chords, the palette, the MCP bridge) run over
+            // the active page; a page's own toolbar names its page instead.
+            m_actions.ActiveSubject = [this]() { return m_activePage; };
         }
 
         [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
@@ -317,15 +319,6 @@ export namespace editor
         [[nodiscard]] EditorActionRegistry& Actions() noexcept { return m_actions; }
         [[nodiscard]] const EditorActionRegistry& Actions() const noexcept { return m_actions; }
 
-        /// The interface the active page publishes, or null when no page is active or the
-        /// active page is not that kind: the context an action binds through ("enabled iff
-        /// the active page is a scene page", then act on it).
-        template <typename T>
-            requires std::is_base_of_v<IPageService, T>
-        [[nodiscard]] T* ActivePageService() const noexcept
-        {
-            return m_activePage != nullptr ? m_activePage->Service<T>() : nullptr;
-        }
 
         /// Asset creators (File > New <label>): create a fresh source instance in the project DB.
         /// Registered by per-subsystem editor modules; the shell builds menu items from them.
@@ -389,13 +382,6 @@ export namespace editor
 
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
         void SetActivePage(EditorPage* page);
-
-        // === Edit routing (menu Edit>Undo/Redo -> the active page's stack) ===
-
-        [[nodiscard]] bool CanUndo() const;
-        [[nodiscard]] bool CanRedo() const;
-        void Undo();
-        void Redo();
 
         // === Selection ===
 

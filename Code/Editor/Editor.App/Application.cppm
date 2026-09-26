@@ -201,7 +201,9 @@ export namespace editor::app
         // settings save (a changed default takes effect without a reopen).
         void ApplyProjectUiDefaults();
 
-        void SaveActivePage();
+        /// Save `subject` (the action file.save over its subject page) and flush the pending
+        /// asset edits; the outcome as a notice.
+        void SavePage(editor::EditorPage& subject);
         void FlushPendingAssetEdits(); // drain tool-registered live asset edits to source + recook
 
         void ClosePage(UIEditorPage* page);
@@ -325,7 +327,7 @@ export namespace editor::app
         // Save As: write the page's CURRENT content to a NEW asset beside the original and
         // rebind the page to it. The original keeps its on-disk state - the escape hatch when
         // an asset changed under a dirty page (apply-to-prefab) and both versions matter.
-        void SaveActivePageAs();
+        void SavePageAs(editor::EditorPage& subject);
 
         void ShowDirtyCloseDialog(UIEditorPage* page, ui::toolkit::DockablePanel* panel);
 

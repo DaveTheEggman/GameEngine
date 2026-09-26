@@ -300,32 +300,6 @@ namespace editor
         NotifyPagesChanged();
     }
 
-    bool EditorContext::CanUndo() const
-    {
-        return m_activePage != nullptr && m_activePage->Commands().CanUndo();
-    }
-
-    bool EditorContext::CanRedo() const
-    {
-        return m_activePage != nullptr && m_activePage->Commands().CanRedo();
-    }
-
-    void EditorContext::Undo()
-    {
-        if (m_activePage != nullptr)
-        {
-            m_activePage->Commands().Undo();
-        }
-    }
-
-    void EditorContext::Redo()
-    {
-        if (m_activePage != nullptr)
-        {
-            m_activePage->Commands().Redo();
-        }
-    }
-
     Selection<const foundation::content::Instance*>& EditorContext::AssetSelection() noexcept
     {
         return m_assetSelection;

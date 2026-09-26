@@ -639,13 +639,9 @@ namespace editor::app
         (void)m_toastHost->Show(Move(request));
     }
 
-    void EditorApplication::SaveActivePage()
+    void EditorApplication::SavePage(editor::EditorPage& subject)
     {
-        auto* page = m_context.ActivePage();
-        if (page == nullptr)
-        {
-            return;
-        }
+        auto* page = &subject;
         if (page->Save().IsOk())
         {
             String message(u8"Saved '");
@@ -1974,10 +1970,10 @@ namespace editor::app
         dialog->Show(&m_uiHost->Context());
     }
 
-    void EditorApplication::SaveActivePageAs()
+    void EditorApplication::SavePageAs(editor::EditorPage& subject)
     {
-        editor::EditorPage* page = m_context.ActivePage();
-        if (page == nullptr || m_project.Get() == nullptr || m_uiHost.Get() == nullptr)
+        editor::EditorPage* page = &subject;
+        if (m_project.Get() == nullptr || m_uiHost.Get() == nullptr)
         {
             return;
         }
@@ -3236,19 +3232,18 @@ namespace editor::app
             EditorActionDeclaration d =
                 Declare(u8"file.save", u8"Save", u8"Save the active page to its source asset",
                         u8"File/Save", 100);
-            d.enabled = [this]()
-            { return m_context.ActivePage() != nullptr && m_context.ActivePage()->IsDirty(); };
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->IsDirty(); };
             d.shortcut =
                 EditorShortcut{foundation::ui::KeyCode::S, foundation::ui::KeyModifiers::Ctrl};
-            d.execute = [this]() { SaveActivePage(); };
+            d.execute = [this](editor::EditorPage* page) { SavePage(*page); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"file.saveAs", u8"Save As...",
                         u8"Save the active page as a new source asset", u8"File/Save As...", 101);
-            d.enabled = [this]() { return m_context.ActivePage() != nullptr; };
-            d.execute = [this]() { SaveActivePageAs(); };
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr; };
+            d.execute = [this](editor::EditorPage* page) { SavePageAs(*page); };
             (void)actions.Register(Move(d));
         }
         {
@@ -3256,7 +3251,7 @@ namespace editor::app
                 Declare(u8"file.saveLayout", u8"Save Layout",
                         u8"Save the panel layout as the default for this editor",
                         u8"File/Save Layout", 200);
-            d.execute = [this]()
+            d.execute = [this](editor::EditorPage*)
             {
                 SaveLayout();
                 m_context.SetStatus(u8"Layout saved.");
@@ -3272,14 +3267,14 @@ namespace editor::app
                     Declare(u8"file.closeProject", u8"Close Project",
                             u8"Close the project and return to the project manager",
                             u8"File/Close Project", 300);
-                d.execute = [this]() { ConfirmCloseProjectThen(); };
+                d.execute = [this](editor::EditorPage*) { ConfirmCloseProjectThen(); };
                 (void)actions.Register(Move(d));
             }
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"file.exit", u8"Exit", u8"Exit the editor", u8"File/Exit", 301);
-            d.execute = [this]()
+            d.execute = [this](editor::EditorPage*)
             {
                 if (m_host != nullptr && ConfirmExitAllowed())
                 {
@@ -3292,30 +3287,37 @@ namespace editor::app
             EditorActionDeclaration d =
                 Declare(u8"edit.undo", u8"Undo", u8"Undo the active page's last edit",
                         u8"Edit/Undo", 100);
-            d.enabled = [this]() { return m_context.CanUndo(); };
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->Commands().CanUndo(); };
             d.shortcut =
                 EditorShortcut{foundation::ui::KeyCode::Z, foundation::ui::KeyModifiers::Ctrl};
-            d.execute = [this]() { m_context.Undo(); };
+            d.execute = [](editor::EditorPage* page) { page->Commands().Undo(); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"edit.redo", u8"Redo", u8"Redo the active page's last undone edit",
                         u8"Edit/Redo", 101);
-            d.enabled = [this]() { return m_context.CanRedo(); };
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->Commands().CanRedo(); };
             d.shortcut = EditorShortcut{foundation::ui::KeyCode::Z,
                                     foundation::ui::KeyModifiers::Ctrl |
                                         foundation::ui::KeyModifiers::Shift};
             d.alternateShortcut =
                 EditorShortcut{foundation::ui::KeyCode::Y, foundation::ui::KeyModifiers::Ctrl};
-            d.execute = [this]() { m_context.Redo(); };
+            d.execute = [](editor::EditorPage* page) { page->Commands().Redo(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d = Declare(u8"page.discardChanges", u8"Discard Changes",
+                                                u8"Revert the page's unsaved edits", u8"", 0);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->IsDirty(); };
+            d.execute = [](editor::EditorPage* page) { page->DiscardChanges(); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"edit.preferences", u8"Preferences...",
                         u8"Open the per-user editor preferences", u8"Edit/Preferences...", 200);
-            d.execute = [this]()
+            d.execute = [this](editor::EditorPage*)
             {
                 auto dialog = MakeRef<EditorPreferencesDialog>(
                     m_editorAllocator, m_context, m_editorSettings);
@@ -3342,8 +3344,8 @@ namespace editor::app
             EditorActionDeclaration d =
                 Declare(u8"project.settings", u8"Project Settings...",
                         u8"Open the project settings", u8"Project/Project Settings...", 100);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]()
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
             {
                 if (m_project)
                 {
@@ -3359,8 +3361,8 @@ namespace editor::app
                 Declare(u8"project.addNativeCode", u8"Add Native Code...",
                         u8"Scaffold a native code module under Native/",
                         u8"Project/Add Native Code...", 200);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]()
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
             {
                 if (!m_project)
                 {
@@ -3406,8 +3408,8 @@ namespace editor::app
                 Declare(u8"project.buildNativeModule", u8"Build Native Module",
                         u8"Build the project's native module on the job service",
                         u8"Project/Build Native Module", 201);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]()
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
             {
                 if (!m_project || m_project->Settings().nativeModule.IsEmpty())
                 {
@@ -3446,23 +3448,23 @@ namespace editor::app
                 Declare(u8"project.reloadNativeModule", u8"Reload Native Module",
                         u8"Reload the project's built native module",
                         u8"Project/Reload Native Module", 202);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { ReloadNativeModule(); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { ReloadNativeModule(); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"project.export", u8"Export...", u8"Open the export presets panel",
                         u8"Project/Export...", 300);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { OpenExportPresetsPanel(); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenExportPresetsPanel(); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"project.manageTemplates", u8"Manage Templates...",
                         u8"Manage the export templates", u8"Project/Manage Templates...", 301);
-            d.execute = [this]() { OpenTemplatesManager(); };
+            d.execute = [this](editor::EditorPage*) { OpenTemplatesManager(); };
             (void)actions.Register(Move(d));
         }
         {
@@ -3471,7 +3473,7 @@ namespace editor::app
                         u8"Log the resident resources by type (unreferenced = purge candidates)",
                         u8"Project/Report Resource Memory", 400);
             d.readOnly = true;
-            d.execute = [this]() { ReportResourceMemory(); };
+            d.execute = [this](editor::EditorPage*) { ReportResourceMemory(); };
             (void)actions.Register(Move(d));
         }
         {
@@ -3479,39 +3481,39 @@ namespace editor::app
                 Declare(u8"build.cookAll", u8"Cook All",
                         u8"Cook the dirty assets into the cooked database", u8"Build/Cook All",
                         100);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { m_cookService.RequestCook(false); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { m_cookService.RequestCook(false); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"build.rebuildAll", u8"Rebuild All", u8"Cook every asset again",
                         u8"Build/Rebuild All", 101);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { m_cookService.RequestCook(true); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { m_cookService.RequestCook(true); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"game.play", u8"Play", u8"Play the project in the Game page",
                         u8"Game/Play", 100);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { OpenGamePage(false); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenGamePage(false); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"game.playNewInstance", u8"Play New Instance",
                         u8"Play the project in a fresh Game page", u8"Game/Play New Instance", 101);
-            d.enabled = [this]() { return static_cast<bool>(m_project); };
-            d.execute = [this]() { OpenGamePage(true); };
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenGamePage(true); };
             (void)actions.Register(Move(d));
         }
         {
             EditorActionDeclaration d =
                 Declare(u8"view.resetLayout", u8"Reset Layout",
                         u8"Reset the panel layout to the default", u8"View/Reset Layout", 100);
-            d.execute = [this]()
+            d.execute = [this](editor::EditorPage*)
             {
                 m_shell.ResetLayout();
                 m_context.SetStatus(u8"Layout reset to default.");
@@ -3522,7 +3524,7 @@ namespace editor::app
             EditorActionDeclaration d =
                 Declare(u8"help.about", u8"About", u8"The editor's version", u8"Help/About", 100);
             d.readOnly = true;
-            d.execute = [this]()
+            d.execute = [this](editor::EditorPage*)
             {
                 RefPtr<ui::Dialog> dialog = MakeRef<ui::Dialog>(
                     m_editorAllocator, StringView(u8"About Editor"));
