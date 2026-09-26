@@ -157,7 +157,7 @@ namespace editor
             const TypeInfo& type = *value.Type();
             if (IsReferenceType(type))
             {
-                const Guid* id = type.referenceId(value.ValuePointer());
+                const Guid* id = type.reference->Id(value.ValuePointer());
                 return (id != nullptr && !id->IsNil()) ? GuidJson(*id) : JsonValue::MakeNull();
             }
             if (type.enumeratorCount > 0)
@@ -375,6 +375,215 @@ namespace editor
             return out;
         }
 
+
+        // === component_set: one property, one locked undo step, through the edit context ===
+
+        /// The manager holding `component` for the entity: by serialization id ("light",
+        /// "physics.RigidBody") or by the reflected type's name ("LightComponent").
+        scene::ComponentManagerBase* FindComponentManager(scene::Scene& scene,
+                                                          scene::EntityHandle entity,
+                                                          StringView component)
+        {
+            scene::ComponentManagerBase* found = nullptr;
+            scene.ForEachManager(
+                [&](scene::ComponentManagerBase& manager)
+                {
+                    if (found != nullptr || !manager.HasComponent(entity))
+                    {
+                        return;
+                    }
+                    const TypeInfo* type = manager.ComponentType();
+                    if (manager.SerializationTypeId() == component ||
+                        (type != nullptr &&
+                         StringView(reinterpret_cast<const utf8char*>(type->name)) == component))
+                    {
+                        found = &manager;
+                    }
+                });
+            return found;
+        }
+
+        /// A JSON value as the Variant a leaf property of `type` takes; empty when the JSON
+        /// has the wrong shape (the refusal names the type).
+        Variant LeafVariant(const TypeInfo& type, const JsonValue& value)
+        {
+            const auto number = [&](auto make) -> Variant
+            { return value.IsNumber() ? make(value.AsNumber()) : Variant{}; };
+            if (&type == &TypeOf<bool>())
+            {
+                return value.IsBool() ? Variant::From<bool>(value.AsBool()) : Variant{};
+            }
+            if (&type == &TypeOf<f32>())
+            {
+                return number([](f64 n) { return Variant::From<f32>(static_cast<f32>(n)); });
+            }
+            if (&type == &TypeOf<f64>())
+            {
+                return number([](f64 n) { return Variant::From<f64>(n); });
+            }
+            if (&type == &TypeOf<i32>())
+            {
+                return number([](f64 n) { return Variant::From<i32>(static_cast<i32>(n)); });
+            }
+            if (&type == &TypeOf<u32>())
+            {
+                return number([](f64 n) { return Variant::From<u32>(static_cast<u32>(n)); });
+            }
+            if (&type == &TypeOf<i64>())
+            {
+                return number([](f64 n) { return Variant::From<i64>(static_cast<i64>(n)); });
+            }
+            if (&type == &TypeOf<u64>())
+            {
+                return number([](f64 n) { return Variant::From<u64>(static_cast<u64>(n)); });
+            }
+            if (&type == &TypeOf<i16>())
+            {
+                return number([](f64 n) { return Variant::From<i16>(static_cast<i16>(n)); });
+            }
+            if (&type == &TypeOf<u16>())
+            {
+                return number([](f64 n) { return Variant::From<u16>(static_cast<u16>(n)); });
+            }
+            if (&type == &TypeOf<i8>())
+            {
+                return number([](f64 n) { return Variant::From<i8>(static_cast<i8>(n)); });
+            }
+            if (&type == &TypeOf<u8>())
+            {
+                return number([](f64 n) { return Variant::From<u8>(static_cast<u8>(n)); });
+            }
+            if (&type == &TypeOf<String>())
+            {
+                return value.IsString() ? Variant::From<String>(value.AsString()) : Variant{};
+            }
+            if (&type == &TypeOf<Guid>())
+            {
+                Guid id;
+                return (value.IsString() && Guid::TryParse(value.AsString().AsView(), id))
+                           ? Variant::From<Guid>(id)
+                           : Variant{};
+            }
+            const auto component = [&](usize i) -> f32
+            { return static_cast<f32>(value.At(static_cast<i32>(i)).AsNumber()); };
+            const auto numbers = [&](usize count)
+            {
+                if (!value.IsArray() || static_cast<usize>(value.Count()) != count)
+                {
+                    return false;
+                }
+                for (usize i = 0; i < count; ++i)
+                {
+                    if (!value.At(static_cast<i32>(i)).IsNumber())
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            if (&type == &TypeOf<Float2>())
+            {
+                return numbers(2) ? Variant::From<Float2>(Float2{component(0), component(1)}) : Variant{};
+            }
+            if (&type == &TypeOf<Float3>())
+            {
+                return numbers(3) ? Variant::From<Float3>(Float3{component(0), component(1), component(2)})
+                                  : Variant{};
+            }
+            if (&type == &TypeOf<Float4>())
+            {
+                return numbers(4) ? Variant::From<Float4>(
+                                        Float4{component(0), component(1), component(2), component(3)})
+                                  : Variant{};
+            }
+            if (&type == &TypeOf<Quaternion>())
+            {
+                return numbers(4) ? Variant::From<Quaternion>(
+                                        Quaternion{component(0), component(1), component(2), component(3)})
+                                  : Variant{};
+            }
+            if (&type == &TypeOf<Color>())
+            {
+                return numbers(4) ? Variant::From<Color>(
+                                        Color{component(0), component(1), component(2), component(3)})
+                                  : Variant{};
+            }
+            return Variant{};
+        }
+
+        /// The JSON shape a leaf property takes, for a refusal that teaches.
+        StringView LeafShape(const TypeInfo& type)
+        {
+            if (&type == &TypeOf<bool>())
+            {
+                return u8"a boolean";
+            }
+            if (&type == &TypeOf<String>())
+            {
+                return u8"a string";
+            }
+            if (&type == &TypeOf<Guid>())
+            {
+                return u8"a guid string";
+            }
+            if (&type == &TypeOf<Float2>())
+            {
+                return u8"[x, y]";
+            }
+            if (&type == &TypeOf<Float3>())
+            {
+                return u8"[x, y, z]";
+            }
+            if (&type == &TypeOf<Float4>() || &type == &TypeOf<Quaternion>())
+            {
+                return u8"[x, y, z, w]";
+            }
+            if (&type == &TypeOf<Color>())
+            {
+                return u8"[r, g, b, a]";
+            }
+            if (&type == &TypeOf<f32>() || &type == &TypeOf<f64>() || &type == &TypeOf<i32>() ||
+                &type == &TypeOf<u32>() || &type == &TypeOf<i64>() || &type == &TypeOf<u64>() ||
+                &type == &TypeOf<i16>() || &type == &TypeOf<u16>() || &type == &TypeOf<i8>() ||
+                &type == &TypeOf<u8>())
+            {
+                return u8"a number";
+            }
+            return StringView();
+        }
+
+        /// An enumerator by name or by number; false when neither names one.
+        bool EnumValueOf(const TypeInfo& type, const JsonValue& value, i64& out)
+        {
+            for (u32 i = 0; i < type.enumeratorCount; ++i)
+            {
+                const EnumValue& enumerator = type.enumerators[i];
+                if ((value.IsString() &&
+                     value.AsString().AsView() ==
+                         StringView(reinterpret_cast<const utf8char*>(enumerator.name))) ||
+                    (value.IsNumber() && static_cast<i64>(value.AsNumber()) == enumerator.value))
+                {
+                    out = enumerator.value;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        String EnumeratorNames(const TypeInfo& type)
+        {
+            String names;
+            for (u32 i = 0; i < type.enumeratorCount; ++i)
+            {
+                if (i > 0)
+                {
+                    names += u8", ";
+                }
+                names += StringView(reinterpret_cast<const utf8char*>(type.enumerators[i].name));
+            }
+            return names;
+        }
+
         constexpr StringView kPageArgument =
             u8"the scene or prefab page's asset guid (default: the active page)";
     }
@@ -523,6 +732,206 @@ namespace editor
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"page", PageJson(*addressed.Value().page));
                 out.Set(u8"entity", EntityJson(edit, id));
+                return out;
+            });
+
+        server.RegisterTool(
+            u8"component_set",
+            u8"Set ONE reflected property of an entity's component on a scene page, through the "
+            u8"editor's undo path: one undo step per call, labelled mcp, the page marked dirty, "
+            u8"nothing saved (file.save / the page's Save does that). `value` takes the shape "
+            u8"entity_inspect shows: numbers, booleans, strings, [x,y,z] vectors, [r,g,b,a] "
+            u8"colors, [x,y,z,w] quaternions, an enumerator's name, an asset guid for a "
+            u8"reference, an entity guid (or null) for an entity reference. REFUSED while the "
+            u8"page simulates, on a read-only property, on a nested structure or a list (not "
+            u8"writable here yet), and on a value of the wrong shape - nothing changes then. "
+            u8"Returns the property as entity_inspect reads it after the write.",
+            SchemaBuilder()
+                .Str(u8"page", kPageArgument)
+                .Str(u8"entity", u8"the entity's guid (default: the page's primary selection)")
+                .Str(u8"component", u8"the component, as entity_inspect names it: its `type` "
+                                    u8"(\"light\", \"physics.RigidBody\") or `typeName`",
+                     true)
+                .Str(u8"property", u8"the property's name, as entity_inspect shows it", true)
+                .Build(),
+            ToolAnnotations::Adjusts(),
+            [ctx](const JsonValue& args) -> ToolResult
+            {
+                Result<AddressedPage, String> addressed = ResolveScenePage(*ctx, args);
+                if (!addressed.HasValue())
+                {
+                    return Err(Move(addressed.Error()));
+                }
+                ISceneEditorPage& page = *addressed.Value().scene;
+                const StringView title = addressed.Value().page->Title();
+                if (page.IsSimulating())
+                {
+                    return Err(Format(u8"page '{}' is simulating - edits are locked until "
+                                      u8"simulate_stop",
+                                      title));
+                }
+                SceneEditContext& edit = page.EditContext();
+                Guid id;
+                const JsonValue entityArg = args.Get(u8"entity");
+                if (entityArg.IsString())
+                {
+                    const String text = entityArg.AsString();
+                    if (!Guid::TryParse(text.AsView(), id))
+                    {
+                        return Err(Format(u8"invalid entity guid '{}'", text.AsView()));
+                    }
+                }
+                else
+                {
+                    const Guid* primary = edit.EntitySelection().Primary();
+                    if (primary == nullptr)
+                    {
+                        return Err(Format(u8"page '{}' has no selection - pass `entity`, or "
+                                          u8"selection_set one first",
+                                          title));
+                    }
+                    id = *primary;
+                }
+                const scene::EntityHandle handle = edit.Resolve(id);
+                if (!edit.Scene().IsValid(handle))
+                {
+                    utf8char text[37];
+                    id.ToChars(text);
+                    return Err(Format(u8"no entity with guid '{}' in page '{}'", StringView(text, 36),
+                                      title));
+                }
+                const String component = args.Get(u8"component").AsString();
+                scene::ComponentManagerBase* manager =
+                    FindComponentManager(edit.Scene(), handle, component.AsView());
+                if (manager == nullptr || manager->ComponentType() == nullptr)
+                {
+                    return Err(Format(u8"entity '{}' has no reflected component '{}' "
+                                      u8"(entity_inspect lists its components)",
+                                      edit.Scene().GetEntityName(handle), component.AsView()));
+                }
+                const TypeInfo& type = *manager->ComponentType();
+                const String property = args.Get(u8"property").AsString();
+                const PropertyInfo* prop = FindProperty(
+                    type, reinterpret_cast<const char*>(property.CStr()));
+                if (prop == nullptr || prop->type == nullptr)
+                {
+                    return Err(Format(u8"component '{}' has no property '{}' (entity_inspect "
+                                      u8"lists them)",
+                                      component.AsView(), property.AsView()));
+                }
+                if ((static_cast<u32>(prop->flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0)
+                {
+                    return Err(Format(u8"property '{}' of '{}' is read-only", property.AsView(),
+                                      component.AsView()));
+                }
+                if (IsNested(*prop))
+                {
+                    return Err(Format(u8"property '{}' of '{}' is a {} - not writable through "
+                                      u8"component_set yet (scene_write edits the source)",
+                                      property.AsView(), component.AsView(),
+                                      prop->type->container != nullptr ? StringView(u8"list")
+                                                                       : StringView(u8"structure")));
+                }
+                const JsonValue value = args.Get(u8"value");
+                const TypeInfo& propType = *prop->type;
+
+                // Shape the value first, so a refusal touches nothing; then ONE command in a
+                // locked group labelled mcp - one undo step per call that neither the user's
+                // scrub of the same property nor the next call merges into.
+                Function<void()> write;
+                if (IsReferenceType(propType))
+                {
+                    Guid target;
+                    if (!value.IsNull() &&
+                        (!value.IsString() || !Guid::TryParse(value.AsString().AsView(), target)))
+                    {
+                        return Err(Format(u8"property '{}' is a reference - `value` is an asset "
+                                          u8"guid or null",
+                                          property.AsView()));
+                    }
+                    SceneEditContext* editPtr = &edit;
+                    EditorContext* context = ctx;
+                    const TypeInfo* typePtr = &type;
+                    const char* name = prop->name;
+                    write = [editPtr, context, id, typePtr, name, target]()
+                    {
+                        editPtr->SetComponentReference(id, typePtr, ComponentPropertyPath{}, name,
+                                                       target, context->Resources());
+                    };
+                }
+                else if (propType.enumeratorCount > 0)
+                {
+                    i64 enumerator = 0;
+                    if (!EnumValueOf(propType, value, enumerator))
+                    {
+                        return Err(Format(u8"property '{}' takes one of: {}", property.AsView(),
+                                          EnumeratorNames(propType).AsView()));
+                    }
+                    SceneEditContext* editPtr = &edit;
+                    const TypeInfo* typePtr = &type;
+                    const char* name = prop->name;
+                    write = [editPtr, id, typePtr, name, enumerator]()
+                    { editPtr->SetComponentPropertyRaw(id, typePtr, name, enumerator); };
+                }
+                else if (&propType == &TypeOf<scene::EntityRef>())
+                {
+                    Guid target;
+                    if (!value.IsNull() &&
+                        (!value.IsString() || !Guid::TryParse(value.AsString().AsView(), target)))
+                    {
+                        return Err(Format(u8"property '{}' is an entity reference - `value` is an "
+                                          u8"entity guid or null",
+                                          property.AsView()));
+                    }
+                    SceneEditContext* editPtr = &edit;
+                    const TypeInfo* typePtr = &type;
+                    const char* name = prop->name;
+                    write = [editPtr, id, typePtr, name, target]()
+                    { editPtr->SetComponentEntityRef(id, typePtr, name, target); };
+                }
+                else
+                {
+                    Variant leaf = LeafVariant(propType, value);
+                    if (leaf.IsEmpty())
+                    {
+                        const StringView shape = LeafShape(propType);
+                        if (shape.IsEmpty())
+                        {
+                            return Err(Format(u8"property '{}' of '{}' is a {} - not writable "
+                                              u8"through component_set yet",
+                                              property.AsView(), component.AsView(),
+                                              StringView(reinterpret_cast<const utf8char*>(propType.name))));
+                        }
+                        return Err(Format(u8"property '{}' of '{}' takes {} - `value` has the "
+                                          u8"wrong shape (entity_inspect shows the current value)",
+                                          property.AsView(), component.AsView(), shape));
+                    }
+                    SceneEditContext* editPtr = &edit;
+                    const TypeInfo* typePtr = &type;
+                    const char* name = prop->name;
+                    write = [editPtr, id, typePtr, name, leaf = Move(leaf)]()
+                    { editPtr->SetComponentProperty(id, typePtr, name, leaf); };
+                }
+                EditorCommandStack& commands = edit.Commands();
+                const i64 before = commands.UndoIndex();
+                commands.BeginGroup(u8"mcp");
+                write();
+                commands.EndGroup();
+                commands.LockGroup();
+                if (commands.UndoIndex() == before)
+                {
+                    return Err(Format(u8"property '{}' of '{}' could not be set (the command was "
+                                      u8"refused; see log_read)",
+                                      property.AsView(), component.AsView()));
+                }
+                const Instance instance = manager->GetComponentInstance(handle);
+                JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"page", PageJson(*addressed.Value().page));
+                out.Set(u8"entity", GuidJson(id));
+                out.Set(u8"component", JsonValue::MakeString(String(manager->SerializationTypeId())));
+                out.Set(u8"property", JsonValue::MakeString(property));
+                out.Set(u8"value", PropertyJson(*prop, instance));
+                out.Set(u8"undoSteps", JsonValue::MakeNumber(1));
                 return out;
             });
     }

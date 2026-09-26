@@ -1031,8 +1031,14 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    inspector's view of one entity through reflection (Properties / GetProperty, nested
    structures and lists expanded, enums by name), with reference-shaped values read by
    identity through the new ReferenceTraits customization point on TypeInfo (Resource
-   marks Ref<T>; no per-type ladder anywhere). REMAINING in 7: the Agent panel,
-   viewport_screenshot; then P2b (the write half over the same reflection).
+   marks Ref<T>; no per-type ladder anywhere). P2b's property writes BUILT
+   2026-09-26: component_set through SceneEditContext (leaves by Variant, enums through the
+   raw path, entity refs, and a generic reference command over the TypeInfo's ReferenceOps),
+   one locked undo group labelled "mcp" per call so an agent's calls never merge with each
+   other or the user's scrubs, a failed command dropped not pushed, refused while simulating,
+   nothing saved implicitly; the undo tool is action_execute edit.undo over the active page.
+   Nested structures and lists are not writable through it yet (scene_write edits the
+   source). REMAINING in 7: the Agent panel, viewport_screenshot.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
 

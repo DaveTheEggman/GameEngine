@@ -34,7 +34,7 @@ namespace
     public:
         HeadlessScenePage(StringView title, const Guid& asset)
             : EditorPage(DefaultAllocator()), m_title(title),
-              m_scene(DefaultAllocator(), u8"headless"), m_edit(m_scene, m_commands)
+              m_scene(DefaultAllocator(), u8"headless"), m_edit(m_scene, Commands())
         {
             SetInstanceId(asset);
             Provide<ISceneEditorPage>(*this);
@@ -58,8 +58,7 @@ namespace
     private:
         String m_title;
         scene::Scene m_scene;
-        EditorCommandStack m_commands;
-        SceneEditContext m_edit;
+        SceneEditContext m_edit; // over the page's own stack, as the real page's is
         bool m_simulating = false;
     };
 
@@ -137,7 +136,7 @@ TEST_CASE("scene-mcp-tools: page addressing, the selection round-trip, its refus
     McpServer server;
     RegisterSceneLiveTools(server, context);
     CHECK(server.ToolCount() == kSceneLiveToolCount);
-    CHECK(kSceneLiveToolCount == 5u);
+    CHECK(kSceneLiveToolCount == 6u);
     const String aGuid = GuidText(sceneA);
     const String lampGuid = GuidText(lamp);
     const String tableGuid = GuidText(table);
@@ -292,6 +291,120 @@ TEST_CASE("scene-mcp-tools: entity_inspect reads an entity and its components th
                    .AsView());
     CHECK_FALSE(got.ok);
     CHECK(got.error.AsView().StartsWith(u8"no entity with guid"));
+
+    context.ClosePage(page);
+}
+
+TEST_CASE("scene-mcp-tools: component_set writes one property through the undo path - leaves, an "
+          "enum by name, a reference by guid - one locked step per call that Undo takes back, "
+          "and the refusals leave nothing behind")
+{
+    engine::render::RegisterRenderComponentReflection();
+    Random rng(33);
+    const Guid sceneId = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Bistro", sceneId), DefaultAllocator())));
+    SceneEditContext& edit = page->EditContext();
+    scene::Scene& scene = edit.Scene();
+    auto* lights = scene.AddSystem<engine::render::LightComponentManager>();
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
+    const Guid lampId = edit.CreateEntity(u8"Lamp");
+    const scene::EntityHandle lamp = edit.Resolve(lampId);
+    engine::render::LightComponent& light = lights->Add(lamp);
+    light.intensity = 1.0f;
+    engine::render::MeshComponent& mesh = meshes->Add(lamp);
+    (void)mesh;
+    page->ClearDirty();
+    edit.Commands().Clear();
+
+    McpServer server;
+    RegisterSceneLiveTools(server, context);
+    const String pageGuid = GuidText(sceneId);
+    const String lampGuid = GuidText(lampId);
+    const auto set = [&](StringView component, StringView property, StringView valueJson)
+    {
+        return Call(server, u8"component_set",
+                    Format(u8"{{\"page\":\"{}\",\"entity\":\"{}\",\"component\":\"{}\",\"property\":\"{}\","
+                           u8"\"value\":{}}}",
+                           pageGuid.AsView(), lampGuid.AsView(), component, property, valueJson)
+                        .AsView());
+    };
+
+    // A float, by the component's serialization id; the page is dirty after, the value read
+    // back as entity_inspect shows it.
+    Answer got = set(u8"light", u8"intensity", u8"2.5");
+    REQUIRE(got.ok);
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(2.5f));
+    CHECK(got.payload.Get(u8"value").AsNumber() == doctest::Approx(2.5));
+    CHECK(got.payload.Get(u8"component").AsString() == StringView(u8"light"));
+    CHECK(page->IsDirty());
+    // An enum by name, by the type's name; a color as four numbers; a bool.
+    REQUIRE(set(u8"LightComponent", u8"type", u8"\"Spot\"").ok);
+    CHECK(lights->Get(lamp)->type == engine::render::LightType::Spot);
+    REQUIRE(set(u8"light", u8"color", u8"[0.1,0.2,0.3,1]").ok);
+    CHECK(lights->Get(lamp)->color.g == doctest::Approx(0.2f));
+    REQUIRE(set(u8"mesh", u8"visible", u8"false").ok);
+    CHECK_FALSE(meshes->Get(lamp)->visible);
+    // A reference by guid (no resource manager in a headless page: the id is the write).
+    const Guid meshAsset = Guid::Generate(rng);
+    got = set(u8"mesh", u8"mesh", Format(u8"\"{}\"", GuidText(meshAsset).AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK(meshes->Get(lamp)->mesh.id == meshAsset);
+    CHECK(got.payload.Get(u8"value").AsString() == GuidText(meshAsset).AsView());
+
+    // Five writes, five undo steps: each Undo takes exactly one back, the reference first.
+    REQUIRE(edit.Commands().CanUndo());
+    edit.Commands().Undo();
+    CHECK(meshes->Get(lamp)->mesh.id.IsNil());
+    CHECK_FALSE(meshes->Get(lamp)->visible); // the previous step still stands
+    edit.Commands().Undo();
+    CHECK(meshes->Get(lamp)->visible);
+    edit.Commands().Undo();
+    CHECK(lights->Get(lamp)->color.g == doctest::Approx(1.0f));
+    edit.Commands().Undo();
+    CHECK(lights->Get(lamp)->type == engine::render::LightType::Directional);
+    edit.Commands().Undo();
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(1.0f));
+    CHECK_FALSE(edit.Commands().CanUndo());
+    // Two writes of the SAME property are still two steps (the user's scrubs merge; an
+    // agent's calls do not).
+    REQUIRE(set(u8"light", u8"intensity", u8"3").ok);
+    REQUIRE(set(u8"light", u8"intensity", u8"4").ok);
+    edit.Commands().Undo();
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(3.0f));
+    edit.Commands().Undo();
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(1.0f));
+
+    // Refusals, each leaving the value and the stack as they were.
+    const i64 stackBefore = edit.Commands().UndoIndex();
+    got = set(u8"light", u8"intensity", u8"\"bright\"");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'intensity' of 'light' takes a number"));
+    got = set(u8"light", u8"type", u8"\"Laser\"");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'type' takes one of: Directional, Point, Spot"));
+    got = set(u8"light", u8"brightness", u8"1");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"component 'light' has no property 'brightness'"));
+    got = set(u8"physics.RigidBody", u8"mass", u8"1");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"entity 'Lamp' has no reflected component"));
+    got = set(u8"mesh", u8"materials", u8"[]");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'materials' of 'mesh' is a list"));
+    got = set(u8"mesh", u8"mesh", u8"\"not-a-guid\"");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'mesh' is a reference"));
+    CHECK(edit.Commands().UndoIndex() == stackBefore);
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(1.0f));
+    // Simulating locks the edits.
+    page->StartSimulation();
+    got = set(u8"light", u8"intensity", u8"9");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"page 'Bistro' is simulating"));
+    page->StopSimulation();
+    CHECK(lights->Get(lamp)->intensity == doctest::Approx(1.0f));
 
     context.ClosePage(page);
 }

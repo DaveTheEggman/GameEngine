@@ -49,7 +49,12 @@ token), or for one run: `Tools.Editor <project> --mcp [--mcp-port <n>]`. The def
   `simulate_start` / `simulate_stop` / `entity_inspect`, each addressed by the page's asset
   guid). `entity_inspect` is the inspector's view of one entity: its hierarchy, transform and
   every component's reflected properties (asset references as guids, enums by name), the
-  primary selection by default - read it before a property write, and after one. A
+  primary selection by default. `component_set` is the write half: ONE property of one
+  component through the editor's undo path, one step per call labelled `mcp`, the page dirty
+  after (nothing saves until the page's Save or `file.save`); `value` takes the shape
+  `entity_inspect` shows, an enumerator by name, an asset guid for a reference. Refused
+  while the page simulates, on a read-only property, on a list or structure, on a wrong
+  shape - nothing changes then. Read, write, read again. A
   `scene_write` / `prefab_write` over an asset the user has open reaches its page at once: a
   clean page reloads in place, a page with unsaved edits keeps them and warns the user -
   never write over it again hoping to win; ask, or `page_reload` with `force` only when the

@@ -5,8 +5,9 @@
 // The scene editor's MCP tools - what only a live scene page can serve, registered as the
 // scene editor's contribution to the editor's MCP host (EditorContext::RegisterMcpToolContribution
 // from RegisterSceneEditor): selection_get / selection_set over a page's entity selection, and
-// simulate_start / simulate_stop over its edit-mode Simulate, and entity_inspect over an entity's
-// reflected components. Every tool is PAGE-ADDRESSED
+// simulate_start / simulate_stop over its edit-mode Simulate, entity_inspect over an entity's
+// reflected components and component_set writing one of them through the page's undo path
+// (one locked, labelled step per call). Every tool is PAGE-ADDRESSED
 // (`page` = the scene or prefab asset's guid, as page_list reports it), defaulting to the active
 // page when that is a scene page, and every result names the page it acted on - several scene
 // pages may be open, each with its own selection. The page is reached through the interface it
@@ -26,8 +27,9 @@ using namespace foundation::core;
 export namespace editor
 {
     /// The number of tools RegisterSceneLiveTools registers (selection_get / selection_set /
-    /// simulate_start / simulate_stop / entity_inspect); a tripwire like kEngineToolCount.
-    inline constexpr usize kSceneLiveToolCount = 5;
+    /// simulate_start / simulate_stop / entity_inspect / component_set); a tripwire like
+    /// kEngineToolCount.
+    inline constexpr usize kSceneLiveToolCount = 6;
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context);
 }
