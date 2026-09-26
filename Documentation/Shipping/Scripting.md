@@ -49,3 +49,7 @@ initialization - they also run during cooking.
   behaviors.
 - A behavior constructor runs at cook time too; side effects beyond field init will
   misbehave.
+- Some engine properties are read-only on purpose (a network identity's `authority`, for
+  one): every backend reads them, none assigns. AngelScript refuses the assignment at
+  compile time, Luau raises at the assignment, and the `.d.luau` declarations carry them as
+  `read` for luau-analyze.

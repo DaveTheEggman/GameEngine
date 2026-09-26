@@ -34,6 +34,7 @@ namespace
         RTTI_OBJECT(Widget, Object)
     public:
         int id = 0;
+        int serial = 7; // published read-only: a script reads it, never assigns it
         int doubled() const { return id * 2; }
         int idOf(Widget* other) const { return other != nullptr ? other->id : -1; }
     };
@@ -42,6 +43,7 @@ namespace
 REFLECT_MEMBERS(Widget, "rtti::script::test")
 {
     builder.Property<&Widget::id>("id");
+    builder.Property<&Widget::serial>("serial", PropertyFlags::ReadOnly);
     builder.Method<&Widget::doubled>("doubled");
     builder.Method<&Widget::idOf>("idOf");
     builder.Constructor();
@@ -778,6 +780,23 @@ TEST_CASE("angelscript: SetGlobal writes typed module globals")
     ctx->SetGlobal(u8"Tag", Variant::From(String(u8"fast")));
     CHECK(ctx->Call(u8"ReadSpeed", Span<Variant>{}).Value().Get<f64>() == 4.5);
     CHECK(ctx->Call(u8"ReadTag", Span<Variant>{}).Value().Get<String>() == u8"fast");
+}
+
+TEST_CASE("angelscript: a read-only property reads, and an assignment fails to compile - no setter exists")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    manager->RegisterType(Widget::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    REQUIRE(ctx->Load(u8"double S = 0;\n"
+                      u8"void main() { Widget@ w = Widget(); S = w.serial; }\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == 7.0);
+
+    // The assignment is refused by the compiler: the backend registers get_serial only.
+    RefPtr<IScriptContext> other = manager->CreateContext();
+    CHECK_FALSE(other->Load(u8"void main() { Widget@ w = Widget(); w.serial = 3; }\n", u8"main").IsOk());
 }
 
 TEST_CASE("angelscript: reflected value types are usable from script (construct + properties)")

@@ -510,6 +510,40 @@ REFLECT_VALUE(RefHolder, "rtti::test")
     builder.Property<&RefHolder::one>("one").Nested<&RefHolder::many>("many");
 }
 
+namespace
+{
+    struct Gauge
+    {
+        int reading = 3; // a stored field the type publishes read-only
+        int knob = 0;
+    };
+}
+REFLECT_VALUE(Gauge, "rtti::test")
+{
+    builder.Property<&Gauge::reading>("reading", PropertyFlags::ReadOnly).Property<&Gauge::knob>("knob");
+}
+void RttiRegisterValue_Gauge(); // emitted by REFLECT_VALUE above
+
+TEST_CASE("rtti: a read-only stored property reads but refuses SetProperty - the flag is a contract")
+{
+    RttiRegisterValue_Gauge();
+    Gauge gauge;
+    const Instance inst = Instance::From(&gauge);
+    const PropertyInfo* reading = FindProperty(TypeOf<Gauge>(), "reading");
+    const PropertyInfo* knob = FindProperty(TypeOf<Gauge>(), "knob");
+    REQUIRE(reading != nullptr);
+    REQUIRE(knob != nullptr);
+    CHECK(GetProperty(*reading, inst).Get<int>() == 3);
+    CHECK(SetProperty(*reading, inst, Variant::From<int>(9)).Code() == ErrorCode::NotSupported);
+    CHECK(gauge.reading == 3);
+    CHECK(SetProperty(*knob, inst, Variant::From<int>(9)).IsOk());
+    CHECK(gauge.knob == 9);
+    // The raw address is the deliberate way around it (an editor's in-place tool).
+    REQUIRE(reading->address != nullptr);
+    *static_cast<int*>(reading->address(inst)) = 4;
+    CHECK(GetProperty(*reading, inst).Get<int>() == 4);
+}
+
 void RttiRegisterValue_RefHolder(); // emitted by REFLECT_VALUE above
 
 TEST_CASE("rtti: a reference-shaped value type is read by identity through its TypeInfo - as a "
