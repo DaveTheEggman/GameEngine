@@ -72,6 +72,7 @@ export namespace foundation::ui
     class ViewGroup;
     class RootView;
     class UIContext;
+    class Dialog; // :dialog; named here for the context's DialogInterceptor
     class
         PopupLayer; // defined in :popup_layer; RootView holds one (created lazily in the impl unit).
 
@@ -1465,6 +1466,12 @@ export namespace foundation::ui
               m_shortcutManager(this, allocator), m_tooltipManager(this), m_dragDropManager(this)
         {
         }
+        /// Runs at the start of every Dialog::Show; answering false keeps the dialog off the
+        /// screen (it closes at once as cancelled). An unattended caller (an agent's tool call
+        /// on the editor) installs one for the duration of its call and records what it
+        /// suppressed; unset = every dialog shows.
+        Function<bool(Dialog&)> DialogInterceptor;
+
         // (m_animationManager is default-constructed - it holds no back-pointer to the context.)
         ~UIContext()
         {

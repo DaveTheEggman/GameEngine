@@ -146,3 +146,36 @@ TEST_CASE("dialog: NoneButton_IsCallerManaged")
     CHECK(closed);
     CHECK(root->GetPopupLayer()->PopupCount() == 0);
 }
+
+TEST_CASE("dialog: a context's DialogInterceptor answering false keeps the dialog off the screen "
+          "and closes it as cancelled, so the asking flow proceeds as dismissed")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    Init(ctx, root.Get());
+    String seen;
+    ctx.DialogInterceptor = [&seen](Dialog& dialog)
+    {
+        seen = dialog.Title;
+        return false;
+    };
+    auto dialog = MakeRef<Dialog>(DefaultAllocator(), StringView(u8"Unsaved changes"));
+    DialogResult closedWith = DialogResult::None;
+    int closed = 0;
+    dialog->OnClosed.Add([&](Dialog*, DialogResult result)
+                         {
+                             ++closed;
+                             closedWith = result;
+                         });
+    dialog->Show(&ctx);
+    CHECK(seen == u8"Unsaved changes");
+    CHECK(closed == 1);
+    CHECK(closedWith == DialogResult::Cancel);
+    CHECK(dialog->Context == nullptr); // never attached: it was not shown
+    // An interceptor answering true lets it show.
+    ctx.DialogInterceptor = [](Dialog&) { return true; };
+    auto shown = MakeRef<Dialog>(DefaultAllocator(), StringView(u8"Shown"));
+    shown->Show(&ctx, false);
+    CHECK(shown->Context != nullptr);
+}
+
