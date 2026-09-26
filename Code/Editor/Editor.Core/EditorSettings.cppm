@@ -14,6 +14,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module editor.core:editor_settings;
@@ -111,13 +112,21 @@ export namespace editor
         }
     };
 
-    // A fresh bearer token for the MCP host: a random Guid's canonical text (36 chars, from a
-    // generator seeded by the clock and the process, so two editors never mint the same one).
+    // A fresh bearer token for the MCP host: a Guid from OS entropy, in its canonical text (36
+    // chars) - a secret, so nothing seeded by the clock, which a neighbour can guess. Only
+    // when the OS refuses entropy does a clock-and-process seed stand in, with a warning.
     [[nodiscard]] inline String GenerateMcpToken()
     {
-        Random rng(GetTicks() ^ (static_cast<u64>(ProcessId()) << 32));
+        Guid secret;
+        if (!Guid::TryGenerateFromSystemEntropy(secret))
+        {
+            LOG_WARNING(u8"Editor", u8"the OS gave no entropy for the MCP token; minted from the "
+                                    u8"clock and the process id instead - treat it as guessable");
+            Random rng(GetTicks() ^ (static_cast<u64>(ProcessId()) << 32));
+            secret = Guid::Generate(rng);
+        }
         utf8char text[37];
-        Guid::Generate(rng).ToChars(text);
+        secret.ToChars(text);
         return String(StringView(text, 36));
     }
 
