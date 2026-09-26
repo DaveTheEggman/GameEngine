@@ -38,6 +38,12 @@ token), or for one run: `Tools.Editor <project> --mcp [--mcp-port <n>]`. The def
   editor (a cook) keeps the call open until it finishes.
 - `project_create` / `project_open` are the stdio host's alone - the editor's project is the
   editor's.
+- The action bridge (`action_list` / `action_state` / `action_execute`) is everything a user
+  can do by menu, chord, toolbar or palette, over the ACTIVE page: list them first (the
+  `enabled` flag is the answer over the active page; `page_open` the page an action needs),
+  then execute by id. `action_execute` runs unattended: a dialog the action would open is
+  closed as cancelled and named under `suppressedDialogs` - the action then most likely did
+  nothing, so use a dedicated tool for that step or ask the user; never retry it blind.
 - The page tools (`page_list` / `page_open` / `page_reload` / `page_close`) are the editor
   host's alone, and so are the scene page's live tools (`selection_get` / `selection_set` /
   `simulate_start` / `simulate_stop`, each addressed by the page's asset guid). A

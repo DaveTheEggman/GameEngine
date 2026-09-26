@@ -319,3 +319,14 @@ TEST_CASE("actions: AppendActionItems adds a context menu's items from the decla
     CHECK(runs == 1u);
 }
 
+TEST_CASE("actions: FormatShortcut spells a chord the way a shortcut column shows it")
+{
+    CHECK(FormatShortcut(EditorShortcut{}).IsEmpty());
+    CHECK(FormatShortcut(CtrlS) == u8"Ctrl+S");
+    CHECK(FormatShortcut(F5) == u8"F5");
+    CHECK(FormatShortcut(EditorShortcut{ui::KeyCode::Z, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift}) ==
+          u8"Ctrl+Shift+Z");
+    CHECK(FormatShortcut(EditorShortcut{ui::KeyCode::PageUp, ui::KeyModifiers::Alt}) == u8"Alt+Page Up");
+    CHECK(FormatShortcut(EditorShortcut{ui::KeyCode::Delete, ui::KeyModifiers::None}) == u8"Delete");
+}
+

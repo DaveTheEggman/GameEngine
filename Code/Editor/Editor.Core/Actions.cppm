@@ -50,6 +50,34 @@ export namespace editor
         }
     };
 
+    /// The chord as a shortcut column or a tool result shows it: "Ctrl+Shift+Z", "F5",
+    /// "Delete"; empty when unset.
+    inline String FormatShortcut(EditorShortcut chord)
+    {
+        String text;
+        if (!chord.IsSet())
+        {
+            return text;
+        }
+        using foundation::ui::KeyModifiers;
+        const auto has = [&](KeyModifiers flag)
+        { return (static_cast<u32>(chord.modifiers) & static_cast<u32>(flag)) != 0; };
+        if (has(KeyModifiers::Ctrl))
+        {
+            text += u8"Ctrl+";
+        }
+        if (has(KeyModifiers::Alt))
+        {
+            text += u8"Alt+";
+        }
+        if (has(KeyModifiers::Shift))
+        {
+            text += u8"Shift+";
+        }
+        text += foundation::ui::KeyCodeName(chord.key);
+        return text;
+    }
+
     enum class EditorActionKind : u8
     {
         Command, // does something

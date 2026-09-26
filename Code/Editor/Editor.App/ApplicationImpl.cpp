@@ -2812,6 +2812,12 @@ namespace editor::app
             }
         };
         RegisterPageTools(m_mcpHost->Server(), Move(pageSeams));
+        // The action bridge: everything a user can do by command, unattended (the dialogs an
+        // action opens are suppressed and reported).
+        ActionToolSeams actionSeams;
+        actionSeams.context = &m_context;
+        actionSeams.ui = &m_uiHost->Context();
+        RegisterActionTools(m_mcpHost->Server(), Move(actionSeams));
         EditorMcpHostConfig config;
         config.port = static_cast<u16>(m_config.mcpPort != 0 ? m_config.mcpPort : settings.port);
         config.token = settings.token;

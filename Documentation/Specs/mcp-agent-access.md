@@ -1020,9 +1020,15 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    onAssetWritten, wired by the editor host to EditorContext::NotifyAssetExternallyModified):
    a clean page reloads, a dirty page keeps its edits and warns. Found on the way: LoadScene
    ignored the reader's verdict (fixed), and the tracked PaperKid streams were a month stale
-   (re-stamped; the sample test parses every stream now). REMAINING in 7: the unattended
-   scope with declared answers and suppressed-dialog reporting (+ MCP elicitation), the
-   Agent panel, the action bridge, viewport_screenshot, entity_inspect; then P2b.
+   (re-stamped; the sample test parses every stream now). BUILT 2026-09-26, the action
+   bridge and the unattended scope, on the editor's action system
+   (Documentation/Specs/editor-actions.md): action_list / action_state / action_execute over
+   the registry, executed through the one funnel every surface uses; unattended = the UI
+   context's DialogInterceptor for the call's duration, every dialog closed as cancelled (the
+   accident-preventing answer) and named under `suppressedDialogs` with the note; no declared
+   per-question answers yet (a flow that must PROCEED unattended will declare one when a real
+   case appears; MCP elicitation stays the route for asking). REMAINING in 7: the Agent panel,
+   viewport_screenshot, entity_inspect; then P2b.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
 

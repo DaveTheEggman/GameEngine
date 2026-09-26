@@ -212,8 +212,11 @@ struct EditorActionDeclaration
    edit.redo / page.discardChanges) as declarations over the subject page.
 4. The scene editor's actions in `RegisterSceneEditor` (simulate, gizmo toggles, markers,
    hierarchy entity actions over the selection); the hierarchy context menu built from them.
-5. The MCP bridge (`action_list / action_state / action_execute`) and the unattended scope
-   (the scoped flag on EditorContext: modals suppressed, reported in the result).
+5. The MCP bridge (`action_list / action_state / action_execute`) and the unattended scope.
+   BUILT 2026-09-26: the scope is the UI context's `DialogInterceptor` (Foundation), installed
+   by `UnattendedDialogs` for the call's duration - `Dialog::Show` is the one place every
+   dialog appears, so a suppressed dialog closes as cancelled at once and the flow that asked
+   proceeds as dismissed; the result names the titles. Layers 1 to 4 BUILT 2026-09-26 too.
 6. The command palette and Preferences > Shortcuts with persistence.
 7. The remaining domains' menus and toolbars migrated as they are touched (AssetsView's 26
    items are mostly per-asset context items over the assets selection; same rule).
