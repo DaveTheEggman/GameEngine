@@ -192,6 +192,23 @@ export namespace foundation::resource
         RefPtr<T> m_direct; // procedural override (runtime only)
     };
 
+    // Ref<T> is a reference-shaped value: generic tooling (an editor's inspector, an agent's
+    // entity_inspect) reads its identity through the TypeInfo, never naming T.
+}
+export namespace foundation::core
+{
+    template <typename T>
+    struct ReferenceTraits<foundation::resource::Ref<T>>
+    {
+        static constexpr bool isReference = true;
+        [[nodiscard]] static const Guid* Id(const void* value) noexcept
+        {
+            return &static_cast<const foundation::resource::Ref<T>*>(value)->id;
+        }
+    };
+}
+export namespace foundation::resource
+{
     // Serialization: identity only (found by ADL from component Serialize bodies). On READ,
     // blobs replay over LIVE components (paste / prefab revert / undo): when the incoming id
     // differs from the current one, the stale proxy/direct binding is dropped - critically,
