@@ -48,6 +48,7 @@ target_sources(Editor.Scene
             CameraPreview.cppm
             EditContext.cppm
             SceneEditorPageInterface.cppm
+            SceneActions.cppm
             SceneMcpTools.cppm
             Gizmo.cppm
             Tools.cppm

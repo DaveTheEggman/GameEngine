@@ -50,13 +50,14 @@ export namespace editor
         /// False when no UI context / clipboard is attached (a bare view in a test).
         bool CopyEntityId(const Guid& id);
 
-        /// Prefab hooks (wired by the scene page - asset creation/picking lives there):
-        /// turn an entity's subtree into a prefab asset + instance, and spawn an instance
-        /// under `parent` (nil = scene root).
-        Function<void(const Guid&)> OnCreatePrefab;
-        Function<void(const Guid&)> OnSpawnPrefab;
-        Function<void(const Guid&)> OnApplyPrefab;  // instance root -> write back to the asset
-        Function<void(const Guid&)> OnRevertPrefab; // instance root -> discard deltas
+        /// The context menus are the scene editor's actions (create, duplicate, delete, the
+        /// prefab flows, the clipboard) over `subject`, the page this hierarchy belongs to;
+        /// without a registry the menus carry only the view's own items (rename, copy id).
+        void SetActions(EditorActionRegistry* actions, EditorPage* subject) noexcept
+        {
+            m_actions = actions;
+            m_subject = subject;
+        }
 
         explicit SceneHierarchyView(SceneEditContext& edit) : m_edit(&edit)
         {
@@ -331,7 +332,11 @@ export namespace editor
 
         void SyncSelectionToTree();
 
-        SceneEditContext* m_edit;          // borrowed (the page owns it)
+        SceneEditContext* m_edit;
+
+        EditorActionRegistry* m_actions = nullptr; // borrowed; the menus' actions
+
+        EditorPage* m_subject = nullptr;           // borrowed; the page they run over          // borrowed (the page owns it)
         EditorContext* m_editor = nullptr; // borrowed; clipboard home (optional)
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         RefPtr<ui::EditText> m_filterEdit;

@@ -53,6 +53,7 @@ import foundation.mcp; // McpServer (the MCP tool contribution)
 import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
 import :scene_page_interface; // ISceneEditorPage (published on the page)
+import :actions; // the scene editor's action declarations
 import :mcp_tools;            // RegisterSceneLiveTools (the contribution)
 import :model_prefab;
 import :game_page;
@@ -198,17 +199,8 @@ export namespace editor
                     }});
                 m_hierarchy = MakeRef<SceneHierarchyView>(Allocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
-                {
-                    SceneEditorPage* page = this;
-                    m_hierarchy->OnCreatePrefab = [page](const Guid& entity)
-                    { page->CreatePrefabFromEntity(entity); };
-                    m_hierarchy->OnSpawnPrefab = [page](const Guid& parent)
-                    { page->PickAndSpawnPrefab(parent); };
-                    m_hierarchy->OnApplyPrefab = [page](const Guid& root)
-                    { page->ApplyInstanceToPrefab(root); };
-                    m_hierarchy->OnRevertPrefab = [page](const Guid& root)
-                    { page->RevertInstance(root); };
-                }
+                // Its context menus are the scene editor's actions over THIS page.
+                m_hierarchy->SetActions(&context.Actions(), this);
                 m_inspector =
                     MakeRef<SceneInspectorView>(Allocator(), context, *m_editContext);
                 {
@@ -463,11 +455,11 @@ export namespace editor
         // Create-from-selection: capture the subtree as a prefab asset (under "Prefabs/",
         // named after the entity) and replace the original with an instance of it (one undo
         // group). The payload keeps the captured guids as its stable source ids.
-        void CreatePrefabFromEntity(const Guid& entityId);
+        void CreatePrefabFromEntity(const Guid& entityId) override;
 
         // Apply-to-prefab entry point: rewrites the asset and rebuilds every instance, with
         // no undo - so it confirms first (mirror of RevertInstance).
-        void ApplyInstanceToPrefab(const Guid& rootId);
+        void ApplyInstanceToPrefab(const Guid& rootId) override;
 
         // Apply-to-prefab: the instance's CURRENT state becomes the template (source-id
         // keyed, so other instances' deltas stay valid), then every instance everywhere
@@ -476,14 +468,14 @@ export namespace editor
 
         // Revert-instance entry point: destructive + not undoable, so it confirms first.
         // Non-member children under the instance are destroyed too - the dialog says so.
-        void RevertInstance(const Guid& rootId);
+        void RevertInstance(const Guid& rootId) override;
 
         // Revert-instance: discard this instance's deltas (respawn from the current template,
         // placement kept). Not undoable.
         void RevertInstanceNow(const Guid& rootId);
 
         // Spawn an instance under `parent` (nil = scene root) via the asset picker.
-        void PickAndSpawnPrefab(const Guid& parent);
+        void PickAndSpawnPrefab(const Guid& parent) override;
 
         // The asset changed under this page (apply-to-prefab from another page): wipe and
         // reload so the split-view prefab editor shows the new template. Unsaved edits are
@@ -500,6 +492,13 @@ export namespace editor
         [[nodiscard]] EditorCamera& Camera() noexcept { return m_camera; }
         [[nodiscard]] SceneEditContext& EditContext() noexcept override { return *m_editContext; }
         [[nodiscard]] bool IsSimulating() const noexcept override { return m_isSimulating; }
+        [[nodiscard]] bool IsPaused() const noexcept override { return m_isPaused; }
+        [[nodiscard]] GizmoController* Gizmos() noexcept override
+        {
+            return m_selectTool != nullptr ? &m_selectTool->Gizmos() : nullptr;
+        }
+        [[nodiscard]] bool MarkersShown() const noexcept override { return m_showMarkers; }
+        void SetMarkersShown(bool shown) override { m_showMarkers = shown; }
 
     private:
         static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
@@ -909,6 +908,10 @@ export namespace editor
         prefabCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreatePrefabInstance(ctx, group); };
         context.RegisterCreator(Move(prefabCreator));
+        // The scene editor's actions: the Scene menu, the chords, the page toolbar and the
+        // hierarchy's menus are served from these; the palette and the MCP bridge read them.
+        RegisterSceneEditorActions(context);
+
         // The scene editor's MCP tools (selection, simulate) - served by the editor's MCP host
         // over whichever scene page a call addresses.
         {

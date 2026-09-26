@@ -1217,36 +1217,29 @@ namespace editor
                 }};
         };
 
-        m_translateToggle = m_toolbar->AddToggle(u8"");
-        m_translateToggle->SetIcon(icon(icons.translate.Get()));
-        m_translateToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
+        // The gizmo toggles are the scene editor's actions over THIS page (a checked toggle
+        // clicked again stays: SyncToolbar re-reads the registry's answer).
+        SceneEditorPage* page = this;
+        EditorActionRegistry* actions = &m_context->Actions();
+        const auto modeToggle = [&](StringView id, foundation::ui::SVGDrawable* drawable)
+        {
+            ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(u8"");
+            toggle->SetIcon(icon(drawable));
+            const String actionId(id);
+            toggle->OnCheckedChanged.Add(
+                [page, actions, actionId](ui::toolkit::ToolbarToggle*, bool value)
                 {
-                    gizmos->SetMode(GizmoMode::Translate);
-                }
-            });
-        m_rotateToggle = m_toolbar->AddToggle(u8"");
-        m_rotateToggle->SetIcon(icon(icons.rotate.Get()));
-        m_rotateToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
-                {
-                    gizmos->SetMode(GizmoMode::Rotate);
-                }
-            });
-        m_scaleToggle = m_toolbar->AddToggle(u8"");
-        m_scaleToggle->SetIcon(icon(icons.scale.Get()));
-        m_scaleToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
-                {
-                    gizmos->SetMode(GizmoMode::Scale);
-                }
-            });
+                    if (value)
+                    {
+                        (void)actions->Execute(actionId.AsView(), page);
+                    }
+                    page->SyncToolbar();
+                });
+            return toggle;
+        };
+        m_translateToggle = modeToggle(SceneActionIds::kGizmoTranslate, icons.translate.Get());
+        m_rotateToggle = modeToggle(SceneActionIds::kGizmoRotate, icons.rotate.Get());
+        m_scaleToggle = modeToggle(SceneActionIds::kGizmoScale, icons.scale.Get());
 
         m_toolbar->AddSeparator();
 
@@ -1264,10 +1257,15 @@ namespace editor
                 }
             }});
         m_spaceToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle* toggle, bool value)
+            [page, actions](ui::toolkit::ToolbarToggle*, bool value)
             {
-                gizmos->SetSpace(value ? GizmoSpace::World : GizmoSpace::Local);
-                toggle->SetText(value ? StringView(u8"World") : StringView(u8"Local"));
+                // The action flips the space; a click that already shows the target state
+                // (a resync) is not a flip.
+                if (actions->IsChecked(SceneActionIds::kGizmoWorldSpace, page) != value)
+                {
+                    (void)actions->Execute(SceneActionIds::kGizmoWorldSpace, page);
+                }
+                page->SyncToolbar();
             });
 
         m_toolbar->AddSeparator();
@@ -1344,15 +1342,26 @@ namespace editor
             m_toolbar->AddView(spacer.Get(), lp);
         }
 
-        // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor) ===
+        // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor): the
+        // scene editor's actions over THIS page ===
         SceneEditorPage* self = this;
+        EditorActionRegistry* simActions = &m_context->Actions();
         m_playButton = m_toolbar->AddButton(u8"Play");
-        m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StartSimulation(); });
+        m_playButton->OnClick.Add([self, simActions](ui::toolkit::ToolbarButton*)
+                                  { (void)simActions->Execute(SceneActionIds::kSimulateStart, self); });
         m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
-        m_pauseToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                            { self->PauseSimulation(value); });
+        m_pauseToggle->OnCheckedChanged.Add(
+            [self, simActions](ui::toolkit::ToolbarToggle*, bool value)
+            {
+                if (simActions->IsChecked(SceneActionIds::kSimulatePause, self) != value)
+                {
+                    (void)simActions->Execute(SceneActionIds::kSimulatePause, self);
+                }
+                self->RefreshSimToolbar();
+            });
         m_stopButton = m_toolbar->AddButton(u8"Stop");
-        m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StopSimulation(); });
+        m_stopButton->OnClick.Add([self, simActions](ui::toolkit::ToolbarButton*)
+                                  { (void)simActions->Execute(SceneActionIds::kSimulateStop, self); });
         // The at-a-glance state readout (user report: Play gave no visual indication).
         m_simLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
         m_simLabel->FontSize.SetValue(13.0f);
@@ -1431,10 +1440,11 @@ namespace editor
         {
             return;
         }
-        m_playButton->IsEnabled = !m_isSimulating;
-        m_pauseToggle->IsEnabled = m_isSimulating;
-        m_stopButton->IsEnabled = m_isSimulating;
-        m_pauseToggle->SetIsChecked(m_isPaused);
+        const EditorActionRegistry& actions = m_context->Actions();
+        m_playButton->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulateStart, this);
+        m_pauseToggle->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulatePause, this);
+        m_stopButton->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulateStop, this);
+        m_pauseToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kSimulatePause, this));
         if (m_simLabel.Get() != nullptr)
         {
             if (!m_isSimulating)
@@ -1552,12 +1562,13 @@ namespace editor
         {
             return;
         }
-        const GizmoMode mode = m_selectTool->Gizmos().Mode();
-        m_translateToggle->SetIsChecked(mode == GizmoMode::Translate);
-        m_rotateToggle->SetIsChecked(mode == GizmoMode::Rotate);
-        m_scaleToggle->SetIsChecked(mode == GizmoMode::Scale);
-        const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
+        const EditorActionRegistry& actions = m_context->Actions();
+        m_translateToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoTranslate, this));
+        m_rotateToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoRotate, this));
+        m_scaleToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoScale, this));
+        const bool world = actions.IsChecked(SceneActionIds::kGizmoWorldSpace, this);
         m_spaceToggle->SetIsChecked(world);
+        m_spaceToggle->SetText(world ? StringView(u8"World") : StringView(u8"Local"));
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
         const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};
