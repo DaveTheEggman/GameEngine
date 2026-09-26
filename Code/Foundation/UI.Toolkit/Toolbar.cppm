@@ -87,6 +87,7 @@ export namespace foundation::ui::toolkit
             m_text.Append(text);
             Invalidate();
         }
+        [[nodiscard]] StringView Text() const noexcept { return m_text.AsView(); }
 
         /// Set a custom icon draw delegate. Drawn in the icon area before text.
         void SetIcon(Function<void(UIDrawContext&, Rectangle)> iconDraw)
