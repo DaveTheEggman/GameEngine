@@ -16,6 +16,7 @@
 #include <netdb.h> // getaddrinfo
 #include <poll.h>
 #include <sys/mman.h>
+#include <sys/random.h> // getentropy
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -427,6 +428,23 @@ namespace foundation::core::sys
     bool FileDelete(const char* path) noexcept { return unlink(path) == 0; }
 
     unsigned long ProcessId() noexcept { return static_cast<unsigned long>(getpid()); }
+
+    bool FillEntropy(void* buffer, std::size_t bytes) noexcept
+    {
+        // getentropy caps one call at 256 bytes; fill in chunks.
+        unsigned char* out = static_cast<unsigned char*>(buffer);
+        while (bytes > 0)
+        {
+            const std::size_t chunk = bytes < 256 ? bytes : 256;
+            if (getentropy(out, chunk) != 0)
+            {
+                return false;
+            }
+            out += chunk;
+            bytes -= chunk;
+        }
+        return true;
+    }
 
     std::size_t ExecutablePath(char* buffer, std::size_t capacity) noexcept
     {

@@ -113,6 +113,22 @@ export namespace foundation::core
                    BasicStringView{m_data + (m_size - suffix.m_size), suffix.m_size} == suffix;
         }
 
+        /// Byte-lexical order (code units, so UTF-8 orders by code point): negative when
+        /// this sorts before `other`, zero when equal, positive after. A shorter prefix
+        /// sorts first. The comparison a stable, locale-free listing sorts by.
+        [[nodiscard]] constexpr i32 Compare(BasicStringView other) const noexcept
+        {
+            const usize n = m_size < other.m_size ? m_size : other.m_size;
+            for (usize i = 0; i < n; ++i)
+            {
+                if (m_data[i] != other.m_data[i])
+                {
+                    return static_cast<u8>(m_data[i]) < static_cast<u8>(other.m_data[i]) ? -1 : 1;
+                }
+            }
+            return m_size == other.m_size ? 0 : (m_size < other.m_size ? -1 : 1);
+        }
+
     private:
         const CharT* m_data = nullptr;
         usize m_size = 0;

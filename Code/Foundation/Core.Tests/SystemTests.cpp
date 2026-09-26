@@ -327,3 +327,22 @@ TEST_CASE("system: InstallCrashBacktrace prints a native stack on SIGSEGV")
     CHECK(std::strstr(buffer, "0x") != nullptr); // at least one frame line
 }
 #endif
+
+TEST_CASE("system: FillEntropy fills the whole span with bytes that never repeat a draw")
+{
+    byte first[32] = {};
+    byte second[32] = {};
+    REQUIRE(FillEntropy(Span<byte>{first, sizeof(first)}));
+    REQUIRE(FillEntropy(Span<byte>{second, sizeof(second)}));
+    CHECK(std::memcmp(first, second, sizeof(first)) != 0);
+    bool anyNonZero = false;
+    for (byte b : first)
+    {
+        anyNonZero = anyNonZero || b != byte{0};
+    }
+    CHECK(anyNonZero);
+    byte none[1] = {byte{7}};
+    CHECK(FillEntropy(Span<byte>{none, 0})); // an empty span is trivially filled
+    CHECK(none[0] == byte{7});
+}
+

@@ -13,6 +13,7 @@
 #include <winsock2.h> // must precede windows.h (winsock2 vs the legacy winsock.h windows.h pulls in)
 #include <ws2tcpip.h>
 #include <windows.h>
+#include <bcrypt.h> // BCryptGenRandom (FillEntropy)
 
 #include <cstdio>
 #include <cstring>
@@ -445,6 +446,13 @@ namespace foundation::core::sys
     bool FileDelete(const char* path) noexcept { return DeleteFileA(path) != 0; }
 
     unsigned long ProcessId() noexcept { return GetCurrentProcessId(); }
+
+    bool FillEntropy(void* buffer, std::size_t bytes) noexcept
+    {
+        return BCRYPT_SUCCESS(BCryptGenRandom(nullptr, static_cast<PUCHAR>(buffer),
+                                              static_cast<ULONG>(bytes),
+                                              BCRYPT_USE_SYSTEM_PREFERRED_RNG));
+    }
 
     std::size_t ExecutablePath(char* buffer, std::size_t capacity) noexcept
     {
