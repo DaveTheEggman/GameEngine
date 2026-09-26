@@ -15,6 +15,8 @@ export import :layout;
 export import :log_view;
 export import :ui_page;
 export import :page_toolbar;
+export import :action_menus;
+export import :action_shortcuts;
 export import :tool_panel;
 export import :tool_panel_widgets;
 export import :assets_view;

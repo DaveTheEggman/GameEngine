@@ -74,7 +74,7 @@ TEST_CASE("actions: declarations bind through the active page and its published 
     EditorContext context{DefaultAllocator()};
     EditorActionRegistry& actions = context.Actions();
     u32 changes = 0;
-    actions.OnActionsChanged = [&changes]() { ++changes; };
+    actions.OnActionsChanged.Add([&changes]() { ++changes; });
 
     // Editor-wide, always enabled.
     u32 exits = 0;
@@ -177,13 +177,14 @@ TEST_CASE("actions: the shortcut table - the default chord, the user's override,
     REQUIRE(actions.Register(Move(save)));
     EditorActionDeclaration run = Declare(u8"sim.run", u8"Simulate");
     run.shortcut = F5;
+    run.alternateShortcut = EditorShortcut{ui::KeyCode::F6, ui::KeyModifiers::None};
     run.execute = []() {};
     REQUIRE(actions.Register(Move(run)));
     EditorActionDeclaration bare = Declare(u8"view.reset", u8"Reset Layout"); // no chord
     bare.execute = []() {};
     REQUIRE(actions.Register(Move(bare)));
     u32 changes = 0;
-    actions.OnActionsChanged = [&changes]() { ++changes; };
+    actions.OnActionsChanged.Add([&changes]() { ++changes; });
 
     CHECK(actions.Shortcut(u8"page.save") == CtrlS);
     CHECK_FALSE(actions.Shortcut(u8"view.reset").IsSet());
@@ -191,6 +192,12 @@ TEST_CASE("actions: the shortcut table - the default chord, the user's override,
     CHECK(actions.HolderOf(CtrlS) == actions.Find(u8"page.save"));
     CHECK(actions.HolderOf(EditorShortcut{}) == nullptr); // the unset chord is nobody's
     CHECK_FALSE(actions.HasOverride(u8"page.save"));
+    // The alternate is the action's too: taken, reported, never rebound.
+    const EditorShortcut f6{ui::KeyCode::F6, ui::KeyModifiers::None};
+    CHECK(actions.AlternateShortcut(u8"sim.run") == f6);
+    CHECK_FALSE(actions.AlternateShortcut(u8"page.save").IsSet());
+    CHECK(actions.HolderOf(f6) == actions.Find(u8"sim.run"));
+    CHECK(actions.Rebind(u8"view.reset", f6).Code() == ErrorCode::AlreadyExists);
 
     // A free chord binds; the declaration's default no longer applies.
     const EditorShortcut ctrlShiftS{ui::KeyCode::S, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift};

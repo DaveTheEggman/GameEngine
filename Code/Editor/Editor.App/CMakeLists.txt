@@ -32,6 +32,8 @@ target_sources(Editor.App
             LogView.cppm
             UIPage.cppm
             PageToolbar.cppm
+            ActionMenus.cppm
+            ActionShortcuts.cppm
             ToolPanel.cppm
             ToolPanelWidgets.cppm
             AssetsView.cppm

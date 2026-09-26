@@ -66,6 +66,9 @@ export namespace editor
         /// An icon by name, resolved by the surface that draws it; empty = text only.
         String icon;
         EditorShortcut shortcut; // the default; the user's override wins (Rebind)
+        /// A second chord the action also answers to, fixed (Ctrl+Y beside Ctrl+Shift+Z for
+        /// redo); never rebound, counted as taken.
+        EditorShortcut alternateShortcut;
         EditorActionKind kind = EditorActionKind::Command;
         /// Changes nothing (the MCP readOnlyHint; runs under a read-only editor).
         bool readOnly = false;
@@ -83,8 +86,9 @@ export namespace editor
         EditorActionRegistry& operator=(const EditorActionRegistry&) = delete;
 
         /// Registrations and rebinds; the surfaces that cache (the menu bar, the shortcut
-        /// table) rebuild on it.
-        Function<void()> OnActionsChanged;
+        /// table) rebuild on it. Subscribers outlive the registry's use of them (they are
+        /// the application's surfaces).
+        foundation::ui::Event<void()> OnActionsChanged;
 
         /// Register a declaration. Refused (false, logged) when the id or label is empty, when
         /// execute is unset, or when the id is already registered - each a mistake in a
@@ -187,7 +191,14 @@ export namespace editor
             const EditorShortcut* override = m_overrides.Find(Hash<StringView>{}(id));
             return override != nullptr ? *override : action->shortcut;
         }
-        /// The action holding a chord, effective bindings considered; null when free.
+        /// The declaration's alternate chord (never overridden); unset for most actions.
+        [[nodiscard]] EditorShortcut AlternateShortcut(StringView id) const
+        {
+            const EditorActionDeclaration* action = Find(id);
+            return action != nullptr ? action->alternateShortcut : EditorShortcut{};
+        }
+        /// The action holding a chord, effective bindings and alternates considered; null
+        /// when free.
         [[nodiscard]] const EditorActionDeclaration* HolderOf(EditorShortcut chord) const
         {
             if (!chord.IsSet())
@@ -196,7 +207,7 @@ export namespace editor
             }
             for (const EditorActionDeclaration& action : m_actions)
             {
-                if (Shortcut(action.id.AsView()) == chord)
+                if (Shortcut(action.id.AsView()) == chord || action.alternateShortcut == chord)
                 {
                     return &action;
                 }
@@ -242,13 +253,7 @@ export namespace editor
         }
 
     private:
-        void NotifyChanged() const
-        {
-            if (OnActionsChanged)
-            {
-                OnActionsChanged();
-            }
-        }
+        void NotifyChanged() const { OnActionsChanged(); }
 
         Array<EditorActionDeclaration> m_actions;
         HashMap<u64, usize> m_index;              // id hash -> index (verified on lookup)

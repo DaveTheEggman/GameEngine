@@ -54,6 +54,8 @@ import :project_manager_view;
 import :shell;
 import :font_atlas_cache;
 import :ui_page;
+import :action_menus;     // ActionMenuBar (the bar generated from the action registry)
+import :action_shortcuts; // ActionShortcuts (the globals generated from it)
 
 using namespace foundation::core;
 using namespace pipeline;
@@ -368,6 +370,7 @@ export namespace editor::app
 
         void SaveLayout();
 
+        void RegisterActions();
         void BuildMenus();
 
         // I4 instrumentation: log the ResourceManager's live-product report (counts by type;
@@ -492,6 +495,8 @@ export namespace editor::app
         UniquePtr<ui::application::RuntimeDockableWindowHost>
             m_dockHost; // references m_uiHost: dies first
         EditorShell m_shell;
+        UniquePtr<ActionMenuBar> m_actionMenus;       // the menu bar, from the registry
+        UniquePtr<ActionShortcuts> m_actionShortcuts; // the global shortcuts, from it
         RefPtr<AssetsView> m_assetsView;
         RefPtr<ui::toolkit::ToastHost> m_toastHost;
         Array<PagePanel> m_pagePanels;
