@@ -49,7 +49,13 @@ export namespace editor::app
                       pipeline::BuilderRegistry& builders, pipeline::ImporterRegistry& importers,
                       const editor::mcp::EngineToolPaths& paths,
                       editor::mcp::IProjectOperations& operations, String buildStamp);
-        ~EditorMcpHost() { Stop(); }
+        /// Stops, and takes back what the host wired on the session: the session outlives
+        /// the host, and what it announces to must not.
+        ~EditorMcpHost()
+        {
+            Stop();
+            m_session->onAssetWritten = nullptr;
+        }
         EditorMcpHost(const EditorMcpHost&) = delete;
         EditorMcpHost& operator=(const EditorMcpHost&) = delete;
 

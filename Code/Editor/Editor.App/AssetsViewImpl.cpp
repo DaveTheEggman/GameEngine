@@ -1219,19 +1219,7 @@ namespace editor::app
                 {
                     create->AddSeparator();
                 }
-                categories.Sort(
-                    [](StringView a, StringView b)
-                    {
-                        const usize n = Min(a.Size(), b.Size());
-                        for (usize i = 0; i < n; ++i)
-                        {
-                            if (a[i] != b[i])
-                            {
-                                return a[i] < b[i];
-                            }
-                        }
-                        return a.Size() < b.Size();
-                    });
+                categories.Sort([](StringView a, StringView b) { return a.Compare(b) < 0; });
                 for (StringView category : categories)
                 {
                     ui::MenuItem* categoryItem = create->AddSubmenu(category);

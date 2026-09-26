@@ -235,10 +235,16 @@ TEST_CASE("editor-mcp-host: an empty token never serves")
     session.project = project.Get();
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
     EditorContext context{DefaultAllocator()};
-    app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders, importers,
-                            editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
-    app::EditorMcpHostConfig config; // no token
-    CHECK_FALSE(host.Start(config));
-    CHECK_FALSE(host.IsRunning());
+    {
+        app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders,
+                                importers, editor::mcp::EngineToolPaths{}, operations,
+                                String(u8"test-stamp"));
+        app::EditorMcpHostConfig config; // no token
+        CHECK_FALSE(host.Start(config));
+        CHECK_FALSE(host.IsRunning());
+        CHECK(static_cast<bool>(session.onAssetWritten)); // wired while the host lives
+    }
+    // The session outlives the host; what the host wired on it went with the host.
+    CHECK_FALSE(static_cast<bool>(session.onAssetWritten));
     std::filesystem::remove_all("mcp_host_project2", ec);
 }
