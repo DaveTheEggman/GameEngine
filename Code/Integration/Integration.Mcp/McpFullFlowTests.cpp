@@ -211,6 +211,23 @@ TEST_CASE("integration.mcp: LocateShippingDocs walks up to the checkout layout, 
         CHECK(paths.shippingDocsDir == u8"mcp_docs_checkout/Documentation/Shipping");
         CHECK(paths.knownIssues == u8"mcp_docs_checkout/Documentation/Shipping/KnownIssues.md");
     }
+    // The served docs list by NAME, whatever order the filesystem hands them back in (a third
+    // file written last would otherwise come last on some filesystems and first on others).
+    {
+        std::ofstream("mcp_docs_checkout/Documentation/Shipping/Assets.md") << "# assets";
+        McpServer server;
+        editor::mcp::RegisterShippingDocResources(server,
+                                                  u8"mcp_docs_checkout/Documentation/Shipping");
+        LineOutcome line = server.HandleLine(
+            u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{}}");
+        REQUIRE(line.state == LineState::Answered);
+        const JsonValue resources =
+            json::Parse(line.response.AsView()).value.Get(u8"result").Get(u8"resources");
+        REQUIRE(resources.Count() == 3);
+        CHECK(resources.At(0).Get(u8"uri").AsString() == StringView(u8"docs://Assets.md"));
+        CHECK(resources.At(1).Get(u8"uri").AsString() == StringView(u8"docs://KnownIssues.md"));
+        CHECK(resources.At(2).Get(u8"uri").AsString() == StringView(u8"docs://McpGuide.md"));
+    }
     // A distribution: KnownIssues.md staged beside the tool, no docs directory at all.
     {
         editor::mcp::EngineToolPaths paths;

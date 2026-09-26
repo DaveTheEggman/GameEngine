@@ -18,6 +18,7 @@
 import foundation.core;
 import foundation.json;
 import foundation.content;
+import foundation.vfs;
 import foundation.mcp;
 import foundation.mcp.reflection;
 import pipeline.core;
@@ -338,4 +339,84 @@ TEST_CASE("integration.mcp: project_info before any project is open is a tool er
     JsonValue resp = CallResponse(server, u8"project_info", JsonValue::MakeObject());
     REQUIRE(resp.Has(u8"result"));
     CHECK(resp.Get(u8"result").Get(u8"isError").AsBool() == true);
+}
+
+
+TEST_CASE("integration.mcp: asset_import names the other claimants of an extension, and a hint "
+          "picks one")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_import_claimants", ec);
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::RegisterAllBuilders(builders);
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::RegisterAllImporters(importers);
+
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
+    CallOk(server, u8"project_create",
+           With(With(Obj(), u8"directory", u8"mcp_import_claimants"), u8"name", u8"Claims"));
+    CallOk(server, u8"project_open", With(Obj(), u8"directory", u8"mcp_import_claimants"));
+
+    // A real PNG from the engine's data; several importers claim the extension (texture, image,
+    // heightfield, the terrain masks). Two copies, since a re-import of the same source lands
+    // on the asset it already made.
+    const String dataRoot = foundation::vfs::FindDataRoot();
+    REQUIRE_FALSE(dataRoot.IsEmpty());
+    const String png = PathJoin(dataRoot.AsView(), u8"Assets/images/logo.png");
+    REQUIRE(FileExists(png.AsView()));
+    std::filesystem::copy_file(std::filesystem::path(reinterpret_cast<const char*>(png.CStr())),
+                               "mcp_import_claimants_second.png",
+                               std::filesystem::copy_options::overwrite_existing, ec);
+    REQUIRE_FALSE(ec);
+    const std::filesystem::path secondAbs = std::filesystem::absolute("mcp_import_claimants_second.png");
+    const String second(reinterpret_cast<const utf8char*>(secondAbs.string().c_str()));
+
+    // No hint: the first claimant imports, and the result names every other one.
+    JsonValue unhinted = CallOk(server, u8"asset_import", With(Obj(), u8"source", png.AsView()));
+    CHECK(unhinted.Get(u8"importer").AsString() == StringView(u8"Texture"));
+    CHECK(unhinted.Get(u8"type").AsString() == StringView(u8"TextureAsset"));
+    const JsonValue others = unhinted.Get(u8"alsoClaimableBy");
+    const usize claimants = static_cast<usize>(importers.FindAllFor(u8"png").Size());
+    REQUIRE(claimants >= 3u);
+    REQUIRE(static_cast<usize>(others.Count()) == claimants - 1);
+    bool image = false;
+    bool heightfield = false;
+    bool texture = false;
+    for (usize i = 0; i < static_cast<usize>(others.Count()); ++i)
+    {
+        const String label = others.At(i).AsString();
+        image = image || label == u8"Image";
+        heightfield = heightfield || label == u8"Heightfield";
+        texture = texture || label == u8"Texture";
+    }
+    CHECK(image);
+    CHECK(heightfield);
+    CHECK_FALSE(texture); // the one that imported is not an alternative to itself
+
+    // A hint that claims the extension picks that importer; the result names the rest.
+    JsonValue hinted = CallOk(server, u8"asset_import",
+                              With(With(Obj(), u8"source", second.AsView()), u8"importer", u8"Image"));
+    CHECK(hinted.Get(u8"importer").AsString() == StringView(u8"Image"));
+    CHECK(hinted.Get(u8"type").AsString() == StringView(u8"ImageAsset"));
+    CHECK(static_cast<usize>(hinted.Get(u8"alsoClaimableBy").Count()) == claimants - 1);
+
+    // A hint nothing answers to is refused before any import, naming the claimants in
+    // registration order (the unhinted default first).
+    JsonValue refused = CallResponse(server, u8"asset_import",
+                                     With(With(Obj(), u8"source", png.AsView()), u8"importer",
+                                          u8"Sculpture"));
+    REQUIRE(refused.Get(u8"result").Get(u8"isError").AsBool());
+    const String reason = refused.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString();
+    CHECK(reason.AsView().StartsWith(
+        u8"no importer 'Sculpture' claims '.png'; the claimants are: Texture Image Heightfield"));
+
+    std::filesystem::remove("mcp_import_claimants_second.png", ec);
+    owner.project = nullptr;
+    std::filesystem::remove_all("mcp_import_claimants", ec);
 }

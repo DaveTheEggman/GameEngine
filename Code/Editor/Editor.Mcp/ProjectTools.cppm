@@ -268,11 +268,14 @@ export namespace editor::mcp
         server.RegisterTool(
             u8"asset_import",
             u8"Import an OS file into the open project: copy it under Sources/ and create the typed "
-            u8"Asset in the source database (routed by extension). Does not cook - call asset_cook "
-            u8"next.",
+            u8"Asset in the source database (routed by extension). When several importers claim "
+            u8"the extension the first is used and the result names the alternatives under "
+            u8"`alsoClaimableBy`; pass `importer` to choose. Does not cook - call asset_cook next.",
             SchemaBuilder()
                 .Str(u8"source", u8"absolute path to the file to import", true)
                 .Str(u8"group", u8"source-DB group path to place it in (slash-joined; default root)")
+                .Str(u8"importer", u8"which importer to use when several claim the extension, by "
+                                   u8"label (the result of an unhinted import lists them)")
                 .Build(),
                 foundation::mcp::ToolAnnotations::Creates(),
             [s, imp, ops](const JsonValue& args) -> ToolOutcome
@@ -285,10 +288,41 @@ export namespace editor::mcp
                 request.source = args.Get(u8"source").AsString();
                 request.groupPath = args.Get(u8"group").AsString();
                 const String ext = pipeline::FileExtensionLower(request.source.AsView());
-                request.importer = imp->FindFor(ext.AsView());
-                if (request.importer == nullptr)
+                // Every claimant, as the interactive path asks (FindFor's first claimant
+                // always won: `.png` is claimed by the texture, image and heightfield
+                // importers). No hint = the first, with the alternatives in the result.
+                const Array<pipeline::IFileImporter*> claimants = imp->FindAllFor(ext.AsView());
+                if (claimants.IsEmpty())
                 {
                     return Err(Format(u8"no importer registered for '.{}' files", ext.AsView()));
+                }
+                const String hint = args.Get(u8"importer").AsString();
+                for (pipeline::IFileImporter* candidate : claimants)
+                {
+                    if (hint.IsEmpty() || candidate->Label() == hint.AsView())
+                    {
+                        request.importer = candidate;
+                        break;
+                    }
+                }
+                if (request.importer == nullptr)
+                {
+                    String refusal = Format(u8"no importer '{}' claims '.{}'; the claimants are:",
+                                            hint.AsView(), ext.AsView());
+                    for (pipeline::IFileImporter* candidate : claimants)
+                    {
+                        refusal += u8" ";
+                        refusal += candidate->Label();
+                    }
+                    return Err(Move(refusal));
+                }
+                JsonValue alsoClaimableBy = JsonValue::MakeArray();
+                for (pipeline::IFileImporter* candidate : claimants)
+                {
+                    if (candidate != request.importer)
+                    {
+                        alsoClaimableBy.Add(JsonValue::MakeString(String(candidate->Label())));
+                    }
                 }
                 OperationStep<ImportOutcome> step = ops->Import(request);
                 if (!step.HasValue())
@@ -311,6 +345,7 @@ export namespace editor::mcp
                 out.Set(u8"type", JsonValue::MakeString(done.type));
                 out.Set(u8"typeNamespace", JsonValue::MakeString(done.typeNamespace));
                 out.Set(u8"importer", JsonValue::MakeString(done.importer));
+                out.Set(u8"alsoClaimableBy", Move(alsoClaimableBy));
                 return out;
             });
 
@@ -483,6 +518,8 @@ export namespace editor::mcp
                 }
             },
             &names);
+        // By name, not by the filesystem's order: resources/list reads the same everywhere.
+        names.Sort([](const String& a, const String& b) { return a.AsView().Compare(b.AsView()) < 0; });
         for (const String& name : names)
         {
             const String path = PathJoin(docsDir, name.AsView());
