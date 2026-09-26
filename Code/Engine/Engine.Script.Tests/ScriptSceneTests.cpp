@@ -4372,6 +4372,9 @@ TEST_CASE("script.scene: an enum component property reads/writes as a native enu
 }
 
 // ---- net surface: NetworkComponent.of - authority (an enum) for authority-gated gameplay.
+//      Replication owns the identity: a script READS authority and id, assigns neither
+//      (the property flag is pinned in Net.Replication.Tests, the missing setter in
+//      Script.AngelScript.Tests; here, the gate works and the assignment never starts).
 TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - AngelScript (named enum)")
 {
     foundation::script::angelscript::RegisterAngelScriptBackend();
@@ -4387,7 +4390,6 @@ TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - Ang
         u8"    void onStart() {\n"
         u8"        NetworkComponent@ n = NetworkComponent::of(self);\n"
         u8"        if (n.authority == NetworkAuthority::Server) { self.setName(\"authoritative\"); }\n"
-        u8"        n.authority = NetworkAuthority::Client;\n"
         u8"    }\n"
         u8"}\n",
         {u8"onStart"});
@@ -4400,7 +4402,38 @@ TEST_CASE("script.scene: NetworkComponent.of exposes replication authority - Ang
 
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
-    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Client);
+    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Server); // read, untouched
+}
+
+TEST_CASE("script.scene: a script that assigns NetworkComponent.authority never starts - no setter exists")
+{
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    foundation::net::RegisterNetworkComponentScriptFacade();
+    ScriptedScene bed;
+    auto* net = bed.scene.AddSystem<foundation::net::NetworkComponentManager>();
+
+    RefPtr<ScriptClass> tweaker = MakeClassLang(
+        u8"angelscript", u8"NetWriter",
+        u8"class NetWriter {\n"
+        u8"    private Entity@ self;\n"
+        u8"    NetWriter(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        self.setName(\"started\");\n"
+        u8"        NetworkComponent::of(self).authority = NetworkAuthority::Client;\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
+
+    const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
+    net->Add(e).authority = foundation::net::NetworkAuthority::Server;
+
+    bed.Start();
+    bed.Frame();
+
+    // The class fails to compile (authority has no setter), so onStart never runs.
+    REQUIRE(net->Get(e) != nullptr);
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"e"));
+    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Server);
 }
 
 TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")
@@ -4417,7 +4450,6 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")
                   u8"    void onStart() {\n"
                   u8"        NetworkComponent@ n = NetworkComponent::of(self);\n"
                   u8"        if (n.authority == 0) { self.setName(\"authoritative\"); }\n"
-                  u8"        n.authority = NetworkAuthority(1);\n"
                   u8"    }\n"
                   u8"}\n",
                   {u8"onStart"});
@@ -4430,7 +4462,7 @@ TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")
 
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"authoritative"));
-    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Client);
+    CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Server); // read, untouched
 }
 
 // ---- UI world-space surface: UICanvasComponent / UIBillboardComponent /

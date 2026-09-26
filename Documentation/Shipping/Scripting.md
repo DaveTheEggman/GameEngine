@@ -30,6 +30,9 @@ Handlers dispatch **by presence** - implement only what you need:
 - `onDestroy()` - before teardown.
 - `on<Event>(...)` - named events: physics contacts, and any custom event another script
   sends. `entity.send("eventName", payload)` delivers to the target entity's behaviors.
+- Networked entities: gate on `NetworkComponent.of(self).authority` (Server or Client) - the
+  owning side drives, the rest interpolate. It reads; replication owns the identity, so
+  nothing on it is assignable from a script.
 
 ## Editor properties
 

@@ -422,11 +422,13 @@ namespace foundation::net
             .Attribute("category", String(u8"Networking"))
             .DataVersion(1);
         // Script (Track A): NetworkComponent.of(entity) -> read `authority` (is this entity server- or
-        // client-owned) for authority-gated gameplay. The Net session facade stays app-global (Net.*).
+        // client-owned) for authority-gated gameplay, and `id` for logging. READ-ONLY: replication
+        // owns these, and none of them is itself replicated - a script assigning `authority` would
+        // desynchronise the two sides silently. `prefab` is replication's bookkeeping, not a
+        // script's business. The Net session facade stays app-global (Net.*).
         builder.Method<&foundation::script::ComponentOf<NetworkComponent>, NetworkComponent>("of");
-        builder.Property<&NetworkComponent::id>("id");
-        builder.Property<&NetworkComponent::authority>("authority");
-        builder.Property<&NetworkComponent::prefab>("prefab");
+        builder.Property<&NetworkComponent::id>("id", PropertyFlags::ReadOnly);
+        builder.Property<&NetworkComponent::authority>("authority", PropertyFlags::ReadOnly);
     }
 
     // NetworkedTransform: unlike NetworkComponent, its fields ARE replicated (kReplicatedAttribute), so
