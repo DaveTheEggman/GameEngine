@@ -286,3 +286,36 @@ TEST_CASE("actions: a registration without an id, a label or execute is refused,
     CHECK(first == 1u);
     CHECK(second == 0u);
 }
+
+TEST_CASE("actions: AppendActionItems adds a context menu's items from the declarations over a "
+          "subject - labelled, enabled as answered now, executing through the registry; an "
+          "unknown id adds nothing")
+{
+    EditorActionRegistry actions;
+    u32 runs = 0;
+    EditorActionDeclaration run = Declare(u8"sim.run", u8"Simulate");
+    run.enabled = [](EditorPage* page) { return page != nullptr; };
+    run.execute = [&runs](EditorPage*) { ++runs; };
+    REQUIRE(actions.Register(Move(run)));
+    EditorActionDeclaration exit = Declare(u8"file.exit", u8"Exit");
+    exit.execute = [](EditorPage*) {};
+    REQUIRE(actions.Register(Move(exit)));
+
+    SimPage page;
+    auto menu = MakeRef<foundation::ui::ContextMenu>(DefaultAllocator());
+    const StringView ids[] = {u8"sim.run", u8"nobody.home", u8"file.exit"};
+    CHECK(AppendActionItems(*menu, actions, &page, Span<const StringView>(ids, 3)) == 2u);
+    REQUIRE(menu->ItemCount() == 2);
+    CHECK(menu->ItemAt(0)->Label == u8"Simulate");
+    CHECK(menu->ItemAt(0)->Enabled);
+    CHECK(menu->ItemAt(1)->Label == u8"Exit");
+    menu->ItemAt(0)->Action();
+    CHECK(runs == 1u);
+    // Over no subject the page-bound item is disabled; its click is refused by the registry.
+    auto bare = MakeRef<foundation::ui::ContextMenu>(DefaultAllocator());
+    CHECK(AppendActionItems(*bare, actions, nullptr, Span<const StringView>(ids, 1)) == 1u);
+    CHECK_FALSE(bare->ItemAt(0)->Enabled);
+    bare->ItemAt(0)->Action();
+    CHECK(runs == 1u);
+}
+

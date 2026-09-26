@@ -285,4 +285,31 @@ export namespace editor
         HashMap<u64, usize> m_index;              // id hash -> index (verified on lookup)
         HashMap<u64, EditorShortcut> m_overrides; // id hash -> the user's chord
     };
+
+    /// Items for the actions `ids`, in that order, appended to a context menu over `subject`:
+    /// each labelled from its declaration, enabled as the registry answers now, executing
+    /// through the registry over the subject. An id nobody registered adds nothing (the
+    /// menu's author asked for a name its domain never declared). Returns how many were added.
+    inline usize AppendActionItems(foundation::ui::ContextMenu& menu,
+                                   const EditorActionRegistry& actions, EditorPage* subject,
+                                   Span<const StringView> ids)
+    {
+        usize added = 0;
+        for (StringView id : ids)
+        {
+            const EditorActionDeclaration* action = actions.Find(id);
+            if (action == nullptr)
+            {
+                continue;
+            }
+            const EditorActionRegistry* registry = &actions;
+            const String actionId = action->id;
+            menu.AddItem(action->label.AsView(),
+                         [registry, actionId, subject]()
+                         { (void)registry->Execute(actionId.AsView(), subject); },
+                         EditorActionRegistry::IsEnabled(*action, subject));
+            ++added;
+        }
+        return added;
+    }
 }
