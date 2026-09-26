@@ -430,7 +430,14 @@ land on a 4-byte (non-8-byte-aligned) offset. Same pattern recurs for every
 `asBC_PTRARG`/`asBC_INTARG` pointer read across the interpreter and serializer.
 
 **Trigger:** any script-class instantiation (`asBC_ALLOC` executes) — it is NOT
-specific to our code. First seen on the pre-existing "instantiate a script class"
+specific to our code. The same class surfaces under `Code/` paths in
+`Code/Foundation/Script.AngelScript/AngelScriptScriptImpl.cpp` (the generic-call
+dispatch around lines 1101 to 1291 and the string helpers near line 181): every one
+dereferences an address the generic call interface hands back (`GetAddressOfArg`,
+`GetArgObject`) for a string, a `BoxedVariant` or a delegate argument, and that address
+sits on AngelScript's 4-byte-aligned stack (the `as_context.cpp` report right before
+each is the same frame). Not ours to align; it goes with the upstream fix. The
+`scriptstdstring.cpp` string reports are the add-on doing the same. First seen on the pre-existing "instantiate a script class"
 AngelScript test; the coroutine work did not introduce it.
 
 **Impact:** none in practice on x86-64/ARM64, which permit unaligned loads — this is
