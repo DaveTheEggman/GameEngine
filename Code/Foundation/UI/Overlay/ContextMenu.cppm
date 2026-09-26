@@ -83,6 +83,22 @@ export namespace foundation::ui
         }
 
         [[nodiscard]] i32 ItemCount() const noexcept { return static_cast<i32>(m_items.Size()); }
+        [[nodiscard]] const MenuItem* ItemAt(i32 index) const noexcept
+        {
+            return (index >= 0 && index < ItemCount()) ? m_items[static_cast<usize>(index)].Get()
+                                                       : nullptr;
+        }
+        /// Runs at the start of every Show, before the menu measures: a menu whose items are
+        /// built from live state (an action registry's enabled flags) rebuilds them here, so
+        /// what the user sees is the state at the moment the menu opens.
+        Function<void(ContextMenu&)> OnOpening;
+        /// Remove every item (a submenu goes with its item).
+        void ClearItems()
+        {
+            m_items.Clear();
+            m_hoveredIndex = -1;
+            m_scrollY = 0;
+        }
 
         void AddItem(StringView label, Function<void()> action, bool enabled = true)
         {
@@ -116,6 +132,10 @@ export namespace foundation::ui
             // Every show starts unhighlighted and scrolled to the top.
             m_hoveredIndex = -1;
             m_scrollY = 0;
+            if (OnOpening)
+            {
+                OnOpening(*this);
+            }
 
             RootView* root = ctx->ActiveInputRoot();
             if (root == nullptr)

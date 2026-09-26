@@ -46,6 +46,29 @@ export namespace foundation::ui::toolkit
             Invalidate();
             return raw;
         }
+        [[nodiscard]] ContextMenu* MenuAt(usize index) const noexcept
+        {
+            return index < m_menus.Size() ? m_menus[index].Menu.Get() : nullptr;
+        }
+        [[nodiscard]] StringView MenuTitle(usize index) const noexcept
+        {
+            return index < m_menus.Size() ? m_menus[index].Title.AsView() : StringView();
+        }
+        /// Remove every menu (an open one closes first): a bar built from a registry rebuilds
+        /// through this when the registry changes.
+        void ClearMenus()
+        {
+            if (m_activeIndex >= 0)
+            {
+                CloseActiveMenu();
+            }
+            m_menus.Clear();
+            m_itemRects.Clear();
+            m_activeIndex = -1;
+            m_hoveredIndex = -1;
+            m_menuMode = false;
+            Invalidate();
+        }
 
         // === IPopupOwner ===
 

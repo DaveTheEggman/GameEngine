@@ -183,3 +183,33 @@ TEST_CASE("context-menu: keyboard navigation scrolls the hovered item into view"
     menu->OnMouseMove(bottom);
     CHECK(menu->HoveredIndex() == 29); // the row under the cursor IS the scrolled-to row
 }
+
+TEST_CASE("context-menu: ItemAt, ClearItems, and OnOpening rebuilding the items at Show")
+{
+    auto menu = MakeMenu();
+    menu->AddItem(u8"One", []() {});
+    menu->AddSeparator();
+    menu->AddItem(u8"Two", []() {}, false);
+    REQUIRE(menu->ItemCount() == 3);
+    CHECK(menu->ItemAt(0)->Label == u8"One");
+    CHECK(menu->ItemAt(1)->IsSeparator);
+    CHECK_FALSE(menu->ItemAt(2)->Enabled);
+    CHECK(menu->ItemAt(3) == nullptr);
+    CHECK(menu->ItemAt(-1) == nullptr);
+    menu->ClearItems();
+    CHECK(menu->ItemCount() == 0);
+    // The opening hook is the menu's to call at Show; a menu built from live state fills
+    // itself there. Called directly here (no popup layer in a unit test).
+    int opened = 0;
+    menu->OnOpening = [&opened](ContextMenu& opening)
+    {
+        ++opened;
+        opening.ClearItems();
+        opening.AddItem(u8"Fresh", []() {});
+    };
+    menu->OnOpening(*menu);
+    CHECK(opened == 1);
+    REQUIRE(menu->ItemCount() == 1);
+    CHECK(menu->ItemAt(0)->Label == u8"Fresh");
+}
+
