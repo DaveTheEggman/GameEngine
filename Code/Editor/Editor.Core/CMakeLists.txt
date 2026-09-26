@@ -41,6 +41,7 @@ target_sources(Editor.Core
             ProjectManager.cppm
             Export.cppm
             Page.cppm
+            Actions.cppm
             Context.cppm
             LogBuffer.cppm
             JobService.cppm

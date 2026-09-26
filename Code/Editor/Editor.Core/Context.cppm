@@ -11,6 +11,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <type_traits> // std::is_base_of_v (ActivePageService)
 
 export module editor.core:context;
 
@@ -23,6 +24,7 @@ import foundation.content;
 import :command;
 import :selection;
 import :page;
+import :actions;
 import :job_service;
 import :thumbnail_service;
 import :project;
@@ -310,6 +312,21 @@ export namespace editor
 
         [[nodiscard]] EditorPageRegistry& Pages() noexcept { return m_pageRegistry; }
 
+        /// The editor's actions (see :actions): registered in the composition roots, every
+        /// surface built from them, executed through them.
+        [[nodiscard]] EditorActionRegistry& Actions() noexcept { return m_actions; }
+        [[nodiscard]] const EditorActionRegistry& Actions() const noexcept { return m_actions; }
+
+        /// The interface the active page publishes, or null when no page is active or the
+        /// active page is not that kind: the context an action binds through ("enabled iff
+        /// the active page is a scene page", then act on it).
+        template <typename T>
+            requires std::is_base_of_v<IPageService, T>
+        [[nodiscard]] T* ActivePageService() const noexcept
+        {
+            return m_activePage != nullptr ? m_activePage->Service<T>() : nullptr;
+        }
+
         /// Asset creators (File > New <label>): create a fresh source instance in the project DB.
         /// Registered by per-subsystem editor modules; the shell builds menu items from them.
         struct AssetCreator
@@ -503,6 +520,7 @@ export namespace editor
         Array<McpToolContribution> m_mcpToolContributions;
         pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
+        EditorActionRegistry m_actions;
         Array<AssetCreator> m_creators;
         String m_clipboardKind;
         Array<byte> m_clipboard;

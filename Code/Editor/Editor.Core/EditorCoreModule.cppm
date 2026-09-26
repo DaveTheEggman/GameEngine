@@ -18,6 +18,7 @@ export import :project_registry;
 export import :editor_settings;
 export import :project_manager;
 export import :page;
+export import :actions;
 export import :context;
 export import :cook_service;
 export import pipeline.importer; // the import framework lives in Pipeline

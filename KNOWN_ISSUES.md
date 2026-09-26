@@ -453,3 +453,15 @@ hypothetical alignment-strict target. AngelScript is a committed backend
    the vendor drop. Cheapest; hides the issue rather than fixing it.
 
 Recommendation: (3) now to unblock clean sanitizer runs on our code, then (1) upstream.
+
+## GCC 15: segmentation fault importing a partition that EXPORTS a namespace alias - RULE
+
+**Status:** RULE 2026-09-26. `editor.core:actions` first exported `namespace ui =
+foundation::ui;` inside `export namespace editor { ... }`. Every unit that imports
+`editor.core` and defines the same alias in its own `namespace editor` block (Editor.Audio's
+AudioClipPage / SoundCuePage / BusLayoutPage, Editor.Scene's ScenePage) then died in the
+GCC 15 front end at its `export module` line: "internal compiler error: Segmentation fault",
+no backtrace past libc. Clang took it. Editor.Scene happened to compile; Editor.Audio did not.
+**Rule:** never export a namespace alias from a module interface or partition. Keep aliases
+in the unit that uses them (unexported, or in a non-exported block) and spell the namespace
+out in exported declarations. The partition now says `foundation::ui::KeyCode`.
