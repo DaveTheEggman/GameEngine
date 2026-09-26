@@ -60,6 +60,40 @@ list and Zero's singleton + data-file binding by string are both against our exp
 composition root, and Zero's event plumbing exists for retained widgets that never poll -
 ours already refresh per frame.
 
+**Traktor** (read 2026-09-26; `code/Ui/Command.h`, `code/Editor/App/EditorForm.cpp`,
+`IEditorPage.h`, `IEditorPlugin.h`, `resources/runtime/configurations/Traktor.Editor.config`).
+`ui::Command` is a VALUE: an id and/or a dotted name (`Editor.Save`, `Scene.Editor.AddEntity`)
+plus an optional data object (the recent-workspace path, the instance to open). It carries
+no label, no behaviour, no enabled rule and no chord. Menus and toolbars are built by hand
+with `MenuItem(Command, i18n label)` / `ToolBarButton(..., Command)`; a click raises an event
+carrying the command, a chord in the accelerator table raises the same, and every event path
+funnels into ONE `EditorForm::handleCommand(command)`: the form's own `if (command ==
+L"Editor.Save")` ladder, then the database view or a modal object editor, then the active
+page's `handleCommand` (its own ladder, which first offers the command to its focused
+sub-view - the properties view takes Delete/Copy before the scene does), then every plugin,
+which sees the command and the result so far. The set of shortcut-able commands is GATHERED
+at startup from each contributor (`IEditorPageFactory::getCommands`, `IEditorPlugin::
+getCommands`, `IObjectEditorFactory::getCommands`, plus the form's own list); each chord
+comes from the `Editor.Shortcuts` settings group (defaults in the config, a Shortcuts
+settings page with collision detection). Enabled state does not exist: menus show everything,
+a handler no-ops when nothing applies, and `result` says only whether someone took it. The
+MCP plugin does not touch commands (empty `getCommands`, `handleCommand` returns false).
+
+**What Traktor confirms and adds.** Confirms: one funnel (a menu click, a chord, a toolbar
+click and a future `action_execute` are the same value at the same dispatch point - ours is
+`Registry::Execute(id)`), and declarations gathered from each contributor in an explicit
+composition root rather than discovered. Adds two rules to ours: (1) an action is NULLARY -
+Traktor's data-carrying commands ("open recent X") are list-driven menus, which stay
+list-driven here (the creators submenu, recent projects) and are not actions; anything that
+takes a parameter is a tool, not an action. (2) FOCUS FIRST for the keys a focused view owns:
+Traktor hands Delete/Copy to the properties view before the page; we already dispatch
+shortcuts after the focused view, with text controls marking their key-downs handled, and an
+action's `execute` binds to the active page's selection, so a focused sub-view that wants the
+key keeps it by handling it, exactly as today. What Traktor lacks and we keep: labels and
+descriptions on the declaration (Traktor's live at the menu, so a command can be in the
+shortcut list and not in a menu, or the reverse), an enabled rule the surfaces and the agent
+can read, and a registry that knows what a name means instead of a string ladder per handler.
+
 **ezEngine** (read 2026-09-25 for MCP): the action bridge lists, reports and executes the
 editor's registered actions with declared unattended answers for the dialogs an action may
 open; the shape our `action_*` tools take once there is a registry.
