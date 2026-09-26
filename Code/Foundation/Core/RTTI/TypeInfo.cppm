@@ -34,6 +34,15 @@ export namespace foundation::core
         i64 value;
     };
 
+    /// What generic tooling does with a reference-shaped value, type-erased: the Guid inside,
+    /// setting it, and dropping any runtime binding so the next resolve binds the new id.
+    struct ReferenceOps
+    {
+        const Guid* (*Id)(const void* value);
+        void (*SetId)(void* value, const Guid& id);
+        void (*ClearBinding)(void* value);
+    };
+
     struct TypeInfo
     {
         TypeId id;
@@ -66,15 +75,15 @@ export namespace foundation::core
         // commit and removed once the data has moved (Process/CONVENTIONS.md).
         u32 minReadDataVersion = 0;
         // A reference-shaped value (a resource::Ref<T>, whatever T): its identity is a Guid,
-        // and generic tooling reads THAT from a value of this type instead of the value. Set
-        // from ReferenceTraits<T> when the type's TypeInfo is made; null for every other type.
-        const Guid* (*referenceId)(const void* value) = nullptr;
+        // and generic tooling reads and writes THAT instead of the value. The ops come from
+        // ReferenceTraits<T> when the type's TypeInfo is made; null for every other type.
+        const ReferenceOps* reference = nullptr;
     };
 
     /// The customization point a module specializes for its reference template (Resource does
-    /// for Ref<T>): `isReference` true and `Id(value)` the Guid inside. Every TypeInfo made for
-    /// such a type carries `referenceId`, so a Variant, a property or a container element of
-    /// it is read by identity without anyone naming the template.
+    /// for Ref<T>): `isReference` true and `Ops()` the table. Every TypeInfo made for such a
+    /// type carries it, so a Variant, a property or a container element of it is read and
+    /// written by identity without anyone naming the template.
     template <typename T>
     struct ReferenceTraits
     {
@@ -83,7 +92,7 @@ export namespace foundation::core
 
     [[nodiscard]] inline bool IsReferenceType(const TypeInfo& type) noexcept
     {
-        return type.referenceId != nullptr;
+        return type.reference != nullptr;
     }
 
     // Stable 64-bit identity from the fully-qualified name.
@@ -105,7 +114,7 @@ export namespace foundation::core
         info.dataVersion = dataVersion;
         if constexpr (ReferenceTraits<T>::isReference)
         {
-            info.referenceId = &ReferenceTraits<T>::Id;
+            info.reference = &ReferenceTraits<T>::Ops();
         }
         return info;
     }

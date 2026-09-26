@@ -495,9 +495,13 @@ namespace foundation::core
     struct ReferenceTraits<FakeRef>
     {
         static constexpr bool isReference = true;
-        [[nodiscard]] static const Guid* Id(const void* value) noexcept
+        [[nodiscard]] static const ReferenceOps& Ops() noexcept
         {
-            return &static_cast<const FakeRef*>(value)->id;
+            static constexpr ReferenceOps ops{
+                [](const void* value) -> const Guid* { return &static_cast<const FakeRef*>(value)->id; },
+                [](void* value, const Guid& id) { static_cast<FakeRef*>(value)->id = id; },
+                [](void* value) { static_cast<FakeRef*>(value)->cached = 0; }};
+            return ops;
         }
     };
 }
@@ -531,7 +535,7 @@ TEST_CASE("rtti: a reference-shaped value type is read by identity through its T
     CHECK(IsReferenceType(*one->type));
     const Variant value = GetProperty(*one, inst);
     REQUIRE(IsReferenceType(*value.Type()));
-    CHECK(*value.Type()->referenceId(value.ValuePointer()) == holder.one.id);
+    CHECK(*value.Type()->reference->Id(value.ValuePointer()) == holder.one.id);
     // A container of them: each element the same way.
     const PropertyInfo* many = FindProperty(TypeOf<RefHolder>(), "many");
     REQUIRE(many != nullptr);
@@ -540,7 +544,14 @@ TEST_CASE("rtti: a reference-shaped value type is read by identity through its T
     const Instance manyInst(many->address(inst), many->type);
     REQUIRE(ContainerSize(*many->type->container, manyInst) == 2u);
     const Variant second = ContainerGetAt(*many->type->container, manyInst, 1);
-    CHECK(*second.Type()->referenceId(second.ValuePointer()) == holder.many[1].id);
+    CHECK(*second.Type()->reference->Id(second.ValuePointer()) == holder.many[1].id);
+    // Writing by identity: the id set in place, the runtime binding dropped.
+    const Guid fresh = Guid::Generate(rng);
+    holder.one.cached = 7;
+    refType.reference->SetId(one->address(inst), fresh);
+    refType.reference->ClearBinding(one->address(inst));
+    CHECK(holder.one.id == fresh);
+    CHECK(holder.one.cached == 0);
 }
 
 TEST_CASE("rtti: a Nested property recurses into a non-copyable member via address")

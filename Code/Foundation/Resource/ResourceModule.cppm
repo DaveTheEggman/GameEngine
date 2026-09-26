@@ -201,9 +201,14 @@ export namespace foundation::core
     struct ReferenceTraits<foundation::resource::Ref<T>>
     {
         static constexpr bool isReference = true;
-        [[nodiscard]] static const Guid* Id(const void* value) noexcept
+        [[nodiscard]] static const ReferenceOps& Ops() noexcept
         {
-            return &static_cast<const foundation::resource::Ref<T>*>(value)->id;
+            using RefT = foundation::resource::Ref<T>;
+            static constexpr ReferenceOps ops{
+                [](const void* value) -> const Guid* { return &static_cast<const RefT*>(value)->id; },
+                [](void* value, const Guid& id) { static_cast<RefT*>(value)->SetId(id); },
+                [](void* value) { static_cast<RefT*>(value)->ClearBinding(); }};
+            return ops;
         }
     };
 }
