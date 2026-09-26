@@ -34,6 +34,7 @@ implementing agent's work).
 | [ui-browser-parity-tests.md](ui-browser-parity-tests.md) | - | M (PROPOSED: measured Chrome expectations for layout, not derived ones) |
 | [ui-text-and-gaps.md](ui-text-and-gaps.md) | - | L (PROPOSED: shaping + inline runs; the UI gap list vs RmlUi/MewUI) |
 | [whiteboxing.md](whiteboxing.md) | - | M (PROPOSED: parametric blockout pieces driving mesh + collider; P0-P3) |
+| [editor-actions.md](editor-actions.md) | - | L (PROPOSED: one action declaration behind menus, shortcuts, toolbars, the palette and the MCP action bridge; prior art Lumix + Zero) |
 | [paperkid.md](paperkid.md) | - | game plan |
 | [documentation-system.md](documentation-system.md) | - | process |
 | [scene-prefab-unification.md](scene-prefab-unification.md) | - | WIP design question (needs Fable) |
