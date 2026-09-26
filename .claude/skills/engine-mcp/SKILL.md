@@ -46,7 +46,10 @@ token), or for one run: `Tools.Editor <project> --mcp [--mcp-port <n>]`. The def
   nothing, so use a dedicated tool for that step or ask the user; never retry it blind.
 - The page tools (`page_list` / `page_open` / `page_reload` / `page_close`) are the editor
   host's alone, and so are the scene page's live tools (`selection_get` / `selection_set` /
-  `simulate_start` / `simulate_stop`, each addressed by the page's asset guid). A
+  `simulate_start` / `simulate_stop` / `entity_inspect`, each addressed by the page's asset
+  guid). `entity_inspect` is the inspector's view of one entity: its hierarchy, transform and
+  every component's reflected properties (asset references as guids, enums by name), the
+  primary selection by default - read it before a property write, and after one. A
   `scene_write` / `prefab_write` over an asset the user has open reaches its page at once: a
   clean page reloads in place, a page with unsaved edits keeps them and warns the user -
   never write over it again hoping to win; ask, or `page_reload` with `force` only when the

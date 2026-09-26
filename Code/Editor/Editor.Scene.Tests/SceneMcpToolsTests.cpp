@@ -12,6 +12,9 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.scene;
+import foundation.resource;
+import foundation.materials;
+import engine.render;
 import editor.core;
 import editor.scene;
 
@@ -134,6 +137,7 @@ TEST_CASE("scene-mcp-tools: page addressing, the selection round-trip, its refus
     McpServer server;
     RegisterSceneLiveTools(server, context);
     CHECK(server.ToolCount() == kSceneLiveToolCount);
+    CHECK(kSceneLiveToolCount == 5u);
     const String aGuid = GuidText(sceneA);
     const String lampGuid = GuidText(lamp);
     const String tableGuid = GuidText(table);
@@ -202,3 +206,93 @@ TEST_CASE("scene-mcp-tools: page addressing, the selection round-trip, its refus
     context.ClosePage(pageB);
     context.ClosePage(pageA);
 }
+
+TEST_CASE("scene-mcp-tools: entity_inspect reads an entity and its components through reflection - "
+          "identity, hierarchy, transform, enums by name, references as guids, lists expanded, "
+          "the primary selection as the default, and the refusals")
+{
+    engine::render::RegisterRenderComponentReflection();
+    Random rng(21);
+    const Guid sceneId = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Bistro", sceneId), DefaultAllocator())));
+    SceneEditContext& edit = page->EditContext();
+    scene::Scene& scene = edit.Scene();
+    auto* lights = scene.AddSystem<engine::render::LightComponentManager>();
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
+
+    const Guid lampId = edit.CreateEntity(u8"Lamp");
+    const Guid bulbId = edit.CreateEntity(u8"Bulb", lampId);
+    const scene::EntityHandle lamp = edit.Resolve(lampId);
+    const scene::EntityHandle bulb = edit.Resolve(bulbId);
+    engine::render::LightComponent& light = lights->Add(bulb);
+    light.type = engine::render::LightType::Spot;
+    light.intensity = 2.5f;
+    light.color = Color{1.0f, 0.5f, 0.25f, 1.0f};
+    engine::render::MeshComponent& mesh = meshes->Add(lamp);
+    const Guid meshAsset = Guid::Generate(rng);
+    const Guid materialAsset = Guid::Generate(rng);
+    mesh.mesh.SetId(meshAsset);
+    mesh.materials.PushBack(foundation::resource::Ref<foundation::materials::Material>{});
+    mesh.materials[0].SetId(materialAsset);
+    mesh.visible = false;
+    Transform placed;
+    placed.position = Float3{1.0f, 2.0f, 3.0f};
+    scene.SetLocalTransform(lamp, placed);
+
+    McpServer server;
+    RegisterSceneLiveTools(server, context);
+    const String pageGuid = GuidText(sceneId);
+
+    // By guid: the lamp with its child, its transform, and the mesh's references and list.
+    Answer got = Call(server, u8"entity_inspect",
+                      Format(u8"{{\"page\":\"{}\",\"entity\":\"{}\"}}", pageGuid.AsView(),
+                             GuidText(lampId).AsView())
+                          .AsView());
+    REQUIRE(got.ok);
+    const JsonValue entity = got.payload.Get(u8"entity");
+    CHECK(entity.Get(u8"name").AsString() == StringView(u8"Lamp"));
+    CHECK(entity.Get(u8"active").AsBool());
+    CHECK(entity.Get(u8"parent").IsNull());
+    REQUIRE(entity.Get(u8"children").Count() == 1);
+    CHECK(entity.Get(u8"children").At(0).AsString() == GuidText(bulbId).AsView());
+    CHECK(entity.Get(u8"transform").Get(u8"position").At(2).AsNumber() == doctest::Approx(3.0));
+    REQUIRE(entity.Get(u8"components").Count() == 1);
+    const JsonValue meshJson = entity.Get(u8"components").At(0);
+    CHECK(meshJson.Get(u8"type").AsString() == StringView(u8"mesh"));
+    CHECK(meshJson.Get(u8"typeName").AsString() == StringView(u8"MeshComponent"));
+    const JsonValue meshProps = meshJson.Get(u8"properties");
+    CHECK(meshProps.Get(u8"mesh").AsString() == GuidText(meshAsset).AsView());
+    CHECK_FALSE(meshProps.Get(u8"visible").AsBool());
+    REQUIRE(meshProps.Get(u8"materials").Count() == 1);
+    CHECK(meshProps.Get(u8"materials").At(0).AsString() == GuidText(materialAsset).AsView());
+
+    // The primary selection as the default: the bulb, a child, with its light's enum by name.
+    edit.EntitySelection().Set(bulbId);
+    got = Call(server, u8"entity_inspect", Format(u8"{{\"page\":\"{}\"}}", pageGuid.AsView()).AsView());
+    REQUIRE(got.ok);
+    const JsonValue bulbJson = got.payload.Get(u8"entity");
+    CHECK(bulbJson.Get(u8"parent").AsString() == GuidText(lampId).AsView());
+    REQUIRE(bulbJson.Get(u8"components").Count() == 1);
+    const JsonValue lightProps = bulbJson.Get(u8"components").At(0).Get(u8"properties");
+    CHECK(lightProps.Get(u8"type").AsString() == StringView(u8"Spot"));
+    CHECK(lightProps.Get(u8"intensity").AsNumber() == doctest::Approx(2.5));
+    REQUIRE(lightProps.Get(u8"color").Count() == 4);
+    CHECK(lightProps.Get(u8"color").At(1).AsNumber() == doctest::Approx(0.5));
+
+    // Refusals: no selection and no entity; an unknown entity.
+    edit.EntitySelection().Clear();
+    got = Call(server, u8"entity_inspect", Format(u8"{{\"page\":\"{}\"}}", pageGuid.AsView()).AsView());
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"page 'Bistro' has no selection"));
+    got = Call(server, u8"entity_inspect",
+               Format(u8"{{\"page\":\"{}\",\"entity\":\"00000000-0000-0000-0000-000000000001\"}}",
+                      pageGuid.AsView())
+                   .AsView());
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"no entity with guid"));
+
+    context.ClosePage(page);
+}
+

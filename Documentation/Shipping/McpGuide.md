@@ -19,8 +19,10 @@ give the client a generous timeout rather than polling. The editor adds the page
 palette, over the active page, executed unattended - a dialog an action would open is
 closed as cancelled and named under `suppressedDialogs`, so the action most likely did
 nothing; use a dedicated tool or ask the user) and the scene page's live tools
-(`selection_get` / `selection_set` / `simulate_start` / `simulate_stop`, each addressed by
-the page's asset guid). A `scene_write` / `prefab_write` over an asset the user has open
+(`selection_get` / `selection_set` / `simulate_start` / `simulate_stop` / `entity_inspect`,
+each addressed by the page's asset guid; `entity_inspect` is the inspector's view of one
+entity - hierarchy, transform, every component's reflected properties with asset references
+as guids and enums by name - the primary selection by default). A `scene_write` / `prefab_write` over an asset the user has open
 reaches its page at once: a clean page reloads in place, a page with unsaved edits keeps
 them and warns the user - ask before `page_reload` with `force`, which discards them.
 
