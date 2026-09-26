@@ -15,6 +15,7 @@ export module foundation.core:type_info;
 import :base;
 import :hash;
 import :string;
+import :guid;
 
 export namespace foundation::core
 {
@@ -64,7 +65,26 @@ export namespace foundation::core
         // TypeBuilder::ReadsDataVersionsFrom; a legacy reader is one version back, named in its
         // commit and removed once the data has moved (Process/CONVENTIONS.md).
         u32 minReadDataVersion = 0;
+        // A reference-shaped value (a resource::Ref<T>, whatever T): its identity is a Guid,
+        // and generic tooling reads THAT from a value of this type instead of the value. Set
+        // from ReferenceTraits<T> when the type's TypeInfo is made; null for every other type.
+        const Guid* (*referenceId)(const void* value) = nullptr;
     };
+
+    /// The customization point a module specializes for its reference template (Resource does
+    /// for Ref<T>): `isReference` true and `Id(value)` the Guid inside. Every TypeInfo made for
+    /// such a type carries `referenceId`, so a Variant, a property or a container element of
+    /// it is read by identity without anyone naming the template.
+    template <typename T>
+    struct ReferenceTraits
+    {
+        static constexpr bool isReference = false;
+    };
+
+    [[nodiscard]] inline bool IsReferenceType(const TypeInfo& type) noexcept
+    {
+        return type.referenceId != nullptr;
+    }
 
     // Stable 64-bit identity from the fully-qualified name.
     [[nodiscard]] inline TypeId ComputeTypeId(const char* namespaceName, const char* name) noexcept
@@ -83,6 +103,10 @@ export namespace foundation::core
             ComputeTypeId(namespaceName, name), name, namespaceName, static_cast<u32>(sizeof(T)),
             static_cast<u32>(alignof(T)),       base};
         info.dataVersion = dataVersion;
+        if constexpr (ReferenceTraits<T>::isReference)
+        {
+            info.referenceId = &ReferenceTraits<T>::Id;
+        }
         return info;
     }
 

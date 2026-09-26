@@ -475,6 +475,74 @@ TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")
     CHECK(animal->legs == 9);
 }
 
+namespace
+{
+    // A reference-shaped value of this test's own: identified by its guid, read by identity.
+    struct FakeRef
+    {
+        Guid id;
+        int cached = 0;
+    };
+    struct RefHolder
+    {
+        FakeRef one;
+        Array<FakeRef> many;
+    };
+}
+namespace foundation::core
+{
+    template <>
+    struct ReferenceTraits<FakeRef>
+    {
+        static constexpr bool isReference = true;
+        [[nodiscard]] static const Guid* Id(const void* value) noexcept
+        {
+            return &static_cast<const FakeRef*>(value)->id;
+        }
+    };
+}
+REFLECT_VALUE(RefHolder, "rtti::test")
+{
+    builder.Property<&RefHolder::one>("one").Nested<&RefHolder::many>("many");
+}
+
+void RttiRegisterValue_RefHolder(); // emitted by REFLECT_VALUE above
+
+TEST_CASE("rtti: a reference-shaped value type is read by identity through its TypeInfo - as a "
+          "Variant, a property and a container element - and every other type is not")
+{
+    RttiRegisterValue_RefHolder();
+    RegisterArrayType<FakeRef>(); // the list's container reflection, as a component registers its lists
+    const TypeInfo& refType = TypeOf<FakeRef>();
+    REQUIRE(IsReferenceType(refType));
+    CHECK_FALSE(IsReferenceType(TypeOf<int>()));
+    CHECK_FALSE(IsReferenceType(TypeOf<RefHolder>()));
+
+    Random rng(3);
+    RefHolder holder;
+    holder.one.id = Guid::Generate(rng);
+    holder.many.PushBack(FakeRef{Guid::Generate(rng), 1});
+    holder.many.PushBack(FakeRef{Guid::Generate(rng), 2});
+    const Instance inst = Instance::From(&holder);
+
+    // The property's Variant: its type says reference, the reader gives the id inside.
+    const PropertyInfo* one = FindProperty(TypeOf<RefHolder>(), "one");
+    REQUIRE(one != nullptr);
+    CHECK(IsReferenceType(*one->type));
+    const Variant value = GetProperty(*one, inst);
+    REQUIRE(IsReferenceType(*value.Type()));
+    CHECK(*value.Type()->referenceId(value.ValuePointer()) == holder.one.id);
+    // A container of them: each element the same way.
+    const PropertyInfo* many = FindProperty(TypeOf<RefHolder>(), "many");
+    REQUIRE(many != nullptr);
+    REQUIRE(many->type->container != nullptr);
+    CHECK(IsReferenceType(*many->type->container->elementType));
+    const Instance manyInst(many->address(inst), many->type);
+    REQUIRE(ContainerSize(*many->type->container, manyInst) == 2u);
+    const Variant second = ContainerGetAt(*many->type->container, manyInst, 1);
+    CHECK(*second.Type()->referenceId(second.ValuePointer()) == holder.many[1].id);
+}
+
 TEST_CASE("rtti: a Nested property recurses into a non-copyable member via address")
 {
     const PropertyInfo* leafProp = FindProperty(NestedOwner::StaticType(), "leaf");
