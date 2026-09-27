@@ -1,6 +1,6 @@
 # Editor actions - one declaration behind menus, shortcuts, toolbars, the palette and MCP
 
-**Status:** BUILT through layer 6 (2026-09-27); layer 7 lands as domains are touched. Originally PROPOSED 2026-09-26. Asked for by the user on
+**Status:** BUILT through layer 6 (2026-09-27); layer 7 is PROPOSED below (2026-09-27). Originally PROPOSED 2026-09-26. Asked for by the user on
 2026-09-25 ("something I have been observing for a while") when the MCP action bridge showed
 there is no action system to bridge.
 
@@ -200,6 +200,119 @@ struct EditorActionDeclaration
   no request flag (Lumix's exists for polling owners). Undo stays where it is: a mutating
   action goes through the page's command stack like the menu lambda it replaces.
 
+## Layer 7 - the remaining surfaces (PROPOSED 2026-09-27)
+
+Layers 1 to 6 moved the application's menus, the scene editor's hierarchy menus and toolbar,
+the page toolbar, the palette and the Shortcuts page onto the registry. What still binds a
+command at the surface that shows it, counted 2026-09-27 (`AddItem(u8"` sites outside tests):
+
+| File | Items | What they are |
+|---|---|---|
+| Editor.App/AssetsViewImpl.cpp | 20 | the asset browser's row, group and background menus |
+| Editor.Scene/HierarchyViewImpl.cpp | 2 | Rename, Copy ID over an entity |
+| Editor.Scene/ParticleEffectPageImpl.cpp | 2 | Move Down, Delete over an emitter |
+| Editor.Scene/AnimationGraphPageImpl.cpp | 2 | Make Transition, Delete Transition over a node |
+| Editor.App/ApplicationImpl.cpp | 1 | a combo box entry, not a command |
+
+The asset browser is the layer. Its three menus today:
+
+- **Row over an instance:** Open | Rename, Duplicate | Copy GUID, Copy Path, Pin / Unpin
+  favorite, Add to / Remove from Always Export | Cook, Rebuild | Delete (multi-select aware:
+  every selected instance, the label counting them).
+- **Row over a group:** Open | Rename | Cook Group, Rebuild Group | Delete Group.
+- **Background:** Create > (the creators, by category) , New Group, Import... | (inside a
+  group: Rename Group, Cook Group, Rebuild Group, Delete Group) | Cook All, Rebuild All.
+
+### The subject: the asset selection, published by the browser
+
+An action is nullary to its surfaces and runs over a subject the surface supplies. For the
+asset browser the subject is not a page: it is the context's asset selection
+(`EditorContext::AssetSelection()`, `Selection<const content::Instance*>`), which exists and
+which nothing publishes today - the browser keeps its own `SelectionModel` over rows
+(`SelectedInstanceIds`). So:
+
+- The browser PUBLISHES its selection into `AssetSelection()` on every change (the hierarchy
+  publishes into the page's `EntitySelection()` the same way). Multi-select stays: the
+  selection's items are the targets, the primary is the clicked row.
+- The asset actions bind through the context, ignoring the page subject: `enabled` is
+  "the asset selection is non-empty" (or "exactly one" for Rename, Duplicate, Copy GUID,
+  Copy Path, Open), `execute` acts on `AssetSelection().Items()`. Nothing widens the
+  registry's subject notion; an editor-wide action ignoring its page subject is already the
+  rule for File and Project.
+- Ids under `asset.`: `asset.open`, `asset.rename`, `asset.duplicate`, `asset.copyGuid`,
+  `asset.copyPath`, `asset.toggleFavorite` (a Toggle: checked = the primary is a favorite),
+  `asset.toggleAlwaysExport` (a Toggle), `asset.cook`, `asset.rebuild`, `asset.delete`.
+  Labels as today; the counting Delete label becomes the description ("Delete the selected
+  assets") with the count in the confirmation dialog, since a declaration's label is fixed.
+- `asset.open` goes through `EditorContext::OpenAsset` (the seam the browser's
+  `OnOpenInstance` already reaches, interceptors included), so the palette opens an asset
+  the way a double click does. `asset.rename` starts the browser's inline edit: it needs the
+  browser, so the browser REGISTERS that one itself with a `Function` it owns (as the scene
+  editor registers its actions with the page's services), and it is disabled when the
+  browser is not showing the primary.
+- Cook and Rebuild over the selection use the cook service the browser already calls
+  (`RequestCookFor(roots, rebuild)`); favorites and export roots use the context's
+  `IsFavorite` / `ToggleFavorite` and the export-root set the browser edits today.
+
+### What stays on the browser
+
+- **Groups.** A group is a folder the browser is showing, not an asset in the selection.
+  Rename Group is an inline edit, New Group / Delete Group / Cook Group / Rebuild Group act
+  on the browsed group. They stay hand-bound on the browser: they are navigation of the
+  browser's own tree, not commands a palette or an agent asks for by name (an agent has
+  `asset_list` / `asset_cook` with a group filter). If a later need shows, the browsed
+  group becomes a second published selection and they join the same way.
+- **Create >** is the creators registry (`EditorContext::Creators()`), already a registry of
+  its own and already the File > New submenu's leading items; the browser keeps building it
+  with the same helper.
+- **Import..., Cook All, Rebuild All** are editor-wide: `project.import` (the import dialog),
+  `project.cook`, `project.rebuild` join the application's declarations under Project, and
+  the background menu appends them by id. Cook All / Rebuild All then also reach the palette
+  and a chord, which they never could.
+
+### The page leftovers
+
+Same rule as the scene editor's actions: a page-owned command binds through the service the
+page publishes, over the page's own selection.
+
+- Hierarchy: `scene.entity.copyId` joins SceneActionIds (enabled: a primary exists); Rename
+  stays hand-bound - it starts the hierarchy's inline edit, the same reason as
+  `asset.rename`, and the hierarchy registers it itself if the palette ever wants it.
+- Particle page: `particle.emitter.moveUp` / `moveDown` / `delete` over the page's emitter
+  selection through `IParticleEditorPage` (published by the page, `Provide<>` as the scene
+  page does); the emitter list's menu appends them by id.
+- Animation graph: `animGraph.node.makeTransition` / `deleteTransition` through
+  `IAnimationGraphPage` over the canvas selection; the node menu appends them by id.
+
+### The page toolbar roll-out (the carried backlog item, from week 2026-08-29)
+
+The PageToolbar is a registry toolbar over ITS page since layer 3. The pages that still
+have none get it with the same recipe (wrap the content root in a column with the toolbar
+on top, `Refresh()` in `OnUpdate`): material, animation clip, animation graph, particle
+effect, font, heightfield, terrain, input map, the generic asset form. The gotcha from the
+first batch holds: a page that mutates its asset directly (no commands) overrides
+`DiscardChanges` to reload from the source DB, or Discard clears dirty without reverting.
+A domain adds its own ids to its toolbar with `AddAction`.
+
+### Tests
+
+- Editor.App.Tests: the browser publishes its selection into the context (single, multi,
+  clear); each asset action's `enabled` over an empty, single and multi selection; `execute`
+  of copyGuid / copyPath (clipboard text), toggleFavorite (checked follows), cook (the cook
+  service seam sees the roots), delete (the confirmation seam sees the targets); the row
+  menu built from ids matches the declarations in order; the background menu's
+  editor-wide ids resolve.
+- Editor.Scene.Tests: copyId over the headless page; the particle and graph page interfaces
+  on a headless fixture with their actions' enabled and execute.
+- The MCP action bridge needs no new test: `action_list` lists the new ids as it lists any.
+
+### Not in this layer
+
+- A second published selection for groups (see above).
+- Drag-and-drop, double click and inline rename gestures: those are the browser's, not
+  commands.
+- The asset browser's own toolbar (filter, view mode): view state, not actions.
+
 ## Landing order (each its own commit with tests, both compilers, then the lanes)
 
 1. `editor.core:actions`: the declaration, the registry on EditorContext, Execute /
@@ -226,5 +339,13 @@ struct EditorActionDeclaration
    lists every action with a ShortcutCaptureButton (the next key pressed, modifiers
    normalised) and Reset, staged in ShortcutEdits and applied together on Save - swaps
    allowed, a collision keeps the holder's chord and is reported by name.
-7. The remaining domains' menus and toolbars migrated as they are touched (AssetsView's 26
-   items are mostly per-asset context items over the assets selection; same rule).
+7. The remaining surfaces (the section above), in this order, each its own commit:
+   a. The browser publishes its selection into `EditorContext::AssetSelection()`; tests.
+   b. `project.import` / `project.cook` / `project.rebuild` as application declarations; the
+      background menu appends them by id.
+   c. The `asset.*` declarations over the asset selection (the browser registers
+      `asset.rename` itself) and the row menu built from them; tests over the seams.
+   d. The page leftovers: `scene.entity.copyId`, the particle emitter and animation graph
+      actions through their pages' published interfaces; tests on headless fixtures.
+   e. The page toolbar roll-out, page by page (one commit per page or per batch of alike
+      pages), with the DiscardChanges rule where a page mutates its asset directly.

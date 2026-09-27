@@ -34,7 +34,7 @@ implementing agent's work).
 | [ui-browser-parity-tests.md](ui-browser-parity-tests.md) | - | M (PROPOSED: measured Chrome expectations for layout, not derived ones) |
 | [ui-text-and-gaps.md](ui-text-and-gaps.md) | - | L (PROPOSED: shaping + inline runs; the UI gap list vs RmlUi/MewUI) |
 | [whiteboxing.md](whiteboxing.md) | - | M (PROPOSED: parametric blockout pieces driving mesh + collider; P0-P3) |
-| [editor-actions.md](editor-actions.md) | - | L (PROPOSED: one action declaration behind menus, shortcuts, toolbars, the palette and the MCP action bridge; prior art Lumix + Zero) |
+| [editor-actions.md](editor-actions.md) | - | L (BUILT through layer 6: one action declaration behind menus, shortcuts, toolbars, the palette and the MCP action bridge; layer 7 PROPOSED: the asset browser over the published asset selection, the page leftovers, the page toolbar roll-out) |
 | [2d-games.md](2d-games.md) | - | L (PROPOSED: 2D inside the 3D world - sprite fixes, an orthographic camera and sort layers, sprite sheets, a plane lock on Jolt, a 2D sample, then tilemaps and the editor tooling; prior art Zero + ezEngine) |
 | [paperkid.md](paperkid.md) | - | game plan |
 | [documentation-system.md](documentation-system.md) | - | process |
