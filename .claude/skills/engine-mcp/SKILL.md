@@ -54,7 +54,16 @@ token), or for one run: `Tools.Editor <project> --mcp [--mcp-port <n>]`. The def
   after (nothing saves until the page's Save or `file.save`); `value` takes the shape
   `entity_inspect` shows, an enumerator by name, an asset guid for a reference. Refused
   while the page simulates, on a read-only property, on a list or structure, on a wrong
-  shape - nothing changes then. Read, write, read again. A
+  shape - nothing changes then. Read, write, read again. `viewport_camera_get` /
+  `viewport_camera_set` read and move the viewport's editor camera (position, yaw and pitch in
+  degrees, or a `lookAt` point; editor state only, no undo step), and `viewport_screenshot`
+  writes what the viewport shows to a PNG (default under `<user-data>/screenshots`) and
+  returns the path and size - it brings the page to front (a hidden viewport never renders)
+  and waits for the frame, so give it a few seconds; the image is the view as the user sees
+  it, grid, selection gizmo and tool overlay included (selection_set an empty list first for
+  a clean shot). To
+  look at something: `viewport_camera_set` with `lookAt`, then `viewport_screenshot`, then
+  read the file. A
   `scene_write` / `prefab_write` over an asset the user has open reaches its page at once: a
   clean page reloads in place, a page with unsaved edits keeps them and warns the user -
   never write over it again hoping to win; ask, or `page_reload` with `force` only when the

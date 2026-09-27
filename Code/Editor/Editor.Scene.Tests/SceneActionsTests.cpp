@@ -15,6 +15,7 @@ import foundation.ui;
 import foundation.scene;
 import editor.core;
 import editor.scene;
+import editor.camera;
 
 using namespace foundation::core;
 using namespace editor;
@@ -52,6 +53,9 @@ namespace
         [[nodiscard]] bool IsPaused() const noexcept override { return paused; }
         [[nodiscard]] GizmoController* Gizmos() noexcept override { return gizmos; }
         [[nodiscard]] bool CameraOwnsInput() const noexcept override { return cameraOwnsInput; }
+        [[nodiscard]] EditorCamera* ViewportCamera() noexcept override { return nullptr; }
+        [[nodiscard]] Status RequestViewportCapture(StringView) override { return Status{ErrorCode::NotSupported}; }
+        [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override { return capture; }
         [[nodiscard]] bool MarkersShown() const noexcept override { return markers; }
         void SetMarkersShown(bool shown) override { markers = shown; }
         void CreatePrefabFromEntity(const Guid& entity) override { prefabFrom = entity; }
@@ -67,6 +71,7 @@ namespace
         bool paused = false;
         bool markers = true;
         bool cameraOwnsInput = false;
+        ViewportCapture capture;
         GizmoController* gizmos = nullptr;
         Guid prefabFrom;
         Guid spawnParent;

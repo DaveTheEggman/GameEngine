@@ -500,6 +500,23 @@ export namespace editor
         [[nodiscard]] bool CameraOwnsInput() const noexcept override;
         [[nodiscard]] bool MarkersShown() const noexcept override { return m_showMarkers; }
         void SetMarkersShown(bool shown) override { m_showMarkers = shown; }
+        [[nodiscard]] EditorCamera* ViewportCamera() noexcept override { return &m_camera; }
+        [[nodiscard]] Status RequestViewportCapture(StringView path) override
+        {
+            if (m_viewport.Get() == nullptr)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
+            m_capture = ViewportCapture{};
+            m_capture.state = ViewportCaptureState::Pending;
+            m_capture.path = String(path);
+            m_screenshot.Request(path);
+            return Status{};
+        }
+        [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override
+        {
+            return m_capture;
+        }
 
     private:
         static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
@@ -715,6 +732,10 @@ export namespace editor
         foundation::graphics::RenderWindow* m_hostWindow =
             nullptr;                 // borrowed; tracks dock/float moves
         bool m_renderedOnce = false; // first-frame debug log
+        // The viewport capture (viewport_screenshot): armed by RequestViewportCapture, recorded
+        // in OnRenderWindow off the finished colour target, completed in the next OnUpdate.
+        engine::runtime::ScreenshotCapture m_screenshot;
+        ViewportCapture m_capture;
     };
 
     // === Factory + registration (the module's RegisterEditor entry point) ===

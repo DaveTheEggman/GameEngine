@@ -24,7 +24,11 @@ each addressed by the page's asset guid; `entity_inspect` is the inspector's vie
 entity - hierarchy, transform, every component's reflected properties with asset references
 as guids and enums by name - the primary selection by default; `component_set` writes one
 of those properties through the page's undo path, one labelled step per call, the page dirty
-after and nothing saved, refused while simulating or on a wrong shape). A `scene_write` / `prefab_write` over an asset the user has open
+after and nothing saved, refused while simulating or on a wrong shape; `viewport_camera_get` /
+`viewport_camera_set` read and move the viewport's editor camera in degrees, position, yaw,
+pitch or a `lookAt` point, editor state only; `viewport_screenshot` writes what the viewport
+shows to a PNG and returns its path and size, bringing the page to front first since a hidden
+viewport never renders - move the camera, shoot, read the file). A `scene_write` / `prefab_write` over an asset the user has open
 reaches its page at once: a clean page reloads in place, a page with unsaved edits keeps
 them and warns the user - ask before `page_reload` with `force`, which discards them.
 

@@ -27,9 +27,9 @@ using namespace foundation::core;
 export namespace editor
 {
     /// The number of tools RegisterSceneLiveTools registers (selection_get / selection_set /
-    /// simulate_start / simulate_stop / entity_inspect / component_set); a tripwire like
-    /// kEngineToolCount.
-    inline constexpr usize kSceneLiveToolCount = 6;
+    /// simulate_start / simulate_stop / entity_inspect / component_set / viewport_camera_get /
+    /// viewport_camera_set / viewport_screenshot); a tripwire like kEngineToolCount.
+    inline constexpr usize kSceneLiveToolCount = 9;
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context);
 }

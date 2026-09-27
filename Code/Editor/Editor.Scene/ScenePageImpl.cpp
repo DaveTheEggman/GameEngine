@@ -22,6 +22,7 @@ module;
 module editor.scene;
 
 import foundation.core;
+import foundation.image; // the written capture, for its size
 import foundation.settings; // per-scene grid pref in the project editor settings store
 import :view_settings;       // SceneViewSettings + Load/SaveSceneGridPref helpers
 import foundation.content;
@@ -78,8 +79,22 @@ namespace editor
             editor::EditorRootAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
             editor::EditorRootAllocator());
     }
-    void SceneEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
+    void SceneEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // A viewport capture recorded last frame: the GPU has to finish the copy - a one-off,
+        // so wait for everything, then map and write.
+        if (m_screenshot.Recorded())
+        {
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                gfx->Raw()->WaitIdle();
+                foundation::image::Image written;
+                const Status saved = m_screenshot.Complete(*gfx->Raw(), host.Ctx().Allocator(), written);
+                m_capture.state = saved.IsOk() ? ViewportCaptureState::Written : ViewportCaptureState::Failed;
+                m_capture.width = written.Width();
+                m_capture.height = written.Height();
+            }
+        }
         EnsureViewportBound();
         if (m_hostWindow == nullptr)
         {
@@ -253,6 +268,19 @@ namespace editor
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
                               &m_postOverride, /*viewportKey*/ m_viewport.Get(), &m_debugView);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+
+        // The requested capture: the finished colour target (in ShaderRead, where the graph
+        // left it for the UI), copied inside this frame; OnUpdate completes it next frame.
+        if (m_screenshot.Armed() && frame.encoder != nullptr && m_host->Graphics() != nullptr &&
+            m_host->Graphics()->Raw() != nullptr)
+        {
+            if (!m_screenshot.Record(*m_host->Graphics()->Raw(), *frame.encoder,
+                                     m_viewport->ColorTexture(), m_viewport->ColorFormat(), w, h,
+                                     rhi::ResourceState::ShaderRead))
+            {
+                m_capture.state = ViewportCaptureState::Failed; // logged by the capture
+            }
+        }
 
         RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
     }
@@ -745,6 +773,10 @@ namespace editor
             m_render->CancelPicks(m_viewport.Get()); // the key dies with the viewport
         }
         // GPU targets + external-texture registration go while device + VGRenderer live.
+        if (m_host->Graphics() != nullptr && m_host->Graphics()->Raw() != nullptr)
+        {
+            m_screenshot.Release(*m_host->Graphics()->Raw()); // the readback buffer
+        }
         m_viewport->Shutdown();
         if (m_scene != nullptr)
         {

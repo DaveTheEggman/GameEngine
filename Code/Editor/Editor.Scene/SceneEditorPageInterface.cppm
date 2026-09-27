@@ -21,6 +21,7 @@ export module editor.scene:scene_page_interface;
 
 import foundation.core;
 import editor.core;
+import editor.camera;
 import :edit;
 import :gizmo;
 
@@ -28,6 +29,25 @@ using namespace foundation::core;
 
 export namespace editor
 {
+    /// A capture of the viewport's rendered colour target to a PNG: requested through the page,
+    /// recorded on the next frame the viewport renders, written once the GPU has finished. A
+    /// hidden viewport (an inactive dock tab) never renders, so a request over one stays
+    /// Pending until the page comes to front.
+    enum class ViewportCaptureState : u8
+    {
+        Idle,    ///< nothing requested
+        Pending, ///< requested; not yet rendered and written
+        Written, ///< the PNG is at `path`, `width` x `height`
+        Failed,  ///< the copy or the write failed (log_read, category Screenshot, says why)
+    };
+    struct ViewportCapture
+    {
+        ViewportCaptureState state = ViewportCaptureState::Idle;
+        String path;
+        u32 width = 0;
+        u32 height = 0;
+    };
+
     class ISceneEditorPage : public IPageService
     {
     public:
@@ -54,6 +74,16 @@ export namespace editor
         /// selected ones).
         [[nodiscard]] virtual bool MarkersShown() const noexcept = 0;
         virtual void SetMarkersShown(bool shown) = 0;
+
+        /// The viewport's free-fly camera - the pose the scene is looked at from, which an agent
+        /// moves to look from somewhere specific; null on a page without a viewport.
+        [[nodiscard]] virtual EditorCamera* ViewportCamera() noexcept = 0;
+
+        /// Ask for the viewport's next rendered frame as a PNG at `path` (the directory must
+        /// exist). Replaces a pending request. NotSupported on a page without a viewport.
+        [[nodiscard]] virtual Status RequestViewportCapture(StringView path) = 0;
+        /// The latest request's state, as it advances frame by frame.
+        [[nodiscard]] virtual const ViewportCapture& LastViewportCapture() const noexcept = 0;
 
         /// The prefab flows the page owns (they open the page's dialogs and write assets):
         /// a prefab asset from an entity subtree; an instance spawned under `parent` (nil =

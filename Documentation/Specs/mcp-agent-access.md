@@ -1038,7 +1038,12 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    other or the user's scrubs, a failed command dropped not pushed, refused while simulating,
    nothing saved implicitly; the undo tool is action_execute edit.undo over the active page.
    Nested structures and lists are not writable through it yet (scene_write edits the
-   source). REMAINING in 7: the Agent panel, viewport_screenshot.
+   source). viewport_screenshot BUILT 2026-09-26 with viewport_camera_get / viewport_camera_set:
+   the page owns the capture (ISceneEditorPage::RequestViewportCapture, recorded off the
+   viewport's finished colour target in ShaderRead by the shared ScreenshotCapture, completed
+   next frame), the tool returns NotFinished each pump until Written and gives up after ten
+   seconds; the camera tools move the EditorCamera in degrees (lookAt wins), editor state only.
+   REMAINING in 7: the Agent panel.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
 

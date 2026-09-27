@@ -18,6 +18,7 @@ import foundation.materials;
 import engine.render;
 import editor.core;
 import editor.scene;
+import editor.camera;
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -51,6 +52,33 @@ namespace
         [[nodiscard]] GizmoController* Gizmos() noexcept override { return nullptr; }
         [[nodiscard]] bool CameraOwnsInput() const noexcept override { return false; }
         [[nodiscard]] bool MarkersShown() const noexcept override { return true; }
+        // A viewport is pretended when `hasViewport`: the camera is real, the capture advances
+        // when the test says the frame rendered (CompleteCapture / FailCapture).
+        [[nodiscard]] EditorCamera* ViewportCamera() noexcept override { return hasViewport ? &camera : nullptr; }
+        [[nodiscard]] Status RequestViewportCapture(StringView path) override
+        {
+            if (!hasViewport)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
+            capture = ViewportCapture{};
+            capture.state = ViewportCaptureState::Pending;
+            capture.path = String(path);
+            ++captureRequests;
+            return Status{};
+        }
+        [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override { return capture; }
+        void CompleteCapture(u32 width, u32 height)
+        {
+            capture.state = ViewportCaptureState::Written;
+            capture.width = width;
+            capture.height = height;
+        }
+        void FailCapture() { capture.state = ViewportCaptureState::Failed; }
+        bool hasViewport = false;
+        EditorCamera camera;
+        ViewportCapture capture;
+        u32 captureRequests = 0;
         void SetMarkersShown(bool) override {}
         void CreatePrefabFromEntity(const Guid&) override {}
         void PickAndSpawnPrefab(const Guid&) override {}
@@ -109,6 +137,32 @@ namespace
         id.ToChars(text);
         return String(StringView(text, 36));
     }
+
+    /// One pump of a tool that may ask to be re-entered: the raw line outcome.
+    LineOutcome Pump(McpServer& server, StringView tool, StringView argumentsJson)
+    {
+        const String line = Format(u8"{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                                   u8"\"params\":{{\"name\":\"{}\",\"arguments\":{}}}}}",
+                                   tool, argumentsJson);
+        return server.HandleLine(line.AsView());
+    }
+    Answer AnswerOf(const LineOutcome& outcome)
+    {
+        REQUIRE(outcome.state == LineState::Answered);
+        JsonValue result = json::Parse(outcome.response.AsView()).value.Get(u8"result");
+        Answer answer;
+        answer.ok = !result.Get(u8"isError").AsBool();
+        const String text = result.Get(u8"content").At(0).Get(u8"text").AsString();
+        if (answer.ok)
+        {
+            answer.payload = json::Parse(text.AsView()).value;
+        }
+        else
+        {
+            answer.error = text;
+        }
+        return answer;
+    }
 }
 
 TEST_CASE("scene-mcp-tools: page addressing, the selection round-trip, its refusals, and the "
@@ -138,7 +192,7 @@ TEST_CASE("scene-mcp-tools: page addressing, the selection round-trip, its refus
     McpServer server;
     RegisterSceneLiveTools(server, context);
     CHECK(server.ToolCount() == kSceneLiveToolCount);
-    CHECK(kSceneLiveToolCount == 6u);
+    CHECK(kSceneLiveToolCount == 9u);
     const String aGuid = GuidText(sceneA);
     const String lampGuid = GuidText(lamp);
     const String tableGuid = GuidText(table);
@@ -565,4 +619,108 @@ TEST_CASE("scene-mcp-tools: component_set writes a string, a vector, a quaternio
     CHECK(plaques->Get(sign)->text == u8"untitled");
 
     context.ClosePage(page);
+}
+
+TEST_CASE("scene-mcp-tools: the viewport camera reads and moves in degrees (position, yaw, pitch, "
+          "lookAt wins), and viewport_screenshot waits for the page's capture frame by frame")
+{
+    Random rng(35);
+    const Guid sceneId = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Bistro", sceneId), DefaultAllocator())));
+    auto* headless = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Menu", Guid::Generate(rng)), DefaultAllocator())));
+    page->hasViewport = true;
+    McpServer server;
+    RegisterSceneLiveTools(server, context);
+    const String pageGuid = GuidText(sceneId);
+    const String pageArg = Format(u8"{{\"page\":\"{}\"}}", pageGuid.AsView());
+
+    // No viewport: every viewport tool refuses by name.
+    context.SetActivePage(headless);
+    Answer got = Call(server, u8"viewport_camera_get", u8"{}");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"page 'Menu' has no viewport"));
+    got = Call(server, u8"viewport_camera_set", u8"{\"yawDegrees\":90}");
+    CHECK_FALSE(got.ok);
+    got = AnswerOf(Pump(server, u8"viewport_screenshot", u8"{}"));
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"page 'Menu' has no viewport"));
+
+    // The pose reads in degrees from the camera's radians.
+    page->camera.position = Float3{1.0f, 2.0f, 3.0f};
+    page->camera.yaw = 0.0f;
+    page->camera.pitch = 0.0f;
+    got = Call(server, u8"viewport_camera_get", pageArg.AsView());
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"position").At(2).AsNumber() == doctest::Approx(3.0));
+    CHECK(got.payload.Get(u8"yawDegrees").AsNumber() == doctest::Approx(0.0));
+    CHECK(got.payload.Get(u8"forward").At(2).AsNumber() == doctest::Approx(-1.0)); // yaw 0 looks down -Z
+
+    // Set: position, then yaw and pitch in degrees; the pitch clamps short of the pole.
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"position\":[10,5,0],\"yawDegrees\":90,\"pitchDegrees\":-30}}",
+                      pageGuid.AsView())
+                   .AsView());
+    REQUIRE(got.ok);
+    CHECK(page->camera.position.x == doctest::Approx(10.0f));
+    CHECK(page->camera.yaw == doctest::Approx(kHalfPi));
+    CHECK(page->camera.pitch == doctest::Approx(-30.0f * kPi / 180.0f));
+    CHECK(got.payload.Get(u8"yawDegrees").AsNumber() == doctest::Approx(90.0));
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"pitchDegrees\":-120}}", pageGuid.AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"pitchDegrees").AsNumber() == doctest::Approx(-89.0));
+    // lookAt aims from the position and wins over yaw and pitch given beside it.
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"position\":[0,0,10],\"yawDegrees\":45,\"lookAt\":[0,0,0]}}",
+                      pageGuid.AsView())
+                   .AsView());
+    REQUIRE(got.ok);
+    CHECK(page->camera.yaw == doctest::Approx(0.0f));
+    CHECK(page->camera.pitch == doctest::Approx(0.0f));
+    CHECK(page->camera.focusDistance == doctest::Approx(10.0f));
+    CHECK(got.payload.Get(u8"focusDistance").AsNumber() == doctest::Approx(10.0));
+    // Wrong shapes change nothing.
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"position\":[1,2],\"yawDegrees\":10}}", pageGuid.AsView()).AsView());
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"`position` takes [x, y, z]"));
+    CHECK(page->camera.yaw == doctest::Approx(0.0f));
+
+    // The screenshot: the first pump brings the page to front and asks for the capture, then
+    // the call is re-entered each pump until the page reports the frame written.
+    context.SetActivePage(headless);
+    LineOutcome outcome = Pump(server, u8"viewport_screenshot",
+                               Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/bistro.png\"}}", pageGuid.AsView()).AsView());
+    CHECK(outcome.state == LineState::NotFinished);
+    CHECK(context.ActivePage() == page);
+    CHECK(page->captureRequests == 1u);
+    CHECK(page->capture.state == ViewportCaptureState::Pending);
+    CHECK(page->capture.path == u8"/tmp/bistro.png");
+    outcome = Pump(server, u8"viewport_screenshot",
+                   Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/bistro.png\"}}", pageGuid.AsView()).AsView());
+    CHECK(outcome.state == LineState::NotFinished); // not yet rendered
+    CHECK(page->captureRequests == 1u);              // the same request, not a new one
+    page->CompleteCapture(1280, 720);
+    got = AnswerOf(Pump(server, u8"viewport_screenshot",
+                        Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/bistro.png\"}}", pageGuid.AsView()).AsView()));
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"path").AsString() == StringView(u8"/tmp/bistro.png"));
+    CHECK(got.payload.Get(u8"width").AsNumber() == doctest::Approx(1280));
+    CHECK(got.payload.Get(u8"height").AsNumber() == doctest::Approx(720));
+    // A failed capture is an error naming the log; a new call starts a new request.
+    outcome = Pump(server, u8"viewport_screenshot",
+                   Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/again.png\"}}", pageGuid.AsView()).AsView());
+    CHECK(outcome.state == LineState::NotFinished);
+    CHECK(page->captureRequests == 2u);
+    page->FailCapture();
+    got = AnswerOf(Pump(server, u8"viewport_screenshot",
+                        Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/again.png\"}}", pageGuid.AsView()).AsView()));
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"the capture of page 'Bistro' failed"));
+
+    context.ClosePage(page);
+    context.ClosePage(headless);
 }

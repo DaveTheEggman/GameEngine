@@ -12,6 +12,7 @@ import foundation.mcp;
 import foundation.scene;
 import foundation.scene.resource;
 import editor.core;
+import editor.camera;
 
 using namespace foundation::core;
 using foundation::json::JsonValue;
@@ -586,6 +587,64 @@ namespace editor
 
         constexpr StringView kPageArgument =
             u8"the scene or prefab page's asset guid (default: the active page)";
+
+        // === the viewport: its camera, and a capture of what it shows ===
+
+        JsonValue CameraJson(const AddressedPage& addressed, const EditorCamera& camera)
+        {
+            JsonValue out = JsonValue::MakeObject();
+            out.Set(u8"page", PageJson(*addressed.page));
+            out.Set(u8"position", Float3Json(camera.position));
+            out.Set(u8"yawDegrees", JsonValue::MakeNumber(static_cast<f64>(RadiansToDegrees(camera.yaw))));
+            out.Set(u8"pitchDegrees",
+                    JsonValue::MakeNumber(static_cast<f64>(RadiansToDegrees(camera.pitch))));
+            out.Set(u8"forward", Float3Json(camera.Forward()));
+            out.Set(u8"focusDistance", JsonValue::MakeNumber(static_cast<f64>(camera.focusDistance)));
+            return out;
+        }
+
+        bool ReadFloat3(const JsonValue& value, Float3& out)
+        {
+            if (!value.IsArray() || value.Count() != 3)
+            {
+                return false;
+            }
+            for (i64 i = 0; i < 3; ++i)
+            {
+                if (!value.At(i).IsNumber())
+                {
+                    return false;
+                }
+            }
+            out = Float3{static_cast<f32>(value.At(0).AsNumber()), static_cast<f32>(value.At(1).AsNumber()),
+                         static_cast<f32>(value.At(2).AsNumber())};
+            return true;
+        }
+
+        /// A page title as a file stem: letters, digits, '-' and '_' kept, the rest '_'.
+        String FileStemOf(StringView title)
+        {
+            String stem;
+            for (usize i = 0; i < title.Size(); ++i)
+            {
+                const utf8char c = title[i];
+                const bool keep = (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z') ||
+                                  (c >= u8'0' && c <= u8'9') || c == u8'-' || c == u8'_';
+                stem += keep ? c : u8'_';
+            }
+            return stem.IsEmpty() ? String(u8"page") : stem;
+        }
+
+        /// One viewport_screenshot in flight: the tool is re-entered every pump with the same
+        /// arguments until the page reports the capture written (or it gives up).
+        struct PendingCapture
+        {
+            EditorPage* page = nullptr;
+            String path;
+            u32 pumps = 0;
+            u32 serial = 0; // per host, so two captures of one page never share a default name
+        };
+        constexpr u32 kCapturePumpLimit = 600; // frames: ten seconds at 60 Hz, then the tool gives up
     }
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context)
@@ -934,5 +993,181 @@ namespace editor
                 out.Set(u8"undoSteps", JsonValue::MakeNumber(1));
                 return out;
             });
+        server.RegisterTool(
+            u8"viewport_camera_get",
+            u8"The pose a scene page's viewport looks from: the editor camera's position, yaw and "
+            u8"pitch in degrees (yaw 0 looks down -Z, positive pitch looks up), its forward vector "
+            u8"and its orbit focus distance. Defaults to the active page.",
+            SchemaBuilder().Str(u8"page", kPageArgument).Build(), ToolAnnotations::ReadOnly(),
+            [ctx](const JsonValue& args) -> ToolResult
+            {
+                Result<AddressedPage, String> addressed = ResolveScenePage(*ctx, args);
+                if (!addressed.HasValue())
+                {
+                    return Err(Move(addressed.Error()));
+                }
+                const EditorCamera* camera = addressed.Value().scene->ViewportCamera();
+                if (camera == nullptr)
+                {
+                    return Err(Format(u8"page '{}' has no viewport", addressed.Value().page->Title()));
+                }
+                return CameraJson(addressed.Value(), *camera);
+            });
+
+        server.RegisterTool(
+            u8"viewport_camera_set",
+            u8"Move a scene page's viewport camera - to look at something from somewhere specific "
+            u8"before a viewport_screenshot, or to show the user a spot. Sets what is given: "
+            u8"`position` ([x, y, z]), then `yawDegrees` / `pitchDegrees`, then `lookAt` "
+            u8"([x, y, z]: aims from the position at that point, horizon level, and moves the "
+            u8"orbit focus there - it wins over yaw and pitch). Nothing given changes nothing. "
+            u8"Returns the pose as viewport_camera_get does. Editor state only: no scene edit, "
+            u8"no undo step.",
+            SchemaBuilder()
+                .Str(u8"page", kPageArgument)
+                .Arr(u8"position", u8"number", u8"the camera position [x, y, z]")
+                .Number(u8"yawDegrees", u8"rotation about the up axis; 0 looks down -Z")
+                .Number(u8"pitchDegrees", u8"tilt; positive looks up, clamped short of straight up or down")
+                .Arr(u8"lookAt", u8"number", u8"the point [x, y, z] to aim at from the position")
+                .Build(),
+            ToolAnnotations::Adjusts(),
+            [ctx](const JsonValue& args) -> ToolResult
+            {
+                Result<AddressedPage, String> addressed = ResolveScenePage(*ctx, args);
+                if (!addressed.HasValue())
+                {
+                    return Err(Move(addressed.Error()));
+                }
+                EditorCamera* camera = addressed.Value().scene->ViewportCamera();
+                if (camera == nullptr)
+                {
+                    return Err(Format(u8"page '{}' has no viewport", addressed.Value().page->Title()));
+                }
+                // Shape everything first: a refusal changes nothing.
+                Float3 position;
+                Float3 lookAt;
+                const bool hasPosition = args.Has(u8"position");
+                const bool hasLookAt = args.Has(u8"lookAt");
+                if (hasPosition && !ReadFloat3(args.Get(u8"position"), position))
+                {
+                    return Err(String(u8"`position` takes [x, y, z]"));
+                }
+                if (hasLookAt && !ReadFloat3(args.Get(u8"lookAt"), lookAt))
+                {
+                    return Err(String(u8"`lookAt` takes [x, y, z]"));
+                }
+                if ((args.Has(u8"yawDegrees") && !args.Get(u8"yawDegrees").IsNumber()) ||
+                    (args.Has(u8"pitchDegrees") && !args.Get(u8"pitchDegrees").IsNumber()))
+                {
+                    return Err(String(u8"`yawDegrees` and `pitchDegrees` take a number"));
+                }
+                if (hasPosition)
+                {
+                    camera->position = position;
+                }
+                if (args.Has(u8"yawDegrees"))
+                {
+                    camera->yaw = DegreesToRadians(static_cast<f32>(args.Get(u8"yawDegrees").AsNumber()));
+                }
+                if (args.Has(u8"pitchDegrees"))
+                {
+                    // Short of the poles, as the mouse look is, so the up vector stays defined.
+                    const f32 limit = DegreesToRadians(89.0f);
+                    camera->pitch = Clamp(
+                        DegreesToRadians(static_cast<f32>(args.Get(u8"pitchDegrees").AsNumber())), -limit,
+                        limit);
+                }
+                if (hasLookAt)
+                {
+                    camera->LookAt(lookAt);
+                }
+                return CameraJson(addressed.Value(), *camera);
+            });
+
+        auto pending = MakeUnique<PendingCapture>(context.Allocator());
+        PendingCapture* pendingPtr = pending.Get();
+        server.RegisterTool(
+            u8"viewport_screenshot",
+            u8"What a scene page's viewport shows, as a PNG file: the view as the user sees it at the "
+            u8"viewport's size - the scene from the editor camera (viewport_camera_set moves it), "
+            u8"with the grid, the gizmo and markers of the selection and the tool's overlay text. "
+            u8"Brings the page to front (a hidden viewport never renders), waits for the next frame "
+            u8"and the GPU, then returns {page, path, width, height}; read the file. `path` is where "
+            u8"to write (an existing directory; default: <user-data>/screenshots/<page>-<pid>-<n>.png). "
+            u8"Gives up after ten seconds without a rendered frame.",
+            SchemaBuilder()
+                .Str(u8"page", kPageArgument)
+                .Str(u8"path", u8"the PNG to write (default: a new file under <user-data>/screenshots)")
+                .Build(),
+            ToolAnnotations::Creates(),
+            [ctx, pendingPtr, keep = Move(pending)](const JsonValue& args) -> foundation::mcp::ToolOutcome
+            {
+                Result<AddressedPage, String> addressed = ResolveScenePage(*ctx, args);
+                if (!addressed.HasValue())
+                {
+                    return Err(Move(addressed.Error()));
+                }
+                ISceneEditorPage* scene = addressed.Value().scene;
+                EditorPage* page = addressed.Value().page;
+                if (pendingPtr->page == page)
+                {
+                    // Re-entered: the same call, one pump later.
+                    const ViewportCapture& capture = scene->LastViewportCapture();
+                    ++pendingPtr->pumps;
+                    if (capture.state == ViewportCaptureState::Written)
+                    {
+                        JsonValue out = JsonValue::MakeObject();
+                        out.Set(u8"page", PageJson(*page));
+                        out.Set(u8"path", JsonValue::MakeString(capture.path));
+                        out.Set(u8"width", JsonValue::MakeNumber(static_cast<f64>(capture.width)));
+                        out.Set(u8"height", JsonValue::MakeNumber(static_cast<f64>(capture.height)));
+                        pendingPtr->page = nullptr;
+                        return out;
+                    }
+                    if (capture.state == ViewportCaptureState::Failed)
+                    {
+                        pendingPtr->page = nullptr;
+                        return Err(Format(u8"the capture of page '{}' failed (log_read, category "
+                                          u8"Screenshot, says why)",
+                                          page->Title()));
+                    }
+                    if (pendingPtr->pumps > kCapturePumpLimit)
+                    {
+                        pendingPtr->page = nullptr;
+                        return Err(Format(u8"page '{}' rendered no frame in ten seconds - is its "
+                                          u8"viewport visible (an editor window minimised or hidden)?",
+                                          page->Title()));
+                    }
+                    return foundation::mcp::ToolOutcome::NotFinished();
+                }
+                if (scene->ViewportCamera() == nullptr)
+                {
+                    return Err(Format(u8"page '{}' has no viewport", page->Title()));
+                }
+                String path = args.Get(u8"path").AsString();
+                if (path.IsEmpty())
+                {
+                    const String dir = PathJoin(GetUserDataDirectory().AsView(), u8"screenshots");
+                    if (!CreateDirectories(dir.AsView()))
+                    {
+                        return Err(Format(u8"could not create '{}'", dir.AsView()));
+                    }
+                    ++pendingPtr->serial;
+                    path = PathJoin(dir.AsView(), Format(u8"{}-{}-{}.png", FileStemOf(page->Title()).AsView(),
+                                                         ProcessId(), pendingPtr->serial)
+                                                      .AsView());
+                }
+                ctx->SetActivePage(page); // to front: a hidden viewport never renders
+                const Status requested = scene->RequestViewportCapture(path.AsView());
+                if (!requested.IsOk())
+                {
+                    return Err(Format(u8"page '{}' has no viewport", page->Title()));
+                }
+                pendingPtr->page = page;
+                pendingPtr->path = Move(path);
+                pendingPtr->pumps = 0;
+                return foundation::mcp::ToolOutcome::NotFinished();
+            });
+
     }
 }
