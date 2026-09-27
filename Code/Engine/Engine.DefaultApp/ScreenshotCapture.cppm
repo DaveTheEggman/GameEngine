@@ -144,12 +144,15 @@ export namespace engine::runtime
                    format == rhi::TextureFormat::BGRA8UnormSrgb;
         }
 
-        /// Records the copy into `encoder` while `backbuffer` sits in RenderTarget state (the
-        /// state the host hands the frame over in and expects back). Disarms; false when nothing
-        /// was armed, the format cannot be captured, or the readback buffer could not be made -
-        /// each logged, so a silent no-op never passes for a screenshot.
+        /// Records the copy into `encoder` while `backbuffer` sits in `state` - RenderTarget for
+        /// a presented backbuffer (the state the host hands the frame over in and expects back),
+        /// ShaderRead for an editor viewport's finished colour target - and leaves it there.
+        /// Disarms; false when nothing was armed, the format cannot be captured, or the readback
+        /// buffer could not be made - each logged, so a silent no-op never passes for a
+        /// screenshot.
         bool Record(rhi::Device& device, rhi::CommandEncoder& encoder, rhi::Texture* backbuffer,
-                    rhi::TextureFormat format, u32 width, u32 height)
+                    rhi::TextureFormat format, u32 width, u32 height,
+                    rhi::ResourceState state = rhi::ResourceState::RenderTarget)
         {
             if (!m_armed)
             {
@@ -185,15 +188,13 @@ export namespace engine::runtime
                 }
                 m_readbackSize = needed;
             }
-            encoder.TransitionTexture(backbuffer, rhi::ResourceState::RenderTarget,
-                                      rhi::ResourceState::CopySrc);
+            encoder.TransitionTexture(backbuffer, state, rhi::ResourceState::CopySrc);
             rhi::BufferTextureCopyRegion region;
             region.bytesPerRow = bytesPerRow;
             region.rowsPerImage = height;
             region.textureExtent = rhi::Extent3D{width, height, 1};
             encoder.CopyTextureToBuffer(backbuffer, m_readback, region);
-            encoder.TransitionTexture(backbuffer, rhi::ResourceState::CopySrc,
-                                      rhi::ResourceState::RenderTarget);
+            encoder.TransitionTexture(backbuffer, rhi::ResourceState::CopySrc, state);
             m_width = width;
             m_height = height;
             m_bytesPerRow = bytesPerRow;

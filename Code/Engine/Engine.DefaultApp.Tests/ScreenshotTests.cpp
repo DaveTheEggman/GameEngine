@@ -115,16 +115,19 @@ TEST_CASE("screenshot: rows unpack from the aligned pitch, and BGRA swizzles to 
 
 namespace
 {
-    // Clear a `format` texture to `clear`, capture it the way the app captures the backbuffer,
-    // write the PNG, load it back: the pixel at (5, 5) and the size must match.
-    void CaptureProbe(rhi::Device& device, rhi::TextureFormat format, const char* name)
+    // Clear a `format` texture to `clear`, capture it the way the app captures the backbuffer
+    // (RenderTarget state) or the editor captures a viewport (the target already handed to the
+    // UI in ShaderRead), write the PNG, load it back: the pixel at (5, 5) and the size must match.
+    void CaptureProbe(rhi::Device& device, rhi::TextureFormat format, const char* name,
+                      rhi::ResourceState state = rhi::ResourceState::RenderTarget)
     {
         constexpr u32 w = 64, h = 48;
         rhi::TextureDesc td{};
         td.format = format;
         td.width = w;
         td.height = h;
-        td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
+        td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc |
+                   rhi::TextureUsage::Sampled;
         td.label = u8"screenshot.probe";
         rhi::Texture* texture = nullptr;
         REQUIRE(device.CreateTexture(td, texture).IsOk());
@@ -156,6 +159,10 @@ namespace
         rhi::RenderPassEncoder* pass = encoder->BeginRenderPass(rpd);
         REQUIRE(pass != nullptr);
         pass->End();
+        if (state != rhi::ResourceState::RenderTarget)
+        {
+            encoder->TransitionTexture(texture, rhi::ResourceState::RenderTarget, state);
+        }
 
         String path;
         AppendFormat(path, u8"screenshot_probe_{}.png", StringView(reinterpret_cast<const utf8char*>(name)));
@@ -163,10 +170,10 @@ namespace
         std::filesystem::remove(reinterpret_cast<const char*>(path.Data()), ec);
 
         ScreenshotCapture capture;
-        CHECK_FALSE(capture.Record(device, *encoder, texture, format, w, h)); // not armed: nothing
+        CHECK_FALSE(capture.Record(device, *encoder, texture, format, w, h, state)); // not armed: nothing
         capture.Request(path.AsView());
         CHECK(capture.Armed());
-        REQUIRE(capture.Record(device, *encoder, texture, format, w, h));
+        REQUIRE(capture.Record(device, *encoder, texture, format, w, h, state));
         CHECK_FALSE(capture.Armed());
         CHECK(capture.Recorded());
 
@@ -223,6 +230,8 @@ TEST_CASE("screenshot: a cleared RGBA8 and BGRA8 target round-trips to a PNG on 
     {
         CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "vulkan-rgba");
         CaptureProbe(*device, rhi::TextureFormat::BGRA8Unorm, "vulkan-bgra");
+        CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "vulkan-rgba-shaderread",
+                     rhi::ResourceState::ShaderRead); // a viewport's finished target
         device->Destroy();
     }
     else
@@ -233,6 +242,8 @@ TEST_CASE("screenshot: a cleared RGBA8 and BGRA8 target round-trips to a PNG on 
     {
         CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "webgpu-rgba");
         CaptureProbe(*device, rhi::TextureFormat::BGRA8Unorm, "webgpu-bgra");
+        CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "webgpu-rgba-shaderread",
+                     rhi::ResourceState::ShaderRead);
         device->Destroy();
     }
     else
