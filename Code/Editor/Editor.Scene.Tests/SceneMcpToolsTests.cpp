@@ -416,10 +416,19 @@ namespace
 {
     // A component with the shapes the render components do not offer: a string, a vector, and
     // a stored field the type publishes read-only.
+    enum class PlaqueMood : i32
+    {
+        Calm = 0,
+        Loud = 1,
+        Wild = 5 // non-contiguous: a number names the enumerator's value, not its index
+    };
     struct PlaqueComponent
     {
         String text{u8"untitled"};
         Float3 offset{0, 0, 0};
+        Quaternion rotation{0, 0, 0, 1};
+        scene::EntityRef target;
+        PlaqueMood mood = PlaqueMood::Calm;
         i32 serial = 7;
     };
     class PlaqueManager final : public scene::ComponentManager<PlaqueComponent>
@@ -427,16 +436,28 @@ namespace
     };
 }
 
+REFLECT_ENUM(PlaqueMood, "rtti::editor::scene::test")
+{
+    builder.Value("Calm", PlaqueMood::Calm);
+    builder.Value("Loud", PlaqueMood::Loud);
+    builder.Value("Wild", PlaqueMood::Wild);
+}
+
 REFLECT_VALUE(PlaqueComponent, "rtti::editor::scene::test")
 {
     builder.Property<&PlaqueComponent::text>("text")
         .Property<&PlaqueComponent::offset>("offset")
+        .Property<&PlaqueComponent::rotation>("rotation")
+        .Property<&PlaqueComponent::target>("target")
+        .Property<&PlaqueComponent::mood>("mood")
         .Property<&PlaqueComponent::serial>("serial", PropertyFlags::ReadOnly);
 }
 
-TEST_CASE("scene-mcp-tools: component_set writes a string and a vector, clears a reference with null, "
-          "and refuses a read-only property before anything changes")
+TEST_CASE("scene-mcp-tools: component_set writes a string, a vector, a quaternion, an entity reference "
+          "(set and cleared), an enum by number, clears a reference with null, and refuses a "
+          "read-only property before anything changes")
 {
+    RttiRegisterEnum_PlaqueMood();
     RttiRegisterValue_PlaqueComponent();
     engine::render::RegisterRenderComponentReflection();
     Random rng(34);
@@ -449,6 +470,7 @@ TEST_CASE("scene-mcp-tools: component_set writes a string and a vector, clears a
     auto* plaques = scene.AddSystem<PlaqueManager>();
     auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
     const Guid signId = edit.CreateEntity(u8"Sign");
+    const Guid postId = edit.CreateEntity(u8"Post");
     const scene::EntityHandle sign = edit.Resolve(signId);
     plaques->Add(sign);
     const Guid meshAsset = Guid::Generate(rng);
@@ -486,6 +508,23 @@ TEST_CASE("scene-mcp-tools: component_set writes a string and a vector, clears a
     CHECK(got.payload.Get(u8"value").IsNull());
     CHECK(edit.Commands().CanUndo());
     CHECK(page->IsDirty());
+    // A quaternion as four numbers.
+    got = set(u8"PlaqueComponent", u8"rotation", u8"[0,0.7071068,0,0.7071068]");
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->rotation.y == doctest::Approx(0.7071068f));
+    // An entity reference by the entity's guid, then cleared with null.
+    got = set(u8"PlaqueComponent", u8"target", Format(u8"\"{}\"", GuidText(postId).AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->target.id == postId);
+    CHECK(got.payload.Get(u8"value").AsString() == GuidText(postId).AsView());
+    got = set(u8"PlaqueComponent", u8"target", u8"null");
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->target.IsNil());
+    // An enum by number: the enumerator's VALUE (Wild = 5), read back by name.
+    got = set(u8"PlaqueComponent", u8"mood", u8"5");
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->mood == PlaqueMood::Wild);
+    CHECK(got.payload.Get(u8"value").AsString() == StringView(u8"Wild"));
 
     // Read-only: refused by name before any group opens; the flag is the contract.
     const i64 stackBefore = edit.Commands().UndoIndex();
@@ -500,9 +539,24 @@ TEST_CASE("scene-mcp-tools: component_set writes a string and a vector, clears a
     got = set(u8"PlaqueComponent", u8"offset", u8"[1,2]");
     CHECK_FALSE(got.ok);
     CHECK(got.error.AsView().StartsWith(u8"property 'offset' of 'PlaqueComponent' takes "));
+    got = set(u8"PlaqueComponent", u8"target", u8"\"not-a-guid\"");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'target' is an entity reference"));
+    got = set(u8"PlaqueComponent", u8"mood", u8"2"); // no enumerator has the value 2
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'mood' takes one of: Calm, Loud, Wild"));
     CHECK(edit.Commands().UndoIndex() == stackBefore);
+    CHECK(plaques->Get(sign)->mood == PlaqueMood::Wild);
 
-    // Three undos take the three writes back, newest first.
+    // Seven undos take the seven writes back, newest first.
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->mood == PlaqueMood::Calm);
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->target.id == postId);
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->target.IsNil());
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->rotation.y == doctest::Approx(0.0f));
     edit.Commands().Undo();
     CHECK(meshes->Get(sign)->mesh.id == meshAsset);
     edit.Commands().Undo();
