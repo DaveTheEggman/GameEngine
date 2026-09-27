@@ -37,47 +37,6 @@ namespace editor
         constexpr u32 kTileSize = ThumbnailService::kThumbnailSize;
         constexpr u32 kRenderSize = kTileSize * ThumbnailStage::kSupersample;
 
-        // IEEE half -> float (the render target is RGBA16Float, matching every viewport view
-        // so no pass rebuilds pipelines per format).
-        [[nodiscard]] f32 HalfToFloat(u16 h)
-        {
-            const u32 sign = static_cast<u32>(h >> 15) & 1u;
-            const u32 exponent = static_cast<u32>(h >> 10) & 0x1Fu;
-            const u32 mantissa = static_cast<u32>(h) & 0x3FFu;
-            u32 bits;
-            if (exponent == 0)
-            {
-                if (mantissa == 0)
-                {
-                    bits = sign << 31; // signed zero
-                }
-                else
-                {
-                    // Subnormal half: normalize into a float exponent.
-                    u32 e = 127 - 15 + 1;
-                    u32 m = mantissa;
-                    while ((m & 0x400u) == 0)
-                    {
-                        m <<= 1;
-                        --e;
-                    }
-                    bits = (sign << 31) | (e << 23) | ((m & 0x3FFu) << 13);
-                }
-            }
-            else if (exponent == 0x1F)
-            {
-                bits = (sign << 31) | 0x7F800000u | (mantissa << 13); // inf / nan
-            }
-            else
-            {
-                bits = (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
-            }
-            f32 value;
-            static_assert(sizeof(value) == sizeof(bits));
-            MemCopy(&value, &bits, sizeof(value));
-            return value;
-        }
-
         // Exact integer box downscale (kSupersample x kSupersample average per output texel)
         // over RGBA16Float source rows. The tonemap pass already applied the sRGB OETF, so the
         // values quantize to bytes directly - encoding again would double-gamma the image.
@@ -98,10 +57,10 @@ namespace editor
                         for (u32 sx = 0; sx < kFactor; ++sx)
                         {
                             const u16* texel = reinterpret_cast<const u16*>(row + sx * 8u);
-                            sum[0] += HalfToFloat(texel[0]);
-                            sum[1] += HalfToFloat(texel[1]);
-                            sum[2] += HalfToFloat(texel[2]);
-                            sum[3] += HalfToFloat(texel[3]);
+                            sum[0] += image::HalfToFloat(texel[0]);
+                            sum[1] += image::HalfToFloat(texel[1]);
+                            sum[2] += image::HalfToFloat(texel[2]);
+                            sum[3] += image::HalfToFloat(texel[3]);
                         }
                     }
                     constexpr f32 kInvSamples = 1.0f / (kFactor * kFactor);

@@ -69,3 +69,45 @@ TEST_CASE("image.io: a DDS buffer loads through the generic loader as its decode
     CHECK(fromPath.GetPixel(0, 0).r == 9);
     FileDelete(u8"scratch_image_io_probe.dds");
 }
+
+TEST_CASE("image: HalfToFloat decodes normals, subnormals, zeros, infinities and the extremes exactly")
+{
+    CHECK(HalfToFloat(0x3C00) == 1.0f);
+    CHECK(HalfToFloat(0x3800) == 0.5f);
+    CHECK(HalfToFloat(0xC000) == -2.0f);
+    CHECK(HalfToFloat(0x3555) == doctest::Approx(0.333251953125f)); // the nearest half to 1/3
+    CHECK(HalfToFloat(0x7BFF) == 65504.0f);                          // the largest finite half
+    CHECK(HalfToFloat(0x0400) == doctest::Approx(6.103515625e-05f)); // the smallest normal
+    CHECK(HalfToFloat(0x0001) == doctest::Approx(5.9604644775390625e-08f)); // the smallest subnormal
+    CHECK(HalfToFloat(0x0000) == 0.0f);
+    CHECK(__builtin_bit_cast(u32, HalfToFloat(0x8000)) == 0x80000000u); // negative zero keeps its sign
+    CHECK(HalfToFloat(0x7C00) > 3.0e38f);                             // +inf
+    CHECK(HalfToFloat(0xFC00) < -3.0e38f);                            // -inf
+    CHECK(HalfToFloat(0x7E00) != HalfToFloat(0x7E00));                // NaN
+
+    // To a byte: clamped, quantised, never re-encoded.
+    CHECK(HalfToUnorm8(0x3C00) == 255);
+    CHECK(HalfToUnorm8(0x3800) == 128); // 0.5 * 255 + 0.5 rounds up
+    CHECK(HalfToUnorm8(0x3555) == 85);  // 1/3
+    CHECK(HalfToUnorm8(0x4400) == 255); // 4.0 clamps high
+    CHECK(HalfToUnorm8(0xBC00) == 0);   // -1.0 clamps low
+    CHECK(HalfToUnorm8(0x0000) == 0);
+}
+
+TEST_CASE("image: an RGBA16F image reads its pixels quantised, so ConvertFormat(RGBA8) is the CPU readback")
+{
+    const u16 texels[2][4] = {{0x3C00, 0x3800, 0x0000, 0x3C00},  // 1.0, 0.5, 0.0, 1.0
+                              {0x4400, 0xBC00, 0x3555, 0x3C00}}; // 4.0, -1.0, 1/3, 1.0
+    const Image half(2, 1, PixelFormat::RGBA16F,
+                     Span<const u8>{reinterpret_cast<const u8*>(texels), sizeof(texels)});
+    CHECK(half.GetPixel(0, 0).r == 255);
+    CHECK(half.GetPixel(0, 0).g == 128);
+    CHECK(half.GetPixel(1, 0).r == 255);
+    CHECK(half.GetPixel(1, 0).g == 0);
+    CHECK(half.GetPixel(1, 0).b == 85);
+    const Image bytes = half.ConvertFormat(PixelFormat::RGBA8);
+    CHECK(bytes.Format() == PixelFormat::RGBA8);
+    CHECK(bytes.PixelData().Size() == 8u);
+    CHECK(bytes.GetPixel(1, 0).b == 85);
+    CHECK(bytes.GetPixel(1, 0).a == 255);
+}

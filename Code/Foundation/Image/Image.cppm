@@ -172,6 +172,14 @@ export namespace foundation::image
                 return {m_data[off + 2], m_data[off + 1], m_data[off], 255};
             case PixelFormat::BGRA8:
                 return {m_data[off + 2], m_data[off + 1], m_data[off], m_data[off + 3]};
+            case PixelFormat::RGBA16F:
+            {
+                // Clamped and quantised (HalfToUnorm8): ConvertFormat(RGBA8) over a 16F image is
+                // the CPU read of a display-referred float target.
+                u16 h[4];
+                MemCopy(h, m_data.Data() + off, sizeof(h));
+                return {HalfToUnorm8(h[0]), HalfToUnorm8(h[1]), HalfToUnorm8(h[2]), HalfToUnorm8(h[3])};
+            }
             default:
                 return Color32::Black;
             }
