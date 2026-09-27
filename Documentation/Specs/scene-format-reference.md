@@ -1,6 +1,9 @@
 # Scene format reference, generated from the code
 
-> STATUS: PROPOSED 2026-09-26, not scheduled. Sized M (P0-P2), L with P3. Origin: authoring
+> STATUS: RULED 2026-09-27, ready to build (P0-P1 now; P2 later). Sized M. Rulings by the user:
+> generate at run time and serve live, pregenerate and track later; the missing reference hop
+> is declared by the runtime factory (D4); the generator lives in Editor.Mcp, which stands on
+> the Editor.Project split of 2026-09-27 (D6). Originally PROPOSED 2026-09-26. Origin: authoring
 > Sedulous's PaperKid over the MCP. `scene_write` accepts a scene's XML, but nothing the MCP
 > serves says what goes inside it, so the agent wrote a throwaway probe that built a scene in
 > code, saved it, and read the XML back before it could author a single component. Every
@@ -175,18 +178,31 @@ exists. It then gains:
 A field with no reflected twin is emitted unannotated and counted in a `unreflected` list per
 type. That list is a useful finding in its own right; `groupNames` would show up there today.
 
-### D4. Resource reference targets need one new piece of registration [DISCUSS]
+### D4. A resource reference's target is joined through the factories and the builders [RULED]
 
-Nothing generic records "this `Ref<T>` field points at asset type X". The recommendation is for
-`TypeBuilder::Property` to attach a `resourceType` attribute automatically when the member type
-is `resource::Ref<T>`, naming `T`'s reflected type.
-- It is detected in the template at registration time, which is capability flowing INTO
-  reflection at registration (CONVENTIONS, Code style).
-- It needs no per-component edits, and the inspector's hard-coded table could later read the
-  same attribute.
+The chain from a `Ref<T>` field to the asset type an agent authors is declared in the code
+except for one link, and the ruling (2026-09-27) declares that link on the runtime factory:
 
-Until then, a guid field that does not join to an `EntityRef` property is emitted as
-`ref: "guid"`, unspecified.
+- `Ref<T>` names its runtime type T through the reference shape that landed after this spec
+  was first written (`ReferenceTraits` / `ReferenceOps` on `TypeInfo::reference`, Core). The
+  ops table gains a `Target()` returning T's `TypeInfo`, filled by the `Ref<T>` specialisation:
+  capability flowing into reflection at registration, no per-component edit.
+- The resource manager keys its factories by that same T (`IResourceFactory::ProductType()`,
+  `ResourceModule.cppm`). So the factory for T is found by identity.
+- **The missing link, now declared:** `IResourceFactory` gains `CookedType()`, the serialised
+  cooked form the factory reads in its Create (`StaticMeshSource` for `StaticMesh`,
+  `TextureResource` for `Texture`, `HeightfieldSource` for `Heightfield`). Runtime side, no
+  pipeline knowledge, and a statement of what each factory already does. A tripwire test
+  checks every factory's cooked type is some builder's product.
+- The pipeline's `BuilderRegistry` (`Pipeline.Core/Asset.cppm`) enumerates builders, each
+  declaring `AssetType()` and `ProductType()` - the product being that cooked form (the
+  heightfield builder documents the deliberate difference from the runtime type). The join
+  `factory.CookedType() == builder.ProductType()` yields `builder.AssetType()`.
+
+The schema then emits, for a reference field, `ref: {resource: "StaticMesh", asset:
+"StaticMeshAsset"}`; a T with no factory or no builder in the running composition emits the
+resource name alone and is counted under `unreflected`. The inspector's hard-coded rows per
+asset type (`InspectorViewImpl.cpp`) can later read the same join and go.
 
 ### D5. Determinism is part of the contract
 
@@ -197,34 +213,30 @@ The generator must produce byte-identical output for the same code:
 - the existing XML float formatting;
 - no timestamps, paths or build stamps in either file.
 
-### D6. One library entry point, three consumers
+### D6. One library entry point in Editor.Mcp; the hosts serve it live [RULED]
 
-`GenerateSceneReference(outExampleXml, outSchemaJson)` lives beside the composition it
-enumerates, in Engine.SceneSurface or a small `Engine.SceneReference` module if the recorder
-should not ride on SceneSurface. It calls `RegisterAllSceneComponentReflection()` first. Three
-consumers share it:
+`GenerateSceneReference(outExampleXml, outSchemaJson)` lives in Editor.Mcp, the shared tool
+library both hosts register, which since the Editor.Project split (2026-09-27) stands on
+the headless project half and already links the pipeline registries, the scene surface's
+composition and the resource layer - everything the join of D4 needs. The recorder of D1 is
+a serializer backend and lives in Foundation beside the other backends; the generator calls
+`RegisterAllSceneComponentReflection()` and composes the scratch scene through
+`engine::AddAllSceneManagers`.
 
-1. **Build step.** A tool mode (recommended: `Tools.Export --emit-scene-reference <dir>`)
-   runs as a post-build custom command in the `BUILDSYSTEM_HOST_BIN_DIR` pattern. It writes
-   both files to `Bin/<config>/<platform>/SceneReference/`, so every build carries its own
-   format.
-   - Tools.Export already links `Engine::SceneSurface` for its transcode scratch scenes
-     (`Code/Tools/Tools.Export/CMakeLists.txt:12`, `Main.cpp:51,121`).
-   - Tools.Cook does not, since it links `Pipeline::Registration` and `Engine::ScriptSurface`
-     only (`Code/Tools/Tools.Cook/CMakeLists.txt:3-8`).
-2. **The MCP hosts.** The files are served as `docs://generated/SceneExample.scene.xml` and
-   `docs://generated/SceneSchema.json`, with MIME types `application/xml` and
-   `application/json`.
-   - The host generates them in memory from its own registrations at startup, rather than
-     reading the staged files. That keeps them true to the running binary even when no build
-     step ran.
-   - `RegisterShippingDocResources` gains the generated pair alongside its `*.md` listing.
-3. **Golden test.** `Documentation/Shipping/Generated/` holds a checked-in copy of both files.
-   A test in the Engine.SceneSurface (or Integration.Mcp) suite regenerates them and compares
-   byte for byte, reading the checked-in copy through `RAPTOR_SOURCE_DIR`.
-   - On mismatch it writes the fresh files to `.test-scratch/` and fails with the one command
-     that refreshes the checked-in copy.
-   - A wire change therefore cannot land without its reference diff in the same commit.
+Consumers, in the order they land:
+
+1. **The MCP hosts, live (now).** Each host generates the pair in memory from its own
+   registrations at startup and serves `docs://generated/SceneExample.scene.xml`
+   (`application/xml`) and `docs://generated/SceneSchema.json` (`application/json`) beside
+   the `*.md` listing of `RegisterShippingDocResources`. True to the running binary by
+   construction: no build step, no staged file, nothing to drift. A `component_schema` tool
+   answers one type's entry by wire name or type name from the same model (P3 folded in).
+2. **Pregeneration and tracking (later, when wanted).** A tool mode
+   (`Tools.Export --emit-scene-reference <dir>`, which stands on Editor.Project) as a
+   post-build command, a checked-in copy under `Documentation/Shipping/Generated/` and the
+   golden test that fails until it is regenerated, and the dist scripts staging
+   `Documentation/Shipping` beside the executables (which they do not today - see "Found
+   along the way"). The ruling deferred these; the live surface does not depend on them.
 
 ### D7. Hand-written docs keep what does not drift
 
@@ -249,44 +261,46 @@ three corrections found during this research:
 
 ## Phases
 
-- **P0: the recorder and the schema** (M).
-  - `SchemaRecorder` (an `ISerializer` backend) and the schema model.
-  - `GenerateSceneSchema` over a composed scratch scene, covering every component manager and
-    settings system, plus the joins of D3.
+- **P0: the recorder and the schema model** (Foundation; M).
+  - `SchemaRecorder` (an `ISerializer` backend in write mode) and the schema model.
   - Tests:
-    - RigidBody's recorded order and kinds match its `Serialize` body (`motion` is `u8` with
-      enum names; `mass` comes last);
+    - a body's recorded order and kinds match its `Serialize` (RigidBody: `motion` is `u8`
+      with enum names; `mass` comes last);
+    - nesting of objects and arrays, `Text` and guid fields;
+    - the `dataVersions` chain recorded for RigidBody is
+      `{FNV("rtti::engine::physics::RigidBodyComponent"), 3}`.
+- **P0b: the reference hop** (Core, Resource, Pipeline; S).
+  - `ReferenceOps::Target()`; `IResourceFactory::CookedType()` on every factory.
+  - Tests: the target of `Ref<StaticMesh>` is StaticMesh's type; the tripwire that every
+    registered factory's cooked type is some builder's product.
+- **P1: the generator and the live surface** (Editor.Mcp; M).
+  - `GenerateSceneReference` over the composed scratch scene: every component manager and
+    settings system, the joins of D3, the reference chain of D4, the example of D2 with the
+    determinism of D5.
+  - `docs://generated/*` on both hosts, generated at startup; `component_schema`.
+  - Tests:
     - `physics` settings list `groupNames` and report it unreflected;
-    - an `EntityRef` field is annotated `ref: entity`;
-    - the `dataVersions` chain recorded for RigidBody is `{FNV("rtti::engine::physics::RigidBodyComponent"), 3}`;
-    - the script override section's worked hash equals `ScriptPropertyNameHash` of its name.
-- **P1: the example and the golden** (S).
-  - `GenerateSceneExample` (D2 content, D5 determinism).
-  - The checked-in `Documentation/Shipping/Generated/` pair and the golden test.
-  - Tests:
-    - the example loads through `LoadScene` into a fully composed scene with an ok status;
-    - `scene_validate` on it is valid with no warnings;
+    - an `EntityRef` field is annotated `ref: entity`; a `Ref<StaticMesh>` field
+      `ref: {resource, asset}`;
+    - the script override section's worked hash equals `ScriptPropertyNameHash` of its name;
+    - the example loads through `LoadScene` into a fully composed scene with an ok status,
+      and `scene_validate` on it is valid with no warnings;
     - two generations are byte identical;
-    - the golden matches.
-- **P2: delivery** (S).
-  - The `Tools.Export --emit-scene-reference` mode and its post-build command.
-  - docs:// serving of the generated pair in both hosts.
-  - Staging `Documentation/Shipping` beside the executables in the dist scripts.
-  - The `Scenes.md` rewrite and the two fixes above.
-  - Tests:
-    - `resources/list` includes both generated resources on the stdio host;
-    - reading them returns the same bytes as `GenerateSceneReference`.
-- **P3 (optional): `component_schema` tool.** One type's schema entry by wire name or type
-  name, answered from the same model. It is for an agent that wants one component without
-  reading the whole schema. Annotated read-only.
+    - `resources/list` on the stdio host includes both generated resources and reading them
+      returns the generator's bytes; `component_schema("light")` returns the light's entry.
+  - The `Scenes.md` rewrite of D7 and the `scene_validate` description fix.
+- **P2 (later): pregeneration and tracking.** The tool mode, the checked-in copy and its
+  golden test, and the dist staging of `Documentation/Shipping`.
 
 ## Acceptance
 
 - An agent with only the MCP can write a valid scene containing any component or settings
-  block, using `docs://generated/*` and no probe.
-- A wire change (a new field, a version bump, a reorder) fails the golden test until the
-  checked-in reference is regenerated in the same commit.
+  block, using `docs://generated/*` (or `component_schema`) and no probe.
+- The served reference is generated by the running host from its own registrations, so it
+  cannot describe a different build.
 - Both files are byte identical across two runs and both compilers.
+- Later, with P2: a wire change fails the golden test until the checked-in reference is
+  regenerated in the same commit.
 - Green on clang and gcc; ASAN clean for the new tests.
 
 ## For the Beef port (Sedulous)
@@ -295,6 +309,9 @@ The OUTPUTS are the contract: the two file names, the JSON shape of `SceneSchema
 docs:// URIs, the golden test's rule, and the build step's placement. Sedulous produces the
 same files by its own means:
 - Its serializable metadata is comptime rather than runtime reflection, so the join of D3 and
-  the resource target of D4 may come straight from comptime data.
+  the resource target of D4 may come straight from comptime data; its factories and builders
+  declare the same cooked-type link.
+- The generator's home is its Editor.Mcp equivalent, which must stand on the mirrored
+  Editor.Project split first.
 - Its components with hand-written `Serialize` bodies still need the recording backend of D1,
   since the rule "the write path is the truth" holds in both engines.
