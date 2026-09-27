@@ -473,7 +473,7 @@ namespace editor::app
                 entry.panel->ActiveMark = mark;
                 if (entry.panel->Parent != nullptr)
                 {
-                    entry.panel->Parent->Invalidate(); // the group draws the strip and the ring
+                    entry.panel->Parent->InvalidateVisual(); // the ring: colour only, no geometry
                 }
             }
         }

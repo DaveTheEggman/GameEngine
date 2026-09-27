@@ -64,6 +64,7 @@ TEST_CASE("dialog: Show_SetsInitialKeyboardFocus_InsideTheDialog")
     View* focused = ctx.GetFocusManager()->FocusedView();
     REQUIRE(focused != nullptr);
     CHECK(dlg->IsFocusWithin());
+    CHECK(focused != dlg.Get()); // a button, not the dialog: the walk reaches the visual layout
     CHECK_FALSE(focused->IsFocusVisible());
 
     dlg->Close(DialogResult::Cancel);
