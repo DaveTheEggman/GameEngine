@@ -197,6 +197,13 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
     CHECK(probe->last == KeyCode::Num0);
     (void)bridge.Dispatch(key(shell::KeyCode::Num5));
     CHECK(probe->last == KeyCode::Num5);
+    // The modifier keys as keys (a chord capture sees Ctrl go down and keeps waiting).
+    (void)bridge.Dispatch(key(shell::KeyCode::LeftCtrl));
+    CHECK(probe->last == KeyCode::LeftCtrl);
+    (void)bridge.Dispatch(key(shell::KeyCode::RightShift));
+    CHECK(probe->last == KeyCode::RightShift);
+    (void)bridge.Dispatch(key(shell::KeyCode::LeftAlt));
+    CHECK(probe->last == KeyCode::LeftAlt);
     (void)bridge.Dispatch(key(shell::KeyCode::Delete)); // pre-existing mapping still intact
     CHECK(probe->last == KeyCode::Delete);
 }

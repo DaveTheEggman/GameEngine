@@ -41,6 +41,13 @@ TEST_CASE("shortcut-capture: click, press, chosen - with the cancel, clear, modi
     CHECK(ctrlAlone.Handled);
     CHECK(button->IsCapturing());
     CHECK(chosen.IsEmpty());
+    ui::KeyEventArgs unknown; // a key the shell could not map: not a chord, keep waiting
+    unknown.Key = ui::KeyCode::Unknown;
+    unknown.Modifiers = ui::KeyModifiers::LeftCtrl;
+    button->OnKeyDown(unknown);
+    CHECK(unknown.Handled);
+    CHECK(button->IsCapturing());
+    CHECK(chosen.IsEmpty());
     ui::KeyEventArgs k;
     k.Key = ui::KeyCode::K;
     k.Modifiers = ui::KeyModifiers::LeftCtrl | ui::KeyModifiers::NumLock; // a lock key is not part of a chord

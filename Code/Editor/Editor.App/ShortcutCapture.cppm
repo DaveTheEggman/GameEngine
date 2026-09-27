@@ -95,6 +95,7 @@ export namespace editor::app
             case ui::KeyCode::RightShift:
             case ui::KeyCode::RightAlt:
             case ui::KeyCode::RightGui:
+            case ui::KeyCode::Unknown: // a key the shell could not name is no chord either
                 return; // a modifier alone is not a chord: keep waiting
             default:
                 Choose(EditorShortcut{e.Key, ui::Shortcut::Normalize(e.Modifiers)});
