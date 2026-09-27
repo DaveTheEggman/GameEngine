@@ -31,7 +31,8 @@ add_executable(Core.Tests
     ThreadingTests.cpp
     LibraryTests.cpp
     AllocatorTripwireTests.cpp
-    SharedLibTripwireTests.cpp)
+    SharedLibTripwireTests.cpp
+    SchemaRecorderTests.cpp)
 
 target_link_libraries(Core.Tests PRIVATE Foundation::Core doctest::doctest)
 # The allocator tripwire scans the source tree at test time.

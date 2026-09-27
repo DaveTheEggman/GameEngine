@@ -96,6 +96,7 @@ target_sources(Core
             Serialization/SerializableRegistry.cppm
             Serialization/Serializer.cppm
             Serialization/BinarySerializer.cppm
+            Serialization/SchemaRecorder.cppm
             Serialization/Serialize.cppm
             Threading/Atomic.cppm
             Threading/Thread.cppm

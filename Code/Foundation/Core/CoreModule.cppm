@@ -78,6 +78,7 @@ export import :iserializable;
 export import :serializable_registry;
 export import :serializer;
 export import :binary_serializer;
+export import :schema_recorder;
 export import :serialize;
 export import :atomic;
 export import :thread;
