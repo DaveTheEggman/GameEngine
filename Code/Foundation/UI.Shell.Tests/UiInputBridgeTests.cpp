@@ -204,6 +204,8 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
     CHECK(probe->last == KeyCode::RightShift);
     (void)bridge.Dispatch(key(shell::KeyCode::LeftAlt));
     CHECK(probe->last == KeyCode::LeftAlt);
+    (void)bridge.Dispatch(key(shell::KeyCode::RightGui));
+    CHECK(probe->last == KeyCode::RightGui);
     (void)bridge.Dispatch(key(shell::KeyCode::Delete)); // pre-existing mapping still intact
     CHECK(probe->last == KeyCode::Delete);
 }

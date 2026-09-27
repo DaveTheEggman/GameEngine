@@ -395,6 +395,10 @@ export namespace foundation::ui
                 return KeyCode::RightShift;
             case SK::RightAlt:
                 return KeyCode::RightAlt;
+            case SK::LeftGui:
+                return KeyCode::LeftGui;
+            case SK::RightGui:
+                return KeyCode::RightGui;
             default:
                 return KeyCode::Unknown;
             }
