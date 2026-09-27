@@ -432,6 +432,22 @@ export namespace foundation::ui
             return u8"F15";
         case KeyCode::F16:
             return u8"F16";
+        case KeyCode::F17:
+            return u8"F17";
+        case KeyCode::F18:
+            return u8"F18";
+        case KeyCode::F19:
+            return u8"F19";
+        case KeyCode::F20:
+            return u8"F20";
+        case KeyCode::F21:
+            return u8"F21";
+        case KeyCode::F22:
+            return u8"F22";
+        case KeyCode::F23:
+            return u8"F23";
+        case KeyCode::F24:
+            return u8"F24";
         case KeyCode::Unknown:
         default:
             return u8"";

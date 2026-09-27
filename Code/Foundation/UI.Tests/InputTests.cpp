@@ -941,3 +941,36 @@ TEST_CASE("keys: Tab_DispatchesToWantsTabKeyViews")
     CHECK(editor->tabDowns == 2);
     CHECK(ctx.GetFocusManager()->FocusedView() == next.Get());
 }
+
+TEST_CASE("keycode: every function key F1 to F24 has a display name, distinct, and Unknown has none")
+{
+    // The enum declares the function keys in two contiguous runs (F1..F12, F13..F24); the name
+    // table must keep up with both (F17 to F24 once returned the empty string, so a chord on
+    // them showed no key).
+    const struct
+    {
+        KeyCode first;
+        KeyCode last;
+    } runs[] = {{KeyCode::F1, KeyCode::F12}, {KeyCode::F13, KeyCode::F24}};
+    Array<StringView> seen;
+    for (const auto& run : runs)
+    {
+        const auto first = static_cast<u32>(run.first);
+        const auto last = static_cast<u32>(run.last);
+        REQUIRE(last - first == 11u);
+        for (u32 v = first; v <= last; ++v)
+        {
+            const StringView name{KeyCodeName(static_cast<KeyCode>(v))};
+            CHECK(name.StartsWith(u8"F"));
+            CHECK(name.Size() >= 2u);
+            for (const StringView& other : seen)
+            {
+                CHECK(name != other);
+            }
+            seen.PushBack(name);
+        }
+    }
+    CHECK(seen.Size() == 24u);
+    CHECK(StringView{KeyCodeName(KeyCode::F24)} == u8"F24");
+    CHECK(StringView{KeyCodeName(KeyCode::Unknown)}.IsEmpty());
+}
