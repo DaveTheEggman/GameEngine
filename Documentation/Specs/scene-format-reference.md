@@ -1,6 +1,7 @@
 # Scene format reference, generated from the code
 
-> STATUS: RULED 2026-09-27, ready to build (P0-P1 now; P2 later). Sized M. Rulings by the user:
+> STATUS: BUILT P0, P0b and P1 (2026-09-27); P2 (pregeneration and tracking) later. Sized M.
+> Built as ruled, with three findings recorded under "As built" below. Rulings by the user:
 > generate at run time and serve live, pregenerate and track later; the missing reference hop
 > is declared by the runtime factory (D4); the generator lives in Editor.Mcp, which stands on
 > the Editor.Project split of 2026-09-27 (D6). Originally PROPOSED 2026-09-26. Origin: authoring
@@ -302,6 +303,40 @@ three corrections found during this research:
 - Later, with P2: a wire change fails the golden test until the checked-in reference is
   regenerated in the same commit.
 - Green on clang and gcc; ASAN clean for the new tests.
+
+## As built (2026-09-27)
+
+- `SchemaRecorder` (Core, `:schema_recorder`) records through the real write path;
+  `ReferenceOps::Target()` and `IResourceFactory::CookedType()` on every factory (27) with the
+  tripwire that each cooked type is some builder's product; the generator, the two
+  `docs://generated/*` resources and `component_schema` in Editor.Mcp
+  (`:scene_reference`, registered by `RegisterEngineTools`, so both hosts serve them);
+  `ProjectSession::resources` is the factory seam the editor host fills.
+- **The wire writes array elements inline**, with no scope of their own: a struct element
+  is the run of its keyed fields (the run repeats from its first key), a scalar, string or
+  guid element one unkeyed value. Only component and settings records open one object per
+  record. The schema says so in `format.arrays` and gives each array an `element` (the first
+  element's fields) when the default has one; an array empty at default has only its
+  `elementType`, when reflection knows it. A struct field written through the generic path
+  (a `ScriptPropertyValue`) also writes its fields inline under the parent, without a key:
+  the override record on the wire is `nameHash, kind, <payload>`, and the schema shows that.
+- **The stdio host has no factories**, so its reference joins a `Ref<T>` to the resource
+  name only and lists the field under `unreflected`; the editor host resolves the asset type
+  through its ResourceManager. A headless factory composition (the runtime side's twin of
+  Engine.SceneSurface, which DefaultApplication would also use) is the follow-up that closes
+  this; it needs a ruling on where it lives.
+- The schema is recorded over the DEFAULTS (D1) before the example scene gets its script
+  behaviour, so the script component's `behaviors` shows as an empty array in the schema and
+  the example carries the filled behaviour; the `scriptOverrides` section documents the
+  record and each kind's payload key from the value's own Serialize, one kind at a time
+  (the kind table is `ScriptPropertyTypeNames()`, the one table the parser reads too).
+- No prefab instance in the example: the composition has no prefab asset to instance. The
+  `prefabInstances` section is present and empty; its record shape is a P2 item together
+  with the golden test.
+- Nested math values (`Float3`, `Color`, ...) have no reflected fields, so their components
+  are not counted as unreflected; only a type that reflects SOME property has its missing
+  keys listed. First findings from the lists: `instances`/`tints` (instanced mesh),
+  `points` (spline), `groupNames`/`groupCollides` (physics), `overrides` (scene script).
 
 ## For the Beef port (Sedulous)
 

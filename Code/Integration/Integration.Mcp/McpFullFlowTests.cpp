@@ -184,6 +184,7 @@ TEST_CASE("integration.mcp: RegisterEngineTools registers exactly kEngineToolCou
     CHECK(has(u8"scene_write"));
     CHECK(has(u8"project_export"));
     CHECK(has(u8"known_issues"));
+    CHECK(has(u8"component_schema"));
     // ... and what a HOST adds itself: never part of the shared surface.
     CHECK_FALSE(has(u8"project_open"));
     CHECK_FALSE(has(u8"project_create"));

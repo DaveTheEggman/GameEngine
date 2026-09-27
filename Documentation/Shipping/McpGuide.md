@@ -40,8 +40,9 @@ them and warns the user - ask before `page_reload` with `force`, which discards 
 2. `host_info` - pid (kill a hung host by it) and `buildStamp`. After rebuilding the
    engine, compare stamps: a stale host serves yesterday's engine.
 3. `resources/list` - the curated `docs://` shipping docs (Scripting/Assets/Scenes/
-   KnownIssues) and, once a project is open, every scene/prefab as
-   `project://scene|prefab/<guid>`.
+   KnownIssues), the scene format reference this host generated from its own build
+   (`docs://generated/SceneSchema.json` + `docs://generated/SceneExample.scene.xml`) and,
+   once a project is open, every scene/prefab as `project://scene|prefab/<guid>`.
 
 ## The ground rules
 
@@ -64,9 +65,11 @@ is normal - clear it with `asset_cook`.
 **Assets**: `asset_import` (OS file -> Sources/ + typed asset) -> `asset_cook`
 (incremental; `force` for full). `asset_list`/`asset_info` to inspect either database.
 
-**Scenes**: read with `scene_read` (or the `project://` resource), author XML, loop on
-`scene_validate` (xml or guid; `valid` + empty `warnings` = the engine will load it),
-then `scene_write`. Prefabs mirror it with a single-root rule.
+**Scenes**: read `docs://generated/SceneSchema.json` once (or `component_schema` for one
+component), copy from `docs://generated/SceneExample.scene.xml`, read the target with
+`scene_read` (or the `project://` resource), author XML, loop on `scene_validate` (xml or
+guid; `valid` + empty `warnings` = the engine will load it), then `scene_write`. Prefabs
+mirror it with a single-root rule.
 
 **Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
 never trust memorized signatures. A member with `readOnly: true` (a network identity's

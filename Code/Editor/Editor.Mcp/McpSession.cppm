@@ -15,6 +15,7 @@ export module editor.mcp:session;
 import foundation.core;
 import foundation.json;
 import foundation.content;
+import foundation.resource;
 import editor.project;
 
 using namespace foundation::core;
@@ -35,6 +36,11 @@ export namespace editor::mcp
         /// the open pages editing it (EditorContext::NotifyAssetExternallyModified); the stdio
         /// host has no pages and leaves it unset.
         Function<void(const Guid&)> onAssetWritten;
+        /// The host's resource manager with its factories, when it has one (the editor's, over
+        /// the project's cooked DB). NON-OWNING and optional: the scene format reference joins a
+        /// component's Ref<T> to the asset type an agent authors through the factories
+        /// (scene-format-reference.md, D4); a host without one serves the resource name alone.
+        const foundation::resource::ResourceManager* resources = nullptr;
     };
 
     // The stdio host's project ownership: project_open stores what it opened here and points

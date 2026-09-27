@@ -25,6 +25,7 @@ export import :resources;
 export import :script_validate;
 export import :script_create;
 export import :project_export;
+export import :scene_reference;
 
 import foundation.core;
 import foundation.json;
@@ -499,7 +500,7 @@ export namespace editor::mcp
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 21;
+    inline constexpr usize kEngineToolCount = 22;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -568,9 +569,18 @@ export namespace editor::mcp
         RegisterProjectHealthTool(server, session, builders);
         RegisterLogTools(server, logBuffer, paths.knownIssues);
         RegisterSceneTools(server, session);
-        if (!paths.shippingDocsDir.IsEmpty())
+        // The scene format reference, generated NOW from this host's own registrations (the full
+        // scene composition, its builders, its factories when it has them) and served live:
+        // docs://generated/* beside the shipping docs, component_schema for one entry.
         {
-            RegisterShippingDocResources(server, paths.shippingDocsDir.AsView());
+            const SceneReference reference = GenerateSceneReference(
+                editor::EditorRootAllocator(), builders, session.resources);
+            RegisterComponentSchemaTool(server, reference);
+            if (!paths.shippingDocsDir.IsEmpty())
+            {
+                RegisterShippingDocResources(server, paths.shippingDocsDir.AsView());
+            }
+            RegisterSceneReferenceResources(server, reference);
         }
         RegisterProjectResources(server, session);
         RegisterScriptValidateTool(server);

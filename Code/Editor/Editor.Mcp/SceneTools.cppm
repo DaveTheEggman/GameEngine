@@ -237,9 +237,11 @@ export namespace editor::mcp
             u8"Validate scene/prefab XML without writing anything - use this as the validation "
             u8"loop when authoring scenes. Pass `xml` (raw text) OR `guid` (validate the stored "
             u8"stream). Returns {valid, error?, warnings[], sceneName, entityCount, rootCount}. "
-            u8"Validation is STRUCTURAL (entities/hierarchy/transforms/record framing); component "
-            u8"payloads are checked in-engine at load, and unknown component types surface here "
-            u8"as warnings.",
+            u8"Validation is FULL: the stream is parsed by the engine's own reader through every "
+            u8"component manager and settings system, so framing, hierarchy and every component "
+            u8"payload are checked; only a genuinely unknown component type surfaces as a warning "
+            u8"(its records would be skipped on load). The format to author against is "
+            u8"docs://generated/SceneSchema.json with docs://generated/SceneExample.scene.xml.",
             SchemaBuilder()
                 .Str(u8"xml", u8"scene XML text to validate", false)
                 .Str(u8"guid", u8"a scene/prefab asset guid whose stored stream to validate",
