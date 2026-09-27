@@ -40,32 +40,6 @@ namespace editor
             return a.Size() < b.Size();
         }
 
-        [[nodiscard]] bool ContainsIgnoreCase(StringView haystack, StringView needle)
-        {
-            if (needle.IsEmpty())
-            {
-                return true;
-            }
-            if (haystack.Size() < needle.Size())
-            {
-                return false;
-            }
-            const auto lower = [](char8_t c) -> char8_t
-            { return (c >= u8'A' && c <= u8'Z') ? static_cast<char8_t>(c + 32) : c; };
-            for (usize start = 0; start + needle.Size() <= haystack.Size(); ++start)
-            {
-                usize i = 0;
-                while (i < needle.Size() && lower(haystack[start + i]) == lower(needle[i]))
-                {
-                    ++i;
-                }
-                if (i == needle.Size())
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 
     ScriptApiTree BuildScriptApiTree(const Array<script::ScriptApiType>& types,
@@ -85,13 +59,13 @@ namespace editor
         for (usize typeIndex : typeOrder)
         {
             const script::ScriptApiType& type = types[typeIndex];
-            const bool typeMatches = ContainsIgnoreCase(type.scriptName.AsView(), filter);
+            const bool typeMatches = type.scriptName.AsView().ContainsIgnoreCase(filter);
 
             Array<usize> memberOrder;
             for (usize i = 0; i < type.members.Size(); ++i)
             {
                 if (typeMatches ||
-                    ContainsIgnoreCase(type.members[i].name.AsView(), filter))
+                    type.members[i].name.AsView().ContainsIgnoreCase(filter))
                 {
                     memberOrder.PushBack(i);
                 }
