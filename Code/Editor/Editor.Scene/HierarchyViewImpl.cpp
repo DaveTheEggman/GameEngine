@@ -30,6 +30,7 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
 import :edit;
+import :actions;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -84,17 +85,13 @@ namespace editor
         if (e.Button == ui::MouseButton::Right && Context != nullptr)
         {
             auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
-            SceneEditContext* edit = m_edit;
-            SceneHierarchyView* self = this;
-            menu->AddItem(u8"Create Entity", [edit]() { (void)edit->CreateEntity(u8"Entity"); });
-            menu->AddItem(u8"Spawn Prefab...",
-                          [self]()
-                          {
-                              if (self->OnSpawnPrefab)
-                              {
-                                  self->OnSpawnPrefab(Guid{});
-                              }
-                          });
+            if (m_actions != nullptr)
+            {
+                const StringView ids[] = {SceneActionIds::kEntityCreate,
+                                          SceneActionIds::kEntitySpawnPrefab,
+                                          SceneActionIds::kEntityPaste};
+                (void)AppendActionItems(*menu, *m_actions, m_subject, Span<const StringView>(ids, 3));
+            }
             const Float2 screenPos = LocalToScreen(Float2{e.X, e.Y});
             menu->Show(Context, screenPos.x, screenPos.y);
             e.Handled = true;
@@ -169,80 +166,44 @@ namespace editor
                 }
                 self->m_edit->EntitySelection().Set(id);
 
-                SceneEditContext* edit = self->m_edit;
                 auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
-                menu->AddItem(u8"Create Child",
-                              [edit, id]() { (void)edit->CreateEntity(u8"Entity", id); });
+                // The scene editor's actions over the page (the right-click selected this
+                // entity, so they act on it), with the view's own items between.
+                if (self->m_actions != nullptr)
+                {
+                    const StringView head[] = {SceneActionIds::kEntityCreateChild};
+                    (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                            Span<const StringView>(head, 1));
+                }
                 menu->AddItem(u8"Rename", [self, id]() { self->BeginRename(id); });
                 menu->AddItem(u8"Copy ID", [self, id]() { (void)self->CopyEntityId(id); });
-                menu->AddSeparator();
-                menu->AddItem(u8"Duplicate", [edit, id]() { (void)edit->DuplicateEntity(id); });
-                menu->AddItem(u8"Create Prefab from Selection",
-                              [self, id]()
-                              {
-                                  if (self->OnCreatePrefab)
-                                  {
-                                      self->OnCreatePrefab(id);
-                                  }
-                              });
-                menu->AddItem(u8"Spawn Prefab as Child",
-                              [self, id]()
-                              {
-                                  if (self->OnSpawnPrefab)
-                                  {
-                                      self->OnSpawnPrefab(id);
-                                  }
-                              });
-                menu->AddItem(u8"Spawn Prefab at Root",
-                              [self]()
-                              {
-                                  if (self->OnSpawnPrefab)
-                                  {
-                                      self->OnSpawnPrefab(Guid{});
-                                  }
-                              });
-                scene::PrefabMemberInfo member;
-                if (scene::FindPrefabMember(edit->Scene(), id, member))
+                if (self->m_actions != nullptr)
                 {
-                    // Reachable from ANY member, acting on the whole owning instance.
-                    const Guid rootId = member.state->rootEntityId;
                     menu->AddSeparator();
-                    menu->AddItem(u8"Apply to Prefab",
-                                  [self, rootId]()
-                                  {
-                                      if (self->OnApplyPrefab)
-                                      {
-                                          self->OnApplyPrefab(rootId);
-                                      }
-                                  });
-                    menu->AddItem(u8"Revert Instance",
-                                  [self, rootId]()
-                                  {
-                                      if (self->OnRevertPrefab)
-                                      {
-                                          self->OnRevertPrefab(rootId);
-                                      }
-                                  });
+                    const StringView entity[] = {SceneActionIds::kEntityDuplicate,
+                                                 SceneActionIds::kEntityCreatePrefab,
+                                                 SceneActionIds::kEntitySpawnPrefabAsChild,
+                                                 SceneActionIds::kEntitySpawnPrefab};
+                    (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                            Span<const StringView>(entity, 4));
+                    if (self->m_actions->IsEnabled(SceneActionIds::kPrefabApply, self->m_subject))
+                    {
+                        menu->AddSeparator();
+                        const StringView prefab[] = {SceneActionIds::kPrefabApply,
+                                                     SceneActionIds::kPrefabRevert};
+                        (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                                Span<const StringView>(prefab, 2));
+                    }
+                    menu->AddSeparator();
+                    const StringView clipboard[] = {SceneActionIds::kEntityCopy,
+                                                    SceneActionIds::kEntityPasteAsChild};
+                    (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                            Span<const StringView>(clipboard, 2));
+                    menu->AddSeparator();
+                    const StringView tail[] = {SceneActionIds::kEntityDelete};
+                    (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                            Span<const StringView>(tail, 1));
                 }
-                if (EditorContext* editor = self->m_editor)
-                {
-                    menu->AddItem(u8"Copy",
-                                  [edit, editor, id]()
-                                  {
-                                      Array<byte> blob = edit->CopyEntity(id);
-                                      if (!blob.IsEmpty())
-                                      {
-                                          editor->SetClipboard(u8"entities", Move(blob));
-                                      }
-                                  });
-                    const Span<const byte> clip = editor->ClipboardData(u8"entities");
-                    menu->AddItem(
-                        u8"Paste as Child", [edit, editor, id]()
-                        { (void)edit->PasteEntities(editor->ClipboardData(u8"entities"), id); },
-                        !clip.IsEmpty());
-                }
-                menu->AddSeparator();
-                menu->AddItem(u8"Delete", [edit, id]() { edit->DestroyEntity(id); });
                 const Float2 screenPos =
                     self->m_tree->InternalTreeView()->LocalToScreen(Float2{x, y});
                 menu->Show(self->Context, screenPos.x, screenPos.y);
@@ -258,25 +219,14 @@ namespace editor
                 {
                     return;
                 }
-                SceneEditContext* edit = self->m_edit;
                 auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
-                menu->AddItem(u8"Create Entity",
-                              [edit]() { (void)edit->CreateEntity(u8"Entity"); });
-                menu->AddItem(u8"Spawn Prefab...",
-                              [self]()
-                              {
-                                  if (self->OnSpawnPrefab)
-                                  {
-                                      self->OnSpawnPrefab(Guid{});
-                                  }
-                              });
-                if (EditorContext* editor = self->m_editor)
+                if (self->m_actions != nullptr)
                 {
-                    const Span<const byte> clip = editor->ClipboardData(u8"entities");
-                    menu->AddItem(
-                        u8"Paste", [edit, editor]()
-                        { (void)edit->PasteEntities(editor->ClipboardData(u8"entities")); },
-                        !clip.IsEmpty());
+                    const StringView ids[] = {SceneActionIds::kEntityCreate,
+                                              SceneActionIds::kEntitySpawnPrefab,
+                                              SceneActionIds::kEntityPaste};
+                    (void)AppendActionItems(*menu, *self->m_actions, self->m_subject,
+                                            Span<const StringView>(ids, 3));
                 }
                 const Float2 screenPos =
                     self->m_tree->InternalTreeView()->InternalListView()->LocalToScreen(

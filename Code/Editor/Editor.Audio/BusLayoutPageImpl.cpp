@@ -348,7 +348,7 @@ namespace editor
         split->SetPanes(leftColumn.Get(), rightColumn.Get());
 
         // The page action bar (Save / Undo / Redo / Discard) above the split.
-        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this);
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
         auto column = MakeRef<ui::FlexLayout>(Allocator());
         column->Direction = ui::Orientation::Vertical;
         {

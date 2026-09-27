@@ -49,8 +49,12 @@ import editor.core;
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import editor.camera;
+import foundation.mcp; // McpServer (the MCP tool contribution)
 import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
+import :scene_page_interface; // ISceneEditorPage (published on the page)
+import :actions; // the scene editor's action declarations
+import :mcp_tools;            // RegisterSceneLiveTools (the contribution)
 import :model_prefab;
 import :game_page;
 import :gizmo;
@@ -74,7 +78,7 @@ export namespace editor
     namespace scene = foundation::scene;
     namespace render = foundation::render;
 
-    class SceneEditorPage final : public app::UIEditorPage
+    class SceneEditorPage final : public app::UIEditorPage, public ISceneEditorPage
     {
     public:
         SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host,
@@ -88,6 +92,7 @@ export namespace editor
             // would always fall back to the default (grid on) and never restore the saved toggle. Same
             // early-bind MeshPage does; the context's SetInstanceId is then the identical value.
             SetInstanceId(instance.Id());
+            Provide<ISceneEditorPage>(*this); // what this page lets others act through
 
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
@@ -194,17 +199,8 @@ export namespace editor
                     }});
                 m_hierarchy = MakeRef<SceneHierarchyView>(Allocator(), *m_editContext);
                 m_hierarchy->SetEditorContext(&context);
-                {
-                    SceneEditorPage* page = this;
-                    m_hierarchy->OnCreatePrefab = [page](const Guid& entity)
-                    { page->CreatePrefabFromEntity(entity); };
-                    m_hierarchy->OnSpawnPrefab = [page](const Guid& parent)
-                    { page->PickAndSpawnPrefab(parent); };
-                    m_hierarchy->OnApplyPrefab = [page](const Guid& root)
-                    { page->ApplyInstanceToPrefab(root); };
-                    m_hierarchy->OnRevertPrefab = [page](const Guid& root)
-                    { page->RevertInstance(root); };
-                }
+                // Its context menus are the scene editor's actions over THIS page.
+                m_hierarchy->SetActions(&context.Actions(), this);
                 m_inspector =
                     MakeRef<SceneInspectorView>(Allocator(), context, *m_editContext);
                 {
@@ -455,15 +451,19 @@ export namespace editor
         // matter which OS window hosts the panel; that window's UI samples the result.
         void OnRenderWindow(runtime::IApplicationHost&,
                             foundation::graphics::FrameContext& frame) override;
+        // The requested viewport capture is recorded here, AFTER the scene renderer composed
+        // the frame: RenderScene only adds the view, EndRendering writes the image.
+        void OnAfterSceneRender(runtime::IApplicationHost& host,
+                                foundation::graphics::FrameContext& frame) override;
 
         // Create-from-selection: capture the subtree as a prefab asset (under "Prefabs/",
         // named after the entity) and replace the original with an instance of it (one undo
         // group). The payload keeps the captured guids as its stable source ids.
-        void CreatePrefabFromEntity(const Guid& entityId);
+        void CreatePrefabFromEntity(const Guid& entityId) override;
 
         // Apply-to-prefab entry point: rewrites the asset and rebuilds every instance, with
         // no undo - so it confirms first (mirror of RevertInstance).
-        void ApplyInstanceToPrefab(const Guid& rootId);
+        void ApplyInstanceToPrefab(const Guid& rootId) override;
 
         // Apply-to-prefab: the instance's CURRENT state becomes the template (source-id
         // keyed, so other instances' deltas stay valid), then every instance everywhere
@@ -472,14 +472,14 @@ export namespace editor
 
         // Revert-instance entry point: destructive + not undoable, so it confirms first.
         // Non-member children under the instance are destroyed too - the dialog says so.
-        void RevertInstance(const Guid& rootId);
+        void RevertInstance(const Guid& rootId) override;
 
         // Revert-instance: discard this instance's deltas (respawn from the current template,
         // placement kept). Not undoable.
         void RevertInstanceNow(const Guid& rootId);
 
         // Spawn an instance under `parent` (nil = scene root) via the asset picker.
-        void PickAndSpawnPrefab(const Guid& parent);
+        void PickAndSpawnPrefab(const Guid& parent) override;
 
         // The asset changed under this page (apply-to-prefab from another page): wipe and
         // reload so the split-view prefab editor shows the new template. Unsaved edits are
@@ -494,7 +494,33 @@ export namespace editor
 
         [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
         [[nodiscard]] EditorCamera& Camera() noexcept { return m_camera; }
-        [[nodiscard]] SceneEditContext* EditContext() const noexcept { return m_editContext.Get(); }
+        [[nodiscard]] SceneEditContext& EditContext() noexcept override { return *m_editContext; }
+        [[nodiscard]] bool IsSimulating() const noexcept override { return m_isSimulating; }
+        [[nodiscard]] bool IsPaused() const noexcept override { return m_isPaused; }
+        [[nodiscard]] GizmoController* Gizmos() noexcept override
+        {
+            return m_selectTool != nullptr ? &m_selectTool->Gizmos() : nullptr;
+        }
+        [[nodiscard]] bool CameraOwnsInput() const noexcept override;
+        [[nodiscard]] bool MarkersShown() const noexcept override { return m_showMarkers; }
+        void SetMarkersShown(bool shown) override { m_showMarkers = shown; }
+        [[nodiscard]] EditorCamera* ViewportCamera() noexcept override { return &m_camera; }
+        [[nodiscard]] Status RequestViewportCapture(StringView path) override
+        {
+            if (m_viewport.Get() == nullptr)
+            {
+                return Status{ErrorCode::NotSupported};
+            }
+            m_capture = ViewportCapture{};
+            m_capture.state = ViewportCaptureState::Pending;
+            m_capture.path = String(path);
+            m_screenshot.Request(path);
+            return Status{};
+        }
+        [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override
+        {
+            return m_capture;
+        }
 
     private:
         static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
@@ -551,16 +577,16 @@ export namespace editor
         /// policy the canvases never take editor clicks/keys. Simulate is a physics/
         /// systems preview whose pointer must keep serving SELECTION and camera flight;
         /// the Game tab is the interactive-run surface and binds its scene on Play.
-        void StartSimulation();
+        void StartSimulation() override;
 
         /// Freeze/resume the running simulation (SimulationEnabled only - the Start/Stop
         /// system callbacks are for the big transitions, not the per-frame pause).
-        void PauseSimulation(bool paused);
+        void PauseSimulation(bool paused) override;
 
         /// Scene::Stop(), then restore the snapshot INTO THE SAME Scene instance (borrowed
         /// scene pointers stay valid; the guid-keyed selection re-resolves against restored
         /// entities - runtime-spawned ones drop out naturally). No-op if not simulating.
-        void StopSimulation();
+        void StopSimulation() override;
 
         void RefreshSimToolbar();
 
@@ -710,6 +736,13 @@ export namespace editor
         foundation::graphics::RenderWindow* m_hostWindow =
             nullptr;                 // borrowed; tracks dock/float moves
         bool m_renderedOnce = false; // first-frame debug log
+        // The viewport capture (viewport_screenshot): armed by RequestViewportCapture, recorded
+        // in OnAfterSceneRender off the composed colour target, completed in the next OnUpdate.
+        engine::runtime::ScreenshotCapture m_screenshot;
+        ViewportCapture m_capture;
+        bool m_renderedThisFrame = false; // OnRenderWindow added the view this frame, at:
+        u32 m_captureWidth = 0;
+        u32 m_captureHeight = 0;
     };
 
     // === Factory + registration (the module's RegisterEditor entry point) ===
@@ -904,6 +937,17 @@ export namespace editor
         prefabCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
         { return CreatePrefabInstance(ctx, group); };
         context.RegisterCreator(Move(prefabCreator));
+        // The scene editor's actions: the Scene menu, the chords, the page toolbar and the
+        // hierarchy's menus are served from these; the palette and the MCP bridge read them.
+        RegisterSceneEditorActions(context);
+
+        // The scene editor's MCP tools (selection, simulate) - served by the editor's MCP host
+        // over whichever scene page a call addresses.
+        {
+            EditorContext* ctx = &context;
+            context.RegisterMcpToolContribution([ctx](foundation::mcp::McpServer& server)
+                                                { RegisterSceneLiveTools(server, *ctx); });
+        }
 
         // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
         // "Generate prefab" import option). Lives here - not in the importer - because it
@@ -1063,14 +1107,7 @@ export namespace editor
                                             }
                                         });
                                 }
-                                for (const UniquePtr<EditorPage>& open :
-                                     editorContext->OpenPages())
-                                {
-                                    if (open->InstanceId() == prefabId)
-                                    {
-                                        open->OnAssetExternallyModified();
-                                    }
-                                }
+                                (void)editorContext->NotifyAssetExternallyModified(prefabId);
                             }
                         }
                         String message(u8"Prefab '");
@@ -1097,14 +1134,8 @@ export namespace editor
                         // rebuild in other scenes).
                         if (generatedScene.regenerated)
                         {
-                            const Guid sceneId = generatedScene.instance->Id();
-                            for (const UniquePtr<EditorPage>& open : editorContext->OpenPages())
-                            {
-                                if (open->InstanceId() == sceneId)
-                                {
-                                    open->OnAssetExternallyModified();
-                                }
-                            }
+                            (void)editorContext->NotifyAssetExternallyModified(
+                                generatedScene.instance->Id());
                         }
                         String message(u8"Scene '");
                         message += generatedScene.instance->Name();

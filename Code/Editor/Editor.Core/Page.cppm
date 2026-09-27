@@ -13,6 +13,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <type_traits>
 
 export module editor.core:page;
 
@@ -25,6 +26,18 @@ using namespace foundation::core;
 export namespace editor
 {
     class EditorContext; // defined in :context (pages receive it on creation)
+
+    /// An interface a page implements and PUBLISHES for other parts of the editor to act
+    /// through - a scene page's ISceneEditorPage (its edit context, its simulation control).
+    /// The base is what keeps a page's service table typed: a service IS-A IPageService, and
+    /// the TypeId it is published under says which one, so no erased pointer and no RTTI on
+    /// pages is needed. Pages have no runtime type of their own; this is how another module
+    /// learns what a page can do.
+    class IPageService
+    {
+    protected:
+        ~IPageService() = default;
+    };
 
     // One open document. Owns its command stack; the context routes Edit>Undo/Redo to the
     // active page's stack. `Commands().OnChanged` is wired by the base to mark the page dirty.
@@ -85,11 +98,35 @@ export namespace editor
         [[nodiscard]] const Guid& InstanceId() const noexcept { return m_instanceId; }
         void SetInstanceId(const Guid& id) noexcept { m_instanceId = id; }
 
+        // === Services: the interfaces this page publishes (the RuntimeContext / Scene
+        // pattern - a TypeId-keyed table - scoped to one page) ===
+
+        /// Publish an interface this page implements, from its constructor. The table dies
+        /// with the page, so nothing is ever unpublished.
+        template <typename T>
+            requires std::is_base_of_v<IPageService, T>
+        void Provide(T& service)
+        {
+            m_services.InsertOrAssign(TypeOf<T>().id, static_cast<IPageService*>(&service));
+        }
+
+        /// The interface this page publishes as T, or null: this is not that kind of page.
+        template <typename T>
+            requires std::is_base_of_v<IPageService, T>
+        [[nodiscard]] T* Service() const noexcept
+        {
+            IPageService* const* found = m_services.Find(TypeOf<T>().id);
+            return found != nullptr ? static_cast<T*>(*found) : nullptr;
+        }
+
     protected:
         IAllocator* m_allocator;
         EditorCommandStack m_commands;
         Guid m_instanceId{};
         bool m_dirty = false;
+
+    private:
+        HashMap<TypeId, IPageService*> m_services; // keyed like RuntimeContext's subsystems
     };
 
     // Creates pages for one primary-object type (and, via nearest-type dispatch, its

@@ -15,6 +15,8 @@ import foundation.vfs;
 import foundation.content;
 import foundation.xml.serialization;
 import editor.core;
+import foundation.mcp;
+import foundation.json;
 
 using namespace foundation::core;
 using namespace editor;
@@ -287,7 +289,41 @@ TEST_CASE("editor-context: adopted instance-less pages share the ownership flow"
     CHECK(context.OpenPages().Size() == 0);
 }
 
-TEST_CASE("editor-context: undo/redo routes to the active page")
+TEST_CASE("editor-context: RevealPage makes a page active and asks the application to raise its panel")
+{
+    EditorContext context{DefaultAllocator()};
+    class Page final : public EditorPage
+    {
+    public:
+        Page() : EditorPage(DefaultAllocator()) {}
+        [[nodiscard]] StringView Title() const override { return u8"p"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+    };
+    EditorPage* one = context.AdoptPage(UniquePtr<EditorPage>(DefaultAllocator().New<Page>(), DefaultAllocator()));
+    EditorPage* two = context.AdoptPage(UniquePtr<EditorPage>(DefaultAllocator().New<Page>(), DefaultAllocator()));
+    context.SetActivePage(two);
+    // Headless: no hook, RevealPage is SetActivePage.
+    context.RevealPage(one);
+    CHECK(context.ActivePage() == one);
+    // With the application's hook: the page is active first, then shown; a repeat still shows.
+    Array<EditorPage*> shown;
+    context.OnRevealPage = [&shown, &context](EditorPage* page)
+    {
+        CHECK(context.ActivePage() == page);
+        shown.PushBack(page);
+    };
+    context.RevealPage(two);
+    context.RevealPage(two);
+    REQUIRE(shown.Size() == 2u);
+    CHECK(shown[0] == two);
+    context.RevealPage(nullptr); // clears the active page, shows nothing
+    CHECK(context.ActivePage() == nullptr);
+    CHECK(shown.Size() == 2u);
+    context.ClosePage(one);
+    context.ClosePage(two);
+}
+
+TEST_CASE("editor-context: a page owns its command stack, and the active page is the one Edit acts on")
 {
     RegisterTestTypes();
 
@@ -300,8 +336,7 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     REQUIRE(a != nullptr);
 
     EditorContext ctx{DefaultAllocator()};
-    CHECK(!ctx.CanUndo()); // no active page
-    ctx.Undo();            // safe no-op
+    CHECK(ctx.ActivePage() == nullptr); // no active page: nothing to undo anywhere
 
     ctx.Pages().Register(MakeFactory(BaseAsset::StaticType(), u8"base"));
     EditorPage* page = ctx.OpenPage(*a);
@@ -330,11 +365,14 @@ TEST_CASE("editor-context: undo/redo routes to the active page")
     CHECK(flag);
     CHECK(page->IsDirty()); // command execution marks the page dirty
 
-    CHECK(ctx.CanUndo());
-    ctx.Undo();
+    // Edit > Undo / Redo are the edit.undo / edit.redo actions over the active page's stack
+    // (the application declares them); the page owns the stack.
+    REQUIRE(ctx.ActivePage() == page);
+    CHECK(page->Commands().CanUndo());
+    page->Commands().Undo();
     CHECK(!flag);
-    CHECK(ctx.CanRedo());
-    ctx.Redo();
+    CHECK(page->Commands().CanRedo());
+    page->Commands().Redo();
     CHECK(flag);
 
     CHECK(page->Save().IsOk());
@@ -487,3 +525,126 @@ TEST_CASE("editor-context: pending asset-edit registry (register/replace/nil, dr
     CHECK(ctx.DrainAssetEdits(db).IsOk()); // empty drain is a no-op
     CHECK_FALSE(cooked);
 }
+
+TEST_CASE("context: MCP tool contributions register at boot and apply to a host's server in order")
+{
+    EditorContext ctx{DefaultAllocator()};
+    CHECK(ctx.McpToolContributionCount() == 0u);
+    Array<String> order;
+    ctx.RegisterMcpToolContribution(
+        [&order](foundation::mcp::McpServer& server)
+        {
+            order.PushBack(String(u8"scene"));
+            server.RegisterTool(u8"selection_get", u8"x", foundation::mcp::SchemaBuilder().Build(),
+                                foundation::mcp::ToolAnnotations::ReadOnly(),
+                                [](const foundation::json::JsonValue&) -> foundation::mcp::ToolResult
+                                { return foundation::json::JsonValue::MakeObject(); });
+        });
+    ctx.RegisterMcpToolContribution([&order](foundation::mcp::McpServer&)
+                                    { order.PushBack(String(u8"other")); });
+    CHECK(ctx.McpToolContributionCount() == 2u);
+
+    foundation::mcp::McpServer server;
+    ctx.ApplyMcpToolContributions(server);
+    CHECK(server.ToolCount() == 1u);
+    REQUIRE(order.Size() == 2u);
+    CHECK(order[0] == u8"scene");
+    CHECK(order[1] == u8"other");
+    // Applying to a second host serves the same contributions again (one per project open).
+    foundation::mcp::McpServer another;
+    ctx.ApplyMcpToolContributions(another);
+    CHECK(another.ToolCount() == 1u);
+}
+
+namespace
+{
+    // Two interfaces a page might publish: a page that is "a thing with a counter", and one
+    // that is "a thing with a name". Interfaces, not owned objects: what a page IS to others.
+    class ICounterPage : public IPageService
+    {
+    public:
+        [[nodiscard]] virtual i32 Count() const = 0;
+    };
+    class INamedPage : public IPageService
+    {
+    public:
+        [[nodiscard]] virtual StringView Name() const = 0;
+    };
+    class CountingPage final : public EditorPage, public ICounterPage
+    {
+    public:
+        CountingPage() : EditorPage(DefaultAllocator()) { Provide<ICounterPage>(*this); }
+        [[nodiscard]] StringView Title() const override { return u8"counting"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        [[nodiscard]] i32 Count() const override { return 42; }
+    };
+    class PlainPage final : public EditorPage
+    {
+    public:
+        PlainPage() : EditorPage(DefaultAllocator()) {}
+        [[nodiscard]] StringView Title() const override { return u8"plain"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+    };
+}
+
+TEST_CASE("page: a page publishes the interfaces it implements, by type - a lookup for another "
+          "interface, or on a page that publishes nothing, answers null")
+{
+    CountingPage counting;
+    PlainPage plain;
+    // Through the base pointer any holder of a page has: the published interface comes back
+    // typed, and answers as the page.
+    EditorPage* asPage = &counting;
+    ICounterPage* counter = asPage->Service<ICounterPage>();
+    REQUIRE(counter != nullptr);
+    CHECK(counter->Count() == 42);
+    // Not published: not that kind of page.
+    CHECK(asPage->Service<INamedPage>() == nullptr);
+    EditorPage* plainPage = &plain;
+    CHECK(plainPage->Service<ICounterPage>() == nullptr);
+    CHECK(plainPage->Service<INamedPage>() == nullptr);
+}
+
+namespace
+{
+    // A page that counts how often its asset changed under it.
+    class WatchingPage final : public EditorPage
+    {
+    public:
+        explicit WatchingPage(const Guid& asset) : EditorPage(DefaultAllocator())
+        {
+            SetInstanceId(asset);
+        }
+        [[nodiscard]] StringView Title() const override { return u8"watching"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        void OnAssetExternallyModified() override { ++told; }
+        u32 told = 0;
+    };
+}
+
+TEST_CASE("context: an asset changed outside its page tells every open page editing it, and no "
+          "other")
+{
+    Random rng(11);
+    const Guid edited = Guid::Generate(rng);
+    const Guid other = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* first = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(edited), DefaultAllocator())));
+    auto* second = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(edited), DefaultAllocator())));
+    auto* elsewhere = static_cast<WatchingPage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<WatchingPage>(other), DefaultAllocator())));
+
+    CHECK(context.NotifyAssetExternallyModified(edited) == 2u);
+    CHECK(first->told == 1u);
+    CHECK(second->told == 1u);
+    CHECK(elsewhere->told == 0u);
+    // An asset no page edits: nothing told, nothing wrong.
+    CHECK(context.NotifyAssetExternallyModified(Guid::Generate(rng)) == 0u);
+
+    context.ClosePage(elsewhere);
+    context.ClosePage(second);
+    context.ClosePage(first);
+}
+

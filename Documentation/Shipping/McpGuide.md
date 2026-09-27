@@ -5,9 +5,38 @@ surface: newline-delimited JSON-RPC over stdio, the full project/asset/scene/scr
 workflow with the editor closed. This is the operating manual for any agent connected to
 it - it is itself served as `docs://McpGuide.md`, so you can re-read it over the wire.
 
+## Two hosts, one surface
+
+The headless host above is `Tools.Mcp`. The EDITOR serves the same engine tools over HTTP
+(`engine-editor-mcp`) for the project it has open - the live one, one content database, one
+writer - so an agent can work on what the user is looking at. Tell them apart by
+`host_info.serverName` and `host_info.host.kind`. What differs: the stdio host has
+`project_create` / `project_open` (the editor's project is the editor's), and the editor's
+long tools (a cook) keep the call open until the editor's own background service finishes -
+give the client a generous timeout rather than polling. The editor adds the page tools
+(`page_list` / `page_open` / `page_reload` / `page_close`), the action bridge (`action_list`
+/ `action_state` / `action_execute`: everything a user can do by menu, chord, toolbar or
+palette, over the active page, executed unattended - a dialog an action would open is
+closed as cancelled and named under `suppressedDialogs`, so the action most likely did
+nothing; use a dedicated tool or ask the user) and the scene page's live tools
+(`selection_get` / `selection_set` / `simulate_start` / `simulate_stop` / `entity_inspect`,
+each addressed by the page's asset guid; `entity_inspect` is the inspector's view of one
+entity - hierarchy, transform, every component's reflected properties with asset references
+as guids and enums by name - the primary selection by default; `component_set` writes one
+of those properties through the page's undo path, one labelled step per call, the page dirty
+after and nothing saved, refused while simulating or on a wrong shape; `viewport_camera_get` /
+`viewport_camera_set` read and move the viewport's editor camera in degrees, position, yaw,
+pitch or a `lookAt` point, editor state only; `viewport_screenshot` writes what the viewport
+shows to a PNG and returns its path and size, bringing the page to front first since a hidden
+viewport never renders - move the camera, shoot, read the file). A `scene_write` / `prefab_write` over an asset the user has open
+reaches its page at once: a clean page reloads in place, a page with unsaved edits keeps
+them and warns the user - ask before `page_reload` with `force`, which discards them.
+
 ## First moves in a session
 
-1. `tools/list` - read the real surface before guessing; descriptions carry the contract.
+1. `tools/list` - read the real surface before guessing; descriptions carry the contract, and
+   each tool's `annotations` say what it does to the project: `readOnlyHint` (changes nothing),
+   `destructiveHint` (overwrites what exists - the scene and prefab writes), `idempotentHint`.
 2. `host_info` - pid (kill a hung host by it) and `buildStamp`. After rebuilding the
    engine, compare stamps: a stale host serves yesterday's engine.
 3. `resources/list` - the curated `docs://` shipping docs (Scripting/Assets/Scenes/
@@ -40,7 +69,8 @@ is normal - clear it with `asset_cook`.
 then `scene_write`. Prefabs mirror it with a single-root rule.
 
 **Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
-never trust memorized signatures. `script_create` seeds a starter asset
+never trust memorized signatures. A member with `readOnly: true` (a network identity's
+`authority`, for one) reads and refuses assignment in every backend. `script_create` seeds a starter asset
 (behavior | level | game tier), then edit the returned source FILE, loop on
 `script_validate`, and `asset_cook` to make the class attachable.
 

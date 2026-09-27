@@ -101,7 +101,7 @@ export namespace editor
             column->Spacing = 6.0f;
 
             // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar.
-            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this);
+            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Match();

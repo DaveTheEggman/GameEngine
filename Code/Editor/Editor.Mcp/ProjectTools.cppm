@@ -3,17 +3,20 @@
 
 // Editor::Mcp - `editor.mcp`
 //
-// The project MCP tool contribution: project_create / project_open / project_info. Lets an agent
-// scaffold and open a project HEADLESSLY (editor closed) and inspect it, over foundation.mcp. Built
-// on the headless EditorProject (VFS + manifest; no UI). A ProjectSession holds the host's currently
-// open project - the tools read/mutate it. Asset/scene/pipeline tools join this lib (and Pipeline's)
-// as they land.
+// The project MCP tool contribution over foundation.mcp, built on the headless EditorProject (VFS +
+// manifest; no UI): project_info + the asset tools here, the scene / script / health / export /
+// log tools in the partitions, and at the end RegisterEngineTools - the ONE list of the engine
+// surface every host serves (the stdio host and the editor host compose through it, so they
+// cannot drift; kEngineToolCount is its tripwire). project_create / project_open are the stdio
+// host's own additions (RegisterProjectOpenTools): the editor's project is the editor's. A
+// ProjectSession points every tool at the current project without owning it.
 
 module;
 #include "Core/Prelude.h"
 
 export module editor.mcp;
 export import :session;
+export import :operations;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
@@ -28,6 +31,8 @@ import foundation.json;
 import foundation.content;
 import foundation.vfs;
 import foundation.mcp;
+import foundation.mcp.reflection;
+import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.cook;
@@ -82,11 +87,16 @@ namespace editor::mcp::detail
 export namespace editor::mcp
 {
     // Registers project_create / project_open / project_info against `server`, backed by `session`.
-    inline void RegisterProjectTools(foundation::mcp::McpServer& server, ProjectSession& session)
+    // Registers project_create / project_open - the STDIO host's additions. What project_open
+    // opens is stored in `owner` and the session is pointed at it; the editor host, whose project
+    // is the editor's own, registers neither.
+    inline void RegisterProjectOpenTools(foundation::mcp::McpServer& server,
+                                         ProjectSession& session, ProjectOwner& owner)
     {
         using foundation::mcp::SchemaBuilder;
         using foundation::mcp::ToolResult;
         ProjectSession* s = &session;
+        ProjectOwner* o = &owner;
 
         server.RegisterTool(
             u8"project_create",
@@ -96,6 +106,7 @@ export namespace editor::mcp
                 .Str(u8"directory", u8"path to create the project at", true)
                 .Str(u8"name", u8"the project's display name", true)
                 .Build(),
+                foundation::mcp::ToolAnnotations::Creates(),
             [](const JsonValue& args) -> ToolResult
             {
                 const String directory = args.Get(u8"directory").AsString();
@@ -117,7 +128,8 @@ export namespace editor::mcp
             u8"Open a project (mounts its source + cooked content databases) as the session's "
             u8"current project.",
             SchemaBuilder().Str(u8"directory", u8"the project directory", true).Build(),
-            [s](const JsonValue& args) -> ToolResult
+            foundation::mcp::ToolAnnotations::Rebuilds(),
+            [s, o](const JsonValue& args) -> ToolResult
             {
                 const String directory = args.Get(u8"directory").AsString();
                 UniquePtr<editor::EditorProject> opened =
@@ -131,14 +143,27 @@ export namespace editor::mcp
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"name", JsonValue::MakeString(String(opened->Name())));
                 out.Set(u8"directory", JsonValue::MakeString(String(opened->Directory())));
-                s->project = Move(opened);
+                s->project = nullptr; // the previous project dies with its owner slot
+                o->project = Move(opened);
+                s->project = o->project.Get();
                 return out;
             });
+    }
+
+    // Registers project_info against `server` - the open project's identity, part of the
+    // surface every host serves.
+    inline void RegisterProjectInfoTool(foundation::mcp::McpServer& server,
+                                        ProjectSession& session)
+    {
+        using foundation::mcp::SchemaBuilder;
+        using foundation::mcp::ToolResult;
+        ProjectSession* s = &session;
 
         server.RegisterTool(
             u8"project_info",
             u8"Details about the currently-open project (name, directory, sources root).",
             SchemaBuilder().Build(),
+            foundation::mcp::ToolAnnotations::ReadOnly(),
             [s](const JsonValue& /*args*/) -> ToolResult
             {
                 if (!s->project)
@@ -175,6 +200,7 @@ export namespace editor::mcp
                 .Enum(u8"database", detail::DatabaseChoices(),
                       u8"which content database (default: source)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, pickDb](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)
@@ -197,6 +223,7 @@ export namespace editor::mcp
                 .Enum(u8"database", detail::DatabaseChoices(),
                       u8"which content database (default: source)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, pickDb](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)
@@ -223,92 +250,102 @@ export namespace editor::mcp
             });
     }
 
-    // Registers asset_import / asset_cook - the WRITE side. Both are HEADLESS (editor closed):
-    // import routes an OS file through the shared importer set into the open project's source DB;
-    // cook runs the incremental cook driver over the project. `builders` and `importers` are the
-    // host's registries (populated once from Pipeline::Registration) and must outlive the server.
+    // Registers asset_import / asset_cook - the WRITE side. Routing (which importer, by
+    // extension), refusals and the result shapes are here, shared by every host; the work runs
+    // through the host's IProjectOperations - inline on the stdio host, the editor's cook and
+    // job services otherwise, the tool re-entered each pump until they finish. `importers` is
+    // the host's registry (the same set the editor's drag-drop routes through).
     inline void RegisterAssetWriteTools(foundation::mcp::McpServer& server, ProjectSession& session,
-                                        pipeline::BuilderRegistry& builders,
-                                        pipeline::ImporterRegistry& importers)
+                                        pipeline::ImporterRegistry& importers,
+                                        IProjectOperations& operations)
     {
         using foundation::mcp::SchemaBuilder;
-        using foundation::mcp::ToolResult;
+        using foundation::mcp::ToolOutcome;
         ProjectSession* s = &session;
         pipeline::ImporterRegistry* imp = &importers;
-        pipeline::BuilderRegistry* bld = &builders;
+        IProjectOperations* ops = &operations;
 
         server.RegisterTool(
             u8"asset_import",
             u8"Import an OS file into the open project: copy it under Sources/ and create the typed "
-            u8"Asset in the source database (routed by extension). Does not cook - call asset_cook "
-            u8"next.",
+            u8"Asset in the source database (routed by extension). When several importers claim "
+            u8"the extension the first is used and the result names the alternatives under "
+            u8"`alsoClaimableBy`; pass `importer` to choose. Does not cook - call asset_cook next.",
             SchemaBuilder()
                 .Str(u8"source", u8"absolute path to the file to import", true)
                 .Str(u8"group", u8"source-DB group path to place it in (slash-joined; default root)")
+                .Str(u8"importer", u8"which importer to use when several claim the extension, by "
+                                   u8"label (the result of an unhinted import lists them)")
                 .Build(),
-            [s, imp](const JsonValue& args) -> ToolResult
+                foundation::mcp::ToolAnnotations::Creates(),
+            [s, imp, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
                     return Err(String(u8"no project is open (call project_open first)"));
                 }
-                const String source = args.Get(u8"source").AsString();
-                const String ext = pipeline::FileExtensionLower(source.AsView());
-                pipeline::IFileImporter* importer = imp->FindFor(ext.AsView());
-                if (importer == nullptr)
+                ImportRequest request;
+                request.source = args.Get(u8"source").AsString();
+                request.groupPath = args.Get(u8"group").AsString();
+                const String ext = pipeline::FileExtensionLower(request.source.AsView());
+                // Every claimant, as the interactive path asks (FindFor's first claimant
+                // always won: `.png` is claimed by the texture, image and heightfield
+                // importers). No hint = the first, with the alternatives in the result.
+                const Array<pipeline::IFileImporter*> claimants = imp->FindAllFor(ext.AsView());
+                if (claimants.IsEmpty())
                 {
                     return Err(Format(u8"no importer registered for '.{}' files", ext.AsView()));
                 }
-                content::Group* group = detail::ResolveGroupPath(
-                    s->project->SourceDb().RootGroup(), args.Get(u8"group").AsString().AsView());
-
-                pipeline::ImportContext ctx{editor::EditorRootAllocator(),
-                                            s->project->SourcesRoot().AsView()};
-                // The editor's two-phase path, run inline: the worker prepare (the load), the
-                // main-thread fan-out, then the deferred flush - timed apart, so the tool
-                // reports what the editor's UI thread would have paid (`mainMs`).
-                const Stopwatch prepareClock = Stopwatch::StartNew();
-                RefPtr<Object> prepared =
-                    importer->WantsWorkerPrepare()
-                        ? importer->PrepareOnWorker(source.AsView(), editor::EditorRootAllocator())
-                        : RefPtr<Object>{};
-                const i64 prepareMs = static_cast<i64>(prepareClock.Elapsed().AsMilliseconds());
-                Array<pipeline::DeferredImportWrite> deferred;
-                const Stopwatch mainClock = Stopwatch::StartNew();
-                Result<content::Instance*> imported =
-                    importer->Import(source.AsView(), ctx, *group, nullptr, prepared.Get(),
-                                     &deferred);
-                const i64 mainMs = static_cast<i64>(mainClock.Elapsed().AsMilliseconds());
-                const Stopwatch flushClock = Stopwatch::StartNew();
-                if (imported.HasValue())
+                const String hint = args.Get(u8"importer").AsString();
+                for (pipeline::IFileImporter* candidate : claimants)
                 {
-                    for (pipeline::DeferredImportWrite& write : deferred)
+                    if (hint.IsEmpty() || candidate->Label() == hint.AsView())
                     {
-                        const Status written = write.Execute();
-                        if (!written.IsOk())
-                        {
-                            return Err(Format(u8"import of '{}': deferred write '{}' failed",
-                                              source.AsView(), write.Label()));
-                        }
+                        request.importer = candidate;
+                        break;
                     }
                 }
-                const i64 flushMs = static_cast<i64>(flushClock.Elapsed().AsMilliseconds());
-                if (!imported.HasValue())
+                if (request.importer == nullptr)
                 {
-                    return Err(Format(u8"import of '{}' failed (error {})", source.AsView(),
-                                      static_cast<i32>(imported.Error())));
+                    String refusal = Format(u8"no importer '{}' claims '.{}'; the claimants are:",
+                                            hint.AsView(), ext.AsView());
+                    for (pipeline::IFileImporter* candidate : claimants)
+                    {
+                        refusal += u8" ";
+                        refusal += candidate->Label();
+                    }
+                    return Err(Move(refusal));
                 }
-                content::Instance* inst = imported.Value();
+                JsonValue alsoClaimableBy = JsonValue::MakeArray();
+                for (pipeline::IFileImporter* candidate : claimants)
+                {
+                    if (candidate != request.importer)
+                    {
+                        alsoClaimableBy.Add(JsonValue::MakeString(String(candidate->Label())));
+                    }
+                }
+                OperationStep<ImportOutcome> step = ops->Import(request);
+                if (!step.HasValue())
+                {
+                    return Err(Move(step.Error()));
+                }
+                if (!step.Value().HasValue())
+                {
+                    return ToolOutcome::NotFinished(); // the host's import is still running
+                }
+                const ImportOutcome& done = step.Value().Value();
                 JsonValue out = JsonValue::MakeObject();
-                out.Set(u8"prepareMs", JsonValue::MakeNumber(static_cast<f64>(prepareMs)));
-                out.Set(u8"mainMs", JsonValue::MakeNumber(static_cast<f64>(mainMs)));
-                out.Set(u8"flushMs", JsonValue::MakeNumber(static_cast<f64>(flushMs)));
-                out.Set(u8"deferredWrites", JsonValue::MakeNumber(static_cast<f64>(deferred.Size())));
-                out.Set(u8"guid", detail::GuidToJson(inst->Id()));
-                out.Set(u8"name", JsonValue::MakeString(String(inst->Name())));
-                out.Set(u8"type", JsonValue::MakeString(String(inst->TypeName())));
-                out.Set(u8"typeNamespace", JsonValue::MakeString(String(inst->TypeNamespace())));
-                out.Set(u8"importer", JsonValue::MakeString(String(importer->Label())));
+                out.Set(u8"prepareMs", JsonValue::MakeNumber(static_cast<f64>(done.prepareMs)));
+                out.Set(u8"mainMs", JsonValue::MakeNumber(static_cast<f64>(done.mainMs)));
+                out.Set(u8"flushMs", JsonValue::MakeNumber(static_cast<f64>(done.flushMs)));
+                out.Set(u8"deferredWrites",
+                        JsonValue::MakeNumber(static_cast<f64>(done.deferredWrites)));
+                out.Set(u8"guid", detail::GuidToJson(done.guid));
+                out.Set(u8"name", JsonValue::MakeString(done.name));
+                out.Set(u8"type", JsonValue::MakeString(done.type));
+                out.Set(u8"typeNamespace", JsonValue::MakeString(done.typeNamespace));
+                out.Set(u8"importer", JsonValue::MakeString(done.importer));
+                out.Set(u8"alsoClaimableBy", Move(alsoClaimableBy));
                 return out;
             });
 
@@ -319,37 +356,272 @@ export namespace editor::mcp
             SchemaBuilder()
                 .Boolean(u8"force", u8"re-cook every buildable asset regardless of cleanliness")
                 .Build(),
-            [s, bld](const JsonValue& args) -> ToolResult
+                foundation::mcp::ToolAnnotations::Rebuilds(),
+            [s, ops](const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
                     return Err(String(u8"no project is open (call project_open first)"));
                 }
-                const bool force = args.Get(u8"force").AsBool();
-                // Second mounts on Sources/ + Cache/ (the cook driver hashes source files and
-                // persists the pipeline DB through these); the source/cooked DBs are already open.
-                const String sourcesRoot = s->project->SourcesRoot();
-                const String cacheRoot = s->project->CacheRoot();
-                vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), editor::EditorRootAllocator());
-                vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), editor::EditorRootAllocator());
-                // The editor's cook runs its items and their inner work over a job system;
-                // the tool does the same so its timings mean what the editor's would.
-                JobSystem jobs(editor::EditorRootAllocator());
-                pipeline::CookDriver driver(editor::EditorRootAllocator(),
-                                            s->project->SourceDb(), s->project->CookedDb(), *bld,
-                                            &sourcesMount, &cacheMount, &jobs);
-                pipeline::CookPlan plan = driver.Plan(force);
-                const pipeline::CookStats stats = driver.Execute(plan);
-
+                OperationStep<CookOutcome> step = ops->Cook(args.Get(u8"force").AsBool());
+                if (!step.HasValue())
+                {
+                    return Err(Move(step.Error()));
+                }
+                if (!step.Value().HasValue())
+                {
+                    return ToolOutcome::NotFinished(); // the host's cook is still running
+                }
+                const CookOutcome& done = step.Value().Value();
                 JsonValue out = JsonValue::MakeObject();
-                out.Set(u8"planned", JsonValue::MakeNumber(static_cast<f64>(plan.dirty.Size())));
-                out.Set(u8"cooked", JsonValue::MakeNumber(static_cast<f64>(stats.cooked)));
-                out.Set(u8"failed", JsonValue::MakeNumber(static_cast<f64>(stats.failed)));
+                out.Set(u8"planned", JsonValue::MakeNumber(static_cast<f64>(done.planned)));
+                out.Set(u8"cooked", JsonValue::MakeNumber(static_cast<f64>(done.cooked)));
+                out.Set(u8"failed", JsonValue::MakeNumber(static_cast<f64>(done.failed)));
                 out.Set(u8"orphansSwept",
-                        JsonValue::MakeNumber(static_cast<f64>(stats.orphansSwept)));
-                out.Set(u8"upToDate", JsonValue::MakeNumber(static_cast<f64>(plan.upToDate)));
-                out.Set(u8"unbuildable", JsonValue::MakeNumber(static_cast<f64>(plan.unbuildable)));
+                        JsonValue::MakeNumber(static_cast<f64>(done.orphansSwept)));
+                out.Set(u8"upToDate", JsonValue::MakeNumber(static_cast<f64>(done.upToDate)));
+                out.Set(u8"unbuildable",
+                        JsonValue::MakeNumber(static_cast<f64>(done.unbuildable)));
                 return out;
             });
+    }
+
+    // The stdio host's operations: everything runs on the calling thread and every step
+    // answers at once. The cook is the driver's plan + execute over second mounts on Sources/ +
+    // Cache/ with its own job system (so its timings mean what the editor's would); the import
+    // is the editor's two-phase path run inline (worker prepare, main-thread fan-out, the
+    // deferred flush - timed apart, so the tool reports what the editor's UI thread would have
+    // paid); the export is RunExportInline. `hostToolDir` and `dataRoot` are the export's.
+    class InlineProjectOperations final : public IProjectOperations
+    {
+    public:
+        InlineProjectOperations(ProjectSession& session, pipeline::BuilderRegistry& builders,
+                                String hostToolDir, String dataRoot)
+            : m_session(&session), m_builders(&builders), m_hostToolDir(Move(hostToolDir)),
+              m_dataRoot(Move(dataRoot))
+        {
+        }
+
+        [[nodiscard]] OperationStep<CookOutcome> Cook(bool force) override
+        {
+            editor::EditorProject& project = *m_session->project;
+            const String sourcesRoot = project.SourcesRoot();
+            const String cacheRoot = project.CacheRoot();
+            vfs::NativeFileSystem sourcesMount(sourcesRoot.AsView(), editor::EditorRootAllocator());
+            vfs::NativeFileSystem cacheMount(cacheRoot.AsView(), editor::EditorRootAllocator());
+            JobSystem jobs(editor::EditorRootAllocator());
+            pipeline::CookDriver driver(editor::EditorRootAllocator(), project.SourceDb(),
+                                        project.CookedDb(), *m_builders, &sourcesMount,
+                                        &cacheMount, &jobs);
+            pipeline::CookPlan plan = driver.Plan(force);
+            const pipeline::CookStats stats = driver.Execute(plan);
+            CookOutcome outcome;
+            outcome.planned = plan.dirty.Size();
+            outcome.cooked = stats.cooked;
+            outcome.failed = stats.failed;
+            outcome.orphansSwept = stats.orphansSwept;
+            outcome.upToDate = plan.upToDate;
+            outcome.unbuildable = plan.unbuildable;
+            return Optional<CookOutcome>(outcome);
+        }
+
+        [[nodiscard]] OperationStep<ImportOutcome> Import(const ImportRequest& request) override
+        {
+            editor::EditorProject& project = *m_session->project;
+            content::Group* group = detail::ResolveGroupPath(project.SourceDb().RootGroup(),
+                                                             request.groupPath.AsView());
+            pipeline::ImportContext ctx{editor::EditorRootAllocator(), project.SourcesRoot().AsView()};
+            pipeline::IFileImporter& importer = *request.importer;
+            const Stopwatch prepareClock = Stopwatch::StartNew();
+            RefPtr<Object> prepared =
+                importer.WantsWorkerPrepare()
+                    ? importer.PrepareOnWorker(request.source.AsView(), editor::EditorRootAllocator())
+                    : RefPtr<Object>{};
+            ImportOutcome outcome;
+            outcome.prepareMs = static_cast<i64>(prepareClock.Elapsed().AsMilliseconds());
+            Array<pipeline::DeferredImportWrite> deferred;
+            const Stopwatch mainClock = Stopwatch::StartNew();
+            Result<content::Instance*> imported = importer.Import(
+                request.source.AsView(), ctx, *group, nullptr, prepared.Get(), &deferred);
+            outcome.mainMs = static_cast<i64>(mainClock.Elapsed().AsMilliseconds());
+            if (!imported.HasValue())
+            {
+                return Err(Format(u8"import of '{}' failed (error {})", request.source.AsView(),
+                                  static_cast<i32>(imported.Error())));
+            }
+            const Stopwatch flushClock = Stopwatch::StartNew();
+            for (pipeline::DeferredImportWrite& write : deferred)
+            {
+                if (!write.Execute().IsOk())
+                {
+                    return Err(Format(u8"import of '{}': deferred write '{}' failed",
+                                      request.source.AsView(), write.Label()));
+                }
+            }
+            outcome.flushMs = static_cast<i64>(flushClock.Elapsed().AsMilliseconds());
+            outcome.deferredWrites = deferred.Size();
+            content::Instance* inst = imported.Value();
+            outcome.guid = inst->Id();
+            outcome.name = String(inst->Name());
+            outcome.type = String(inst->TypeName());
+            outcome.typeNamespace = String(inst->TypeNamespace());
+            outcome.importer = String(importer.Label());
+            return Optional<ImportOutcome>(Move(outcome));
+        }
+
+        [[nodiscard]] OperationStep<ExportOutcome> Export(const ExportRequest& request) override
+        {
+            return RunExportInline(*m_session, *m_builders, m_hostToolDir.AsView(),
+                                   m_dataRoot.AsView(), request);
+        }
+
+    private:
+        ProjectSession* m_session;
+        pipeline::BuilderRegistry* m_builders;
+        String m_hostToolDir;
+        String m_dataRoot;
+    };
+}
+
+export namespace editor::mcp
+{
+    // Paths the shared surface needs that only a host can discover, each host its own way (the
+    // stdio host walks up from its executable, the editor knows its data root). An empty
+    // knownIssues path leaves known_issues erring with guidance; an empty shippingDocsDir
+    // registers no docs:// resources.
+    struct EngineToolPaths
+    {
+        String knownIssues;     ///< the curated KnownIssues.md (Documentation/Shipping)
+        String shippingDocsDir; ///< the curated shipping docs directory (docs://<name>)
+    };
+
+    // The number of tools RegisterEngineTools registers. A new engine tool bumps this
+    // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
+    // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
+    // each host registers its own.
+    inline constexpr usize kEngineToolCount = 21;
+
+    // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
+    // distribution-facing docs set (internal design/spec/process docs are never exposed).
+    // Readers re-read the file per request, so edits are live without restarting the host.
+    inline void RegisterShippingDocResources(foundation::mcp::McpServer& server,
+                                             StringView docsDir)
+    {
+        Array<String> names;
+        (void)ListDirectory(
+            docsDir,
+            [](void* ctx, StringView name, bool isDirectory)
+            {
+                if (!isDirectory && name.EndsWith(u8".md"))
+                {
+                    static_cast<Array<String>*>(ctx)->PushBack(String(name));
+                }
+            },
+            &names);
+        // By name, not by the filesystem's order: resources/list reads the same everywhere.
+        names.Sort([](const String& a, const String& b) { return a.AsView().Compare(b.AsView()) < 0; });
+        for (const String& name : names)
+        {
+            const String path = PathJoin(docsDir, name.AsView());
+            server.RegisterResource(
+                Format(u8"docs://{}", name.AsView()), name, String(u8"text/markdown"),
+                Format(u8"engine documentation: {} (curated, distribution-facing)", name.AsView()),
+                [path]() -> Result<String, String>
+                {
+                    FileStream stream(path.AsView(), FileMode::Read);
+                    if (!stream.IsValid())
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    const i64 size = stream.Size();
+                    Array<byte> bytes;
+                    bytes.Resize(static_cast<usize>(size));
+                    if (stream.Read(bytes.Data(), bytes.Size()) != static_cast<u64>(size))
+                    {
+                        return Err(Format(u8"could not read '{}'", path.AsView()));
+                    }
+                    return String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()),
+                                             bytes.Size()));
+                });
+        }
+    }
+
+    // The engine tool surface EVERY MCP host serves, listed ONCE: reflection (type_list /
+    // type_info), script_api, project_info, the asset tools (list / info / import / cook / uses),
+    // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
+    // tools, script_validate / script_create, project_export, and the docs:// + project://
+    // resources. A host adds what only it can serve on top (the stdio host: project_create /
+    // project_open; the editor: its live tools) and its own host_info. `operations` is how
+    // THIS host runs the cook / import / export behind their tools (IProjectOperations).
+    inline void RegisterEngineTools(foundation::mcp::McpServer& server, ProjectSession& session,
+                                    pipeline::BuilderRegistry& builders,
+                                    pipeline::ImporterRegistry& importers,
+                                    editor::EditorLogBuffer& logBuffer,
+                                    const EngineToolPaths& paths, IProjectOperations& operations)
+    {
+        foundation::mcp::RegisterReflectionTools(server);
+        foundation::mcp::RegisterScriptTools(server);
+        RegisterProjectInfoTool(server, session);
+        RegisterAssetTools(server, session);
+        RegisterAssetWriteTools(server, session, importers, operations);
+        RegisterAssetUsesTool(server, session, builders);
+        RegisterProjectHealthTool(server, session, builders);
+        RegisterLogTools(server, logBuffer, paths.knownIssues);
+        RegisterSceneTools(server, session);
+        if (!paths.shippingDocsDir.IsEmpty())
+        {
+            RegisterShippingDocResources(server, paths.shippingDocsDir.AsView());
+        }
+        RegisterProjectResources(server, session);
+        RegisterScriptValidateTool(server);
+        RegisterScriptCreateTool(server, session);
+        RegisterProjectExportTool(server, session, operations);
+    }
+}
+
+export namespace editor::mcp
+{
+    // Locates the curated shipping docs for a host's EngineToolPaths, walking UP from each
+    // start directory in turn (a host passes its executable's directory, then its working
+    // directory) and checking the distribution layout first (KnownIssues.md staged beside the
+    // executable) and the engine checkout second (Documentation/Shipping/). The first hit
+    // wins per field; a field left empty means not found - known_issues then errs with
+    // guidance and no docs:// resources register. Same walk for both hosts, so they agree.
+    inline void LocateShippingDocs(Span<const String> starts, EngineToolPaths& paths)
+    {
+        for (const String& start : starts)
+        {
+            for (StringView dir = start.AsView(); !dir.IsEmpty(); dir = PathParent(dir))
+            {
+                if (paths.knownIssues.IsEmpty())
+                {
+                    const String staged = PathJoin(dir, u8"KnownIssues.md");
+                    if (FileExists(staged.AsView()))
+                    {
+                        paths.knownIssues = staged;
+                    }
+                }
+                const String shipping = PathJoin(PathJoin(dir, u8"Documentation"), u8"Shipping");
+                if (DirectoryExists(shipping.AsView()))
+                {
+                    if (paths.shippingDocsDir.IsEmpty())
+                    {
+                        paths.shippingDocsDir = shipping;
+                    }
+                    if (paths.knownIssues.IsEmpty())
+                    {
+                        const String checkout = PathJoin(shipping.AsView(), u8"KnownIssues.md");
+                        if (FileExists(checkout.AsView()))
+                        {
+                            paths.knownIssues = checkout;
+                        }
+                    }
+                }
+                if (!paths.knownIssues.IsEmpty() && !paths.shippingDocsDir.IsEmpty())
+                {
+                    return;
+                }
+            }
+        }
     }
 }

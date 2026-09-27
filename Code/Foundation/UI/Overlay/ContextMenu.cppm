@@ -83,6 +83,24 @@ export namespace foundation::ui
         }
 
         [[nodiscard]] i32 ItemCount() const noexcept { return static_cast<i32>(m_items.Size()); }
+        [[nodiscard]] const MenuItem* ItemAt(i32 index) const noexcept
+        {
+            return (index >= 0 && index < ItemCount()) ? m_items[static_cast<usize>(index)].Get()
+                                                       : nullptr;
+        }
+        /// Runs at the start of every Show, before the menu measures: a menu whose items are
+        /// built from live state (an action registry's enabled flags) rebuilds them here, so
+        /// what the user sees is the state at the moment the menu opens.
+        Function<void(ContextMenu&)> OnOpening;
+        /// Remove every item (a submenu goes with its item - an open one closes first, or its
+        /// popup would outlive the item that owns it).
+        void ClearItems()
+        {
+            CloseOpenSubmenu();
+            m_items.Clear();
+            m_hoveredIndex = -1;
+            m_scrollY = 0;
+        }
 
         void AddItem(StringView label, Function<void()> action, bool enabled = true)
         {
@@ -107,15 +125,26 @@ export namespace foundation::ui
         /// Index of the item currently rendered highlighted (-1 = none).
         [[nodiscard]] i32 HoveredIndex() const { return m_hoveredIndex; }
 
+        /// What every opening does before the menu measures, whoever shows it (Show here, a
+        /// menu bar through its own popup): menus are RETAINED views (a menu bar reuses its
+        /// ContextMenu instances), so the previous session's hover would survive the close -
+        /// reopening after "Close Project" showed that item still highlighted until the mouse
+        /// first moved. Every opening starts unhighlighted, scrolled to the top, and rebuilt by
+        /// OnOpening.
+        void PrepareToOpen()
+        {
+            m_hoveredIndex = -1;
+            m_scrollY = 0;
+            if (OnOpening)
+            {
+                OnOpening(*this);
+            }
+        }
+
         /// Show this menu at the given screen position.
         void Show(UIContext* ctx, f32 x, f32 y, IPopupOwner* owner = nullptr)
         {
-            // Menus are RETAINED views (a menu bar reuses its ContextMenu instances), so
-            // the previous session's hover survives the close - reopening after "Close
-            // Project" showed that item still highlighted until the mouse first moved.
-            // Every show starts unhighlighted and scrolled to the top.
-            m_hoveredIndex = -1;
-            m_scrollY = 0;
+            PrepareToOpen();
 
             RootView* root = ctx->ActiveInputRoot();
             if (root == nullptr)

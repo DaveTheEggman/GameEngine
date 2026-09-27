@@ -223,4 +223,234 @@ export namespace foundation::ui
 
         Count = 512,
     };
+
+    /// The key's name as a shortcut shows it ("S", "F5", "Page Up", "Keypad +"); empty for
+    /// Unknown. The table next to the enum, so a new key names itself here.
+    [[nodiscard]] constexpr const char8_t* KeyCodeName(KeyCode key) noexcept
+    {
+        switch (key)
+        {
+        case KeyCode::A:
+            return u8"A";
+        case KeyCode::B:
+            return u8"B";
+        case KeyCode::C:
+            return u8"C";
+        case KeyCode::D:
+            return u8"D";
+        case KeyCode::E:
+            return u8"E";
+        case KeyCode::F:
+            return u8"F";
+        case KeyCode::G:
+            return u8"G";
+        case KeyCode::H:
+            return u8"H";
+        case KeyCode::I:
+            return u8"I";
+        case KeyCode::J:
+            return u8"J";
+        case KeyCode::K:
+            return u8"K";
+        case KeyCode::L:
+            return u8"L";
+        case KeyCode::M:
+            return u8"M";
+        case KeyCode::N:
+            return u8"N";
+        case KeyCode::O:
+            return u8"O";
+        case KeyCode::P:
+            return u8"P";
+        case KeyCode::Q:
+            return u8"Q";
+        case KeyCode::R:
+            return u8"R";
+        case KeyCode::S:
+            return u8"S";
+        case KeyCode::T:
+            return u8"T";
+        case KeyCode::U:
+            return u8"U";
+        case KeyCode::V:
+            return u8"V";
+        case KeyCode::W:
+            return u8"W";
+        case KeyCode::X:
+            return u8"X";
+        case KeyCode::Y:
+            return u8"Y";
+        case KeyCode::Z:
+            return u8"Z";
+        case KeyCode::Num1:
+            return u8"1";
+        case KeyCode::Num2:
+            return u8"2";
+        case KeyCode::Num3:
+            return u8"3";
+        case KeyCode::Num4:
+            return u8"4";
+        case KeyCode::Num5:
+            return u8"5";
+        case KeyCode::Num6:
+            return u8"6";
+        case KeyCode::Num7:
+            return u8"7";
+        case KeyCode::Num8:
+            return u8"8";
+        case KeyCode::Num9:
+            return u8"9";
+        case KeyCode::Num0:
+            return u8"0";
+        case KeyCode::Return:
+            return u8"Return";
+        case KeyCode::Escape:
+            return u8"Escape";
+        case KeyCode::Backspace:
+            return u8"Backspace";
+        case KeyCode::Tab:
+            return u8"Tab";
+        case KeyCode::Space:
+            return u8"Space";
+        case KeyCode::Minus:
+            return u8"-";
+        case KeyCode::Equals:
+            return u8"=";
+        case KeyCode::LeftBracket:
+            return u8"[";
+        case KeyCode::RightBracket:
+            return u8"]";
+        case KeyCode::Backslash:
+            return u8"\\";
+        case KeyCode::Semicolon:
+            return u8";";
+        case KeyCode::Apostrophe:
+            return u8"'";
+        case KeyCode::Grave:
+            return u8"`";
+        case KeyCode::Comma:
+            return u8",";
+        case KeyCode::Period:
+            return u8".";
+        case KeyCode::Slash:
+            return u8"/";
+        case KeyCode::CapsLock:
+            return u8"Caps Lock";
+        case KeyCode::F1:
+            return u8"F1";
+        case KeyCode::F2:
+            return u8"F2";
+        case KeyCode::F3:
+            return u8"F3";
+        case KeyCode::F4:
+            return u8"F4";
+        case KeyCode::F5:
+            return u8"F5";
+        case KeyCode::F6:
+            return u8"F6";
+        case KeyCode::F7:
+            return u8"F7";
+        case KeyCode::F8:
+            return u8"F8";
+        case KeyCode::F9:
+            return u8"F9";
+        case KeyCode::F10:
+            return u8"F10";
+        case KeyCode::F11:
+            return u8"F11";
+        case KeyCode::F12:
+            return u8"F12";
+        case KeyCode::PrintScreen:
+            return u8"Print Screen";
+        case KeyCode::ScrollLock:
+            return u8"Scroll Lock";
+        case KeyCode::Pause:
+            return u8"Pause";
+        case KeyCode::Insert:
+            return u8"Insert";
+        case KeyCode::Home:
+            return u8"Home";
+        case KeyCode::PageUp:
+            return u8"Page Up";
+        case KeyCode::Delete:
+            return u8"Delete";
+        case KeyCode::End:
+            return u8"End";
+        case KeyCode::PageDown:
+            return u8"Page Down";
+        case KeyCode::Right:
+            return u8"Right";
+        case KeyCode::Left:
+            return u8"Left";
+        case KeyCode::Down:
+            return u8"Down";
+        case KeyCode::Up:
+            return u8"Up";
+        case KeyCode::NumLock:
+            return u8"Num Lock";
+        case KeyCode::KeypadDivide:
+            return u8"Keypad /";
+        case KeyCode::KeypadMultiply:
+            return u8"Keypad *";
+        case KeyCode::KeypadMinus:
+            return u8"Keypad -";
+        case KeyCode::KeypadPlus:
+            return u8"Keypad +";
+        case KeyCode::KeypadEnter:
+            return u8"Keypad Enter";
+        case KeyCode::Keypad1:
+            return u8"Keypad 1";
+        case KeyCode::Keypad2:
+            return u8"Keypad 2";
+        case KeyCode::Keypad3:
+            return u8"Keypad 3";
+        case KeyCode::Keypad4:
+            return u8"Keypad 4";
+        case KeyCode::Keypad5:
+            return u8"Keypad 5";
+        case KeyCode::Keypad6:
+            return u8"Keypad 6";
+        case KeyCode::Keypad7:
+            return u8"Keypad 7";
+        case KeyCode::Keypad8:
+            return u8"Keypad 8";
+        case KeyCode::Keypad9:
+            return u8"Keypad 9";
+        case KeyCode::Keypad0:
+            return u8"Keypad 0";
+        case KeyCode::KeypadPeriod:
+            return u8"Keypad .";
+        case KeyCode::Application:
+            return u8"Application";
+        case KeyCode::KeypadEquals:
+            return u8"Keypad =";
+        case KeyCode::F13:
+            return u8"F13";
+        case KeyCode::F14:
+            return u8"F14";
+        case KeyCode::F15:
+            return u8"F15";
+        case KeyCode::F16:
+            return u8"F16";
+        case KeyCode::F17:
+            return u8"F17";
+        case KeyCode::F18:
+            return u8"F18";
+        case KeyCode::F19:
+            return u8"F19";
+        case KeyCode::F20:
+            return u8"F20";
+        case KeyCode::F21:
+            return u8"F21";
+        case KeyCode::F22:
+            return u8"F22";
+        case KeyCode::F23:
+            return u8"F23";
+        case KeyCode::F24:
+            return u8"F24";
+        case KeyCode::Unknown:
+        default:
+            return u8"";
+        }
+    }
 }

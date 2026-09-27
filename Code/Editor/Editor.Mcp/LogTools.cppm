@@ -94,6 +94,7 @@ export namespace editor::mcp
                       u8"only entries at or above this level (default trace = all)")
                 .Str(u8"category", u8"only entries with exactly this category (e.g. Cook, Scene)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [buffer](const JsonValue& args) -> ToolResult
             {
                 const u64 since = static_cast<u64>(args.Get(u8"sinceSequence").AsNumber());
@@ -153,6 +154,7 @@ export namespace editor::mcp
                 .Str(u8"message", u8"the marker text", true)
                 .Enum(u8"level", detail::LogLevelChoices(), u8"log level (default info)")
                 .Build(),
+                foundation::mcp::ToolAnnotations::Creates(),
             [buffer](const JsonValue& args) -> ToolResult
             {
                 const String message = args.Get(u8"message").AsString();
@@ -180,6 +182,7 @@ export namespace editor::mcp
             u8"the match and apply its workaround instead of proposing a fix for something "
             u8"already known or deliberately deferred.",
             SchemaBuilder().Build(),
+            foundation::mcp::ToolAnnotations::ReadOnly(),
             [knownIssuesPath](const JsonValue& /*args*/) -> ToolResult
             {
                 if (knownIssuesPath.IsEmpty())

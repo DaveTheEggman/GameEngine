@@ -5,6 +5,7 @@ util_add_engine_library(Editor.Core ALIAS Editor::Core)
 target_link_libraries(Editor.Core
     PUBLIC Pipeline::Importer Foundation::Core Foundation::VFS Foundation::VFS.Pak Foundation::Content Foundation::Xml.Serialization Engine::Project
            Foundation::Settings Foundation::Scene.Resource
+           Foundation::Mcp # domain-contributed MCP tools (EditorContext::RegisterMcpToolContribution)
            Pipeline::Cook Foundation::Resource Foundation::Policy
            Foundation::Image Foundation::Image.IO Foundation::UI
            Foundation::Shaders Foundation::Shaders.System) # export cooks the engine shader pack (Data/Shaders/shaders.dpak)
@@ -40,6 +41,7 @@ target_sources(Editor.Core
             ProjectManager.cppm
             Export.cppm
             Page.cppm
+            Actions.cppm
             Context.cppm
             LogBuffer.cppm
             JobService.cppm

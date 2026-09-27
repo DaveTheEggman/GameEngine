@@ -410,6 +410,7 @@ export namespace foundation::core
         // layer to build an Instance over a value a Variant owns. For objects use
         // AsObject() instead (this returns the RefPtr storage, not the object).
         [[nodiscard]] void* ValuePointer() noexcept { return Data(); }
+        [[nodiscard]] const void* ValuePointer() const noexcept { return Data(); }
 
         template <typename T>
         [[nodiscard]] bool Is() const noexcept

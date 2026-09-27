@@ -327,3 +327,39 @@ TEST_CASE("system: InstallCrashBacktrace prints a native stack on SIGSEGV")
     CHECK(std::strstr(buffer, "0x") != nullptr); // at least one frame line
 }
 #endif
+
+TEST_CASE("system: FillEntropy fills the whole span with bytes that never repeat a draw")
+{
+    byte first[32] = {};
+    byte second[32] = {};
+    REQUIRE(FillEntropy(Span<byte>{first, sizeof(first)}));
+    REQUIRE(FillEntropy(Span<byte>{second, sizeof(second)}));
+    CHECK(std::memcmp(first, second, sizeof(first)) != 0);
+    bool anyNonZero = false;
+    for (byte b : first)
+    {
+        anyNonZero = anyNonZero || b != byte{0};
+    }
+    CHECK(anyNonZero);
+    byte none[1] = {byte{7}};
+    CHECK(FillEntropy(Span<byte>{none, 0})); // an empty span is trivially filled
+    // Past the OS call's per-request cap (getentropy takes 256 at a time) the fill chunks:
+    // every part of a long buffer, the tail included, is written.
+    byte many[300];
+    std::memset(many, 0, sizeof(many));
+    REQUIRE(FillEntropy(Span<byte>{many, sizeof(many)}));
+    bool headWritten = false;
+    bool tailWritten = false;
+    for (usize i = 0; i < 256; ++i)
+    {
+        headWritten = headWritten || many[i] != byte{0};
+    }
+    for (usize i = 256; i < sizeof(many); ++i)
+    {
+        tailWritten = tailWritten || many[i] != byte{0};
+    }
+    CHECK(headWritten);
+    CHECK(tailWritten); // 44 zero bytes of entropy: odds of 1 in 2^352
+    CHECK(none[0] == byte{7});
+}
+

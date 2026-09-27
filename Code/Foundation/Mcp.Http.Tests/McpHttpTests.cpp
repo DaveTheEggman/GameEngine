@@ -59,6 +59,7 @@ TEST_CASE("mcp.http: an McpServer over HTTP - the exchange, every refusal, and 2
     McpServer server;
     server.SetServerInfo(u8"http-host", u8"1.0.0");
     server.RegisterTool(u8"ping_tool", u8"answers pong", SchemaBuilder().Build(),
+    foundation::mcp::ToolAnnotations::ReadOnly(),
                         [](const JsonValue&) -> ToolResult
                         {
                             JsonValue out = JsonValue::MakeObject();
@@ -240,4 +241,69 @@ TEST_CASE("mcp.http: the SSE event channel - connect, broadcast, receive, sweep"
     }
     CHECK(host.ListenerCount() == 0);
     CHECK(host.Broadcast(u8"progress", u8"anyone?") == 0u);
+}
+
+TEST_CASE("mcp.http: a tool that is not finished keeps the caller waiting across pumps and is "
+          "answered by a later one")
+{
+    McpServer server;
+    u32 calls = 0;
+    server.RegisterTool(u8"slow", u8"answers on its third entry", SchemaBuilder().Build(),
+    foundation::mcp::ToolAnnotations::ReadOnly(),
+                        [&calls](const JsonValue&) -> ToolOutcome
+                        {
+                            ++calls;
+                            if (calls < 3)
+                            {
+                                return ToolOutcome::NotFinished();
+                            }
+                            JsonValue out = JsonValue::MakeObject();
+                            out.Set(u8"calls", JsonValue::MakeNumber(static_cast<f64>(calls)));
+                            return out;
+                        });
+
+    McpHttpHost host(DefaultAllocator(), server);
+    REQUIRE(host.Start(McpHttpConfig{0, String(u8"sekrit")}));
+    const u16 port = host.BoundPort();
+    REQUIRE(port != 0);
+    CHECK_FALSE(host.HasPendingRequest());
+
+    bool done = false;
+    Result<HttpResponse, String> call = Err(String(u8"unset"));
+    Thread client(
+        [&]
+        {
+            call = HttpFetch(u8"127.0.0.1", port,
+                             Post(u8"sekrit",
+                                  u8"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\","
+                                  u8"\"params\":{\"name\":\"slow\",\"arguments\":{}}}"));
+            done = true;
+        });
+    // Pumped by hand so the wait is observable: the request is pending between the pumps
+    // that re-enter the tool, and answered by the one that lands its result.
+    bool sawPending = false;
+    usize answered = 0;
+    for (u32 i = 0; i < 5000 && !done; ++i)
+    {
+        answered += host.Pump();
+        if (host.HasPendingRequest())
+        {
+            sawPending = true;
+        }
+        SleepMilliseconds(1);
+    }
+    client.Join();
+
+    REQUIRE(call.HasValue());
+    CHECK(call.Value().status == 200);
+    JsonValue r = json::Parse(call.Value().BodyText()).value;
+    CHECK(r.Get(u8"id").AsInt() == 5);
+    CHECK(r.Get(u8"result").Get(u8"isError").AsBool() == false);
+    CHECK(json::Parse(r.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString().AsView())
+              .value.Get(u8"calls")
+              .AsInt() == 3);
+    CHECK(calls == 3);
+    CHECK(sawPending);
+    CHECK(answered == 1);
+    CHECK_FALSE(host.HasPendingRequest());
 }

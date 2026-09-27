@@ -44,9 +44,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue UsesCallOk(McpServer& s, StringView tool, JsonValue arguments)
@@ -118,7 +118,9 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterAssetUsesTool(server, session, builders);
 
     (void)UsesCallOk(server, u8"project_create",
@@ -213,7 +215,9 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     pipeline::RegisterPipelineTypes();
     pipeline::RegisterAllBuilders(builders);
     engine::RegisterAllSceneComponentReflection();
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterProjectHealthTool(server, session, builders);
 
     (void)UsesCallOk(server, u8"project_create",

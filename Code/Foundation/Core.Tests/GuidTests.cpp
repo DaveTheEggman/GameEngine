@@ -39,6 +39,18 @@ TEST_CASE("guid: generation is deterministic per seed and v4-tagged")
     CHECK(((ga.low >> 62) & 0x3) == 0x2);
 }
 
+TEST_CASE("guid: generation from system entropy is unpredictable and v4-tagged")
+{
+    Guid first;
+    Guid second;
+    REQUIRE(Guid::TryGenerateFromSystemEntropy(first));
+    REQUIRE(Guid::TryGenerateFromSystemEntropy(second));
+    CHECK(!first.IsNil());
+    CHECK(first != second); // no seed to repeat
+    CHECK(((first.high >> 12) & 0xF) == 0x4);
+    CHECK(((first.low >> 62) & 0x3) == 0x2);
+}
+
 TEST_CASE("guid: ToChars / TryParse round-trip")
 {
     Random rng(2025);

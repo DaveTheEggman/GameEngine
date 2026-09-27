@@ -276,6 +276,20 @@ namespace editor
         return Span<const UniquePtr<EditorPage>>{m_pages.Data(), m_pages.Size()};
     }
 
+    usize EditorContext::NotifyAssetExternallyModified(const Guid& assetId)
+    {
+        usize told = 0;
+        for (const UniquePtr<EditorPage>& page : m_pages)
+        {
+            if (page->InstanceId() == assetId)
+            {
+                page->OnAssetExternallyModified();
+                ++told;
+            }
+        }
+        return told;
+    }
+
     void EditorContext::SetActivePage(EditorPage* page)
     {
         if (m_activePage == page)
@@ -286,29 +300,12 @@ namespace editor
         NotifyPagesChanged();
     }
 
-    bool EditorContext::CanUndo() const
+    void EditorContext::RevealPage(EditorPage* page)
     {
-        return m_activePage != nullptr && m_activePage->Commands().CanUndo();
-    }
-
-    bool EditorContext::CanRedo() const
-    {
-        return m_activePage != nullptr && m_activePage->Commands().CanRedo();
-    }
-
-    void EditorContext::Undo()
-    {
-        if (m_activePage != nullptr)
+        SetActivePage(page);
+        if (page != nullptr && OnRevealPage)
         {
-            m_activePage->Commands().Undo();
-        }
-    }
-
-    void EditorContext::Redo()
-    {
-        if (m_activePage != nullptr)
-        {
-            m_activePage->Commands().Redo();
+            OnRevealPage(page);
         }
     }
 

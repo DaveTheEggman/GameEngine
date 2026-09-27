@@ -27,6 +27,11 @@ import foundation.runtime;
 import foundation.runtime.client;
 import foundation.vfs;    // NativeFileSystem: the editor's mount over the data root
 import engine.defaultapp; // the embedded game application (v3)
+import editor.mcp;        // ProjectSession + the operations the MCP host serves through
+import :mcp_host;         // EditorMcpHost (per project, pumped per frame)
+import :mcp_operations;   // EditorProjectOperations (the host's cook / import / export)
+import :mcp_page_tools;   // the page tools the host adds over this application's pages
+import :mcp_action_tools; // the action bridge, unattended
 import foundation.ui.resource;        // UITheme (the manifest's default game-UI theme)
 import engine.ui;       // UISubsystem (SetDefaultTheme)
 import engine.input;    // InputSubsystem (the embedded runtime's scene-input policy)
@@ -50,6 +55,8 @@ import :project_manager_view;
 import :shell;
 import :font_atlas_cache;
 import :ui_page;
+import :action_menus;     // ActionMenuBar (the bar generated from the action registry)
+import :action_shortcuts; // ActionShortcuts (the globals generated from it)
 
 using namespace foundation::core;
 using namespace pipeline;
@@ -105,6 +112,11 @@ export namespace editor::app
         // --screenshot <png> --screenshot-after <s>`; the same ScreenshotCapture as the runtime's.
         String screenshotPath;
         f32 screenshotAfterSeconds = 0.0f;
+        // The MCP host for THIS run: `--mcp` enables it regardless of the preference and
+        // `--mcp-port <n>` picks its port (0 = the preference's), so an agent that launches
+        // the editor itself needs no UI. EditorMcpSettings is the persisted preference.
+        bool mcpEnabled = false;
+        u32 mcpPort = 0;
 
         // The assembly seams - editor.app never links engine modules or the
         // editor plugin modules; the EXECUTABLE composes them here:
@@ -190,7 +202,9 @@ export namespace editor::app
         // settings save (a changed default takes effect without a reopen).
         void ApplyProjectUiDefaults();
 
-        void SaveActivePage();
+        /// Save `subject` (the action file.save over its subject page) and flush the pending
+        /// asset edits; the outcome as a notice.
+        void SavePage(editor::EditorPage& subject);
         void FlushPendingAssetEdits(); // drain tool-registered live asset edits to source + recook
 
         void ClosePage(UIEditorPage* page);
@@ -229,7 +243,6 @@ export namespace editor::app
         // types first). Absent on first run - the store stays empty and sections read as defaults.
         // Recursive walk feeding the export pre-transcode (main thread; scene/prefab typed
         // instances only - the stager filters).
-        void CollectSceneStreams(foundation::content::Group& group);
 
         void LoadEditorSettings();
 
@@ -315,7 +328,7 @@ export namespace editor::app
         // Save As: write the page's CURRENT content to a NEW asset beside the original and
         // rebind the page to it. The original keeps its on-disk state - the escape hatch when
         // an asset changed under a dirty page (apply-to-prefab) and both versions matter.
-        void SaveActivePageAs();
+        void SavePageAs(editor::EditorPage& subject);
 
         void ShowDirtyCloseDialog(UIEditorPage* page, ui::toolkit::DockablePanel* panel);
 
@@ -341,6 +354,11 @@ export namespace editor::app
         // (ConfirmCloseProjectThen is the UI entry).
         void CloseProject();
 
+        // The MCP host rides the project: started (when the preference or --mcp enables it)
+        // once the project's services are up, stopped before they go.
+        void StartMcpHost();
+        void StopMcpHost();
+
         // Show the manager screen (building it on first use); swaps the window root.
         void EnterManagerMode();
 
@@ -355,6 +373,7 @@ export namespace editor::app
 
         void SaveLayout();
 
+        void RegisterActions();
         void BuildMenus();
 
         // I4 instrumentation: log the ResourceManager's live-product report (counts by type;
@@ -396,6 +415,12 @@ export namespace editor::app
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders{m_editorAllocator}; // exe-assembled (registerEditors)
         editor::EditorCookService m_cookService;
+        // The MCP host and what it serves through, per project: the session points at the open
+        // project, the operations run cook / import / export on this application's services
+        // (the cook service, the job service - the paths the menus take), the host last.
+        editor::mcp::ProjectSession m_mcpSession;
+        UniquePtr<EditorProjectOperations> m_mcpOperations;
+        UniquePtr<EditorMcpHost> m_mcpHost; // after the services are up, gone before they go
         editor::ThumbnailService m_thumbnailService; // per-project state
         UniquePtr<editor::ThumbnailStage> m_thumbnailStage; // GPU half (per project, app-driven)
         editor::EditorJobService m_jobService{m_editorAllocator}; // background jobs (export, ...)
@@ -473,6 +498,8 @@ export namespace editor::app
         UniquePtr<ui::application::RuntimeDockableWindowHost>
             m_dockHost; // references m_uiHost: dies first
         EditorShell m_shell;
+        UniquePtr<ActionMenuBar> m_actionMenus;       // the menu bar, from the registry
+        UniquePtr<ActionShortcuts> m_actionShortcuts; // the global shortcuts, from it
         RefPtr<AssetsView> m_assetsView;
         RefPtr<ui::toolkit::ToastHost> m_toastHost;
         Array<PagePanel> m_pagePanels;

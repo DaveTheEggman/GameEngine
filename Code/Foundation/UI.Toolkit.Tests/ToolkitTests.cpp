@@ -393,3 +393,45 @@ TEST_CASE("toolkit: PropertyEditor_EditTransaction")
     CHECK(ended);
     CHECK(!editor->IsEditing());
 }
+
+TEST_CASE("toolkit: MenuBar opening a menu runs its OnOpening before the popup shows; ClearMenus closes it")
+{
+    // A menu bar shows its menus through the popup layer itself (it owns them), so the
+    // preparation ContextMenu::Show does - hover reset, OnOpening rebuilding live items - has
+    // to happen on that path too. An action menu bar builds enabled states in that hook: the
+    // regression was a menu keeping the flags from its last rebuild instead of the moment it
+    // opened.
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto menuBar = MakeRef<MenuBar>(DefaultAllocator());
+    root->AddView(menuBar.Get());
+
+    ContextMenu* file = menuBar->AddMenu(u8"File");
+    file->AddItem(u8"Stale", []() {});
+    int opened = 0;
+    file->OnOpening = [&opened](ContextMenu& opening)
+    {
+        ++opened;
+        opening.ClearItems();
+        opening.AddItem(u8"Fresh", []() {});
+    };
+    CHECK(menuBar->ActiveIndex() == -1);
+
+    menuBar->OpenMenuAt(0);
+    CHECK(opened == 1);
+    CHECK(menuBar->ActiveIndex() == 0);
+    REQUIRE(file->ItemCount() == 1);
+    CHECK(file->ItemAt(0)->Label == u8"Fresh");
+    CHECK(root->GetPopupLayer()->PopupCount() == 1u);
+
+    menuBar->OpenMenuAt(5); // out of range: nothing happens
+    CHECK(opened == 1);
+    CHECK(menuBar->ActiveIndex() == 0);
+
+    menuBar->ClearMenus();
+    CHECK(menuBar->ActiveIndex() == -1);
+    CHECK(menuBar->MenuCount() == 0);
+    CHECK(root->GetPopupLayer()->PopupCount() == 0u);
+}

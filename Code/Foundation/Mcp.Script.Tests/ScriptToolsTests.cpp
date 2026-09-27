@@ -52,9 +52,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue resp = json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        JsonValue resp = json::Parse(line.response.AsView()).value;
         REQUIRE(resp.Has(u8"result"));
         CHECK(resp.Get(u8"result").Get(u8"isError").AsBool() == false);
         return JsonValue::Parse(resp.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString());
@@ -70,7 +70,7 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        return json::Parse(s.HandleLine(req.ToString().AsView()).Value().AsView()).value;
+        return json::Parse(s.HandleLine(req.ToString().AsView()).response.AsView()).value;
     }
 }
 
@@ -95,9 +95,22 @@ TEST_CASE("mcp.script: script_api reports the registered backend's bound API")
             sawBackend = true;
             CHECK(lang.Get(u8"typeCount").AsInt() > 0);
             CHECK(lang.Get(u8"types").Count() == lang.Get(u8"typeCount").AsInt());
-            // Each type carries a script name and a (possibly empty) member list.
+            // Each type carries a script name and a (possibly empty) member list; every member
+            // says whether a script can assign it (readOnly), so an agent knows before it writes.
             JsonValue first = lang.Get(u8"types").At(0);
             CHECK(first.Get(u8"scriptName").AsString().Size() > 0u);
+            bool sawMember = false;
+            for (i64 t = 0; t < lang.Get(u8"types").Count(); ++t)
+            {
+                JsonValue members = lang.Get(u8"types").At(t).Get(u8"members");
+                for (i64 m = 0; m < members.Count(); ++m)
+                {
+                    sawMember = true;
+                    CHECK(members.At(m).Has(u8"readOnly"));
+                    CHECK(members.At(m).Get(u8"readOnly").IsBool());
+                }
+            }
+            CHECK(sawMember);
         }
     }
     CHECK(sawBackend);

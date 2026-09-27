@@ -42,9 +42,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue resp = json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        JsonValue resp = json::Parse(line.response.AsView()).value;
         REQUIRE(resp.Has(u8"result"));
         REQUIRE(resp.Get(u8"result").Get(u8"isError").AsBool() == false);
         return JsonValue::Parse(
@@ -72,12 +72,15 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     engine::RegisterAllSceneComponentReflection();
 
     McpServer server;
+    // The flow runs over the SHARED engine surface (what every host serves) plus the stdio
+    // host's project_create / project_open.
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterAssetTools(server, session);
-    editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
-    editor::mcp::RegisterSceneTools(server, session);
-    editor::mcp::RegisterProjectHealthTool(server, session, builders);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
 
     // 1. Create + open.
     (void)FfCall(server, u8"project_create",
@@ -140,3 +143,265 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
 
     std::remove("Mover.luau");
 }
+
+TEST_CASE("integration.mcp: RegisterEngineTools registers exactly kEngineToolCount tools - the "
+          "surface every host serves, and only that")
+{
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    CHECK(server.ToolCount() == editor::mcp::kEngineToolCount);
+
+    JsonValue req = JsonValue::MakeObject();
+    req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+    req.Set(u8"id", JsonValue::MakeNumber(1));
+    req.Set(u8"method", JsonValue::MakeString(u8"tools/list"));
+    LineOutcome line = server.HandleLine(req.ToString().AsView());
+    REQUIRE(line.state == LineState::Answered);
+    JsonValue tools = json::Parse(line.response.AsView()).value.Get(u8"result").Get(u8"tools");
+    const auto has = [&tools](StringView name)
+    {
+        for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
+        {
+            if (tools.At(i).Get(u8"name").AsString().AsView() == name)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    // Spot checks across the families the root gathers ...
+    CHECK(has(u8"type_list"));
+    CHECK(has(u8"script_api"));
+    CHECK(has(u8"project_info"));
+    CHECK(has(u8"asset_cook"));
+    CHECK(has(u8"scene_write"));
+    CHECK(has(u8"project_export"));
+    CHECK(has(u8"known_issues"));
+    // ... and what a HOST adds itself: never part of the shared surface.
+    CHECK_FALSE(has(u8"project_open"));
+    CHECK_FALSE(has(u8"project_create"));
+    CHECK_FALSE(has(u8"host_info"));
+}
+
+TEST_CASE("integration.mcp: LocateShippingDocs walks up to the checkout layout, accepts the "
+          "distribution layout, and leaves a miss empty")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_docs_checkout", ec);
+    std::filesystem::remove_all("mcp_docs_dist", ec);
+    std::filesystem::create_directories("mcp_docs_checkout/Documentation/Shipping", ec);
+    std::filesystem::create_directories("mcp_docs_checkout/Bin/Debug", ec);
+    std::filesystem::create_directories("mcp_docs_dist/tool", ec);
+    std::ofstream("mcp_docs_checkout/Documentation/Shipping/KnownIssues.md") << "# known";
+    std::ofstream("mcp_docs_checkout/Documentation/Shipping/McpGuide.md") << "# guide";
+    std::ofstream("mcp_docs_dist/KnownIssues.md") << "# staged";
+
+    // The engine checkout: the executable sits under Bin/, the docs two levels up.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_checkout/Bin/Debug")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.shippingDocsDir == u8"mcp_docs_checkout/Documentation/Shipping");
+        CHECK(paths.knownIssues == u8"mcp_docs_checkout/Documentation/Shipping/KnownIssues.md");
+    }
+    // The served docs list by NAME, whatever order the filesystem hands them back in (a third
+    // file written last would otherwise come last on some filesystems and first on others).
+    {
+        std::ofstream("mcp_docs_checkout/Documentation/Shipping/Assets.md") << "# assets";
+        McpServer server;
+        editor::mcp::RegisterShippingDocResources(server,
+                                                  u8"mcp_docs_checkout/Documentation/Shipping");
+        LineOutcome line = server.HandleLine(
+            u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"resources/list\",\"params\":{}}");
+        REQUIRE(line.state == LineState::Answered);
+        const JsonValue resources =
+            json::Parse(line.response.AsView()).value.Get(u8"result").Get(u8"resources");
+        REQUIRE(resources.Count() == 3);
+        CHECK(resources.At(0).Get(u8"uri").AsString() == StringView(u8"docs://Assets.md"));
+        CHECK(resources.At(1).Get(u8"uri").AsString() == StringView(u8"docs://KnownIssues.md"));
+        CHECK(resources.At(2).Get(u8"uri").AsString() == StringView(u8"docs://McpGuide.md"));
+    }
+    // A distribution: KnownIssues.md staged beside the tool, no docs directory at all.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_dist/tool")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.knownIssues == u8"mcp_docs_dist/KnownIssues.md");
+        CHECK(paths.shippingDocsDir.IsEmpty());
+    }
+    // A later start fills what an earlier one could not.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_dist/tool"),
+                                 String(u8"mcp_docs_checkout/Bin/Debug")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+        CHECK(paths.knownIssues == u8"mcp_docs_dist/KnownIssues.md"); // the first hit stands
+        CHECK(paths.shippingDocsDir == u8"mcp_docs_checkout/Documentation/Shipping");
+    }
+    // Nowhere: both fields stay empty and nothing is invented.
+    {
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {String(u8"mcp_docs_nowhere/q")};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 1), paths);
+        CHECK(paths.knownIssues.IsEmpty());
+        CHECK(paths.shippingDocsDir.IsEmpty());
+    }
+    std::filesystem::remove_all("mcp_docs_checkout", ec);
+    std::filesystem::remove_all("mcp_docs_dist", ec);
+}
+
+namespace
+{
+    // A host whose operations take several pumps: every step answers "not yet" until the
+    // configured entry, then the outcome - the shape of the editor's background services,
+    // minus the services.
+    class SlowOperations final : public editor::mcp::IProjectOperations
+    {
+    public:
+        u32 answerOnEntry = 3;
+        u32 cookEntries = 0;
+        u32 importEntries = 0;
+        u32 exportEntries = 0;
+        bool refuseCook = false;
+
+        editor::mcp::OperationStep<editor::mcp::CookOutcome> Cook(bool force) override
+        {
+            ++cookEntries;
+            if (refuseCook)
+            {
+                return Err(String(u8"a cook is already running (the editor's build lock)"));
+            }
+            if (cookEntries < answerOnEntry)
+            {
+                return Optional<editor::mcp::CookOutcome>{};
+            }
+            editor::mcp::CookOutcome outcome;
+            outcome.planned = force ? 7 : 2;
+            outcome.cooked = outcome.planned;
+            return Optional<editor::mcp::CookOutcome>(outcome);
+        }
+        editor::mcp::OperationStep<editor::mcp::ImportOutcome>
+        Import(const editor::mcp::ImportRequest& request) override
+        {
+            ++importEntries;
+            if (importEntries < answerOnEntry)
+            {
+                return Optional<editor::mcp::ImportOutcome>{};
+            }
+            editor::mcp::ImportOutcome outcome;
+            outcome.name = String(u8"Mover");
+            outcome.importer = String(request.importer->Label());
+            outcome.deferredWrites = 1;
+            return Optional<editor::mcp::ImportOutcome>(Move(outcome));
+        }
+        editor::mcp::OperationStep<editor::mcp::ExportOutcome>
+        Export(const editor::mcp::ExportRequest& request) override
+        {
+            ++exportEntries;
+            if (exportEntries < answerOnEntry)
+            {
+                return Optional<editor::mcp::ExportOutcome>{};
+            }
+            editor::mcp::ExportOutcome outcome;
+            outcome.result.outputDir = PathJoin(request.outRoot.AsView(), request.preset.name.AsView());
+            outcome.result.filesStaged = 1;
+            return Optional<editor::mcp::ExportOutcome>(Move(outcome));
+        }
+    };
+
+    JsonValue ToolCallLine(StringView tool, StringView argumentsJson)
+    {
+        return json::Parse(Format(u8"{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                                  u8"\"params\":{{\"name\":\"{}\",\"arguments\":{}}}}}",
+                                  tool, argumentsJson)
+                               .AsView())
+            .value;
+    }
+}
+
+TEST_CASE("integration.mcp: the write tools ride a host's operations - not finished until the "
+          "host says so, then the shared result shape; a refusal is the tool's error")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_slow_project", ec);
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::RegisterPipelineTypes();
+    pipeline::RegisterAllImporters(importers);
+
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    SlowOperations slow;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterAssetWriteTools(server, session, importers, slow);
+    editor::mcp::RegisterProjectExportTool(server, session, slow);
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_slow_project"),
+                       u8"name", u8"Slow"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_slow_project"));
+
+    // asset_cook: two "not yet" re-entries with the SAME line, then the counts.
+    const String cook = ToolCallLine(u8"asset_cook", u8"{\"force\":true}").ToString();
+    CHECK(server.HandleLine(cook.AsView()).state == LineState::NotFinished);
+    CHECK(server.HandleLine(cook.AsView()).state == LineState::NotFinished);
+    LineOutcome cooked = server.HandleLine(cook.AsView());
+    REQUIRE(cooked.state == LineState::Answered);
+    JsonValue cookResult = json::Parse(cooked.response.AsView()).value.Get(u8"result");
+    CHECK(cookResult.Get(u8"isError").AsBool() == false);
+    CHECK(JsonValue::Parse(cookResult.Get(u8"content").At(0).Get(u8"text").AsString().AsView())
+              .Get(u8"planned")
+              .AsInt() == 7);
+    CHECK(slow.cookEntries == 3);
+
+    // asset_import: the routing refusal never reaches the operations; a routed file does.
+    const String unknown =
+        ToolCallLine(u8"asset_import", u8"{\"source\":\"nothing.zzz\"}").ToString();
+    LineOutcome refused = server.HandleLine(unknown.AsView());
+    REQUIRE(refused.state == LineState::Answered);
+    CHECK(json::Parse(refused.response.AsView()).value.Get(u8"result").Get(u8"isError").AsBool());
+    CHECK(slow.importEntries == 0);
+    const String import = ToolCallLine(u8"asset_import", u8"{\"source\":\"Mover.luau\"}").ToString();
+    CHECK(server.HandleLine(import.AsView()).state == LineState::NotFinished);
+    CHECK(server.HandleLine(import.AsView()).state == LineState::NotFinished);
+    LineOutcome imported = server.HandleLine(import.AsView());
+    REQUIRE(imported.state == LineState::Answered);
+    JsonValue importResult = json::Parse(imported.response.AsView()).value.Get(u8"result");
+    CHECK(importResult.Get(u8"isError").AsBool() == false);
+    CHECK(JsonValue::Parse(importResult.Get(u8"content").At(0).Get(u8"text").AsString().AsView())
+              .Get(u8"name")
+              .AsString() == StringView(u8"Mover"));
+
+    // project_export: the preset is resolved by the tool (the synthesized host preset here),
+    // the work by the operations.
+    const String exported = ToolCallLine(u8"project_export", u8"{}").ToString();
+    CHECK(server.HandleLine(exported.AsView()).state == LineState::NotFinished);
+    CHECK(server.HandleLine(exported.AsView()).state == LineState::NotFinished);
+    LineOutcome done = server.HandleLine(exported.AsView());
+    REQUIRE(done.state == LineState::Answered);
+    JsonValue exportResult = json::Parse(done.response.AsView()).value.Get(u8"result");
+    CHECK(exportResult.Get(u8"isError").AsBool() == false);
+    CHECK(JsonValue::Parse(exportResult.Get(u8"content").At(0).Get(u8"text").AsString().AsView())
+              .Get(u8"filesStaged")
+              .AsInt() == 1);
+    CHECK(slow.exportEntries == 3);
+
+    // A refusal from the operations is the tool's error text, at once.
+    slow.refuseCook = true;
+    LineOutcome locked = server.HandleLine(cook.AsView());
+    REQUIRE(locked.state == LineState::Answered);
+    JsonValue lockedResult = json::Parse(locked.response.AsView()).value.Get(u8"result");
+    CHECK(lockedResult.Get(u8"isError").AsBool());
+    CHECK(lockedResult.Get(u8"content").At(0).Get(u8"text").AsString().AsView() ==
+          StringView(u8"a cook is already running (the editor's build lock)"));
+    std::filesystem::remove_all("mcp_slow_project", ec);
+}
+

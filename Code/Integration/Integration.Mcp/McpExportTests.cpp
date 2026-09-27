@@ -40,9 +40,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue resp = json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        JsonValue resp = json::Parse(line.response.AsView()).value;
         REQUIRE(resp.Has(u8"result"));
         CHECK(resp.Get(u8"result").Get(u8"isError").AsBool() == !expectOk);
         return expectOk ? JsonValue::Parse(
@@ -72,9 +72,12 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
-    editor::mcp::RegisterProjectExportTool(server, session, builders, TestExeDir(),
-                                           foundation::vfs::FindDataRoot());
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
+    editor::mcp::InlineProjectOperations operations(session, builders, TestExeDir(),
+                                                    foundation::vfs::FindDataRoot());
+    editor::mcp::RegisterProjectExportTool(server, session, operations);
 
     // No project -> guided refusal.
     (void)ExCall(server, u8"project_export", JsonValue::MakeObject(), /*expectOk=*/false);

@@ -439,6 +439,11 @@ export namespace foundation::ui::viewport
 
             rhi::TextureDesc colorDesc =
                 rhi::TextureDesc::RenderTarget(m_colorFormat, width, height, 1, u8"ViewportColor");
+            // The 3D pass writes it, the UI pass samples it, and a capture (the editor's
+            // viewport_screenshot) copies the finished image out: without CopySrc that copy is
+            // outside the Vulkan spec (a lenient driver lets it through) and a validation error
+            // on WebGPU. Found by the Beef side.
+            colorDesc.usage = colorDesc.usage | rhi::TextureUsage::CopySrc;
             if (!m_device->CreateTexture(colorDesc, m_colorTexture).IsOk())
             {
                 m_colorTexture = nullptr;

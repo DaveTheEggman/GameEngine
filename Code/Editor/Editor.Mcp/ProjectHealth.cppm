@@ -176,6 +176,7 @@ export namespace editor::mcp
             u8"before an export to catch breakage early; fix dangling refs by re-pointing or "
             u8"restoring the missing asset (asset_uses on the missing guid's users shows impact).",
             SchemaBuilder().Build(),
+            foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, bld](const JsonValue& /*args*/) -> ToolResult
             {
                 if (!s->project)

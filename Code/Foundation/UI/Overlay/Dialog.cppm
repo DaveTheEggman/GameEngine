@@ -149,9 +149,16 @@ export namespace foundation::ui
             return raw;
         }
 
-        /// Show as a centered modal dialog.
+        /// Show as a centered modal dialog. A context with a DialogInterceptor that answers
+        /// false never shows it: the dialog closes as cancelled at once (its OnClosed runs, so
+        /// the flow that asked proceeds as if the user had dismissed it).
         void Show(UIContext* ctx, bool ownsView = true)
         {
+            if (ctx->DialogInterceptor && !ctx->DialogInterceptor(*this))
+            {
+                Close(DialogResult::Cancel);
+                return;
+            }
             RootView* root = ctx->ActiveInputRoot();
             if (root == nullptr)
             {

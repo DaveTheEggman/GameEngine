@@ -475,6 +475,119 @@ TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")
     CHECK(animal->legs == 9);
 }
 
+namespace
+{
+    // A reference-shaped value of this test's own: identified by its guid, read by identity.
+    struct FakeRef
+    {
+        Guid id;
+        int cached = 0;
+    };
+    struct RefHolder
+    {
+        FakeRef one;
+        Array<FakeRef> many;
+    };
+}
+namespace foundation::core
+{
+    template <>
+    struct ReferenceTraits<FakeRef>
+    {
+        static constexpr bool isReference = true;
+        [[nodiscard]] static const ReferenceOps& Ops() noexcept
+        {
+            static constexpr ReferenceOps ops{
+                [](const void* value) -> const Guid* { return &static_cast<const FakeRef*>(value)->id; },
+                [](void* value, const Guid& id) { static_cast<FakeRef*>(value)->id = id; },
+                [](void* value) { static_cast<FakeRef*>(value)->cached = 0; }};
+            return ops;
+        }
+    };
+}
+REFLECT_VALUE(RefHolder, "rtti::test")
+{
+    builder.Property<&RefHolder::one>("one").Nested<&RefHolder::many>("many");
+}
+
+namespace
+{
+    struct Gauge
+    {
+        int reading = 3; // a stored field the type publishes read-only
+        int knob = 0;
+    };
+}
+REFLECT_VALUE(Gauge, "rtti::test")
+{
+    builder.Property<&Gauge::reading>("reading", PropertyFlags::ReadOnly).Property<&Gauge::knob>("knob");
+}
+void RttiRegisterValue_Gauge(); // emitted by REFLECT_VALUE above
+
+TEST_CASE("rtti: a read-only stored property reads but refuses SetProperty - the flag is a contract")
+{
+    RttiRegisterValue_Gauge();
+    Gauge gauge;
+    const Instance inst = Instance::From(&gauge);
+    const PropertyInfo* reading = FindProperty(TypeOf<Gauge>(), "reading");
+    const PropertyInfo* knob = FindProperty(TypeOf<Gauge>(), "knob");
+    REQUIRE(reading != nullptr);
+    REQUIRE(knob != nullptr);
+    CHECK(GetProperty(*reading, inst).Get<int>() == 3);
+    CHECK(SetProperty(*reading, inst, Variant::From<int>(9)).Code() == ErrorCode::NotSupported);
+    CHECK(gauge.reading == 3);
+    CHECK(SetProperty(*knob, inst, Variant::From<int>(9)).IsOk());
+    CHECK(gauge.knob == 9);
+    // The raw address is the deliberate way around it (an editor's in-place tool).
+    REQUIRE(reading->address != nullptr);
+    *static_cast<int*>(reading->address(inst)) = 4;
+    CHECK(GetProperty(*reading, inst).Get<int>() == 4);
+}
+
+void RttiRegisterValue_RefHolder(); // emitted by REFLECT_VALUE above
+
+TEST_CASE("rtti: a reference-shaped value type is read by identity through its TypeInfo - as a "
+          "Variant, a property and a container element - and every other type is not")
+{
+    RttiRegisterValue_RefHolder();
+    RegisterArrayType<FakeRef>(); // the list's container reflection, as a component registers its lists
+    const TypeInfo& refType = TypeOf<FakeRef>();
+    REQUIRE(IsReferenceType(refType));
+    CHECK_FALSE(IsReferenceType(TypeOf<int>()));
+    CHECK_FALSE(IsReferenceType(TypeOf<RefHolder>()));
+
+    Random rng(3);
+    RefHolder holder;
+    holder.one.id = Guid::Generate(rng);
+    holder.many.PushBack(FakeRef{Guid::Generate(rng), 1});
+    holder.many.PushBack(FakeRef{Guid::Generate(rng), 2});
+    const Instance inst = Instance::From(&holder);
+
+    // The property's Variant: its type says reference, the reader gives the id inside.
+    const PropertyInfo* one = FindProperty(TypeOf<RefHolder>(), "one");
+    REQUIRE(one != nullptr);
+    CHECK(IsReferenceType(*one->type));
+    const Variant value = GetProperty(*one, inst);
+    REQUIRE(IsReferenceType(*value.Type()));
+    CHECK(*value.Type()->reference->Id(value.ValuePointer()) == holder.one.id);
+    // A container of them: each element the same way.
+    const PropertyInfo* many = FindProperty(TypeOf<RefHolder>(), "many");
+    REQUIRE(many != nullptr);
+    REQUIRE(many->type->container != nullptr);
+    CHECK(IsReferenceType(*many->type->container->elementType));
+    const Instance manyInst(many->address(inst), many->type);
+    REQUIRE(ContainerSize(*many->type->container, manyInst) == 2u);
+    const Variant second = ContainerGetAt(*many->type->container, manyInst, 1);
+    CHECK(*second.Type()->reference->Id(second.ValuePointer()) == holder.many[1].id);
+    // Writing by identity: the id set in place, the runtime binding dropped.
+    const Guid fresh = Guid::Generate(rng);
+    holder.one.cached = 7;
+    refType.reference->SetId(one->address(inst), fresh);
+    refType.reference->ClearBinding(one->address(inst));
+    CHECK(holder.one.id == fresh);
+    CHECK(holder.one.cached == 0);
+}
+
 TEST_CASE("rtti: a Nested property recurses into a non-copyable member via address")
 {
     const PropertyInfo* leafProp = FindProperty(NestedOwner::StaticType(), "leaf");

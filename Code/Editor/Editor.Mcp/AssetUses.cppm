@@ -179,6 +179,7 @@ export namespace editor::mcp
             SchemaBuilder()
                 .Str(u8"guid", u8"the asset guid (canonical 8-4-4-4-12 form)", true)
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s, bld](const JsonValue& args) -> ToolResult
             {
                 if (!s->project)

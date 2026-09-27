@@ -1605,7 +1605,13 @@ namespace foundation::script
             {
                 // Honour the property type (enum -> number carried as i64).
                 Variant value = context->ToVariantForParam(state, 3, property->type);
-                (void)SetProperty(*property, instance, value);
+                if (!SetProperty(*property, instance, value).IsOk())
+                {
+                    // A read-only property refuses in Core; a script learns it the same
+                    // way it learns a misspelled one - at the assignment, not silently.
+                    lua_pushstring(state, "property is read-only");
+                    lua_error(state);
+                }
             }
             return 0;
         }
@@ -2703,7 +2709,13 @@ namespace foundation::script
                     ScriptApiMember member;
                     member.name = String(ViewOf(t->properties[p].name));
                     member.kind = ScriptApiMemberKind::Property;
+                    member.readOnly = (static_cast<u32>(t->properties[p].flags) &
+                                       static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
                     member.signature = member.name;
+                    if (member.readOnly)
+                    {
+                        member.signature += u8" (read only)";
+                    }
                     api.members.PushBack(Move(member));
                 }
             }
@@ -2807,6 +2819,10 @@ export namespace foundation::script
                         continue;
                     }
                     out += u8"    ";
+                    if ((static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0)
+                    {
+                        out += u8"read "; // luau-analyze then refuses the assignment at check time
+                    }
                     out += ViewOf(prop.name);
                     out += u8": ";
                     out += LuauTypeName(prop.type, declaredSpan);

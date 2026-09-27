@@ -11,7 +11,8 @@ target_link_libraries(Editor.App
         Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime Foundation::UI.Application
         Foundation::UI.Resource Engine::UI
         Foundation::Input Engine::Input Editor::Preview
-        Editor::Core Editor::ViewportTools Foundation::Settings Foundation::Policy)
+        Editor::Core Editor::ViewportTools Foundation::Settings Foundation::Policy
+        Editor::Mcp Foundation::Mcp Foundation::Mcp.Http) # the MCP host: the shared engine surface over HTTP
 
 target_sources(Editor.App
     PRIVATE
@@ -22,12 +23,17 @@ target_sources(Editor.App
         EditorIconsImpl.cpp
         ToolPanelImpl.cpp
         ContainerListEditorImpl.cpp
+        EditorMcpHostImpl.cpp
+        EditorProjectOperationsImpl.cpp
+        EditorPageToolsImpl.cpp EditorActionToolsImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
             LogView.cppm
             UIPage.cppm
             PageToolbar.cppm
+            ActionMenus.cppm
+            ActionShortcuts.cppm
             ToolPanel.cppm
             ToolPanelWidgets.cppm
             AssetsView.cppm
@@ -42,6 +48,10 @@ target_sources(Editor.App
             EditorIcons.cppm
             AssetPickerSlot.cppm
             ContainerListEditor.cppm
+            EditorMcpHost.cppm
+            EditorProjectOperations.cppm
+            EditorPageTools.cppm
+            EditorActionTools.cppm
             AssetDragData.cppm
             ProjectManagerView.cppm
             Shell.cppm

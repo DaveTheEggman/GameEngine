@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
-
 // Editor::App - :page_toolbar partition.
 //
-// PageToolbar: a standard per-page action bar - Save / Undo / Redo / Discard Changes - plus a slot
-// for page-specific buttons. Wired to the page's editor::EditorPage interface (Save(), the per-page
-// command stack, and DiscardChanges()); Refresh() syncs the button enabled states to the page's
-// dirty + undo/redo availability. A page prepends this to the top of its ContentView and calls
-// Refresh() each frame (cheap).
-
+// PageToolbar: a page's action bar, built from the action registry OVER THAT PAGE. The
+// standard set (file.save / edit.undo / edit.redo / page.discardChanges) comes first; a page
+// adds its own domain actions by id (AddAction). Every button shows the declaration's label,
+// executes through the registry with this page as the subject - not the active page, since a
+// split layout shows two pages and only one is active - and Refresh() syncs enabled and
+// checked from the registry's answer over this page. A page prepends this to the top of its
+// ContentView and calls Refresh() each frame (cheap).
 module;
 #include "Core/Prelude.h"
-
 export module editor.app:page_toolbar;
 
 import foundation.core;
@@ -28,52 +27,89 @@ export namespace editor::app
     class PageToolbar : public ui::toolkit::Toolbar
     {
     public:
-        explicit PageToolbar(editor::EditorPage& page) : m_page(&page)
+        PageToolbar(editor::EditorPage& page, editor::EditorActionRegistry& actions)
+            : m_page(&page), m_actions(&actions)
         {
-            PageToolbar* self = this;
-            m_save = AddButton(u8"Save");
-            m_save->OnClick.Add([self](ui::toolkit::ToolbarButton*) { (void)self->m_page->Save(); });
+            AddAction(u8"file.save");
             AddSeparator();
-            m_undo = AddButton(u8"Undo");
-            m_undo->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->m_page->Commands().Undo(); });
-            m_redo = AddButton(u8"Redo");
-            m_redo->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->m_page->Commands().Redo(); });
+            AddAction(u8"edit.undo");
+            AddAction(u8"edit.redo");
             AddSeparator();
-            m_discard = AddButton(u8"Discard Changes");
-            m_discard->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->m_page->DiscardChanges(); });
+            AddAction(u8"page.discardChanges");
             Refresh();
         }
 
-        // A page-specific action, added to the right of the standard set (e.g. "Audition").
-        ui::toolkit::ToolbarButton* AddPageButton(StringView label, Function<void()> onClick)
+        /// A button for the action `id`, over this page: a Command as a button, a Toggle or
+        /// Window as a toggle showing the checked state. Null when no such action is
+        /// registered (the page asked for a name its domain never declared; logged by the
+        /// registry's Find being null is the page's mistake to see in the bar).
+        ui::toolkit::ToolbarButton* AddAction(StringView id)
         {
-            if (!m_pageSlotOpen)
+            const editor::EditorActionDeclaration* action = m_actions->Find(id);
+            if (action == nullptr)
             {
-                AddSeparator();
-                m_pageSlotOpen = true;
+                return nullptr;
             }
-            ui::toolkit::ToolbarButton* btn = AddButton(label);
-            btn->OnClick.Add([fn = Move(onClick)](ui::toolkit::ToolbarButton*)
-                             { if (fn) fn(); });
-            return btn;
+            Bound bound;
+            bound.id = action->id;
+            if (action->kind == editor::EditorActionKind::Command)
+            {
+                bound.button = AddButton(action->label.AsView());
+            }
+            else
+            {
+                ui::toolkit::ToolbarToggle* toggle = AddToggle(action->label.AsView());
+                bound.toggle = toggle;
+                bound.button = toggle;
+            }
+            editor::EditorPage* page = m_page;
+            editor::EditorActionRegistry* actions = m_actions;
+            const String actionId = action->id;
+            bound.button->OnClick.Add([page, actions, actionId](ui::toolkit::ToolbarButton*)
+                                      { (void)actions->Execute(actionId.AsView(), page); });
+            ui::toolkit::ToolbarButton* button = bound.button;
+            m_bound.PushBack(Move(bound));
+            return button;
         }
 
-        // Sync button enabled states to the page. Cheap; call per frame from the page's OnUpdate.
+        /// Sync every button's enabled (and a toggle's checked) state to the registry's answer
+        /// over this page. Cheap; call per frame from the page's OnUpdate.
         void Refresh()
         {
-            const bool dirty = m_page->IsDirty();
-            m_save->IsEnabled = dirty;
-            m_discard->IsEnabled = dirty;
-            m_undo->IsEnabled = m_page->Commands().CanUndo();
-            m_redo->IsEnabled = m_page->Commands().CanRedo();
+            for (Bound& bound : m_bound)
+            {
+                bound.button->IsEnabled = m_actions->IsEnabled(bound.id.AsView(), m_page);
+                if (bound.toggle != nullptr)
+                {
+                    bound.toggle->SetIsChecked(m_actions->IsChecked(bound.id.AsView(), m_page));
+                }
+            }
+        }
+
+        [[nodiscard]] usize BoundCount() const noexcept { return m_bound.Size(); }
+        /// The button bound to `id`, or null (a page that wants to decorate one; the tests).
+        [[nodiscard]] ui::toolkit::ToolbarButton* ButtonFor(StringView id) const noexcept
+        {
+            for (const Bound& bound : m_bound)
+            {
+                if (bound.id.AsView() == id)
+                {
+                    return bound.button;
+                }
+            }
+            return nullptr;
         }
 
     private:
+        struct Bound
+        {
+            String id;
+            ui::toolkit::ToolbarButton* button = nullptr; // borrowed (toolbar-owned)
+            ui::toolkit::ToolbarToggle* toggle = nullptr; // the same button when a toggle
+        };
+
         editor::EditorPage* m_page;
-        ui::toolkit::ToolbarButton* m_save = nullptr;
-        ui::toolkit::ToolbarButton* m_undo = nullptr;
-        ui::toolkit::ToolbarButton* m_redo = nullptr;
-        ui::toolkit::ToolbarButton* m_discard = nullptr;
-        bool m_pageSlotOpen = false;
+        editor::EditorActionRegistry* m_actions;
+        Array<Bound> m_bound;
     };
 }

@@ -124,7 +124,9 @@ export namespace engine::runtime
         [[nodiscard]] bool Recorded() const noexcept { return m_recorded; }
         [[nodiscard]] StringView Path() const noexcept { return m_path.AsView(); }
 
-        /// Whether a surface format can be written as an 8-bit PNG.
+        /// Whether a surface format can be written as an 8-bit PNG: the 8-bit RGBA/BGRA surfaces
+        /// straight through, and RGBA16Float - the viewports' display-encoded LDR target, whose
+        /// values the tonemap already put in [0, 1] - quantised to bytes.
         [[nodiscard]] static bool CanCapture(rhi::TextureFormat format) noexcept
         {
             switch (format)
@@ -133,10 +135,15 @@ export namespace engine::runtime
             case rhi::TextureFormat::RGBA8UnormSrgb:
             case rhi::TextureFormat::BGRA8Unorm:
             case rhi::TextureFormat::BGRA8UnormSrgb:
+            case rhi::TextureFormat::RGBA16Float:
                 return true;
             default:
                 return false;
             }
+        }
+        [[nodiscard]] static u32 BytesPerPixel(rhi::TextureFormat format) noexcept
+        {
+            return format == rhi::TextureFormat::RGBA16Float ? 8u : 4u;
         }
         [[nodiscard]] static bool IsBgra(rhi::TextureFormat format) noexcept
         {
@@ -144,12 +151,15 @@ export namespace engine::runtime
                    format == rhi::TextureFormat::BGRA8UnormSrgb;
         }
 
-        /// Records the copy into `encoder` while `backbuffer` sits in RenderTarget state (the
-        /// state the host hands the frame over in and expects back). Disarms; false when nothing
-        /// was armed, the format cannot be captured, or the readback buffer could not be made -
-        /// each logged, so a silent no-op never passes for a screenshot.
+        /// Records the copy into `encoder` while `backbuffer` sits in `state` - RenderTarget for
+        /// a presented backbuffer (the state the host hands the frame over in and expects back),
+        /// ShaderRead for an editor viewport's finished colour target - and leaves it there.
+        /// Disarms; false when nothing was armed, the format cannot be captured, or the readback
+        /// buffer could not be made - each logged, so a silent no-op never passes for a
+        /// screenshot.
         bool Record(rhi::Device& device, rhi::CommandEncoder& encoder, rhi::Texture* backbuffer,
-                    rhi::TextureFormat format, u32 width, u32 height)
+                    rhi::TextureFormat format, u32 width, u32 height,
+                    rhi::ResourceState state = rhi::ResourceState::RenderTarget)
         {
             if (!m_armed)
             {
@@ -167,7 +177,8 @@ export namespace engine::runtime
                           static_cast<u32>(format));
                 return false;
             }
-            const u32 bytesPerRow = (width * 4u + (kRowAlignment - 1u)) & ~(kRowAlignment - 1u);
+            const u32 bytesPerRow =
+                (width * BytesPerPixel(format) + (kRowAlignment - 1u)) & ~(kRowAlignment - 1u);
             const u64 needed = static_cast<u64>(bytesPerRow) * height;
             if (m_readback == nullptr || m_readbackSize < needed)
             {
@@ -185,35 +196,48 @@ export namespace engine::runtime
                 }
                 m_readbackSize = needed;
             }
-            encoder.TransitionTexture(backbuffer, rhi::ResourceState::RenderTarget,
-                                      rhi::ResourceState::CopySrc);
+            encoder.TransitionTexture(backbuffer, state, rhi::ResourceState::CopySrc);
             rhi::BufferTextureCopyRegion region;
             region.bytesPerRow = bytesPerRow;
             region.rowsPerImage = height;
             region.textureExtent = rhi::Extent3D{width, height, 1};
             encoder.CopyTextureToBuffer(backbuffer, m_readback, region);
-            encoder.TransitionTexture(backbuffer, rhi::ResourceState::CopySrc,
-                                      rhi::ResourceState::RenderTarget);
+            encoder.TransitionTexture(backbuffer, rhi::ResourceState::CopySrc, state);
             m_width = width;
             m_height = height;
             m_bytesPerRow = bytesPerRow;
-            m_bgra = IsBgra(format);
+            m_format = format;
             m_recorded = true;
             return true;
         }
 
-        /// Copies the aligned rows the GPU wrote into a tight RGBA8 image, swizzling BGRA.
-        static void UnpackRows(const u8* mapped, u32 bytesPerRow, u32 width, u32 height, bool bgra,
-                               Span<u8> outRgba)
+        /// Copies the aligned rows the GPU wrote into a tight RGBA8 image: BGRA swizzled, a
+        /// 16-bit float texel clamped to [0, 1] and quantised (its values are display-encoded
+        /// already - encoding again would double-gamma the image).
+        static void UnpackRows(const u8* mapped, u32 bytesPerRow, u32 width, u32 height,
+                               rhi::TextureFormat format, Span<u8> outRgba)
         {
+            const bool bgra = IsBgra(format);
+            const bool half = format == rhi::TextureFormat::RGBA16Float;
+            const u32 bytesPerPixel = BytesPerPixel(format);
             for (u32 y = 0; y < height; ++y)
             {
                 const u8* src = mapped + static_cast<usize>(y) * bytesPerRow;
                 u8* dst = outRgba.Data() + static_cast<usize>(y) * width * 4u;
                 for (u32 x = 0; x < width; ++x)
                 {
-                    const u8* s = src + static_cast<usize>(x) * 4u;
+                    const u8* s = src + static_cast<usize>(x) * bytesPerPixel;
                     u8* d = dst + static_cast<usize>(x) * 4u;
+                    if (half)
+                    {
+                        for (u32 c = 0; c < 4; ++c)
+                        {
+                            u16 bits;
+                            MemCopy(&bits, s + c * 2u, sizeof(bits));
+                            d[c] = image::HalfToUnorm8(bits);
+                        }
+                        continue;
+                    }
                     d[0] = bgra ? s[2] : s[0];
                     d[1] = s[1];
                     d[2] = bgra ? s[0] : s[2];
@@ -242,7 +266,7 @@ export namespace engine::runtime
             }
             Array<u8> rgba(allocator);
             rgba.Resize(static_cast<usize>(m_width) * m_height * 4u);
-            UnpackRows(mapped, m_bytesPerRow, m_width, m_height, m_bgra, Span<u8>{rgba.Data(), rgba.Size()});
+            UnpackRows(mapped, m_bytesPerRow, m_width, m_height, m_format, Span<u8>{rgba.Data(), rgba.Size()});
             m_readback->Unmap();
             outImage = image::Image(m_width, m_height, image::PixelFormat::RGBA8,
                                     Span<const u8>{rgba.Data(), rgba.Size()});
@@ -285,6 +309,6 @@ export namespace engine::runtime
         rhi::Buffer* m_readback = nullptr;
         u64 m_readbackSize = 0;
         u32 m_width = 0, m_height = 0, m_bytesPerRow = 0;
-        bool m_bgra = false;
+        rhi::TextureFormat m_format = rhi::TextureFormat::RGBA8Unorm;
     };
 }

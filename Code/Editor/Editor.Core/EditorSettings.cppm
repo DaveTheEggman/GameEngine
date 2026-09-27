@@ -14,6 +14,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
 export module editor.core:editor_settings;
@@ -72,6 +73,63 @@ export namespace editor
 
     // Register the editor's Settings section types so a Settings store can instantiate them on Load.
     // Call once at editor startup, before LoadEditorSettings.
+    // The editor's MCP host - agent access to the OPEN project over localhost HTTP. Off by
+    // default. `port` is where it listens (one editor per port: a second editor takes
+    // another); `token` is the bearer secret the editor generates on first enable (see
+    // GenerateMcpToken) and also writes to <user-data>/mcp-token so a local agent
+    // self-configures. Edited in Preferences; `--mcp` / `--mcp-port` override one run.
+    inline constexpr u32 kEditorMcpDefaultPort = 7405;
+    class EditorMcpSettings final : public ISerializable
+    {
+        RTTI_OBJECT(EditorMcpSettings, ISerializable)
+    public:
+        bool enabled = false;
+        u32 port = kEditorMcpDefaultPort;
+        String token;
+
+        /// The Preferences fields as typed. `portText` must name a port in 1024..65535 (below
+        /// needs elevation, 0 cannot be put in a client's URL): anything else leaves the port
+        /// as it was and returns false. `token` is taken verbatim; empty means "mint a new one
+        /// on the next enable".
+        bool ApplyFromPreferences(bool enable, StringView portText, StringView newToken)
+        {
+            enabled = enable;
+            token = String(newToken);
+            const Optional<i64> parsed = ParseInt(portText);
+            if (!parsed.HasValue() || parsed.Value() < 1024 || parsed.Value() > 65535)
+            {
+                return false;
+            }
+            port = static_cast<u32>(parsed.Value());
+            return true;
+        }
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "enabled", enabled);
+            foundation::core::Serialize(ar, "port", port);
+            foundation::core::Serialize(ar, "token", token);
+        }
+    };
+
+    // A fresh bearer token for the MCP host: a Guid from OS entropy, in its canonical text (36
+    // chars) - a secret, so nothing seeded by the clock, which a neighbour can guess. Only
+    // when the OS refuses entropy does a clock-and-process seed stand in, with a warning.
+    [[nodiscard]] inline String GenerateMcpToken()
+    {
+        Guid secret;
+        if (!Guid::TryGenerateFromSystemEntropy(secret))
+        {
+            LOG_WARNING(u8"Editor", u8"the OS gave no entropy for the MCP token; minted from the "
+                                    u8"clock and the process id instead - treat it as guessable");
+            Random rng(GetTicks() ^ (static_cast<u64>(ProcessId()) << 32));
+            secret = Guid::Generate(rng);
+        }
+        utf8char text[37];
+        secret.ToChars(text);
+        return String(StringView(text, 36));
+    }
+
     inline void RegisterEditorSettingsTypes()
     {
         // EVERY section type needs BOTH registrations: the type (so Load can match the
@@ -85,6 +143,8 @@ export namespace editor
         RegisterSerializable<EditorFontSettings>();
         GlobalTypeRegistry().Register(EditorUiSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorUiSettings>();
+        GlobalTypeRegistry().Register(EditorMcpSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<EditorMcpSettings>();
     }
 
     // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>
@@ -130,4 +190,5 @@ export namespace editor
 
     RTTI_DEFINE_OBJECT_VERSIONED(EditorFontSettings, "rtti::editor::editor", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorUiSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(EditorMcpSettings, "rtti::editor::editor", 1)
 }

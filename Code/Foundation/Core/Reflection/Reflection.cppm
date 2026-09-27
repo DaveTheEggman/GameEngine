@@ -263,9 +263,16 @@ export namespace foundation::core
         return property.get(instance);
     }
 
+    /// Write a property. A read-only one refuses (NotSupported) whoever asks - a script
+    /// backend, an editor, an agent's tool - so the flag is a contract, not a hint each
+    /// consumer re-checks; the raw address stays the deliberate way around it.
     [[nodiscard]] inline Status SetProperty(const PropertyInfo& property, const Instance& instance,
                                             const Variant& value)
     {
+        if ((static_cast<u32>(property.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0)
+        {
+            return Status{ErrorCode::NotSupported};
+        }
         return property.set(instance, value);
     }
 

@@ -2044,7 +2044,10 @@ namespace foundation::scene
             return Status{ErrorCode::Internal};
         } // unparseable text stream
         SerializeScene(*ar, scene, ScenePrefabMode::Referenced, true, reader.Encoding());
-        return Status{};
+        // The reader's verdict IS the load's: a refused payload (a stale data version, a retired
+        // section layout, a short stream) leaves the scene partially filled, and every caller
+        // treats not-ok as "did not load" rather than showing that partial scene as the asset.
+        return ar->IsOk() ? Status{} : ar->GetStatus();
     }
 
     RTTI_DEFINE_OBJECT(SceneDocument, "rtti::scene")

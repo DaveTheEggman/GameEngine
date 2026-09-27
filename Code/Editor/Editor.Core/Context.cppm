@@ -17,11 +17,13 @@ export module editor.core:context;
 import foundation.core;
 import foundation.resource;
 import foundation.settings;
+import foundation.mcp;
 import pipeline.importer;
 import foundation.content;
 import :command;
 import :selection;
 import :page;
+import :actions;
 import :job_service;
 import :thumbnail_service;
 import :project;
@@ -82,6 +84,9 @@ export namespace editor
         explicit EditorContext(IAllocator& allocator) noexcept
             : m_allocator(&allocator), m_importers(allocator)
         {
+            // The nullary action calls (menus, chords, the palette, the MCP bridge) run over
+            // the active page; a page's own toolbar names its page instead.
+            m_actions.ActiveSubject = [this]() { return m_activePage; };
         }
 
         [[nodiscard]] IAllocator& Allocator() const noexcept { return *m_allocator; }
@@ -282,11 +287,38 @@ export namespace editor
         {
             return m_settingsContributions;
         }
+
+        /// Domain-contributed MCP tools: a domain's RegisterEditor (the scene editor, ...)
+        /// registers what only IT can serve over the live editor (the selection, simulate);
+        /// the MCP host applies every contribution to its server when it starts. Registered at
+        /// boot, before any host exists, like the settings contributions.
+        using McpToolContribution = Function<void(foundation::mcp::McpServer&)>;
+        void RegisterMcpToolContribution(McpToolContribution contribution)
+        {
+            m_mcpToolContributions.PushBack(static_cast<McpToolContribution&&>(contribution));
+        }
+        void ApplyMcpToolContributions(foundation::mcp::McpServer& server) const
+        {
+            for (const McpToolContribution& contribution : m_mcpToolContributions)
+            {
+                contribution(server);
+            }
+        }
+        [[nodiscard]] usize McpToolContributionCount() const noexcept
+        {
+            return m_mcpToolContributions.Size();
+        }
         [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
 
         // === Registries ===
 
         [[nodiscard]] EditorPageRegistry& Pages() noexcept { return m_pageRegistry; }
+
+        /// The editor's actions (see :actions): registered in the composition roots, every
+        /// surface built from them, executed through them.
+        [[nodiscard]] EditorActionRegistry& Actions() noexcept { return m_actions; }
+        [[nodiscard]] const EditorActionRegistry& Actions() const noexcept { return m_actions; }
+
 
         /// Asset creators (File > New <label>): create a fresh source instance in the project DB.
         /// Registered by per-subsystem editor modules; the shell builds menu items from them.
@@ -342,15 +374,21 @@ export namespace editor
 
         [[nodiscard]] Span<const UniquePtr<EditorPage>> OpenPages() const noexcept;
 
+        /// The source asset `assetId` changed OUTSIDE its page (apply-to-prefab, a regenerated
+        /// model prefab or scene, an agent's write over MCP): every open page editing it is
+        /// told (EditorPage::OnAssetExternallyModified) and refreshes by its own rule. Returns
+        /// how many pages were told.
+        usize NotifyAssetExternallyModified(const Guid& assetId);
+
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
         void SetActivePage(EditorPage* page);
-
-        // === Edit routing (menu Edit>Undo/Redo -> the active page's stack) ===
-
-        [[nodiscard]] bool CanUndo() const;
-        [[nodiscard]] bool CanRedo() const;
-        void Undo();
-        void Redo();
+        /// Makes `page` the active page AND brings its panel to front (OnRevealPage, which the
+        /// application wires to its dock): SetActivePage alone never raises a background tab,
+        /// and a hidden page's viewport never renders. What a tool that must SHOW a page calls.
+        void RevealPage(EditorPage* page);
+        /// Raises a page's panel so the user (and its viewport) can see it; the application
+        /// wires this to its dock, since the context owns no panels. Unset in a headless context.
+        Function<void(EditorPage*)> OnRevealPage;
 
         // === Selection ===
 
@@ -472,8 +510,10 @@ export namespace editor
         foundation::settings::Settings* m_projectEditorSettings = nullptr; // borrowed (app-owned)
         foundation::settings::Settings* m_userEditorSettings = nullptr;    // borrowed (app-owned)
         Array<EditorSettingsContribution> m_settingsContributions;
+        Array<McpToolContribution> m_mcpToolContributions;
         pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
+        EditorActionRegistry m_actions;
         Array<AssetCreator> m_creators;
         String m_clipboardKind;
         Array<byte> m_clipboard;

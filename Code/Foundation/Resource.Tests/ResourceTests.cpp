@@ -658,3 +658,27 @@ TEST_CASE("resource: the live-product report counts by type and flags cache-only
 
     RemoveTree();
 }
+
+TEST_CASE("resource: Ref<T> is a reference-shaped value - its TypeInfo reads the id, for any T")
+{
+    Ref<Material> ref;
+    CHECK(IsReferenceType(TypeOf<Ref<Material>>()));
+    CHECK(TypeOf<Ref<Material>>().reference->Id(&ref)->IsNil());
+    Random rng(9);
+    ref.SetId(Guid::Generate(rng));
+    CHECK(*TypeOf<Ref<Material>>().reference->Id(&ref) == ref.id);
+    // Through a Variant, as generic tooling meets it.
+    const Variant held = Variant::From(ref);
+    REQUIRE(IsReferenceType(*held.Type()));
+    CHECK(*held.Type()->reference->Id(held.ValuePointer()) == ref.id);
+    // Written by identity: the id set, a direct binding dropped.
+    RefPtr<Material> direct = MakeRef<Material>(DefaultAllocator());
+    ref = direct;
+    REQUIRE(ref.Get() != nullptr);
+    const Guid other = Guid::Generate(rng);
+    TypeOf<Ref<Material>>().reference->SetId(&ref, other);
+    TypeOf<Ref<Material>>().reference->ClearBinding(&ref);
+    CHECK(ref.id == other);
+    CHECK(ref.Get() == nullptr);
+}
+

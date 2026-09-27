@@ -16,11 +16,11 @@ namespace json = foundation::json;
 
 namespace
 {
-    // Parse a response line into a JsonValue (must be present + valid JSON).
-    JsonValue Response(const Optional<String>& line)
+    // Parse an answered line into a JsonValue (must be answered + valid JSON).
+    JsonValue Response(const LineOutcome& line)
     {
-        REQUIRE(line.HasValue());
-        json::ParseResult p = json::Parse(line.Value().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        json::ParseResult p = json::Parse(line.response.AsView());
         REQUIRE(p.ok);
         return p.value;
     }
@@ -55,6 +55,7 @@ namespace
     {
         s.RegisterTool(u8"echo", u8"Echoes the message back",
                        SchemaBuilder().Str(u8"message", u8"text to echo", true).Build(),
+                       foundation::mcp::ToolAnnotations::ReadOnly(),
                        [](const JsonValue& args) -> ToolResult
                        {
                            JsonValue out = JsonValue::MakeObject();
@@ -62,6 +63,7 @@ namespace
                            return out;
                        });
         s.RegisterTool(u8"fail", u8"Always fails", SchemaBuilder().Build(),
+        foundation::mcp::ToolAnnotations::ReadOnly(),
                        [](const JsonValue&) -> ToolResult
                        { return Err(String(u8"cook failed: bad input")); });
         s.RegisterResource(u8"mem://greeting", u8"greeting", u8"text/plain", u8"a greeting",
@@ -92,10 +94,13 @@ TEST_CASE("mcp: initialize returns the pinned version + {tools,resources} caps +
 TEST_CASE("mcp: notifications never get a response (initialized + unknown/cancelled)")
 {
     McpServer s;
-    CHECK_FALSE(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}").HasValue());
-    CHECK_FALSE(
-        s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{}}").HasValue());
-    CHECK_FALSE(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"method\":\"totally/unknown\"}").HasValue());
+    CHECK(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}")
+              .state == LineState::Notification);
+    CHECK(s.HandleLine(
+               u8"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{}}")
+              .state == LineState::Notification);
+    CHECK(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"method\":\"totally/unknown\"}").state ==
+          LineState::Notification);
 }
 
 TEST_CASE("mcp: ping")
@@ -131,6 +136,41 @@ TEST_CASE("mcp: tools/list emits names, descriptions, and inputSchemas")
     CHECK(schema.Get(u8"type").AsString() == StringView(u8"object"));
     CHECK(schema.Get(u8"properties").Has(u8"message"));
     CHECK(schema.Get(u8"required").At(0).AsString() == StringView(u8"message"));
+}
+
+TEST_CASE("mcp: tools/list emits every tool's annotations - a read-only tool and an overwriting "
+          "one say so in the MCP hints")
+{
+    McpServer s;
+    Setup(s); // echo + fail are read-only
+    s.RegisterTool(u8"clobber", u8"Replaces a thing", SchemaBuilder().Build(),
+                   ToolAnnotations::Overwrites(),
+                   [](const JsonValue&) -> ToolResult { return JsonValue::MakeObject(); });
+    JsonValue r = Response(s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}"));
+    const JsonValue tools = r.Get(u8"result").Get(u8"tools");
+    REQUIRE(tools.Count() == 3);
+    const auto find = [&tools](StringView name) -> JsonValue
+    {
+        for (usize i = 0; i < static_cast<usize>(tools.Count()); ++i)
+        {
+            if (tools.At(i).Get(u8"name").AsString().AsView() == name)
+            {
+                return tools.At(i).Get(u8"annotations");
+            }
+        }
+        return JsonValue::MakeNull();
+    };
+    JsonValue echo = find(u8"echo");
+    REQUIRE(echo.IsObject());
+    CHECK(echo.Get(u8"readOnlyHint").AsBool());
+    CHECK_FALSE(echo.Get(u8"destructiveHint").AsBool());
+    CHECK(echo.Get(u8"idempotentHint").AsBool());
+    CHECK_FALSE(echo.Get(u8"openWorldHint").AsBool());
+    JsonValue clobber = find(u8"clobber");
+    REQUIRE(clobber.IsObject());
+    CHECK_FALSE(clobber.Get(u8"readOnlyHint").AsBool());
+    CHECK(clobber.Get(u8"destructiveHint").AsBool());
+    CHECK(clobber.Get(u8"idempotentHint").AsBool());
 }
 
 TEST_CASE("mcp: tools/call round-trips through the registry (result is JSON-stringified text)")
@@ -296,4 +336,113 @@ TEST_CASE("mcp: framing survives garbage (-32700) and drives multiple messages; 
     JsonValue p = json::Parse(t.Output(1).AsView()).value;
     CHECK(p.Get(u8"id").AsInt() == 7);
     CHECK(p.Has(u8"result"));
+}
+
+// --- Observer -------------------------------------------------------------
+
+TEST_CASE("mcp: the tool observer hears every finished tools/call by name, with its outcome, "
+          "and nothing else")
+{
+    McpServer s;
+    Setup(s);
+    Array<String> heard;
+    s.SetToolObserver([&heard](StringView tool, bool isError)
+                      { heard.PushBack(Format(u8"{}:{}", tool, isError ? u8"err" : u8"ok")); });
+
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"echo\",\"arguments\":{\"message\":\"hi\"}}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"fail\"}}");
+    // Not a finished tool run: a schema refusal (-32602), an unknown tool, a ping.
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"echo\",\"arguments\":{}}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":"
+                       u8"{\"name\":\"nope\"}}");
+    (void)s.HandleLine(u8"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"ping\"}");
+
+    REQUIRE(heard.Size() == 2);
+    CHECK(heard[0] == u8"echo:ok");
+    CHECK(heard[1] == u8"fail:err");
+}
+
+// --- Not finished ---------------------------------------------------------
+
+namespace
+{
+    // A tool that answers on its `answerOnCall`-th entry and says "not finished" before that:
+    // the shape of a tool waiting on a background job, minus the job.
+    struct SlowTool
+    {
+        u32 calls = 0;
+        u32 answerOnCall = 3;
+    };
+
+    void RegisterSlow(McpServer& s, SlowTool& slow)
+    {
+        s.RegisterTool(u8"slow", u8"Answers after a few re-entries", SchemaBuilder().Build(),
+        foundation::mcp::ToolAnnotations::ReadOnly(),
+                       [&slow](const JsonValue&) -> ToolOutcome
+                       {
+                           ++slow.calls;
+                           if (slow.calls < slow.answerOnCall)
+                           {
+                               return ToolOutcome::NotFinished();
+                           }
+                           JsonValue out = JsonValue::MakeObject();
+                           out.Set(u8"calls", JsonValue::MakeNumber(static_cast<f64>(slow.calls)));
+                           return out;
+                       });
+    }
+
+    constexpr StringView kSlowCall =
+        u8"{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"slow\"}}";
+}
+
+TEST_CASE("mcp: a tool that is not finished makes HandleLine say so, until the same line lands "
+          "its answer")
+{
+    McpServer s;
+    SlowTool slow;
+    RegisterSlow(s, slow);
+
+    LineOutcome first = s.HandleLine(kSlowCall);
+    CHECK(first.state == LineState::NotFinished);
+    CHECK(first.response.IsEmpty());
+    LineOutcome second = s.HandleLine(kSlowCall);
+    CHECK(second.state == LineState::NotFinished);
+    JsonValue r = Response(s.HandleLine(kSlowCall));
+    CHECK(r.Get(u8"id").AsInt() == 9);
+    CHECK(r.Get(u8"result").Get(u8"isError").AsBool() == false);
+    CHECK(Contains(r.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString().AsView(),
+                   u8"\"calls\":3"));
+    CHECK(slow.calls == 3);
+
+    // A finished tool is unaffected: its ToolResult converts to a finished outcome.
+    Setup(s);
+    JsonValue e = Response(s.HandleLine(
+        u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\","
+        u8"\"arguments\":{\"message\":\"hi\"}}}"));
+    CHECK(e.Get(u8"result").Get(u8"isError").AsBool() == false);
+}
+
+TEST_CASE("mcp: Serve re-enters a not-finished line until it answers - one output line, the "
+          "handler entered once per attempt")
+{
+    McpServer s;
+    Setup(s);
+    SlowTool slow;
+    slow.answerOnCall = 4;
+    RegisterSlow(s, slow);
+    InMemoryTransport t;
+    t.Push(String(kSlowCall));
+    t.Push(String(u8"{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"ping\"}"));
+    Serve(s, t);
+
+    REQUIRE(t.OutputCount() == 2); // the waits produced no line; the ping still got through
+    CHECK(slow.calls == 4);
+    JsonValue r = json::Parse(t.Output(0).AsView()).value;
+    CHECK(r.Get(u8"id").AsInt() == 9);
+    CHECK(Contains(r.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString().AsView(),
+                   u8"\"calls\":4"));
+    CHECK(json::Parse(t.Output(1).AsView()).value.Get(u8"id").AsInt() == 7);
 }

@@ -329,3 +329,17 @@ TEST_CASE("string: FormatFixed formats with N decimals")
     CHECK(FormatFixed(-2.5, 1) == u8"-2.5");
     CHECK(FormatFixed(0.0, 2) == u8"0.00");
 }
+
+TEST_CASE("string: StringView::Compare orders byte-lexically, a shorter prefix first")
+{
+    CHECK(StringView(u8"apple").Compare(u8"banana") < 0);
+    CHECK(StringView(u8"banana").Compare(u8"apple") > 0);
+    CHECK(StringView(u8"same").Compare(u8"same") == 0);
+    CHECK(StringView(u8"ab").Compare(u8"abc") < 0);   // the prefix sorts first
+    CHECK(StringView(u8"abc").Compare(u8"ab") > 0);
+    CHECK(StringView().Compare(u8"") == 0);
+    CHECK(StringView().Compare(u8"a") < 0);
+    CHECK(StringView(u8"B").Compare(u8"a") < 0);      // bytes, not letters: 'B' (66) < 'a' (97)
+    CHECK(StringView(u8"\u00e9").Compare(u8"z") > 0); // UTF-8 lead byte 0xC3 sorts after ASCII
+}
+

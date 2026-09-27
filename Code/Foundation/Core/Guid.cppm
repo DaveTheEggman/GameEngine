@@ -11,6 +11,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/System/SystemBackend.h" // sys::FillEntropy (TryGenerateFromSystemEntropy)
 
 export module foundation.core:guid;
 
@@ -47,11 +48,21 @@ export namespace foundation::core
         // reproducible ids, or share one device for unique ids.
         [[nodiscard]] static Guid Generate(Random& rng) noexcept
         {
-            Guid g{rng.NextU64(), rng.NextU64()};
-            // Set version (4) and variant (RFC 4122, 10xx) bits.
-            g.high = (g.high & 0xFFFFFFFFFFFF0FFFull) | 0x0000000000004000ull;
-            g.low = (g.low & 0x3FFFFFFFFFFFFFFFull) | 0x8000000000000000ull;
-            return g;
+            return Tagged(Guid{rng.NextU64(), rng.NextU64()});
+        }
+
+        // Random (version-4) GUID from OS entropy: one nobody can predict or replay (a
+        // secret, a token), never for ids that must reproduce from a seed. False when the
+        // OS refused entropy; `out` is untouched then.
+        [[nodiscard]] static bool TryGenerateFromSystemEntropy(Guid& out) noexcept
+        {
+            u64 words[2];
+            if (!sys::FillEntropy(words, sizeof(words)))
+            {
+                return false;
+            }
+            out = Tagged(Guid{words[0], words[1]});
+            return true;
         }
 
         // Canonical lowercase 8-4-4-4-12 form into `out` (36 chars + null).
@@ -124,6 +135,14 @@ export namespace foundation::core
         static const Guid Nil;
 
     private:
+        // The version (4) and variant (RFC 4122, 10xx) bits over 128 random bits.
+        [[nodiscard]] static constexpr Guid Tagged(Guid g) noexcept
+        {
+            g.high = (g.high & 0xFFFFFFFFFFFF0FFFull) | 0x0000000000004000ull;
+            g.low = (g.low & 0x3FFFFFFFFFFFFFFFull) | 0x8000000000000000ull;
+            return g;
+        }
+
         [[nodiscard]] static constexpr i32 HexValue(utf8char c) noexcept
         {
             if (c >= utf8char('0') && c <= utf8char('9'))

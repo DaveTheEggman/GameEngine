@@ -1,6 +1,6 @@
 # MCP: agent access to the engine, pipeline, and editor
 
-**Status:** ACTIVE - P0 building (Opus). ALL discussion points resolved (json placement, naming, endpoint opt-in, mutation scope)
+**Status:** ACTIVE - P0/P1 SHIPPED (24 tools over stdio); P2 editor host BUILDING on branch `editor-mcp` from 2026-09-25 (plan below, "P2 build plan")
 **[DISCUSS]**. Everything else is recommendation-grade and buildable once
 those settle.
 
@@ -848,6 +848,212 @@ the PATTERN to reach for if real sessions show scene_write's whole-file
 granularity is too coarse: a scene session (open -> edits -> validate ->
 save) still lands on files-are-truth at save. Revisit with usage evidence,
 not before.
+
+## PRIOR ART 3 (2026-09-25): the chat window - ezEngine, Traktor, Doriax
+
+The user asked where the agent's conversation lives once the editor serves MCP. Three
+clones re-read for exactly that (~/Dev/CPP/ezEngine, ~/Dev/CPP/traktor, ~/Dev/CPP/doriax).
+
+**ezEngine: no chat, fully unattended.** The agent lives outside (Claude Code and the like)
+and talks to the editor over MCP. Inside, the editor never waits for a human during a tool
+call: `ezQtScopedUnattended` makes every message box log its text and return its declared
+UNATTENDED ANSWER (each question names one - the answer that lets automated work proceed,
+the accident-preventing one only where proceeding would destroy unrecoverable data),
+`ezQtDialog::exec()` returns without showing, and anything entering a nested event loop
+outside those paths (file pickers) checks `SuppressModalWindow` itself. What was suppressed
+is recorded (bounded) and reported: `action_execute` lists it under `suppressedDialogs`
+with a note ("the action most likely did nothing - look for a dedicated tool, or ask the
+user"), the other tools rely on the log. Failed asserts are caught the same way and turn
+the result into an error telling the agent to restart the editor. The user sees the agent's
+work through the editor's own log and through the editor changing under them; there is no
+panel.
+
+**Traktor: no chat either.** `McpServerEditorPlugin` starts the server on a setting
+(`Editor.McpServer`, port 13880) and pumps it on its own thread; ~45 tools plus the skill
+tools and a prompt provider (skills as assets, surfaced as MCP prompts - the idea we adopted
+in prior art 2). No editor UI beyond the log line "MCP server listening". The conversation
+is the external client's.
+
+**Doriax: a full in-editor assistant, without MCP.** `editor/window/AiChatWindow` (2.9k
+lines) over `editor/ai/` (~13k): the editor IS the agent's front end and the tool loop.
+- Providers: OpenAI, Anthropic, Gemini, OpenAI-compatible endpoints (`AiProvider.cpp`
+  speaks each one's tool-calling dialect: `tools`/`tool_use`/`tool_result` for Anthropic,
+  function tools for OpenAI, function declarations for Gemini), with a model catalog per
+  account, rate-limit retry with backoff, and a `SecretStore` that keeps API keys
+  obfuscated with a machine-bound seed in the config directory.
+- The loop: `AiService` runs requests on a worker thread; the model's tool calls become
+  `ActionProposal`s (name, arguments, a human `description`, `readOnly`); the window
+  executes an approved proposal ON THE MAIN THREAD through `EditorActionExecutor`
+  (5.7k lines of editor actions: entities, components, scenes, scripts, terrain, builds,
+  play mode...), the result goes back as a tool result, and `update()` re-sends
+  automatically while the conversation ends on unanswered tool results. Tool definitions
+  come from a static `EditorActionRegistry` (name, description, JSON parameters,
+  `readOnly`; validates arguments and describes a call in one line for the transcript).
+- Three approval modes, the piece that answers "who decides": PREVIEW THEN APPROVE (every
+  proposal shows with Approve / Dismiss), AUTO-RUN READ-ONLY (read-only proposals run at
+  once, writes wait for approval), FULL AGENT (everything runs, budgeted per frame so one
+  slow action cannot freeze the UI). The `readOnly` flag on each action is what makes the
+  middle mode possible.
+- The transcript: @mentions (selection, project, scene, entity, file, open file) that
+  insert live editor context into the prompt, image attachments, conversation history
+  persisted per project (`ConversationStore`), engine API context injected into the system
+  prompt (`AiEngineApiContext`, so it can draft Lua/C++ against the real API), a
+  notification badge when a reply lands while the window is hidden.
+- The cost: a second tool surface (their registry, not MCP), every provider's wire
+  dialect maintained by hand, keys and billing inside the editor, and the model choice as
+  an editor setting.
+
+**What this means for us.** Two products are on the table and they compose:
+- A (the cheap half, ezEngine's model plus a panel): the agent stays external (Claude Code
+  over our HTTP host); the editor gets an AGENT PANEL showing the calls and outcomes (the
+  tool observer already delivers them) and, unlike ezEngine, the questions: an unattended
+  call that hits a decision (reload a dirty page? overwrite?) parks the question in the
+  panel and answers "not yet" (our re-entry) until the user clicks or a timeout takes the
+  declared unattended answer. That is ezEngine's unattended contract with a human in the
+  loop when one is present, and it is what the earlier "surface dialog choices to the chat"
+  idea needs.
+- B (Doriax's product): the conversation inside the editor. Two ways to get there, and
+  only one is cheap: (1) host an agent RUNTIME - Claude Code via the Agent SDK or the CLI
+  as a subprocess, with the editor's own MCP host registered to it - so the panel is a
+  transcript and a text box and the tool loop, the skills, the docs and the approvals are
+  the runtime's; or (2) Doriax's way, an API client and a tool loop of our own, which
+  means re-building what the runtime already is and a second tool registry. Our MCP surface
+  makes (1) natural: the approval modes map onto MCP tool annotations (readOnlyHint /
+  destructiveHint, which our tools do not carry yet) and the runtime's permission system.
+
+## P2 build plan (user rulings 2026-09-25; branch `editor-mcp`)
+
+Restarted after the dev-box loss with the ezEngine editor plugin re-read (clone at
+~/Dev/CPP/ezEngine, Code/EditorPlugins/Mcp). What it settled, beyond the P2 section above:
+
+- **Async tools stay async.** The editor's import and cook are non-blocking (a background
+  `EditorCookService` with a build lock, imports riding deferred writes) and MCP must not
+  undo that. ezEngine's `asset_transform` BLOCKS the main thread for minutes; its
+  `longop_execute` does not - it returns "not finished", the transport keeps the client
+  waiting, and the host re-enters the tool with the same arguments every pump until it
+  answers, the tool keeping its own cursor + timeout. We take the second shape everywhere
+  a tool waits on the editor's own services: cook rides `RequestCookFor` + `IsCooking`,
+  export rides the export job, a worker-side import rides its job. The STDIO host has no
+  frame to pump, so `Serve` re-enters on a short sleep; its tools' synchronous paths are
+  unchanged (the execution strategy is the host's, the tool's interface is shared).
+- **One shared composition root, then per-host additions.** `editor::mcp::
+  RegisterEngineTools(server, session, ...)` lists the base surface once with a count
+  tripwire (the Pipeline::Registration pattern - Tools.Mcp/Main.cpp hand-listed 14 calls);
+  each host adds what only it can serve (editor: page_/selection_/simulate_/screenshot/
+  action_ tools; stdio: project_create/open). `host_info.serverName` tells the hosts apart.
+- **`ProjectSession` is NON-OWNING** (`EditorProject*`): the editor host points it at the
+  live project (same ContentDatabase object - no two-writer problem in-process; a UI
+  refresh notice after an MCP write is what remains); the stdio host keeps its own
+  UniquePtr beside the session.
+- **Opt-in + port + token** as decided in P2, plus ezEngine's per-editor port flag
+  (`--mcp-port <n>`, so tests can run several editors); the default port is fixed and
+  documented in the skill. Token kept (Mcp.Http refuses without one).
+- **Unattended mode for tool calls** (ezEngine's `ezQtScopedUnattended`): a scoped flag on
+  EditorContext suppresses modal dialogs for the duration of a call and the call's result
+  REPORTS what was suppressed - a suppressed dialog is otherwise indistinguishable from
+  nothing having happened. Surfacing those choices to the agent's chat for the user to
+  answer is a later idea, not this track.
+- **Server lifetime = project lifetime**: starts on project open, stops on close
+  (everything it exposes is project-specific).
+- **Documents are never opened implicitly** and destructive decisions are ARGUMENTS
+  (`discard`, `force`) - a tool never waits for a human. Every tool returns the identity
+  of what it touched.
+
+Landing order - one layer per commit, each with its passing tests, both compilers green:
+
+1. `foundation.http`: a handler may answer NOT YET. The handler returns
+   `Optional<HttpResponse>` and an empty answer means "ask me again": the server keeps
+   the parsed request on its connection, skips reading, and re-dispatches it every Pump
+   until the handler answers; a peer that closes while waiting is dropped;
+   `PendingRequestCount()` so an idle host can tell a client is waiting. (First landed as
+   a `deferred` field on HttpResponse; the user's review moved it: a response is only ever
+   a response, "not yet" is the absence of one.) Test: a handler that says not yet N pumps
+   then answers, the client sees one 200; the peer-closed-while-waiting drop.
+2. `foundation.mcp`: `ToolOutcome` - a handler returns an answer (`ToolResult`, unchanged,
+   so every registered tool compiles as is) or `ToolOutcome::NotFinished()`.
+   `HandleLine` returns `{state, response}` with state Answered / Notification /
+   NotFinished (the Optional<String> shape could not say "not yet"); `Serve` re-enters a
+   NotFinished line after a 1 ms sleep. Tests: the three states through tools/call, and
+   the Serve spin (handler entered N times, one output line).
+3. `foundation.mcp.http`: NotFinished -> `HttpResponse::Deferred()`; `HasPendingRequest()`.
+   Test: a deferring tool over real loopback, the pending flag observed mid-wait.
+4. `editor.mcp`: non-owning ProjectSession + `RegisterEngineTools` with the tripwire;
+   Tools.Mcp composes through it. Tests: the count, Integration.Mcp goldens unchanged.
+5. `editor.app`: `EditorMcpHost` (server + McpHttpHost, Pump in OnUpdate, start/stop on
+   project open/close), `EditorMcpSettings` (enabled, port, token) + Preferences UI, the
+   `<userdata>/mcp-token` file, `--mcp` / `--mcp-port`, host_info with editor state.
+   Tests: Editor.App.Tests starts the host over loopback and round-trips host_info +
+   project_info; the settings section round-trip; the token file.
+   BUILT 2026-09-25 (six commits: the docs locator shared by both hosts, the settings
+   section + GenerateMcpToken, the host, the tool observer in foundation.mcp, the
+   Preferences section with live apply). Two things the code decided: the UNATTENDED
+   scope moved to layer 7 - no shared tool opens a dialog (editor.mcp is UI-free by
+   construction), so it has no consumer before the live tools; and the post-write
+   refresh needs no new path - a write lands in the editor's own source DB and files,
+   the cook service's Sources/ watch cooks it, and OnCookFinished already rebuilds the
+   Assets view; the status bar shows each finished call through the tool observer.
+   Server name `engine-editor-mcp`; default port 7405.
+6. `editor.app`: the async strategies - asset_cook over EditorCookService (refused with
+   the reason while MutationLocked), project_export over the export job, asset_import
+   over the deferred-write path. Tests: a cook that spans pumps answers with the real
+   counts; the busy refusal.
+   BUILT 2026-09-25 (three commits): editor.mcp's IProjectOperations seam (the tools keep
+   their contract, the host supplies where the work runs; InlineProjectOperations is the
+   stdio host's), the cook service's CookSummary (and a Shutdown that leaves it
+   quiescent - the first cook-service test found the stuck m_cooking), and
+   EditorProjectOperations on the editor's cook + job services. One ruling refined by the
+   code: nothing is REFUSED while the databases are locked - the cook service remembers a
+   request that arrives mid-cook and an import waits for the lock to clear, so the agent
+   simply waits (with a timeout) instead of being told to retry.
+7. The live tools, in the P2 section's list, with the unattended scope (a scoped flag
+   on EditorContext: modals suppressed for the call and reported in its result); then
+   P2b.
+   FIRST STEP BUILT 2026-09-25 (settled the page system before the tools, per the user):
+   a page publishes the interfaces it implements (IPageService, EditorPage::Provide /
+   Service by type); ISceneEditorPage in Editor.Scene is the page-level surface of a scene
+   or prefab page (its SceneEditContext + the Simulate control; ViewportToolHostContext
+   stays the framework-level one); the scene editor contributes selection_get /
+   selection_set / simulate_start / simulate_stop, page-addressed by the asset guid,
+   defaulting to the active page. page_reload refreshes the page in place through its own
+   OnAssetExternallyModified (force = the page's DiscardChanges first), and a scene_write /
+   prefab_write over an open page's asset reaches it the same way (ProjectSession::
+   onAssetWritten, wired by the editor host to EditorContext::NotifyAssetExternallyModified):
+   a clean page reloads, a dirty page keeps its edits and warns. Found on the way: LoadScene
+   ignored the reader's verdict (fixed), and the tracked PaperKid streams were a month stale
+   (re-stamped; the sample test parses every stream now). BUILT 2026-09-26, the action
+   bridge and the unattended scope, on the editor's action system
+   (Documentation/Specs/editor-actions.md): action_list / action_state / action_execute over
+   the registry, executed through the one funnel every surface uses; unattended = the UI
+   context's DialogInterceptor for the call's duration, every dialog closed as cancelled (the
+   accident-preventing answer) and named under `suppressedDialogs` with the note; no declared
+   per-question answers yet (a flow that must PROCEED unattended will declare one when a real
+   case appears; MCP elicitation stays the route for asking). entity_inspect BUILT 2026-09-26: the
+   inspector's view of one entity through reflection (Properties / GetProperty, nested
+   structures and lists expanded, enums by name), with reference-shaped values read by
+   identity through the new ReferenceTraits customization point on TypeInfo (Resource
+   marks Ref<T>; no per-type ladder anywhere). P2b's property writes BUILT
+   2026-09-26: component_set through SceneEditContext (leaves by Variant, enums through the
+   raw path, entity refs, and a generic reference command over the TypeInfo's ReferenceOps),
+   one locked undo group labelled "mcp" per call so an agent's calls never merge with each
+   other or the user's scrubs, a failed command dropped not pushed, refused while simulating,
+   nothing saved implicitly; the undo tool is action_execute edit.undo over the active page.
+   Nested structures and lists are not writable through it yet (scene_write edits the
+   source). viewport_screenshot BUILT 2026-09-26 with viewport_camera_get / viewport_camera_set:
+   the page owns the capture (ISceneEditorPage::RequestViewportCapture, recorded off the
+   viewport's finished colour target in ShaderRead by the shared ScreenshotCapture, completed
+   next frame), the tool returns NotFinished each pump until Written and gives up after ten
+   seconds; the camera tools move the EditorCamera in degrees (lookAt wins), editor state only.
+   The image is the view as the user sees it: the grid, the selection's gizmo and the gizmo's
+   overlay text are in it, because the editor writes them to the PER-VIEW debug list keyed by
+   the viewport (RenderScene's viewportKey, Views.cppm SetDebugView; the gizmo text is a debug
+   draw text in the same list). A debug-draw-free shot is therefore NOT a flag on this capture
+   but a second render, the way the camera preview (task #118) already gets one: RenderScene
+   into a private offscreen target under its OWN key (an empty debug list), the per-scene
+   debug list aside, captured from that target - the user's viewport untouched. Parked until a
+   need shows; the user ruled it unnecessary for the tool now (2026-09-26).
+   REMAINING in 7: the Agent panel.
+The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
+bearer header) in the commit that makes the host reachable (5).
 
 ## P2G - the GAME host (new phase; after P2, shares its transport)
 

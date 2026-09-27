@@ -205,12 +205,13 @@ export namespace editor::mcp
                        kind, kind),
                 SchemaBuilder().Str(u8"guid", Format(u8"the {} asset's guid", kind).AsView(), true)
                     .Build(),
+                    foundation::mcp::ToolAnnotations::ReadOnly(),
                 [s, wantedType = String(wantedType), sibling = String(sibling)](
                     const JsonValue& args) -> ToolResult
                 {
                     String error;
                     content::Instance* instance = detail::ResolveDocument(
-                        s->project.Get(), args.Get(u8"guid").AsString().AsView(),
+                        s->project, args.Get(u8"guid").AsString().AsView(),
                         wantedType.AsView(), sibling.AsView(), error);
                     if (instance == nullptr)
                     {
@@ -244,6 +245,7 @@ export namespace editor::mcp
                 .Str(u8"guid", u8"a scene/prefab asset guid whose stored stream to validate",
                      false)
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [s](const JsonValue& args) -> ToolResult
             {
                 String xml = args.Get(u8"xml").AsString();
@@ -256,7 +258,7 @@ export namespace editor::mcp
                 }
                 if (!guidText.IsEmpty())
                 {
-                    if (s->project.Get() == nullptr)
+                    if (s->project == nullptr)
                     {
                         return Err(String(u8"no project is open - call project_open first"));
                     }
@@ -301,10 +303,11 @@ export namespace editor::mcp
                     .Str(u8"group", u8"slash-joined group path for a NEW asset (default root)",
                          false)
                     .Build(),
+                    foundation::mcp::ToolAnnotations::Overwrites(),
                 [s, wantedType = String(wantedType), sibling = String(sibling),
                  singleRoot](const JsonValue& args) -> ToolResult
                 {
-                    if (s->project.Get() == nullptr)
+                    if (s->project == nullptr)
                     {
                         return Err(String(u8"no project is open - call project_open first"));
                     }
@@ -336,7 +339,7 @@ export namespace editor::mcp
                     if (!guidText.IsEmpty())
                     {
                         String error;
-                        instance = detail::ResolveDocument(s->project.Get(), guidText.AsView(),
+                        instance = detail::ResolveDocument(s->project, guidText.AsView(),
                                                            wantedType.AsView(), sibling.AsView(),
                                                            error);
                         if (instance == nullptr)
@@ -396,6 +399,10 @@ export namespace editor::mcp
                     if (!wrote.IsOk())
                     {
                         return Err(String(u8"failed writing the scene stream to disk"));
+                    }
+                    if (s->onAssetWritten)
+                    {
+                        s->onAssetWritten(instance->Id());
                     }
 
                     JsonValue out = detail::ReportToJson(report);

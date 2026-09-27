@@ -22,6 +22,7 @@ module;
 module editor.scene;
 
 import foundation.core;
+import foundation.image; // the written capture, for its size
 import foundation.settings; // per-scene grid pref in the project editor settings store
 import :view_settings;       // SceneViewSettings + Load/SaveSceneGridPref helpers
 import foundation.content;
@@ -78,8 +79,22 @@ namespace editor
             editor::EditorRootAllocator().New<SceneEditorPage>(context, *m_host, *m_uiHost, instance),
             editor::EditorRootAllocator());
     }
-    void SceneEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
+    void SceneEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // A viewport capture recorded last frame: the GPU has to finish the copy - a one-off,
+        // so wait for everything, then map and write.
+        if (m_screenshot.Recorded())
+        {
+            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
+            {
+                gfx->Raw()->WaitIdle();
+                foundation::image::Image written;
+                const Status saved = m_screenshot.Complete(*gfx->Raw(), host.Ctx().Allocator(), written);
+                m_capture.state = saved.IsOk() ? ViewportCaptureState::Written : ViewportCaptureState::Failed;
+                m_capture.width = written.Width();
+                m_capture.height = written.Height();
+            }
+        }
         EnsureViewportBound();
         if (m_hostWindow == nullptr)
         {
@@ -253,8 +268,34 @@ namespace editor
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
                               &m_postOverride, /*viewportKey*/ m_viewport.Get(), &m_debugView);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+        m_renderedThisFrame = true; // OnAfterSceneRender captures this frame's image
+        m_captureWidth = w;
+        m_captureHeight = h;
 
         RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
+    }
+
+    void SceneEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
+                                             foundation::graphics::FrameContext& frame)
+    {
+        // The requested capture, recorded AFTER the scene renderer composed this frame:
+        // RenderScene only adds the view, and EndRendering (which runs before this hook)
+        // writes the image. A copy recorded in OnRenderWindow read the previous frame's image,
+        // or an empty target on the first frame a tab is shown. The target sits in ShaderRead,
+        // where the graph left it for the UI; OnUpdate completes the capture next frame.
+        const bool rendered = m_renderedThisFrame;
+        m_renderedThisFrame = false;
+        if (!rendered || !m_screenshot.Armed() || frame.encoder == nullptr ||
+            host.Graphics() == nullptr || host.Graphics()->Raw() == nullptr)
+        {
+            return;
+        }
+        if (!m_screenshot.Record(*host.Graphics()->Raw(), *frame.encoder, m_viewport->ColorTexture(),
+                                 m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
+                                 rhi::ResourceState::ShaderRead))
+        {
+            m_capture.state = ViewportCaptureState::Failed; // logged by the capture
+        }
     }
 
     void SceneEditorPage::CreatePrefabFromEntity(const Guid& entityId)
@@ -427,13 +468,7 @@ namespace editor
         }
         // An open editor page on the prefab itself shows the TEMPLATE (plain entities,
         // not an instance) - the rebuild above can't reach it; tell it to refresh.
-        for (const UniquePtr<editor::EditorPage>& open : m_context->OpenPages())
-        {
-            if (open->InstanceId() == prefabId)
-            {
-                open->OnAssetExternallyModified();
-            }
-        }
+        (void)m_context->NotifyAssetExternallyModified(prefabId);
         String message(u8"Applied to prefab '");
         message += asset->Name();
         message += u8"' (not undoable - the asset changed).";
@@ -716,6 +751,21 @@ namespace editor
         return saved;
     }
 
+    bool SceneEditorPage::CameraOwnsInput() const noexcept
+    {
+        // Alt orbit, right-button fly, or the Tab-captured fly mode (which owns WASD too).
+        if (m_viewport.Get() == nullptr)
+        {
+            return m_camera.mouseCaptured;
+        }
+        foundation::shell::IMouse* mouse = m_viewport->Mouse();
+        foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
+        return (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
+                                  kb->IsKeyDown(foundation::shell::KeyCode::RightAlt))) ||
+               (mouse != nullptr && mouse->IsButtonDown(foundation::shell::MouseButton::Right)) ||
+               m_camera.mouseCaptured;
+    }
+
     void SceneEditorPage::OnClose()
     {
         // Where the scene was left: the camera and the selection, for the next open.
@@ -736,6 +786,10 @@ namespace editor
             m_render->CancelPicks(m_viewport.Get()); // the key dies with the viewport
         }
         // GPU targets + external-texture registration go while device + VGRenderer live.
+        if (m_host->Graphics() != nullptr && m_host->Graphics()->Raw() != nullptr)
+        {
+            m_screenshot.Release(*m_host->Graphics()->Raw()); // the readback buffer
+        }
         m_viewport->Shutdown();
         if (m_scene != nullptr)
         {
@@ -918,11 +972,7 @@ namespace editor
         in.viewportWidth = m_viewport->RenderWidth();
         in.viewportHeight = m_viewport->RenderHeight();
 
-        const bool cameraOwnsMouse =
-            (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
-                               kb->IsKeyDown(foundation::shell::KeyCode::RightAlt))) ||
-            mouse->IsButtonDown(foundation::shell::MouseButton::Right) ||
-            m_camera.mouseCaptured; // Tab-captured fly mode owns WASD too
+        const bool cameraOwnsMouse = CameraOwnsInput();
         if (!cameraOwnsMouse)
         {
             in.leftPressed = mouse->IsButtonPressed(foundation::shell::MouseButton::Left);
@@ -1223,36 +1273,29 @@ namespace editor
                 }};
         };
 
-        m_translateToggle = m_toolbar->AddToggle(u8"");
-        m_translateToggle->SetIcon(icon(icons.translate.Get()));
-        m_translateToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
+        // The gizmo toggles are the scene editor's actions over THIS page (a checked toggle
+        // clicked again stays: SyncToolbar re-reads the registry's answer).
+        SceneEditorPage* page = this;
+        EditorActionRegistry* actions = &m_context->Actions();
+        const auto modeToggle = [&](StringView id, foundation::ui::SVGDrawable* drawable)
+        {
+            ui::toolkit::ToolbarToggle* toggle = m_toolbar->AddToggle(u8"");
+            toggle->SetIcon(icon(drawable));
+            const String actionId(id);
+            toggle->OnCheckedChanged.Add(
+                [page, actions, actionId](ui::toolkit::ToolbarToggle*, bool value)
                 {
-                    gizmos->SetMode(GizmoMode::Translate);
-                }
-            });
-        m_rotateToggle = m_toolbar->AddToggle(u8"");
-        m_rotateToggle->SetIcon(icon(icons.rotate.Get()));
-        m_rotateToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
-                {
-                    gizmos->SetMode(GizmoMode::Rotate);
-                }
-            });
-        m_scaleToggle = m_toolbar->AddToggle(u8"");
-        m_scaleToggle->SetIcon(icon(icons.scale.Get()));
-        m_scaleToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle*, bool value)
-            {
-                if (value)
-                {
-                    gizmos->SetMode(GizmoMode::Scale);
-                }
-            });
+                    if (value)
+                    {
+                        (void)actions->Execute(actionId.AsView(), page);
+                    }
+                    page->SyncToolbar();
+                });
+            return toggle;
+        };
+        m_translateToggle = modeToggle(SceneActionIds::kGizmoTranslate, icons.translate.Get());
+        m_rotateToggle = modeToggle(SceneActionIds::kGizmoRotate, icons.rotate.Get());
+        m_scaleToggle = modeToggle(SceneActionIds::kGizmoScale, icons.scale.Get());
 
         m_toolbar->AddSeparator();
 
@@ -1270,10 +1313,15 @@ namespace editor
                 }
             }});
         m_spaceToggle->OnCheckedChanged.Add(
-            [gizmos](ui::toolkit::ToolbarToggle* toggle, bool value)
+            [page, actions](ui::toolkit::ToolbarToggle*, bool value)
             {
-                gizmos->SetSpace(value ? GizmoSpace::World : GizmoSpace::Local);
-                toggle->SetText(value ? StringView(u8"World") : StringView(u8"Local"));
+                // The action flips the space; a click that already shows the target state
+                // (a resync) is not a flip.
+                if (actions->IsChecked(SceneActionIds::kGizmoWorldSpace, page) != value)
+                {
+                    (void)actions->Execute(SceneActionIds::kGizmoWorldSpace, page);
+                }
+                page->SyncToolbar();
             });
 
         m_toolbar->AddSeparator();
@@ -1350,15 +1398,26 @@ namespace editor
             m_toolbar->AddView(spacer.Get(), lp);
         }
 
-        // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor) ===
+        // === Simulate (snapshot -> run -> restore; phase-8a half of play-in-editor): the
+        // scene editor's actions over THIS page ===
         SceneEditorPage* self = this;
+        EditorActionRegistry* simActions = &m_context->Actions();
         m_playButton = m_toolbar->AddButton(u8"Play");
-        m_playButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StartSimulation(); });
+        m_playButton->OnClick.Add([self, simActions](ui::toolkit::ToolbarButton*)
+                                  { (void)simActions->Execute(SceneActionIds::kSimulateStart, self); });
         m_pauseToggle = m_toolbar->AddToggle(u8"Pause");
-        m_pauseToggle->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool value)
-                                            { self->PauseSimulation(value); });
+        m_pauseToggle->OnCheckedChanged.Add(
+            [self, simActions](ui::toolkit::ToolbarToggle*, bool value)
+            {
+                if (simActions->IsChecked(SceneActionIds::kSimulatePause, self) != value)
+                {
+                    (void)simActions->Execute(SceneActionIds::kSimulatePause, self);
+                }
+                self->RefreshSimToolbar();
+            });
         m_stopButton = m_toolbar->AddButton(u8"Stop");
-        m_stopButton->OnClick.Add([self](ui::toolkit::ToolbarButton*) { self->StopSimulation(); });
+        m_stopButton->OnClick.Add([self, simActions](ui::toolkit::ToolbarButton*)
+                                  { (void)simActions->Execute(SceneActionIds::kSimulateStop, self); });
         // The at-a-glance state readout (user report: Play gave no visual indication).
         m_simLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
         m_simLabel->FontSize.SetValue(13.0f);
@@ -1437,10 +1496,11 @@ namespace editor
         {
             return;
         }
-        m_playButton->IsEnabled = !m_isSimulating;
-        m_pauseToggle->IsEnabled = m_isSimulating;
-        m_stopButton->IsEnabled = m_isSimulating;
-        m_pauseToggle->SetIsChecked(m_isPaused);
+        const EditorActionRegistry& actions = m_context->Actions();
+        m_playButton->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulateStart, this);
+        m_pauseToggle->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulatePause, this);
+        m_stopButton->IsEnabled = actions.IsEnabled(SceneActionIds::kSimulateStop, this);
+        m_pauseToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kSimulatePause, this));
         if (m_simLabel.Get() != nullptr)
         {
             if (!m_isSimulating)
@@ -1558,12 +1618,13 @@ namespace editor
         {
             return;
         }
-        const GizmoMode mode = m_selectTool->Gizmos().Mode();
-        m_translateToggle->SetIsChecked(mode == GizmoMode::Translate);
-        m_rotateToggle->SetIsChecked(mode == GizmoMode::Rotate);
-        m_scaleToggle->SetIsChecked(mode == GizmoMode::Scale);
-        const bool world = (m_selectTool->Gizmos().Space() == GizmoSpace::World);
+        const EditorActionRegistry& actions = m_context->Actions();
+        m_translateToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoTranslate, this));
+        m_rotateToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoRotate, this));
+        m_scaleToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kGizmoScale, this));
+        const bool world = actions.IsChecked(SceneActionIds::kGizmoWorldSpace, this);
         m_spaceToggle->SetIsChecked(world);
+        m_spaceToggle->SetText(world ? StringView(u8"World") : StringView(u8"Local"));
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
         const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};

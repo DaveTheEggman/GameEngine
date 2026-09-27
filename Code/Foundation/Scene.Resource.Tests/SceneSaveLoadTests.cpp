@@ -102,3 +102,52 @@ TEST_CASE("SaveScene -> content DB -> LoadScene round-trips a scene")
 
     RemoveTree();
 }
+
+TEST_CASE("LoadScene reports the reader's verdict: a stale component payload is a failed load")
+{
+    GlobalTypeRegistry().Register(SceneDocument::StaticType());
+    RegisterSerializable<SceneDocument>();
+
+    RemoveTree();
+    NativeFileSystem mount(u8"scratch_scene_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount,
+                                            foundation::core::BinarySerializerFactory(), u8".rasset");
+    auto* inst = db.RootGroup()->CreateInstance(u8"level", SceneDocument::StaticType());
+    {
+        Scene scene(DefaultAllocator(), u8"arena");
+        scene.AddSystem<TagManager>()->Add(scene.CreateEntity(u8"hero")).team = 1;
+        REQUIRE(SaveScene(scene, *inst).IsOk());
+    }
+
+    // Re-stamp the Tag record's data version in the TEXT stream (Tag is unreflected: version 0)
+    // to one this build never wrote - what a source saved by a later build looks like.
+    {
+        UniquePtr<IStream> stream = inst->ReadData(u8"scene");
+        REQUIRE(stream.Get() != nullptr);
+        Array<byte> text;
+        text.Resize(static_cast<usize>(stream->Size()));
+        REQUIRE(stream->Read(text.Data(), text.Size()) == text.Size());
+        const StringView stamp = u8"<u32 name=\"version\">0</u32>";
+        bool restamped = false;
+        for (usize i = 0; !restamped && i + stamp.Size() <= text.Size(); ++i)
+        {
+            if (StringView(reinterpret_cast<const utf8char*>(text.Data() + i), stamp.Size()) == stamp)
+            {
+                text[i + stamp.Size() - 7] = static_cast<byte>('9'); // the digit before "</u32>"
+                restamped = true;
+            }
+        }
+        REQUIRE(restamped);
+        REQUIRE(inst->WriteData(u8"scene", Span<const byte>{text.Data(), text.Size()},
+                                foundation::content::StreamEncoding::Text)
+                    .IsOk());
+    }
+
+    Scene scene{DefaultAllocator()};
+    (void)scene.AddSystem<TagManager>();
+    const Status loaded = LoadScene(*inst, scene);
+    CHECK_FALSE(loaded.IsOk());
+    CHECK(loaded.Code() == ErrorCode::NotSupported);
+
+    RemoveTree();
+}

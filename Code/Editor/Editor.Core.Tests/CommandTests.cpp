@@ -211,6 +211,33 @@ TEST_CASE("editor-commands: consecutive same-type groups coalesce")
     CHECK(!stack.CanUndo());
 }
 
+TEST_CASE("editor-commands: an empty group leaves no undo step - nothing ran, nothing to take back")
+{
+    EditorCommandStack stack;
+    i32 value = 0;
+    u32 changes = 0;
+    stack.OnChanged = [&changes]() { ++changes; };
+
+    stack.BeginGroup(u8"mcp");
+    stack.EndGroup(); // nothing inside
+    CHECK(stack.Size() == 0u);
+    CHECK(!stack.CanUndo());
+    CHECK(changes == 0u); // nobody told: nothing changed
+
+    // A group whose only command was refused is empty too; the step before it stands alone.
+    CHECK(stack.Execute(Add(value, 5)));
+    const usize sizeBefore = stack.Size();
+    stack.BeginGroup(u8"mcp");
+    CHECK(!stack.Execute(UniquePtr<IEditorCommand>(DefaultAllocator().New<FailCommand>(),
+                                                   DefaultAllocator())));
+    stack.EndGroup();
+    CHECK(stack.Size() == sizeBefore);
+    CHECK(stack.UndoIndex() == 0);
+    stack.Undo();
+    CHECK(value == 0);
+    CHECK(!stack.CanUndo());
+}
+
 TEST_CASE("editor-commands: LockGroup prevents coalescing")
 {
     EditorCommandStack stack;

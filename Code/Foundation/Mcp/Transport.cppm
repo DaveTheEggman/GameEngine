@@ -96,16 +96,22 @@ export namespace foundation::mcp
     };
 
     // v1 serve loop: single-threaded read -> dispatch -> write, until the input stream ends. A
-    // notification (HandleLine returns empty) produces no output line.
+    // notification produces no output line. A tool that is not finished is re-entered with the
+    // same line after a short sleep - stdio has no frame to pump, so this loop is the pump.
     inline void Serve(McpServer& server, ITransport& transport)
     {
         String line;
         while (transport.ReadLine(line))
         {
-            Optional<String> response = server.HandleLine(line.AsView());
-            if (response.HasValue())
+            LineOutcome outcome = server.HandleLine(line.AsView());
+            while (outcome.state == LineState::NotFinished)
             {
-                transport.WriteLine(response.Value().AsView());
+                SleepMilliseconds(1);
+                outcome = server.HandleLine(line.AsView());
+            }
+            if (outcome.state == LineState::Answered)
+            {
+                transport.WriteLine(outcome.response.AsView());
             }
         }
     }

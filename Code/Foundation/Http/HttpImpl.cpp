@@ -537,17 +537,19 @@ namespace foundation::http
         }
     }
 
-    void HttpServer::Dispatch(Connection& connection)
+    bool HttpServer::Dispatch(Connection& connection)
     {
-        HttpRequest request;
-        request.method = connection.parser.Method();
-        request.target = connection.parser.Target();
-        request.headers = connection.parser.Headers();
-        request.body = Move(connection.parser.Body());
-
-        HttpResponse response =
+        const HttpRequest& request = connection.request;
+        Optional<HttpResponse> answer =
             m_handler ? m_handler(request)
-                      : HttpResponse::Text(404, u8"text/plain", u8"no handler registered");
+                      : Optional<HttpResponse>(
+                            HttpResponse::Text(404, u8"text/plain", u8"no handler registered"));
+        if (!answer.HasValue())
+        {
+            return false; // not yet - the handler sees the same request next Pump
+        }
+        connection.pending = false;
+        const HttpResponse& response = answer.Value();
         if (response.eventStream)
         {
             // SSE: write the stream headers, then hand the held connection over.
@@ -569,9 +571,23 @@ namespace foundation::http
                     m_streamHandler(request, stream);
                 }
             }
-            return;
+            return true;
         }
         WriteResponse(connection.socket, response);
+        return true;
+    }
+
+    usize HttpServer::PendingRequestCount() const noexcept
+    {
+        usize pending = 0;
+        for (const UniquePtr<Connection>& connection : m_connections)
+        {
+            if (connection->pending)
+            {
+                ++pending;
+            }
+        }
+        return pending;
     }
 
     usize HttpServer::Pump()
@@ -602,36 +618,62 @@ namespace foundation::http
             Connection& connection = *m_connections[i];
             bool done = false;
             byte buffer[4096];
-            for (;;)
+            if (connection.pending)
             {
-                const i64 n = connection.socket.Receive(Span<byte>(buffer, sizeof(buffer)));
-                if (n > 0)
+                // A request answered "not yet". The peer has nothing more to say on a one-shot
+                // connection, so the read only probes whether it is still there; then the
+                // handler is asked again.
+                if (connection.socket.Receive(Span<byte>(buffer, sizeof(buffer))) < 0)
                 {
-                    const HttpParseState state = connection.parser.Push(
-                        Span<const byte>(buffer, static_cast<usize>(n)));
-                    if (state == HttpParseState::Complete)
-                    {
-                        Dispatch(connection);
-                        ++completed;
-                        done = true;
-                        break;
-                    }
-                    if (state == HttpParseState::Failed)
-                    {
-                        WriteResponse(connection.socket,
-                                      HttpResponse::Text(400, u8"text/plain",
-                                                         u8"malformed HTTP request"));
-                        done = true;
-                        break;
-                    }
-                    continue;
+                    done = true; // the peer left while waiting - nobody to answer
                 }
-                if (n == 0)
+                else if (Dispatch(connection))
                 {
-                    break; // would-block: keep the connection, try next pump
+                    ++completed;
+                    done = true;
                 }
-                done = true; // peer closed before a complete request
-                break;
+            }
+            else
+            {
+                for (;;)
+                {
+                    const i64 n =
+                        connection.socket.Receive(Span<byte>(buffer, sizeof(buffer)));
+                    if (n > 0)
+                    {
+                        const HttpParseState state = connection.parser.Push(
+                            Span<const byte>(buffer, static_cast<usize>(n)));
+                        if (state == HttpParseState::Complete)
+                        {
+                            connection.request.method = connection.parser.Method();
+                            connection.request.target = connection.parser.Target();
+                            connection.request.headers = connection.parser.Headers();
+                            connection.request.body = Move(connection.parser.Body());
+                            connection.pending = true;
+                            if (Dispatch(connection))
+                            {
+                                ++completed;
+                                done = true;
+                            }
+                            break;
+                        }
+                        if (state == HttpParseState::Failed)
+                        {
+                            WriteResponse(connection.socket,
+                                          HttpResponse::Text(400, u8"text/plain",
+                                                             u8"malformed HTTP request"));
+                            done = true;
+                            break;
+                        }
+                        continue;
+                    }
+                    if (n == 0)
+                    {
+                        break; // would-block: keep the connection, try next pump
+                    }
+                    done = true; // peer closed before a complete request
+                    break;
+                }
             }
             if (done)
             {

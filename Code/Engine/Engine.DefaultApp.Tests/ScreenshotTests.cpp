@@ -6,6 +6,7 @@
 // records the backbuffer, completed, written as a PNG and read back through the image loader.
 // Legacy Sedulous stopped at the GPU copy; this pins that the file exists and is right.
 #include <doctest/doctest.h>
+#include <cstring>
 #include <filesystem>
 #include "Core/Prelude.h"
 
@@ -92,13 +93,13 @@ TEST_CASE("screenshot: rows unpack from the aligned pitch, and BGRA swizzles to 
         }
     }
     u8 rgba[w * h * 4];
-    ScreenshotCapture::UnpackRows(mapped, pitch, w, h, /*bgra*/ false, Span<u8>{rgba, sizeof rgba});
+    ScreenshotCapture::UnpackRows(mapped, pitch, w, h, rhi::TextureFormat::RGBA8Unorm, Span<u8>{rgba, sizeof rgba});
     CHECK(rgba[0] == 1);
     CHECK(rgba[3] == 4);
     CHECK(rgba[(1 * w + 2) * 4 + 0] == 21); // last pixel, straight through
     CHECK(rgba[(1 * w + 2) * 4 + 2] == 23);
 
-    ScreenshotCapture::UnpackRows(mapped, pitch, w, h, /*bgra*/ true, Span<u8>{rgba, sizeof rgba});
+    ScreenshotCapture::UnpackRows(mapped, pitch, w, h, rhi::TextureFormat::BGRA8Unorm, Span<u8>{rgba, sizeof rgba});
     CHECK(rgba[0] == 3); // B -> R
     CHECK(rgba[1] == 2);
     CHECK(rgba[2] == 1); // R -> B
@@ -108,23 +109,49 @@ TEST_CASE("screenshot: rows unpack from the aligned pitch, and BGRA swizzles to 
 
     CHECK(ScreenshotCapture::CanCapture(rhi::TextureFormat::BGRA8UnormSrgb));
     CHECK(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA8Unorm));
-    CHECK_FALSE(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA16Float));
+    CHECK(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA16Float)); // the viewports' target
+    CHECK_FALSE(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA32Float));
+
+    // A 16-bit float row: display-encoded values quantise straight to bytes, clamped; the pitch
+    // holds 8-byte texels.
+    const u16 halves[2][4] = {{0x3C00, 0x3800, 0x0000, 0x3C00},  // 1.0, 0.5, 0.0, 1.0
+                              {0x4400, 0xBC00, 0x3555, 0x3C00}}; // 4.0 -> 1, -1 -> 0, 1/3, 1.0
+    u8 halfRow[pitch];
+    for (u8& b : halfRow)
+    {
+        b = 0xEE;
+    }
+    std::memcpy(halfRow, halves, sizeof(halves));
+    u8 fromHalf[2 * 4];
+    ScreenshotCapture::UnpackRows(halfRow, pitch, 2, 1, rhi::TextureFormat::RGBA16Float,
+                                  Span<u8>{fromHalf, sizeof fromHalf});
+    CHECK(fromHalf[0] == 255);
+    CHECK(fromHalf[1] == 128); // 0.5 * 255 + 0.5 rounds to 128
+    CHECK(fromHalf[2] == 0);
+    CHECK(fromHalf[3] == 255);
+    CHECK(fromHalf[4] == 255); // clamped high
+    CHECK(fromHalf[5] == 0);   // clamped low
+    CHECK(fromHalf[6] == 85);  // 1/3
+    CHECK(fromHalf[7] == 255);
     CHECK(ScreenshotCapture::IsBgra(rhi::TextureFormat::BGRA8Unorm));
     CHECK_FALSE(ScreenshotCapture::IsBgra(rhi::TextureFormat::RGBA8UnormSrgb));
 }
 
 namespace
 {
-    // Clear a `format` texture to `clear`, capture it the way the app captures the backbuffer,
-    // write the PNG, load it back: the pixel at (5, 5) and the size must match.
-    void CaptureProbe(rhi::Device& device, rhi::TextureFormat format, const char* name)
+    // Clear a `format` texture to `clear`, capture it the way the app captures the backbuffer
+    // (RenderTarget state) or the editor captures a viewport (the target already handed to the
+    // UI in ShaderRead), write the PNG, load it back: the pixel at (5, 5) and the size must match.
+    void CaptureProbe(rhi::Device& device, rhi::TextureFormat format, const char* name,
+                      rhi::ResourceState state = rhi::ResourceState::RenderTarget)
     {
         constexpr u32 w = 64, h = 48;
         rhi::TextureDesc td{};
         td.format = format;
         td.width = w;
         td.height = h;
-        td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc;
+        td.usage = rhi::TextureUsage::RenderTarget | rhi::TextureUsage::CopySrc |
+                   rhi::TextureUsage::Sampled;
         td.label = u8"screenshot.probe";
         rhi::Texture* texture = nullptr;
         REQUIRE(device.CreateTexture(td, texture).IsOk());
@@ -156,6 +183,10 @@ namespace
         rhi::RenderPassEncoder* pass = encoder->BeginRenderPass(rpd);
         REQUIRE(pass != nullptr);
         pass->End();
+        if (state != rhi::ResourceState::RenderTarget)
+        {
+            encoder->TransitionTexture(texture, rhi::ResourceState::RenderTarget, state);
+        }
 
         String path;
         AppendFormat(path, u8"screenshot_probe_{}.png", StringView(reinterpret_cast<const utf8char*>(name)));
@@ -163,10 +194,10 @@ namespace
         std::filesystem::remove(reinterpret_cast<const char*>(path.Data()), ec);
 
         ScreenshotCapture capture;
-        CHECK_FALSE(capture.Record(device, *encoder, texture, format, w, h)); // not armed: nothing
+        CHECK_FALSE(capture.Record(device, *encoder, texture, format, w, h, state)); // not armed: nothing
         capture.Request(path.AsView());
         CHECK(capture.Armed());
-        REQUIRE(capture.Record(device, *encoder, texture, format, w, h));
+        REQUIRE(capture.Record(device, *encoder, texture, format, w, h, state));
         CHECK_FALSE(capture.Armed());
         CHECK(capture.Recorded());
 
@@ -223,6 +254,10 @@ TEST_CASE("screenshot: a cleared RGBA8 and BGRA8 target round-trips to a PNG on 
     {
         CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "vulkan-rgba");
         CaptureProbe(*device, rhi::TextureFormat::BGRA8Unorm, "vulkan-bgra");
+        CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "vulkan-rgba-shaderread",
+                     rhi::ResourceState::ShaderRead); // a viewport's finished target
+        CaptureProbe(*device, rhi::TextureFormat::RGBA16Float, "vulkan-rgba16f",
+                     rhi::ResourceState::ShaderRead); // the viewports' real format
         device->Destroy();
     }
     else
@@ -233,6 +268,10 @@ TEST_CASE("screenshot: a cleared RGBA8 and BGRA8 target round-trips to a PNG on 
     {
         CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "webgpu-rgba");
         CaptureProbe(*device, rhi::TextureFormat::BGRA8Unorm, "webgpu-bgra");
+        CaptureProbe(*device, rhi::TextureFormat::RGBA8Unorm, "webgpu-rgba-shaderread",
+                     rhi::ResourceState::ShaderRead);
+        CaptureProbe(*device, rhi::TextureFormat::RGBA16Float, "webgpu-rgba16f",
+                     rhi::ResourceState::ShaderRead);
         device->Destroy();
     }
     else

@@ -26,9 +26,31 @@ export namespace foundation::ui
     {
     public:
         using Handler = Function<void(Args...)>;
+        /// What Add hands back: the way to remove that one handler again. 0 is never issued.
+        using Token = u64;
 
-        /// Register a handler (move-only, like the underlying Function).
-        void Add(Handler handler) { m_handlers.PushBack(Move(handler)); }
+        /// Register a handler (move-only, like the underlying Function). The token removes it;
+        /// a subscriber that can die before the event (a surface generated from a registry)
+        /// removes itself in its destructor, or the event would call into freed memory.
+        Token Add(Handler handler)
+        {
+            const Token token = ++m_lastToken;
+            m_handlers.PushBack(Entry{token, Move(handler)});
+            return token;
+        }
+        /// Remove the handler `token` names; false when none does (already removed, or 0).
+        bool Remove(Token token) noexcept
+        {
+            for (usize i = 0; i < m_handlers.Size(); ++i)
+            {
+                if (m_handlers[i].token == token)
+                {
+                    m_handlers.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
+        }
         /// Remove all handlers.
         void Clear() noexcept { m_handlers.Clear(); }
         [[nodiscard]] usize Count() const noexcept { return m_handlers.Size(); }
@@ -36,14 +58,20 @@ export namespace foundation::ui
         /// Invoke every handler in registration order.
         void Invoke(Args... args) const
         {
-            for (const Handler& h : m_handlers)
+            for (const Entry& entry : m_handlers)
             {
-                h(args...);
+                entry.handler(args...);
             }
         }
         void operator()(Args... args) const { Invoke(args...); }
 
     private:
-        Array<Handler> m_handlers;
+        struct Entry
+        {
+            Token token;
+            Handler handler;
+        };
+        Array<Entry> m_handlers;
+        Token m_lastToken = 0;
     };
 }

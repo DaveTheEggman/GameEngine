@@ -760,9 +760,15 @@ namespace foundation::script::angelscript
                     }
                     ScriptApiMember member;
                     member.name = core::String(ViewOfAscii(property.name));
+                    member.readOnly = (static_cast<core::u32>(property.flags) &
+                                       static_cast<core::u32>(core::PropertyFlags::ReadOnly)) != 0;
                     core::String signature(ViewOfAscii(scriptName));
                     AppendAscii(signature, ".");
                     AppendAscii(signature, property.name);
+                    if (member.readOnly)
+                    {
+                        AppendAscii(signature, " (read only)");
+                    }
                     member.signature = core::Move(signature);
                     member.kind = ScriptApiMemberKind::Property;
                     api.members.PushBack(core::Move(member));

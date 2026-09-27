@@ -183,3 +183,66 @@ TEST_CASE("context-menu: keyboard navigation scrolls the hovered item into view"
     menu->OnMouseMove(bottom);
     CHECK(menu->HoveredIndex() == 29); // the row under the cursor IS the scrolled-to row
 }
+
+TEST_CASE("context-menu: ItemAt, ClearItems, and OnOpening rebuilding the items at Show")
+{
+    auto menu = MakeMenu();
+    menu->AddItem(u8"One", []() {});
+    menu->AddSeparator();
+    menu->AddItem(u8"Two", []() {}, false);
+    REQUIRE(menu->ItemCount() == 3);
+    CHECK(menu->ItemAt(0)->Label == u8"One");
+    CHECK(menu->ItemAt(1)->IsSeparator);
+    CHECK_FALSE(menu->ItemAt(2)->Enabled);
+    CHECK(menu->ItemAt(3) == nullptr);
+    CHECK(menu->ItemAt(-1) == nullptr);
+    menu->ClearItems();
+    CHECK(menu->ItemCount() == 0);
+    // The opening hook is the menu's to call at Show; a menu built from live state fills
+    // itself there. Called directly here (no popup layer in a unit test).
+    int opened = 0;
+    menu->OnOpening = [&opened](ContextMenu& opening)
+    {
+        ++opened;
+        opening.ClearItems();
+        opening.AddItem(u8"Fresh", []() {});
+    };
+    menu->OnOpening(*menu);
+    CHECK(opened == 1);
+    REQUIRE(menu->ItemCount() == 1);
+    CHECK(menu->ItemAt(0)->Label == u8"Fresh");
+}
+
+
+TEST_CASE("context-menu: ClearItems closes an open submenu with the item that owned it")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto menu = MakeMenu();
+    menu->AddItem(u8"One", []() {});
+    MenuItem* more = menu->AddSubmenu(u8"More");
+    Cast<ContextMenu>(more->Submenu.Get())->AddItem(u8"Deep", []() {});
+    menu->Show(&ctx, 10.0f, 10.0f);
+    REQUIRE(root->GetPopupLayer()->PopupCount() == 1u);
+
+    // Down twice lands on the submenu item; Right opens it as a second popup.
+    KeyEventArgs down;
+    down.Key = KeyCode::Down;
+    menu->OnKeyDown(down);
+    menu->OnKeyDown(down);
+    REQUIRE(menu->HoveredIndex() == 1);
+    KeyEventArgs right;
+    right.Key = KeyCode::Right;
+    menu->OnKeyDown(right);
+    REQUIRE(root->GetPopupLayer()->PopupCount() == 2u);
+
+    // Rebuilding the items (what a live menu does on every opening) takes the submenu's popup
+    // down with the item; the menu itself stays open.
+    menu->ClearItems();
+    CHECK(root->GetPopupLayer()->PopupCount() == 1u);
+    CHECK(menu->ItemCount() == 0);
+    root->GetPopupLayer()->ClosePopup(menu.Get()); // now, not queued: the root dies with the test
+    CHECK(root->GetPopupLayer()->PopupCount() == 0u);
+}

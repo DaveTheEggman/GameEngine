@@ -33,9 +33,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue LogCallOk(McpServer& s, StringView tool, JsonValue arguments)

@@ -719,6 +719,32 @@ TEST_CASE("replication: network components carry displayName + category attribut
     }
 }
 
+TEST_CASE("replication: a script reads a network identity's authority and id, writes neither, "
+          "and never sees the prefab")
+{
+    foundation::net::RegisterReplicationComponents();
+    const TypeInfo& type = TypeOf<foundation::net::NetworkComponent>();
+    const auto readOnly = [](const PropertyInfo& p)
+    { return (static_cast<u32>(p.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0; };
+    const PropertyInfo* authority = FindProperty(type, "authority");
+    REQUIRE(authority != nullptr);
+    CHECK(readOnly(*authority));
+    const PropertyInfo* id = FindProperty(type, "id");
+    REQUIRE(id != nullptr);
+    CHECK(readOnly(*id));
+    CHECK(FindProperty(type, "prefab") == nullptr); // replication's bookkeeping, off the surface
+    CHECK(FindMethod(type, "of") != nullptr);       // the gate a behavior reaches it through
+
+    // Read-only holds at the reflection level too: the setter refuses, the value stands.
+    foundation::net::NetworkComponent component;
+    component.authority = foundation::net::NetworkAuthority::Client;
+    const Instance instance = Instance::From(&component);
+    CHECK_FALSE(SetProperty(*authority, instance, Variant::From<foundation::net::NetworkAuthority>(
+                                                      foundation::net::NetworkAuthority::Server))
+                    .IsOk());
+    CHECK(component.authority == foundation::net::NetworkAuthority::Client);
+}
+
 TEST_CASE("replication: an effectively-inactive entity's transform state FREEZES (capture + "
           "apply skip it) but it STAYS in snapshots")
 {

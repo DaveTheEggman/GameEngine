@@ -192,6 +192,21 @@ export namespace editor
                 editor::EditorRootAllocator()));
         }
 
+        /// The same, for a reference-shaped property known only by its TypeInfo (an agent's
+        /// component_set, a generic editor): the id set through the type's ReferenceOps, the
+        /// runtime binding dropped, and the entity's subtree re-resolved so the new id binds
+        /// (`resources` nullable - it binds on the next scene open). Undo restores the old id
+        /// the same way. NOT merged.
+        void SetComponentReference(const Guid& entity, const TypeInfo* componentType,
+                                   const ComponentPropertyPath& path, const char* property,
+                                   const Guid& value, foundation::resource::ResourceManager* resources)
+        {
+            // The command class is a member declared below: a member body sees the whole class.
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                editor::EditorRootAllocator().New<SetReferenceCommand>(*this, entity, componentType,
+                                                                      path, property, value, resources),
+                editor::EditorRootAllocator()));
+        }
         /// Point a component's EntityRef property at a new entity (the inspector's entity picker) -
         /// the entity-reference twin of SetComponentResourceRef. Undoable; `target` nil = cleared.
         void SetComponentEntityRef(const Guid& entity, const TypeInfo* componentType,
@@ -1209,6 +1224,87 @@ export namespace editor
                                     ? prop->address(owner)
                                     : nullptr;
                 return static_cast<foundation::resource::Ref<T>*>(address);
+            }
+
+            SceneEditContext* m_ctx;
+            Guid m_entity;
+            const TypeInfo* m_type;
+            ComponentPropertyPath m_path;
+            const char* m_property;
+            Guid m_new;
+            Guid m_old;
+            bool m_hasOld = false;
+            foundation::resource::ResourceManager* m_resources;
+        };
+
+        /// The generic twin of SetResourceRefCommand: the property's type carries its
+        /// ReferenceOps, so no T is named. Re-resolves the entity's subtree after each apply.
+        class SetReferenceCommand final : public IEditorCommand
+        {
+        public:
+            SetReferenceCommand(SceneEditContext& ctx, const Guid& entity, const TypeInfo* type,
+                                const ComponentPropertyPath& path, const char* property,
+                                const Guid& value, foundation::resource::ResourceManager* resources)
+                : m_ctx(&ctx), m_entity(entity), m_type(type), m_path(path), m_property(property),
+                  m_new(value), m_resources(resources)
+            {
+            }
+
+            [[nodiscard]] bool Execute() override
+            {
+                const PropertyInfo* prop = nullptr;
+                void* address = ResolveAddress(&prop);
+                if (address == nullptr)
+                {
+                    return false;
+                }
+                const ReferenceOps& ops = *prop->type->reference;
+                if (!m_hasOld)
+                {
+                    m_old = *ops.Id(address);
+                    m_hasOld = true;
+                }
+                Apply(ops, address, m_new);
+                return true;
+            }
+            void Undo() override
+            {
+                const PropertyInfo* prop = nullptr;
+                if (void* address = ResolveAddress(&prop))
+                {
+                    Apply(*prop->type->reference, address, m_old);
+                }
+            }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_reference"; }
+
+        private:
+            void Apply(const ReferenceOps& ops, void* address, const Guid& id)
+            {
+                ops.SetId(address, id);
+                ops.ClearBinding(address);
+                if (m_resources != nullptr)
+                {
+                    scene::ResolveEntityResources(m_ctx->Scene(), m_ctx->Resolve(m_entity),
+                                                  *m_resources);
+                }
+            }
+            // Component pools move on add/remove, so the address re-derives every apply; the
+            // property must be a reference type.
+            [[nodiscard]] void* ResolveAddress(const PropertyInfo** outProp)
+            {
+                const TypeInfo* ownerType = nullptr;
+                const Instance owner =
+                    m_ctx->ResolvePropertyOwner(m_entity, m_type, m_path, &ownerType);
+                const PropertyInfo* prop = (owner.IsEmpty() || ownerType == nullptr)
+                                               ? nullptr
+                                               : FindProperty(*ownerType, m_property);
+                if (prop == nullptr || prop->address == nullptr || prop->type == nullptr ||
+                    !IsReferenceType(*prop->type))
+                {
+                    return nullptr;
+                }
+                *outProp = prop;
+                return prop->address(owner);
             }
 
             SceneEditContext* m_ctx;

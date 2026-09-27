@@ -39,9 +39,9 @@ namespace
         req.Set(u8"id", JsonValue::MakeNumber(1));
         req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         req.Set(u8"params", Move(params));
-        Optional<String> line = s.HandleLine(req.ToString().AsView());
-        REQUIRE(line.HasValue());
-        return json::Parse(line.Value().AsView()).value;
+        LineOutcome line = s.HandleLine(req.ToString().AsView());
+        REQUIRE(line.state == LineState::Answered);
+        return json::Parse(line.response.AsView()).value;
     }
 
     JsonValue CallOk(McpServer& s, StringView tool, JsonValue arguments)
@@ -64,9 +64,9 @@ namespace
     // Raw JSON-RPC line -> response line (for the resources/* methods, which are not tools).
     String Response(McpServer& s, StringView line)
     {
-        Optional<String> out = s.HandleLine(line);
-        REQUIRE(out.HasValue());
-        return Move(out.Value());
+        LineOutcome out = s.HandleLine(line);
+        REQUIRE(out.state == LineState::Answered);
+        return Move(out.response);
     }
 
     JsonValue Obj() { return JsonValue::MakeObject(); }
@@ -103,7 +103,9 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
 
     McpServer server;
     editor::mcp::ProjectSession session;
-    editor::mcp::RegisterProjectTools(server, session);
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterProjectInfoTool(server, session);
     editor::mcp::RegisterSceneTools(server, session);
     editor::mcp::RegisterProjectResources(server, session); // scenes as project:// resources
 
@@ -163,6 +165,11 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         CHECK(report.Get(u8"warnings").Count() >= 1);
     }
 
+    // Every successful write announces the asset to the host (the editor host tells the open
+    // pages editing it); a refused write announces nothing.
+    Array<Guid> announced;
+    session.onAssetWritten = [&announced](const Guid& id) { announced.PushBack(id); };
+
     // scene_write CREATES a new scene from the XML; the stored stream is byte-identical.
     JsonValue written = CallOk(
         server, u8"scene_write",
@@ -170,6 +177,12 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
              u8"Levels"));
     CHECK(written.Get(u8"written").AsBool() == true);
     const String newGuid(written.Get(u8"guid").AsString());
+    {
+        Guid parsed;
+        REQUIRE(Guid::TryParse(newGuid.AsView(), parsed));
+        REQUIRE(announced.Size() == 1u);
+        CHECK(announced[0] == parsed);
+    }
     JsonValue readBack = CallOk(server, u8"scene_read", With(Obj(), u8"guid", newGuid.AsView()));
     CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // verbatim storage
 
@@ -184,6 +197,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"scene_write",
         With(With(Obj(), u8"xml", u8"<not a scene>"), u8"name", u8"broken"));
     CHECK(garbage.Size() > 0u);
+    CHECK(announced.Size() == 1u); // nothing written, nothing announced
     // (b) a scene guid through the prefab tool redirects.
     const String redirect =
         CallErr(server, u8"prefab_read", With(Obj(), u8"guid", newGuid.AsView()));
@@ -193,6 +207,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"prefab_write",
         With(With(Obj(), u8"xml", seedXml.AsView()), u8"name", u8"goodprefab"));
     CHECK(okPrefab.Get(u8"written").AsBool() == true);
+    CHECK(announced.Size() == 2u); // the prefab write announced too
     // ...and a MULTI-root one is refused with the single-root rule.
     {
         scene::Scene twoRoots(DefaultAllocator(), u8"pair");

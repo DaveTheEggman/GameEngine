@@ -23,10 +23,10 @@ namespace
         script::ScriptApiType zeta;
         zeta.scriptName = String(u8"Zeta");
         zeta.members.PushBack(script::ScriptApiMember{String(u8"beta"), String(u8"beta(_)"),
-                                                      false,
+                                                      false, /*readOnly*/ false,
                                                       script::ScriptApiMemberKind::Method});
         zeta.members.PushBack(script::ScriptApiMember{String(u8"alpha"), String(),
-                                                      false,
+                                                      false, /*readOnly*/ false,
                                                       script::ScriptApiMemberKind::Property});
         types.PushBack(Move(zeta));
 
@@ -34,10 +34,10 @@ namespace
         math.scriptName = String(u8"Math");
         math.isNamespace = true;
         math.members.PushBack(script::ScriptApiMember{String(u8"Dot"), String(u8"Dot(_,_)"),
-                                                      true,
+                                                      true, /*readOnly*/ false,
                                                       script::ScriptApiMemberKind::Method});
         math.members.PushBack(script::ScriptApiMember{String(u8"Cross"), String(u8"Cross(_,_)"),
-                                                      true,
+                                                      true, /*readOnly*/ false,
                                                       script::ScriptApiMemberKind::Method});
         types.PushBack(Move(math));
 

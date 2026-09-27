@@ -46,7 +46,11 @@ import foundation.resource;
 import pipeline.core;
 import editor.core;
 import foundation.settings;
+import editor.mcp; // EngineToolPaths + LocateShippingDocs (the host's composition)
 import :assets_view;
+import :mcp_host;
+import :mcp_operations;
+import :mcp_page_tools;
 import :editor_icons;
 import :settings_dialog;
 import :preferences_dialog;
@@ -397,6 +401,7 @@ namespace editor::app
         // receive the EMBEDDED host: every page's Ctx() resolves to the runtime context.
         // ONCE per app run - the registered factories capture the embedded host/app, which
         // stay alive across project close/open.
+        RegisterActions(); // the editor-wide set first: the menu bar follows registration order
         if (m_config.registerEditors)
         {
             m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost);
@@ -460,8 +465,7 @@ namespace editor::app
             {
                 if (entry.page == m_gamePage)
                 {
-                    m_shell.Docks()->ActivatePanel(entry.panel);
-                    m_context.SetActivePage(m_gamePage);
+                    m_context.RevealPage(m_gamePage);
                     return;
                 }
             }
@@ -634,13 +638,9 @@ namespace editor::app
         (void)m_toastHost->Show(Move(request));
     }
 
-    void EditorApplication::SaveActivePage()
+    void EditorApplication::SavePage(editor::EditorPage& subject)
     {
-        auto* page = m_context.ActivePage();
-        if (page == nullptr)
-        {
-            return;
-        }
+        auto* page = &subject;
         if (page->Save().IsOk())
         {
             String message(u8"Saved '");
@@ -703,6 +703,10 @@ namespace editor::app
         if (m_thumbnailStage)
         {
             m_thumbnailStage->Update(); // take/stage the next queued GPU thumbnail job
+        }
+        if (m_mcpHost)
+        {
+            m_mcpHost->Pump(); // answers a waiting agent call HERE: tools touch main-thread state
         }
         // I4 instrumentation: periodic resident-product report while a project is open -
         // the 5-GB-with-no-pages repro accumulates over ~30s of background work AFTER open,
@@ -1012,6 +1016,7 @@ namespace editor::app
         {
             m_screenshot.Release(*gfx->Raw()); // the readback buffer, while the device lives
         }
+        StopMcpHost();
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         // Release page resources while the device and windows are still alive. Pages
         // destroy their scenes in the RUNTIME context, so it must outlive them.
@@ -1173,22 +1178,6 @@ namespace editor::app
             false); // safe background cook; OnUpdate fires the export job after it
     }
 
-    void EditorApplication::CollectSceneStreams(foundation::content::Group& group)
-    {
-        for (foundation::content::Instance* instance : group.Instances())
-        {
-            Array<byte> bytes;
-            if (m_context.SceneStreamStager(*instance, bytes))
-            {
-                m_exportSceneStreams.InsertOrAssign(instance->Id(), Move(bytes));
-            }
-        }
-        for (foundation::content::Group* child : group.Groups())
-        {
-            CollectSceneStreams(*child);
-        }
-    }
-
     void EditorApplication::LoadEditorSettings()
     {
         editor::RegisterEditorSettingsTypes();
@@ -1256,7 +1245,8 @@ namespace editor::app
         m_exportSceneStreams.Clear();
         if (m_context.SceneStreamStager)
         {
-            CollectSceneStreams(*m_project->SourceDb().RootGroup());
+            editor::CollectSceneStreams(*m_project->SourceDb().RootGroup(),
+                                        m_context.SceneStreamStager, m_exportSceneStreams);
         }
         const HashMap<Guid, Array<byte>>* sceneStreams = &m_exportSceneStreams;
 
@@ -1979,10 +1969,10 @@ namespace editor::app
         dialog->Show(&m_uiHost->Context());
     }
 
-    void EditorApplication::SaveActivePageAs()
+    void EditorApplication::SavePageAs(editor::EditorPage& subject)
     {
-        editor::EditorPage* page = m_context.ActivePage();
-        if (page == nullptr || m_project.Get() == nullptr || m_uiHost.Get() == nullptr)
+        editor::EditorPage* page = &subject;
+        if (m_project.Get() == nullptr || m_uiHost.Get() == nullptr)
         {
             return;
         }
@@ -2387,6 +2377,19 @@ namespace editor::app
         // Settings-derived session state re-applies on save (default font/theme -
         // without this a changed default kept the OLD bind until reopen).
         m_context.OnProjectSettingsChanged = [this]() { ApplyProjectUiDefaults(); };
+        // A page revealed through the context (page_open, an agent's viewport_screenshot)
+        // brings its tab to front: a background tab's viewport never renders.
+        m_context.OnRevealPage = [this](editor::EditorPage* page)
+        {
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                if (entry.page == page)
+                {
+                    m_shell.Docks()->ActivatePanel(entry.panel);
+                    return;
+                }
+            }
+        };
 
         // Cook service + the real Assets panel.
         m_cookService.Initialize(*m_project, m_builders);
@@ -2396,6 +2399,7 @@ namespace editor::app
         // Cook-gated starts (PIE waits for the cook): busy = anything in flight OR a
         // remembered mid-cook request still waiting to re-issue (IsIdle, not MutationLocked).
         m_context.CookBusy = [this]() { return m_cookService.IsReady() && !m_cookService.IsIdle(); };
+        StartMcpHost(); // the agent surface over this project, if enabled
         // Background jobs (export) read the source DB structure and pack cooked FILES
         // from their worker - DB mutations and new cooks must hold off while one runs,
         // exactly like during a cook. The cook service folds this into MutationLocked.
@@ -2485,8 +2489,8 @@ namespace editor::app
             assets->Rebuild();
             // Result toast: failures are sticky (Console has the log); silent when the
             // cook was a no-op (the watcher fires those constantly).
-            const usize failed = m_cookService.LastFailedCount();
-            const usize cooked = m_cookService.LastCookedCount();
+            const usize failed = m_cookService.LastCookSummary().failed;
+            const usize cooked = m_cookService.LastCookSummary().cooked;
             if (failed > 0)
             {
                 ShowToast(editor::NoticeKind::Error,
@@ -2743,6 +2747,114 @@ namespace editor::app
         }
     }
 
+    void EditorApplication::StartMcpHost()
+    {
+        StopMcpHost();
+        editor::EditorMcpSettings& settings = m_editorSettings.Section<editor::EditorMcpSettings>();
+        if (!(settings.enabled || m_config.mcpEnabled) || !m_project)
+        {
+            return;
+        }
+        if (m_config.logBuffer == nullptr)
+        {
+            LOG_WARNING(u8"Editor", u8"MCP: no log capture was installed - the host is not started");
+            return;
+        }
+        if (settings.token.IsEmpty())
+        {
+            // First enable: mint the secret once and keep it, so the token file and the
+            // Preferences display stay valid across runs.
+            settings.token = editor::GenerateMcpToken();
+            if (const Status saved = editor::SaveEditorSettingsToUserData(m_editorSettings);
+                !saved.IsOk())
+            {
+                LOG_WARNING(u8"Editor", u8"MCP: the minted token could not be saved to the "
+                                        u8"editor settings; it changes on the next run");
+            }
+        }
+        editor::mcp::EngineToolPaths paths;
+        const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
+        editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+        m_mcpSession.project = m_project.Get();
+        // The operations run on THIS application's services, so an agent's cook, import or
+        // export takes the same background paths the menus do and the editor stays live.
+        EditorProjectOperationsSeams seams;
+        seams.allocator = &m_editorAllocator;
+        seams.project = m_project.Get();
+        seams.context = &m_context;
+        seams.cook = &m_cookService;
+        seams.jobs = &m_jobService;
+        seams.builders = &m_builders;
+        seams.hostToolDir = GetExecutableDirectory();
+        seams.templatesRoot = TemplatesRoot();
+        seams.dataRoot = m_config.dataRoot;
+        m_mcpOperations = MakeUnique<EditorProjectOperations>(m_editorAllocator, Move(seams));
+        m_mcpHost = MakeUnique<EditorMcpHost>(
+            m_editorAllocator, m_editorAllocator, m_context, m_mcpSession, *m_config.logBuffer,
+            m_builders, m_context.Importers(), paths, *m_mcpOperations,
+            String(reinterpret_cast<const char8_t*>(BuildStamp())));
+        m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
+        { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };
+        // This host's live additions: the pages, over the same open/close paths the tabs take.
+        PageToolSeams pageSeams;
+        pageSeams.context = &m_context;
+        pageSeams.openPage = [this](const Guid& id) -> editor::EditorPage*
+        {
+            if (!m_project)
+            {
+                return nullptr;
+            }
+            foundation::content::Instance* instance = m_project->SourceDb().GetInstance(id);
+            return instance != nullptr ? OpenInstancePage(*instance) : nullptr;
+        };
+        pageSeams.closePage = [this](editor::EditorPage* page)
+        {
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                if (static_cast<editor::EditorPage*>(entry.page) == page)
+                {
+                    const PagePanel closing = entry; // the tab-close pair: panel, then page
+                    if (m_shell.Docks() != nullptr && closing.panel != nullptr)
+                    {
+                        m_shell.Docks()->ClosePanel(closing.panel);
+                    }
+                    ClosePage(closing.page);
+                    return;
+                }
+            }
+        };
+        RegisterPageTools(m_mcpHost->Server(), Move(pageSeams));
+        // The action bridge: everything a user can do by command, unattended (the dialogs an
+        // action opens are suppressed and reported).
+        ActionToolSeams actionSeams;
+        actionSeams.context = &m_context;
+        actionSeams.ui = &m_uiHost->Context();
+        RegisterActionTools(m_mcpHost->Server(), Move(actionSeams));
+        EditorMcpHostConfig config;
+        config.port = static_cast<u16>(m_config.mcpPort != 0 ? m_config.mcpPort : settings.port);
+        config.token = settings.token;
+        config.tokenFileDirectory = GetUserDataDirectory();
+        if (!m_mcpHost->Start(config))
+        {
+            LOG_WARNING(u8"Editor",
+                        u8"MCP: could not listen on 127.0.0.1:{} - another editor may hold the "
+                        u8"port; pass --mcp-port <n> or change it in Preferences",
+                        config.port);
+            m_mcpHost = nullptr;
+            return;
+        }
+        LOG_INFO(u8"Editor", u8"MCP: listening on 127.0.0.1:{} (the token is in <user-data>/{})",
+                 m_mcpHost->BoundPort(), EditorMcpHost::kTokenFileName);
+        m_context.SetStatus(Format(u8"MCP host on 127.0.0.1:{}", m_mcpHost->BoundPort()));
+    }
+
+    void EditorApplication::StopMcpHost()
+    {
+        m_mcpHost = nullptr; // Stop + release; a waiting agent sees its connection close
+        m_mcpOperations = nullptr;
+        m_mcpSession.project = nullptr;
+    }
+
     void EditorApplication::CloseProject()
     {
         if (!m_project)
@@ -2750,6 +2862,7 @@ namespace editor::app
             EnterManagerMode();
             return;
         }
+        StopMcpHost();            // no agent call may run against services that are going away
         m_cookService.Shutdown(); // joins any in-flight cook before the DBs go away
         m_thumbnailStage = {};      // unstages + drops GPU objects while the renderer is alive
         m_thumbnailService.Reset(); // in-flight slots outlive harmlessly; entries drop
@@ -3113,300 +3226,416 @@ namespace editor::app
                  static_cast<u64>(totalLive), static_cast<u64>(totalUnreferenced));
     }
 
+    void EditorApplication::RegisterActions()
+    {
+        // The editor-wide actions, declared once here and served everywhere from the registry:
+        // the menu bar and the global shortcuts are generated from them (BuildMenus), the
+        // palette and the MCP bridge read them. Registered in menu order - the bar lists
+        // menus in the order their names first appear. Each domain's RegisterEditor adds its
+        // own set beside these.
+        EditorActionRegistry& actions = m_context.Actions();
+        const auto Declare = [](StringView id, StringView label, StringView description,
+                                StringView menuPath, i32 order)
+        {
+            EditorActionDeclaration d;
+            d.id = String(id);
+            d.label = String(label);
+            d.description = String(description);
+            d.menuPath = String(menuPath);
+            d.menuOrder = order;
+            return d;
+        };
+
+        {
+            EditorActionDeclaration d =
+                Declare(u8"file.save", u8"Save", u8"Save the active page to its source asset",
+                        u8"File/Save", 100);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->IsDirty(); };
+            d.shortcut =
+                EditorShortcut{foundation::ui::KeyCode::S, foundation::ui::KeyModifiers::Ctrl};
+            d.execute = [this](editor::EditorPage* page) { SavePage(*page); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"file.saveAs", u8"Save As...",
+                        u8"Save the active page as a new source asset", u8"File/Save As...", 101);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr; };
+            d.execute = [this](editor::EditorPage* page) { SavePageAs(*page); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"file.saveLayout", u8"Save Layout",
+                        u8"Save the panel layout as the default for this editor",
+                        u8"File/Save Layout", 200);
+            d.execute = [this](editor::EditorPage*)
+            {
+                SaveLayout();
+                m_context.SetStatus(u8"Layout saved.");
+            };
+            (void)actions.Register(Move(d));
+        }
+        // Only meaningful when the manager launched us; a CLI-opened editor keeps its
+        // single-project lifecycle (Exit is the way out).
+        if (m_config.startInProjectManager)
+        {
+            {
+                EditorActionDeclaration d =
+                    Declare(u8"file.closeProject", u8"Close Project",
+                            u8"Close the project and return to the project manager",
+                            u8"File/Close Project", 300);
+                d.execute = [this](editor::EditorPage*) { ConfirmCloseProjectThen(); };
+                (void)actions.Register(Move(d));
+            }
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"file.exit", u8"Exit", u8"Exit the editor", u8"File/Exit", 301);
+            d.execute = [this](editor::EditorPage*)
+            {
+                if (m_host != nullptr && ConfirmExitAllowed())
+                {
+                    m_host->RequestExit();
+                }
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"edit.undo", u8"Undo", u8"Undo the active page's last edit",
+                        u8"Edit/Undo", 100);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->Commands().CanUndo(); };
+            d.shortcut =
+                EditorShortcut{foundation::ui::KeyCode::Z, foundation::ui::KeyModifiers::Ctrl};
+            d.execute = [](editor::EditorPage* page) { page->Commands().Undo(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"edit.redo", u8"Redo", u8"Redo the active page's last undone edit",
+                        u8"Edit/Redo", 101);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->Commands().CanRedo(); };
+            d.shortcut = EditorShortcut{foundation::ui::KeyCode::Z,
+                                    foundation::ui::KeyModifiers::Ctrl |
+                                        foundation::ui::KeyModifiers::Shift};
+            d.alternateShortcut =
+                EditorShortcut{foundation::ui::KeyCode::Y, foundation::ui::KeyModifiers::Ctrl};
+            d.execute = [](editor::EditorPage* page) { page->Commands().Redo(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d = Declare(u8"page.discardChanges", u8"Discard Changes",
+                                                u8"Revert the page's unsaved edits", u8"", 0);
+            d.enabled = [](editor::EditorPage* page) { return page != nullptr && page->IsDirty(); };
+            d.execute = [](editor::EditorPage* page) { page->DiscardChanges(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"edit.preferences", u8"Preferences...",
+                        u8"Open the per-user editor preferences", u8"Edit/Preferences...", 200);
+            d.execute = [this](editor::EditorPage*)
+            {
+                auto dialog = MakeRef<EditorPreferencesDialog>(
+                    m_editorAllocator, m_context, m_editorSettings);
+                // UI scale applies LIVE: host scale (roots pick it up
+                // next frame) + icon re-bake at the effective scale.
+                dialog->OnUiScaleApplied = [this](f32 uiScale)
+                {
+                    m_uiHost->SetUiScale(uiScale);
+                    graphics::RenderWindow* mainRw =
+                        m_host != nullptr ? m_host->MainRenderWindow() : nullptr;
+                    const f32 content =
+                        mainRw != nullptr ? mainRw->Window().ContentScale()
+                                          : 1.0f;
+                    BakeEditorIcons(content * uiScale);
+                };
+                // The MCP host follows the saved preference at once: started,
+                // moved to the new port, or stopped.
+                dialog->OnMcpSettingsApplied = [this]() { StartMcpHost(); };
+                dialog->Show(&m_uiHost->Context());
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.settings", u8"Project Settings...",
+                        u8"Open the project settings", u8"Project/Project Settings...", 100);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
+            {
+                if (m_project)
+                {
+                    auto dialog = MakeRef<ProjectSettingsDialog>(
+                        m_editorAllocator, m_context);
+                    dialog->Show(&m_uiHost->Context());
+                }
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.addNativeCode", u8"Add Native Code...",
+                        u8"Scaffold a native code module under Native/",
+                        u8"Project/Add Native Code...", 200);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
+            {
+                if (!m_project)
+                {
+                    return;
+                }
+                if (!m_project->Settings().nativeModule.IsEmpty())
+                {
+                    m_context.Notify(editor::NoticeKind::Info,
+                                     u8"This project already has native code "
+                                     u8"(see Project Settings).");
+                    return;
+                }
+                const Status scaffolded =
+                    editor::ScaffoldNativeModule(*m_project);
+                if (scaffolded.IsOk())
+                {
+                    m_context.Notify(
+                        editor::NoticeKind::Success,
+                        u8"Native code scaffolded in Native/ - use Project > "
+                        u8"Build Native Module, then Reload.");
+                    LOG_INFO(u8"Editor",
+                             u8"native scaffold: Native/ created, manifest "
+                             u8"nativeModule = '{}'",
+                             m_project->Settings().nativeModule);
+                }
+                else if (scaffolded.Code() == ErrorCode::AlreadyExists)
+                {
+                    m_context.Notify(editor::NoticeKind::Warning,
+                                     u8"Native/ already exists - not touching "
+                                     u8"it (set Project Settings > Native "
+                                     u8"module manually).");
+                }
+                else
+                {
+                    m_context.Notify(editor::NoticeKind::Error,
+                                     u8"Native scaffold failed (see Console).");
+                }
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.buildNativeModule", u8"Build Native Module",
+                        u8"Build the project's native module on the job service",
+                        u8"Project/Build Native Module", 201);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*)
+            {
+                if (!m_project || m_project->Settings().nativeModule.IsEmpty())
+                {
+                    m_context.Notify(editor::NoticeKind::Info,
+                                     u8"No native module declared - Project > "
+                                     u8"Add Native Code... first.");
+                    return;
+                }
+                editor::EditorProject* project = m_project.Get();
+                m_jobService.Submit(
+                    u8"Native Build",
+                    [this, project](editor::JobContext&) -> Status
+                    {
+                        const Status built =
+                            editor::BuildDevNativeModule(*project);
+                        if (built.IsOk())
+                        {
+                            m_context.Notify(
+                                editor::NoticeKind::Success,
+                                u8"Native module built - Project > Reload "
+                                u8"Native Module to pick it up.");
+                        }
+                        else
+                        {
+                            m_context.Notify(
+                                editor::NoticeKind::Error,
+                                u8"Native build failed (see Console).");
+                        }
+                        return built;
+                    });
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.reloadNativeModule", u8"Reload Native Module",
+                        u8"Reload the project's built native module",
+                        u8"Project/Reload Native Module", 202);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { ReloadNativeModule(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.export", u8"Export...", u8"Open the export presets panel",
+                        u8"Project/Export...", 300);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenExportPresetsPanel(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.manageTemplates", u8"Manage Templates...",
+                        u8"Manage the export templates", u8"Project/Manage Templates...", 301);
+            d.execute = [this](editor::EditorPage*) { OpenTemplatesManager(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"project.reportResourceMemory", u8"Report Resource Memory",
+                        u8"Log the resident resources by type (unreferenced = purge candidates)",
+                        u8"Project/Report Resource Memory", 400);
+            d.readOnly = true;
+            d.execute = [this](editor::EditorPage*) { ReportResourceMemory(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"build.cookAll", u8"Cook All",
+                        u8"Cook the dirty assets into the cooked database", u8"Build/Cook All",
+                        100);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { m_cookService.RequestCook(false); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"build.rebuildAll", u8"Rebuild All", u8"Cook every asset again",
+                        u8"Build/Rebuild All", 101);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { m_cookService.RequestCook(true); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"game.play", u8"Play", u8"Play the project in the Game page",
+                        u8"Game/Play", 100);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenGamePage(false); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"game.playNewInstance", u8"Play New Instance",
+                        u8"Play the project in a fresh Game page", u8"Game/Play New Instance", 101);
+            d.enabled = [this](editor::EditorPage*) { return static_cast<bool>(m_project); };
+            d.execute = [this](editor::EditorPage*) { OpenGamePage(true); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"view.resetLayout", u8"Reset Layout",
+                        u8"Reset the panel layout to the default", u8"View/Reset Layout", 100);
+            d.execute = [this](editor::EditorPage*)
+            {
+                m_shell.ResetLayout();
+                m_context.SetStatus(u8"Layout reset to default.");
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"help.about", u8"About", u8"The editor's version", u8"Help/About", 100);
+            d.readOnly = true;
+            d.execute = [this](editor::EditorPage*)
+            {
+                RefPtr<ui::Dialog> dialog = MakeRef<ui::Dialog>(
+                    m_editorAllocator, StringView(u8"About Editor"));
+                auto column = MakeRef<ui::FlexLayout>(m_editorAllocator);
+                column->Direction = ui::Orientation::Vertical;
+                column->Spacing = 8;
+
+                auto title =
+                    MakeRef<ui::Label>(m_editorAllocator, StringView(u8"Editor"));
+                title->FontSize.SetValue(Optional<f32>{18.0f});
+                column->AddView(title.Get());
+
+                String version;
+                version += StringView(u8"Version ");
+                version += StringView(reinterpret_cast<const char8_t*>(BuildStamp()));
+                auto versionLabel =
+                    MakeRef<ui::Label>(m_editorAllocator, version.AsView());
+                versionLabel->WordWrap.SetValue(true);
+                column->AddView(versionLabel.Get());
+
+                dialog->SetContent(column.Get());
+                dialog->AddButton(u8"OK", ui::DialogResult::OK);
+                dialog->Show(&m_uiHost->Context());
+            };
+            (void)actions.Register(Move(d));
+        }
+    }
+
     void EditorApplication::BuildMenus()
     {
-        ui::toolkit::MenuBar* bar = m_shell.Menus();
-        // Conventional order: File holds document/app essentials
-        // only; per-user prefs live under Edit; project-scoped concerns (settings,
-        // export, templates) get their own Project menu; Build stays cook-only.
-        foundation::ui::ContextMenu* file = bar->AddMenu(u8"File");
-        foundation::ui::ContextMenu* editMenu = bar->AddMenu(u8"Edit");
-        foundation::ui::ContextMenu* project = bar->AddMenu(u8"Project");
-        if (project != nullptr)
-        {
-            // I4 instrumentation: answer "what is resident" from the log, before designing
-            // eviction. Counts by product type; unreferenced = cache-only (purge candidates).
-            project->AddItem(u8"Report Resource Memory",
-                             [this]() { ReportResourceMemory(); });
-        }
-        if (foundation::ui::ContextMenu* build = bar->AddMenu(u8"Build"))
-        {
-            build->AddItem(u8"Cook All", [this]() { m_cookService.RequestCook(false); });
-            build->AddItem(u8"Rebuild All", [this]() { m_cookService.RequestCook(true); });
-        }
-
-        if (file != nullptr)
-        {
-            runtime::IApplicationHost* host = m_host;
-
-            // File > New <creator> from the registry (per-subsystem editor modules).
-            // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
-            Array<StringView> categories;
-            for (const editor::EditorContext::AssetCreator& creator :
-                 m_context.Creators())
+        // The bar and the global shortcuts are GENERATED from the action registry (see
+        // RegisterActions and each domain's RegisterEditor); a menu's items are rebuilt when
+        // it opens, so enabled states are the registry's answer at that moment. The one
+        // list-driven set, File > New <creator>, is a registry of its own and leads the File
+        // menu. Shortcuts dispatch AFTER the focused view, and text controls mark their
+        // key-downs handled - a focused textbox keeps Ctrl+Z for its own text undo.
+        m_actionMenus = MakeUnique<ActionMenuBar>(m_editorAllocator, *m_shell.Menus(),
+                                                  m_context.Actions());
+        m_actionMenus->AddLeadingItems(
+            u8"File",
+            [this](foundation::ui::ContextMenu& file)
             {
-                if (creator.category.IsEmpty())
-                {
-                    String label(u8"New ");
-                    label += creator.label;
-                    const auto* entry = &creator;
-                    file->AddItem(label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
-                    continue;
-                }
-                bool seen = false;
-                for (StringView c : categories)
-                {
-                    if (c == creator.category.AsView())
-                    {
-                        seen = true;
-                        break;
-                    }
-                }
-                if (!seen)
-                {
-                    categories.PushBack(creator.category.AsView());
-                }
-            }
-            categories.Sort(
-                [](StringView a, StringView b)
-                {
-                    const usize n = Min(a.Size(), b.Size());
-                    for (usize i = 0; i < n; ++i)
-                    {
-                        if (a[i] != b[i])
-                        {
-                            return a[i] < b[i];
-                        }
-                    }
-                    return a.Size() < b.Size();
-                });
-            for (StringView category : categories)
-            {
-                foundation::ui::MenuItem* submenuItem = file->AddSubmenu(category);
-                auto* submenu = Cast<foundation::ui::ContextMenu>(submenuItem->Submenu.Get());
-                if (submenu == nullptr)
-                {
-                    continue;
-                }
+                // File > New <creator> from the registry (per-subsystem editor modules).
+                // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
+                Array<StringView> categories;
                 for (const editor::EditorContext::AssetCreator& creator :
                      m_context.Creators())
                 {
-                    if (creator.category.AsView() != category)
+                    if (creator.category.IsEmpty())
+                    {
+                        String label(u8"New ");
+                        label += creator.label;
+                        const auto* entry = &creator;
+                        file.AddItem(label.AsView(), [this, entry]() { CreateAndOpen(*entry); });
+                        continue;
+                    }
+                    bool seen = false;
+                    for (StringView c : categories)
+                    {
+                        if (c == creator.category.AsView())
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        categories.PushBack(creator.category.AsView());
+                    }
+                }
+                categories.Sort([](StringView a, StringView b) { return a.Compare(b) < 0; });
+                for (StringView category : categories)
+                {
+                    foundation::ui::MenuItem* submenuItem = file.AddSubmenu(category);
+                    auto* submenu = Cast<foundation::ui::ContextMenu>(submenuItem->Submenu.Get());
+                    if (submenu == nullptr)
                     {
                         continue;
                     }
-                    const auto* entry = &creator;
-                    submenu->AddItem(creator.label.AsView(),
-                                     [this, entry]() { CreateAndOpen(*entry); });
+                    for (const editor::EditorContext::AssetCreator& creator :
+                         m_context.Creators())
+                    {
+                        if (creator.category.AsView() != category)
+                        {
+                            continue;
+                        }
+                        const auto* entry = &creator;
+                        submenu->AddItem(creator.label.AsView(),
+                                         [this, entry]() { CreateAndOpen(*entry); });
+                    }
                 }
-            }
-            if (!m_context.Creators().IsEmpty())
-            {
-                file->AddSeparator();
-            }
-
-            file->AddItem(u8"Save", [this]() { SaveActivePage(); });
-            file->AddItem(u8"Save As...", [this]() { SaveActivePageAs(); });
-            file->AddSeparator();
-            file->AddItem(u8"Save Layout",
-                          [this]()
-                          {
-                              SaveLayout();
-                              m_context.SetStatus(u8"Layout saved.");
-                          });
-            file->AddSeparator();
-            if (m_config.startInProjectManager)
-            {
-                // Only meaningful when the manager launched us; a CLI-opened editor keeps
-                // its single-project lifecycle (Exit is the way out).
-                file->AddItem(u8"Close Project", [this]() { ConfirmCloseProjectThen(); });
-            }
-            file->AddItem(u8"Exit",
-                          [this, host]()
-                          {
-                              if (host != nullptr && ConfirmExitAllowed())
-                              {
-                                  host->RequestExit();
-                              }
-                          });
-        }
-
-        if (editMenu != nullptr)
-        {
-            editMenu->AddItem(u8"Undo", [this]() { m_context.Undo(); });
-            editMenu->AddItem(u8"Redo", [this]() { m_context.Redo(); });
-            editMenu->AddSeparator();
-            // Per-user, not per-document: the conventional Edit home.
-            editMenu->AddItem(u8"Preferences...",
-                              [this]()
-                              {
-                                  auto dialog = MakeRef<EditorPreferencesDialog>(
-                                      m_editorAllocator, m_context, m_editorSettings);
-                                  // UI scale applies LIVE: host scale (roots pick it up
-                                  // next frame) + icon re-bake at the effective scale.
-                                  dialog->OnUiScaleApplied = [this](f32 uiScale)
-                                  {
-                                      m_uiHost->SetUiScale(uiScale);
-                                      graphics::RenderWindow* mainRw =
-                                          m_host != nullptr ? m_host->MainRenderWindow() : nullptr;
-                                      const f32 content =
-                                          mainRw != nullptr ? mainRw->Window().ContentScale()
-                                                            : 1.0f;
-                                      BakeEditorIcons(content * uiScale);
-                                  };
-                                  dialog->Show(&m_uiHost->Context());
-                              });
-        }
-
-        if (project != nullptr)
-        {
-            project->AddItem(u8"Project Settings...",
-                             [this]()
-                             {
-                                 if (m_project)
-                                 {
-                                     auto dialog = MakeRef<ProjectSettingsDialog>(
-                                         m_editorAllocator, m_context);
-                                     dialog->Show(&m_uiHost->Context());
-                                 }
-                             });
-            project->AddItem(u8"Add Native Code...",
-                             [this]()
-                             {
-                                 if (!m_project)
-                                 {
-                                     return;
-                                 }
-                                 if (!m_project->Settings().nativeModule.IsEmpty())
-                                 {
-                                     m_context.Notify(editor::NoticeKind::Info,
-                                                      u8"This project already has native code "
-                                                      u8"(see Project Settings).");
-                                     return;
-                                 }
-                                 const Status scaffolded =
-                                     editor::ScaffoldNativeModule(*m_project);
-                                 if (scaffolded.IsOk())
-                                 {
-                                     m_context.Notify(
-                                         editor::NoticeKind::Success,
-                                         u8"Native code scaffolded in Native/ - use Project > "
-                                         u8"Build Native Module, then Reload.");
-                                     LOG_INFO(u8"Editor",
-                                              u8"native scaffold: Native/ created, manifest "
-                                              u8"nativeModule = '{}'",
-                                              m_project->Settings().nativeModule);
-                                 }
-                                 else if (scaffolded.Code() == ErrorCode::AlreadyExists)
-                                 {
-                                     m_context.Notify(editor::NoticeKind::Warning,
-                                                      u8"Native/ already exists - not touching "
-                                                      u8"it (set Project Settings > Native "
-                                                      u8"module manually).");
-                                 }
-                                 else
-                                 {
-                                     m_context.Notify(editor::NoticeKind::Error,
-                                                      u8"Native scaffold failed (see Console).");
-                                 }
-                             });
-            project->AddItem(u8"Build Native Module",
-                             [this]()
-                             {
-                                 if (!m_project || m_project->Settings().nativeModule.IsEmpty())
-                                 {
-                                     m_context.Notify(editor::NoticeKind::Info,
-                                                      u8"No native module declared - Project > "
-                                                      u8"Add Native Code... first.");
-                                     return;
-                                 }
-                                 editor::EditorProject* project = m_project.Get();
-                                 m_jobService.Submit(
-                                     u8"Native Build",
-                                     [this, project](editor::JobContext&) -> Status
-                                     {
-                                         const Status built =
-                                             editor::BuildDevNativeModule(*project);
-                                         if (built.IsOk())
-                                         {
-                                             m_context.Notify(
-                                                 editor::NoticeKind::Success,
-                                                 u8"Native module built - Project > Reload "
-                                                 u8"Native Module to pick it up.");
-                                         }
-                                         else
-                                         {
-                                             m_context.Notify(
-                                                 editor::NoticeKind::Error,
-                                                 u8"Native build failed (see Console).");
-                                         }
-                                         return built;
-                                     });
-                             });
-            project->AddItem(u8"Reload Native Module",
-                             [this]() { ReloadNativeModule(); });
-            project->AddSeparator();
-            project->AddItem(u8"Export...", [this]() { OpenExportPresetsPanel(); });
-            project->AddItem(u8"Manage Templates...", [this]() { OpenTemplatesManager(); });
-        }
-
-        // Keyboard equivalents via the UI ShortcutManager. Shortcuts dispatch AFTER the
-        // focused view, and text controls mark their key-downs handled - so a focused
-        // textbox keeps Ctrl+Z for its own text undo and these fire everywhere else.
-        foundation::ui::ShortcutManager* shortcuts = m_uiHost->Context().GetShortcuts();
-        shortcuts->AddGlobal(foundation::ui::KeyCode::Z, foundation::ui::KeyModifiers::Ctrl,
-                             [this]() { m_context.Undo(); });
-        shortcuts->AddGlobal(foundation::ui::KeyCode::Z,
-                             foundation::ui::KeyModifiers::Ctrl | foundation::ui::KeyModifiers::Shift,
-                             [this]() { m_context.Redo(); });
-        shortcuts->AddGlobal(foundation::ui::KeyCode::Y, foundation::ui::KeyModifiers::Ctrl,
-                             [this]() { m_context.Redo(); });
-        shortcuts->AddGlobal(foundation::ui::KeyCode::S, foundation::ui::KeyModifiers::Ctrl,
-                             [this]() { SaveActivePage(); });
-
-        if (foundation::ui::ContextMenu* game = bar->AddMenu(u8"Game"))
-        {
-            game->AddItem(u8"Play", [this]() { OpenGamePage(false); });
-            game->AddItem(u8"Play New Instance", [this]() { OpenGamePage(true); });
-        }
-        if (foundation::ui::ContextMenu* view = bar->AddMenu(u8"View"))
-        {
-            view->AddItem(u8"Reset Layout",
-                          [this]()
-                          {
-                              m_shell.ResetLayout();
-                              m_context.SetStatus(u8"Layout reset to default.");
-                          });
-        }
-
-        if (foundation::ui::ContextMenu* help = bar->AddMenu(u8"Help"))
-        {
-            help->AddItem(u8"About",
-                          [this]()
-                          {
-                              RefPtr<ui::Dialog> dialog = MakeRef<ui::Dialog>(
-                                  m_editorAllocator, StringView(u8"About Editor"));
-                              auto column = MakeRef<ui::FlexLayout>(m_editorAllocator);
-                              column->Direction = ui::Orientation::Vertical;
-                              column->Spacing = 8;
-
-                              auto title =
-                                  MakeRef<ui::Label>(m_editorAllocator, StringView(u8"Editor"));
-                              title->FontSize.SetValue(Optional<f32>{18.0f});
-                              column->AddView(title.Get());
-
-                              String version;
-                              version += StringView(u8"Version ");
-                              version += StringView(reinterpret_cast<const char8_t*>(BuildStamp()));
-                              auto versionLabel =
-                                  MakeRef<ui::Label>(m_editorAllocator, version.AsView());
-                              versionLabel->WordWrap.SetValue(true);
-                              column->AddView(versionLabel.Get());
-
-                              dialog->SetContent(column.Get());
-                              dialog->AddButton(u8"OK", ui::DialogResult::OK);
-                              dialog->Show(&m_uiHost->Context());
-                          });
-        }
+            });
+        m_actionShortcuts = MakeUnique<ActionShortcuts>(
+            m_editorAllocator, *m_uiHost->Context().GetShortcuts(), m_context.Actions());
     }
 }

@@ -30,6 +30,9 @@ Handlers dispatch **by presence** - implement only what you need:
 - `onDestroy()` - before teardown.
 - `on<Event>(...)` - named events: physics contacts, and any custom event another script
   sends. `entity.send("eventName", payload)` delivers to the target entity's behaviors.
+- Networked entities: gate on `NetworkComponent.of(self).authority` (Server or Client) - the
+  owning side drives, the rest interpolate. It reads; replication owns the identity, so
+  nothing on it is assignable from a script.
 
 ## Editor properties
 
@@ -49,3 +52,7 @@ initialization - they also run during cooking.
   behaviors.
 - A behavior constructor runs at cook time too; side effects beyond field init will
   misbehave.
+- Some engine properties are read-only on purpose (a network identity's `authority`, for
+  one): every backend reads them, none assigns. AngelScript refuses the assignment at
+  compile time, Luau raises at the assignment, and the `.d.luau` declarations carry them as
+  `read` for luau-analyze.

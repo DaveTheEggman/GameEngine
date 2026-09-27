@@ -158,11 +158,20 @@ namespace editor
     void EditorCommandStack::EndGroup()
     {
         DIAGNOSTIC_ASSERT(m_inGroup);
+        m_inGroup = false;
+        // Nothing ran inside: no undo step for the user to hit and see nothing happen. The
+        // begin marker goes (it is the undo top), and nobody is notified - nothing changed.
+        if (m_undoIndex >= 0 &&
+            m_stack[static_cast<usize>(m_undoIndex)]->TypeId() == detail::kBeginGroupTypeId)
+        {
+            m_stack.PopBack();
+            --m_undoIndex;
+            return;
+        }
         m_stack.PushBack(UniquePtr<IEditorCommand>(
             editor::EditorRootAllocator().New<detail::EndGroupCommand>(m_groupType.AsView()),
             editor::EditorRootAllocator()));
         ++m_undoIndex;
-        m_inGroup = false;
         Notify();
     }
 

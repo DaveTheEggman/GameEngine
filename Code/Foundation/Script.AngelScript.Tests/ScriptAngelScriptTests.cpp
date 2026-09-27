@@ -34,6 +34,7 @@ namespace
         RTTI_OBJECT(Widget, Object)
     public:
         int id = 0;
+        int serial = 7; // published read-only: a script reads it, never assigns it
         int doubled() const { return id * 2; }
         int idOf(Widget* other) const { return other != nullptr ? other->id : -1; }
     };
@@ -42,6 +43,7 @@ namespace
 REFLECT_MEMBERS(Widget, "rtti::script::test")
 {
     builder.Property<&Widget::id>("id");
+    builder.Property<&Widget::serial>("serial", PropertyFlags::ReadOnly);
     builder.Method<&Widget::doubled>("doubled");
     builder.Method<&Widget::idOf>("idOf");
     builder.Constructor();
@@ -780,6 +782,23 @@ TEST_CASE("angelscript: SetGlobal writes typed module globals")
     CHECK(ctx->Call(u8"ReadTag", Span<Variant>{}).Value().Get<String>() == u8"fast");
 }
 
+TEST_CASE("angelscript: a read-only property reads, and an assignment fails to compile - no setter exists")
+{
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    manager->RegisterType(Widget::StaticType());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+
+    REQUIRE(ctx->Load(u8"double S = 0;\n"
+                      u8"void main() { Widget@ w = Widget(); S = w.serial; }\n",
+                      u8"main")
+                .IsOk());
+    CHECK(ctx->GetGlobal(u8"S").Get<f64>() == 7.0);
+
+    // The assignment is refused by the compiler: the backend registers get_serial only.
+    RefPtr<IScriptContext> other = manager->CreateContext();
+    CHECK_FALSE(other->Load(u8"void main() { Widget@ w = Widget(); w.serial = 3; }\n", u8"main").IsOk());
+}
+
 TEST_CASE("angelscript: reflected value types are usable from script (construct + properties)")
 {
     RegisterCoreTypes();
@@ -904,6 +923,7 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
 {
     RegisterCoreTypes();
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    manager->RegisterType(Widget::StaticType()); // a test-local type beside the registry's
     RegisterReflectedTypes(*manager);
 
     const Array<ScriptApiType> api = manager->DescribeBoundApi();
@@ -942,6 +962,20 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
     const ScriptApiMember* atan2 = findMember(*math, u8"Atan2");
     REQUIRE(atan2 != nullptr);
     CHECK(atan2->signature.AsView().EndsWith(u8" x)")); // Atan2(y, x)
+
+    // A read-only property says so: the flag for tooling, the suffix for a reader of the
+    // signature (the API browser), so an agent knows before it writes.
+    const ScriptApiType* widget = findType(u8"Widget");
+    REQUIRE(widget != nullptr);
+    const ScriptApiMember* serial = findMember(*widget, u8"serial");
+    REQUIRE(serial != nullptr);
+    CHECK(serial->readOnly);
+    CHECK(serial->kind == ScriptApiMemberKind::Property);
+    CHECK(serial->signature.AsView() == u8"Widget.serial (read only)");
+    const ScriptApiMember* id = findMember(*widget, u8"id");
+    REQUIRE(id != nullptr);
+    CHECK_FALSE(id->readOnly);
+    CHECK(id->signature.AsView() == u8"Widget.id");
 }
 
 TEST_CASE("angelscript: Object-derived type as a script-visible class")

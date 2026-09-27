@@ -36,3 +36,25 @@ TEST_CASE("toolkit-menubar: AddsMenus")
     // MenuBar is its own popup owner.
     CHECK(bar->OwnerView() == bar.Get());
 }
+
+TEST_CASE("toolkit-menubar: MenuAt / MenuTitle answer the menus in order; ClearMenus empties the bar")
+{
+    auto bar = core::MakeRef<MenuBar>(core::DefaultAllocator());
+    ContextMenu* fileMenu = bar->AddMenu(u8"File");
+    ContextMenu* editMenu = bar->AddMenu(u8"Edit");
+    CHECK(bar->MenuAt(0) == fileMenu);
+    CHECK(bar->MenuAt(1) == editMenu);
+    CHECK(bar->MenuAt(2) == nullptr);
+    CHECK(bar->MenuTitle(0) == u8"File");
+    CHECK(bar->MenuTitle(1) == u8"Edit");
+    CHECK(bar->MenuTitle(2).IsEmpty());
+    bar->ClearMenus();
+    CHECK(bar->MenuCount() == 0u);
+    CHECK(bar->MenuAt(0) == nullptr);
+    // A bar rebuilt after clearing is a fresh bar.
+    ContextMenu* again = bar->AddMenu(u8"File");
+    REQUIRE(again != nullptr);
+    CHECK(bar->MenuCount() == 1u);
+    CHECK(bar->MenuTitle(0) == u8"File");
+}
+

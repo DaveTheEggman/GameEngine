@@ -16,6 +16,8 @@ import foundation.vfs;
 import foundation.content;
 import foundation.json;
 import foundation.mcp;
+import foundation.scene;
+import foundation.scene.resource;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
@@ -40,9 +42,9 @@ namespace
         request.Set(u8"id", JsonValue::MakeNumber(1));
         request.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
         request.Set(u8"params", Move(params));
-        Optional<String> line = server.HandleLine(request.ToString().AsView());
-        REQUIRE(line.HasValue());
-        JsonValue response = foundation::json::Parse(line.Value().AsView()).value;
+        foundation::mcp::LineOutcome line = server.HandleLine(request.ToString().AsView());
+        REQUIRE(line.state == foundation::mcp::LineState::Answered);
+        JsonValue response = foundation::json::Parse(line.response.AsView()).value;
         REQUIRE(response.Has(u8"result"));
         REQUIRE(response.Get(u8"result").Get(u8"isError").AsBool() == false);
         return foundation::json::Parse(
@@ -50,7 +52,11 @@ namespace
             .value;
     }
 
-    // Every instance under a group (recursively) reads back; fails the case on a refusal.
+    // Every instance under a group (recursively) reads back; fails the case on a refusal. A
+    // scene or prefab is its STREAM, not its document: the entities, components and system
+    // settings carry their own data versions, so the stream loads into a scratch scene of the
+    // full composition the way a page opens it (a stale RigidBody payload sat behind a valid
+    // SceneDocument for a month).
     usize ReadAllInstances(foundation::content::Group& group)
     {
         usize read = 0;
@@ -60,6 +66,14 @@ namespace
             const String name(instance->Name());
             const std::string shown(reinterpret_cast<const char*>(name.CStr()), name.Size());
             CHECK_MESSAGE(object.Get() != nullptr, "sample project instance refused: ", shown);
+            if (instance->TypeName() == StringView(u8"SceneDocument") ||
+                instance->TypeName() == StringView(u8"PrefabDocument"))
+            {
+                foundation::scene::Scene scratch(DefaultAllocator(), name.AsView());
+                engine::AddAllSceneManagers(scratch);
+                const Status loaded = foundation::scene::LoadScene(*instance, scratch);
+                CHECK_MESSAGE(loaded.IsOk(), "sample project scene stream refused: ", shown);
+            }
             ++read;
         }
         for (foundation::content::Group* child : group.Groups())
@@ -109,9 +123,12 @@ TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versi
         pipeline::RegisterAllImporters(importers);
         foundation::mcp::McpServer server;
         editor::mcp::ProjectSession session;
-        editor::mcp::RegisterProjectTools(server, session);
+        editor::mcp::ProjectOwner owner;
+        editor::mcp::RegisterProjectOpenTools(server, session, owner);
+        editor::mcp::RegisterProjectInfoTool(server, session);
         editor::mcp::RegisterAssetTools(server, session);
-        editor::mcp::RegisterAssetWriteTools(server, session, builders, importers);
+        editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+        editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
         JsonValue open = JsonValue::MakeObject();
         open.Set(u8"directory", JsonValue::MakeString(u8"scratch_paperkid_versions"));
         (void)Call(server, u8"project_open", Move(open));

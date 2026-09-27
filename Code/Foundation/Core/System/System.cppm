@@ -137,6 +137,13 @@ export namespace foundation::core
     /// The current OS process id (ops tooling: a hung process is killed by pid).
     [[nodiscard]] inline u64 ProcessId() noexcept { return sys::ProcessId(); }
 
+    /// Fill `out` with OS entropy: the source for secrets and ids nobody can predict (a
+    /// seeded Random is for reproducible generation). False when the OS refused.
+    [[nodiscard]] inline bool FillEntropy(Span<byte> out) noexcept
+    {
+        return sys::FillEntropy(out.Data(), out.Size());
+    }
+
     /// Absolute path of the RUNNING executable (the OS query - not argv[0], which can be
     /// bare or relative). Empty on failure.
     [[nodiscard]] inline String ExecutablePath()

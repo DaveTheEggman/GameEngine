@@ -273,12 +273,63 @@ TEST_CASE("editor.settings: every registered section type is INSTANTIABLE (facto
         &EditorExportSettings::StaticType(),
         &EditorFontSettings::StaticType(),
         &EditorUiSettings::StaticType(),
+        &EditorMcpSettings::StaticType(),
         &RecentProjectsSettings::StaticType(),
     };
     for (const TypeInfo* type : sectionTypes)
     {
         CHECK(GlobalSerializableRegistry().Create(type->id).Get() != nullptr);
     }
+}
+
+TEST_CASE("editor.settings: the MCP section round-trips, and a minted token is a fresh Guid")
+{
+    RegisterEditorSettingsTypes();
+    // Defaults: off, the documented port, no token yet.
+    {
+        foundation::settings::Settings store(foundation::core::DefaultAllocator());
+        const EditorMcpSettings& mcp = store.Section<EditorMcpSettings>();
+        CHECK_FALSE(mcp.enabled);
+        CHECK(mcp.port == kEditorMcpDefaultPort);
+        CHECK(mcp.token.IsEmpty());
+    }
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
+    EditorMcpSettings& mcp = store.Section<EditorMcpSettings>();
+    mcp.enabled = true;
+    mcp.port = 7500;
+    mcp.token = GenerateMcpToken();
+    REQUIRE(mcp.token.Size() == 36u);
+    CHECK(GenerateMcpToken() != mcp.token); // every mint is a new secret
+
+    MemoryStream buffer;
+    REQUIRE(store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
+    REQUIRE(loaded.Load(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    const EditorMcpSettings* back = loaded.Find<EditorMcpSettings>();
+    REQUIRE(back != nullptr);
+    CHECK(back->enabled);
+    CHECK(back->port == 7500u);
+    CHECK(back->token == mcp.token);
+}
+
+TEST_CASE("editor.settings: the MCP section takes the Preferences fields, refusing a bad port")
+{
+    EditorMcpSettings mcp;
+    mcp.token = String(u8"old");
+    CHECK(mcp.ApplyFromPreferences(true, u8"7500", u8"new"));
+    CHECK(mcp.enabled);
+    CHECK(mcp.port == 7500u);
+    CHECK(mcp.token == u8"new");
+    // A port outside 1024..65535, or not a number, is refused and the port stands.
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"80", u8"new"));
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"70000", u8"new"));
+    CHECK_FALSE(mcp.ApplyFromPreferences(true, u8"lots", u8"new"));
+    CHECK(mcp.port == 7500u);
+    // Disabling with an empty token: off, and the next enable mints a fresh secret.
+    CHECK(mcp.ApplyFromPreferences(false, u8"7500", u8""));
+    CHECK_FALSE(mcp.enabled);
+    CHECK(mcp.token.IsEmpty());
 }
 
 TEST_CASE("editor.settings: a store with EVERY section round-trips (registry survives)")

@@ -10,9 +10,13 @@
 //   - HTTP/1.1 only; ONE request per connection (Connection: close) - the ez-validated MCP
 //     transport subset. No pipelining, no keep-alive, no chunked request bodies, no TLS
 //     (localhost trust domain; auth is a bearer token at the consumer layer).
-//   - The ONE deliberate exception to one-shot: a handler may answer with an EVENT STREAM
-//     (Server-Sent Events) - the connection then stays open and the consumer writes events
-//     through a ref-counted SseStream for as long as the peer listens.
+//   - Two deliberate exceptions to answer-and-close: a handler may answer with an EVENT
+//     STREAM (Server-Sent Events) - the connection then stays open and the consumer writes
+//     events through a ref-counted SseStream for as long as the peer listens - or NOT YET
+//     (an empty answer): the request stays on its connection, the peer keeps waiting, and
+//     the server hands the SAME request to the handler again on every Pump until it answers
+//     (a handler that must let its host make progress, e.g. an MCP tool waiting on a
+//     background cook). A response is only ever a response; "not yet" is the absence of one.
 //   - The client is BLOCKING with a timeout, localhost-focused (a host name or dotted quad;
 //     no TLS): tests, local tooling, and the MCP acceptance loop - not a game-facing fetch API.
 //
@@ -182,8 +186,11 @@ export namespace foundation::http
     /// The pump-model HTTP server: Start binds the listener; each Pump() accepts pending
     /// connections, reads, and for every COMPLETE request calls the handler and writes the
     /// response (Connection: close) - or, for an EventStream() response, writes the SSE
-    /// headers and hands the connection to the stream handler. Malformed input answers 400
-    /// and closes; a missing handler answers 404. Single-threaded (see module header).
+    /// headers and hands the connection to the stream handler - or, when the handler
+    /// answers NOT YET (an empty Optional), keeps the request and calls the handler with it
+    /// again next Pump (a peer that leaves while waiting is dropped). Malformed input
+    /// answers 400 and closes; a missing handler answers 404. Single-threaded (see module
+    /// header).
     class HttpServer
     {
     public:
@@ -199,8 +206,12 @@ export namespace foundation::http
         [[nodiscard]] bool IsRunning() const noexcept { return m_listener.Get() != nullptr; }
         [[nodiscard]] u16 BoundPort() const noexcept;
 
-        /// The request handler (one-shot responses AND the EventStream() marker).
-        void SetHandler(Function<HttpResponse(const HttpRequest&)> handler)
+        /// The request handler: a one-shot response, the EventStream() marker, or NOT YET
+        /// (an empty Optional) - the request then stays pending on its connection and the
+        /// handler sees it again on the next Pump. A handler that waits this way keeps its
+        /// own progress state and its own timeout: a server that stops pumping and a
+        /// handler that never answers look the same to the peer.
+        void SetHandler(Function<Optional<HttpResponse>(const HttpRequest&)> handler)
         {
             m_handler = Move(handler);
         }
@@ -212,21 +223,31 @@ export namespace foundation::http
         }
 
         /// One pump: accept + read + dispatch + write. Returns the number of requests
-        /// completed this call (0 = nothing happened; callers may sleep briefly on 0).
+        /// answered this call (0 = nothing happened; callers may sleep briefly on 0). A
+        /// request answered not yet counts when it is finally answered, not on the pumps it waits.
         usize Pump();
+
+        /// Requests whose handler answered NOT YET and that are still waiting. A host whose
+        /// loop sleeps when idle must keep pumping while this is non-zero.
+        [[nodiscard]] usize PendingRequestCount() const noexcept;
 
     private:
         struct Connection
         {
             foundation::net::TcpSocket socket;
             HttpMessageParser parser{HttpMessageParser::Mode::Request};
+            HttpRequest request;  // the parsed request, valid while `pending`
+            bool pending = false; // a complete request awaits its answer (not yet given)
             Connection(foundation::net::TcpSocket s, usize maxBody)
                 : socket(Move(s)), parser(HttpMessageParser::Mode::Request, maxBody)
             {
             }
         };
 
-        void Dispatch(Connection& connection);
+        /// Hands the connection's pending request to the handler. True when it was answered
+        /// (or handed to a stream) and the connection is finished with; false when the
+        /// handler answered not yet and the request stays pending.
+        bool Dispatch(Connection& connection);
         static void WriteResponse(foundation::net::TcpSocket& socket, const HttpResponse& r);
 
         HttpServerConfig m_config;
@@ -234,7 +255,7 @@ export namespace foundation::http
         UniquePtr<foundation::net::TcpListener> m_listener;
         Array<UniquePtr<Connection>> m_connections;
         Array<RefPtr<SseStream>> m_streams; // server-side refs; swept when closed
-        Function<HttpResponse(const HttpRequest&)> m_handler;
+        Function<Optional<HttpResponse>(const HttpRequest&)> m_handler;
         Function<void(const HttpRequest&, RefPtr<SseStream>)> m_streamHandler;
     };
 

@@ -9,7 +9,7 @@ endif()
 if(OPTION_ENABLE_LUAU)
     list(APPEND _editor_core_script_libs ${SCRIPTLIB_LUAU_PIPELINE} ${SCRIPTLIB_LUAU})
 endif()
-add_executable(Editor.Core.Tests TestsMain.cpp CommandTests.cpp ProjectTests.cpp
+add_executable(Editor.Core.Tests TestsMain.cpp CommandTests.cpp ActionsTests.cpp ProjectTests.cpp CookServiceTests.cpp
     ProjectRegistryTests.cpp
     ExportTests.cpp JobServiceTests.cpp ThumbnailServiceTests.cpp ContextTests.cpp LogBufferTests.cpp)
 target_link_libraries(Editor.Core.Tests PRIVATE Editor::Core Pipeline::Geometry Foundation::Geometry.Resource

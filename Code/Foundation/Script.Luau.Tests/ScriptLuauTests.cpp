@@ -126,6 +126,7 @@ end
         RTTI_OBJECT(Compass, Object)
     public:
         Facing facing = Facing::North;
+        int heading = 90; // published read-only: a script reads it, never assigns it
         [[nodiscard]] Facing opposite(Facing f) const
         {
             switch (f)
@@ -158,6 +159,12 @@ function Probe:setAndRead()
 end
 function Probe:oppositeOfWest()
     return self.c:opposite(Facing.West)
+end
+function Probe:readHeading() return self.c.heading end
+function Probe:writeHeading()
+    local ok, err = pcall(function() self.c.heading = 5 end)
+    if ok then return 0 end
+    return string.find(err, "read%-only") and 1 or 2
 end
 )lua";
 
@@ -1034,6 +1041,7 @@ REFLECT_MEMBERS(Compass, "rtti::luau::test")
 {
     builder.Constructor();
     builder.Property<&Compass::facing>("facing");
+    builder.Property<&Compass::heading>("heading", PropertyFlags::ReadOnly);
     builder.Method<&Compass::opposite>("opposite");
 }
 
@@ -1063,6 +1071,26 @@ TEST_CASE("script.luau: reflected enums - named tables + number marshalling both
     // An enum argument AND an enum return marshal through a method (opposite(West) = East = 1).
     CHECK(probe->Invoke(u8"oppositeOfWest", Span<Variant>{}).Value().Get<f64>() ==
           doctest::Approx(1.0));
+}
+
+TEST_CASE("script.luau: a read-only property reads, and an assignment raises instead of silently dropping")
+{
+    RttiRegisterEnum_Facing();
+
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    manager->RegisterType(TypeOf<Facing>());
+    manager->RegisterType(Compass::StaticType());
+    manager->FinalizeTypes();
+
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(kEnumProbe, u8"luau.readonly").IsOk());
+    RefPtr<ScriptObject> probe = context->CreateInstance(u8"Probe", Span<Variant>{});
+    REQUIRE(probe.Get() != nullptr);
+
+    CHECK(probe->Invoke(u8"readHeading", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(90.0));
+    // 1 = the assignment raised naming the property read-only (0 = silently accepted, 2 = another error).
+    CHECK(probe->Invoke(u8"writeHeading", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(1.0));
+    CHECK(probe->Invoke(u8"readHeading", Span<Variant>{}).Value().Get<f64>() == doctest::Approx(90.0));
 }
 
 TEST_CASE("script.luau: backend conformance battery")
@@ -1104,8 +1132,9 @@ TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-ana
     RegisterCoreTypes();       // Float3 (-> native vector)
     RttiRegisterEnum_Facing(); // the Facing enum
 
-    const TypeInfo* types[] = {&TypeOf<Float3>(), &VecHolder::StaticType(), &TypeOf<Facing>()};
-    const String decls = EmitLuauDeclarations(Span<const TypeInfo* const>{types, 3});
+    const TypeInfo* types[] = {&TypeOf<Float3>(), &VecHolder::StaticType(), &TypeOf<Facing>(),
+                               &Compass::StaticType()};
+    const String decls = EmitLuauDeclarations(Span<const TypeInfo* const>{types, 4});
 
     const StringView text = decls.AsView();
     auto has = [text](StringView needle)
@@ -1137,5 +1166,7 @@ TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-ana
     CHECK(has(u8"new: () -> VecHolder"));
     // The enum surfaces as a named number table (non-contiguous West present by name).
     CHECK(has(u8"declare Facing: {"));
+    CHECK(has(u8"    read heading: number")); // a read-only property carries Luau's read modifier
+    CHECK(has(u8"    facing: number"));
     CHECK(has(u8"West: number"));
 }

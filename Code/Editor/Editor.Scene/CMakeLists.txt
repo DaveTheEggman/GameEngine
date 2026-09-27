@@ -21,7 +21,8 @@ target_link_libraries(Editor.Scene
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
         Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Engine::Script
         Foundation::Input Foundation::Input.Resource Engine::Input
-        Editor::Core Editor::App Editor::Camera Editor::Preview Editor::ViewportTools Editor::PropertyAnimation Foundation::Policy)
+        Editor::Core Editor::App Editor::Camera Editor::Preview Editor::ViewportTools Editor::PropertyAnimation Foundation::Policy
+        Foundation::Mcp Foundation::Json) # the scene editor's MCP tools
 
 target_sources(Editor.Scene
     PRIVATE
@@ -33,6 +34,7 @@ target_sources(Editor.Scene
         HierarchyViewImpl.cpp
         InspectorViewImpl.cpp
         ScenePageImpl.cpp
+        SceneMcpToolsImpl.cpp
         GamePageImpl.cpp
         MaterialPageImpl.cpp
         MeshPageImpl.cpp
@@ -45,6 +47,9 @@ target_sources(Editor.Scene
             SceneViewSettings.cppm
             CameraPreview.cppm
             EditContext.cppm
+            SceneEditorPageInterface.cppm
+            SceneActions.cppm
+            SceneMcpTools.cppm
             Gizmo.cppm
             Tools.cppm
             ComponentGizmos.cppm

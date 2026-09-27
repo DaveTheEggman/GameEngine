@@ -104,6 +104,7 @@ namespace foundation::mcp::script_detail
                     memberObj.Set(u8"name", JsonValue::MakeString(m.name));
                     memberObj.Set(u8"signature", JsonValue::MakeString(m.signature));
                     memberObj.Set(u8"isStatic", JsonValue::MakeBool(m.isStatic));
+                    memberObj.Set(u8"readOnly", JsonValue::MakeBool(m.readOnly));
                     memberObj.Set(u8"kind", JsonValue::MakeString(String(KindName(m.kind))));
                     members.Add(Move(memberObj));
                 }
@@ -131,6 +132,7 @@ export namespace foundation::mcp
             SchemaBuilder()
                 .Str(u8"language", u8"backend language id (e.g. \"angelscript\", \"luau\"); default: all")
                 .Build(),
+                foundation::mcp::ToolAnnotations::ReadOnly(),
             [](const JsonValue& args) -> Result<JsonValue, String>
             {
                 const String language = args.Get(u8"language").AsString();
