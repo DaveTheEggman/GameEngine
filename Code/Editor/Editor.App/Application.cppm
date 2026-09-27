@@ -376,6 +376,7 @@ export namespace editor::app
 
         void RegisterActions();
         void BuildMenus();
+        void RefreshActivePageMark(); // the active page's panel carries the dock's ActiveMark
 
         // I4 instrumentation: log the ResourceManager's live-product report (counts by type;
         // unreferenced = cache-only purge candidates). Project > Report Resource Memory.

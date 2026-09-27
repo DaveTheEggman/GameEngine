@@ -462,6 +462,23 @@ namespace editor::app
         m_cookService.RequestCookFor(Move(roots), false);
     }
 
+    void EditorApplication::RefreshActivePageMark()
+    {
+        editor::EditorPage* active = m_context.ActivePage();
+        for (const PagePanel& entry : m_pagePanels)
+        {
+            const bool mark = entry.page == active;
+            if (entry.panel != nullptr && entry.panel->ActiveMark != mark)
+            {
+                entry.panel->ActiveMark = mark;
+                if (entry.panel->Parent != nullptr)
+                {
+                    entry.panel->Parent->Invalidate(); // the group draws the strip and the ring
+                }
+            }
+        }
+    }
+
     void EditorApplication::OpenGamePage(bool newInstance)
     {
         if (!newInstance && m_gamePage != nullptr)
@@ -515,6 +532,7 @@ namespace editor::app
                     Function<void()>{[this, uiPage]() { ClosePage(uiPage); }});
             });
         m_pagePanels.PushBack(PagePanel{uiPage, panel});
+        RefreshActivePageMark(); // the panel exists now; the page may already be the active one
     }
 
     UIEditorPage* EditorApplication::OpenInstancePage(foundation::content::Instance& instance)
@@ -583,6 +601,7 @@ namespace editor::app
             return false;
         };
         m_pagePanels.PushBack(PagePanel{uiPage, panel});
+        RefreshActivePageMark(); // the panel exists now; the page may already be the active one
         CookMissingForPage(instance); // uncooked dependencies cook without a manual step
         return uiPage;
     }
@@ -2382,6 +2401,10 @@ namespace editor::app
         // Settings-derived session state re-applies on save (default font/theme -
         // without this a changed default kept the OLD bind until reopen).
         m_context.OnProjectSettingsChanged = [this]() { ApplyProjectUiDefaults(); };
+        // The active page's panel carries the dock's ActiveMark (the accent strip and ring): the
+        // page a command goes to, visible when two pages sit side by side. A tool panel never
+        // takes it - the mark follows the context's active page, not the dock's clicked panel.
+        m_context.OnPagesChanged = [this]() { RefreshActivePageMark(); };
         // A page revealed through the context (page_open, an agent's viewport_screenshot)
         // brings its tab to front: a background tab's viewport never renders.
         m_context.OnRevealPage = [this](editor::EditorPage* page)
