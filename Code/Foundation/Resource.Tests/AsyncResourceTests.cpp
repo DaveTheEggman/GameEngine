@@ -69,6 +69,7 @@ namespace
         {
             return &AsyncProduct::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override { return ProductType(); }
 
         // Synchronous fallback (un-migrated factory / no job system): reads the source directly.
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& /*manager*/,
@@ -665,6 +666,7 @@ namespace
         {
             return &ParentProduct::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override { return ProductType(); }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance&) override

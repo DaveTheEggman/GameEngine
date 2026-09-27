@@ -225,6 +225,10 @@ export namespace foundation::propertyanimation
         {
             return &PropertyAnimationClipResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &PropertyAnimationClipSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             foundation::content::Instance& instance) override
         {

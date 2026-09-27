@@ -308,6 +308,10 @@ export namespace foundation::script
         {
             return &ScriptClass::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &ScriptClassSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(foundation::resource::ResourceManager&,
                                             foundation::content::Instance& instance) override

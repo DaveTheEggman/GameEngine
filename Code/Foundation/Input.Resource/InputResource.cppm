@@ -44,6 +44,10 @@ export namespace foundation::input
         {
             return &InputMapResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &InputMapResource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             content::Instance& instance) override
         {

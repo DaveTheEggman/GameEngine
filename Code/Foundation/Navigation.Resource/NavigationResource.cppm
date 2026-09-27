@@ -69,6 +69,10 @@ export namespace foundation::navigation
         {
             return &NavigationZoneResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &NavigationZoneSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override
         {

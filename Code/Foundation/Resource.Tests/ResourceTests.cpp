@@ -52,6 +52,7 @@ namespace
         {
             return &Material::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override { return ProductType(); }
 
         int builds = 0;              // observe rebuilds (incl. dependency-propagated reloads)
         HashMap<Guid, Guid> bindMap; // when building key, Bind value (a child) -> auto-edge
@@ -453,6 +454,7 @@ namespace
         {
             return &Reentrant::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override { return ProductType(); }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override
         {
@@ -544,6 +546,7 @@ namespace
     public:
         i32 builds = 0;
         [[nodiscard]] const TypeInfo* ProductType() const override { return &Burst::StaticType(); }
+        [[nodiscard]] const TypeInfo* CookedType() const override { return ProductType(); }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override
         {
@@ -663,6 +666,7 @@ TEST_CASE("resource: Ref<T> is a reference-shaped value - its TypeInfo reads the
 {
     Ref<Material> ref;
     CHECK(IsReferenceType(TypeOf<Ref<Material>>()));
+    CHECK(TypeOf<Ref<Material>>().reference->Target() == &Material::StaticType()); // what it points at
     CHECK(TypeOf<Ref<Material>>().reference->Id(&ref)->IsNil());
     Random rng(9);
     ref.SetId(Guid::Generate(rng));

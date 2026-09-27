@@ -34,13 +34,20 @@ export namespace foundation::core
         i64 value;
     };
 
+    struct TypeInfo;
+
     /// What generic tooling does with a reference-shaped value, type-erased: the Guid inside,
-    /// setting it, and dropping any runtime binding so the next resolve binds the new id.
+    /// setting it, dropping any runtime binding so the next resolve binds the new id, and
+    /// the type the reference points at.
     struct ReferenceOps
     {
         const Guid* (*Id)(const void* value);
         void (*SetId)(void* value, const Guid& id);
         void (*ClearBinding)(void* value);
+        /// The type the reference points at (a resource's runtime type for Ref<T>): what a
+        /// schema or a picker needs to say WHAT kind of thing the guid names, without naming
+        /// the reference template. Capability flowing into reflection at registration.
+        const TypeInfo* (*Target)();
     };
 
     struct TypeInfo

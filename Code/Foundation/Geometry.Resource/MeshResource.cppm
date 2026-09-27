@@ -240,6 +240,10 @@ export namespace foundation::geometry
         {
             return &StaticMesh::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &StaticMeshSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {
@@ -293,6 +297,10 @@ export namespace foundation::geometry
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &SkinnedMesh::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &SkinnedMeshSource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override

@@ -67,6 +67,10 @@ export namespace foundation::physics
         {
             return &CollisionShape::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &CollisionShapeSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override
         {
@@ -127,6 +131,10 @@ export namespace foundation::physics
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &PhysicalMaterial::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &PhysicalMaterialSource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override

@@ -180,6 +180,10 @@ export namespace foundation::materials
         {
             return &Material::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &MaterialSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override

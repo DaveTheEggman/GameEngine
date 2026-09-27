@@ -202,6 +202,10 @@ export namespace foundation::terrain
         explicit TerrainFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
         [[nodiscard]] const TypeInfo* ProductType() const override { return &TerrainResource::StaticType(); }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &TerrainSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override

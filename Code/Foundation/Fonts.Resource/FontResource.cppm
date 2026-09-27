@@ -264,6 +264,10 @@ export namespace foundation::fonts
         {
             return &Font::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &FontResource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override

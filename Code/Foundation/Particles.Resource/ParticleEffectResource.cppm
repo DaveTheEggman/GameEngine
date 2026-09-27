@@ -344,6 +344,10 @@ export namespace foundation::particles
         {
             return &ParticleEffectResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &ParticleEffectResource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             content::Instance& instance) override
         {

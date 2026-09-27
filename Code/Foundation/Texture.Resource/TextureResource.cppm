@@ -257,6 +257,10 @@ export namespace foundation::texture
         {
             return &Texture::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &TextureResource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override

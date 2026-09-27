@@ -114,6 +114,10 @@ export namespace foundation::heightfield
         {
             return &Heightfield::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &HeightfieldSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {

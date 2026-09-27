@@ -25,6 +25,8 @@ import foundation.texture.resource;
 import foundation.heightfield;          // Heightfield product type (terrain factory pins)
 import foundation.terrain.resource;     // TerrainResource + Splatmap product types
 import engine.defaultapp;
+import pipeline.core;         // BuilderRegistry
+import pipeline.registration; // RegisterPipelineTypes + RegisterAllBuilders
 
 using namespace foundation::core;
 namespace runtime = foundation::runtime;
@@ -94,4 +96,43 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
 
     // Device gating documented: no GraphicsDevice on the host means no texture factory.
     CHECK(!resources.HasFactory(foundation::texture::Texture::StaticType().id));
+}
+
+TEST_CASE("defaultapp: every standard factory declares the cooked form it reads, a registered serializable "
+          "that some builder produces - the runtime-to-asset link the scene format reference joins")
+{
+    foundation::vfs::NativeFileSystem mount(u8"scratch_defaultapp_factories", foundation::core::DefaultAllocator());
+    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
+                                            u8".xasset");
+    foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db, nullptr);
+    StubHost host;
+    engine::runtime::DefaultApplication app;
+    app.AttachResourceManager(&resources, host);
+
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
+    pipeline::RegisterAllBuilders(builders);
+    REQUIRE(builders.Count() == pipeline::kBuilderCount);
+
+    usize checked = 0;
+    resources.ForEachFactory(
+        [&](const foundation::resource::IResourceFactory& factory)
+        {
+            const TypeInfo* product = factory.ProductType();
+            const TypeInfo* cooked = factory.CookedType();
+            REQUIRE(product != nullptr);
+            INFO("factory for: ", doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
+            REQUIRE(cooked != nullptr);
+            // The cooked form is what the cook stamped and ReadObject reconstructs: registered.
+            CHECK(GlobalSerializableRegistry().Contains(cooked->id));
+            // And some builder produces exactly it - the link from the runtime type to the asset.
+            bool produced = false;
+            builders.ForEach([&](const pipeline::IAssetBuilder& builder)
+                             { produced = produced || builder.ProductType() == cooked; });
+            INFO("cooked form: ", doctest::String(cooked->name != nullptr ? cooked->name : "<unnamed>"));
+            CHECK(produced);
+            ++checked;
+        });
+    CHECK(checked == resources.FactoryCount());
+    CHECK(checked >= 24u);
 }

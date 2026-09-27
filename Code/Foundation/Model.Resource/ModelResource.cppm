@@ -146,6 +146,10 @@ export namespace foundation::model
         {
             return &ModelResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &ModelManifestSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override

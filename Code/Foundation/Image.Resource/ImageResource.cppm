@@ -68,6 +68,10 @@ export namespace foundation::image
         {
             return &ImageResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &ImageResource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(ResourceManager& manager,
                                             foundation::content::Instance& instance) override

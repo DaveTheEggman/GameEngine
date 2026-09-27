@@ -1,6 +1,7 @@
 add_executable(Engine.DefaultApp.Tests TestsMain.cpp StandardFactoriesTests.cpp FacadeSurfaceTests.cpp NetworkSpawnTests.cpp
     ScreenshotTests.cpp)
 target_link_libraries(Engine.DefaultApp.Tests PRIVATE Engine::DefaultApp Engine::ScriptSurface
+    Pipeline::Registration # every builder, to join each factory's cooked type to a builder's product
     Foundation::Script.Facades
     Foundation::Fonts.Resource Foundation::Texture.Resource Foundation::Content
     Foundation::Heightfield Foundation::Terrain.Resource

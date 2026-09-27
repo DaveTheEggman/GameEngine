@@ -207,7 +207,10 @@ export namespace foundation::core
             static constexpr ReferenceOps ops{
                 [](const void* value) -> const Guid* { return &static_cast<const RefT*>(value)->id; },
                 [](void* value, const Guid& id) { static_cast<RefT*>(value)->SetId(id); },
-                [](void* value) { static_cast<RefT*>(value)->ClearBinding(); }};
+                [](void* value) { static_cast<RefT*>(value)->ClearBinding(); },
+                // The runtime type T, by the identity the resource manager keys its factories
+                // with (StaticType, not TypeOf<T>: the two differ for an Object).
+                []() -> const TypeInfo* { return &T::StaticType(); }};
             return ops;
         }
     };
@@ -241,6 +244,12 @@ export namespace foundation::resource
         virtual ~IResourceFactory() = default;
 
         [[nodiscard]] virtual const TypeInfo* ProductType() const = 0;
+        /// The SERIALISED cooked form this factory reads out of the instance (the type the
+        /// cook stamped: StaticMeshSource for a StaticMesh, TextureResource for a Texture) -
+        /// the one link from a runtime type back to the builder that made it, which the scene
+        /// format reference joins to the builder's product to name the asset type. A factory
+        /// that reads the product type itself returns that.
+        [[nodiscard]] virtual const TypeInfo* CookedType() const = 0;
         // Build the runtime product. `manager` lets a composite resource resolve its
         // child resources via manager.Bind<…>(childId) - and doing so AUTOMATICALLY
         // records a dependency edge, so reloading a child reloads this resource too.
@@ -384,6 +393,15 @@ export namespace foundation::resource
         }
 
         [[nodiscard]] usize FactoryCount() const noexcept { return m_factories.Size(); }
+        /// Every registered factory, in no particular order (a tripwire, a schema join).
+        template <typename Fn>
+        void ForEachFactory(Fn&& fn) const
+        {
+            for (const auto& entry : m_factories)
+            {
+                fn(*entry.value);
+            }
+        }
 
         void AddFactory(IResourceFactory* factory)
         {

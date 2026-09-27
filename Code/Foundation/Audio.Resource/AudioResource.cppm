@@ -96,6 +96,10 @@ export namespace foundation::audio
         {
             return &AudioClip::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &AudioClipSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override
@@ -255,6 +259,10 @@ export namespace foundation::audio
         {
             return &AudioBusLayoutResource::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &AudioBusLayoutSource::StaticType();
+        }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager&,
                                             foundation::content::Instance& instance) override
@@ -326,6 +334,10 @@ export namespace foundation::audio
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &SoundCue::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &SoundCueSource::StaticType();
         }
 
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,

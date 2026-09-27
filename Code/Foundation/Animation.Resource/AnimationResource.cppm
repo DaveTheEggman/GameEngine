@@ -113,6 +113,10 @@ export namespace foundation::animation
         {
             return &Skeleton::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &SkeletonSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             foundation::content::Instance& instance) override
         {
@@ -314,6 +318,10 @@ export namespace foundation::animation
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationClip::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &AnimationClipSource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             foundation::content::Instance& instance) override
@@ -578,6 +586,10 @@ export namespace foundation::animation
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &AnimationGraph::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &AnimationGraphSource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(resource::ResourceManager& manager,
                                             foundation::content::Instance& instance) override

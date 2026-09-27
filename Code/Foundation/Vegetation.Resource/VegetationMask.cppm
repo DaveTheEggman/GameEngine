@@ -403,6 +403,10 @@ export namespace foundation::vegetation
         {
             return &VegetationMask::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &VegetationMaskSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {

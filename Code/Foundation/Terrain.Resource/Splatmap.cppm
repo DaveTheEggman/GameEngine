@@ -736,6 +736,10 @@ export namespace foundation::terrain
         {
             return &SplatWeights::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &SplatWeightsSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {

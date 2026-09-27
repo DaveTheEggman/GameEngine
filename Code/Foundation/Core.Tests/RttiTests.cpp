@@ -477,7 +477,12 @@ TEST_CASE("rtti: a ComputedProperty is a read-only getter-backed property")
 
 namespace
 {
-    // A reference-shaped value of this test's own: identified by its guid, read by identity.
+    // A reference-shaped value of this test's own: identified by its guid, read by identity,
+    // pointing at a FakeTarget.
+    struct FakeTarget
+    {
+        int payload = 0;
+    };
     struct FakeRef
     {
         Guid id;
@@ -500,7 +505,8 @@ namespace foundation::core
             static constexpr ReferenceOps ops{
                 [](const void* value) -> const Guid* { return &static_cast<const FakeRef*>(value)->id; },
                 [](void* value, const Guid& id) { static_cast<FakeRef*>(value)->id = id; },
-                [](void* value) { static_cast<FakeRef*>(value)->cached = 0; }};
+                [](void* value) { static_cast<FakeRef*>(value)->cached = 0; },
+                []() -> const TypeInfo* { return &TypeOf<FakeTarget>(); }};
             return ops;
         }
     };
@@ -553,6 +559,7 @@ TEST_CASE("rtti: a reference-shaped value type is read by identity through its T
     RegisterArrayType<FakeRef>(); // the list's container reflection, as a component registers its lists
     const TypeInfo& refType = TypeOf<FakeRef>();
     REQUIRE(IsReferenceType(refType));
+    CHECK(refType.reference->Target() == &TypeOf<FakeTarget>()); // what the guid names
     CHECK_FALSE(IsReferenceType(TypeOf<int>()));
     CHECK_FALSE(IsReferenceType(TypeOf<RefHolder>()));
 

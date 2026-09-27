@@ -60,6 +60,10 @@ export namespace foundation::ui
         {
             return &UIDocument::StaticType();
         }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &UIDocumentSource::StaticType();
+        }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
         {
@@ -108,6 +112,10 @@ export namespace foundation::ui
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
             return &UITheme::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &UIThemeSource::StaticType();
         }
         [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
                                             foundation::content::Instance& instance) override
