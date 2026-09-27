@@ -29,6 +29,7 @@ export import :import_dialog;
 export import :settings_dialog;
 export import :preferences_dialog;
 export import :command_palette;
+export import :shortcut_capture;
 export import :editor_icons;
     export import :asset_picker_slot;
     export import :container_list_editor;
