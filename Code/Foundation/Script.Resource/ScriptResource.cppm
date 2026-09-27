@@ -54,53 +54,65 @@ export namespace foundation::script
         return HashBytes(name.Data(), name.Size());
     }
 
+    /// One authored type name and the kind it means. The one table both directions read: the
+    /// parser below and anything that lists the kinds (the scene format reference).
+    struct ScriptPropertyTypeEntry
+    {
+        StringView name;
+        ScriptPropertyType kind;
+    };
+
+    /// The asset kind is authored as "asset:<TypeName>": this prefix, then the product type name.
+    inline constexpr StringView kScriptAssetTypePrefix = u8"asset:";
+
+    /// Every authored kind, in declaration order (`None` has no spelling).
+    [[nodiscard]] inline Span<const ScriptPropertyTypeEntry> ScriptPropertyTypeNames() noexcept
+    {
+        static constexpr ScriptPropertyTypeEntry kNames[] = {
+            {u8"float", ScriptPropertyType::Float},   {u8"int", ScriptPropertyType::Int},
+            {u8"bool", ScriptPropertyType::Bool},     {u8"string", ScriptPropertyType::String},
+            {u8"color", ScriptPropertyType::Color},   {u8"vec3", ScriptPropertyType::Vec3},
+            {u8"entity", ScriptPropertyType::Entity}, {u8"asset", ScriptPropertyType::Asset},
+        };
+        return Span<const ScriptPropertyTypeEntry>{kNames, sizeof(kNames) / sizeof(kNames[0])};
+    }
+
+    /// The authored spelling of `kind` ("float", "asset" for the prefixed form); empty for None.
+    [[nodiscard]] inline StringView ScriptPropertyTypeName(ScriptPropertyType kind) noexcept
+    {
+        for (const ScriptPropertyTypeEntry& entry : ScriptPropertyTypeNames())
+        {
+            if (entry.kind == kind)
+            {
+                return entry.name;
+            }
+        }
+        return {};
+    }
+
     /// The parsed "float" / "asset:AudioClip" type string -> kind (+ asset type name).
     [[nodiscard]] inline bool ParseScriptPropertyType(StringView text, ScriptPropertyType& outKind,
                                                       String& outAssetType)
     {
         outAssetType = String{};
-        if (text == u8"float")
+        for (const ScriptPropertyTypeEntry& entry : ScriptPropertyTypeNames())
         {
-            outKind = ScriptPropertyType::Float;
-            return true;
-        }
-        if (text == u8"int")
-        {
-            outKind = ScriptPropertyType::Int;
-            return true;
-        }
-        if (text == u8"bool")
-        {
-            outKind = ScriptPropertyType::Bool;
-            return true;
-        }
-        if (text == u8"string")
-        {
-            outKind = ScriptPropertyType::String;
-            return true;
-        }
-        if (text == u8"color")
-        {
-            outKind = ScriptPropertyType::Color;
-            return true;
-        }
-        if (text == u8"vec3")
-        {
-            outKind = ScriptPropertyType::Vec3;
-            return true;
-        }
-        if (text == u8"entity")
-        {
-            outKind = ScriptPropertyType::Entity;
-            return true;
-        }
-        const StringView assetPrefix = u8"asset:";
-        if (text.Size() > assetPrefix.Size() && text.SubStr(0, assetPrefix.Size()) == assetPrefix)
-        {
-            outKind = ScriptPropertyType::Asset;
-            outAssetType =
-                String(text.SubStr(assetPrefix.Size(), text.Size() - assetPrefix.Size()));
-            return true;
+            if (entry.kind == ScriptPropertyType::Asset)
+            {
+                const StringView prefix = kScriptAssetTypePrefix;
+                if (text.Size() > prefix.Size() && text.SubStr(0, prefix.Size()) == prefix)
+                {
+                    outKind = ScriptPropertyType::Asset;
+                    outAssetType = String(text.SubStr(prefix.Size(), text.Size() - prefix.Size()));
+                    return true;
+                }
+                continue;
+            }
+            if (text == entry.name)
+            {
+                outKind = entry.kind;
+                return true;
+            }
         }
         return false;
     }
