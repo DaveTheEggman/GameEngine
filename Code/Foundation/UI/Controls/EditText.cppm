@@ -333,6 +333,10 @@ export namespace foundation::ui
                 e.Handled = true;
                 return;
             }
+            if (e.Key == KeyCode::Escape)
+            {
+                return; // not the box's key: it bubbles to the dialog that closes on it
+            }
             m_behavior.HandleKeyDown(e.Key, e.Modifiers);
             ResetBlink();
             e.Handled = true;
