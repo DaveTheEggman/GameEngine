@@ -249,6 +249,139 @@ export namespace editor
         return applied;
     }
 
+    /// The Preferences page's staged shortcut edits - a chord chosen per action, or a reset to
+    /// the default - applied together on Save. Applying first frees every staged action's chord,
+    /// so two actions can swap chords in one save; a chord another (unstaged) action holds is a
+    /// collision: that action keeps it, the staged one goes back to what it had, and the
+    /// collision is reported ("Ctrl+S: 'Save' holds it"). The registry's overrides are then
+    /// captured into the section for the store.
+    class ShortcutEdits
+    {
+    public:
+        struct Entry
+        {
+            String id;
+            bool reset = false;
+            EditorShortcut chord;
+        };
+
+        void Set(StringView id, EditorShortcut chord)
+        {
+            Entry& e = Stage(id);
+            e.reset = false;
+            e.chord = chord;
+        }
+        void Reset(StringView id)
+        {
+            Entry& e = Stage(id);
+            e.reset = true;
+            e.chord = EditorShortcut{};
+        }
+        void Discard(StringView id)
+        {
+            for (usize i = 0; i < m_entries.Size(); ++i)
+            {
+                if (m_entries[i].id.AsView() == id)
+                {
+                    m_entries.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+        [[nodiscard]] const Entry* Pending(StringView id) const
+        {
+            for (const Entry& e : m_entries)
+            {
+                if (e.id.AsView() == id)
+                {
+                    return &e;
+                }
+            }
+            return nullptr;
+        }
+        [[nodiscard]] usize Count() const noexcept { return m_entries.Size(); }
+        [[nodiscard]] bool IsEmpty() const noexcept { return m_entries.IsEmpty(); }
+
+        /// Returns how many edits took effect; the collisions, one line each, in `collisions`.
+        /// The edits are consumed.
+        usize Apply(EditorActionRegistry& actions, EditorShortcutSettings& section, Array<String>* collisions)
+        {
+            // What each staged action had, to give back on a collision.
+            struct Previous
+            {
+                bool hadOverride = false;
+                EditorShortcut chord;
+            };
+            Array<Previous> previous;
+            for (const Entry& e : m_entries)
+            {
+                Previous p;
+                p.hadOverride = actions.HasOverride(e.id.AsView());
+                p.chord = actions.Shortcut(e.id.AsView());
+                previous.PushBack(p);
+                (void)actions.Rebind(e.id.AsView(), EditorShortcut{}); // freed, so swaps work
+            }
+            usize applied = 0;
+            for (usize i = 0; i < m_entries.Size(); ++i)
+            {
+                const Entry& e = m_entries[i];
+                const StringView id = e.id.AsView();
+                if (actions.Find(id) == nullptr)
+                {
+                    continue;
+                }
+                if (e.reset)
+                {
+                    actions.ResetShortcut(id);
+                    ++applied;
+                    continue;
+                }
+                const EditorActionDeclaration* holder = nullptr;
+                const Status bound = actions.Rebind(id, e.chord, &holder);
+                if (bound.IsOk())
+                {
+                    ++applied;
+                    continue;
+                }
+                // Back to what it had.
+                if (previous[i].hadOverride)
+                {
+                    (void)actions.Rebind(id, previous[i].chord);
+                }
+                else
+                {
+                    actions.ResetShortcut(id);
+                }
+                if (collisions != nullptr && holder != nullptr)
+                {
+                    collisions->PushBack(Format(u8"{}: '{}' holds it", FormatShortcut(e.chord).AsView(),
+                                                holder->label.AsView()));
+                }
+            }
+            m_entries.Clear();
+            (void)CaptureShortcutOverrides(actions, section);
+            return applied;
+        }
+
+    private:
+        Entry& Stage(StringView id)
+        {
+            for (Entry& e : m_entries)
+            {
+                if (e.id.AsView() == id)
+                {
+                    return e;
+                }
+            }
+            Entry fresh;
+            fresh.id = String(id);
+            m_entries.PushBack(Move(fresh));
+            return m_entries[m_entries.Size() - 1];
+        }
+
+        Array<Entry> m_entries;
+    };
+
     inline void RegisterEditorSettingsTypes()
     {
         // EVERY section type needs BOTH registrations: the type (so Load can match the

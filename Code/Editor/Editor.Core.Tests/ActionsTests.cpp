@@ -408,3 +408,70 @@ TEST_CASE("actions: shortcut overrides persist - captured from the registry into
     CHECK(fresh.Shortcut(u8"page.save") == ctrlShiftS);
     CHECK(fresh.Find(u8"terrain.sculpt") == nullptr);
 }
+
+TEST_CASE("actions: ShortcutEdits apply together - a chosen chord, a swap between two actions, a reset, "
+          "and a collision that gives the staged action back what it had and names the holder")
+{
+    RegisterEditorSettingsTypes();
+    EditorContext context{DefaultAllocator()};
+    EditorActionRegistry& actions = context.Actions();
+    const auto declare = [&](StringView id, EditorShortcut chord)
+    {
+        EditorActionDeclaration d = Declare(id, id);
+        d.shortcut = chord;
+        d.execute = [](EditorPage*) {};
+        REQUIRE(actions.Register(Move(d)));
+    };
+    const EditorShortcut CtrlZ{ui::KeyCode::Z, ui::KeyModifiers::Ctrl};
+    const EditorShortcut CtrlY{ui::KeyCode::Y, ui::KeyModifiers::Ctrl};
+    declare(u8"page.save", CtrlS);
+    declare(u8"edit.undo", CtrlZ);
+    declare(u8"edit.redo", CtrlY);
+    declare(u8"sim.run", F5);
+    declare(u8"view.reset", EditorShortcut{});
+    foundation::settings::Settings store(DefaultAllocator());
+    EditorShortcutSettings& section = store.Section<EditorShortcutSettings>();
+
+    ShortcutEdits edits;
+    CHECK(edits.IsEmpty());
+    // A chord for a bare action; a swap of undo and redo; a reset of one with an override;
+    // a collision with an action nobody staged.
+    REQUIRE(actions.Rebind(u8"sim.run", EditorShortcut{ui::KeyCode::F7, ui::KeyModifiers::None}).IsOk());
+    edits.Set(u8"view.reset", EditorShortcut{ui::KeyCode::F6, ui::KeyModifiers::None});
+    edits.Set(u8"edit.undo", CtrlY);
+    edits.Set(u8"edit.redo", CtrlZ);
+    edits.Reset(u8"sim.run");
+    edits.Set(u8"view.reset", EditorShortcut{ui::KeyCode::F6, ui::KeyModifiers::None}); // re-staged: still one entry
+    CHECK(edits.Count() == 4u);
+    REQUIRE(edits.Pending(u8"sim.run") != nullptr);
+    CHECK(edits.Pending(u8"sim.run")->reset);
+    edits.Set(u8"page.save", CtrlS);        // its own chord: fine
+    edits.Discard(u8"page.save");           // changed my mind
+    edits.Set(u8"page.save", F5);           // ... no: sim.run's DEFAULT comes back through the reset, so
+                                            // F5 collides with it (sim.run is staged as a reset, not freed)
+    CHECK(edits.Count() == 5u);
+
+    Array<String> collisions;
+    const usize applied = edits.Apply(actions, section, &collisions);
+    CHECK(edits.IsEmpty());
+    CHECK(actions.Shortcut(u8"view.reset").key == ui::KeyCode::F6);
+    CHECK(actions.Shortcut(u8"edit.undo") == CtrlY);
+    CHECK(actions.Shortcut(u8"edit.redo") == CtrlZ);
+    CHECK(actions.Shortcut(u8"sim.run") == F5);
+    CHECK_FALSE(actions.HasOverride(u8"sim.run"));
+    // The collision: page.save wanted F5, sim.run's default holds it; page.save is back to its own.
+    CHECK(actions.Shortcut(u8"page.save") == CtrlS);
+    CHECK_FALSE(actions.HasOverride(u8"page.save"));
+    REQUIRE(collisions.Size() == 1u);
+    CHECK(collisions[0].AsView().StartsWith(u8"F5: 'sim.run' holds it"));
+    CHECK(applied == 4u);
+    // The section holds the overrides that stand: three.
+    CHECK(section.overrides.Size() == 3u);
+    CHECK(section.Find(u8"edit.undo")->Chord() == CtrlY);
+    CHECK(section.Find(u8"page.save") == nullptr);
+    CHECK(section.Find(u8"sim.run") == nullptr);
+    // An id nobody registered is dropped quietly.
+    edits.Set(u8"nobody.home", F5);
+    CHECK(edits.Apply(actions, section, &collisions) == 0u);
+    CHECK(collisions.Size() == 1u);
+}
