@@ -1043,6 +1043,14 @@ Landing order - one layer per commit, each with its passing tests, both compiler
    viewport's finished colour target in ShaderRead by the shared ScreenshotCapture, completed
    next frame), the tool returns NotFinished each pump until Written and gives up after ten
    seconds; the camera tools move the EditorCamera in degrees (lookAt wins), editor state only.
+   The image is the view as the user sees it: the grid, the selection's gizmo and the gizmo's
+   overlay text are in it, because the editor writes them to the PER-VIEW debug list keyed by
+   the viewport (RenderScene's viewportKey, Views.cppm SetDebugView; the gizmo text is a debug
+   draw text in the same list). A debug-draw-free shot is therefore NOT a flag on this capture
+   but a second render, the way the camera preview (task #118) already gets one: RenderScene
+   into a private offscreen target under its OWN key (an empty debug list), the per-scene
+   debug list aside, captured from that target - the user's viewport untouched. Parked until a
+   need shows; the user ruled it unnecessary for the tool now (2026-09-26).
    REMAINING in 7: the Agent panel.
 The skill + McpGuide gain the editor recipe (`claude mcp add --transport http` with the
 bearer header) in the commit that makes the host reachable (5).
