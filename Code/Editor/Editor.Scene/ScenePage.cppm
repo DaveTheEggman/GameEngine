@@ -451,6 +451,10 @@ export namespace editor
         // matter which OS window hosts the panel; that window's UI samples the result.
         void OnRenderWindow(runtime::IApplicationHost&,
                             foundation::graphics::FrameContext& frame) override;
+        // The requested viewport capture is recorded here, AFTER the scene renderer composed
+        // the frame: RenderScene only adds the view, EndRendering writes the image.
+        void OnAfterSceneRender(runtime::IApplicationHost& host,
+                                foundation::graphics::FrameContext& frame) override;
 
         // Create-from-selection: capture the subtree as a prefab asset (under "Prefabs/",
         // named after the entity) and replace the original with an instance of it (one undo
@@ -733,9 +737,12 @@ export namespace editor
             nullptr;                 // borrowed; tracks dock/float moves
         bool m_renderedOnce = false; // first-frame debug log
         // The viewport capture (viewport_screenshot): armed by RequestViewportCapture, recorded
-        // in OnRenderWindow off the finished colour target, completed in the next OnUpdate.
+        // in OnAfterSceneRender off the composed colour target, completed in the next OnUpdate.
         engine::runtime::ScreenshotCapture m_screenshot;
         ViewportCapture m_capture;
+        bool m_renderedThisFrame = false; // OnRenderWindow added the view this frame, at:
+        u32 m_captureWidth = 0;
+        u32 m_captureHeight = 0;
     };
 
     // === Factory + registration (the module's RegisterEditor entry point) ===

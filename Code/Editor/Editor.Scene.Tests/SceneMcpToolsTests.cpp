@@ -689,13 +689,17 @@ TEST_CASE("scene-mcp-tools: the viewport camera reads and moves in degrees (posi
     CHECK(got.error.AsView().StartsWith(u8"`position` takes [x, y, z]"));
     CHECK(page->camera.yaw == doctest::Approx(0.0f));
 
-    // The screenshot: the first pump brings the page to front and asks for the capture, then
-    // the call is re-entered each pump until the page reports the frame written.
+    // The screenshot: the first pump brings the page to front (active AND revealed, since a
+    // background tab's viewport never renders) and asks for the capture, then the call is
+    // re-entered each pump until the page reports the frame written.
     context.SetActivePage(headless);
+    EditorPage* revealed = nullptr;
+    context.OnRevealPage = [&revealed](EditorPage* shown) { revealed = shown; };
     LineOutcome outcome = Pump(server, u8"viewport_screenshot",
                                Format(u8"{{\"page\":\"{}\",\"path\":\"/tmp/bistro.png\"}}", pageGuid.AsView()).AsView());
     CHECK(outcome.state == LineState::NotFinished);
     CHECK(context.ActivePage() == page);
+    CHECK(revealed == page);
     CHECK(page->captureRequests == 1u);
     CHECK(page->capture.state == ViewportCaptureState::Pending);
     CHECK(page->capture.path == u8"/tmp/bistro.png");

@@ -268,21 +268,34 @@ namespace editor
                               h, render::ViewportRect{0, 0, w, h}, &cameraOverride, targetState,
                               &m_postOverride, /*viewportKey*/ m_viewport.Get(), &m_debugView);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
-
-        // The requested capture: the finished colour target (in ShaderRead, where the graph
-        // left it for the UI), copied inside this frame; OnUpdate completes it next frame.
-        if (m_screenshot.Armed() && frame.encoder != nullptr && m_host->Graphics() != nullptr &&
-            m_host->Graphics()->Raw() != nullptr)
-        {
-            if (!m_screenshot.Record(*m_host->Graphics()->Raw(), *frame.encoder,
-                                     m_viewport->ColorTexture(), m_viewport->ColorFormat(), w, h,
-                                     rhi::ResourceState::ShaderRead))
-            {
-                m_capture.state = ViewportCaptureState::Failed; // logged by the capture
-            }
-        }
+        m_renderedThisFrame = true; // OnAfterSceneRender captures this frame's image
+        m_captureWidth = w;
+        m_captureHeight = h;
 
         RenderCameraPreview(); // task #118: a second RenderScene through the previewed camera
+    }
+
+    void SceneEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
+                                             foundation::graphics::FrameContext& frame)
+    {
+        // The requested capture, recorded AFTER the scene renderer composed this frame:
+        // RenderScene only adds the view, and EndRendering (which runs before this hook)
+        // writes the image. A copy recorded in OnRenderWindow read the previous frame's image,
+        // or an empty target on the first frame a tab is shown. The target sits in ShaderRead,
+        // where the graph left it for the UI; OnUpdate completes the capture next frame.
+        const bool rendered = m_renderedThisFrame;
+        m_renderedThisFrame = false;
+        if (!rendered || !m_screenshot.Armed() || frame.encoder == nullptr ||
+            host.Graphics() == nullptr || host.Graphics()->Raw() == nullptr)
+        {
+            return;
+        }
+        if (!m_screenshot.Record(*host.Graphics()->Raw(), *frame.encoder, m_viewport->ColorTexture(),
+                                 m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
+                                 rhi::ResourceState::ShaderRead))
+        {
+            m_capture.state = ViewportCaptureState::Failed; // logged by the capture
+        }
     }
 
     void SceneEditorPage::CreatePrefabFromEntity(const Guid& entityId)

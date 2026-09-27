@@ -1157,7 +1157,7 @@ namespace editor
                                                          ProcessId(), pendingPtr->serial)
                                                       .AsView());
                 }
-                ctx->SetActivePage(page); // to front: a hidden viewport never renders
+                ctx->RevealPage(page); // to front: a background tab's viewport never renders
                 const Status requested = scene->RequestViewportCapture(path.AsView());
                 if (!requested.IsOk())
                 {
