@@ -465,8 +465,7 @@ namespace editor::app
             {
                 if (entry.page == m_gamePage)
                 {
-                    m_shell.Docks()->ActivatePanel(entry.panel);
-                    m_context.SetActivePage(m_gamePage);
+                    m_context.RevealPage(m_gamePage);
                     return;
                 }
             }
@@ -2378,6 +2377,19 @@ namespace editor::app
         // Settings-derived session state re-applies on save (default font/theme -
         // without this a changed default kept the OLD bind until reopen).
         m_context.OnProjectSettingsChanged = [this]() { ApplyProjectUiDefaults(); };
+        // A page revealed through the context (page_open, an agent's viewport_screenshot)
+        // brings its tab to front: a background tab's viewport never renders.
+        m_context.OnRevealPage = [this](editor::EditorPage* page)
+        {
+            for (const PagePanel& entry : m_pagePanels)
+            {
+                if (entry.page == page)
+                {
+                    m_shell.Docks()->ActivatePanel(entry.panel);
+                    return;
+                }
+            }
+        };
 
         // Cook service + the real Assets panel.
         m_cookService.Initialize(*m_project, m_builders);

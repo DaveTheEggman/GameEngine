@@ -300,6 +300,15 @@ namespace editor
         NotifyPagesChanged();
     }
 
+    void EditorContext::RevealPage(EditorPage* page)
+    {
+        SetActivePage(page);
+        if (page != nullptr && OnRevealPage)
+        {
+            OnRevealPage(page);
+        }
+    }
+
     Selection<const foundation::content::Instance*>& EditorContext::AssetSelection() noexcept
     {
         return m_assetSelection;

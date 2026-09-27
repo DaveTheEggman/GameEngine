@@ -289,6 +289,40 @@ TEST_CASE("editor-context: adopted instance-less pages share the ownership flow"
     CHECK(context.OpenPages().Size() == 0);
 }
 
+TEST_CASE("editor-context: RevealPage makes a page active and asks the application to raise its panel")
+{
+    EditorContext context{DefaultAllocator()};
+    class Page final : public EditorPage
+    {
+    public:
+        Page() : EditorPage(DefaultAllocator()) {}
+        [[nodiscard]] StringView Title() const override { return u8"p"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+    };
+    EditorPage* one = context.AdoptPage(UniquePtr<EditorPage>(DefaultAllocator().New<Page>(), DefaultAllocator()));
+    EditorPage* two = context.AdoptPage(UniquePtr<EditorPage>(DefaultAllocator().New<Page>(), DefaultAllocator()));
+    context.SetActivePage(two);
+    // Headless: no hook, RevealPage is SetActivePage.
+    context.RevealPage(one);
+    CHECK(context.ActivePage() == one);
+    // With the application's hook: the page is active first, then shown; a repeat still shows.
+    Array<EditorPage*> shown;
+    context.OnRevealPage = [&shown, &context](EditorPage* page)
+    {
+        CHECK(context.ActivePage() == page);
+        shown.PushBack(page);
+    };
+    context.RevealPage(two);
+    context.RevealPage(two);
+    REQUIRE(shown.Size() == 2u);
+    CHECK(shown[0] == two);
+    context.RevealPage(nullptr); // clears the active page, shows nothing
+    CHECK(context.ActivePage() == nullptr);
+    CHECK(shown.Size() == 2u);
+    context.ClosePage(one);
+    context.ClosePage(two);
+}
+
 TEST_CASE("editor-context: a page owns its command stack, and the active page is the one Edit acts on")
 {
     RegisterTestTypes();

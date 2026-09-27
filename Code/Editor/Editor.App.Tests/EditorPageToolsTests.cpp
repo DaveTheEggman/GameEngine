@@ -162,10 +162,13 @@ TEST_CASE("page-tools: list, open, focus, the dirty refusals of reload and close
     const String twoGuid = GuidText(two->Id());
     REQUIRE(Call(server, u8"page_open", Format(u8"{{\"guid\":\"{}\"}}", twoGuid.AsView()).AsView()).ok);
     CHECK(context.ActivePage()->InstanceId() == two->Id());
+    EditorPage* revealed = nullptr;
+    context.OnRevealPage = [&revealed](EditorPage* shown) { revealed = shown; };
     Answer again = Call(server, u8"page_open", Format(u8"{{\"guid\":\"{}\"}}", oneGuid.AsView()).AsView());
     REQUIRE(again.ok);
     CHECK(factoryPtr->created == 2u); // focused, not recreated
     CHECK(context.ActivePage()->InstanceId() == one->Id());
+    CHECK(revealed == context.ActivePage()); // and its tab raised: a background tab stays hidden otherwise
     listed = Call(server, u8"page_list", u8"{}");
     REQUIRE(listed.ok);
     CHECK(listed.payload.Get(u8"pages").Count() == 2);

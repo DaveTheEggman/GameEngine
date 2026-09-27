@@ -382,6 +382,13 @@ export namespace editor
 
         [[nodiscard]] EditorPage* ActivePage() const noexcept { return m_activePage; }
         void SetActivePage(EditorPage* page);
+        /// Makes `page` the active page AND brings its panel to front (OnRevealPage, which the
+        /// application wires to its dock): SetActivePage alone never raises a background tab,
+        /// and a hidden page's viewport never renders. What a tool that must SHOW a page calls.
+        void RevealPage(EditorPage* page);
+        /// Raises a page's panel so the user (and its viewport) can see it; the application
+        /// wires this to its dock, since the context owns no panels. Unset in a headless context.
+        Function<void(EditorPage*)> OnRevealPage;
 
         // === Selection ===
 

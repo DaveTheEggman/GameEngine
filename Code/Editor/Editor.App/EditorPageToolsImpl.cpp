@@ -121,7 +121,7 @@ namespace editor::app
                                           args.Get(u8"guid").AsString().AsView()));
                     }
                 }
-                context.SetActivePage(page);
+                context.RevealPage(page); // to front: a background tab's viewport never renders
                 return PageIdentity(context, *page);
             });
 
