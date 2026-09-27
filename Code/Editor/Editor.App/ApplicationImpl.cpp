@@ -3544,6 +3544,19 @@ namespace editor::app
             (void)actions.Register(Move(d));
         }
         {
+            EditorActionDeclaration d = Declare(u8"view.commandPalette", u8"Command Palette...",
+                                                u8"Every action by name: type to filter, Enter runs it",
+                                                u8"View/Command Palette...", 200);
+            d.shortcut = EditorShortcut{ui::KeyCode::P, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift};
+            d.readOnly = true; // the palette changes nothing itself
+            d.execute = [this](editor::EditorPage*)
+            {
+                auto palette = MakeRef<CommandPaletteDialog>(m_editorAllocator, m_context.Actions());
+                palette->Show(&m_uiHost->Context());
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
             EditorActionDeclaration d =
                 Declare(u8"help.about", u8"About", u8"The editor's version", u8"Help/About", 100);
             d.readOnly = true;

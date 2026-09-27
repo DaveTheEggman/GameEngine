@@ -45,6 +45,7 @@ target_sources(Editor.App
             ImportDialog.cppm
             SettingsDialog.cppm
             PreferencesDialog.cppm
+            CommandPalette.cppm
             EditorIcons.cppm
             AssetPickerSlot.cppm
             ContainerListEditor.cppm
