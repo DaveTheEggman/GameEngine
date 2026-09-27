@@ -51,6 +51,7 @@ namespace
         [[nodiscard]] bool IsSimulating() const noexcept override { return simulating; }
         [[nodiscard]] bool IsPaused() const noexcept override { return paused; }
         [[nodiscard]] GizmoController* Gizmos() noexcept override { return gizmos; }
+        [[nodiscard]] bool CameraOwnsInput() const noexcept override { return cameraOwnsInput; }
         [[nodiscard]] bool MarkersShown() const noexcept override { return markers; }
         void SetMarkersShown(bool shown) override { markers = shown; }
         void CreatePrefabFromEntity(const Guid& entity) override { prefabFrom = entity; }
@@ -65,6 +66,7 @@ namespace
         bool simulating = false;
         bool paused = false;
         bool markers = true;
+        bool cameraOwnsInput = false;
         GizmoController* gizmos = nullptr;
         Guid prefabFrom;
         Guid spawnParent;
@@ -150,6 +152,16 @@ TEST_CASE("scene-actions: registered once, disabled off a scene page; simulate, 
     CHECK(actions.IsChecked(kGizmoWorldSpace, page) == worldBefore);
     CHECK(actions.Execute(kGizmoWorldSpace, page).IsOk());
     CHECK(actions.IsChecked(kGizmoWorldSpace, page) != worldBefore);
+    // While the camera owns the input (a fly in progress) W/E/R are its keys: the mode
+    // actions refuse and leave the mode alone; the space toggle is unaffected.
+    page->cameraOwnsInput = true;
+    CHECK_FALSE(actions.IsEnabled(kGizmoTranslate, page));
+    CHECK(actions.Execute(kGizmoTranslate, page).Code() == ErrorCode::NotSupported);
+    CHECK(gizmos.Mode() == GizmoMode::Rotate);
+    CHECK(actions.IsChecked(kGizmoRotate, page)); // checked still reports the mode
+    CHECK(actions.IsEnabled(kGizmoWorldSpace, page));
+    page->cameraOwnsInput = false;
+    CHECK(actions.IsEnabled(kGizmoTranslate, page));
 
     context.ClosePage(page);
     context.ClosePage(plain);

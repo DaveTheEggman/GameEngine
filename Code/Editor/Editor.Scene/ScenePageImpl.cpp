@@ -710,6 +710,21 @@ namespace editor
         return saved;
     }
 
+    bool SceneEditorPage::CameraOwnsInput() const noexcept
+    {
+        // Alt orbit, right-button fly, or the Tab-captured fly mode (which owns WASD too).
+        if (m_viewport.Get() == nullptr)
+        {
+            return m_camera.mouseCaptured;
+        }
+        foundation::shell::IMouse* mouse = m_viewport->Mouse();
+        foundation::shell::IKeyboard* kb = m_viewport->Keyboard();
+        return (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
+                                  kb->IsKeyDown(foundation::shell::KeyCode::RightAlt))) ||
+               (mouse != nullptr && mouse->IsButtonDown(foundation::shell::MouseButton::Right)) ||
+               m_camera.mouseCaptured;
+    }
+
     void SceneEditorPage::OnClose()
     {
         // Where the scene was left: the camera and the selection, for the next open.
@@ -912,11 +927,7 @@ namespace editor
         in.viewportWidth = m_viewport->RenderWidth();
         in.viewportHeight = m_viewport->RenderHeight();
 
-        const bool cameraOwnsMouse =
-            (kb != nullptr && (kb->IsKeyDown(foundation::shell::KeyCode::LeftAlt) ||
-                               kb->IsKeyDown(foundation::shell::KeyCode::RightAlt))) ||
-            mouse->IsButtonDown(foundation::shell::MouseButton::Right) ||
-            m_camera.mouseCaptured; // Tab-captured fly mode owns WASD too
+        const bool cameraOwnsMouse = CameraOwnsInput();
         if (!cameraOwnsMouse)
         {
             in.leftPressed = mouse->IsButtonPressed(foundation::shell::MouseButton::Left);

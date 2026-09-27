@@ -45,6 +45,10 @@ export namespace editor
 
         /// The select tool's gizmo (mode, space); null on a page without a viewport.
         [[nodiscard]] virtual GizmoController* Gizmos() noexcept = 0;
+        /// True while the viewport camera has the input (Alt orbit, right-button or captured
+        /// fly): the plain keys belong to it then, so the gizmo mode chords (W, E, R) must not
+        /// switch the mode mid-flight.
+        [[nodiscard]] virtual bool CameraOwnsInput() const noexcept = 0;
 
         /// The entity markers overlay (every entity's marker in the viewport, not only the
         /// selected ones).

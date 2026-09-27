@@ -497,6 +497,7 @@ export namespace editor
         {
             return m_selectTool != nullptr ? &m_selectTool->Gizmos() : nullptr;
         }
+        [[nodiscard]] bool CameraOwnsInput() const noexcept override;
         [[nodiscard]] bool MarkersShown() const noexcept override { return m_showMarkers; }
         void SetMarkersShown(bool shown) override { m_showMarkers = shown; }
 

@@ -168,10 +168,11 @@ export namespace editor
             EditorActionDeclaration d = Declare(id, label, description, menuPath, order);
             d.kind = EditorActionKind::Toggle;
             d.shortcut = EditorShortcut{key, foundation::ui::KeyModifiers::None};
+            // Not while the camera flies: W, E and R are its movement keys then.
             d.enabled = [scenePage](EditorPage* page)
             {
                 ISceneEditorPage* scene = scenePage(page);
-                return scene != nullptr && scene->Gizmos() != nullptr;
+                return scene != nullptr && scene->Gizmos() != nullptr && !scene->CameraOwnsInput();
             };
             d.checked = [scenePage, mode](EditorPage* page)
             {
