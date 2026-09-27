@@ -25,8 +25,10 @@ import foundation.texture.resource;
 import foundation.heightfield;          // Heightfield product type (terrain factory pins)
 import foundation.terrain.resource;     // TerrainResource + Splatmap product types
 import engine.defaultapp;
+#if OPTION_HAS_PIPELINE // the pipeline is tooling: absent from the web build
 import pipeline.core;         // BuilderRegistry
 import pipeline.registration; // RegisterPipelineTypes + RegisterAllBuilders
+#endif
 
 using namespace foundation::core;
 namespace runtime = foundation::runtime;
@@ -98,6 +100,7 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     CHECK(!resources.HasFactory(foundation::texture::Texture::StaticType().id));
 }
 
+#if OPTION_HAS_PIPELINE
 TEST_CASE("defaultapp: every standard factory declares the cooked form it reads, a registered serializable "
           "that some builder produces - the runtime-to-asset link the scene format reference joins")
 {
@@ -136,3 +139,4 @@ TEST_CASE("defaultapp: every standard factory declares the cooked form it reads,
     CHECK(checked == resources.FactoryCount());
     CHECK(checked >= 24u);
 }
+#endif // OPTION_HAS_PIPELINE
